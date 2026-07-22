@@ -1,0 +1,14 @@
+{
+  "name": "bookit-app",
+  "version": "1.0.0",
+  "description": "BookIt — NDIS support platform by Disability & Mental Health Care Pty Ltd. Zero-dependency Node server + single-file front-end.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "private": true,
+  "license": "UNLICENSED"
+}
