@@ -135,7 +135,7 @@ function readSession(cookieHeader) {
   const expected = sign(base);
   if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   if (Number(exp) < Date.now()) return null;
-  return db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(Number(uid)) || null;
+  return withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(Number(uid)) || null);
 }
 function json(res, status, data, headers = {}) {
   const body = JSON.stringify(data);
@@ -209,6 +209,13 @@ const APP_URL = (process.env.APP_URL || '').replace(/\/+$/, '');
 const RESEND_KEY = process.env.RESEND_API_KEY || '';
 const RESEND_BASE = (process.env.RESEND_BASE || 'https://api.resend.com').replace(/\/+$/, '');
 const EMAIL_ON = Boolean(RESEND_KEY || (SMTP_USER && SMTP_PASS));
+
+/* ---------- admins ----------
+   ADMIN_EMAILS = comma-separated list of account emails that get the admin
+   dashboard (approve workers, see users/bookings/messages). */
+const ADMIN_EMAILS = String(process.env.ADMIN_EMAILS || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+function withAdmin(u) { if (u) u.admin = ADMIN_EMAILS.includes(String(u.email || '').toLowerCase()) ? 1 : 0; return u; }
+function requireAdmin(user, res) { if (!user || !user.admin) { json(res, 403, { error: 'Admin only.' }); return false; } return true; }
 
 const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const firstName = n => escHtml(String(n || '').split(' ')[0] || 'there');
@@ -464,10 +471,15 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
   const uid = Number(r.lastInsertRowid);
   if (role === 'worker') {
     const services = Array.isArray(body.services) ? body.services.filter(s => SERVICES.includes(s)).slice(0, 6) : [];
-    db.prepare('INSERT INTO worker_profiles (user_id, bio, services) VALUES (?,?,?)')
+    /* vetting: new workers start hidden (visible = 0) until an admin approves them */
+    db.prepare('INSERT INTO worker_profiles (user_id, bio, services, visible) VALUES (?,?,?,0)')
       .run(uid, clean(body.bio, 600), JSON.stringify(services));
+    if (MAIL_FROM) sendMail(MAIL_FROM, 'New worker application — BookIt',
+      'A new support worker has applied',
+      `<p><b>${escHtml(name)}</b> (${escHtml(suburb) || 'no suburb given'}) has registered as a worker and is waiting for approval.</p><p><b>Email:</b> ${escHtml(email)}<br><b>Services:</b> ${services.map(s => SERVICE_LABELS[s] || s).join(', ') || '—'}</p><p>Their profile stays hidden from Find Workers until you approve it.</p>`,
+      'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
   }
-  const me = db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(uid);
+  const me = withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(uid));
   sendVerifyEmail(req, me).catch(() => {});
   json(res, 200, { user: me }, setSessionHeaders(uid));
 });
@@ -479,7 +491,7 @@ route('POST', /^\/api\/login$/, (req, res, m, user, body, ip) => {
   if (!row || !verifyPassword(String(body.password || ''), row.pass)) {
     return json(res, 401, { error: 'Email or password doesn\'t match.' });
   }
-  json(res, 200, { user: { id: row.id, role: row.role, name: row.name, email: row.email, suburb: row.suburb, plan: row.plan, verified: row.verified } }, setSessionHeaders(row.id));
+  json(res, 200, { user: withAdmin({ id: row.id, role: row.role, name: row.name, email: row.email, suburb: row.suburb, plan: row.plan, verified: row.verified }) }, setSessionHeaders(row.id));
 });
 
 route('POST', /^\/api\/logout$/, (req, res) => json(res, 200, { ok: true }, CLEAR_COOKIE));
@@ -508,7 +520,7 @@ route('POST', /^\/api\/reset$/, (req, res, m, user, body, ip) => {
   if (!u) return json(res, 400, { error: 'That reset link is invalid or has expired — request a fresh one from the log in screen.' });
   /* clicking an emailed link also proves the address works */
   db.prepare('UPDATE users SET pass = ?, verified = 1 WHERE id = ?').run(hashPassword(password), u.id);
-  const me = db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(u.id);
+  const me = withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(u.id));
   json(res, 200, { user: me }, setSessionHeaders(u.id));
 });
 
@@ -534,6 +546,49 @@ route('POST', /^\/api\/email-test$/, async (req, res, m, user, body, ip) => {
   } catch (e) {
     json(res, 502, { ok: false, error: e.message });
   }
+});
+
+/* ---------- admin: dashboard + worker vetting ---------- */
+route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const counts = {
+    participants: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'participant'").get().n,
+    workers: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'worker'").get().n,
+    pending: db.prepare('SELECT COUNT(*) AS n FROM worker_profiles WHERE visible = 0').get().n,
+    bookings: db.prepare('SELECT COUNT(*) AS n FROM bookings').get().n,
+    messages: db.prepare('SELECT COUNT(*) AS n FROM messages').get().n,
+    contacts: db.prepare('SELECT COUNT(*) AS n FROM contact_messages').get().n
+  };
+  const pending = db.prepare(`SELECT p.user_id, p.bio, p.services, u.name, u.email, u.suburb, u.phone, u.verified, u.created
+    FROM worker_profiles p JOIN users u ON u.id = p.user_id WHERE p.visible = 0 ORDER BY u.created DESC`).all()
+    .map(w => ({ ...w, services: JSON.parse(w.services || '[]') }));
+  const users = db.prepare('SELECT u.id, u.role, u.name, u.email, u.suburb, u.verified, u.created, p.visible FROM users u LEFT JOIN worker_profiles p ON p.user_id = u.id ORDER BY u.id DESC LIMIT 100').all();
+  const bookings = db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.status, b.created,
+    up.name AS participant_name, uw.name AS worker_name FROM bookings b
+    JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id ORDER BY b.id DESC LIMIT 50`).all();
+  const contacts = db.prepare('SELECT id, name, email, topic, body, created FROM contact_messages ORDER BY id DESC LIMIT 50').all();
+  json(res, 200, { counts, pending, users, bookings, contacts });
+});
+
+route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const uid = Number(m[1]);
+  const w = db.prepare("SELECT u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  db.prepare('UPDATE worker_profiles SET visible = 1 WHERE user_id = ?').run(uid);
+  sendMail(w.email, 'Your BookIt profile is live', `Great news, ${firstName(w.name)} 🎉`,
+    `<p>Your checks are in order and your profile has been approved — you're now visible in <b>Find Workers</b> across BookIt.</p><p>Participants can message you and request bookings from today. Keep your availability up to date, reply promptly, and welcome aboard!</p>`,
+    'Open BookIt', `${baseUrl(req)}/#/find-workers`).catch(() => {});
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/workers\/(\d+)\/hide$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const uid = Number(m[1]);
+  const w = db.prepare("SELECT u.id FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  db.prepare('UPDATE worker_profiles SET visible = 0 WHERE user_id = ?').run(uid);
+  json(res, 200, { ok: true });
 });
 
 route('GET', /^\/api\/workers$/, (req, res) => {
@@ -562,8 +617,9 @@ route('POST', /^\/api\/conversations$/, (req, res, m, user, body) => {
   if (user.role === 'participant') {
     workerId = Number(body.worker_id);
     participantId = user.id;
-    const w = db.prepare("SELECT id FROM users WHERE id = ? AND role = 'worker'").get(workerId);
+    const w = db.prepare("SELECT u.id, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(workerId);
     if (!w) return json(res, 404, { error: 'Worker not found.' });
+    if (!w.visible) return json(res, 400, { error: 'That worker isn\'t taking messages yet.' });
   } else {
     participantId = Number(body.participant_id);
     workerId = user.id;
@@ -627,8 +683,9 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   if (user.role !== 'participant') return json(res, 403, { error: 'Only participants can request bookings.' });
   const workerId = Number(body.worker_id);
-  const w = db.prepare("SELECT id FROM users WHERE id = ? AND role = 'worker'").get(workerId);
+  const w = db.prepare("SELECT u.id, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(workerId);
   if (!w) return json(res, 404, { error: 'Worker not found.' });
+  if (!w.visible) return json(res, 400, { error: 'That worker isn\'t taking bookings yet.' });
   const service = clean(body.service, 30);
   if (!SERVICES.includes(service)) return json(res, 400, { error: 'Please choose a service.' });
   const date = clean(body.date, 10);

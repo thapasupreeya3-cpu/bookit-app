@@ -29,6 +29,8 @@ First run creates `bookit.db` (the database) and seeds it with 12 demo workers a
 - **Messaging** — real conversations stored in the database, with unread badges and 5-second polling. Seeded demo workers send one automatic acknowledgement per conversation so demos feel alive (clearly labelled; turn off with `AUTO_REPLY=off`).
 - **Bookings** — participants request a booking from a worker's profile (service, date, time, hours, notes); workers accept or decline from their Bookings page; participants can cancel. Status history stays visible to both sides.
 - **Email** — welcome + email-confirmation on registration, self-serve password reset (forgot → emailed link → new password), booking notifications (request → worker; accepted/declined → participant; cancelled → worker) and a copy of every contact-form message to your inbox. Sends through your own Zoho mailbox (see below); with no SMTP settings, email is off and everything else still works. Demo accounts are never emailed.
+- **Worker vetting** — new workers register but stay **hidden** from Find Workers (and can't receive messages or bookings) until an admin approves them. You get an email when someone applies; they get an email when approved.
+- **Admin dashboard** — `#/admin` for accounts listed in `ADMIN_EMAILS`: live counts, pending worker approvals (approve/hide), recent bookings, contact-form messages and a user list.
 - **Contact form** — messages stored in the `contact_messages` table (and emailed to you when email is on).
 - **Demo fallback** — the same front-end file still works with no server at all (opened directly or hosted statically): it detects the missing API and falls back to the simulated demo.
 
@@ -48,6 +50,7 @@ First run creates `bookit.db` (the database) and seeds it with 12 demo workers a
 | `SMTP_PORT` | 465 | SSL port |
 | `MAIL_FROM` | = SMTP_USER | From address — must be the account address or one of its Zoho aliases |
 | `APP_URL` | (auto from request) | Absolute base for links in emails, e.g. `https://demo.bookit.life` — set it in production |
+| `ADMIN_EMAILS` | (unset) | Comma-separated account emails that get the admin dashboard (`#/admin`) and worker-approval powers, e.g. `you@gmail.com,ops@bookit.life` |
 
 After setting the SMTP variables, log in with a real (non-demo) account and `POST /api/email-test` — or just register a fresh account — to confirm sending works. Failures are logged with the exact SMTP error.
 
@@ -70,7 +73,7 @@ This is a working MVP, deliberately simple. Before onboarding real people:
 
 - **Hosting in Australia + HTTPS** — participant data should live in an Australian region, always encrypted in transit.
 - **Email is in** ✓ — verification, password reset and booking notifications all send through your Zoho mailbox once `SMTP_USER`/`SMTP_PASS` are set. Zoho caps how many emails a mailbox can send per day (fine for an MVP; move to a transactional service like ZeptoMail or Resend when volume grows).
-- **Worker verification is a flag, not a process** — registration makes a worker visible immediately. In production you'd set `worker_profiles.visible = 0` by default and flip it after checking their NDIS Worker Screening, WWCC, First Aid etc. (one-line change in server.js, marked in the code).
+- **Worker vetting is in** ✓ — new workers stay hidden until you approve them from `#/admin` after sighting their NDIS Worker Screening, WWCC and First Aid. The *documents themselves* still live outside the platform (email/drive) — an upload-and-store flow is a future build.
 - **Payments/claiming isn't built** — bookings track status only. Invoicing and NDIS claiming are the next major build.
 - **Privacy obligations** — as a registered provider you're subject to the Privacy Act and NDIS Practice Standards for records: written privacy policy, data-breach plan, retention rules. The database makes this easy to honour but the policies are yours to set.
 - **Scale** — single process + SQLite comfortably handles thousands of users for an MVP; revisit when you're past that.
