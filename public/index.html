@@ -1593,7 +1593,7 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
           <tbody><!-- filled by JS --></tbody>
         </table>
       </div>
-      <p class="tbl-note">A 2-hour booking minimum applies, in line with SCHADS minimum-engagement rules — the exact price is always shown before you confirm. Sleepovers are billed at the NDIS night-time sleepover rate of <b>$311.79 per night</b> (includes up to 2 hours of active support; extra active hours at the applicable hourly rate). House-cleaning-only bookings are billed at <b>$60.10/hr</b> — the dedicated Household Tasks price limit. Remote and very remote loadings follow the NDIS Pricing Arrangements. Support services are GST-free.</p>
+      <p class="tbl-note">A 2-hour booking minimum applies, in line with SCHADS minimum-engagement rules — the exact price is always shown before you confirm. Sleepovers are billed at the NDIS night-time sleepover rate of <b>$311.79 per night</b> (includes up to 2 hours of active support; extra active hours at the applicable hourly rate). House-cleaning-only bookings are billed at <b>$60.10/hr</b> — the dedicated Household Tasks price limit. Employment support (0102) is billed at its own flat NDIS limit of <b>$83.87/hr</b>, whatever the day or time. Remote and very remote loadings follow the NDIS Pricing Arrangements. Support services are GST-free.</p>
     </div>
   </section>
 
@@ -2389,6 +2389,12 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
       <div class="field"><label for="bkStart">Start time</label><input id="bkStart" type="time" value="09:00" required></div>
       <div class="field"><label for="bkHours">Hours</label>
         <select id="bkHours"><option>2</option><option>2.5</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>8</option><option>10</option></select>
+      </div>
+      <div class="field full" id="bkSleepWrap" hidden>
+        <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-weight:400;">
+          <input type="checkbox" id="bkSleep" style="margin-top:4px;">
+          <span><b>Overnight sleepover (inactive night)</b> — your worker sleeps over and helps if needed. Billed at the flat NDIS sleepover limit of <b>$311.79 per night</b> instead of hourly.</span>
+        </label>
       </div>
       <div class="field full"><label for="bkNotes">Anything your worker should know? <span class="hint">(optional)</span></label><textarea id="bkNotes" rows="3"></textarea></div>
       <button type="submit" class="btn btn-primary">Send booking request</button>
@@ -3909,8 +3915,13 @@ document.addEventListener('click', e => {
 
 /* ---------- bookings ---------- */
 const STATUS_LABEL = { requested:'Requested', accepted:'Accepted ✓', declined:'Declined', cancelled:'Cancelled', completed:'Completed ✓' };
-const RATE_LABEL = { 'weekday-day':'Weekday daytime', 'weekday-evening':'Weekday evening', 'weekday-night':'Weekday night', 'saturday':'Saturday', 'sunday':'Sunday', 'public-holiday':'Public holiday', 'household':'Household tasks (cleaning)' };
+const RATE_LABEL = { 'weekday-day':'Weekday daytime', 'weekday-evening':'Weekday evening', 'weekday-night':'Weekday night', 'saturday':'Saturday', 'sunday':'Sunday', 'public-holiday':'Public holiday', 'household':'Household tasks (cleaning)', 'employment':'Employment support (flat)', 'sleepover':'Night-time sleepover (flat per night)' };
 let bookingWorker = null;
+function syncSleepoverOption(){
+  const ok = ['personal-care','daily-tasks'].includes($('#bkService').value);
+  $('#bkSleepWrap').hidden = !ok;
+  if(!ok) $('#bkSleep').checked = false;
+}
 function openBookingModal(w){
   bookingWorker = w;
   $('#bkWorkerName').textContent = w.name;
@@ -3919,8 +3930,10 @@ function openBookingModal(w){
   const tomorrow = new Date(Date.now() + 864e5);
   $('#bkDate').min = today.toISOString().slice(0, 10);
   $('#bkDate').value = tomorrow.toISOString().slice(0, 10);
+  syncSleepoverOption();
   openModal('#bookingModal');
 }
+$('#bkService').addEventListener('change', syncSleepoverOption);
 $('#bookingForm').addEventListener('submit', async e => {
   e.preventDefault();
   if(!bookingWorker) return;
@@ -3931,7 +3944,8 @@ $('#bookingForm').addEventListener('submit', async e => {
       date: $('#bkDate').value,
       start: $('#bkStart').value,
       hours: Number($('#bkHours').value),
-      notes: $('#bkNotes').value
+      notes: $('#bkNotes').value,
+      sleepover: $('#bkSleep').checked
     }});
     closeModals();
     toast('Booking request sent to ' + bookingWorker.name.split(' ')[0] + '!');
@@ -3979,7 +3993,8 @@ async function renderBookingsPage(){
         <b>${esc(b.other_name)}</b>
         <span class="muted-sm">${SVC_NAME[b.service] || b.service} · ${b.date} · ${b.start} · ${b.hours} hrs</span>
         ${b.notes ? `<span class="muted-sm">“${esc(b.notes)}”</span>` : ''}
-        ${b.status === 'completed' && b.total ? `<span class="muted-sm"><b>$${Number(b.total).toFixed(2)}</b> — ${b.hours}h × $${Number(b.unit_price).toFixed(2)} (${RATE_LABEL[b.rate_category] || b.rate_category} rate)</span>` : ''}
+        ${b.sleepover ? '<span class="muted-sm">🌙 Overnight sleepover (inactive night — flat rate)</span>' : ''}
+        ${b.status === 'completed' && b.total ? `<span class="muted-sm"><b>$${Number(b.total).toFixed(2)}</b> — ${b.rate_category === 'sleepover' ? '1 night flat' : `${b.hours}h × $${Number(b.unit_price).toFixed(2)}`} (${RATE_LABEL[b.rate_category] || b.rate_category} rate)</span>` : ''}
       </div>
       <span class="bk-status bk-${b.status}">${STATUS_LABEL[b.status] || b.status}</span>
       <div class="bk-actions">

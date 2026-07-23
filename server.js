@@ -101,7 +101,7 @@ for (const col of ['completed_at TEXT', 'rate_category TEXT', 'unit_price REAL',
 for (const col of ['ndis_number TEXT DEFAULT \'\'', 'pm_email TEXT DEFAULT \'\'']) {
   try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
 }
-for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_no TEXT', 'support_item TEXT', 'claimed_at TEXT', 'paid_at TEXT']) {
+for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_no TEXT', 'support_item TEXT', 'claimed_at TEXT', 'paid_at TEXT', 'sleepover INTEGER DEFAULT 0']) {
   try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
 }
 /* …and allow the 'completed' status. SQLite can't edit a CHECK constraint,
@@ -156,33 +156,51 @@ const INVOICE_RATES = {
   'saturday':        { label: 'Saturday',        price: 103.54, worker: 74.95 },
   'sunday':          { label: 'Sunday',          price: 133.50, worker: 96.65 },
   'public-holiday':  { label: 'Public holiday',  price: 163.46, worker: 118.35 },
-  'household':       { label: 'Household tasks (cleaning)', price: 60.10, worker: 43.50 }
+  'household':       { label: 'Household tasks (cleaning)', price: 60.10, worker: 43.50 },
+  /* 0102 Employment Assistance (10_016_0102_5_3) is a flat rate — no day-type variants */
+  'employment':      { label: 'Employment support (flat)', price: 83.87, worker: 60.70 },
+  /* inactive night: flat per-night price, not hourly */
+  'sleepover':       { label: 'Night-time sleepover (inactive)', price: 311.79, worker: 225.65, perNight: true }
 };
 const REG_GROUPS = { 'employment': '0102', 'personal-care': '0107', 'transport': '0108', 'daily-tasks': '0115/0138', 'household': '0120', 'community': '0125' };
 function suggestCategory(b) {
+  if (b.sleepover) return 'sleepover';
   if (b.service === 'household') return 'household';
+  if (b.service === 'employment') return 'employment';
   const dow = new Date(b.date + 'T00:00:00').getDay();
   if (dow === 6) return 'saturday';
   if (dow === 0) return 'sunday';
   const [h, min] = String(b.start).split(':').map(Number);
   const endH = h + (min || 0) / 60 + Number(b.hours);
-  if (h < 6) return 'weekday-night';
-  if (h >= 20 || endH > 20) return 'weekday-evening';
-  return 'weekday-day';
+  let cat = 'weekday-day';
+  if (h < 6) cat = 'weekday-night';
+  else if (h >= 20 || endH > 20) cat = 'weekday-evening';
+  /* the 0125 set has no night item — night community/transport shifts claim the evening item */
+  if (cat === 'weekday-night' && (b.service === 'community' || b.service === 'transport')) cat = 'weekday-evening';
+  return cat;
 }
-/* NDIS support item numbers per service + rate category, prefded for claim files.
-   Verified against the published price-guide item set for 0107 / 0125 / 0120;
-   items marked confirm:true should be checked with the price guide or plan
-   manager before first claim — every line is editable in the admin UI. */
+/* Verified verbatim against the official NDIS Pricing Schedule 2026-27 v1.2
+   (Schedule 1 pp.5-15, Schedule 3 Table 13 p.25), supplied by the provider:
+   - 0107 self-care: 01_002 night · 01_010 SLEEPOVER (Each $311.79) · 01_011 day
+     · 01_012 PH · 01_013 Sat · 01_014 Sun · 01_015 evening
+   - 0115 SIL: 01_801..806 day/eve/night/Sat/Sun/PH · 01_832 sleepover
+     (0138 mirror set 01_8xx_0138_1_1 exists for SIL-group claims)
+   - 0125 community: 04_104 day · 04_103 evening · 04_105 Sat · 04_106 Sun
+     · 04_102 PH — NO night or sleepover items (night coerced to evening)
+   - 0120: 01_020_0120_1_1 House Cleaning $60.10/h (01_019 yard $59.01 exists)
+   - 0102: 10_016_0102_5_3 Employment Assistance — FLAT $83.87/h, all days
+   - transport (0108): no hourly labour items exist; labour is claimed under the
+     0125 set + Activity Based Transport 04_590_0125_6_1 for km — confirm with
+     each plan manager (hence the confirm flag). */
 const SUPPORT_ITEMS = {
-  'personal-care': { 'weekday-day': '01_011_0107_1_1', 'weekday-evening': '01_015_0107_1_1', 'weekday-night': '01_010_0107_1_1', 'saturday': '01_013_0107_1_1', 'sunday': '01_014_0107_1_1', 'public-holiday': '01_012_0107_1_1' },
-  'community': { 'weekday-day': '04_104_0125_6_1', 'weekday-evening': '04_103_0125_6_1', 'weekday-night': '04_103_0125_6_1', 'saturday': '04_105_0125_6_1', 'sunday': '04_106_0125_6_1', 'public-holiday': '04_102_0125_6_1' },
+  'personal-care': { 'weekday-day': '01_011_0107_1_1', 'weekday-evening': '01_015_0107_1_1', 'weekday-night': '01_002_0107_1_1', 'saturday': '01_013_0107_1_1', 'sunday': '01_014_0107_1_1', 'public-holiday': '01_012_0107_1_1', 'sleepover': '01_010_0107_1_1' },
+  'daily-tasks': { 'weekday-day': '01_801_0115_1_1', 'weekday-evening': '01_802_0115_1_1', 'weekday-night': '01_803_0115_1_1', 'saturday': '01_804_0115_1_1', 'sunday': '01_805_0115_1_1', 'public-holiday': '01_806_0115_1_1', 'sleepover': '01_832_0115_1_1' },
+  'community': { 'weekday-day': '04_104_0125_6_1', 'weekday-evening': '04_103_0125_6_1', 'saturday': '04_105_0125_6_1', 'sunday': '04_106_0125_6_1', 'public-holiday': '04_102_0125_6_1' },
   'household': { '*': '01_020_0120_1_1' },
-  'daily-tasks': { '*': '01_045_0115_1_1' },
-  'employment': { '*': '10_011_0102_5_3' },
-  'transport': { '*': '' }
+  'employment': { '*': '10_016_0102_5_3' },
+  'transport': { 'weekday-day': '04_104_0125_6_1', 'weekday-evening': '04_103_0125_6_1', 'saturday': '04_105_0125_6_1', 'sunday': '04_106_0125_6_1', 'public-holiday': '04_102_0125_6_1' }
 };
-const ITEM_CONFIRM = { 'daily-tasks': true, 'employment': true, 'transport': true };
+const ITEM_CONFIRM = { 'transport': true };
 function supportItemFor(service, category) {
   const m = SUPPORT_ITEMS[service] || {};
   return m[category] || m['*'] || '';
@@ -264,11 +282,12 @@ function applyInvoice(id, category) {
   const r = INVOICE_RATES[category];
   const b = db.prepare('SELECT hours FROM bookings WHERE id = ?').get(id);
   if (!r || !b) return null;
-  const total = Math.round(r.price * b.hours * 100) / 100;
-  const workerShare = Math.round(r.worker * b.hours * 100) / 100;
+  const qty = r.perNight ? 1 : b.hours; /* sleepovers are one flat per-night price */
+  const total = Math.round(r.price * qty * 100) / 100;
+  const workerShare = Math.round(r.worker * qty * 100) / 100;
   db.prepare('UPDATE bookings SET rate_category = ?, unit_price = ?, worker_share = ?, total = ? WHERE id = ?')
     .run(category, r.price, workerShare, total, id);
-  return { category, label: r.label, unit_price: r.price, total, worker_share: workerShare };
+  return { category, label: r.label, unit_price: r.price, qty, total, worker_share: workerShare };
 }
 
 function hashPassword(pw) {
@@ -922,7 +941,13 @@ route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
       bill_to: self
         ? [first.participant_name, first.participant_email, first.ndis_number ? `NDIS number: ${first.ndis_number}` : '']
         : [`Plan manager for ${first.participant_name}`, dest, first.ndis_number ? `NDIS number: ${first.ndis_number}` : ''],
-      lines: group.map(r => ({ date: dmy(r.date), service: SERVICE_LABELS[r.service] || r.service, item: r.item, hours: r.hours, rate: r.unit_price || 0, amount: r.total || 0 })),
+      lines: group.map(r => ({
+        date: dmy(r.date),
+        service: (SERVICE_LABELS[r.service] || r.service) + (r.rate_category === 'sleepover' ? ' — sleepover (per night)' : ''),
+        item: r.item,
+        hours: (INVOICE_RATES[r.rate_category] || {}).perNight ? 1 : r.hours,
+        rate: r.unit_price || 0, amount: r.total || 0
+      })),
       total
     });
     let emailed = false;
@@ -945,8 +970,9 @@ route('GET', /^\/api\/admin\/claims\/pace\.csv$/, (req, res, m, user) => {
   const header = ['RegistrationNumber', 'NDISNumber', 'SupportsDeliveredFrom', 'SupportsDeliveredTo', 'SupportNumber', 'ClaimReference', 'Quantity', 'Hours', 'UnitPrice', 'GSTCode', 'ClaimType', 'CancellationReason', 'ABN', 'InKindFundingProgram', 'ClaimReason', 'RequestedAmount'];
   const lines = [header.join(',')];
   for (const r of rows) {
+    const qty = (INVOICE_RATES[r.rate_category] || {}).perNight ? 1 : r.hours; /* sleepovers claim 1 Each */
     lines.push([q(NDIS_REG_NO), q(r.ndis_number), q(dmy(r.date)), q(dmy(r.date)), q(effectiveItem(r)), q(r.claim_ref || `BK${r.id}`),
-      r.hours, '', (r.unit_price || 0).toFixed(2), 'P2', '', '', q(COMPANY_ABN), '', '', (r.total || 0).toFixed(2)].join(','));
+      qty, '', (r.unit_price || 0).toFixed(2), 'P2', '', '', q(COMPANY_ABN), '', '', (r.total || 0).toFixed(2)].join(','));
   }
   res.writeHead(200, {
     'Content-Type': 'text/csv; charset=utf-8',
@@ -1086,8 +1112,9 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   if (!/^\d{2}:\d{2}$/.test(start)) return json(res, 400, { error: 'Please choose a start time.' });
   const hours = Number(body.hours);
   if (!(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
-  const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, created) VALUES (?,?,?,?,?,?,?,?)')
-    .run(user.id, workerId, service, date, start, hours, clean(body.notes, 600), now());
+  const sleepover = body.sleepover && ['personal-care', 'daily-tasks'].includes(service) ? 1 : 0;
+  const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, created) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run(user.id, workerId, service, date, start, hours, clean(body.notes, 600), sleepover, now());
   const wu = db.prepare('SELECT name, email FROM users WHERE id = ?').get(workerId);
   if (wu) sendMail(wu.email, 'New booking request — BookIt',
     `New booking request, ${firstName(wu.name)}!`,
@@ -1133,7 +1160,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     const pu2 = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
     if (pu2 && inv) sendMail(pu2.email, 'Shift completed — BookIt',
       `Shift completed, ${firstName(pu2.name)}`,
-      `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${b.hours} hours × $${inv.unit_price.toFixed(2)}</b> (${inv.label} — 2026–27 NDIS price limit) = <b>$${inv.total.toFixed(2)}</b>.</p><p>If anything about this shift doesn't look right, just reply to this email and we'll sort it out before it's claimed.</p>`,
+      `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${inv.qty === 1 && inv.category === 'sleepover' ? '1 night (flat)' : `${b.hours} hours ×`} $${inv.unit_price.toFixed(2)}</b> (${inv.label} — 2026–27 NDIS price limit) = <b>$${inv.total.toFixed(2)}</b>.</p><p>If anything about this shift doesn't look right, just reply to this email and we'll sort it out before it's claimed.</p>`,
       'View my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
     return json(res, 200, { ok: true, invoice: inv });
   }
