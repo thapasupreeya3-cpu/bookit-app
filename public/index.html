@@ -2034,6 +2034,14 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
               <label class="choice-pill"><input type="radio" name="pPlan" value="none"><span>No NDIS / private</span></label>
             </div>
           </div>
+          <div class="field">
+            <label for="pNdis">NDIS number <span class="hint">(9 digits — optional now, needed before billing)</span></label>
+            <input id="pNdis" inputmode="numeric" maxlength="9" placeholder="430123456" autocomplete="off">
+          </div>
+          <div class="field" id="pPmWrap" hidden>
+            <label for="pPmEmail">Plan manager's email <span class="hint">(invoices go straight to them)</span></label>
+            <input id="pPmEmail" type="email" placeholder="accounts@yourplanmanager.com.au" autocomplete="off">
+          </div>
           <div class="field full">
             <label>What supports are you interested in? <span class="hint">(choose any)</span></label>
             <div class="choice-row">
@@ -2754,6 +2762,12 @@ $('#loginForm').addEventListener('submit', async e => {
   }catch(err){ toast(err.message); }
 });
 
+/* show plan-manager email only when plan-managed is picked */
+$$('input[name="pPlan"]').forEach(r => r.addEventListener('change', () => {
+  const w = $('#pPmWrap');
+  if(w) w.hidden = (document.querySelector('input[name="pPlan"]:checked') || {}).value !== 'plan';
+}));
+
 /* ============ Forgot / reset password ============ */
 $('#btnForgot').addEventListener('click', () => {
   closeModals();
@@ -2966,7 +2980,7 @@ $('#participantForm').addEventListener('submit', async e => {
       const plan = (document.querySelector('input[name="pPlan"]:checked') || {}).value || '';
       const pw = $('#pPassword').value;
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
-      const d = await API.call('/register', {method:'POST', body:{role:'participant', name:$('#pName').value, email:$('#pEmail').value, password:pw, phone:$('#pPhone').value, suburb:$('#pPostcode').value, plan, services}});
+      const d = await API.call('/register', {method:'POST', body:{role:'participant', name:$('#pName').value, email:$('#pEmail').value, password:pw, phone:$('#pPhone').value, suburb:$('#pPostcode').value, plan, services, ndis_number:$('#pNdis').value.trim(), pm_email:$('#pPmEmail').value.trim()}});
       API.me = d.user; updateAuthUI();
       gsSuccess(`Welcome aboard, ${d.user.name.split(' ')[0]}! 🎉`, 'Your account is live and you\'re logged in. We\'ve emailed you a link to confirm your address. Browse workers, say hello in Messages, and request your first booking whenever you\'re ready.');
       $('#gsDemoNote').textContent = 'Log back in any time with your email and password.';
@@ -3936,15 +3950,29 @@ async function renderBookingsPage(){
     wrap.innerHTML = '<div class="info-card"><p><b>Log in to see your bookings</b> — use the Log in button at the top right, or create a profile via Get started.</p></div>';
     return;
   }
+  const fundOpts = [['self','Self-managed'],['plan','Plan-managed'],['ndia','NDIA-managed'],['none','No NDIS / private']];
+  const billingCard = API.me.role === 'participant' ? `
+    <div class="info-card" style="margin-bottom:18px;">
+      <h3 style="margin:0 0 6px;">Billing details</h3>
+      <p class="muted-sm" style="margin:0 0 12px;">So invoices and claims go to the right place — takes 20 seconds, saved for every shift.</p>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+        <label style="font-size:.85rem;">Plan managed<br><select id="bdPlan" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;">
+          ${fundOpts.map(([v,l]) => `<option value="${v}" ${API.me.plan === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select></label>
+        <label style="font-size:.85rem;">NDIS number<br><input id="bdNdis" maxlength="9" inputmode="numeric" value="${esc(API.me.ndis_number || '')}" placeholder="430123456" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:130px;"></label>
+        <label style="font-size:.85rem;" id="bdPmWrap" ${API.me.plan === 'plan' ? '' : 'hidden'}>Plan manager email<br><input id="bdPm" type="email" value="${esc(API.me.pm_email || '')}" placeholder="accounts@planmanager.com.au" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:230px;"></label>
+        <button type="button" class="btn btn-primary btn-sm" id="bdSave">Save</button>
+      </div>
+    </div>` : '';
   let d;
   try { d = await API.call('/bookings'); } catch(e){ return; }
   if(!d.bookings.length){
-    wrap.innerHTML = '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
+    wrap.innerHTML = billingCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
       ? 'Find a worker you like, have a chat, then hit "Request a booking" on their profile.'
       : 'When participants request you, their bookings appear here for you to accept or decline.') + '</p></div>';
     return;
   }
-  wrap.innerHTML = d.bookings.map(b => `
+  wrap.innerHTML = billingCard + d.bookings.map(b => `
     <div class="bk-card">
       <div class="wc-avatar" style="background:${b.other_color};">${b.other_name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
       <div class="bk-main">
@@ -3961,7 +3989,21 @@ async function renderBookingsPage(){
       </div>
     </div>`).join('');
 }
+document.addEventListener('change', e => {
+  if(e.target && e.target.id === 'bdPlan'){
+    const w = $('#bdPmWrap');
+    if(w) w.hidden = e.target.value !== 'plan';
+  }
+});
 document.addEventListener('click', async e => {
+  if(e.target && e.target.id === 'bdSave'){
+    try{
+      const d = await API.call('/me/billing', {method:'POST', body:{plan:$('#bdPlan').value, ndis_number:$('#bdNdis').value.trim(), pm_email:($('#bdPm') ? $('#bdPm').value.trim() : '')}});
+      API.me = d.user;
+      toast('Billing details saved. 👍');
+    }catch(err){ toast(err.message); }
+    return;
+  }
   const btn = e.target.closest('[data-bk]');
   if(!btn) return;
   try{
@@ -3988,6 +4030,9 @@ async function renderAdminPage(){
   let inv;
   try{ inv = await API.call('/admin/invoices'); }
   catch(e){ inv = { invoices: [], totals: { billed: 0, worker_share: 0 }, categories: [] }; }
+  let cl;
+  try{ cl = await API.call('/admin/claims'); }
+  catch(e){ cl = { unclaimed: [], claimed: [], paid: [], totals: { unclaimed: 0, claimed: 0, paid: 0 } }; }
   const c = d.counts;
   const tiles = `<div class="adm-tiles">
     <div class="adm-tile"><b>${c.participants}</b><span>Participants</span></div>
@@ -4037,14 +4082,58 @@ async function renderAdminPage(){
         ? `<button class="adm-btn-sm" data-adm-act="hide" data-uid="${u.id}">Hide</button>`
         : `<button class="adm-btn-sm" data-adm-act="approve" data-uid="${u.id}">Approve</button>`) : ''}</td></tr>`).join('')}
   </tbody></table></div>`;
+  const FUND_LABEL = { ndia: 'NDIA-managed', plan: 'Plan-managed', self: 'Self-managed', none: 'No NDIS', '': '—' };
+  const claimRow = (r, showActions) => `<tr>
+    <td>${esc(r.date)}</td><td>${esc(r.participant_name)}</td><td>${esc(FUND_LABEL[r.funding] || r.funding)}</td>
+    <td>${esc(svcName(r.service))} · ${r.hours}h</td>
+    <td>${showActions
+      ? `<input class="adm-claim-item" data-cid="${r.id}" value="${esc(r.item || '')}" placeholder="e.g. 01_011_0107_1_1" style="font:inherit;font-size:.82rem;width:150px;padding:4px 6px;border-radius:8px;border:1.5px solid ${r.flags.length ? '#D94F32' : '#E7DFD4'};">`
+      : esc(r.support_item || r.item || '—') + (r.invoice_no ? `<br><span style="font-size:.78rem;color:#3E5A64;">${esc(r.invoice_no)}</span>` : '')}</td>
+    <td><b>$${Number(r.total || 0).toFixed(2)}</b></td>
+    <td>${showActions
+      ? (r.flags.length ? `<span style="color:#D94F32;font-size:.78rem;">${esc(r.flags.join(' · '))}</span>` : '<span style="color:#1C7C43;font-size:.78rem;">ready ✓</span>')
+      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `<button class="adm-btn-sm" data-claim-paid="${r.id}">Mark paid</button>`)}</td>
+  </tr>`;
+  const claimTable = (rows, showActions) => `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Date</th><th>Participant</th><th>Funding</th><th>Shift</th><th>Support item</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(r => claimRow(r, showActions)).join('')}</tbody></table></div>`;
+  const claims = `
+    <div class="adm-tiles">
+      <div class="adm-tile"><b style="${cl.totals.unclaimed ? 'color:#D94F32;' : ''}">$${cl.totals.unclaimed.toFixed(2)}</b><span>Ready to claim</span></div>
+      <div class="adm-tile"><b>$${cl.totals.claimed.toFixed(2)}</b><span>Claimed — awaiting payment</span></div>
+      <div class="adm-tile"><b style="color:#1C7C43;">$${cl.totals.paid.toFixed(2)}</b><span>Paid</span></div>
+    </div>
+    ${cl.unclaimed.length ? `
+      <h3 style="margin:14px 0 8px;">Uninvoiced completed shifts (${cl.unclaimed.length})</h3>
+      ${claimTable(cl.unclaimed, true)}
+      <p style="margin:12px 0 4px;">
+        <button class="btn btn-primary" id="admRunClaims">▶ Run claims &amp; invoices</button>
+        <span style="font-size:.85rem;color:#3E5A64;margin-left:10px;">NDIA-managed shifts join the claim file below · plan-managed and self-managed shifts get a PDF invoice emailed automatically from hello@bookit.life. Lines with red notes are skipped until fixed.</span>
+      </p>`
+      : '<p class="adm-empty">Nothing waiting to be claimed — all completed shifts are processed. 🎉</p>'}
+    ${cl.claimed.length ? `
+      <h3 style="margin:20px 0 8px;">Claimed — awaiting payment (${cl.claimed.length})</h3>
+      <p style="margin:0 0 10px;"><a class="btn btn-secondary" href="/api/admin/claims/pace.csv" download>⬇ NDIA claim file (PACE CSV)</a>
+      <span style="font-size:.85rem;color:#3E5A64;margin-left:8px;">Upload it in the myplace provider portal → Bulk payment request. Mark lines paid as the money lands.</span></p>
+      ${claimTable(cl.claimed, false)}` : ''}
+    ${cl.paid.length ? `<p style="margin:14px 0 0;color:#3E5A64;font-size:.9rem;">${cl.paid.length} shift${cl.paid.length > 1 ? 's' : ''} fully paid · $${cl.totals.paid.toFixed(2)} all-time.</p>` : ''}
+    <p style="margin:16px 0 0;"><a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/payroll.csv" download>⬇ Payroll CSV (worker shares)</a></p>`;
   wrap.innerHTML = tiles
     + `<h2 class="adm-section">Workers awaiting approval ${c.pending ? `(${c.pending})` : ''}</h2>` + pending
+    + `<h2 class="adm-section">Claims &amp; payments</h2>` + claims
     + `<h2 class="adm-section">Invoicing — completed shifts ${inv.invoices.length ? `(${inv.invoices.length})` : ''}</h2>` + invoicing
     + '<h2 class="adm-section">Recent bookings</h2>' + bookings
     + '<h2 class="adm-section">Contact-form messages</h2>' + contacts
     + '<h2 class="adm-section">Everyone (latest 100)</h2>' + users;
 }
 document.addEventListener('change', async e => {
+  const it = e.target.closest('.adm-claim-item');
+  if(it){
+    try{
+      await API.call('/admin/claims/' + it.dataset.cid + '/item', {method:'POST', body:{support_item: it.value.trim()}});
+      toast('Support item saved.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
+    return;
+  }
   const s = e.target.closest('.adm-inv-cat');
   if(!s) return;
   try{
@@ -4054,6 +4143,29 @@ document.addEventListener('change', async e => {
   }catch(err){ toast(err.message); renderAdminPage(); }
 });
 document.addEventListener('click', async e => {
+  if(e.target && e.target.id === 'admRunClaims'){
+    e.target.disabled = true;
+    try{
+      const r = await API.call('/admin/claims/run', {method:'POST'});
+      const bits = [];
+      if(r.ndia_claimed) bits.push(r.ndia_claimed + ' NDIA shift' + (r.ndia_claimed > 1 ? 's' : '') + ' added to the claim file');
+      if(r.invoices.length) bits.push(r.invoices.length + ' invoice' + (r.invoices.length > 1 ? 's' : '') + ' emailed');
+      if(r.needs_attention.length) bits.push(r.needs_attention.length + ' line' + (r.needs_attention.length > 1 ? 's' : '') + ' skipped (see red notes)');
+      toast(bits.length ? 'Done — ' + bits.join(' · ') + '.' : 'Nothing to claim yet.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  const pd = e.target.closest('[data-claim-paid]');
+  if(pd){
+    pd.disabled = true;
+    try{
+      await API.call('/admin/claims/' + pd.dataset.claimPaid + '/paid', {method:'POST', body:{paid:true}});
+      toast('Marked paid. 💸');
+      renderAdminPage();
+    }catch(err){ toast(err.message); pd.disabled = false; }
+    return;
+  }
   const b = e.target.closest('[data-adm-act]');
   if(!b) return;
   b.disabled = true;

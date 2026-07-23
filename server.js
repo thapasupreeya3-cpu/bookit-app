@@ -97,6 +97,13 @@ db.exec("UPDATE users SET verified = 1 WHERE email LIKE '%@demo.bookit.life' AND
 for (const col of ['completed_at TEXT', 'rate_category TEXT', 'unit_price REAL', 'worker_share REAL', 'total REAL']) {
   try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
 }
+/* migration (payments build): billing details + claim tracking */
+for (const col of ['ndis_number TEXT DEFAULT \'\'', 'pm_email TEXT DEFAULT \'\'']) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+}
+for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_no TEXT', 'support_item TEXT', 'claimed_at TEXT', 'paid_at TEXT']) {
+  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+}
 /* …and allow the 'completed' status. SQLite can't edit a CHECK constraint,
    so databases created before invoicing get their bookings table rebuilt once. */
 const bkDef = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'").get();
@@ -163,6 +170,96 @@ function suggestCategory(b) {
   if (h >= 20 || endH > 20) return 'weekday-evening';
   return 'weekday-day';
 }
+/* NDIS support item numbers per service + rate category, prefded for claim files.
+   Verified against the published price-guide item set for 0107 / 0125 / 0120;
+   items marked confirm:true should be checked with the price guide or plan
+   manager before first claim — every line is editable in the admin UI. */
+const SUPPORT_ITEMS = {
+  'personal-care': { 'weekday-day': '01_011_0107_1_1', 'weekday-evening': '01_015_0107_1_1', 'weekday-night': '01_010_0107_1_1', 'saturday': '01_013_0107_1_1', 'sunday': '01_014_0107_1_1', 'public-holiday': '01_012_0107_1_1' },
+  'community': { 'weekday-day': '04_104_0125_6_1', 'weekday-evening': '04_103_0125_6_1', 'weekday-night': '04_103_0125_6_1', 'saturday': '04_105_0125_6_1', 'sunday': '04_106_0125_6_1', 'public-holiday': '04_102_0125_6_1' },
+  'household': { '*': '01_020_0120_1_1' },
+  'daily-tasks': { '*': '01_045_0115_1_1' },
+  'employment': { '*': '10_011_0102_5_3' },
+  'transport': { '*': '' }
+};
+const ITEM_CONFIRM = { 'daily-tasks': true, 'employment': true, 'transport': true };
+function supportItemFor(service, category) {
+  const m = SUPPORT_ITEMS[service] || {};
+  return m[category] || m['*'] || '';
+}
+const NDIS_REG_NO = process.env.NDIS_REG_NO || '4-LO5XNY0';
+const COMPANY_ABN = '19658578575';
+const BANK_DETAILS = process.env.BANK_DETAILS || '';
+
+/* ---------- tiny PDF invoice generator (zero-dependency) ---------- */
+function pdfEsc(s) { return String(s ?? '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)'); }
+function makeInvoicePdf(inv) {
+  /* inv: { invoice_no, date, bill_to: [lines], lines: [{date, service, item, hours, rate, amount}], total, self } */
+  const ops = [];
+  const T = (x, y, size, font, text, color) => {
+    if (color) ops.push(color); else ops.push('0.09 0.19 0.23 rg');
+    ops.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${pdfEsc(text)}) Tj ET`);
+  };
+  const TEAL = '0.055 0.42 0.384 rg', SOFT = '0.35 0.44 0.48 rg';
+  T(40, 795, 24, 'FB', 'BookIt', TEAL);
+  T(40, 780, 8.5, 'F', 'Disability & Mental Health Care Pty Ltd · ABN 19 658 578 575', SOFT);
+  T(40, 769, 8.5, 'F', `Registered NDIS Provider ${NDIS_REG_NO} · hello@bookit.life · 0488 114 368 · bookit.life`, SOFT);
+  T(400, 795, 15, 'FB', 'TAX INVOICE');
+  T(400, 781, 8.5, 'F', 'GST-free NDIS supports (s38-38 GST Act)', SOFT);
+  T(400, 766, 10, 'FB', `Invoice ${inv.invoice_no}`);
+  T(400, 753, 9.5, 'F', `Date: ${inv.date}`);
+  T(40, 730, 9, 'FB', 'Bill to:');
+  let y = 718;
+  for (const line of inv.bill_to) { T(40, y, 9.5, 'F', line); y -= 12; }
+  y = Math.min(y - 14, 660);
+  const cols = { date: 40, svc: 105, item: 300, hrs: 400, rate: 445, amt: 505 };
+  T(cols.date, y, 8.5, 'FB', 'Date'); T(cols.svc, y, 8.5, 'FB', 'Support'); T(cols.item, y, 8.5, 'FB', 'Support item no.');
+  T(cols.hrs, y, 8.5, 'FB', 'Hours'); T(cols.rate, y, 8.5, 'FB', 'Rate'); T(cols.amt, y, 8.5, 'FB', 'Amount');
+  y -= 5; ops.push('0.9 0.87 0.83 RG 0.7 w', `40 ${y} m 555 ${y} l S`); y -= 13;
+  for (const l of inv.lines) {
+    T(cols.date, y, 9, 'F', l.date);
+    T(cols.svc, y, 9, 'F', String(l.service).slice(0, 34));
+    T(cols.item, y, 9, 'F', l.item || '—');
+    T(cols.hrs, y, 9, 'F', String(l.hours));
+    T(cols.rate, y, 9, 'F', `$${l.rate.toFixed(2)}`);
+    T(cols.amt, y, 9, 'F', `$${l.amount.toFixed(2)}`);
+    y -= 15;
+    if (y < 150) { T(40, y, 9, 'F', `… ${inv.lines.length} lines total — remainder on statement.`); break; }
+  }
+  y -= 4; ops.push('0.9 0.87 0.83 RG 0.7 w', `40 ${y} m 555 ${y} l S`); y -= 16;
+  T(400, y, 11, 'FB', 'Total due:'); T(cols.amt, y, 11, 'FB', `$${inv.total.toFixed(2)}`);
+  y -= 26;
+  T(40, y, 9.5, 'FB', 'Payment'); y -= 13;
+  if (inv.self) {
+    T(40, y, 9, 'F', BANK_DETAILS ? `Please pay within 14 days by bank transfer: ${BANK_DETAILS}` : 'Please pay within 14 days — payment details provided separately.'); y -= 12;
+    T(40, y, 9, 'F', `Reference: ${inv.invoice_no}. You can claim this amount back through the myplace participant portal.`, undefined);
+  } else {
+    T(40, y, 9, 'F', 'Please pay from plan funds within 14 days.' + (BANK_DETAILS ? ` Bank transfer: ${BANK_DETAILS}` : ' Payment details provided separately.')); y -= 12;
+    T(40, y, 9, 'F', `Reference: ${inv.invoice_no}. Prices align with the NDIS Pricing Arrangements and Price Limits 2026-27.`);
+  }
+  T(40, 60, 8, 'F', 'Questions about this invoice? hello@bookit.life · 0488 114 368. Thank you for choosing BookIt.', SOFT);
+  const content = ops.join('\n');
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F 5 0 R /FB 6 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>'
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = [];
+  objects.forEach((body, i) => {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xrefPos = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.forEach(o => { pdf += `${String(o).padStart(10, '0')} 00000 n \n`; });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
+  return Buffer.from(pdf, 'latin1');
+}
+
 function applyInvoice(id, category) {
   const r = INVOICE_RATES[category];
   const b = db.prepare('SELECT hours FROM bookings WHERE id = ?').get(id);
@@ -204,7 +301,7 @@ function readSession(cookieHeader) {
   const expected = sign(base);
   if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   if (Number(exp) < Date.now()) return null;
-  return withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(Number(uid)) || null);
+  return withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email FROM users WHERE id = ?').get(Number(uid)) || null);
 }
 function json(res, status, data, headers = {}) {
   const body = JSON.stringify(data);
@@ -293,20 +390,11 @@ const prettyDate = d => { try { return new Date(d + 'T00:00:00').toLocaleDateStr
 
 function b64wrap(str) { return Buffer.from(str, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n'); }
 
-function smtpSend(to, subject, html, text, replyTo) {
+function smtpSend(to, subject, html, text, replyTo, attachments) {
   return new Promise((resolve, reject) => {
     const boundary = 'bk' + crypto.randomBytes(12).toString('hex');
     const msgId = `<${crypto.randomBytes(12).toString('hex')}@bookit.life>`;
-    const data =
-      `From: =?UTF-8?B?${Buffer.from('BookIt', 'utf8').toString('base64')}?= <${MAIL_FROM}>\r\n` +
-      `To: <${to}>\r\n` +
-      (replyTo ? `Reply-To: <${replyTo}>\r\n` : '') +
-      `Subject: =?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=\r\n` +
-      `Date: ${new Date().toUTCString()}\r\n` +
-      `Message-ID: ${msgId}\r\n` +
-      `MIME-Version: 1.0\r\n` +
-      `Content-Type: multipart/alternative; boundary="${boundary}"\r\n` +
-      `\r\n` +
+    const altPart =
       `--${boundary}\r\n` +
       `Content-Type: text/plain; charset=utf-8\r\n` +
       `Content-Transfer-Encoding: base64\r\n\r\n` +
@@ -316,6 +404,34 @@ function smtpSend(to, subject, html, text, replyTo) {
       `Content-Transfer-Encoding: base64\r\n\r\n` +
       `${b64wrap(html)}\r\n` +
       `--${boundary}--\r\n`;
+    let topType = `multipart/alternative; boundary="${boundary}"`;
+    let bodyPart = altPart;
+    if (attachments && attachments.length) {
+      const mix = 'mix' + crypto.randomBytes(10).toString('hex');
+      topType = `multipart/mixed; boundary="${mix}"`;
+      bodyPart =
+        `--${mix}\r\n` +
+        `Content-Type: multipart/alternative; boundary="${boundary}"\r\n\r\n` +
+        altPart +
+        attachments.map(a =>
+          `--${mix}\r\n` +
+          `Content-Type: ${a.mime || 'application/octet-stream'}; name="${a.filename}"\r\n` +
+          `Content-Disposition: attachment; filename="${a.filename}"\r\n` +
+          `Content-Transfer-Encoding: base64\r\n\r\n` +
+          `${a.buffer.toString('base64').replace(/(.{76})/g, '$1\r\n')}\r\n`).join('') +
+        `--${mix}--\r\n`;
+    }
+    const data =
+      `From: =?UTF-8?B?${Buffer.from('BookIt', 'utf8').toString('base64')}?= <${MAIL_FROM}>\r\n` +
+      `To: <${to}>\r\n` +
+      (replyTo ? `Reply-To: <${replyTo}>\r\n` : '') +
+      `Subject: =?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=\r\n` +
+      `Date: ${new Date().toUTCString()}\r\n` +
+      `Message-ID: ${msgId}\r\n` +
+      `MIME-Version: 1.0\r\n` +
+      `Content-Type: ${topType}\r\n` +
+      `\r\n` +
+      bodyPart;
     const steps = [
       { expect: 220, send: () => 'EHLO bookit.life\r\n' },
       { expect: 250, send: () => 'AUTH LOGIN\r\n' },
@@ -351,11 +467,15 @@ function smtpSend(to, subject, html, text, replyTo) {
   });
 }
 
-async function resendSend(to, subject, html, text, replyTo) {
+async function resendSend(to, subject, html, text, replyTo, attachments) {
   const res = await fetch(`${RESEND_BASE}/emails`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: `BookIt <${MAIL_FROM}>`, to: [to], subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}) }),
+    body: JSON.stringify({
+      from: `BookIt <${MAIL_FROM}>`, to: [to], subject, html, text,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+      ...(attachments && attachments.length ? { attachments: attachments.map(a => ({ filename: a.filename, content: a.buffer.toString('base64') })) } : {})
+    }),
     signal: AbortSignal.timeout(20000)
   });
   if (!res.ok) {
@@ -394,7 +514,7 @@ You&#39;re receiving this because of activity on your BookIt account.
 </body></html>`;
 }
 
-function sendMail(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo) {
+function sendMail(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo, attachments) {
   const dest = String(to || '').trim().toLowerCase();
   if (!dest || dest.endsWith('@demo.bookit.life')) return Promise.resolve('skipped-demo');
   const html = emailHtml(heading, bodyHtml, ctaText, ctaUrl);
@@ -402,9 +522,9 @@ function sendMail(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo) {
     .replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&middot;/g, '·').trim()
     + (ctaUrl ? `\n\n${ctaText}: ${ctaUrl}` : '')
     + '\n\n— BookIt · Disability & Mental Health Care Pty Ltd · ABN 19 658 578 575';
-  if (!EMAIL_ON) { console.log(`[email off] '${subject}' → ${dest}${ctaUrl ? ' · link: ' + ctaUrl : ''}`); return Promise.resolve('skipped-off'); }
+  if (!EMAIL_ON) { console.log(`[email off] '${subject}' → ${dest}${ctaUrl ? ' · link: ' + ctaUrl : ''}${attachments && attachments.length ? ' · attachments: ' + attachments.map(a => a.filename).join(',') : ''}`); return Promise.resolve('skipped-off'); }
   const transport = RESEND_KEY ? resendSend : smtpSend;
-  return transport(dest, subject, html, text, replyTo).then(
+  return transport(dest, subject, html, text, replyTo, attachments).then(
     ok => { console.log(`[email] sent '${subject}' → ${dest}`); return ok; },
     err => { console.error(`[email] FAILED '${subject}' → ${dest}: ${err.message}`); throw err; }
   );
@@ -535,8 +655,10 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
   if (!EMAIL_RE.test(email)) return json(res, 400, { error: 'Please enter a valid email address.' });
   if (password.length < 8) return json(res, 400, { error: 'Password needs at least 8 characters.' });
   if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) return json(res, 409, { error: 'That email already has an account — try logging in.' });
-  const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, created) VALUES (?,?,?,?,?,?,?,?)')
-    .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), clean(body.plan, 30), now());
+  const ndisNum = /^\d{9}$/.test(clean(body.ndis_number, 12)) ? clean(body.ndis_number, 12) : '';
+  const pmEmail = EMAIL_RE.test(clean(body.pm_email, 120)) ? clean(body.pm_email, 120).toLowerCase() : '';
+  const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, ndis_number, pm_email, created) VALUES (?,?,?,?,?,?,?,?,?,?)')
+    .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), clean(body.plan, 30), ndisNum, pmEmail, now());
   const uid = Number(r.lastInsertRowid);
   if (role === 'worker') {
     const services = Array.isArray(body.services) ? body.services.filter(s => SERVICES.includes(s)).slice(0, 6) : [];
@@ -548,7 +670,7 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
       `<p><b>${escHtml(name)}</b> (${escHtml(suburb) || 'no suburb given'}) has registered as a worker and is waiting for approval.</p><p><b>Email:</b> ${escHtml(email)}<br><b>Services:</b> ${services.map(s => SERVICE_LABELS[s] || s).join(', ') || '—'}</p><p>Their profile stays hidden from Find Workers until you approve it.</p>`,
       'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
   }
-  const me = withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(uid));
+  const me = withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email FROM users WHERE id = ?').get(uid));
   sendVerifyEmail(req, me).catch(() => {});
   json(res, 200, { user: me }, setSessionHeaders(uid));
 });
@@ -560,10 +682,24 @@ route('POST', /^\/api\/login$/, (req, res, m, user, body, ip) => {
   if (!row || !verifyPassword(String(body.password || ''), row.pass)) {
     return json(res, 401, { error: 'Email or password doesn\'t match.' });
   }
-  json(res, 200, { user: withAdmin({ id: row.id, role: row.role, name: row.name, email: row.email, suburb: row.suburb, plan: row.plan, verified: row.verified }) }, setSessionHeaders(row.id));
+  json(res, 200, { user: withAdmin({ id: row.id, role: row.role, name: row.name, email: row.email, suburb: row.suburb, plan: row.plan, verified: row.verified, ndis_number: row.ndis_number, pm_email: row.pm_email }) }, setSessionHeaders(row.id));
 });
 
 route('POST', /^\/api\/logout$/, (req, res) => json(res, 200, { ok: true }, CLEAR_COOKIE));
+
+/* participant billing details (funding lane, NDIS number, plan manager) */
+route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'participant') return json(res, 403, { error: 'Only participants have billing details.' });
+  const plan = ['self', 'plan', 'ndia', 'none'].includes(body.plan) ? body.plan : '';
+  const nd = clean(body.ndis_number, 12).replace(/\s+/g, '');
+  if (nd && !/^\d{9}$/.test(nd)) return json(res, 400, { error: 'An NDIS number is 9 digits (e.g. 430123456).' });
+  const pm = clean(body.pm_email, 120).toLowerCase();
+  if (pm && !EMAIL_RE.test(pm)) return json(res, 400, { error: 'That plan manager email doesn\'t look right.' });
+  db.prepare('UPDATE users SET plan = ?, ndis_number = ?, pm_email = ? WHERE id = ?').run(plan || user.plan, nd, pm, user.id);
+  const me = withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email FROM users WHERE id = ?').get(user.id));
+  json(res, 200, { user: me });
+});
 
 /* ---------- email flows: forgot / reset / verify ---------- */
 route('POST', /^\/api\/forgot$/, (req, res, m, user, body, ip) => {
@@ -589,7 +725,7 @@ route('POST', /^\/api\/reset$/, (req, res, m, user, body, ip) => {
   if (!u) return json(res, 400, { error: 'That reset link is invalid or has expired — request a fresh one from the log in screen.' });
   /* clicking an emailed link also proves the address works */
   db.prepare('UPDATE users SET pass = ?, verified = 1 WHERE id = ?').run(hashPassword(password), u.id);
-  const me = withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(u.id));
+  const me = withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email FROM users WHERE id = ?').get(u.id));
   json(res, 200, { user: me }, setSessionHeaders(u.id));
 });
 
@@ -698,6 +834,151 @@ route('GET', /^\/api\/admin\/invoices\.csv$/, (req, res, m, user) => {
   res.writeHead(200, {
     'Content-Type': 'text/csv; charset=utf-8',
     'Content-Disposition': `attachment; filename="bookit-invoices-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* ---------- admin: claims & payments (the money engine) ---------- */
+const dmy = iso => String(iso || '').split('-').reverse().join('/');
+function claimRows(where) {
+  return db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.rate_category, b.unit_price, b.total,
+      b.claim_status, b.claim_ref, b.invoice_no, b.support_item, b.claimed_at, b.paid_at,
+      up.id AS pid, up.name AS participant_name, up.email AS participant_email, up.plan AS funding, up.ndis_number, up.pm_email,
+      uw.name AS worker_name
+    FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id
+    WHERE b.status = 'completed' ${where || ''} ORDER BY b.date ASC, b.id ASC`).all();
+}
+function effectiveItem(r) { return r.support_item || supportItemFor(r.service, r.rate_category) || ''; }
+function lineFlags(r) {
+  const flags = [];
+  if (!['ndia', 'plan', 'self'].includes(r.funding)) flags.push('no funding type on the participant profile');
+  if (r.funding === 'ndia' && !/^\d{9}$/.test(r.ndis_number || '')) flags.push('NDIS number missing');
+  if (r.funding === 'plan' && !r.pm_email) flags.push('plan manager email missing');
+  if (!effectiveItem(r)) flags.push('support item number needed');
+  else if (ITEM_CONFIRM[r.service] && !r.support_item) flags.push('confirm the prefilled support item');
+  return flags;
+}
+
+route('GET', /^\/api\/admin\/claims$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = claimRows().map(r => ({ ...r, item: effectiveItem(r), flags: r.claim_status ? [] : lineFlags(r) }));
+  const unclaimed = rows.filter(r => !r.claim_status);
+  const claimed = rows.filter(r => r.claim_status === 'claimed');
+  const paid = rows.filter(r => r.claim_status === 'paid');
+  const sum = a => Math.round(a.reduce((n, r) => n + (r.total || 0), 0) * 100) / 100;
+  json(res, 200, {
+    unclaimed, claimed, paid,
+    totals: { unclaimed: sum(unclaimed), claimed: sum(claimed), paid: sum(paid) },
+    reg_no: NDIS_REG_NO
+  });
+});
+
+route('POST', /^\/api\/admin\/claims\/(\d+)\/item$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const item = clean(body.support_item, 20);
+  if (item && !/^\d{2}_\d{3}_\d{4}_\d_\d$/.test(item)) return json(res, 400, { error: 'Support item numbers look like 01_011_0107_1_1.' });
+  const r = db.prepare("SELECT id FROM bookings WHERE id = ? AND status = 'completed'").get(Number(m[1]));
+  if (!r) return json(res, 404, { error: 'No such completed shift.' });
+  db.prepare('UPDATE bookings SET support_item = ? WHERE id = ?').run(item, r.id);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = claimRows("AND (b.claim_status IS NULL OR b.claim_status = '')");
+  const needs = [], ndiaClaimed = [], invoiceGroups = new Map();
+  for (const r of rows) {
+    const flags = lineFlags(r).filter(f => !f.startsWith('confirm'));
+    if (flags.length) { needs.push({ id: r.id, date: r.date, participant: r.participant_name, flags }); continue; }
+    const item = effectiveItem(r);
+    if (r.funding === 'ndia') {
+      db.prepare("UPDATE bookings SET claim_status = 'claimed', claim_ref = ?, support_item = ?, claimed_at = ? WHERE id = ?")
+        .run(`BK${r.id}`, item, now(), r.id);
+      ndiaClaimed.push(r.id);
+    } else {
+      const key = `${r.pid}:${r.funding}`;
+      if (!invoiceGroups.has(key)) invoiceGroups.set(key, []);
+      invoiceGroups.get(key).push({ ...r, item });
+    }
+  }
+  const invoices = [];
+  for (const group of invoiceGroups.values()) {
+    const first = group[0];
+    let invNo = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${first.pid}`;
+    let n = 1;
+    while (db.prepare('SELECT 1 FROM bookings WHERE invoice_no = ?').get(n === 1 ? invNo : `${invNo}-${n}`)) n++;
+    if (n > 1) invNo = `${invNo}-${n}`;
+    const total = Math.round(group.reduce((s, r) => s + (r.total || 0), 0) * 100) / 100;
+    for (const r of group) {
+      db.prepare("UPDATE bookings SET claim_status = 'claimed', claim_ref = ?, support_item = ?, invoice_no = ?, claimed_at = ? WHERE id = ?")
+        .run(`BK${r.id}`, r.item, invNo, now(), r.id);
+    }
+    const self = first.funding === 'self';
+    const dest = self ? first.participant_email : first.pm_email;
+    const pdf = makeInvoicePdf({
+      invoice_no: invNo,
+      date: dmy(new Date().toISOString().slice(0, 10)),
+      self,
+      bill_to: self
+        ? [first.participant_name, first.participant_email, first.ndis_number ? `NDIS number: ${first.ndis_number}` : '']
+        : [`Plan manager for ${first.participant_name}`, dest, first.ndis_number ? `NDIS number: ${first.ndis_number}` : ''],
+      lines: group.map(r => ({ date: dmy(r.date), service: SERVICE_LABELS[r.service] || r.service, item: r.item, hours: r.hours, rate: r.unit_price || 0, amount: r.total || 0 })),
+      total
+    });
+    let emailed = false;
+    try {
+      await sendMail(dest, `Invoice ${invNo} — BookIt supports for ${first.participant_name}`,
+        `Invoice ${invNo}`,
+        `<p>Please find attached invoice <b>${invNo}</b> for NDIS supports delivered to <b>${escHtml(first.participant_name)}</b> — total <b>$${total.toFixed(2)}</b> (GST-free). Payment within 14 days, thank you.</p><p>Prices align with the NDIS Pricing Arrangements and Price Limits 2026–27. Questions? Just reply to this email.</p>`,
+        null, null, MAIL_FROM, [{ filename: `${invNo}.pdf`, mime: 'application/pdf', buffer: pdf }]);
+      emailed = EMAIL_ON;
+    } catch (e) { console.error(`[claims] invoice email failed for ${invNo}: ${e.message}`); }
+    invoices.push({ invoice_no: invNo, to: dest, funding: first.funding, lines: group.length, total, emailed });
+  }
+  json(res, 200, { ok: true, ndia_claimed: ndiaClaimed.length, invoices, needs_attention: needs });
+});
+
+route('GET', /^\/api\/admin\/claims\/pace\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = claimRows("AND up.plan = 'ndia' AND b.claim_status = 'claimed'");
+  const header = ['RegistrationNumber', 'NDISNumber', 'SupportsDeliveredFrom', 'SupportsDeliveredTo', 'SupportNumber', 'ClaimReference', 'Quantity', 'Hours', 'UnitPrice', 'GSTCode', 'ClaimType', 'CancellationReason', 'ABN', 'InKindFundingProgram', 'ClaimReason', 'RequestedAmount'];
+  const lines = [header.join(',')];
+  for (const r of rows) {
+    lines.push([q(NDIS_REG_NO), q(r.ndis_number), q(dmy(r.date)), q(dmy(r.date)), q(effectiveItem(r)), q(r.claim_ref || `BK${r.id}`),
+      r.hours, '', (r.unit_price || 0).toFixed(2), 'P2', '', '', q(COMPANY_ABN), '', '', (r.total || 0).toFixed(2)].join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-pace-claims-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end(lines.join('\r\n'));
+});
+
+route('POST', /^\/api\/admin\/claims\/(\d+)\/paid$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const r = db.prepare("SELECT id, claim_status FROM bookings WHERE id = ? AND status = 'completed'").get(Number(m[1]));
+  if (!r || !r.claim_status) return json(res, 404, { error: 'No such claimed shift.' });
+  if (body.paid === false) db.prepare("UPDATE bookings SET claim_status = 'claimed', paid_at = NULL WHERE id = ?").run(r.id);
+  else db.prepare("UPDATE bookings SET claim_status = 'paid', paid_at = ? WHERE id = ?").run(now(), r.id);
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = db.prepare(`SELECT b.date, b.start, b.hours, b.service, b.rate_category, b.worker_share, b.claim_status,
+      uw.name AS worker_name, uw.email AS worker_email
+    FROM bookings b JOIN users uw ON uw.id = b.worker_id
+    WHERE b.status = 'completed' ORDER BY uw.name, b.date`).all();
+  const lines = [['Worker', 'Worker email', 'Date', 'Start', 'Hours', 'Service', 'Rate category', 'Worker share incl. super ($)', 'Claim status'].map(q).join(',')];
+  for (const r of rows) {
+    lines.push([q(r.worker_name), q(r.worker_email), q(r.date), q(r.start), r.hours, q(SERVICE_LABELS[r.service] || r.service),
+      q((INVOICE_RATES[r.rate_category] || {}).label || r.rate_category), (r.worker_share || 0).toFixed(2), q(r.claim_status || 'unclaimed')].join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-payroll-${new Date().toISOString().slice(0, 10)}.csv"`
   });
   res.end('﻿' + lines.join('\r\n'));
 });
