@@ -869,6 +869,18 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
 
 <main id="main" tabindex="-1">
 
+<style>
+.verify-banner{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;background:#FFF4D6;border-bottom:1.5px solid #F5B841;color:#5d4a12;padding:9px 16px;font-size:.92rem;}
+.verify-banner button{font:inherit;cursor:pointer;}
+.verify-banner .vb-resend{background:#17313A;color:#fff;border:none;border-radius:999px;padding:6px 16px;font-weight:600;}
+.verify-banner .vb-close{background:none;border:none;color:#5d4a12;font-size:1rem;padding:2px 6px;}
+</style>
+<div id="verifyBanner" class="verify-banner" hidden>
+  <span>📬 Please confirm your email address — we've sent you a link.</span>
+  <button type="button" class="vb-resend" id="btnResendVerify">Resend email</button>
+  <button type="button" class="vb-close" id="btnDismissVerify" aria-label="Hide this reminder for now">✕</button>
+</div>
+
 <!-- ================= HOME ================= -->
 <section class="page" id="page-home" data-title="BookIt — Find NDIS support workers who fit your life">
   <div class="hero">
@@ -2179,6 +2191,51 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
   </section>
 </section>
 
+<!-- ================= EMAIL FLOWS ================= -->
+<section class="page" id="page-reset" data-title="Choose a new password — BookIt">
+  <div class="page-hero">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Reset password</nav>
+      <h1>Choose a new password</h1>
+      <p class="lead">You're here from a reset email — pick something strong (at least 8 characters) and you'll be logged straight in.</p>
+    </div>
+  </div>
+  <section class="block">
+    <div class="container" style="max-width:520px;">
+      <form class="form-grid" id="resetForm">
+        <div class="field"><label for="resetPw">New password</label><input type="password" id="resetPw" required minlength="8" autocomplete="new-password"></div>
+        <div class="field"><label for="resetPw2">Type it again</label><input type="password" id="resetPw2" required minlength="8" autocomplete="new-password"></div>
+        <button type="submit" class="btn btn-primary">Set my new password</button>
+        <p class="form-note center">Link expired? Open <b>Log in → Forgot your password?</b> to get a fresh one.</p>
+      </form>
+    </div>
+  </section>
+</section>
+
+<section class="page" id="page-verified" data-title="Email confirmed — BookIt">
+  <section class="block">
+    <div class="container center" style="max-width:640px;padding-top:70px;">
+      <div class="info-card">
+        <h3>✅ Email confirmed — thank you!</h3>
+        <p>Your address is verified, so password resets and booking updates will always reach you. That's everything — go find some great workers.</p>
+        <p style="margin-top:18px;"><a class="btn btn-primary" href="#/find-workers">Browse support workers</a></p>
+      </div>
+    </div>
+  </section>
+</section>
+
+<section class="page" id="page-verify-failed" data-title="Link expired — BookIt">
+  <section class="block">
+    <div class="container center" style="max-width:640px;padding-top:70px;">
+      <div class="info-card">
+        <h3>That link has expired</h3>
+        <p>Confirmation links last 7 days, and each new email replaces the older ones. No drama — log in and press <b>Resend email</b> on the yellow banner, and a fresh link will be in your inbox in seconds.</p>
+        <p style="margin-top:18px;"><a class="btn btn-primary" href="#/">Back to BookIt</a></p>
+      </div>
+    </div>
+  </section>
+</section>
+
 <!-- PAGES-INSERT -->
 
 </main>
@@ -2257,8 +2314,22 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
     <form class="form-grid" id="loginForm">
       <div class="field"><label for="loginEmail">Email</label><input type="email" id="loginEmail" required autocomplete="email"></div>
       <div class="field"><label for="loginPw">Password</label><input type="password" id="loginPw" required autocomplete="current-password"></div>
+      <button type="button" id="btnForgot" style="justify-self:start;background:none;border:none;padding:0;font:inherit;font-size:.9rem;color:#0E6B62;text-decoration:underline;cursor:pointer;">Forgot your password?</button>
       <button type="submit" class="btn btn-primary">Log in</button>
       <p class="form-note center" id="loginHint">This is a demo — accounts aren't connected yet. <a href="#/get-started" data-close>Create a profile instead →</a></p>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="forgotModal" role="dialog" aria-modal="true" aria-labelledby="forgotTitle">
+  <div class="modal">
+    <button class="close-x" data-close aria-label="Close password reset dialog">✕</button>
+    <h2 id="forgotTitle">Reset your password</h2>
+    <p class="muted-sm">Tell us your account email and we'll send you a link to choose a new password.</p>
+    <form class="form-grid" id="forgotForm">
+      <div class="field"><label for="forgotEmail">Email</label><input type="email" id="forgotEmail" required autocomplete="email"></div>
+      <button type="submit" class="btn btn-primary">Email me a reset link</button>
+      <p class="form-note center" id="forgotNote" hidden></p>
     </form>
   </div>
 </div>
@@ -2651,6 +2722,43 @@ $('#loginForm').addEventListener('submit', async e => {
   }catch(err){ toast(err.message); }
 });
 
+/* ============ Forgot / reset password ============ */
+$('#btnForgot').addEventListener('click', () => {
+  closeModals();
+  $('#forgotNote').hidden = true;
+  $('#forgotEmail').value = $('#loginEmail').value || '';
+  openModal('#forgotModal');
+});
+$('#forgotForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const note = $('#forgotNote');
+  note.hidden = false;
+  if(!(window.API && API.online)){
+    note.textContent = 'Demo mode — password reset emails need the live BookIt server.';
+    return;
+  }
+  try{
+    await API.call('/forgot', {method:'POST', body:{email:$('#forgotEmail').value}});
+    note.innerHTML = '<b>Done!</b> If that address has an account, a reset link is on its way — check your inbox (and spam, just in case).';
+  }catch(err){ note.textContent = err.message; }
+});
+$('#resetForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const pw = $('#resetPw').value;
+  if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
+  if(pw !== $('#resetPw2').value){ toast('Those two passwords don\'t match — try again.'); return; }
+  if(!(window.API && API.online)){ toast('Demo mode — password resets need the live BookIt server.'); return; }
+  const qs = location.hash.split('?')[1] || '';
+  const token = new URLSearchParams(qs).get('token') || '';
+  try{
+    const d = await API.call('/reset', {method:'POST', body:{token, password: pw}});
+    API.me = d.user; updateAuthUI();
+    if(window.refreshUnreadBadge) refreshUnreadBadge();
+    toast('Password updated — welcome back, ' + d.user.name.split(' ')[0] + '!');
+    location.hash = '#/';
+  }catch(err){ toast(err.message); }
+});
+
 /* ============ Render: services ============ */
 function serviceCard(s){
   return `<a href="#/services/${s.slug}" class="service-card">
@@ -2828,7 +2936,7 @@ $('#participantForm').addEventListener('submit', async e => {
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
       const d = await API.call('/register', {method:'POST', body:{role:'participant', name:$('#pName').value, email:$('#pEmail').value, password:pw, phone:$('#pPhone').value, suburb:$('#pPostcode').value, plan, services}});
       API.me = d.user; updateAuthUI();
-      gsSuccess(`Welcome aboard, ${d.user.name.split(' ')[0]}! 🎉`, 'Your account is live and you\'re logged in. Browse workers, say hello in Messages, and request your first booking whenever you\'re ready.');
+      gsSuccess(`Welcome aboard, ${d.user.name.split(' ')[0]}! 🎉`, 'Your account is live and you\'re logged in. We\'ve emailed you a link to confirm your address. Browse workers, say hello in Messages, and request your first booking whenever you\'re ready.');
       $('#gsDemoNote').textContent = 'Log back in any time with your email and password.';
     }catch(err){ toast(err.message); }
     return;
@@ -2845,7 +2953,7 @@ $('#workerForm').addEventListener('submit', async e => {
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
       const d = await API.call('/register', {method:'POST', body:{role:'worker', name:$('#wName').value, email:$('#wEmail').value, password:pw, phone:$('#wPhone').value, suburb:$('#wPostcode').value, services, bio:$('#wAbout').value}});
       API.me = d.user; updateAuthUI(); loadWorkersLive();
-      gsSuccess(`Application received, ${d.user.name.split(' ')[0]}! 🙌`, 'Your worker account is live and your profile is now visible in Find Workers. Next steps on a real deployment: document verification, interview and orientation before your first booking.');
+      gsSuccess(`Application received, ${d.user.name.split(' ')[0]}! 🙌`, 'Your worker account is live and your profile is now visible in Find Workers. We\'ve emailed you a link to confirm your address. Next steps on a real deployment: document verification, interview and orientation before your first booking.');
       $('#gsDemoNote').textContent = 'Log back in any time with your email and password.';
     }catch(err){ toast(err.message); }
     return;
@@ -3573,10 +3681,15 @@ const ROUTES = {
   '/get-started': 'page-get-started',
   '/messages': 'page-messages',
   '/bookings': 'page-bookings',
-  '/easy-read': 'page-easy-read'
+  '/easy-read': 'page-easy-read',
+  '/reset': 'page-reset',
+  '/verified': 'page-verified',
+  '/verify-failed': 'page-verify-failed'
 };
 function route(){
   let path = location.hash.replace(/^#/, '');
+  const qi = path.indexOf('?');
+  if(qi !== -1) path = path.slice(0, qi);
   if(!ROUTES[path]) path = '/';
   const id = ROUTES[path];
   $$('.page').forEach(p => p.classList.remove('active'));
@@ -3625,6 +3738,8 @@ function updateAuthUI(){
   $('#btnLogin').textContent = API.me ? 'Log out' : 'Log in';
   const nb = $('#navBookings');
   if(nb) nb.hidden = !API.me;
+  const vb = $('#verifyBanner');
+  if(vb) vb.hidden = !(API.online && API.me && API.me.verified === 0);
   const hint = $('#loginHint');
   if(hint){
     hint.innerHTML = API.online
@@ -3634,6 +3749,14 @@ function updateAuthUI(){
   const note = $('#workersNote');
   if(note && API.online) note.textContent = 'Live worker profiles from the BookIt database — new workers appear here the moment they register.';
 }
+
+$('#btnResendVerify').addEventListener('click', async () => {
+  try{
+    await API.call('/resend-verification', {method:'POST'});
+    toast('Fresh confirmation email sent — check your inbox.');
+  }catch(err){ toast(err.message); }
+});
+$('#btnDismissVerify').addEventListener('click', () => { $('#verifyBanner').hidden = true; });
 
 async function loadWorkersLive(){
   try{

@@ -28,7 +28,8 @@ First run creates `bookit.db` (the database) and seeds it with 12 demo workers a
 - **Find workers** — served live from the database. New workers appear the moment they register.
 - **Messaging** — real conversations stored in the database, with unread badges and 5-second polling. Seeded demo workers send one automatic acknowledgement per conversation so demos feel alive (clearly labelled; turn off with `AUTO_REPLY=off`).
 - **Bookings** — participants request a booking from a worker's profile (service, date, time, hours, notes); workers accept or decline from their Bookings page; participants can cancel. Status history stays visible to both sides.
-- **Contact form** — messages stored in the `contact_messages` table.
+- **Email** — welcome + email-confirmation on registration, self-serve password reset (forgot → emailed link → new password), booking notifications (request → worker; accepted/declined → participant; cancelled → worker) and a copy of every contact-form message to your inbox. Sends through your own Zoho mailbox (see below); with no SMTP settings, email is off and everything else still works. Demo accounts are never emailed.
+- **Contact form** — messages stored in the `contact_messages` table (and emailed to you when email is on).
 - **Demo fallback** — the same front-end file still works with no server at all (opened directly or hosted statically): it detects the missing API and falls back to the simulated demo.
 
 ## Settings (environment variables)
@@ -40,6 +41,14 @@ First run creates `bookit.db` (the database) and seeds it with 12 demo workers a
 | `DB_PATH` | ./bookit.db | Where the SQLite database lives |
 | `AUTO_REPLY` | on | `off` disables the demo auto-acknowledgement bot |
 | `SITE_PASSWORD` | (unset) | Set it to lock the whole site behind a private-preview password screen (pages *and* API), with search engines told to stay away. Delete the variable and redeploy to go public |
+| `SMTP_USER` | (unset) | The mailbox the app sends as, e.g. `hello@bookit.life` |
+| `SMTP_PASS` | (unset) | That mailbox's password — or a Zoho app password if MFA is on. **Both SMTP_USER and SMTP_PASS set = email on** |
+| `SMTP_HOST` | smtppro.zoho.com.au | Zoho AU paid-org SMTP server (change only if Zoho's "Server Configuration Details" in Mail Settings says otherwise) |
+| `SMTP_PORT` | 465 | SSL port |
+| `MAIL_FROM` | = SMTP_USER | From address — must be the account address or one of its Zoho aliases |
+| `APP_URL` | (auto from request) | Absolute base for links in emails, e.g. `https://demo.bookit.life` — set it in production |
+
+After setting the SMTP variables, log in with a real (non-demo) account and `POST /api/email-test` — or just register a fresh account — to confirm sending works. Failures are logged with the exact SMTP error.
 
 ## Private preview mode
 
@@ -59,7 +68,7 @@ Any host that runs Node works. The easy paths:
 This is a working MVP, deliberately simple. Before onboarding real people:
 
 - **Hosting in Australia + HTTPS** — participant data should live in an Australian region, always encrypted in transit.
-- **No email yet** — there's no email verification, password reset or notification email. Add an email service (e.g. Resend, Postmark) before launch; until then, password resets are manual (delete the user's row or update their hash).
+- **Email is in** ✓ — verification, password reset and booking notifications all send through your Zoho mailbox once `SMTP_USER`/`SMTP_PASS` are set. Zoho caps how many emails a mailbox can send per day (fine for an MVP; move to a transactional service like ZeptoMail or Resend when volume grows).
 - **Worker verification is a flag, not a process** — registration makes a worker visible immediately. In production you'd set `worker_profiles.visible = 0` by default and flip it after checking their NDIS Worker Screening, WWCC, First Aid etc. (one-line change in server.js, marked in the code).
 - **Payments/claiming isn't built** — bookings track status only. Invoicing and NDIS claiming are the next major build.
 - **Privacy obligations** — as a registered provider you're subject to the Privacy Act and NDIS Practice Standards for records: written privacy policy, data-breach plan, retention rules. The database makes this easy to honour but the policies are yours to set.

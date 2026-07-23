@@ -10,6 +10,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const tls = require('node:tls');
 const { DatabaseSync } = require('node:sqlite');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -88,6 +89,10 @@ db.exec(`
   );
 `);
 
+/* migration (email build): verification flag on users */
+try { db.exec('ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0'); } catch {}
+db.exec("UPDATE users SET verified = 1 WHERE email LIKE '%@demo.bookit.life' AND verified = 0");
+
 /* ---------- helpers ---------- */
 const now = () => new Date().toISOString();
 const SERVICES = ['employment','personal-care','transport','daily-tasks','household','community'];
@@ -130,7 +135,7 @@ function readSession(cookieHeader) {
   const expected = sign(base);
   if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   if (Number(exp) < Date.now()) return null;
-  return db.prepare('SELECT id, role, name, email, suburb, plan FROM users WHERE id = ?').get(Number(uid)) || null;
+  return db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(Number(uid)) || null;
 }
 function json(res, status, data, headers = {}) {
   const body = JSON.stringify(data);
@@ -181,6 +186,167 @@ ${wrong ? '<p class="err">That password did not match — try again.</p>' : ''}
 </div></body></html>`;
 }
 
+/* ---------- email (zero-dependency SMTP over TLS) ----------
+   Sends through your Zoho mailbox. Set:
+     SMTP_USER = hello@bookit.life
+     SMTP_PASS = that mailbox's password (or a Zoho app password if MFA is on)
+   Optional: SMTP_HOST (default smtppro.zoho.com.au — Zoho AU, paid org),
+     SMTP_PORT (465 SSL), MAIL_FROM (defaults to SMTP_USER — must be the
+     account address or one of its aliases), APP_URL (absolute link base
+     for emails, e.g. https://demo.bookit.life).
+   Without SMTP_USER+SMTP_PASS email is OFF: everything else works and
+   would-be emails are logged to the console instead. Demo accounts
+   (@demo.bookit.life) are never emailed. */
+const SMTP_HOST = process.env.SMTP_HOST || 'smtppro.zoho.com.au';
+const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER;
+const APP_URL = (process.env.APP_URL || '').replace(/\/+$/, '');
+const EMAIL_ON = Boolean(SMTP_USER && SMTP_PASS);
+
+const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const firstName = n => escHtml(String(n || '').split(' ')[0] || 'there');
+const SERVICE_LABELS = { 'employment': 'Employment support', 'personal-care': 'Personal care', 'transport': 'Travel & transport', 'daily-tasks': 'Daily tasks & shared living', 'household': 'Household tasks', 'community': 'Community participation' };
+const prettyDate = d => { try { return new Date(d + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); } catch { return d; } };
+
+function b64wrap(str) { return Buffer.from(str, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n'); }
+
+function smtpSend(to, subject, html, text, replyTo) {
+  return new Promise((resolve, reject) => {
+    const boundary = 'bk' + crypto.randomBytes(12).toString('hex');
+    const msgId = `<${crypto.randomBytes(12).toString('hex')}@bookit.life>`;
+    const data =
+      `From: =?UTF-8?B?${Buffer.from('BookIt', 'utf8').toString('base64')}?= <${MAIL_FROM}>\r\n` +
+      `To: <${to}>\r\n` +
+      (replyTo ? `Reply-To: <${replyTo}>\r\n` : '') +
+      `Subject: =?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=\r\n` +
+      `Date: ${new Date().toUTCString()}\r\n` +
+      `Message-ID: ${msgId}\r\n` +
+      `MIME-Version: 1.0\r\n` +
+      `Content-Type: multipart/alternative; boundary="${boundary}"\r\n` +
+      `\r\n` +
+      `--${boundary}\r\n` +
+      `Content-Type: text/plain; charset=utf-8\r\n` +
+      `Content-Transfer-Encoding: base64\r\n\r\n` +
+      `${b64wrap(text)}\r\n` +
+      `--${boundary}\r\n` +
+      `Content-Type: text/html; charset=utf-8\r\n` +
+      `Content-Transfer-Encoding: base64\r\n\r\n` +
+      `${b64wrap(html)}\r\n` +
+      `--${boundary}--\r\n`;
+    const steps = [
+      { expect: 220, send: () => 'EHLO bookit.life\r\n' },
+      { expect: 250, send: () => 'AUTH LOGIN\r\n' },
+      { expect: 334, send: () => Buffer.from(SMTP_USER, 'utf8').toString('base64') + '\r\n' },
+      { expect: 334, send: () => Buffer.from(SMTP_PASS, 'utf8').toString('base64') + '\r\n' },
+      { expect: 235, send: () => `MAIL FROM:<${MAIL_FROM}>\r\n` },
+      { expect: 250, send: () => `RCPT TO:<${to}>\r\n` },
+      { expect: 250, send: () => 'DATA\r\n' },
+      { expect: 354, send: () => data + '.\r\n' },
+      { expect: 250, send: () => 'QUIT\r\n', done: true }
+    ];
+    let i = 0, buf = '', finished = false;
+    const sock = tls.connect({ host: SMTP_HOST, port: SMTP_PORT, servername: SMTP_HOST });
+    const fail = err => { if (finished) return; finished = true; clearTimeout(timer); try { sock.destroy(); } catch {} reject(err); };
+    const timer = setTimeout(() => fail(new Error(`SMTP timeout talking to ${SMTP_HOST}:${SMTP_PORT}`)), 25000);
+    sock.on('error', fail);
+    sock.on('data', chunk => {
+      buf += chunk.toString('utf8');
+      let nl;
+      while ((nl = buf.indexOf('\r\n')) !== -1) {
+        const line = buf.slice(0, nl); buf = buf.slice(nl + 2);
+        if (finished) return;
+        if (/^\d{3}-/.test(line)) continue; /* multiline reply — keep reading */
+        const step = steps[i];
+        if (!step) continue;
+        const code = Number(line.slice(0, 3));
+        if (code !== step.expect) return fail(new Error(`${SMTP_HOST} said: ${line.trim() || '(empty reply)'}`));
+        i++;
+        sock.write(step.send());
+        if (step.done) { finished = true; clearTimeout(timer); sock.end(); resolve(true); }
+      }
+    });
+  });
+}
+
+function emailHtml(heading, bodyHtml, ctaText, ctaUrl) {
+  const btn = (ctaText && ctaUrl) ? `
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px auto 8px;"><tr><td style="background:#0E6B62;border-radius:999px;">
+<a href="${ctaUrl}" style="display:inline-block;padding:13px 30px;color:#ffffff;font-weight:700;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:15px;">${ctaText}</a>
+</td></tr></table>
+<p style="font-size:12px;color:#7d8f96;text-align:center;margin:0;">Button not working? Paste this into your browser:<br>
+<a href="${ctaUrl}" style="color:#0E6B62;word-break:break-all;">${ctaUrl}</a></p>` : '';
+  return `<!DOCTYPE html>
+<html lang="en-AU"><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#FAF6F0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF6F0;padding:28px 12px;"><tr><td align="center">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #E7DFD4;border-radius:18px;">
+<tr><td style="padding:30px 34px 24px;font-family:Arial,Helvetica,sans-serif;color:#17313A;">
+<div style="font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:20px;">b<span style="color:#0E6B62;">o</span><span style="color:#F5B841;">o</span>kit <span style="color:#0E6B62;">&#10003;</span></div>
+<h1 style="font-size:20px;margin:0 0 14px;">${heading}</h1>
+<div style="font-size:15px;line-height:1.65;color:#3E5A64;">${bodyHtml}</div>
+${btn}
+</td></tr>
+<tr><td style="padding:18px 34px 26px;border-top:1px solid #F0EAE0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#7d8f96;line-height:1.6;">
+BookIt &middot; operated by Disability &amp; Mental Health Care Pty Ltd<br>
+ABN 19 658 578 575 &middot; Registered NDIS Provider 4-LO5XNY0<br>
+You&#39;re receiving this because of activity on your BookIt account.
+</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
+function sendMail(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo) {
+  const dest = String(to || '').trim().toLowerCase();
+  if (!dest || dest.endsWith('@demo.bookit.life')) return Promise.resolve('skipped-demo');
+  const html = emailHtml(heading, bodyHtml, ctaText, ctaUrl);
+  const text = bodyHtml.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>\s*<p[^>]*>/gi, '\n\n').replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&middot;/g, '·').trim()
+    + (ctaUrl ? `\n\n${ctaText}: ${ctaUrl}` : '')
+    + '\n\n— BookIt · Disability & Mental Health Care Pty Ltd · ABN 19 658 578 575';
+  if (!EMAIL_ON) { console.log(`[email off] '${subject}' → ${dest}${ctaUrl ? ' · link: ' + ctaUrl : ''}`); return Promise.resolve('skipped-off'); }
+  return smtpSend(dest, subject, html, text, replyTo).then(
+    ok => { console.log(`[email] sent '${subject}' → ${dest}`); return ok; },
+    err => { console.error(`[email] FAILED '${subject}' → ${dest}: ${err.message}`); throw err; }
+  );
+}
+
+function baseUrl(req) {
+  if (APP_URL) return APP_URL;
+  const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`).split(',')[0].trim();
+  return `${proto}://${host}`;
+}
+
+/* signed, expiring email tokens (verify / reset) */
+function makeEmailToken(kind, uid, ttlMs, extra = '') {
+  const exp = Date.now() + ttlMs;
+  const base = `${kind}.${uid}.${exp}`;
+  return `${base}.${sign(`${base}.${extra}`)}`;
+}
+function readEmailToken(kind, token, extraFor) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 4 || parts[0] !== kind) return null;
+  const [k, uid, exp, sig] = parts;
+  if (!/^\d+$/.test(uid) || !/^\d+$/.test(exp)) return null;
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(uid));
+  if (!u) return null;
+  const extra = extraFor ? extraFor(u) : '';
+  const expected = sign(`${k}.${uid}.${exp}.${extra}`);
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  if (Number(exp) < Date.now()) return null;
+  return u;
+}
+function sendVerifyEmail(req, u) {
+  const url2 = `${baseUrl(req)}/verify-email?token=${makeEmailToken('v', u.id, 7 * 864e5)}`;
+  return sendMail(u.email, 'Confirm your email — BookIt',
+    `Welcome to BookIt, ${firstName(u.name)}!`,
+    `<p>Your account is live. One quick thing — press the button below so we know this address is really yours. That's what keeps password resets and booking updates flowing to the right inbox.</p><p>The link works for 7 days.</p>`,
+    'Confirm my email', url2);
+}
+
 function clean(v, max = 300) { return String(v ?? '').trim().slice(0, max); }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -221,6 +387,7 @@ function seed() {
     insProf.run(Number(r.lastInsertRowid), w.bio, JSON.stringify(w.services), w.langs, w.exp, w.color, w.rating, w.shifts, JSON.stringify(w.checks), JSON.stringify(w.days));
   }
   insUser.run('participant', 'Demo Participant', 'demo@demo.bookit.life', demoPass, 'Wyong NSW', now());
+  db.exec("UPDATE users SET verified = 1 WHERE email LIKE '%@demo.bookit.life'");
   console.log('Seeded 12 demo workers (…@demo.bookit.life / demo1234) and demo@demo.bookit.life / demo1234');
 }
 seed();
@@ -279,7 +446,8 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
     db.prepare('INSERT INTO worker_profiles (user_id, bio, services) VALUES (?,?,?)')
       .run(uid, clean(body.bio, 600), JSON.stringify(services));
   }
-  const me = db.prepare('SELECT id, role, name, email, suburb, plan FROM users WHERE id = ?').get(uid);
+  const me = db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(uid);
+  sendVerifyEmail(req, me).catch(() => {});
   json(res, 200, { user: me }, setSessionHeaders(uid));
 });
 
@@ -290,10 +458,62 @@ route('POST', /^\/api\/login$/, (req, res, m, user, body, ip) => {
   if (!row || !verifyPassword(String(body.password || ''), row.pass)) {
     return json(res, 401, { error: 'Email or password doesn\'t match.' });
   }
-  json(res, 200, { user: { id: row.id, role: row.role, name: row.name, email: row.email, suburb: row.suburb, plan: row.plan } }, setSessionHeaders(row.id));
+  json(res, 200, { user: { id: row.id, role: row.role, name: row.name, email: row.email, suburb: row.suburb, plan: row.plan, verified: row.verified } }, setSessionHeaders(row.id));
 });
 
 route('POST', /^\/api\/logout$/, (req, res) => json(res, 200, { ok: true }, CLEAR_COOKIE));
+
+/* ---------- email flows: forgot / reset / verify ---------- */
+route('POST', /^\/api\/forgot$/, (req, res, m, user, body, ip) => {
+  if (limited(ip, 'forgot', 8)) return json(res, 429, { error: 'Too many attempts — try again later.' });
+  const email = clean(body.email, 120).toLowerCase();
+  const row = EMAIL_RE.test(email) ? db.prepare('SELECT * FROM users WHERE email = ?').get(email) : null;
+  if (row) {
+    const token = makeEmailToken('r', row.id, 45 * 60e3, String(row.pass).slice(0, 16));
+    const url2 = `${baseUrl(req)}/#/reset?token=${token}`;
+    sendMail(row.email, 'Reset your BookIt password',
+      `Hi ${firstName(row.name)},`,
+      `<p>Someone (hopefully you) asked to reset the password on your BookIt account. Press the button to choose a new one — the link works for 45 minutes.</p><p>If this wasn't you, ignore this email and nothing changes.</p>`,
+      'Choose a new password', url2).catch(() => {});
+  }
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/reset$/, (req, res, m, user, body, ip) => {
+  if (limited(ip, 'reset', 10)) return json(res, 429, { error: 'Too many attempts — try again later.' });
+  const password = String(body.password || '');
+  if (password.length < 8) return json(res, 400, { error: 'Password needs at least 8 characters.' });
+  const u = readEmailToken('r', body.token, x => String(x.pass).slice(0, 16));
+  if (!u) return json(res, 400, { error: 'That reset link is invalid or has expired — request a fresh one from the log in screen.' });
+  /* clicking an emailed link also proves the address works */
+  db.prepare('UPDATE users SET pass = ?, verified = 1 WHERE id = ?').run(hashPassword(password), u.id);
+  const me = db.prepare('SELECT id, role, name, email, suburb, plan, verified FROM users WHERE id = ?').get(u.id);
+  json(res, 200, { user: me }, setSessionHeaders(u.id));
+});
+
+route('POST', /^\/api\/resend-verification$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (limited(ip, 'resend', 6)) return json(res, 429, { error: 'Too many attempts — try again later.' });
+  if (user.verified) return json(res, 200, { ok: true, already: true });
+  sendVerifyEmail(req, user).catch(() => {});
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/email-test$/, async (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (limited(ip, 'emailtest', 6)) return json(res, 429, { error: 'Too many attempts — try again later.' });
+  if (!EMAIL_ON) return json(res, 200, { ok: false, error: 'Email is not configured yet — set SMTP_USER and SMTP_PASS.' });
+  if (user.email.endsWith('@demo.bookit.life')) return json(res, 400, { error: 'Demo accounts never receive email — log in with a real account to test.' });
+  try {
+    await sendMail(user.email, 'BookIt email test',
+      `It works, ${firstName(user.name)}!`,
+      `<p>This test email was sent by your BookIt server through <b>${escHtml(SMTP_HOST)}</b>. Welcome emails, password resets and booking updates are all go.</p>`,
+      'Open BookIt', baseUrl(req));
+    json(res, 200, { ok: true, sent_to: user.email, via: `${SMTP_HOST}:${SMTP_PORT}` });
+  } catch (e) {
+    json(res, 502, { ok: false, error: e.message });
+  }
+});
 
 route('GET', /^\/api\/workers$/, (req, res) => {
   const rows = db.prepare(`
@@ -398,6 +618,11 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   if (!(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
   const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, created) VALUES (?,?,?,?,?,?,?,?)')
     .run(user.id, workerId, service, date, start, hours, clean(body.notes, 600), now());
+  const wu = db.prepare('SELECT name, email FROM users WHERE id = ?').get(workerId);
+  if (wu) sendMail(wu.email, 'New booking request — BookIt',
+    `New booking request, ${firstName(wu.name)}!`,
+    `<p><b>${escHtml(user.name)}</b> has requested <b>${SERVICE_LABELS[service] || service}</b> on <b>${prettyDate(date)}</b> starting <b>${escHtml(start)}</b> (${hours} hours).</p><p>Accept or decline from your bookings page — they'll see your answer straight away.</p>`,
+    'View the request', `${baseUrl(req)}/#/bookings`).catch(() => {});
   json(res, 200, { id: Number(r.lastInsertRowid), ok: true });
 });
 
@@ -410,10 +635,23 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
   const participantActions = ['cancelled'];
   if (user.role === 'worker' && b.worker_id === user.id && workerActions.includes(status) && b.status === 'requested') {
     db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status, b.id);
+    const pu = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
+    if (pu) sendMail(pu.email, `Booking ${status} — BookIt`,
+      status === 'accepted' ? 'Your booking is confirmed 🎉' : 'About your booking request',
+      `<p><b>${escHtml(user.name)}</b> has <b>${status}</b> your booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>` +
+      (status === 'accepted'
+        ? `<p>You can message ${firstName(user.name)} any time to sort the details before the day.</p>`
+        : '<p>No stress — every worker on Find Workers is ready to hear from you, and Meet &amp; Greets are always free.</p>'),
+      'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
     return json(res, 200, { ok: true });
   }
   if (user.role === 'participant' && b.participant_id === user.id && participantActions.includes(status) && ['requested', 'accepted'].includes(b.status)) {
     db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status, b.id);
+    const wu2 = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.worker_id);
+    if (wu2) sendMail(wu2.email, 'Booking cancelled — BookIt',
+      `A booking was cancelled, ${firstName(wu2.name)}`,
+      `<p><b>${escHtml(user.name)}</b> has cancelled the booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p><p>Your calendar for that time is free again.</p>`,
+      'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
     return json(res, 200, { ok: true });
   }
   json(res, 403, { error: 'That change isn\'t allowed.' });
@@ -423,6 +661,12 @@ route('POST', /^\/api\/contact$/, (req, res, m, user, body, ip) => {
   if (limited(ip, 'contact', 20)) return json(res, 429, { error: 'Too many messages — try again later.' });
   db.prepare('INSERT INTO contact_messages (name, email, topic, body, created) VALUES (?,?,?,?,?)')
     .run(clean(body.name, 80), clean(body.email, 120), clean(body.topic, 80), clean(body.body, 2000), now());
+  /* forward a copy to the BookIt inbox so nothing sits unseen in the database */
+  const fromEmail = clean(body.email, 120);
+  if (MAIL_FROM) sendMail(MAIL_FROM, `Contact form — ${clean(body.topic, 80) || 'General'}`,
+    'New message from the contact form',
+    `<p><b>From:</b> ${escHtml(clean(body.name, 80)) || 'Anonymous'} &lt;${escHtml(fromEmail) || 'no email given'}&gt;<br><b>Topic:</b> ${escHtml(clean(body.topic, 80)) || 'General'}</p><p style="white-space:pre-wrap;">${escHtml(clean(body.body, 2000))}</p>`,
+    null, null, EMAIL_RE.test(fromEmail) ? fromEmail : undefined).catch(() => {});
   json(res, 200, { ok: true });
 });
 
@@ -496,6 +740,14 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  /* emailed verification links land here, then bounce into the app */
+  if (pathname === '/verify-email' && req.method === 'GET') {
+    const u = readEmailToken('v', url.searchParams.get('token') || '');
+    if (u) db.prepare('UPDATE users SET verified = 1 WHERE id = ?').run(u.id);
+    res.writeHead(302, { 'Location': u ? '/#/verified' : '/#/verify-failed' });
+    return res.end();
+  }
+
   if (!pathname.startsWith('/api/')) {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
     return serveStatic(req, res, pathname);
@@ -526,4 +778,5 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`BookIt server running → http://localhost:${PORT}`);
   console.log(`Database: ${DB_PATH} · auto-reply bot: ${AUTO_REPLY ? 'on' : 'off'}`);
+  console.log(`Email: ${EMAIL_ON ? `ON — sending as ${MAIL_FROM} via ${SMTP_HOST}:${SMTP_PORT}` : 'OFF — set SMTP_USER + SMTP_PASS to enable (emails are logged to console instead)'}`);
 });
