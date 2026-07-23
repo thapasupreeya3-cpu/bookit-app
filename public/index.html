@@ -749,6 +749,7 @@ main:focus{outline:none;}
 .bk-accepted{background:#DBF2E4;color:var(--ok);}
 .bk-declined{background:var(--coral-tint);color:var(--coral);}
 .bk-cancelled{background:#eee;color:var(--ink-soft);}
+.bk-completed{background:#DBEAFE;color:#1D4ED8;}
 .bk-actions{display:flex;gap:8px;flex-wrap:wrap;}
 html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!important;}
 </style>
@@ -3893,7 +3894,8 @@ document.addEventListener('click', e => {
 });
 
 /* ---------- bookings ---------- */
-const STATUS_LABEL = { requested:'Requested', accepted:'Accepted ✓', declined:'Declined', cancelled:'Cancelled' };
+const STATUS_LABEL = { requested:'Requested', accepted:'Accepted ✓', declined:'Declined', cancelled:'Cancelled', completed:'Completed ✓' };
+const RATE_LABEL = { 'weekday-day':'Weekday daytime', 'weekday-evening':'Weekday evening', 'weekday-night':'Weekday night', 'saturday':'Saturday', 'sunday':'Sunday', 'public-holiday':'Public holiday', 'household':'Household tasks (cleaning)' };
 let bookingWorker = null;
 function openBookingModal(w){
   bookingWorker = w;
@@ -3949,10 +3951,12 @@ async function renderBookingsPage(){
         <b>${esc(b.other_name)}</b>
         <span class="muted-sm">${SVC_NAME[b.service] || b.service} · ${b.date} · ${b.start} · ${b.hours} hrs</span>
         ${b.notes ? `<span class="muted-sm">“${esc(b.notes)}”</span>` : ''}
+        ${b.status === 'completed' && b.total ? `<span class="muted-sm"><b>$${Number(b.total).toFixed(2)}</b> — ${b.hours}h × $${Number(b.unit_price).toFixed(2)} (${RATE_LABEL[b.rate_category] || b.rate_category} rate)</span>` : ''}
       </div>
       <span class="bk-status bk-${b.status}">${STATUS_LABEL[b.status] || b.status}</span>
       <div class="bk-actions">
         ${API.me.role === 'worker' && b.status === 'requested' ? `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="accepted">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined">Decline</button>` : ''}
+        ${API.me.role === 'worker' && b.status === 'accepted' && b.date <= new Date().toISOString().slice(0,10) ? `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="completed">Mark shift completed</button>` : ''}
         ${API.me.role === 'participant' && ['requested','accepted'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="cancelled">Cancel</button>` : ''}
       </div>
     </div>`).join('');
@@ -3961,8 +3965,8 @@ document.addEventListener('click', async e => {
   const btn = e.target.closest('[data-bk]');
   if(!btn) return;
   try{
-    await API.call('/bookings/' + btn.dataset.bk, {method:'PATCH', body:{status: btn.dataset.act}});
-    toast('Booking ' + btn.dataset.act + '.');
+    const r = await API.call('/bookings/' + btn.dataset.bk, {method:'PATCH', body:{status: btn.dataset.act}});
+    toast(btn.dataset.act === 'completed' && r.invoice ? `Shift completed — $${r.invoice.total.toFixed(2)} recorded for invoicing. 🎉` : 'Booking ' + btn.dataset.act + '.');
     renderBookingsPage();
   }catch(err){ toast(err.message); }
 });
@@ -3981,15 +3985,32 @@ async function renderAdminPage(){
   let d;
   try{ d = await API.call('/admin/overview'); }
   catch(err){ wrap.innerHTML = '<div class="info-card"><p>' + esc(err.message) + '</p></div>'; return; }
+  let inv;
+  try{ inv = await API.call('/admin/invoices'); }
+  catch(e){ inv = { invoices: [], totals: { billed: 0, worker_share: 0 }, categories: [] }; }
   const c = d.counts;
   const tiles = `<div class="adm-tiles">
     <div class="adm-tile"><b>${c.participants}</b><span>Participants</span></div>
     <div class="adm-tile"><b>${c.workers}</b><span>Workers</span></div>
     <div class="adm-tile"><b style="${c.pending ? 'color:#D94F32;' : ''}">${c.pending}</b><span>Awaiting approval</span></div>
     <div class="adm-tile"><b>${c.bookings}</b><span>Bookings</span></div>
+    <div class="adm-tile"><b>${c.completed || 0}</b><span>Completed shifts</span></div>
+    <div class="adm-tile"><b>$${(c.billed || 0).toFixed(2)}</b><span>Billed at NDIS limits</span></div>
     <div class="adm-tile"><b>${c.messages}</b><span>Messages</span></div>
     <div class="adm-tile"><b>${c.contacts}</b><span>Contact forms</span></div>
   </div>`;
+  const invoicing = inv.invoices.length ? `
+    <p style="margin:0 0 12px;"><a class="btn btn-primary" href="/api/admin/invoices.csv" download>⬇ Download invoice CSV</a>
+    <span style="font-size:.85rem;color:#3E5A64;margin-left:10px;">Rates auto-picked from each shift's day &amp; time — switch any line to <b>Public holiday</b> yourself (that one can't be auto-detected).</span></p>
+    <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Shift</th><th>Participant</th><th>Worker</th><th>Service</th><th>Hours</th><th>Rate</th><th>Total</th></tr></thead><tbody>
+    ${inv.invoices.map(r => `<tr>
+      <td>${esc(r.date)} ${esc(r.start)}</td><td>${esc(r.participant_name)}</td><td>${esc(r.worker_name)}</td><td>${esc(svcName(r.service))}</td><td>${r.hours}</td>
+      <td><select class="adm-inv-cat" data-inv="${r.id}" style="font:inherit;padding:4px 6px;border-radius:8px;border:1.5px solid #E7DFD4;">
+        ${inv.categories.map(cat => `<option value="${cat.key}" ${cat.key === r.rate_category ? 'selected' : ''}>${esc(cat.label)} — $${cat.price.toFixed(2)}/h</option>`).join('')}
+      </select></td>
+      <td><b>$${Number(r.total || 0).toFixed(2)}</b></td></tr>`).join('')}
+    <tr><td colspan="6" style="text-align:right;"><b>Total billed</b> (worker share $${inv.totals.worker_share.toFixed(2)})</td><td><b>$${inv.totals.billed.toFixed(2)}</b></td></tr>
+    </tbody></table></div>` : '<p class="adm-empty">No completed shifts yet — when a worker marks an accepted booking as done, its invoice line appears here.</p>';
   const pending = d.pending.length ? d.pending.map(w => `
     <div class="adm-pending">
       <h3 style="margin:0 0 4px;">${esc(w.name)} <span style="font-weight:400;font-size:.85rem;color:#3E5A64;">· ${esc(w.suburb || 'no suburb')} · applied ${fmtStamp(w.created)}</span></h3>
@@ -4018,10 +4039,20 @@ async function renderAdminPage(){
   </tbody></table></div>`;
   wrap.innerHTML = tiles
     + `<h2 class="adm-section">Workers awaiting approval ${c.pending ? `(${c.pending})` : ''}</h2>` + pending
+    + `<h2 class="adm-section">Invoicing — completed shifts ${inv.invoices.length ? `(${inv.invoices.length})` : ''}</h2>` + invoicing
     + '<h2 class="adm-section">Recent bookings</h2>' + bookings
     + '<h2 class="adm-section">Contact-form messages</h2>' + contacts
     + '<h2 class="adm-section">Everyone (latest 100)</h2>' + users;
 }
+document.addEventListener('change', async e => {
+  const s = e.target.closest('.adm-inv-cat');
+  if(!s) return;
+  try{
+    const r = await API.call('/admin/invoices/' + s.dataset.inv + '/category', {method:'POST', body:{category: s.value}});
+    toast(`Rate updated — $${r.invoice.total.toFixed(2)} at the ${r.invoice.label} rate.`);
+    renderAdminPage();
+  }catch(err){ toast(err.message); renderAdminPage(); }
+});
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-adm-act]');
   if(!b) return;

@@ -80,7 +80,7 @@ db.exec(`
     hours REAL NOT NULL,
     notes TEXT DEFAULT '',
     status TEXT NOT NULL DEFAULT 'requested'
-      CHECK (status IN ('requested','accepted','declined','cancelled')),
+      CHECK (status IN ('requested','accepted','declined','cancelled','completed')),
     created TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS contact_messages (
@@ -93,6 +93,39 @@ db.exec(`
 try { db.exec('ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0'); } catch {}
 db.exec("UPDATE users SET verified = 1 WHERE email LIKE '%@demo.bookit.life' AND verified = 0");
 
+/* migration (invoicing build): completion + invoice fields on bookings */
+for (const col of ['completed_at TEXT', 'rate_category TEXT', 'unit_price REAL', 'worker_share REAL', 'total REAL']) {
+  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+}
+/* …and allow the 'completed' status. SQLite can't edit a CHECK constraint,
+   so databases created before invoicing get their bookings table rebuilt once. */
+const bkDef = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'").get();
+if (bkDef && !bkDef.sql.includes("'completed'")) {
+  db.exec(`
+    BEGIN;
+    CREATE TABLE bookings_new (
+      id INTEGER PRIMARY KEY,
+      participant_id INTEGER NOT NULL REFERENCES users(id),
+      worker_id INTEGER NOT NULL REFERENCES users(id),
+      service TEXT NOT NULL,
+      date TEXT NOT NULL,
+      start TEXT NOT NULL,
+      hours REAL NOT NULL,
+      notes TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'requested'
+        CHECK (status IN ('requested','accepted','declined','cancelled','completed')),
+      created TEXT NOT NULL,
+      completed_at TEXT, rate_category TEXT, unit_price REAL, worker_share REAL, total REAL
+    );
+    INSERT INTO bookings_new (id, participant_id, worker_id, service, date, start, hours, notes, status, created, completed_at, rate_category, unit_price, worker_share, total)
+      SELECT id, participant_id, worker_id, service, date, start, hours, notes, status, created, completed_at, rate_category, unit_price, worker_share, total FROM bookings;
+    DROP TABLE bookings;
+    ALTER TABLE bookings_new RENAME TO bookings;
+    COMMIT;
+  `);
+  console.log('Migrated bookings table to allow completed status.');
+}
+
 /* ---------- helpers ---------- */
 const now = () => new Date().toISOString();
 const SERVICES = ['employment','personal-care','transport','daily-tasks','household','community'];
@@ -104,6 +137,42 @@ const RATES = [
   { label: 'Sunday', you: 133.50, worker: 96.65 },
   { label: 'Public holiday', you: 163.46, worker: 118.35 }
 ];
+
+/* ---------- invoicing (NDIS Pricing Arrangements 2026–27 price limits) ----------
+   A completed shift gets a rate category. The category is auto-suggested from
+   the booking's date/time (public holidays can't be auto-detected — admins can
+   override any line from the dashboard before exporting). */
+const INVOICE_RATES = {
+  'weekday-day':     { label: 'Weekday daytime', price: 73.58,  worker: 53.25 },
+  'weekday-evening': { label: 'Weekday evening', price: 81.07,  worker: 58.70 },
+  'weekday-night':   { label: 'Weekday night',   price: 82.57,  worker: 59.80 },
+  'saturday':        { label: 'Saturday',        price: 103.54, worker: 74.95 },
+  'sunday':          { label: 'Sunday',          price: 133.50, worker: 96.65 },
+  'public-holiday':  { label: 'Public holiday',  price: 163.46, worker: 118.35 },
+  'household':       { label: 'Household tasks (cleaning)', price: 60.10, worker: 43.50 }
+};
+const REG_GROUPS = { 'employment': '0102', 'personal-care': '0107', 'transport': '0108', 'daily-tasks': '0115/0138', 'household': '0120', 'community': '0125' };
+function suggestCategory(b) {
+  if (b.service === 'household') return 'household';
+  const dow = new Date(b.date + 'T00:00:00').getDay();
+  if (dow === 6) return 'saturday';
+  if (dow === 0) return 'sunday';
+  const [h, min] = String(b.start).split(':').map(Number);
+  const endH = h + (min || 0) / 60 + Number(b.hours);
+  if (h < 6) return 'weekday-night';
+  if (h >= 20 || endH > 20) return 'weekday-evening';
+  return 'weekday-day';
+}
+function applyInvoice(id, category) {
+  const r = INVOICE_RATES[category];
+  const b = db.prepare('SELECT hours FROM bookings WHERE id = ?').get(id);
+  if (!r || !b) return null;
+  const total = Math.round(r.price * b.hours * 100) / 100;
+  const workerShare = Math.round(r.worker * b.hours * 100) / 100;
+  db.prepare('UPDATE bookings SET rate_category = ?, unit_price = ?, worker_share = ?, total = ? WHERE id = ?')
+    .run(category, r.price, workerShare, total, id);
+  return { category, label: r.label, unit_price: r.price, total, worker_share: workerShare };
+}
 
 function hashPassword(pw) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -557,7 +626,9 @@ route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
     pending: db.prepare('SELECT COUNT(*) AS n FROM worker_profiles WHERE visible = 0').get().n,
     bookings: db.prepare('SELECT COUNT(*) AS n FROM bookings').get().n,
     messages: db.prepare('SELECT COUNT(*) AS n FROM messages').get().n,
-    contacts: db.prepare('SELECT COUNT(*) AS n FROM contact_messages').get().n
+    contacts: db.prepare('SELECT COUNT(*) AS n FROM contact_messages').get().n,
+    completed: db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE status = 'completed'").get().n,
+    billed: Math.round(db.prepare("SELECT COALESCE(SUM(total), 0) AS s FROM bookings WHERE status = 'completed'").get().s * 100) / 100
   };
   const pending = db.prepare(`SELECT p.user_id, p.bio, p.services, u.name, u.email, u.suburb, u.phone, u.verified, u.created
     FROM worker_profiles p JOIN users u ON u.id = p.user_id WHERE p.visible = 0 ORDER BY u.created DESC`).all()
@@ -589,6 +660,46 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/hide$/, (req, res, m, user) => {
   if (!w) return json(res, 404, { error: 'No such worker.' });
   db.prepare('UPDATE worker_profiles SET visible = 0 WHERE user_id = ?').run(uid);
   json(res, 200, { ok: true });
+});
+
+/* ---------- admin: invoicing ---------- */
+function invoiceRows() {
+  return db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.rate_category, b.unit_price, b.worker_share, b.total, b.completed_at,
+      up.name AS participant_name, up.email AS participant_email, uw.name AS worker_name
+    FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id
+    WHERE b.status = 'completed' ORDER BY b.date DESC, b.id DESC`).all();
+}
+route('GET', /^\/api\/admin\/invoices$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = invoiceRows();
+  const sum = rows.reduce((a, r) => { a.total += r.total || 0; a.worker += r.worker_share || 0; return a; }, { total: 0, worker: 0 });
+  json(res, 200, {
+    invoices: rows,
+    totals: { billed: Math.round(sum.total * 100) / 100, worker_share: Math.round(sum.worker * 100) / 100 },
+    categories: Object.entries(INVOICE_RATES).map(([key, r]) => ({ key, label: r.label, price: r.price }))
+  });
+});
+route('POST', /^\/api\/admin\/invoices\/(\d+)\/category$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const b = db.prepare("SELECT id FROM bookings WHERE id = ? AND status = 'completed'").get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'No such completed shift.' });
+  const inv = applyInvoice(b.id, clean(body.category, 30));
+  if (!inv) return json(res, 400, { error: 'Unknown rate category.' });
+  json(res, 200, { ok: true, invoice: inv });
+});
+route('GET', /^\/api\/admin\/invoices\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['Shift ID', 'Date', 'Start', 'Hours', 'Service', 'Registration group', 'Participant', 'Participant email', 'Worker', 'Rate category', 'Unit price ($/h)', 'Total billed ($)', 'Worker share incl. super ($)', 'Completed at'].map(q).join(',')];
+  for (const r of invoiceRows()) {
+    lines.push([r.id, r.date, r.start, r.hours, SERVICE_LABELS[r.service] || r.service, REG_GROUPS[r.service] || '', r.participant_name, r.participant_email, r.worker_name,
+      (INVOICE_RATES[r.rate_category] || {}).label || r.rate_category, (r.unit_price ?? 0).toFixed(2), (r.total ?? 0).toFixed(2), (r.worker_share ?? 0).toFixed(2), r.completed_at].map(q).join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-invoices-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end('﻿' + lines.join('\r\n'));
 });
 
 route('GET', /^\/api\/workers$/, (req, res) => {
@@ -731,6 +842,19 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
       `<p><b>${escHtml(user.name)}</b> has cancelled the booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p><p>Your calendar for that time is free again.</p>`,
       'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
     return json(res, 200, { ok: true });
+  }
+  /* worker marks an accepted shift as completed (on/after the shift date) → invoice line is born */
+  if (user.role === 'worker' && b.worker_id === user.id && status === 'completed' && b.status === 'accepted') {
+    const today = new Date().toISOString().slice(0, 10);
+    if (b.date > today) return json(res, 400, { error: 'You can mark a shift completed on the day of the shift or after — this one hasn\'t happened yet.' });
+    const inv = applyInvoice(b.id, suggestCategory(b));
+    db.prepare('UPDATE bookings SET status = ?, completed_at = ? WHERE id = ?').run('completed', now(), b.id);
+    const pu2 = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
+    if (pu2 && inv) sendMail(pu2.email, 'Shift completed — BookIt',
+      `Shift completed, ${firstName(pu2.name)}`,
+      `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${b.hours} hours × $${inv.unit_price.toFixed(2)}</b> (${inv.label} — 2026–27 NDIS price limit) = <b>$${inv.total.toFixed(2)}</b>.</p><p>If anything about this shift doesn't look right, just reply to this email and we'll sort it out before it's claimed.</p>`,
+      'View my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+    return json(res, 200, { ok: true, invoice: inv });
   }
   json(res, 403, { error: 'That change isn\'t allowed.' });
 });
