@@ -201,9 +201,14 @@ const SMTP_HOST = process.env.SMTP_HOST || 'smtppro.zoho.com.au';
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
-const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER;
+const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER || 'hello@bookit.life';
 const APP_URL = (process.env.APP_URL || '').replace(/\/+$/, '');
-const EMAIL_ON = Boolean(SMTP_USER && SMTP_PASS);
+/* Resend HTTPS API (api.resend.com) — needed on hosts that block outbound
+   SMTP (Railway Free/Trial/Hobby all do). Set RESEND_API_KEY to use it;
+   it wins over SMTP when both are configured. */
+const RESEND_KEY = process.env.RESEND_API_KEY || '';
+const RESEND_BASE = (process.env.RESEND_BASE || 'https://api.resend.com').replace(/\/+$/, '');
+const EMAIL_ON = Boolean(RESEND_KEY || (SMTP_USER && SMTP_PASS));
 
 const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const firstName = n => escHtml(String(n || '').split(' ')[0] || 'there');
@@ -270,6 +275,21 @@ function smtpSend(to, subject, html, text, replyTo) {
   });
 }
 
+async function resendSend(to, subject, html, text, replyTo) {
+  const res = await fetch(`${RESEND_BASE}/emails`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: `BookIt <${MAIL_FROM}>`, to: [to], subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}) }),
+    signal: AbortSignal.timeout(20000)
+  });
+  if (!res.ok) {
+    let msg = `Resend API ${res.status}`;
+    try { const j = await res.json(); if (j && j.message) msg += `: ${j.message}`; } catch {}
+    throw new Error(msg);
+  }
+  return true;
+}
+
 function emailHtml(heading, bodyHtml, ctaText, ctaUrl) {
   const btn = (ctaText && ctaUrl) ? `
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px auto 8px;"><tr><td style="background:#0E6B62;border-radius:999px;">
@@ -307,7 +327,8 @@ function sendMail(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo) {
     + (ctaUrl ? `\n\n${ctaText}: ${ctaUrl}` : '')
     + '\n\n— BookIt · Disability & Mental Health Care Pty Ltd · ABN 19 658 578 575';
   if (!EMAIL_ON) { console.log(`[email off] '${subject}' → ${dest}${ctaUrl ? ' · link: ' + ctaUrl : ''}`); return Promise.resolve('skipped-off'); }
-  return smtpSend(dest, subject, html, text, replyTo).then(
+  const transport = RESEND_KEY ? resendSend : smtpSend;
+  return transport(dest, subject, html, text, replyTo).then(
     ok => { console.log(`[email] sent '${subject}' → ${dest}`); return ok; },
     err => { console.error(`[email] FAILED '${subject}' → ${dest}: ${err.message}`); throw err; }
   );
@@ -507,9 +528,9 @@ route('POST', /^\/api\/email-test$/, async (req, res, m, user, body, ip) => {
   try {
     await sendMail(user.email, 'BookIt email test',
       `It works, ${firstName(user.name)}!`,
-      `<p>This test email was sent by your BookIt server through <b>${escHtml(SMTP_HOST)}</b>. Welcome emails, password resets and booking updates are all go.</p>`,
+      `<p>This test email was sent by your BookIt server through <b>${RESEND_KEY ? 'the Resend API' : escHtml(SMTP_HOST)}</b>. Welcome emails, password resets and booking updates are all go.</p>`,
       'Open BookIt', baseUrl(req));
-    json(res, 200, { ok: true, sent_to: user.email, via: `${SMTP_HOST}:${SMTP_PORT}` });
+    json(res, 200, { ok: true, sent_to: user.email, via: RESEND_KEY ? 'resend-api' : `${SMTP_HOST}:${SMTP_PORT}` });
   } catch (e) {
     json(res, 502, { ok: false, error: e.message });
   }
@@ -703,6 +724,13 @@ const server = http.createServer((req, res) => {
   const pathname = url.pathname;
   const ip = req.socket.remoteAddress || 'unknown';
 
+  /* ----- force HTTPS when behind a proxy (Railway etc.) ----- */
+  const xfProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  if (xfProto === 'http') {
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+    if (host) { res.writeHead(301, { 'Location': `https://${host}${req.url}` }); return res.end(); }
+  }
+
   /* ----- private preview gate ----- */
   if (SITE_PASSWORD) {
     if (pathname === '/robots.txt') {
@@ -778,5 +806,5 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`BookIt server running → http://localhost:${PORT}`);
   console.log(`Database: ${DB_PATH} · auto-reply bot: ${AUTO_REPLY ? 'on' : 'off'}`);
-  console.log(`Email: ${EMAIL_ON ? `ON — sending as ${MAIL_FROM} via ${SMTP_HOST}:${SMTP_PORT}` : 'OFF — set SMTP_USER + SMTP_PASS to enable (emails are logged to console instead)'}`);
+  console.log(`Email: ${EMAIL_ON ? `ON — sending as ${MAIL_FROM} via ${RESEND_KEY ? 'Resend HTTPS API' : `${SMTP_HOST}:${SMTP_PORT} (SMTP — blocked on Railway Free/Trial/Hobby!)`}` : 'OFF — set RESEND_API_KEY (or SMTP_USER + SMTP_PASS) to enable; emails are logged to console instead'}`);
 });

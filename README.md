@@ -41,7 +41,8 @@ First run creates `bookit.db` (the database) and seeds it with 12 demo workers a
 | `DB_PATH` | ./bookit.db | Where the SQLite database lives |
 | `AUTO_REPLY` | on | `off` disables the demo auto-acknowledgement bot |
 | `SITE_PASSWORD` | (unset) | Set it to lock the whole site behind a private-preview password screen (pages *and* API), with search engines told to stay away. Delete the variable and redeploy to go public |
-| `SMTP_USER` | (unset) | The mailbox the app sends as, e.g. `hello@bookit.life` |
+| `RESEND_API_KEY` | (unset) | API key from resend.com — sends email over HTTPS. **Use this on Railway**: Railway blocks outbound SMTP on Free/Trial/Hobby plans, so Zoho SMTP times out there. Takes priority over SMTP when both are set |
+| `SMTP_USER` | (unset) | The mailbox the app sends as, e.g. `hello@bookit.life` — SMTP path, for hosts that allow port 465 (e.g. your own AU VPS) |
 | `SMTP_PASS` | (unset) | That mailbox's password — or a Zoho app password if MFA is on. **Both SMTP_USER and SMTP_PASS set = email on** |
 | `SMTP_HOST` | smtppro.zoho.com.au | Zoho AU paid-org SMTP server (change only if Zoho's "Server Configuration Details" in Mail Settings says otherwise) |
 | `SMTP_PORT` | 465 | SSL port |
