@@ -25,6 +25,7 @@ First run creates `bookit.db` (the database) and seeds it with 12 demo workers a
 ## What works
 
 - **Accounts** — participants and workers register from the Get Started page and log in from the nav. Passwords are scrypt-hashed; sessions are signed HttpOnly cookies (30 days).
+- **Account menu** — once logged in, the nav shows your photo (or initials) as a chip. It opens a role-aware menu: bookings, messages (with the unread count), profile & credentials for workers (with a live "profile live / awaiting approval" status), billing details for participants, the admin dashboard for admins, incident reporting for everyone, help and log out. Menu links deep-link to the right card on the Bookings page and highlight it.
 - **Find workers** — served live from the database. New workers appear the moment they register.
 - **Messaging** — real conversations stored in the database, with unread badges and 5-second polling. Seeded demo workers send one automatic acknowledgement per conversation so demos feel alive (clearly labelled; turn off with `AUTO_REPLY=off`).
 - **Bookings** — participants request a booking from a worker's profile (service, date, time, hours, notes); workers accept or decline from their Bookings page; participants can cancel. Status history stays visible to both sides.

@@ -227,6 +227,72 @@ nav.main a.nav-link:focus-visible, nav.main button.nav-link:focus-visible{outlin
 @media (max-width:1020px){.nav-mobile-only{display:block;}}
 .nav-close svg{width:26px;height:26px;stroke:var(--ink);}
 
+/* ============ Account chip + menu (logged in) ============ */
+.acct{position:relative;}
+.acct-chip{
+  display:inline-flex;align-items:center;gap:6px;background:var(--card);
+  border:1.5px solid var(--line);border-radius:999px;padding:4px 9px 4px 4px;
+  cursor:pointer;font:inherit;transition:border-color .15s, box-shadow .15s;
+}
+.acct-chip:hover{border-color:var(--teal);}
+.acct-chip:focus-visible{outline:3px solid var(--amber);outline-offset:2px;}
+.acct.open .acct-chip{border-color:var(--teal);box-shadow:0 0 0 3px rgba(14,107,98,.14);}
+.acct-avatar{
+  width:34px;height:34px;border-radius:50%;background:var(--teal);color:#fff;
+  font-weight:700;font-size:.82rem;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;flex:none;letter-spacing:.02em;
+}
+.acct-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
+.acct-caret{width:14px;height:14px;color:var(--ink-soft);transition:transform .18s;flex:none;}
+.acct.open .acct-caret{transform:rotate(180deg);}
+.acct-menu{
+  position:absolute;top:calc(100% + 12px);right:0;width:296px;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-lg);
+  overflow:hidden;z-index:220;
+}
+.acct-head{display:flex;gap:12px;align-items:center;padding:15px 16px;background:var(--cream);border-bottom:1px solid var(--line);}
+.wc-avatar.acct-big{width:46px;height:46px;font-size:1rem;flex:none;}
+.acct-who{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.acct-who b{font-family:var(--font-head);font-size:1.04rem;line-height:1.2;}
+.acct-role{font-size:.78rem;color:var(--ink-soft);font-weight:600;}
+.acct-live{color:var(--ok);font-weight:700;}
+.acct-wait{color:#8a6d00;font-weight:700;}
+.acct-items{padding:7px;}
+.acct-item{
+  display:flex;align-items:center;gap:11px;width:100%;background:none;border:none;
+  font:inherit;font-size:.93rem;font-weight:600;color:var(--ink);padding:8px 9px;
+  border-radius:var(--radius-sm);cursor:pointer;text-align:left;
+}
+.acct-item:hover{background:var(--teal-tint);color:var(--teal-deep);}
+.acct-item:focus-visible{outline:3px solid var(--amber);outline-offset:-2px;}
+.acct-menu .mi{width:31px;height:31px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--teal-tint);color:var(--teal);}
+.acct-menu .mi svg{width:16px;height:16px;}
+.acct-item:hover .mi{background:var(--card);}
+.acct-badge{
+  margin-left:auto;background:var(--coral);color:#fff;font-size:.72rem;font-weight:800;
+  min-width:20px;height:20px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 6px;flex:none;
+}
+.acct-pill{
+  margin-left:auto;background:var(--teal);color:#fff;font-size:.66rem;font-weight:800;
+  letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:999px;flex:none;
+}
+.acct-sep{height:1px;background:var(--line);margin:0 16px;}
+.acct-item.acct-out{color:#B3402A;}
+.acct-item.acct-out .mi{background:var(--coral-tint);color:var(--coral);}
+.acct-item.acct-out:hover{background:var(--coral-tint);color:var(--coral);}
+.acct-foot{
+  padding:8px 16px 11px;font-size:.74rem;color:var(--ink-soft);border-top:1px solid var(--line);
+  background:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+html.high-contrast .acct-menu{border:2px solid #000;box-shadow:none;}
+html.high-contrast .acct-chip{border-color:#000;}
+@media (max-width:640px){
+  .acct-menu{position:fixed;left:12px;right:12px;top:72px;width:auto;}
+}
+/* gentle highlight when the account menu deep-links to a card */
+.sec-flash{animation:secFlash 1.7s ease;}
+@keyframes secFlash{0%{box-shadow:0 0 0 4px rgba(14,107,98,.5);}100%{box-shadow:0 0 0 4px rgba(14,107,98,0);}}
+
 /* ============ Hero ============ */
 .hero{
   background:
@@ -852,7 +918,7 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
             <a href="#/easy-read" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V4H6.5A2.5 2.5 0 004 6.5v13z"/><path d="M9 8.5h7M9 11.5h4"/></svg></span><span><b>Easy Read</b><small>This website in Easy Read</small></span></a>
           </div>
         </li>
-        <li class="nav-mobile-only"><a class="nav-link" href="#/get-started" style="color:var(--teal);font-weight:800;">Get started free →</a></li>
+        <li class="nav-mobile-only" id="navGetStartedLi"><a class="nav-link" href="#/get-started" style="color:var(--teal);font-weight:800;">Get started free →</a></li>
       </ul>
     </nav>
 
@@ -862,7 +928,14 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
         <span class="msg-badge" id="msgBadge" hidden></span>
       </button>
       <button class="btn btn-ghost" id="btnLogin">Log in</button>
-      <a href="#/get-started" class="btn btn-primary btn-sm">Get started</a>
+      <a href="#/get-started" class="btn btn-primary btn-sm" id="btnGetStarted">Get started</a>
+      <div class="acct" id="acctWrap" hidden>
+        <button class="acct-chip" id="acctBtn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
+          <span class="acct-avatar" id="acctAvatar"></span>
+          <svg class="acct-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="acct-menu" id="acctMenu" role="menu" aria-label="Account" hidden></div>
+      </div>
       <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
@@ -2742,16 +2815,7 @@ $$('.modal-overlay').forEach(ov => {
   ov.addEventListener('click', e => { if(e.target === ov) closeModals(); });
 });
 document.addEventListener('click', e => { if(e.target.closest('[data-close]')) closeModals(); });
-$('#btnLogin').addEventListener('click', async () => {
-  if(window.API && API.online && API.me){
-    try{ await API.call('/logout', {method:'POST'}); }catch(e){}
-    API.me = null; updateAuthUI(); toast('Logged out. See you soon!');
-    if(location.hash.startsWith('#/messages')) renderMessagesPage();
-    if(location.hash.startsWith('#/bookings')) renderBookingsPage();
-    return;
-  }
-  openModal('#loginModal');
-});
+$('#btnLogin').addEventListener('click', () => openModal('#loginModal'));
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   if(!(window.API && API.online)){
@@ -3792,7 +3856,13 @@ window.API = {
 };
 
 function updateAuthUI(){
-  $('#btnLogin').textContent = API.me ? 'Log out' : 'Log in';
+  const authed = !!(API.online && API.me);
+  $('#btnLogin').hidden = authed;
+  $('#btnGetStarted').hidden = authed;
+  const gsl = $('#navGetStartedLi');
+  if(gsl) gsl.hidden = authed;
+  $('#acctWrap').hidden = !authed;
+  if(authed) renderAcctChip(); else closeAcctMenu();
   const nb = $('#navBookings');
   if(nb) nb.hidden = !API.me;
   const na = $('#navAdmin');
@@ -3807,6 +3877,127 @@ function updateAuthUI(){
   }
   const note = $('#workersNote');
   if(note && API.online) note.textContent = 'Live worker profiles from the BookIt database — new workers appear here the moment they register.';
+}
+
+/* ---------- account chip + menu ---------- */
+const ACCT_ICONS = {
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
+  card:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/></svg>',
+  user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>',
+  flag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+  grid:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+  help:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 3-3 3M12 17h.01"/></svg>',
+  out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>'
+};
+function acctInitials(name){ return (name || '?').split(' ').map(p => p[0]).join('').slice(0,2).toUpperCase(); }
+function renderAcctChip(){
+  const m = API.me; if(!m) return;
+  $('#acctAvatar').innerHTML = m.photo ? `<img src="${m.photo}" alt="">` : acctInitials(m.name);
+}
+function renderAcctMenu(){
+  const m = API.me; if(!m) return;
+  const first = esc((m.name || '').split(' ')[0]);
+  const roleLabel = m.role === 'worker' ? 'Support worker' : 'Participant';
+  const status = m.role === 'worker'
+    ? (m.live ? ' · <span class="acct-live">profile live</span>' : ' · <span class="acct-wait">awaiting approval</span>')
+    : (m.admin ? ' · Admin' : '');
+  const item = (hash, sec, icon, label, extra) =>
+    `<button type="button" class="acct-item" role="menuitem" data-acct="go" data-hash="${hash}"${sec ? ` data-sec="${sec}"` : ''}><span class="mi">${ACCT_ICONS[icon]}</span><span>${label}</span>${extra || ''}</button>`;
+  let items = item('#/bookings', '', 'cal', m.role === 'worker' ? 'Bookings & shifts' : 'My bookings');
+  items += item('#/messages', '', 'chat', 'Messages',
+    `<span class="acct-badge" id="acctMsgBadge" ${API.unread ? '' : 'hidden'}>${API.unread || ''}</span>`);
+  if(m.role === 'worker'){
+    items += item('#/bookings', 'cardProfile', 'user', 'My profile & photo');
+    items += item('#/bookings', 'cardCreds', 'shield', 'Credentials & checks');
+  }
+  if(m.role === 'participant') items += item('#/bookings', 'cardBilling', 'card', 'Billing & NDIS details');
+  items += item('#/bookings', 'cardIncident', 'flag', 'Report an incident');
+  if(m.admin) items += item('#/admin', '', 'grid', 'Admin dashboard', '<span class="acct-pill">Admin</span>');
+  $('#acctMenu').innerHTML = `
+    <div class="acct-head">
+      <div class="wc-avatar acct-big" style="background:var(--teal);">${m.photo ? `<img src="${m.photo}" alt="">` : acctInitials(m.name)}</div>
+      <div class="acct-who">
+        <b>G'day, ${first}</b>
+        <span class="acct-role">${roleLabel}${status}</span>
+      </div>
+    </div>
+    <div class="acct-items">${items}</div>
+    <div class="acct-sep"></div>
+    <div class="acct-items">
+      ${item('#/contact', '', 'help', 'Help & contact')}
+      <button type="button" class="acct-item acct-out" role="menuitem" data-acct="logout"><span class="mi">${ACCT_ICONS.out}</span><span>Log out</span></button>
+    </div>
+    <div class="acct-foot">Signed in as ${esc(m.email)}</div>`;
+}
+function openAcctMenu(){
+  renderAcctMenu();
+  $('#acctMenu').hidden = false;
+  $('#acctBtn').setAttribute('aria-expanded','true');
+  $('#acctWrap').classList.add('open');
+}
+function closeAcctMenu(){
+  const men = $('#acctMenu'); if(!men || men.hidden) return;
+  men.hidden = true;
+  $('#acctBtn').setAttribute('aria-expanded','false');
+  $('#acctWrap').classList.remove('open');
+}
+$('#acctBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  $('#acctMenu').hidden ? openAcctMenu() : closeAcctMenu();
+});
+document.addEventListener('click', e => { if(!e.target.closest('#acctWrap')) closeAcctMenu(); });
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && !$('#acctMenu').hidden){ closeAcctMenu(); $('#acctBtn').focus(); }
+});
+$('#acctMenu').addEventListener('keydown', e => {
+  if(e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  e.preventDefault();
+  const items = $$('#acctMenu .acct-item');
+  if(!items.length) return;
+  const i = items.indexOf(document.activeElement);
+  items[e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length].focus();
+});
+window.addEventListener('hashchange', closeAcctMenu);
+$('#acctMenu').addEventListener('click', e => {
+  const it = e.target.closest('[data-acct]');
+  if(!it) return;
+  closeAcctMenu();
+  if(it.dataset.acct === 'logout'){ doLogout(); return; }
+  PENDING_SECTION = it.dataset.sec || null;
+  const h = it.dataset.hash;
+  if(location.hash === h){ if(PENDING_SECTION) revealPendingSection(); else route(); }
+  else location.hash = h;
+});
+async function doLogout(){
+  try{ await API.call('/logout', {method:'POST'}); }catch(e){}
+  API.me = null; API.unread = 0;
+  updateAuthUI();
+  toast('Logged out. See you soon!');
+  if(location.hash.startsWith('#/messages')) renderMessagesPage();
+  if(location.hash.startsWith('#/bookings')) renderBookingsPage();
+  if(location.hash.startsWith('#/admin') && window.renderAdminPage) renderAdminPage();
+}
+/* deep-link from the menu to a card on the bookings page */
+let PENDING_SECTION = null;
+function revealPendingSection(){
+  if(!PENDING_SECTION) return;
+  const el = document.getElementById(PENDING_SECTION);
+  PENDING_SECTION = null;
+  if(!el) return;
+  const det = el.querySelector('details'); if(det) det.open = true;
+  setTimeout(() => {
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+    el.classList.add('sec-flash');
+    setTimeout(() => el.classList.remove('sec-flash'), 1750);
+  }, 80);
+}
+function setUnread(n){
+  API.unread = n;
+  const b = $('#msgBadge'); b.hidden = !n; b.textContent = n || '';
+  const ab = document.getElementById('acctMsgBadge');
+  if(ab){ ab.hidden = !n; ab.textContent = n || ''; }
 }
 
 $('#btnResendVerify').addEventListener('click', async () => {
@@ -3831,10 +4022,7 @@ async function refreshUnreadBadge(){
   if(!API.me) return;
   try{
     const d = await API.call('/conversations');
-    API.unread = d.conversations.reduce((n, c) => n + c.unread, 0);
-    const b = $('#msgBadge');
-    b.hidden = API.unread === 0;
-    b.textContent = API.unread;
+    setUnread(d.conversations.reduce((n, c) => n + c.unread, 0));
   }catch(e){}
 }
 
@@ -3849,10 +4037,7 @@ async function renderMessagesOnline(){
   let d;
   try { d = await API.call('/conversations'); } catch(e){ return; }
   LIVE.convos = d.conversations || [];
-  API.unread = LIVE.convos.reduce((n, c) => n + c.unread, 0);
-  const b = $('#msgBadge');
-  b.hidden = API.unread === 0;
-  b.textContent = API.unread;
+  setUnread(LIVE.convos.reduce((n, c) => n + c.unread, 0));
   $('#convoList').innerHTML = LIVE.convos.map(c => `
     <button class="convo-item ${c.unread ? 'ci-unread' : ''} ${c.id === LIVE.activeCid ? 'active' : ''}" data-cid="${c.id}" role="listitem">
       <div class="wc-avatar" style="background:${c.other.color};">${c.other.name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
@@ -3969,7 +4154,7 @@ async function renderBookingsPage(){
   }
   const fundOpts = [['self','Self-managed'],['plan','Plan-managed'],['ndia','NDIA-managed'],['none','No NDIS / private']];
   const billingCard = API.me.role === 'participant' ? `
-    <div class="info-card" style="margin-bottom:18px;">
+    <div class="info-card" id="cardBilling" style="margin-bottom:18px;">
       <h3 style="margin:0 0 6px;">Billing details</h3>
       <p class="muted-sm" style="margin:0 0 12px;">So invoices and claims go to the right place — takes 20 seconds, saved for every shift.</p>
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
@@ -3987,7 +4172,7 @@ async function renderBookingsPage(){
     try{ docs = (await API.call('/me/documents')).documents || []; }catch(e){}
     try{ prof = (await API.call('/me/profile')).profile || prof; }catch(e){}
     workerCards += `
-    <div class="info-card" style="margin-bottom:18px;">
+    <div class="info-card" id="cardProfile" style="margin-bottom:18px;">
       <h3 style="margin:0 0 6px;">My profile</h3>
       <p class="muted-sm" style="margin:0 0 12px;">Your photo is <b>required</b> before your profile can go live — participants choose people, not initials. A friendly, clear head-and-shoulders shot works best.</p>
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">
@@ -4012,7 +4197,7 @@ async function renderBookingsPage(){
       : s === 'expired' ? '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">EXPIRED</span>'
       : '<span class="adm-badge">no expiry set</span>';
     workerCards += `
-    <div class="info-card" style="margin-bottom:18px;">
+    <div class="info-card" id="cardCreds" style="margin-bottom:18px;">
       <h3 style="margin:0 0 6px;">My credentials</h3>
       <p class="muted-sm" style="margin:0 0 10px;">Your screening and checks live here. BookIt watches the expiry dates automatically — if your NDIS Worker Screening lapses, your profile pauses until it's renewed.</p>
       ${docs.length ? docs.map(dd => `<p style="margin:6px 0;font-size:.92rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · expires ' + esc(dd.expiry_date) : ''} ${chip(dd.status)}${dd.verified_at ? ' <span style="color:#1C7C43;font-size:.8rem;">verified by BookIt ✓</span>' : ' <span style="color:#8a6d00;font-size:.8rem;">awaiting verification</span>'}${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">view file</a>` : ''}${!dd.verified_at ? ` · <button type="button" class="adm-btn-sm" data-wd-del="${dd.id}">remove</button>` : ''}</p>`).join('') : '<p class="muted-sm">Nothing on file yet — add your NDIS Worker Screening Check first.</p>'}
@@ -4027,8 +4212,10 @@ async function renderBookingsPage(){
           <button type="button" class="btn btn-primary btn-sm" id="wdAdd">Add</button>
         </div>
       </details>
-    </div>
-    <div class="info-card" style="margin-bottom:18px;">
+    </div>`;
+  }
+  const incidentCard = `
+    <div class="info-card" id="cardIncident" style="margin-bottom:18px;">
       <details><summary style="cursor:pointer;color:#D94F32;font-weight:700;">⚠ Report an incident</summary>
         <p class="muted-sm" style="margin:8px 0;">Report anything that happened (or nearly happened) during a shift — it goes straight to the incident register and management is alerted immediately for serious matters.</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
@@ -4044,16 +4231,16 @@ async function renderBookingsPage(){
         <button type="button" class="btn btn-primary btn-sm" id="incSubmitW" style="margin-top:10px;">Submit incident report</button>
       </details>
     </div>`;
-  }
   let d;
   try { d = await API.call('/bookings'); } catch(e){ return; }
   if(!d.bookings.length){
-    wrap.innerHTML = billingCard + workerCards + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
+    wrap.innerHTML = billingCard + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
       ? 'Find a worker you like, have a chat, then hit "Request a booking" on their profile.'
       : 'When participants request you, their bookings appear here for you to accept or decline.') + '</p></div>';
+    revealPendingSection();
     return;
   }
-  wrap.innerHTML = billingCard + workerCards + d.bookings.map(b => `
+  wrap.innerHTML = billingCard + workerCards + incidentCard + d.bookings.map(b => `
     <div class="bk-card">
       <div class="wc-avatar" style="background:${b.other_color};">${b.other_name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
       <div class="bk-main">
@@ -4070,6 +4257,7 @@ async function renderBookingsPage(){
         ${API.me.role === 'participant' && ['requested','accepted'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="cancelled">Cancel</button>` : ''}
       </div>
     </div>`).join('');
+  revealPendingSection();
 }
 document.addEventListener('change', e => {
   if(e.target && e.target.id === 'bdPlan'){

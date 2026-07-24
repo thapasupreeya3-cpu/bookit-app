@@ -365,6 +365,18 @@ function makeSession(uid) {
   const base = `${uid}.${exp}`;
   return `${base}.${sign(base)}`;
 }
+/* the user object handed to routes and returned by /api/me — includes the worker's
+   photo url + live (visible) flag so the front-end account menu can show them */
+function sessionUser(uid) {
+  const u = db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email FROM users WHERE id = ?').get(Number(uid));
+  if (!u) return null;
+  if (u.role === 'worker') {
+    const p = db.prepare('SELECT photo, photo_at, visible FROM worker_profiles WHERE user_id = ?').get(u.id);
+    u.photo = p && p.photo ? `/photos/${u.id}?v=${encodeURIComponent(p.photo_at || '')}` : null;
+    u.live = p && p.visible ? 1 : 0;
+  }
+  return withAdmin(u);
+}
 function readSession(cookieHeader) {
   const m = /(?:^|;\s*)bk_session=([^;]+)/.exec(cookieHeader || '');
   if (!m) return null;
@@ -375,7 +387,7 @@ function readSession(cookieHeader) {
   const expected = sign(base);
   if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   if (Number(exp) < Date.now()) return null;
-  return withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email FROM users WHERE id = ?').get(Number(uid)) || null);
+  return sessionUser(uid);
 }
 function json(res, status, data, headers = {}) {
   const body = JSON.stringify(data);
@@ -745,7 +757,7 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
       `<p><b>${escHtml(name)}</b> (${escHtml(suburb) || 'no suburb given'}) has registered as a worker and is waiting for approval.</p><p><b>Email:</b> ${escHtml(email)}<br><b>Services:</b> ${services.map(s => SERVICE_LABELS[s] || s).join(', ') || '—'}</p><p>Their profile stays hidden from Find Workers until you approve it.</p>`,
       'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
   }
-  const me = withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email FROM users WHERE id = ?').get(uid));
+  const me = sessionUser(uid);
   sendVerifyEmail(req, me).catch(() => {});
   json(res, 200, { user: me }, setSessionHeaders(uid));
 });
@@ -757,7 +769,7 @@ route('POST', /^\/api\/login$/, (req, res, m, user, body, ip) => {
   if (!row || !verifyPassword(String(body.password || ''), row.pass)) {
     return json(res, 401, { error: 'Email or password doesn\'t match.' });
   }
-  json(res, 200, { user: withAdmin({ id: row.id, role: row.role, name: row.name, email: row.email, suburb: row.suburb, plan: row.plan, verified: row.verified, ndis_number: row.ndis_number, pm_email: row.pm_email }) }, setSessionHeaders(row.id));
+  json(res, 200, { user: sessionUser(row.id) }, setSessionHeaders(row.id));
 });
 
 route('POST', /^\/api\/logout$/, (req, res) => json(res, 200, { ok: true }, CLEAR_COOKIE));
@@ -772,7 +784,7 @@ route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
   const pm = clean(body.pm_email, 120).toLowerCase();
   if (pm && !EMAIL_RE.test(pm)) return json(res, 400, { error: 'That plan manager email doesn\'t look right.' });
   db.prepare('UPDATE users SET plan = ?, ndis_number = ?, pm_email = ? WHERE id = ?').run(plan || user.plan, nd, pm, user.id);
-  const me = withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email FROM users WHERE id = ?').get(user.id));
+  const me = sessionUser(user.id);
   json(res, 200, { user: me });
 });
 
@@ -800,7 +812,7 @@ route('POST', /^\/api\/reset$/, (req, res, m, user, body, ip) => {
   if (!u) return json(res, 400, { error: 'That reset link is invalid or has expired — request a fresh one from the log in screen.' });
   /* clicking an emailed link also proves the address works */
   db.prepare('UPDATE users SET pass = ?, verified = 1 WHERE id = ?').run(hashPassword(password), u.id);
-  const me = withAdmin(db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email FROM users WHERE id = ?').get(u.id));
+  const me = sessionUser(u.id);
   json(res, 200, { user: me }, setSessionHeaders(u.id));
 });
 
