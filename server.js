@@ -1160,13 +1160,22 @@ route('POST', /^\/api\/me\/photo$/, (req, res, m, user, body, ip) => {
 
 route('GET', /^\/api\/me\/profile$/, (req, res, m, user) => {
   if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
-  const p = db.prepare('SELECT bio, services, visible, photo, photo_at FROM worker_profiles WHERE user_id = ?').get(user.id) || {};
-  json(res, 200, { profile: { bio: p.bio || '', services: JSON.parse(p.services || '[]'), visible: p.visible, photo: p.photo ? `/photos/${user.id}?v=${encodeURIComponent(p.photo_at || '')}` : null } });
+  const p = db.prepare('SELECT bio, services, visible, photo, photo_at, days, langs, exp FROM worker_profiles WHERE user_id = ?').get(user.id) || {};
+  json(res, 200, { profile: {
+    bio: p.bio || '', services: JSON.parse(p.services || '[]'), visible: p.visible,
+    photo: p.photo ? `/photos/${user.id}?v=${encodeURIComponent(p.photo_at || '')}` : null,
+    days: JSON.parse(p.days || '[1,1,1,1,1,0,0]'), langs: p.langs || 'English', exp: p.exp || 'New to BookIt'
+  } });
 });
 
 route('POST', /^\/api\/me\/profile$/, (req, res, m, user, body) => {
   if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
-  db.prepare('UPDATE worker_profiles SET bio = ? WHERE user_id = ?').run(clean(body.bio, 600), user.id);
+  const sets = ['bio = ?'];
+  const vals = [clean(body.bio, 600)];
+  if (Array.isArray(body.days) && body.days.length === 7) { sets.push('days = ?'); vals.push(JSON.stringify(body.days.map(x => (x ? 1 : 0)))); }
+  if (body.langs !== undefined) { sets.push('langs = ?'); vals.push(clean(body.langs, 120) || 'English'); }
+  if (body.exp !== undefined) { sets.push('exp = ?'); vals.push(clean(body.exp, 40) || 'New to BookIt'); }
+  db.prepare(`UPDATE worker_profiles SET ${sets.join(', ')} WHERE user_id = ?`).run(...vals, user.id);
   json(res, 200, { ok: true });
 });
 
@@ -1404,6 +1413,30 @@ route('GET', /^\/api\/workers$/, (req, res) => {
     JOIN users u ON u.id = p.user_id
     WHERE p.visible = 1 ORDER BY p.shifts DESC`).all();
   json(res, 200, { workers: rows.map(publicWorker) });
+});
+
+/* one worker's full public profile — powers the #/worker/:id page.
+   Credential info is label + month-level expiry only: never numbers, dates or files. */
+route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m) => {
+  const row = db.prepare(`
+    SELECT p.*, u.name, u.suburb, u.created FROM worker_profiles p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.user_id = ? AND p.visible = 1`).get(Number(m[1]));
+  if (!row) return json(res, 404, { error: 'That profile isn\'t available right now.' });
+  const w = publicWorker(row);
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const joined = new Date(row.created);
+  w.member_since = isNaN(joined) ? '' : `${MONTHS[joined.getMonth()]} ${joined.getFullYear()}`;
+  w.completed = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE worker_id = ? AND status = 'completed'").get(w.id).n;
+  const today = new Date().toISOString().slice(0, 10);
+  w.docs = db.prepare('SELECT doc_type, expiry_date, verified_at FROM worker_docs WHERE worker_id = ? ORDER BY id').all(w.id)
+    .filter(d => d.doc_type !== 'other' && (!d.expiry_date || d.expiry_date >= today))
+    .map(d => {
+      let valid_to = '';
+      if (d.expiry_date) { const e = new Date(d.expiry_date); if (!isNaN(e)) valid_to = `${MONTHS[e.getMonth()]} ${e.getFullYear()}`; }
+      return { label: DOC_TYPES[d.doc_type] || d.doc_type, verified: Boolean(d.verified_at), valid_to };
+    });
+  json(res, 200, { worker: w });
 });
 
 route('GET', /^\/api\/rates$/, (req, res) => json(res, 200, { rates: RATES }));

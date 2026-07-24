@@ -602,6 +602,50 @@ td b{font-variant-numeric:tabular-nums;}
 .avail-grid .d{font-size:.72rem;font-weight:700;text-align:center;color:var(--ink-soft);}
 .avail-grid .dot{height:26px;border-radius:7px;background:var(--cream);border:1px solid var(--line);}
 .avail-grid .dot.on{background:var(--teal);border-color:var(--teal);}
+
+/* ============ Worker profile page ============ */
+.wp-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:26px;align-items:start;}
+@media (max-width:940px){.wp-layout{grid-template-columns:1fr;}}
+.wp-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px;box-shadow:var(--shadow);margin-bottom:20px;}
+.wp-card h2{font-size:1.22rem;margin-bottom:14px;}
+.wp-hero{display:flex;gap:22px;align-items:center;flex-wrap:wrap;}
+.wp-hero .wc-avatar{width:116px;height:116px;font-size:2.2rem;border:4px solid var(--teal-tint);}
+.wp-name{display:flex;align-items:center;gap:9px;font-size:1.75rem;margin:0;flex-wrap:wrap;}
+.wp-name svg{width:23px;height:23px;color:var(--teal);flex:none;}
+.wp-stats{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:20px;width:100%;}
+.wp-stat{flex:1;min-width:105px;text-align:center;padding:13px 8px;background:var(--cream);}
+.wp-stat + .wp-stat{border-left:1px solid var(--line);}
+.wp-stat b{display:block;font-family:var(--font-head);font-size:1.12rem;color:var(--teal-deep);}
+.wp-stat span{font-size:.75rem;color:var(--ink-soft);font-weight:600;}
+.wp-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line);}
+.wp-fact small{display:block;color:var(--ink-soft);font-size:.78rem;font-weight:600;margin-bottom:2px;}
+.wp-fact b{font-size:.95rem;}
+.wp-svc{display:flex;gap:13px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink);}
+.wp-svc:last-of-type{border-bottom:none;}
+.wp-svc:hover b{color:var(--teal);}
+.wp-svc .mi{width:38px;height:38px;flex:none;border-radius:10px;background:var(--teal-tint);color:var(--teal);display:flex;align-items:center;justify-content:center;}
+.wp-svc .mi svg{width:20px;height:20px;}
+.wp-svc b{display:block;font-size:.97rem;}
+.wp-svc small{color:var(--ink-soft);font-size:.85rem;}
+.cred-line{display:flex;gap:11px;align-items:flex-start;padding:8px 0;}
+.cred-line > svg{width:20px;height:20px;color:var(--ok);flex:none;margin-top:3px;}
+.cred-line small{display:block;color:var(--ink-soft);font-size:.82rem;}
+.cred-badge{display:inline-block;background:#DBF2E4;color:#1C7C43;border:1px solid #1C7C43;font-size:.66rem;font-weight:800;letter-spacing:.03em;padding:1px 8px;border-radius:999px;margin-left:7px;vertical-align:2px;text-transform:uppercase;}
+.wp-trustbox{background:var(--teal-tint);border-radius:14px;padding:14px 16px;margin-top:14px;font-size:.9rem;line-height:1.55;}
+.wp-aside{position:sticky;top:86px;}
+@media (max-width:940px){.wp-aside{position:static;}}
+.wp-rate b{font-family:var(--font-head);font-size:1.7rem;color:var(--teal);}
+.wp-actions{display:flex;flex-direction:column;gap:10px;margin:16px 0 0;}
+.wp-mini{display:flex;gap:10px;}
+.wp-mini .btn{flex:1;}
+.btn-star[aria-pressed="true"]{background:var(--amber-tint);border-color:var(--amber);color:#8a6d00;}
+.wp-trust{list-style:none;margin:16px 0 0;padding-top:14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:9px;}
+.wp-trust li{display:flex;gap:9px;font-size:.85rem;color:var(--ink-soft);align-items:flex-start;}
+.wp-trust svg{width:16px;height:16px;color:var(--ok);flex:none;margin-top:2px;}
+.day-toggle{display:flex;gap:8px;flex-wrap:wrap;}
+.day-toggle button{font:inherit;font-size:.84rem;font-weight:700;padding:7px 0;width:46px;border-radius:10px;border:1.5px solid var(--line);background:var(--cream);cursor:pointer;color:var(--ink-soft);}
+.day-toggle button[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff;}
+.day-toggle button:focus-visible{outline:3px solid var(--amber);outline-offset:1px;}
 .check-lines{list-style:none;display:flex;flex-direction:column;gap:9px;margin-top:8px;}
 .check-lines li{display:flex;gap:10px;align-items:center;font-size:.9rem;}
 .check-lines svg{width:18px;height:18px;color:var(--ok);flex:none;}
@@ -1749,6 +1793,18 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
       <div class="worker-grid" id="workerGrid"></div>
       <p class="tbl-note mt-3" id="workersNote">Profiles shown are illustrative for this demo. On the live platform you'll see real workers near you, their full verification badges, availability and reviews.</p>
     </div>
+  </section>
+</section>
+
+<!-- ================= WORKER PROFILE PAGE ================= -->
+<section class="page" id="page-worker" data-title="Worker profile — BookIt">
+  <div class="page-hero">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/find-workers">Find workers</a> / <span id="wpCrumb">Profile</span></nav>
+    </div>
+  </div>
+  <section class="block" style="padding-top:26px;">
+    <div class="container" id="wpBody"><!-- filled by renderWorkerPage --></div>
   </section>
 </section>
 
@@ -2942,7 +2998,7 @@ function workerCard(w){
     <p class="wc-bio">${w.bio}</p>
     <div class="wc-tags">${w.services.map(s => `<span class="wc-tag">${SVC_NAME[s]}</span>`).join('')}</div>
     <div class="wc-foot">
-      <span class="wc-rate">From <b>$73.58</b>/hr</span>
+      <span class="wc-rate">From <b>$73.58</b>/hr${savedIds().includes(w.id) ? ' <span title="Saved" aria-label="Saved worker" style="color:var(--amber);">★</span>' : ''}</span>
       <button class="btn btn-secondary btn-sm" data-worker="${w.id}">View profile</button>
     </div>
   </article>`;
@@ -2967,50 +3023,179 @@ filterService.addEventListener('change', renderWorkerGrid);
 filterSearch.addEventListener('input', renderWorkerGrid);
 renderWorkerGrid();
 
-/* worker profile modal */
+/* worker profile page — every "View profile" navigates to a real, shareable page */
 const DAY_LABELS = ['M','T','W','T','F','S','S'];
+const DAY_FULL = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 document.addEventListener('click', e => {
   const btn = e.target.closest('[data-worker]');
   if(!btn) return;
-  const w = WORKERS.find(x => x.id == btn.dataset.worker);
-  if(!w) return;
-  $('#workerModalBody').innerHTML = `
-    <button class="close-x" data-close aria-label="Close profile">✕</button>
-    <div class="wc-top" style="margin-bottom:14px;">
-      ${avatarHtml(w, 'width:84px;height:84px;font-size:1.7rem;')}
-      <div>
-        <h2 id="wmName" style="margin:0;">${w.name}</h2>
-        <div class="wc-meta">${w.suburb} · ${w.exp} · ${w.shifts ? `★ ${w.rating.toFixed(1)} (${w.shifts} shifts)` : 'New to BookIt'}</div>
+  closeModals();
+  const h = '#/worker/' + btn.dataset.worker;
+  if(location.hash === h) route(); else location.hash = h;
+});
+/* saved workers — kept on this device */
+function savedIds(){ try{ return JSON.parse(window.localStorage.getItem('bookit-saved') || '[]'); }catch(e){ return []; } }
+function toggleSaved(id){
+  let s = savedIds();
+  s = s.includes(id) ? s.filter(x => x !== id) : s.concat(id);
+  try{ window.localStorage.setItem('bookit-saved', JSON.stringify(s)); }catch(e){}
+  return s.includes(id);
+}
+const SVC_ICON = {
+  employment:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>',
+  'personal-care':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.6-9.5-9A5.5 5.5 0 0112 6.7 5.5 5.5 0 0121.5 12c-2.5 4.4-9.5 9-9.5 9z"/></svg>',
+  transport:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6 17l1.2-5.5A2 2 0 019.15 10h5.7a2 2 0 011.95 1.5L18 17M7 20a1.5 1.5 0 100-3M17 20a1.5 1.5 0 100-3"/></svg>',
+  'daily-tasks':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v9a1 1 0 001 1h12a1 1 0 001-1v-9"/></svg>',
+  household:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M9 21v-6h6v6"/></svg>',
+  community:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14.5 14.5c2.6.4 4.5 2.7 4.5 5.5"/></svg>'
+};
+const SVC_DESC = {
+  employment:'Coaching and support to find a job you love — and thrive in it.',
+  'personal-care':'Showering, dressing, medication prompts and daily routines, done with dignity.',
+  transport:'Door-to-door lifts to appointments, work, study and outings.',
+  'daily-tasks':'Life skills, cooking and routines at home or in shared living.',
+  household:'Cleaning, laundry, yard help and meal prep — a home that works for you.',
+  community:'Social time, groups, sport and getting out into your community.'
+};
+const WP_TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+const WP_SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>';
+async function renderWorkerPage(id){
+  const body = $('#wpBody');
+  if(!body) return;
+  const live = window.API && API.online;
+  let w = null;
+  if(live){
+    try{ w = (await API.call('/workers/' + id)).worker; }
+    catch(err){
+      body.innerHTML = (API.me && API.me.id === id && API.me.role === 'worker')
+        ? '<div class="info-card"><p><b>Your profile isn\'t public yet.</b> It goes live the moment our team approves you — make sure your photo and NDIS Worker Screening Check are uploaded on your <a href="#/bookings">Bookings page</a>.</p></div>'
+        : `<div class="info-card"><p><b>${esc(err.message)}</b> The worker may be new (still being vetted) or taking a break. <a href="#/find-workers">Browse available workers →</a></p></div>`;
+      $('#wpCrumb').textContent = 'Profile';
+      return;
+    }
+  } else if(location.protocol.startsWith('http') && !(window.API && API.booted)){
+    body.innerHTML = '<div class="info-card"><p>Loading profile…</p></div>';
+    return; /* re-rendered once the API boot finishes */
+  } else {
+    w = WORKERS.find(x => x.id == id);
+  }
+  if(!w){
+    body.innerHTML = '<div class="info-card"><p><b>We couldn\'t find that profile.</b> <a href="#/find-workers">Browse available workers →</a></p></div>';
+    $('#wpCrumb').textContent = 'Profile';
+    return;
+  }
+  const first = esc(w.name.split(' ')[0]);
+  const own = window.API && API.online && API.me && API.me.id === w.id;
+  $('#wpCrumb').textContent = w.name;
+  document.title = w.name + ' — support worker on BookIt';
+  const langList = String(w.langs || 'English').split(',').map(s => s.trim()).filter(Boolean);
+  const stats = [];
+  stats.push(w.shifts ? [`★ ${Number(w.rating).toFixed(1)}`, `${w.shifts} rated shifts`] : ['☆ New', 'no ratings yet']);
+  if(w.completed) stats.push([w.completed, w.completed === 1 ? 'shift completed' : 'shifts completed']);
+  stats.push(w.member_since ? [w.member_since, 'joined BookIt'] : [esc(String(w.exp).replace(/ experience$/,'')), 'experience']);
+  stats.push([langList.length === 1 ? esc(langList[0]) : `${langList.length} languages`, langList.length === 1 ? 'language spoken' : 'spoken']);
+  const creds = (w.docs && w.docs.length)
+    ? w.docs.map(d => `<div class="cred-line">${WP_SHIELD}<div><b>${esc(d.label)}</b>${d.verified ? '<span class="cred-badge">Verified by BookIt</span>' : ''}<small>${d.valid_to ? 'Valid to ' + esc(d.valid_to) : 'On file with our team'}</small></div></div>`).join('')
+    : (w.checks || []).map(c => `<div class="cred-line">${WP_SHIELD}<div><b>${esc(c)}</b></div></div>`).join('');
+  body.innerHTML = `
+  <div class="wp-layout">
+    <div>
+      <div class="wp-card">
+        <div class="wp-hero">
+          ${avatarHtml(w, 'width:116px;height:116px;font-size:2.2rem;border:4px solid var(--teal-tint);')}
+          <div style="flex:1;min-width:220px;">
+            <h1 class="wp-name">${esc(w.name)}<svg viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Verified worker"><path d="M12 1.5l2.7 2.6 3.7-.5.6 3.6 3 2.2-1.5 3.4 1.5 3.4-3 2.2-.6 3.6-3.7-.5-2.7 2.6-2.7-2.6-3.7.5-.6-3.6-3-2.2L2.5 16 1 12.6l3-2.2.6-3.6 3.7.5L12 1.5zm-1.6 13.9l5.4-5.4-1.2-1.2-4.2 4.2-1.8-1.8-1.2 1.2 3 3z"/></svg></h1>
+            <div class="wc-meta" style="margin-top:5px;">${esc(w.suburb)} · ${esc(w.exp)}</div>
+            <div class="wc-tags" style="margin-top:11px;">${(w.services || []).map(s => `<span class="wc-tag">${SVC_NAME[s] || s}</span>`).join('')}</div>
+          </div>
+        </div>
+        <div class="wp-stats">${stats.map(([b, l]) => `<div class="wp-stat"><b>${b}</b><span>${l}</span></div>`).join('')}</div>
+      </div>
+      <div class="wp-card">
+        <h2>About ${first}</h2>
+        <p class="wc-bio" style="font-size:1rem;-webkit-line-clamp:unset;display:block;">${esc(w.bio || '').replace(/\n/g, '<br>')}</p>
+        <div class="wp-facts">
+          <div class="wp-fact"><small>Based in</small><b>${esc(w.suburb)}</b></div>
+          <div class="wp-fact"><small>Experience</small><b>${esc(w.exp)}</b></div>
+          <div class="wp-fact"><small>Languages</small><b>${esc(w.langs || 'English')}</b></div>
+        </div>
+      </div>
+      <div class="wp-card">
+        <h2>Support ${first} offers</h2>
+        ${(w.services || []).map(s => `<a class="wp-svc" href="#/services/${s}"><span class="mi">${SVC_ICON[s] || ''}</span><span><b>${SVC_NAME[s] || s}</b><small>${SVC_DESC[s] || ''}</small></span></a>`).join('')}
+      </div>
+      <div class="wp-card">
+        <h2>Typical availability</h2>
+        <div class="avail-grid" role="img" aria-label="Typically available on ${(w.days || []).map((d, i) => d ? DAY_FULL[i] : null).filter(Boolean).join(', ') || 'days to be confirmed'}">
+          ${DAY_LABELS.map(d => `<span class="d">${d}</span>`).join('')}
+          ${(w.days || [0,0,0,0,0,0,0]).map(d => `<span class="dot ${d ? 'on' : ''}"></span>`).join('')}
+        </div>
+        <p class="muted-sm" style="margin-top:12px;">A guide, not a promise — message ${first} to line up exact times. Meet &amp; greets are always free.</p>
+      </div>
+      <div class="wp-card">
+        <h2>Checks &amp; credentials</h2>
+        ${creds || '<p class="muted-sm">Checks are being finalised with our team.</p>'}
+        <div class="wp-trustbox">Every BookIt worker is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b>. Credentials are tracked automatically, and a lapsed screening pauses a profile the same day.</div>
+      </div>
+      <div class="wp-card">
+        <h2>Feedback</h2>
+        ${w.shifts
+          ? `<p style="font-size:1rem;"><b style="font-family:var(--font-head);font-size:1.55rem;color:var(--teal);">★ ${Number(w.rating).toFixed(1)}</b> &nbsp;from ${w.shifts} rated shifts.</p><p class="muted-sm" style="margin-top:6px;">Ratings are collected after every completed shift.</p>`
+          : `<p><b>No reviews yet — ${first} is new to BookIt.</b> Every great worker starts somewhere. Book a free meet &amp; greet and see if you click.</p>`}
       </div>
     </div>
-    <p class="wc-bio" style="margin-bottom:14px;">${w.bio}</p>
-    <p class="muted-sm"><b>Languages:</b> ${w.langs}</p>
-    <div class="wc-tags" style="margin:12px 0;">${w.services.map(s => `<span class="wc-tag">${SVC_NAME[s]}</span>`).join('')}</div>
-    <h3 style="font-size:1rem;margin-top:18px;">Verification & training</h3>
-    <ul class="check-lines">
-      ${w.checks.map(c => `<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>${c}</li>`).join('')}
-    </ul>
-    <h3 style="font-size:1rem;margin-top:18px;">Typical availability</h3>
-    <div class="avail-grid" role="img" aria-label="Available on ${w.days.map((d,i)=>d?['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]:null).filter(Boolean).join(', ')}">
-      ${DAY_LABELS.map(d => `<span class="d">${d}</span>`).join('')}
-      ${w.days.map(d => `<span class="dot ${d ? 'on' : ''}"></span>`).join('')}
-    </div>
-    <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;">
-      <button class="btn btn-primary" id="wmMessage">Message ${w.name.split(' ')[0]}</button>
-      ${(window.API && API.online && API.me && API.me.role === 'participant') ? '<button class="btn btn-coral" id="wmBook">Request a booking</button>' : ''}
-      <button class="btn btn-secondary" id="wmConnect">Request to connect</button>
-    </div>`;
-  openModal('#workerModal');
-  if($('#wmBook')) $('#wmBook').addEventListener('click', () => { closeModals(); openBookingModal(w); });
-  $('#wmMessage').addEventListener('click', () => {
-    closeModals();
-    startConvo(w.id);
-  });
-  $('#wmConnect').addEventListener('click', () => {
-    closeModals();
-    toast(`Request sent to ${w.name}! (Demo — sign up to really connect.)`);
-  });
-});
+    <aside class="wp-aside">
+      <div class="wp-card">
+        <div class="wp-rate"><b>$73.58</b><span class="muted-sm"> /hr weekday daytime</span><br><small class="muted-sm">The 2026–27 NDIS price limit — same fair price for every worker. <a href="#/pricing">All rates →</a></small></div>
+        ${own ? `
+        <div class="wp-actions">
+          <div class="wp-trustbox" style="margin:0;">This is your profile exactly as participants see it. Nice work${w.photo ? '' : ' — add a photo to really bring it to life'}!</div>
+          <button class="btn btn-primary" id="wpEdit">Edit my profile</button>
+        </div>` : `
+        <div class="wp-actions">
+          <button class="btn btn-coral" id="wpBook">Request a booking</button>
+          <button class="btn btn-primary" id="wpMessage">Message ${first}</button>
+          <div class="wp-mini">
+            <button class="btn btn-secondary btn-star" id="wpSave" aria-pressed="${savedIds().includes(w.id)}">${savedIds().includes(w.id) ? '★ Saved' : '☆ Save'}</button>
+            <button class="btn btn-secondary" id="wpShare">Share</button>
+          </div>
+        </div>`}
+        <ul class="wp-trust">
+          <li>${WP_TICK}Employed &amp; insured — never a contractor</li>
+          <li>${WP_TICK}Screening &amp; credentials tracked automatically</li>
+          <li>${WP_TICK}Support team 7 days + 24/7 incident line</li>
+        </ul>
+      </div>
+    </aside>
+  </div>`;
+  if(own){
+    $('#wpEdit').addEventListener('click', () => { if(window.goEditProfile) goEditProfile(); });
+  } else {
+    $('#wpBook').addEventListener('click', () => {
+      if(window.API && API.online){
+        if(!API.me){ openModal('#loginModal'); toast('Log in or create a profile to request bookings.'); return; }
+        if(API.me.role !== 'participant'){ toast('Only participants can request bookings.'); return; }
+        if(window.openBookingModal) openBookingModal(w);
+        return;
+      }
+      toast(`Demo only — on the live site you'd book ${w.name.split(' ')[0]} right here.`);
+    });
+    $('#wpMessage').addEventListener('click', () => startConvo(w.id));
+    $('#wpSave').addEventListener('click', () => {
+      const on = toggleSaved(w.id);
+      const b = $('#wpSave');
+      b.setAttribute('aria-pressed', on);
+      b.textContent = on ? '★ Saved' : '☆ Save';
+      toast(on ? `${first} saved — look for the star on Find workers.` : 'Removed from your saved workers.');
+      if(window.renderWorkerGrid) renderWorkerGrid();
+    });
+    $('#wpShare').addEventListener('click', async () => {
+      const link = location.href;
+      try{ await navigator.clipboard.writeText(link); toast('Profile link copied — share away!'); }
+      catch(e){ toast('Copy this link: ' + link); }
+    });
+  }
+}
 
 /* ============ Hero search ============ */
 $('#heroSearch').addEventListener('submit', e => {
@@ -3810,8 +3995,9 @@ function route(){
   let path = location.hash.replace(/^#/, '');
   const qi = path.indexOf('?');
   if(qi !== -1) path = path.slice(0, qi);
-  if(!ROUTES[path]) path = '/';
-  const id = ROUTES[path];
+  const workerMatch = /^\/worker\/(\d+)$/.exec(path);
+  if(!ROUTES[path] && !workerMatch) path = '/';
+  const id = workerMatch ? 'page-worker' : ROUTES[path];
   $$('.page').forEach(p => p.classList.remove('active'));
   const page = document.getElementById(id);
   page.classList.add('active');
@@ -3827,6 +4013,7 @@ function route(){
   if(id === 'page-messages') renderMessagesPage();
   if(id === 'page-bookings' && window.renderBookingsPage) renderBookingsPage();
   if(id === 'page-admin' && window.renderAdminPage) renderAdminPage();
+  if(id === 'page-worker') renderWorkerPage(Number(workerMatch[1]));
   closeMobileNav();
   closeModals();
   stopSpeech();
@@ -3889,7 +4076,8 @@ const ACCT_ICONS = {
   flag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
   grid:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
   help:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 3-3 3M12 17h.01"/></svg>',
-  out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>'
+  out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>',
+  eye:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>'
 };
 function acctInitials(name){ return (name || '?').split(' ').map(p => p[0]).join('').slice(0,2).toUpperCase(); }
 function renderAcctChip(){
@@ -3910,6 +4098,7 @@ function renderAcctMenu(){
     `<span class="acct-badge" id="acctMsgBadge" ${API.unread ? '' : 'hidden'}>${API.unread || ''}</span>`);
   if(m.role === 'worker'){
     items += item('#/bookings', 'cardProfile', 'user', 'My profile & photo');
+    items += item('#/worker/' + m.id, '', 'eye', 'See my public profile');
     items += item('#/bookings', 'cardCreds', 'shield', 'Credentials & checks');
   }
   if(m.role === 'participant') items += item('#/bookings', 'cardBilling', 'card', 'Billing & NDIS details');
@@ -3981,6 +4170,11 @@ async function doLogout(){
 }
 /* deep-link from the menu to a card on the bookings page */
 let PENDING_SECTION = null;
+window.goEditProfile = function(){
+  PENDING_SECTION = 'cardProfile';
+  if(location.hash === '#/bookings') revealPendingSection();
+  else location.hash = '#/bookings';
+};
 function revealPendingSection(){
   if(!PENDING_SECTION) return;
   const el = document.getElementById(PENDING_SECTION);
@@ -4168,7 +4362,7 @@ async function renderBookingsPage(){
     </div>` : '';
   let workerCards = '';
   if(API.me.role === 'worker'){
-    let docs = [], prof = { bio: '', photo: null, visible: 0 };
+    let docs = [], prof = { bio: '', photo: null, visible: 0, days: [1,1,1,1,1,0,0], langs: 'English', exp: 'New to BookIt' };
     try{ docs = (await API.call('/me/documents')).documents || []; }catch(e){}
     try{ prof = (await API.call('/me/profile')).profile || prof; }catch(e){}
     workerCards += `
@@ -4188,7 +4382,20 @@ async function renderBookingsPage(){
           <label style="font-size:.85rem;display:block;margin-top:12px;">About you (shown on your profile)<br>
             <textarea id="mpBio" rows="3" style="font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;">${esc(prof.bio || '')}</textarea>
           </label>
-          <button type="button" class="btn btn-secondary btn-sm" id="mpBioSave" style="margin-top:8px;">Save bio</button>
+          <div style="margin-top:12px;">
+            <span style="font-size:.85rem;font-weight:600;">My typical availability <span class="muted-sm" style="font-weight:400;">(tap the days you usually work)</span></span>
+            <div class="day-toggle" id="mpDays" style="margin-top:7px;">
+              ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => `<button type="button" data-day="${i}" aria-pressed="${prof.days && prof.days[i] ? 'true' : 'false'}">${d}</button>`).join('')}
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;">
+            <label style="font-size:.85rem;">Languages you speak<br><input id="mpLangs" value="${esc(prof.langs || 'English')}" placeholder="English, Auslan" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:210px;"></label>
+            <label style="font-size:.85rem;">Experience<br><input id="mpExp" value="${esc(prof.exp || 'New to BookIt')}" placeholder="e.g. 4 yrs experience" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:180px;"></label>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px;">
+            <button type="button" class="btn btn-secondary btn-sm" id="mpBioSave">Save profile</button>
+            <a href="#/worker/${API.me.id}" style="font-size:.88rem;font-weight:700;">See my public profile →</a>
+          </div>
         </div>
       </div>
     </div>`;
@@ -4315,10 +4522,16 @@ document.addEventListener('click', async e => {
     }catch(err){ toast(err.message); e.target.disabled = false; }
     return;
   }
+  const dayBtn = e.target.closest('#mpDays button');
+  if(dayBtn){
+    dayBtn.setAttribute('aria-pressed', dayBtn.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+    return;
+  }
   if(e.target && e.target.id === 'mpBioSave'){
     try{
-      await API.call('/me/profile', {method:'POST', body:{bio:$('#mpBio').value}});
-      toast('Bio saved.');
+      const days = $$('#mpDays button').map(b => b.getAttribute('aria-pressed') === 'true' ? 1 : 0);
+      await API.call('/me/profile', {method:'POST', body:{bio:$('#mpBio').value, days, langs:$('#mpLangs').value, exp:$('#mpExp').value}});
+      toast('Profile saved — see it as participants do via "See my public profile".');
     }catch(err){ toast(err.message); }
     return;
   }
@@ -4665,6 +4878,7 @@ document.addEventListener('click', async e => {
     API.online = true;
     API.me = d.user;
   }catch(e){ API.online = false; }
+  API.booted = true;
   updateAuthUI();
   if(API.online){
     loadWorkersLive();
@@ -4673,6 +4887,7 @@ document.addEventListener('click', async e => {
     if(location.hash.startsWith('#/bookings')) renderBookingsPage();
   }
   if(location.hash.startsWith('#/admin')) renderAdminPage();
+  if(location.hash.startsWith('#/worker/')) renderWorkerPage(Number(location.hash.split('/')[2]));
 })();
 </script>
 </body>
