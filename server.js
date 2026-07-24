@@ -104,6 +104,10 @@ for (const col of ['ndis_number TEXT DEFAULT \'\'', 'pm_email TEXT DEFAULT \'\''
 for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_no TEXT', 'support_item TEXT', 'claimed_at TEXT', 'paid_at TEXT', 'sleepover INTEGER DEFAULT 0']) {
   try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
 }
+/* migration (profiles build): worker profile photos */
+for (const col of ['photo TEXT DEFAULT \'\'', 'photo_at TEXT DEFAULT \'\'']) {
+  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+}
 /* compliance build: credentials + incident + complaint registers */
 db.exec(`
   CREATE TABLE IF NOT EXISTS worker_docs (
@@ -685,7 +689,8 @@ function publicWorker(row) {
     id: row.user_id, name: row.name, suburb: row.suburb, color: row.color,
     exp: row.exp, langs: row.langs, bio: row.bio,
     services: JSON.parse(row.services), checks: JSON.parse(row.checks),
-    days: JSON.parse(row.days), rating: row.rating, shifts: row.shifts
+    days: JSON.parse(row.days), rating: row.rating, shifts: row.shifts,
+    photo: row.photo ? `/photos/${row.user_id}?v=${encodeURIComponent(row.photo_at || '')}` : null
   };
 }
 function convoForUser(user, convoRow) {
@@ -839,9 +844,9 @@ route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
     urgent_incidents: db.prepare("SELECT COUNT(*) AS n FROM incidents WHERE reportable = 1 AND commission_notified_at IS NULL AND status != 'closed'").get().n,
     open_complaints: db.prepare("SELECT COUNT(*) AS n FROM complaints WHERE status != 'resolved'").get().n
   };
-  const pending = db.prepare(`SELECT p.user_id, p.bio, p.services, u.name, u.email, u.suburb, u.phone, u.verified, u.created
+  const pending = db.prepare(`SELECT p.user_id, p.bio, p.services, p.photo, p.photo_at, u.name, u.email, u.suburb, u.phone, u.verified, u.created
     FROM worker_profiles p JOIN users u ON u.id = p.user_id WHERE p.visible = 0 ORDER BY u.created DESC`).all()
-    .map(w => ({ ...w, services: JSON.parse(w.services || '[]') }));
+    .map(w => ({ ...w, photo: w.photo ? `/photos/${w.user_id}?v=${encodeURIComponent(w.photo_at || '')}` : null, services: JSON.parse(w.services || '[]') }));
   const users = db.prepare('SELECT u.id, u.role, u.name, u.email, u.suburb, u.verified, u.created, p.visible FROM users u LEFT JOIN worker_profiles p ON p.user_id = u.id ORDER BY u.id DESC LIMIT 100').all();
   const bookings = db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.status, b.created,
     up.name AS participant_name, uw.name AS worker_name FROM bookings b
@@ -855,13 +860,17 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user, bod
   const uid = Number(m[1]);
   const w = db.prepare("SELECT u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
   if (!w) return json(res, 404, { error: 'No such worker.' });
-  /* screening gate: no current NDIS Worker Screening on file → approval needs an explicit override */
+  /* approval requirements: current NDIS Worker Screening + a profile photo — or an explicit override */
   if (!w.email.endsWith('@demo.bookit.life') && !body.override) {
+    const missing = [];
     const state = screeningState(uid);
     if (state !== 'valid' && state !== 'expiring') {
-      return json(res, 400, { needs_override: true, error: state === 'none'
-        ? 'No NDIS Worker Screening Check on file for this worker. Ask them to add it under My credentials — or tick "approve anyway" if you have sighted it outside BookIt.'
-        : 'This worker\'s NDIS Worker Screening Check on file has expired or has no expiry date. Update it — or tick "approve anyway" if you have sighted a current one outside BookIt.' });
+      missing.push(state === 'none' ? 'a current NDIS Worker Screening Check (nothing on file)' : 'a current NDIS Worker Screening Check (the one on file has expired or has no expiry)');
+    }
+    const prof = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(uid);
+    if (!prof || !prof.photo) missing.push('a profile photo');
+    if (missing.length) {
+      return json(res, 400, { needs_override: true, error: `Still needed before approval: ${missing.join(' and ')}. Ask the worker to add ${missing.length > 1 ? 'them' : 'it'} from their Bookings page — or tick "approve anyway" to override.` });
     }
   }
   db.prepare('UPDATE worker_profiles SET visible = 1 WHERE user_id = ?').run(uid);
@@ -1056,6 +1065,8 @@ route('POST', /^\/api\/admin\/claims\/(\d+)\/paid$/, (req, res, m, user, body) =
 /* ---------- compliance: worker credentials ---------- */
 const DOCS_DIR = process.env.DOCS_DIR || path.join(path.dirname(path.resolve(DB_PATH)), 'bookit-docs');
 try { fs.mkdirSync(DOCS_DIR, { recursive: true }); } catch {}
+const PHOTOS_DIR = process.env.PHOTOS_DIR || path.join(path.dirname(path.resolve(DB_PATH)), 'bookit-photos');
+try { fs.mkdirSync(PHOTOS_DIR, { recursive: true }); } catch {}
 const DOC_TYPES = { 'ndis-screening': 'NDIS Worker Screening Check', 'wwcc': 'Working with Children Check', 'first-aid': 'First Aid / CPR', 'other': 'Other credential' };
 const DOC_MIMES = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png' };
 
@@ -1114,6 +1125,39 @@ route('POST', /^\/api\/me\/documents$/, (req, res, m, user, body, ip) => {
   json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
 });
 
+/* profile photo — a requirement before a worker can be approved */
+const PHOTO_MIMES = { 'image/jpeg': '.jpg', 'image/png': '.png' };
+function photoUrl(row) { return row && row.photo ? `/photos/${row.user_id ?? row.id}?v=${encodeURIComponent(row.photo_at || '')}` : null; }
+
+route('POST', /^\/api\/me\/photo$/, (req, res, m, user, body, ip) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  if (limited(ip, 'photo', 20)) return json(res, 429, { error: 'Too many uploads — try again later.' });
+  if (!body.file || !body.file.data) return json(res, 400, { error: 'Choose a photo first.' });
+  const mime = String(body.file.mime || '');
+  if (!PHOTO_MIMES[mime]) return json(res, 400, { error: 'Photos must be JPG or PNG.' });
+  let buf;
+  try { buf = Buffer.from(String(body.file.data).replace(/^data:[^,]*,/, ''), 'base64'); } catch { return json(res, 400, { error: 'Could not read that photo.' }); }
+  if (!buf.length || buf.length > 3 * 1024 * 1024) return json(res, 400, { error: 'Photos can be up to 3 MB.' });
+  const prev = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(user.id);
+  const fp = path.join(PHOTOS_DIR, `w${user.id}-${Date.now()}${PHOTO_MIMES[mime]}`);
+  fs.writeFileSync(fp, buf);
+  db.prepare('UPDATE worker_profiles SET photo = ?, photo_at = ? WHERE user_id = ?').run(fp, now(), user.id);
+  if (prev && prev.photo) { try { fs.unlinkSync(prev.photo); } catch {} }
+  json(res, 200, { ok: true, photo: `/photos/${user.id}?v=${Date.now()}` });
+});
+
+route('GET', /^\/api\/me\/profile$/, (req, res, m, user) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const p = db.prepare('SELECT bio, services, visible, photo, photo_at FROM worker_profiles WHERE user_id = ?').get(user.id) || {};
+  json(res, 200, { profile: { bio: p.bio || '', services: JSON.parse(p.services || '[]'), visible: p.visible, photo: p.photo ? `/photos/${user.id}?v=${encodeURIComponent(p.photo_at || '')}` : null } });
+});
+
+route('POST', /^\/api\/me\/profile$/, (req, res, m, user, body) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  db.prepare('UPDATE worker_profiles SET bio = ? WHERE user_id = ?').run(clean(body.bio, 600), user.id);
+  json(res, 200, { ok: true });
+});
+
 route('POST', /^\/api\/me\/documents\/(\d+)\/delete$/, (req, res, m, user) => {
   if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
   const d = db.prepare('SELECT * FROM worker_docs WHERE id = ? AND worker_id = ?').get(Number(m[1]), user.id);
@@ -1136,10 +1180,11 @@ route('GET', /^\/api\/documents\/(\d+)\/file$/, (req, res, m, user) => {
 
 route('GET', /^\/api\/admin\/credentials$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const workers = db.prepare(`SELECT u.id, u.name, u.email, u.verified, p.visible FROM users u
+  const workers = db.prepare(`SELECT u.id, u.name, u.email, u.verified, p.visible, p.photo, p.photo_at FROM users u
     JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' ORDER BY u.name`).all()
     .map(w => ({
       ...w,
+      photo: w.photo ? `/photos/${w.id}?v=${encodeURIComponent(w.photo_at || '')}` : null,
       demo: w.email.endsWith('@demo.bookit.life'),
       screening: screeningState(w.id),
       documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(w.id).map(docOut)
@@ -1594,6 +1639,18 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  /* worker profile photos (behind the preview gate like every page) */
+  const photoMatch = pathname.match(/^\/photos\/(\d+)$/);
+  if (photoMatch && req.method === 'GET') {
+    const row = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(Number(photoMatch[1]));
+    if (!row || !row.photo || !fs.existsSync(row.photo)) { res.writeHead(404); return res.end(); }
+    res.writeHead(200, {
+      'Content-Type': row.photo.endsWith('.png') ? 'image/png' : 'image/jpeg',
+      'Cache-Control': 'public, max-age=86400'
+    });
+    return fs.createReadStream(row.photo).pipe(res);
+  }
+
   /* emailed verification links land here, then bounce into the app */
   if (pathname === '/verify-email' && req.method === 'GET') {
     const u = readEmailToken('v', url.searchParams.get('token') || '');
@@ -1609,7 +1666,7 @@ const server = http.createServer((req, res) => {
 
   let raw = '';
   let overflow = false;
-  const bodyCap = pathname === '/api/me/documents' ? 6_000_000 : 100_000; /* credential uploads carry base64 files */
+  const bodyCap = (pathname === '/api/me/documents' || pathname === '/api/me/photo') ? 6_000_000 : 100_000; /* uploads carry base64 files */
   req.on('data', chunk => {
     raw += chunk;
     if (raw.length > bodyCap) { overflow = true; req.destroy(); }

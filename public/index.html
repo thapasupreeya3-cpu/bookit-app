@@ -362,7 +362,8 @@ td b{font-variant-numeric:tabular-nums;}
 }
 .worker-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg);}
 .wc-top{display:flex;gap:15px;align-items:center;}
-.wc-avatar{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.25rem;font-family:var(--font-head);flex:none;}
+.wc-avatar{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.25rem;font-family:var(--font-head);flex:none;overflow:hidden;}
+.wc-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .wc-name{font-family:var(--font-head);font-weight:700;font-size:1.08rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
 .wc-name svg{width:17px;height:17px;color:var(--teal);}
 .wc-meta{font-size:.84rem;color:var(--ink-soft);}
@@ -2859,11 +2860,14 @@ $('#erContent').innerHTML = ER_SECTIONS.map(sec => `
   </div>`).join('');
 
 /* ============ Render: workers ============ */
-function workerCard(w){
+function avatarHtml(w, extra){
   const initials = w.name.split(' ').map(p => p[0]).join('').slice(0,2);
+  return `<div class="wc-avatar" style="background:${w.color};${extra || ''}">${w.photo ? `<img src="${w.photo}" alt="Photo of ${esc(w.name)}" loading="lazy">` : initials}</div>`;
+}
+function workerCard(w){
   return `<article class="worker-card">
     <div class="wc-top">
-      <div class="wc-avatar" style="background:${w.color};">${initials}</div>
+      ${avatarHtml(w)}
       <div>
         <div class="wc-name">${w.name}
           <svg viewBox="0 0 24 24" fill="currentColor" aria-label="Verified"><path d="M12 2l2.4 2.4 3.3-.5.5 3.3L20.6 9 22 12l-1.4 3-2.4 1.8-.5 3.3-3.3-.5L12 22l-2.4-2.4-3.3.5-.5-3.3L3.4 15 2 12l1.4-3 2.4-1.8.5-3.3 3.3.5L12 2z" opacity=".2"/><path d="M12 1.5l2.7 2.6 3.7-.5.6 3.6 3 2.2-1.5 3.4 1.5 3.4-3 2.2-.6 3.6-3.7-.5-2.7 2.6-2.7-2.6-3.7.5-.6-3.6-3-2.2L2.5 16 1 12.6l3-2.2.6-3.6 3.7.5L12 1.5zm-1.6 13.9l5.4-5.4-1.2-1.2-4.2 4.2-1.8-1.8-1.2 1.2 3 3z"/></svg>
@@ -2906,11 +2910,10 @@ document.addEventListener('click', e => {
   if(!btn) return;
   const w = WORKERS.find(x => x.id == btn.dataset.worker);
   if(!w) return;
-  const initials = w.name.split(' ').map(p => p[0]).join('').slice(0,2);
   $('#workerModalBody').innerHTML = `
     <button class="close-x" data-close aria-label="Close profile">✕</button>
     <div class="wc-top" style="margin-bottom:14px;">
-      <div class="wc-avatar" style="background:${w.color};width:68px;height:68px;font-size:1.5rem;">${initials}</div>
+      ${avatarHtml(w, 'width:84px;height:84px;font-size:1.7rem;')}
       <div>
         <h2 id="wmName" style="margin:0;">${w.name}</h2>
         <div class="wc-meta">${w.suburb} · ${w.exp} · ${w.shifts ? `★ ${w.rating.toFixed(1)} (${w.shifts} shifts)` : 'New to BookIt'}</div>
@@ -3005,7 +3008,7 @@ $('#workerForm').addEventListener('submit', async e => {
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
       const d = await API.call('/register', {method:'POST', body:{role:'worker', name:$('#wName').value, email:$('#wEmail').value, password:pw, phone:$('#wPhone').value, suburb:$('#wPostcode').value, services, bio:$('#wAbout').value}});
       API.me = d.user; updateAuthUI(); loadWorkersLive();
-      gsSuccess(`Application received, ${d.user.name.split(' ')[0]}! 🙌`, 'Your worker account is created and we\'ve emailed you a link to confirm your address. Your profile stays hidden while our team checks your credentials (NDIS Worker Screening, WWCC, First Aid) — we\'ll email you the moment you\'re approved and visible in Find Workers.');
+      gsSuccess(`Application received, ${d.user.name.split(' ')[0]}! 🙌`, 'Your worker account is created and we\'ve emailed you a link to confirm your address. Two things unlock approval: add your profile photo and your NDIS Worker Screening Check on your Bookings page. Your profile stays hidden until our team verifies them — we\'ll email you the moment you\'re live.');
       $('#gsDemoNote').textContent = 'Log back in any time with your email and password.';
     }catch(err){ toast(err.message); }
     return;
@@ -3980,13 +3983,35 @@ async function renderBookingsPage(){
     </div>` : '';
   let workerCards = '';
   if(API.me.role === 'worker'){
-    let docs = [];
+    let docs = [], prof = { bio: '', photo: null, visible: 0 };
     try{ docs = (await API.call('/me/documents')).documents || []; }catch(e){}
+    try{ prof = (await API.call('/me/profile')).profile || prof; }catch(e){}
+    workerCards += `
+    <div class="info-card" style="margin-bottom:18px;">
+      <h3 style="margin:0 0 6px;">My profile</h3>
+      <p class="muted-sm" style="margin:0 0 12px;">Your photo is <b>required</b> before your profile can go live — participants choose people, not initials. A friendly, clear head-and-shoulders shot works best.</p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">
+        <div class="wc-avatar" style="background:#0E6B62;width:92px;height:92px;font-size:1.8rem;">
+          ${prof.photo ? `<img src="${prof.photo}" alt="Your profile photo">` : (API.me.name || '?').split(' ').map(p => p[0]).join('').slice(0,2)}
+        </div>
+        <div style="flex:1;min-width:240px;">
+          <p style="margin:0 0 6px;font-size:.9rem;">${prof.photo ? 'Looking good! You can replace it any time.' : '<b style="color:#D94F32;">No photo yet</b> — add one to unlock approval.'}</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <input id="mpPhoto" type="file" accept=".jpg,.jpeg,.png" style="font-size:.85rem;">
+            <button type="button" class="btn btn-primary btn-sm" id="mpPhotoSave">${prof.photo ? 'Replace photo' : 'Upload photo'}</button>
+          </div>
+          <label style="font-size:.85rem;display:block;margin-top:12px;">About you (shown on your profile)<br>
+            <textarea id="mpBio" rows="3" style="font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;">${esc(prof.bio || '')}</textarea>
+          </label>
+          <button type="button" class="btn btn-secondary btn-sm" id="mpBioSave" style="margin-top:8px;">Save bio</button>
+        </div>
+      </div>
+    </div>`;
     const chip = s => s === 'valid' ? '<span class="adm-badge" style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;">current ✓</span>'
       : s === 'expiring' ? '<span class="adm-badge">expiring soon</span>'
       : s === 'expired' ? '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">EXPIRED</span>'
       : '<span class="adm-badge">no expiry set</span>';
-    workerCards = `
+    workerCards += `
     <div class="info-card" style="margin-bottom:18px;">
       <h3 style="margin:0 0 6px;">My credentials</h3>
       <p class="muted-sm" style="margin:0 0 10px;">Your screening and checks live here. BookIt watches the expiry dates automatically — if your NDIS Worker Screening lapses, your profile pauses until it's renewed.</p>
@@ -4063,6 +4088,24 @@ function fileToB64(input){
   });
 }
 document.addEventListener('click', async e => {
+  if(e.target && e.target.id === 'mpPhotoSave'){
+    e.target.disabled = true;
+    try{
+      const file = await fileToB64($('#mpPhoto'));
+      if(!file){ toast('Choose a photo first.'); e.target.disabled = false; return; }
+      await API.call('/me/photo', {method:'POST', body:{file}});
+      toast('Photo saved — looking sharp! 📸');
+      renderBookingsPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  if(e.target && e.target.id === 'mpBioSave'){
+    try{
+      await API.call('/me/profile', {method:'POST', body:{bio:$('#mpBio').value}});
+      toast('Bio saved.');
+    }catch(err){ toast(err.message); }
+    return;
+  }
   if(e.target && e.target.id === 'wdAdd'){
     e.target.disabled = true;
     try{
@@ -4163,6 +4206,9 @@ async function renderAdminPage(){
     </tbody></table></div>` : '<p class="adm-empty">No completed shifts yet — when a worker marks an accepted booking as done, its invoice line appears here.</p>';
   const pending = d.pending.length ? d.pending.map(w => `
     <div class="adm-pending">
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div class="wc-avatar" style="background:#0E6B62;width:56px;height:56px;">${w.photo ? `<img src="${w.photo}" alt="Photo of ${esc(w.name)}">` : '<span style="font-size:.7rem;text-align:center;line-height:1.2;">no<br>photo</span>'}</div>
+        <div style="flex:1;">
       <h3 style="margin:0 0 4px;">${esc(w.name)} <span style="font-weight:400;font-size:.85rem;color:#3E5A64;">· ${esc(w.suburb || 'no suburb')} · applied ${fmtStamp(w.created)}</span></h3>
       <p style="margin:6px 0;font-size:.92rem;">${esc(w.email)}${w.phone ? ' · ' + esc(w.phone) : ''} · email ${w.verified ? 'verified ✓' : '<b>not verified yet</b>'}</p>
       <p style="margin:6px 0;">${(w.services || []).map(s => `<span class="adm-badge">${esc(svcName(s))}</span>`).join('') || '<i>no services picked</i>'}</p>
@@ -4173,10 +4219,12 @@ async function renderAdminPage(){
         <button class="btn btn-primary" data-adm-act="approve" data-uid="${w.user_id}">Approve — make visible</button>
         <label style="font-size:.82rem;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="ov-${w.user_id}"> approve anyway (screening sighted outside BookIt)</label>
       </div>
-      <p style="margin:10px 0 0;font-size:.8rem;color:#3E5A64;">Approval is blocked without a current NDIS Worker Screening on file (verify it in the NWSD first) — the override is your call and it's recorded.</p>
+      <p style="margin:10px 0 0;font-size:.8rem;color:#3E5A64;">Approval is blocked without a current NDIS Worker Screening <b>and a profile photo</b> — the override is your call and it's recorded.</p>
+        </div>
+      </div>
     </div>`).join('') : '<p class="adm-empty">No workers waiting — all caught up. 🎉</p>';
   const credRows = creds.workers.filter(w => !w.demo).map(w => `<tr>
-    <td>${esc(w.name)}${w.visible ? '' : ' <span class="adm-hidden">(hidden)</span>'}</td>
+    <td><div style="display:flex;gap:8px;align-items:center;"><div class="wc-avatar" style="background:#0E6B62;width:34px;height:34px;font-size:.75rem;">${w.photo ? `<img src="${w.photo}" alt="">` : (w.name || '?').split(' ').map(p => p[0]).join('').slice(0,2)}</div><span>${esc(w.name)}${w.visible ? '' : ' <span class="adm-hidden">(hidden)</span>'}${w.photo ? '' : '<br><span style="color:#D94F32;font-size:.75rem;">no photo</span>'}</span></div></td>
     <td>${scChip(w.screening)}</td>
     <td>${w.documents.length ? w.documents.map(dd => `<div style="margin:3px 0;font-size:.85rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · exp ' + esc(dd.expiry_date) : ''}
       ${dd.status === 'expired' ? '<span style="color:#D94F32;font-weight:700;"> EXPIRED</span>' : dd.status === 'expiring' ? `<span style="color:#8a6d00;"> ${dd.days}d left</span>` : ''}
