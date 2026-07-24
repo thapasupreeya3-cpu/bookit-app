@@ -646,6 +646,32 @@ td b{font-variant-numeric:tabular-nums;}
 .day-toggle button{font:inherit;font-size:.84rem;font-weight:700;padding:7px 0;width:46px;border-radius:10px;border:1.5px solid var(--line);background:var(--cream);cursor:pointer;color:var(--ink-soft);}
 .day-toggle button[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff;}
 .day-toggle button:focus-visible{outline:3px solid var(--amber);outline-offset:1px;}
+
+/* ============ Document catalogue: onboarding checklist + typeahead ============ */
+.ob-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+.ob-bar{flex:1;min-width:140px;height:9px;border-radius:99px;background:var(--cream);border:1px solid var(--line);overflow:hidden;}
+.ob-bar i{display:block;height:100%;background:var(--teal);border-radius:99px;transition:width .3s;}
+.ob-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:8px;margin:10px 0 6px;}
+.ob-item{display:flex;gap:9px;align-items:flex-start;font-size:.84rem;padding:8px 11px;border:1px solid var(--line);border-radius:11px;background:var(--cream);color:var(--ink-soft);}
+.ob-item b{color:var(--ink);display:block;font-size:.85rem;}
+.ob-item.done{border-color:#bfe0d9;background:var(--teal-tint);}
+.ob-item .ob-tick{flex:none;width:20px;height:20px;border-radius:50%;border:2px solid var(--line);margin-top:1px;display:flex;align-items:center;justify-content:center;background:#fff;}
+.ob-item.done .ob-tick{background:var(--teal);border-color:var(--teal);color:#fff;}
+.ob-item .ob-tick svg{width:12px;height:12px;}
+.ob-item small{display:block;font-size:.76rem;line-height:1.4;}
+.doc-group-h{font-size:.7rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft);margin:14px 0 2px;}
+.typeahead{position:relative;min-width:280px;flex:1;max-width:420px;}
+.typeahead input{font:inherit;width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid var(--line);}
+.typeahead input:focus-visible{outline:3px solid var(--amber);outline-offset:1px;border-color:var(--teal);}
+.ta-menu{position:absolute;top:calc(100% + 6px);left:0;right:0;max-height:330px;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);z-index:80;padding:6px;}
+.ta-group{font-size:.66rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft);padding:8px 10px 3px;}
+.ta-item{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;font:inherit;font-size:.9rem;font-weight:600;padding:8px 10px;border-radius:9px;cursor:pointer;color:var(--ink);}
+.ta-item:hover,.ta-item.active{background:var(--teal-tint);color:var(--teal-deep);}
+.ta-pts{font-size:.68rem;font-weight:800;color:var(--teal);background:var(--teal-tint);border-radius:999px;padding:2px 8px;flex:none;}
+.ta-empty{padding:10px 12px;font-size:.85rem;color:var(--ink-soft);}
+.ta-chosen{display:inline-flex;align-items:center;gap:9px;background:var(--teal-tint);color:var(--teal-deep);font-weight:700;font-size:.9rem;padding:7px 13px;border-radius:999px;}
+.ta-chosen button{background:none;border:none;cursor:pointer;font:inherit;font-size:.8rem;color:var(--teal);font-weight:800;text-decoration:underline;}
+.doc-help{font-size:.8rem;color:var(--ink-soft);margin-top:6px;line-height:1.5;}
 .check-lines{list-style:none;display:flex;flex-direction:column;gap:9px;margin-top:8px;}
 .check-lines li{display:flex;gap:10px;align-items:center;font-size:.9rem;}
 .check-lines svg{width:18px;height:18px;color:var(--ok);flex:none;}
@@ -3765,6 +3791,8 @@ $$('.ill-scene').forEach(scene => {
 
 /* ============ Messaging system (in-memory demo) ============ */
 const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* Australian date display: 2029-05-01 → 01/05/2029 (storage stays ISO) */
+const fmtAU = iso => /^\d{4}-\d{2}-\d{2}/.test(iso || '') ? String(iso).slice(0,10).split('-').reverse().join('/') : (iso || '');
 const fmtTime = d => d.toLocaleTimeString('en-AU', {hour:'numeric', minute:'2-digit'}).toLowerCase();
 
 const CONVOS = [
@@ -4168,6 +4196,96 @@ async function doLogout(){
   if(location.hash.startsWith('#/bookings')) renderBookingsPage();
   if(location.hash.startsWith('#/admin') && window.renderAdminPage) renderAdminPage();
 }
+/* ---------- document catalogue typeahead ---------- */
+let DOCCAT = null;
+async function getDocCatalog(){
+  if(!DOCCAT){
+    try{ DOCCAT = await API.call('/doc-catalog'); }
+    catch(e){ return { categories: [], types: [] }; }
+  }
+  return DOCCAT;
+}
+function taRender(q){
+  const menu = document.getElementById('wdMenu');
+  if(!menu || !DOCCAT) return;
+  q = (q || '').trim().toLowerCase();
+  const match = t => !q || t.label.toLowerCase().includes(q) || (t.aliases || []).some(a => a.includes(q)) || t.key.includes(q);
+  let html = '';
+  for(const c of (DOCCAT.categories || [])){
+    const items = (DOCCAT.types || []).filter(t => t.category === c.key && match(t));
+    if(!items.length) continue;
+    html += `<div class="ta-group">${esc(c.label)}</div>` + items.map(t =>
+      `<button type="button" class="ta-item" data-ta="${t.key}"><span>${esc(t.label)}</span>${t.points ? `<span class="ta-pts">${t.points} pts${t.primary ? ' · primary' : ''}</span>` : ''}</button>`).join('');
+  }
+  menu.innerHTML = html || '<div class="ta-empty">Nothing matches — pick "Other document" and describe it, or check the spelling.</div>';
+  menu.hidden = false;
+}
+function taChoose(key){
+  const t = ((DOCCAT && DOCCAT.types) || []).find(x => x.key === key);
+  if(!t) return;
+  document.getElementById('wdType').value = t.key;
+  const chosen = document.getElementById('wdChosen');
+  chosen.innerHTML = `${esc(t.label)} <button type="button" id="wdChange">change</button>`;
+  chosen.hidden = false;
+  document.getElementById('wdSearchWrap').hidden = true;
+  document.getElementById('wdMenu').hidden = true;
+  const numWrap = document.getElementById('wdNumberWrap');
+  if(t.numberLabel){ numWrap.hidden = false; document.getElementById('wdNumberLab').textContent = t.numberLabel; }
+  else numWrap.hidden = true;
+  document.getElementById('wdExpiryWrap').hidden = t.expiry === 'none';
+  document.getElementById('wdExpReq').hidden = t.expiry !== 'required';
+  document.getElementById('wdLabelWrap').hidden = !t.needsLabel;
+  const help = document.getElementById('wdHelp');
+  help.innerHTML = (t.help ? esc(t.help) + ' ' : '') + (t.link ? `<a href="${t.link}" target="_blank" rel="noopener">Do it online →</a>` : '');
+  help.hidden = !(t.help || t.link);
+  document.getElementById('wdFieldRow').hidden = false;
+}
+function taReset(){
+  const s = document.getElementById('wdSearchWrap');
+  if(!s) return;
+  s.hidden = false;
+  document.getElementById('wdSearch').value = '';
+  document.getElementById('wdType').value = '';
+  document.getElementById('wdChosen').hidden = true;
+  document.getElementById('wdFieldRow').hidden = true;
+  document.getElementById('wdHelp').hidden = true;
+}
+document.addEventListener('input', e => { if(e.target && e.target.id === 'wdSearch') taRender(e.target.value); });
+document.addEventListener('focusin', e => { if(e.target && e.target.id === 'wdSearch') taRender(e.target.value); });
+document.addEventListener('click', e => {
+  const it = e.target.closest('.ta-item');
+  if(it){ taChoose(it.dataset.ta); return; }
+  if(e.target && e.target.id === 'wdChange'){
+    taReset();
+    setTimeout(() => { const s = document.getElementById('wdSearch'); if(s) s.focus(); }, 30);
+    return;
+  }
+  if(!e.target.closest('.typeahead')){
+    const m = document.getElementById('wdMenu');
+    if(m) m.hidden = true;
+  }
+});
+document.addEventListener('keydown', e => {
+  if(!e.target || e.target.id !== 'wdSearch') return;
+  const menu = document.getElementById('wdMenu');
+  if(!menu || menu.hidden) return;
+  const items = [...menu.querySelectorAll('.ta-item')];
+  if(!items.length) return;
+  const cur = items.findIndex(i => i.classList.contains('active'));
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault();
+    const n = e.key === 'ArrowDown' ? (cur + 1) % items.length : (cur - 1 + items.length) % items.length;
+    items.forEach(i => i.classList.remove('active'));
+    items[n].classList.add('active');
+    items[n].scrollIntoView({block: 'nearest'});
+  } else if(e.key === 'Enter'){
+    e.preventDefault();
+    taChoose(items[cur >= 0 ? cur : 0].dataset.ta);
+  } else if(e.key === 'Escape'){
+    menu.hidden = true;
+  }
+});
+
 /* deep-link from the menu to a card on the bookings page */
 let PENDING_SECTION = null;
 window.goEditProfile = function(){
@@ -4362,9 +4480,10 @@ async function renderBookingsPage(){
     </div>` : '';
   let workerCards = '';
   if(API.me.role === 'worker'){
-    let docs = [], prof = { bio: '', photo: null, visible: 0, days: [1,1,1,1,1,0,0], langs: 'English', exp: 'New to BookIt' };
-    try{ docs = (await API.call('/me/documents')).documents || []; }catch(e){}
+    let docs = [], sum = {}, prof = { bio: '', photo: null, visible: 0, days: [1,1,1,1,1,0,0], langs: 'English', exp: 'New to BookIt' };
+    try{ const dres = await API.call('/me/documents'); docs = dres.documents || []; sum = dres.summary || {}; }catch(e){}
     try{ prof = (await API.call('/me/profile')).profile || prof; }catch(e){}
+    const catData = await getDocCatalog();
     workerCards += `
     <div class="info-card" id="cardProfile" style="margin-bottom:18px;">
       <h3 style="margin:0 0 6px;">My profile</h3>
@@ -4403,20 +4522,53 @@ async function renderBookingsPage(){
       : s === 'expiring' ? '<span class="adm-badge">expiring soon</span>'
       : s === 'expired' ? '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">EXPIRED</span>'
       : '<span class="adm-badge">no expiry set</span>';
+    const obItems = [
+      { done: !!prof.photo, label: 'Profile photo', hint: 'required before approval' },
+      { done: ['valid', 'expiring'].includes(sum.screening), label: 'NDIS Worker Screening', hint: sum.screening === 'expiring' ? 'expiring soon — renew it' : 'required before approval' },
+      { done: !!sum.id_ok, label: '100 points of ID', hint: `${sum.id_points || 0} / 100 pts${sum.has_primary ? ' · primary ✓' : ' · needs a primary (passport, birth or citizenship certificate)'}` },
+      { done: !!sum.right_to_work, label: 'Right to work', hint: 'Australian passport, birth or citizenship certificate — or passport + visa' },
+      { done: !!sum.orientation, label: 'NDIS Orientation Module', hint: 'free 90-minute Commission module' },
+      { done: !!sum.first_aid, label: 'First Aid / CPR', hint: 'needed for direct support work' },
+      { done: !!sum.resume, label: 'Resume', hint: 'your work history' }
+    ];
+    const obDone = obItems.filter(i => i.done).length;
+    const expRule = {};
+    (catData.types || []).forEach(t => { expRule[t.key] = t.expiry; });
+    const docGroups = (catData.categories || []).map(c => {
+      const items = docs.filter(dd => dd.category === c.key);
+      if(!items.length) return '';
+      return `<div class="doc-group-h">${esc(c.label)}</div>` + items.map(dd =>
+        `<p style="margin:5px 0;font-size:.92rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · expires ' + fmtAU(dd.expiry_date) : ''} ${dd.expiry_date ? chip(dd.status) : (expRule[dd.doc_type] === 'required' ? chip('no-expiry') : '')}${dd.verified_at ? ' <span style="color:#1C7C43;font-size:.8rem;">verified by BookIt ✓</span>' : ' <span style="color:#8a6d00;font-size:.8rem;">awaiting verification</span>'}${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">view file</a>` : ''}${!dd.verified_at ? ` · <button type="button" class="adm-btn-sm" data-wd-del="${dd.id}">remove</button>` : ''}</p>`).join('');
+    }).join('');
     workerCards += `
     <div class="info-card" id="cardCreds" style="margin-bottom:18px;">
-      <h3 style="margin:0 0 6px;">My credentials</h3>
-      <p class="muted-sm" style="margin:0 0 10px;">Your screening and checks live here. BookIt watches the expiry dates automatically — if your NDIS Worker Screening lapses, your profile pauses until it's renewed.</p>
-      ${docs.length ? docs.map(dd => `<p style="margin:6px 0;font-size:.92rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · expires ' + esc(dd.expiry_date) : ''} ${chip(dd.status)}${dd.verified_at ? ' <span style="color:#1C7C43;font-size:.8rem;">verified by BookIt ✓</span>' : ' <span style="color:#8a6d00;font-size:.8rem;">awaiting verification</span>'}${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">view file</a>` : ''}${!dd.verified_at ? ` · <button type="button" class="adm-btn-sm" data-wd-del="${dd.id}">remove</button>` : ''}</p>`).join('') : '<p class="muted-sm">Nothing on file yet — add your NDIS Worker Screening Check first.</p>'}
-      <details style="margin-top:10px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;">＋ Add a credential</summary>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
-          <label style="font-size:.85rem;">Type<br><select id="wdType" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;">
-            <option value="ndis-screening">NDIS Worker Screening Check</option><option value="wwcc">Working with Children Check</option><option value="first-aid">First Aid / CPR</option><option value="other">Other</option>
-          </select></label>
-          <label style="font-size:.85rem;">Number<br><input id="wdNumber" placeholder="check / card number" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:170px;"></label>
-          <label style="font-size:.85rem;">Expiry<br><input id="wdExpiry" type="date" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
-          <label style="font-size:.85rem;">File (photo any size, PDF ≤ 4 MB)<br><input id="wdFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.85rem;"></label>
-          <button type="button" class="btn btn-primary btn-sm" id="wdAdd">Add</button>
+      <h3 style="margin:0 0 6px;">My documents & credentials</h3>
+      <p class="muted-sm" style="margin:0 0 12px;">Everything BookIt needs to get you working — ID first, then your checks, training and qualifications. Expiry dates are watched automatically; a lapsed screening pauses your profile until it's renewed.</p>
+      <div class="ob-head">
+        <b style="font-size:.9rem;">Onboarding ${obDone} of ${obItems.length} complete</b>
+        <div class="ob-bar" role="img" aria-label="Onboarding ${obDone} of ${obItems.length} complete"><i style="width:${Math.round(obDone / obItems.length * 100)}%;"></i></div>
+      </div>
+      <div class="ob-grid">${obItems.map(i => `<div class="ob-item ${i.done ? 'done' : ''}"><span class="ob-tick">${i.done ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>' : ''}</span><span><b>${i.label}</b><small>${i.hint}</small></span></div>`).join('')}</div>
+      ${docGroups || '<p class="muted-sm" style="margin-top:8px;">Nothing on file yet — start with a primary ID (passport or birth certificate), then your NDIS Worker Screening Check.</p>'}
+      <details style="margin-top:12px;" ${docs.length ? '' : 'open'}><summary style="cursor:pointer;color:#0E6B62;font-weight:600;">＋ Add a document</summary>
+        <div style="margin-top:10px;">
+          <div id="wdSearchWrap">
+            <label for="wdSearch" style="font-size:.85rem;font-weight:600;">Which document?</label>
+            <div class="typeahead" style="margin-top:5px;">
+              <input id="wdSearch" placeholder="Start typing — passport, first aid, Cert III…" autocomplete="off">
+              <div class="ta-menu" id="wdMenu" hidden></div>
+            </div>
+          </div>
+          <input type="hidden" id="wdType" value="">
+          <span class="ta-chosen" id="wdChosen" hidden></span>
+          <p class="doc-help" id="wdHelp" hidden></p>
+          <div id="wdFieldRow" hidden style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
+            <label style="font-size:.85rem;" id="wdLabelWrap" hidden>Name it<br><input id="wdLabel" placeholder="e.g. Diploma of Nursing" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:200px;"></label>
+            <label style="font-size:.85rem;" id="wdNumberWrap"><span id="wdNumberLab">Number</span><br><input id="wdNumber" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:170px;"></label>
+            <label style="font-size:.85rem;" id="wdExpiryWrap">Expiry <b id="wdExpReq" style="color:#D94F32;" hidden>(required)</b><br><input id="wdExpiry" type="date" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
+            <label style="font-size:.85rem;">File (photo any size, PDF ≤ 4 MB)<br><input id="wdFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.85rem;"></label>
+            <button type="button" class="btn btn-primary btn-sm" id="wdAdd">Add</button>
+          </div>
         </div>
       </details>
     </div>`;
@@ -4452,7 +4604,7 @@ async function renderBookingsPage(){
       <div class="wc-avatar" style="background:${b.other_color};">${b.other_name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
       <div class="bk-main">
         <b>${esc(b.other_name)}</b>
-        <span class="muted-sm">${SVC_NAME[b.service] || b.service} · ${b.date} · ${b.start} · ${b.hours} hrs</span>
+        <span class="muted-sm">${SVC_NAME[b.service] || b.service} · ${fmtAU(b.date)} · ${b.start} · ${b.hours} hrs</span>
         ${b.notes ? `<span class="muted-sm">“${esc(b.notes)}”</span>` : ''}
         ${b.sleepover ? '<span class="muted-sm">🌙 Overnight sleepover (inactive night — flat rate)</span>' : ''}
         ${b.status === 'completed' && b.total ? `<span class="muted-sm"><b>$${Number(b.total).toFixed(2)}</b> — ${b.rate_category === 'sleepover' ? '1 night flat' : `${b.hours}h × $${Number(b.unit_price).toFixed(2)}`} (${RATE_LABEL[b.rate_category] || b.rate_category} rate)</span>` : ''}
@@ -4536,6 +4688,7 @@ document.addEventListener('click', async e => {
     return;
   }
   if(e.target && e.target.id === 'wdAdd'){
+    if(!$('#wdType').value){ toast('Start typing above and pick a document type first.'); return; }
     e.target.disabled = true;
     try{
       /* images shrink automatically (1600px keeps card text readable); PDFs upload as-is */
@@ -4544,8 +4697,14 @@ document.addEventListener('click', async e => {
         toast('That PDF is over the 4 MB limit — export a smaller copy, or photograph the document instead.');
         e.target.disabled = false; return;
       }
-      await API.call('/me/documents', {method:'POST', body:{doc_type:$('#wdType').value, check_number:$('#wdNumber').value.trim(), expiry_date:$('#wdExpiry').value, file}});
-      toast('Credential added — the team will verify it. 👍');
+      await API.call('/me/documents', {method:'POST', body:{
+        doc_type: $('#wdType').value,
+        label: $('#wdLabel') ? $('#wdLabel').value.trim() : '',
+        check_number: $('#wdNumber').value.trim(),
+        expiry_date: $('#wdExpiry').value,
+        file
+      }});
+      toast('Added — the team will sight and verify it. 👍');
       renderBookingsPage();
     }catch(err){ toast(err.message); e.target.disabled = false; }
     return;
@@ -4631,7 +4790,7 @@ async function renderAdminPage(){
     <span style="font-size:.85rem;color:#3E5A64;margin-left:10px;">Rates auto-picked from each shift's day &amp; time — switch any line to <b>Public holiday</b> yourself (that one can't be auto-detected).</span></p>
     <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Shift</th><th>Participant</th><th>Worker</th><th>Service</th><th>Hours</th><th>Rate</th><th>Total</th></tr></thead><tbody>
     ${inv.invoices.map(r => `<tr>
-      <td>${esc(r.date)} ${esc(r.start)}</td><td>${esc(r.participant_name)}</td><td>${esc(r.worker_name)}</td><td>${esc(svcName(r.service))}</td><td>${r.hours}</td>
+      <td>${fmtAU(r.date)} ${esc(r.start)}</td><td>${esc(r.participant_name)}</td><td>${esc(r.worker_name)}</td><td>${esc(svcName(r.service))}</td><td>${r.hours}</td>
       <td><select class="adm-inv-cat" data-inv="${r.id}" style="font:inherit;padding:4px 6px;border-radius:8px;border:1.5px solid #E7DFD4;">
         ${inv.categories.map(cat => `<option value="${cat.key}" ${cat.key === r.rate_category ? 'selected' : ''}>${esc(cat.label)} — $${cat.price.toFixed(2)}/h</option>`).join('')}
       </select></td>
@@ -4648,7 +4807,7 @@ async function renderAdminPage(){
       <p style="margin:6px 0;">${(w.services || []).map(s => `<span class="adm-badge">${esc(svcName(s))}</span>`).join('') || '<i>no services picked</i>'}</p>
       ${w.bio ? `<p style="margin:8px 0 0;font-size:.92rem;color:#3E5A64;">“${esc(w.bio)}”</p>` : ''}
       <p style="margin:8px 0 0;">${scChip((credById[w.user_id] || {}).screening || 'none')}
-        ${((credById[w.user_id] || {}).documents || []).map(dd => `<span class="adm-badge">${esc(dd.type_label)}${dd.expiry_date ? ' → ' + esc(dd.expiry_date) : ''}${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">file</a>` : ''}</span>`).join('')}</p>
+        ${((credById[w.user_id] || {}).documents || []).map(dd => `<span class="adm-badge">${esc(dd.type_label)}${dd.expiry_date ? ' → ' + fmtAU(dd.expiry_date) : ''}${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">file</a>` : ''}</span>`).join('')}</p>
       <div class="adm-actions">
         <button class="btn btn-primary" data-adm-act="approve" data-uid="${w.user_id}">Approve — make visible</button>
         <label style="font-size:.82rem;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="ov-${w.user_id}"> approve anyway (screening sighted outside BookIt)</label>
@@ -4660,7 +4819,13 @@ async function renderAdminPage(){
   const credRows = creds.workers.filter(w => !w.demo).map(w => `<tr>
     <td><div style="display:flex;gap:8px;align-items:center;"><div class="wc-avatar" style="background:#0E6B62;width:34px;height:34px;font-size:.75rem;">${w.photo ? `<img src="${w.photo}" alt="">` : (w.name || '?').split(' ').map(p => p[0]).join('').slice(0,2)}</div><span>${esc(w.name)}${w.visible ? '' : ' <span class="adm-hidden">(hidden)</span>'}${w.photo ? '' : '<br><span style="color:#D94F32;font-size:.75rem;">no photo</span>'}</span></div></td>
     <td>${scChip(w.screening)}</td>
-    <td>${w.documents.length ? w.documents.map(dd => `<div style="margin:3px 0;font-size:.85rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · exp ' + esc(dd.expiry_date) : ''}
+    <td>${w.summary ? `<div style="margin:0 0 6px;">
+        <span class="adm-badge" ${w.summary.id_ok ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>ID ${w.summary.id_points || 0} pts${w.summary.has_primary ? ' · primary ✓' : ''}</span>
+        <span class="adm-badge" ${w.summary.right_to_work ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Right to work${w.summary.right_to_work ? ' ✓' : ''}</span>
+        <span class="adm-badge" ${w.summary.orientation ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Orientation${w.summary.orientation ? ' ✓' : ''}</span>
+        <span class="adm-badge" ${w.summary.first_aid ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>First aid${w.summary.first_aid ? ' ✓' : ''}</span>
+        <span class="adm-badge" ${w.summary.resume ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Resume${w.summary.resume ? ' ✓' : ''}</span>
+      </div>` : ''}${w.documents.length ? w.documents.map(dd => `<div style="margin:3px 0;font-size:.85rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · exp ' + fmtAU(dd.expiry_date) : ''}
       ${dd.status === 'expired' ? '<span style="color:#D94F32;font-weight:700;"> EXPIRED</span>' : dd.status === 'expiring' ? `<span style="color:#8a6d00;"> ${dd.days}d left</span>` : ''}
       ${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">file</a>` : ''}
       ${dd.verified_at ? ` · <span style="color:#1C7C43;">verified ✓ ${esc(dd.verified_by || '')}</span>` : ` · <button class="adm-btn-sm" data-doc-verify="${dd.id}">Verify (checked NWSD)</button>`}
@@ -4721,7 +4886,7 @@ async function renderAdminPage(){
   </tbody></table></div>`;
   const FUND_LABEL = { ndia: 'NDIA-managed', plan: 'Plan-managed', self: 'Self-managed', none: 'No NDIS', '': '—' };
   const claimRow = (r, showActions) => `<tr>
-    <td>${esc(r.date)}</td><td>${esc(r.participant_name)}</td><td>${esc(FUND_LABEL[r.funding] || r.funding)}</td>
+    <td>${fmtAU(r.date)}</td><td>${esc(r.participant_name)}</td><td>${esc(FUND_LABEL[r.funding] || r.funding)}</td>
     <td>${esc(svcName(r.service))} · ${r.hours}h</td>
     <td>${showActions
       ? `<input class="adm-claim-item" data-cid="${r.id}" value="${esc(r.item || '')}" placeholder="e.g. 01_011_0107_1_1" style="font:inherit;font-size:.82rem;width:150px;padding:4px 6px;border-radius:8px;border:1.5px solid ${r.flags.length ? '#D94F32' : '#E7DFD4'};">`

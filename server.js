@@ -1079,8 +1079,80 @@ const DOCS_DIR = process.env.DOCS_DIR || path.join(path.dirname(path.resolve(DB_
 try { fs.mkdirSync(DOCS_DIR, { recursive: true }); } catch {}
 const PHOTOS_DIR = process.env.PHOTOS_DIR || path.join(path.dirname(path.resolve(DB_PATH)), 'bookit-photos');
 try { fs.mkdirSync(PHOTOS_DIR, { recursive: true }); } catch {}
-const DOC_TYPES = { 'ndis-screening': 'NDIS Worker Screening Check', 'wwcc': 'Working with Children Check', 'first-aid': 'First Aid / CPR', 'other': 'Other credential' };
+/* ---------- the Australian document catalogue ----------
+   Everything a worker hands over during onboarding, structured the way providers
+   actually check it: identity (100 points) first, then right to work, the formal
+   checks, training, and qualifications. Keys are stable — the original four
+   (ndis-screening, wwcc, first-aid, other) are unchanged so existing rows keep
+   working. expiry: 'required' | 'optional' | 'none' drives validation + UI.
+   points/primary implement the standard 100-point ID check; rtw marks documents
+   that evidence the right to work in Australia. */
+const DOC_CATEGORIES = [
+  { key: 'identity',      label: 'Identity — 100 points of ID' },
+  { key: 'right-to-work', label: 'Right to work in Australia' },
+  { key: 'checks',        label: 'Checks & clearances' },
+  { key: 'training',      label: 'Training certificates' },
+  { key: 'qualification', label: 'Qualifications & resume' },
+  { key: 'other',         label: 'Anything else' }
+];
+const DOC_CATALOG = [
+  /* identity — primary documents (70 points) */
+  { key: 'passport-au', label: 'Australian Passport', category: 'identity', points: 70, primary: true, rtw: true, expiry: 'optional', numberLabel: 'Passport number', aliases: ['passport'], help: 'Current, or expired less than 2 years ago and not cancelled.' },
+  { key: 'passport-foreign', label: 'Foreign Passport', category: 'identity', points: 70, primary: true, expiry: 'optional', numberLabel: 'Passport number', aliases: ['overseas passport', 'international passport'], help: 'Pair it with your visa under Right to work.' },
+  { key: 'birth-cert', label: 'Australian Birth Certificate', category: 'identity', points: 70, primary: true, rtw: true, expiry: 'none', numberLabel: 'Registration number', aliases: ['birth certificate'] },
+  { key: 'citizenship-cert', label: 'Australian Citizenship Certificate', category: 'identity', points: 70, primary: true, rtw: true, expiry: 'none', numberLabel: 'Certificate number', aliases: ['citizenship certificate', 'citizenship'] },
+  /* identity — secondary with photo and signature (40 points) */
+  { key: 'driver-licence', label: 'Australian Driver Licence', category: 'identity', points: 40, expiry: 'optional', numberLabel: 'Licence number', aliases: ['drivers licence', 'drivers license', 'driver license', 'licence'], help: 'Also needed for any transport shifts.' },
+  { key: 'proof-of-age', label: 'Photo / Proof of Age Card', category: 'identity', points: 40, expiry: 'optional', numberLabel: 'Card number', aliases: ['photo card', 'proof of age card'] },
+  /* identity — secondary documents (25 points) */
+  { key: 'medicare', label: 'Medicare Card', category: 'identity', points: 25, expiry: 'optional', numberLabel: 'Card number', aliases: ['medicare'] },
+  { key: 'bank-card', label: 'Bank or Credit Card', category: 'identity', points: 25, expiry: 'none', numberLabel: null, aliases: ['bank card', 'debit card', 'credit card'], help: 'A photo showing your name — cover the long card number.' },
+  { key: 'utility-bill', label: 'Utility Bill / Rates Notice', category: 'identity', points: 25, expiry: 'none', numberLabel: null, aliases: ['electricity bill', 'gas bill', 'rates notice', 'phone bill'], help: 'Less than 12 months old, showing your name and current address.' },
+  /* right to work */
+  { key: 'visa', label: 'Visa Grant Notice / VEVO Check', category: 'right-to-work', rtw: true, expiry: 'optional', numberLabel: 'Visa grant number', aliases: ['vevo', 'visa grant', 'work visa', 'work rights'], help: 'Non-citizens: current visa with work rights, together with your passport.' },
+  /* checks & clearances */
+  { key: 'ndis-screening', label: 'NDIS Worker Screening Check', category: 'checks', expiry: 'required', numberLabel: 'Check number', aliases: ['screening', 'worker screening', 'ndiswc', 'ndis check'], help: 'Required before your profile can go live — apply through your state screening unit.' },
+  { key: 'wwcc', label: 'Working with Children Check', category: 'checks', expiry: 'required', numberLabel: 'WWCC number', aliases: ['working with childrens check', 'wwc', 'blue card', 'wwvp', 'ochre card'], help: 'Needed to support participants under 18. State-based (Blue Card in QLD, Ochre Card in NT).' },
+  { key: 'police-check', label: 'National Police Check', category: 'checks', expiry: 'optional', numberLabel: 'Reference number', aliases: ['police check', 'afp check', 'criminal history check', 'national police certificate'], help: 'Issued within the last 3 years.' },
+  /* training certificates */
+  { key: 'ndis-orientation', label: 'NDIS Worker Orientation Module', category: 'training', expiry: 'none', numberLabel: 'Certificate ID', aliases: ['quality safety and you', 'orientation module', 'worker orientation'], help: 'The free 90-minute Commission module "Quality, Safety and You".', link: 'https://training.ndiscommission.gov.au/' },
+  { key: 'infection-control', label: 'Infection Prevention & Control Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['infection free', 'infection control', 'covid training', 'supporting people to stay infection free'], help: 'e.g. "Supporting People to Stay Infection Free".', link: 'https://teamdsc.com.au/learning/supporting-people-to-stay-infection-free' },
+  { key: 'first-aid', label: 'First Aid / CPR', category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['cpr', 'hltaid011', 'hltaid009', 'first aid certificate'], help: 'Required for direct support work. First aid renews every 3 years, CPR yearly.' },
+  { key: 'medication-training', label: 'Medication Administration Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['medication management', 'meds training', 'supporting people to take their medication'], help: 'Required if you assist participants with medication.', link: 'https://teamdsc.com.au/learning/supporting-people-to-take-their-medication' },
+  { key: 'manual-handling', label: 'Manual Handling Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['moving and handling', 'hoist training', 'safe lifting'] },
+  /* qualifications & resume */
+  { key: 'cert3-support', label: 'Certificate III in Individual Support', category: 'qualification', expiry: 'none', numberLabel: 'Certificate number', aliases: ['cert 3', 'cert iii', 'chc33015', 'chc33021', 'individual support'] },
+  { key: 'cert4-disability', label: 'Certificate IV in Disability Support', category: 'qualification', expiry: 'none', numberLabel: 'Certificate number', aliases: ['cert 4', 'cert iv', 'chc43121', 'disability support'] },
+  { key: 'qualification', label: 'Other Qualification / Certificate', category: 'qualification', expiry: 'optional', numberLabel: 'Certificate number', needsLabel: true, aliases: ['diploma', 'degree', 'bachelor', 'certificate', 'qualification'] },
+  { key: 'resume', label: 'Resume / CV', category: 'qualification', expiry: 'none', numberLabel: null, aliases: ['cv', 'curriculum vitae', 'resume'] },
+  /* anything else */
+  { key: 'other', label: 'Other document', category: 'other', expiry: 'optional', numberLabel: 'Reference number', aliases: [] }
+];
+const DOC_MAP = Object.fromEntries(DOC_CATALOG.map(d => [d.key, d]));
+const DOC_TYPES = Object.fromEntries(DOC_CATALOG.map(d => [d.key, d.label])); /* legacy label map — used by emails/sweep */
 const DOC_MIMES = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png' };
+
+/* the onboarding scorecard: 100-point ID tally, right to work, and the key items */
+function onboardingSummary(workerId) {
+  const have = new Set(db.prepare('SELECT DISTINCT doc_type FROM worker_docs WHERE worker_id = ?').all(workerId).map(d => d.doc_type));
+  let points = 0, primary = false, rtw = false;
+  for (const key of have) {
+    const c = DOC_MAP[key];
+    if (!c) continue;
+    if (c.points) points += c.points;
+    if (c.points && c.primary) primary = true;
+    if (c.rtw) rtw = true;
+  }
+  return {
+    id_points: points, has_primary: primary, id_ok: primary && points >= 100,
+    right_to_work: rtw,
+    screening: screeningState(workerId),
+    first_aid: have.has('first-aid'),
+    orientation: have.has('ndis-orientation'),
+    infection_control: have.has('infection-control'),
+    resume: have.has('resume')
+  };
+}
 
 function docStatus(d) {
   if (!d.expiry_date) return 'no-expiry';
@@ -1103,21 +1175,33 @@ function screeningState(workerId) {
   if (st.includes('no-expiry')) return 'no-expiry';
   return 'expired';
 }
-function docOut(d) { return { ...d, file_path: undefined, status: docStatus(d), days: docDays(d), type_label: DOC_TYPES[d.doc_type] || d.doc_type, has_file: Boolean(d.file_path) }; }
+function docOut(d) {
+  const cat = DOC_MAP[d.doc_type] || {};
+  return { ...d, file_path: undefined, status: docStatus(d), days: docDays(d),
+    type_label: d.label || cat.label || d.doc_type, category: cat.category || 'other', has_file: Boolean(d.file_path) };
+}
+
+/* the document catalogue — powers the typeahead on the worker's documents card */
+route('GET', /^\/api\/doc-catalog$/, (req, res) => json(res, 200, { categories: DOC_CATEGORIES, types: DOC_CATALOG }));
 
 route('GET', /^\/api\/me\/documents$/, (req, res, m, user) => {
   if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
-  json(res, 200, { documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(user.id).map(docOut) });
+  json(res, 200, {
+    documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(user.id).map(docOut),
+    summary: onboardingSummary(user.id)
+  });
 });
 
 route('POST', /^\/api\/me\/documents$/, (req, res, m, user, body, ip) => {
   if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
   if (limited(ip, 'docs', 30)) return json(res, 429, { error: 'Too many uploads — try again later.' });
-  const docType = DOC_TYPES[body.doc_type] ? body.doc_type : null;
-  if (!docType) return json(res, 400, { error: 'Pick a credential type.' });
+  const cat = DOC_MAP[clean(body.doc_type, 40)];
+  if (!cat) return json(res, 400, { error: 'Pick a document type.' });
+  const docType = cat.key;
   const expiry = clean(body.expiry_date, 10);
   if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return json(res, 400, { error: 'Expiry date looks wrong.' });
-  if (docType !== 'other' && !expiry) return json(res, 400, { error: 'Please enter the expiry date — it drives the automatic checks.' });
+  if (cat.expiry === 'required' && !expiry) return json(res, 400, { error: `Please enter the expiry date for your ${cat.label} — it drives the automatic checks.` });
+  if (cat.needsLabel && !clean(body.label, 80)) return json(res, 400, { error: 'Give the qualification a name — e.g. "Diploma of Nursing".' });
   let fileName = '', fileMime = '', filePath = '';
   if (body.file && body.file.data) {
     fileMime = String(body.file.mime || '');
@@ -1208,6 +1292,7 @@ route('GET', /^\/api\/admin\/credentials$/, (req, res, m, user) => {
       photo: w.photo ? `/photos/${w.id}?v=${encodeURIComponent(w.photo_at || '')}` : null,
       demo: w.email.endsWith('@demo.bookit.life'),
       screening: screeningState(w.id),
+      summary: onboardingSummary(w.id),
       documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(w.id).map(docOut)
     }));
   json(res, 200, { workers });
@@ -1429,12 +1514,18 @@ route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m) => {
   w.member_since = isNaN(joined) ? '' : `${MONTHS[joined.getMonth()]} ${joined.getFullYear()}`;
   w.completed = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE worker_id = ? AND status = 'completed'").get(w.id).n;
   const today = new Date().toISOString().slice(0, 10);
-  w.docs = db.prepare('SELECT doc_type, expiry_date, verified_at FROM worker_docs WHERE worker_id = ? ORDER BY id').all(w.id)
-    .filter(d => d.doc_type !== 'other' && (!d.expiry_date || d.expiry_date >= today))
+  /* public-safe credentials only: checks, training and qualifications — never
+     identity documents (passports, licences), visas or resumes */
+  const PUBLIC_CATS = ['checks', 'training', 'qualification'];
+  w.docs = db.prepare('SELECT doc_type, label, expiry_date, verified_at FROM worker_docs WHERE worker_id = ? ORDER BY id').all(w.id)
+    .filter(d => {
+      const c = DOC_MAP[d.doc_type];
+      return c && PUBLIC_CATS.includes(c.category) && d.doc_type !== 'resume' && (!d.expiry_date || d.expiry_date >= today);
+    })
     .map(d => {
       let valid_to = '';
       if (d.expiry_date) { const e = new Date(d.expiry_date); if (!isNaN(e)) valid_to = `${MONTHS[e.getMonth()]} ${e.getFullYear()}`; }
-      return { label: DOC_TYPES[d.doc_type] || d.doc_type, verified: Boolean(d.verified_at), valid_to };
+      return { label: d.label || DOC_TYPES[d.doc_type] || d.doc_type, verified: Boolean(d.verified_at), valid_to };
     });
   json(res, 200, { worker: w });
 });
