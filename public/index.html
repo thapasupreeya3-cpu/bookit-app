@@ -3978,15 +3978,57 @@ async function renderBookingsPage(){
         <button type="button" class="btn btn-primary btn-sm" id="bdSave">Save</button>
       </div>
     </div>` : '';
+  let workerCards = '';
+  if(API.me.role === 'worker'){
+    let docs = [];
+    try{ docs = (await API.call('/me/documents')).documents || []; }catch(e){}
+    const chip = s => s === 'valid' ? '<span class="adm-badge" style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;">current ✓</span>'
+      : s === 'expiring' ? '<span class="adm-badge">expiring soon</span>'
+      : s === 'expired' ? '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">EXPIRED</span>'
+      : '<span class="adm-badge">no expiry set</span>';
+    workerCards = `
+    <div class="info-card" style="margin-bottom:18px;">
+      <h3 style="margin:0 0 6px;">My credentials</h3>
+      <p class="muted-sm" style="margin:0 0 10px;">Your screening and checks live here. BookIt watches the expiry dates automatically — if your NDIS Worker Screening lapses, your profile pauses until it's renewed.</p>
+      ${docs.length ? docs.map(dd => `<p style="margin:6px 0;font-size:.92rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · expires ' + esc(dd.expiry_date) : ''} ${chip(dd.status)}${dd.verified_at ? ' <span style="color:#1C7C43;font-size:.8rem;">verified by BookIt ✓</span>' : ' <span style="color:#8a6d00;font-size:.8rem;">awaiting verification</span>'}${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">view file</a>` : ''}${!dd.verified_at ? ` · <button type="button" class="adm-btn-sm" data-wd-del="${dd.id}">remove</button>` : ''}</p>`).join('') : '<p class="muted-sm">Nothing on file yet — add your NDIS Worker Screening Check first.</p>'}
+      <details style="margin-top:10px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;">＋ Add a credential</summary>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
+          <label style="font-size:.85rem;">Type<br><select id="wdType" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;">
+            <option value="ndis-screening">NDIS Worker Screening Check</option><option value="wwcc">Working with Children Check</option><option value="first-aid">First Aid / CPR</option><option value="other">Other</option>
+          </select></label>
+          <label style="font-size:.85rem;">Number<br><input id="wdNumber" placeholder="check / card number" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:170px;"></label>
+          <label style="font-size:.85rem;">Expiry<br><input id="wdExpiry" type="date" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
+          <label style="font-size:.85rem;">File (PDF/JPG/PNG, 4 MB)<br><input id="wdFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.85rem;"></label>
+          <button type="button" class="btn btn-primary btn-sm" id="wdAdd">Add</button>
+        </div>
+      </details>
+    </div>
+    <div class="info-card" style="margin-bottom:18px;">
+      <details><summary style="cursor:pointer;color:#D94F32;font-weight:700;">⚠ Report an incident</summary>
+        <p class="muted-sm" style="margin:8px 0;">Report anything that happened (or nearly happened) during a shift — it goes straight to the incident register and management is alerted immediately for serious matters.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+          <label style="font-size:.85rem;">What kind<br><select id="incCat" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;">
+            <option value="near-miss">Near miss</option><option value="serious-injury">Serious injury</option><option value="abuse-neglect">Abuse or neglect</option><option value="unlawful-contact">Unlawful sexual/physical contact</option><option value="sexual-misconduct">Sexual misconduct / grooming</option><option value="restrictive-practice">Unauthorised restrictive practice</option><option value="death">Death</option><option value="other">Other</option>
+          </select></label>
+          <label style="font-size:.85rem;">When<br><input id="incWhen" type="datetime-local" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
+          <label style="font-size:.85rem;">Where<br><input id="incWhere" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:160px;"></label>
+          <label style="font-size:.85rem;">Participant (if any)<br><input id="incPart" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:150px;"></label>
+        </div>
+        <label style="font-size:.85rem;display:block;margin-top:10px;">What happened<br><textarea id="incDesc" rows="3" style="font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></textarea></label>
+        <label style="font-size:.85rem;display:block;margin-top:8px;">What you did straight away<br><textarea id="incAction" rows="2" style="font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></textarea></label>
+        <button type="button" class="btn btn-primary btn-sm" id="incSubmitW" style="margin-top:10px;">Submit incident report</button>
+      </details>
+    </div>`;
+  }
   let d;
   try { d = await API.call('/bookings'); } catch(e){ return; }
   if(!d.bookings.length){
-    wrap.innerHTML = billingCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
+    wrap.innerHTML = billingCard + workerCards + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
       ? 'Find a worker you like, have a chat, then hit "Request a booking" on their profile.'
       : 'When participants request you, their bookings appear here for you to accept or decline.') + '</p></div>';
     return;
   }
-  wrap.innerHTML = billingCard + d.bookings.map(b => `
+  wrap.innerHTML = billingCard + workerCards + d.bookings.map(b => `
     <div class="bk-card">
       <div class="wc-avatar" style="background:${b.other_color};">${b.other_name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
       <div class="bk-main">
@@ -4010,7 +4052,42 @@ document.addEventListener('change', e => {
     if(w) w.hidden = e.target.value !== 'plan';
   }
 });
+function fileToB64(input){
+  return new Promise((resolve) => {
+    const f = input.files && input.files[0];
+    if(!f) return resolve(null);
+    const r = new FileReader();
+    r.onload = () => resolve({ name: f.name, mime: f.type, data: r.result });
+    r.onerror = () => resolve(null);
+    r.readAsDataURL(f);
+  });
+}
 document.addEventListener('click', async e => {
+  if(e.target && e.target.id === 'wdAdd'){
+    e.target.disabled = true;
+    try{
+      const file = await fileToB64($('#wdFile'));
+      await API.call('/me/documents', {method:'POST', body:{doc_type:$('#wdType').value, check_number:$('#wdNumber').value.trim(), expiry_date:$('#wdExpiry').value, file}});
+      toast('Credential added — the team will verify it. 👍');
+      renderBookingsPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  const wdDel = e.target.closest('[data-wd-del]');
+  if(wdDel){
+    try{ await API.call('/me/documents/' + wdDel.dataset.wdDel + '/delete', {method:'POST'}); toast('Removed.'); renderBookingsPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
+  if(e.target && e.target.id === 'incSubmitW'){
+    e.target.disabled = true;
+    try{
+      const r = await API.call('/incidents', {method:'POST', body:{category:$('#incCat').value, occurred_at:$('#incWhen').value, location:$('#incWhere').value, participant_name:$('#incPart').value, description:$('#incDesc').value, immediate_action:$('#incAction').value}});
+      toast(r.reportable ? 'Reported — management has been alerted. For serious incidents the Commission must be notified within 24 hours.' : 'Incident logged — thank you for reporting it.');
+      renderBookingsPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
   if(e.target && e.target.id === 'bdSave'){
     try{
       const d = await API.call('/me/billing', {method:'POST', body:{plan:$('#bdPlan').value, ndis_number:$('#bdNdis').value.trim(), pm_email:($('#bdPm') ? $('#bdPm').value.trim() : '')}});
@@ -4048,6 +4125,12 @@ async function renderAdminPage(){
   let cl;
   try{ cl = await API.call('/admin/claims'); }
   catch(e){ cl = { unclaimed: [], claimed: [], paid: [], totals: { unclaimed: 0, claimed: 0, paid: 0 } }; }
+  let creds = { workers: [] }, incs = { incidents: [] }, comps = { complaints: [] };
+  try{ creds = await API.call('/admin/credentials'); }catch(e){}
+  try{ incs = await API.call('/admin/incidents'); }catch(e){}
+  try{ comps = await API.call('/admin/complaints'); }catch(e){}
+  const credById = {};
+  creds.workers.forEach(w => credById[w.id] = w);
   const c = d.counts;
   const tiles = `<div class="adm-tiles">
     <div class="adm-tile"><b>${c.participants}</b><span>Participants</span></div>
@@ -4058,7 +4141,14 @@ async function renderAdminPage(){
     <div class="adm-tile"><b>$${(c.billed || 0).toFixed(2)}</b><span>Billed at NDIS limits</span></div>
     <div class="adm-tile"><b>${c.messages}</b><span>Messages</span></div>
     <div class="adm-tile"><b>${c.contacts}</b><span>Contact forms</span></div>
+    <div class="adm-tile"><b style="${c.urgent_incidents ? 'color:#D94F32;' : ''}">${c.urgent_incidents || 0}</b><span>Reportable — not yet notified</span></div>
+    <div class="adm-tile"><b style="${c.open_complaints ? 'color:#8a6d00;' : ''}">${c.open_complaints || 0}</b><span>Open complaints</span></div>
   </div>`;
+  const scChip = s => s === 'valid' ? '<span class="adm-badge" style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;">screening current ✓</span>'
+    : s === 'expiring' ? '<span class="adm-badge">screening expiring soon</span>'
+    : s === 'expired' ? '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">screening EXPIRED</span>'
+    : s === 'no-expiry' ? '<span class="adm-badge">screening — no expiry set</span>'
+    : '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">no screening on file</span>';
   const invoicing = inv.invoices.length ? `
     <p style="margin:0 0 12px;"><a class="btn btn-primary" href="/api/admin/invoices.csv" download>⬇ Download invoice CSV</a>
     <span style="font-size:.85rem;color:#3E5A64;margin-left:10px;">Rates auto-picked from each shift's day &amp; time — switch any line to <b>Public holiday</b> yourself (that one can't be auto-detected).</span></p>
@@ -4077,11 +4167,61 @@ async function renderAdminPage(){
       <p style="margin:6px 0;font-size:.92rem;">${esc(w.email)}${w.phone ? ' · ' + esc(w.phone) : ''} · email ${w.verified ? 'verified ✓' : '<b>not verified yet</b>'}</p>
       <p style="margin:6px 0;">${(w.services || []).map(s => `<span class="adm-badge">${esc(svcName(s))}</span>`).join('') || '<i>no services picked</i>'}</p>
       ${w.bio ? `<p style="margin:8px 0 0;font-size:.92rem;color:#3E5A64;">“${esc(w.bio)}”</p>` : ''}
+      <p style="margin:8px 0 0;">${scChip((credById[w.user_id] || {}).screening || 'none')}
+        ${((credById[w.user_id] || {}).documents || []).map(dd => `<span class="adm-badge">${esc(dd.type_label)}${dd.expiry_date ? ' → ' + esc(dd.expiry_date) : ''}${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">file</a>` : ''}</span>`).join('')}</p>
       <div class="adm-actions">
         <button class="btn btn-primary" data-adm-act="approve" data-uid="${w.user_id}">Approve — make visible</button>
+        <label style="font-size:.82rem;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="ov-${w.user_id}"> approve anyway (screening sighted outside BookIt)</label>
       </div>
-      <p style="margin:10px 0 0;font-size:.8rem;color:#3E5A64;">Before approving, sight their NDIS Worker Screening, WWCC and First Aid — approval emails them and lists them in Find Workers instantly.</p>
+      <p style="margin:10px 0 0;font-size:.8rem;color:#3E5A64;">Approval is blocked without a current NDIS Worker Screening on file (verify it in the NWSD first) — the override is your call and it's recorded.</p>
     </div>`).join('') : '<p class="adm-empty">No workers waiting — all caught up. 🎉</p>';
+  const credRows = creds.workers.filter(w => !w.demo).map(w => `<tr>
+    <td>${esc(w.name)}${w.visible ? '' : ' <span class="adm-hidden">(hidden)</span>'}</td>
+    <td>${scChip(w.screening)}</td>
+    <td>${w.documents.length ? w.documents.map(dd => `<div style="margin:3px 0;font-size:.85rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · exp ' + esc(dd.expiry_date) : ''}
+      ${dd.status === 'expired' ? '<span style="color:#D94F32;font-weight:700;"> EXPIRED</span>' : dd.status === 'expiring' ? `<span style="color:#8a6d00;"> ${dd.days}d left</span>` : ''}
+      ${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">file</a>` : ''}
+      ${dd.verified_at ? ` · <span style="color:#1C7C43;">verified ✓ ${esc(dd.verified_by || '')}</span>` : ` · <button class="adm-btn-sm" data-doc-verify="${dd.id}">Verify (checked NWSD)</button>`}
+      · <button class="adm-btn-sm" data-doc-del="${dd.id}">remove</button></div>`).join('') : '<span class="adm-empty">nothing on file</span>'}</td>
+  </tr>`).join('');
+  const credentials = `
+    <p style="margin:0 0 10px;"><button class="adm-btn-sm" id="admSweep">▶ Run the automatic check now</button>
+    <span style="font-size:.85rem;color:#3E5A64;margin-left:8px;">Runs by itself twice a day: warns workers + you at 30 and 7 days before expiry, and auto-hides anyone whose NDIS screening lapses. "Verify" records that you checked the number in the NDIS Worker Screening Database (the database has no public connection, so that step is a human one).</span></p>
+    ${credRows ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Worker</th><th>Screening</th><th>Documents</th></tr></thead><tbody>${credRows}</tbody></table></div>` : '<p class="adm-empty">No real workers yet — credentials appear as workers add them.</p>'}`;
+  const incRow = i => `<tr>
+    <td>#${i.id}<br><span style="font-size:.78rem;color:#3E5A64;">${fmtStamp(i.created)}</span></td>
+    <td>${esc(i.category_label)}${i.reportable ? ' <span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">REPORTABLE</span>' : ''}<br><span style="font-size:.82rem;color:#3E5A64;">${esc((i.description || '').slice(0, 90))}${(i.description || '').length > 90 ? '…' : ''}</span></td>
+    <td>${esc(i.participant_name || '—')}<br><span style="font-size:.8rem;color:#3E5A64;">by ${esc(i.created_by_name)}</span></td>
+    <td>${i.commission_notified_at ? '<span style="color:#1C7C43;">notified ✓</span>'
+      : i.reportable ? (i.hours_left < 0 ? '<span style="color:#D94F32;font-weight:800;">OVERDUE</span>' : `<span style="color:${i.hours_left <= 6 ? '#D94F32' : '#8a6d00'};font-weight:700;">${i.hours_left}h left</span>`)
+      : '—'}</td>
+    <td>${esc(i.status)}</td>
+    <td>${i.reportable && !i.commission_notified_at ? `<button class="adm-btn-sm" data-inc-act="notified" data-nid="${i.id}">Commission notified</button> ` : ''}
+        ${i.status !== 'closed' ? `<button class="adm-btn-sm" data-inc-act="close" data-nid="${i.id}">Close</button>` : ''}</td>
+  </tr>`;
+  const incidents = `
+    <p style="margin:0 0 10px;"><a class="adm-btn-sm" style="text-decoration:none;" href="/api/admin/incidents.csv" download>⬇ Incident register CSV</a>
+    <span style="font-size:.85rem;color:#3E5A64;margin-left:8px;">Reportable incidents: notify the Commission portal within <b>24 hours</b> (5 business days for unauthorised restrictive practice), full report within 14 days. Workers can log incidents from their Bookings page.</span></p>
+    ${incs.incidents.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>#</th><th>What</th><th>Who</th><th>Commission</th><th>Status</th><th></th></tr></thead><tbody>${incs.incidents.map(incRow).join('')}</tbody></table></div>` : '<p class="adm-empty">No incidents logged — may it stay that way.</p>'}`;
+  const compRow = x => `<tr>
+    <td>#${x.id}<br><span style="font-size:.78rem;color:#3E5A64;">${fmtStamp(x.created)}</span></td>
+    <td>${esc(x.source_name || 'Anonymous')}<br><span style="font-size:.8rem;color:#3E5A64;">${esc(x.source_email || '')} · ${esc(x.channel)}</span></td>
+    <td>${esc(x.summary)}${x.outcome ? `<br><span style="font-size:.82rem;color:#1C7C43;">outcome: ${esc(x.outcome)}</span>` : ''}</td>
+    <td>${esc(x.status)}${x.acknowledged_at ? '<br><span style="font-size:.78rem;color:#3E5A64;">ack ✓</span>' : ''}</td>
+    <td>${!x.acknowledged_at ? `<button class="adm-btn-sm" data-comp-act="acknowledge" data-cid="${x.id}">Acknowledge</button> ` : ''}
+        ${x.status !== 'resolved' ? `<button class="adm-btn-sm" data-comp-act="resolve" data-cid="${x.id}">Resolve</button>` : `<button class="adm-btn-sm" data-comp-act="reopen" data-cid="${x.id}">Reopen</button>`}</td>
+  </tr>`;
+  const complaints = `
+    <p style="margin:0 0 10px;"><a class="adm-btn-sm" style="text-decoration:none;" href="/api/admin/complaints.csv" download>⬇ Complaints register CSV</a>
+    <span style="font-size:.85rem;color:#3E5A64;margin-left:8px;">Contact-form messages with the "complaint" topic land here automatically. Acknowledge within 7 days, resolve with an outcome, never any reprisal.</span></p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
+      <label style="font-size:.82rem;">From<br><input id="compName" style="font:inherit;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;width:140px;"></label>
+      <label style="font-size:.82rem;">Email/phone<br><input id="compEmail" style="font:inherit;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;width:160px;"></label>
+      <label style="font-size:.82rem;">Channel<br><select id="compChannel" style="font:inherit;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;"><option>phone</option><option>email</option><option>in-person</option><option>site</option><option>other</option></select></label>
+      <label style="font-size:.82rem;flex:1;min-width:200px;">Summary<br><input id="compSummary" style="font:inherit;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;width:100%;"></label>
+      <button class="adm-btn-sm" id="compAdd">＋ Log complaint</button>
+    </div>
+    ${comps.complaints.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>#</th><th>From</th><th>Complaint</th><th>Status</th><th></th></tr></thead><tbody>${comps.complaints.map(compRow).join('')}</tbody></table></div>` : '<p class="adm-empty">No complaints on the register.</p>'}`;
   const bookings = d.bookings.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>When</th><th>Participant</th><th>Worker</th><th>Service</th><th>Status</th></tr></thead><tbody>
     ${d.bookings.map(b => `<tr><td>${esc(b.date)} ${esc(b.start)} · ${b.hours}h</td><td>${esc(b.participant_name)}</td><td>${esc(b.worker_name)}</td><td>${esc(svcName(b.service))}</td><td>${esc(b.status)}</td></tr>`).join('')}
   </tbody></table></div>` : '<p class="adm-empty">No bookings yet.</p>';
@@ -4133,6 +4273,9 @@ async function renderAdminPage(){
     <p style="margin:16px 0 0;"><a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/payroll.csv" download>⬇ Payroll CSV (worker shares)</a></p>`;
   wrap.innerHTML = tiles
     + `<h2 class="adm-section">Workers awaiting approval ${c.pending ? `(${c.pending})` : ''}</h2>` + pending
+    + `<h2 class="adm-section">Credentials — the automatic checker</h2>` + credentials
+    + `<h2 class="adm-section">Incident register ${c.urgent_incidents ? `<span style="color:#D94F32;">(${c.urgent_incidents} awaiting Commission notice!)</span>` : ''}</h2>` + incidents
+    + `<h2 class="adm-section">Complaints register</h2>` + complaints
     + `<h2 class="adm-section">Claims &amp; payments</h2>` + claims
     + `<h2 class="adm-section">Invoicing — completed shifts ${inv.invoices.length ? `(${inv.invoices.length})` : ''}</h2>` + invoicing
     + '<h2 class="adm-section">Recent bookings</h2>' + bookings
@@ -4181,11 +4324,65 @@ document.addEventListener('click', async e => {
     }catch(err){ toast(err.message); pd.disabled = false; }
     return;
   }
+  if(e.target && e.target.id === 'admSweep'){
+    e.target.disabled = true;
+    try{
+      const r = await API.call('/admin/credentials/sweep', {method:'POST'});
+      toast(r.actions.length ? `Check complete — ${r.actions.length} action${r.actions.length > 1 ? 's' : ''} taken (warnings/auto-hides).` : 'Check complete — everything current. ✓');
+      renderAdminPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  const dv = e.target.closest('[data-doc-verify]');
+  if(dv){
+    try{ await API.call('/admin/documents/' + dv.dataset.docVerify + '/verify', {method:'POST'}); toast('Recorded as verified in the NWSD. ✓'); renderAdminPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
+  const dd2 = e.target.closest('[data-doc-del]');
+  if(dd2){
+    try{ await API.call('/admin/documents/' + dd2.dataset.docDel + '/delete', {method:'POST'}); toast('Document removed.'); renderAdminPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
+  const ia = e.target.closest('[data-inc-act]');
+  if(ia){
+    let bodyx = {action: ia.dataset.incAct};
+    if(ia.dataset.incAct === 'close'){
+      const lessons = prompt('Close incident — what was learned / changed as a result?');
+      if(lessons === null) return;
+      bodyx.lessons = lessons;
+    }
+    try{ await API.call('/admin/incidents/' + ia.dataset.nid, {method:'POST', body:bodyx}); toast(ia.dataset.incAct === 'close' ? 'Incident closed with lessons recorded.' : 'Marked as notified to the Commission.'); renderAdminPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
+  if(e.target && e.target.id === 'compAdd'){
+    try{
+      await API.call('/admin/complaints', {method:'POST', body:{source_name:$('#compName').value, source_email:$('#compEmail').value, channel:$('#compChannel').value, summary:$('#compSummary').value}});
+      toast('Complaint logged.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  const ca = e.target.closest('[data-comp-act]');
+  if(ca){
+    let bodyy = {action: ca.dataset.compAct};
+    if(ca.dataset.compAct === 'resolve'){
+      const outcome = prompt('Resolve complaint — what was the outcome?');
+      if(outcome === null) return;
+      bodyy.outcome = outcome;
+    }
+    try{ await API.call('/admin/complaints/' + ca.dataset.cid, {method:'POST', body:bodyy}); toast('Updated.'); renderAdminPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
   const b = e.target.closest('[data-adm-act]');
   if(!b) return;
   b.disabled = true;
   try{
-    await API.call('/admin/workers/' + b.dataset.uid + '/' + b.dataset.admAct, {method:'POST'});
+    const ov = document.getElementById('ov-' + b.dataset.uid);
+    await API.call('/admin/workers/' + b.dataset.uid + '/' + b.dataset.admAct, {method:'POST', body: (ov && ov.checked) ? {override:true} : {}});
     toast(b.dataset.admAct === 'approve' ? 'Approved — they\'re live in Find Workers and have been emailed. 🎉' : 'Hidden from Find Workers.');
     renderAdminPage();
     loadWorkersLive();

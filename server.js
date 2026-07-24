@@ -104,6 +104,57 @@ for (const col of ['ndis_number TEXT DEFAULT \'\'', 'pm_email TEXT DEFAULT \'\''
 for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_no TEXT', 'support_item TEXT', 'claimed_at TEXT', 'paid_at TEXT', 'sleepover INTEGER DEFAULT 0']) {
   try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
 }
+/* compliance build: credentials + incident + complaint registers */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS worker_docs (
+    id INTEGER PRIMARY KEY,
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    doc_type TEXT NOT NULL,
+    label TEXT DEFAULT '',
+    check_number TEXT DEFAULT '',
+    expiry_date TEXT DEFAULT '',
+    file_name TEXT DEFAULT '',
+    file_mime TEXT DEFAULT '',
+    file_path TEXT DEFAULT '',
+    uploaded_at TEXT NOT NULL,
+    verified_at TEXT,
+    verified_by TEXT DEFAULT '',
+    warned_stage TEXT DEFAULT ''
+  );
+  CREATE TABLE IF NOT EXISTS incidents (
+    id INTEGER PRIMARY KEY,
+    created_by INTEGER,
+    created_by_name TEXT DEFAULT '',
+    participant_name TEXT DEFAULT '',
+    worker_name TEXT DEFAULT '',
+    occurred_at TEXT NOT NULL,
+    location TEXT DEFAULT '',
+    category TEXT NOT NULL,
+    reportable INTEGER DEFAULT 0,
+    description TEXT NOT NULL,
+    immediate_action TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'open',
+    notify_due TEXT,
+    commission_notified_at TEXT,
+    lessons TEXT DEFAULT '',
+    closed_at TEXT,
+    created TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS complaints (
+    id INTEGER PRIMARY KEY,
+    source_name TEXT DEFAULT '',
+    source_email TEXT DEFAULT '',
+    channel TEXT DEFAULT 'site',
+    summary TEXT NOT NULL,
+    details TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'open',
+    acknowledged_at TEXT,
+    resolved_at TEXT,
+    outcome TEXT DEFAULT '',
+    created TEXT NOT NULL
+  );
+`);
+
 /* …and allow the 'completed' status. SQLite can't edit a CHECK constraint,
    so databases created before invoicing get their bookings table rebuilt once. */
 const bkDef = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'").get();
@@ -783,7 +834,10 @@ route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
     messages: db.prepare('SELECT COUNT(*) AS n FROM messages').get().n,
     contacts: db.prepare('SELECT COUNT(*) AS n FROM contact_messages').get().n,
     completed: db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE status = 'completed'").get().n,
-    billed: Math.round(db.prepare("SELECT COALESCE(SUM(total), 0) AS s FROM bookings WHERE status = 'completed'").get().s * 100) / 100
+    billed: Math.round(db.prepare("SELECT COALESCE(SUM(total), 0) AS s FROM bookings WHERE status = 'completed'").get().s * 100) / 100,
+    open_incidents: db.prepare("SELECT COUNT(*) AS n FROM incidents WHERE status != 'closed'").get().n,
+    urgent_incidents: db.prepare("SELECT COUNT(*) AS n FROM incidents WHERE reportable = 1 AND commission_notified_at IS NULL AND status != 'closed'").get().n,
+    open_complaints: db.prepare("SELECT COUNT(*) AS n FROM complaints WHERE status != 'resolved'").get().n
   };
   const pending = db.prepare(`SELECT p.user_id, p.bio, p.services, u.name, u.email, u.suburb, u.phone, u.verified, u.created
     FROM worker_profiles p JOIN users u ON u.id = p.user_id WHERE p.visible = 0 ORDER BY u.created DESC`).all()
@@ -796,11 +850,20 @@ route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
   json(res, 200, { counts, pending, users, bookings, contacts });
 });
 
-route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user) => {
+route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
   const uid = Number(m[1]);
   const w = db.prepare("SELECT u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
   if (!w) return json(res, 404, { error: 'No such worker.' });
+  /* screening gate: no current NDIS Worker Screening on file → approval needs an explicit override */
+  if (!w.email.endsWith('@demo.bookit.life') && !body.override) {
+    const state = screeningState(uid);
+    if (state !== 'valid' && state !== 'expiring') {
+      return json(res, 400, { needs_override: true, error: state === 'none'
+        ? 'No NDIS Worker Screening Check on file for this worker. Ask them to add it under My credentials — or tick "approve anyway" if you have sighted it outside BookIt.'
+        : 'This worker\'s NDIS Worker Screening Check on file has expired or has no expiry date. Update it — or tick "approve anyway" if you have sighted a current one outside BookIt.' });
+    }
+  }
   db.prepare('UPDATE worker_profiles SET visible = 1 WHERE user_id = ?').run(uid);
   sendMail(w.email, 'Your BookIt profile is live', `Great news, ${firstName(w.name)} 🎉`,
     `<p>Your checks are in order and your profile has been approved — you're now visible in <b>Find Workers</b> across BookIt.</p><p>Participants can message you and request bookings from today. Keep your availability up to date, reply promptly, and welcome aboard!</p>`,
@@ -990,6 +1053,275 @@ route('POST', /^\/api\/admin\/claims\/(\d+)\/paid$/, (req, res, m, user, body) =
   json(res, 200, { ok: true });
 });
 
+/* ---------- compliance: worker credentials ---------- */
+const DOCS_DIR = process.env.DOCS_DIR || path.join(path.dirname(path.resolve(DB_PATH)), 'bookit-docs');
+try { fs.mkdirSync(DOCS_DIR, { recursive: true }); } catch {}
+const DOC_TYPES = { 'ndis-screening': 'NDIS Worker Screening Check', 'wwcc': 'Working with Children Check', 'first-aid': 'First Aid / CPR', 'other': 'Other credential' };
+const DOC_MIMES = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png' };
+
+function docStatus(d) {
+  if (!d.expiry_date) return 'no-expiry';
+  const today = new Date().toISOString().slice(0, 10);
+  if (d.expiry_date < today) return 'expired';
+  const days = Math.round((new Date(d.expiry_date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
+  return days <= 30 ? 'expiring' : 'valid';
+}
+function docDays(d) {
+  if (!d.expiry_date) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  return Math.round((new Date(d.expiry_date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
+}
+function screeningState(workerId) {
+  const docs = db.prepare("SELECT * FROM worker_docs WHERE worker_id = ? AND doc_type = 'ndis-screening'").all(workerId);
+  if (!docs.length) return 'none';
+  const st = docs.map(docStatus);
+  if (st.includes('valid')) return 'valid';
+  if (st.includes('expiring')) return 'expiring';
+  if (st.includes('no-expiry')) return 'no-expiry';
+  return 'expired';
+}
+function docOut(d) { return { ...d, file_path: undefined, status: docStatus(d), days: docDays(d), type_label: DOC_TYPES[d.doc_type] || d.doc_type, has_file: Boolean(d.file_path) }; }
+
+route('GET', /^\/api\/me\/documents$/, (req, res, m, user) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  json(res, 200, { documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(user.id).map(docOut) });
+});
+
+route('POST', /^\/api\/me\/documents$/, (req, res, m, user, body, ip) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  if (limited(ip, 'docs', 30)) return json(res, 429, { error: 'Too many uploads — try again later.' });
+  const docType = DOC_TYPES[body.doc_type] ? body.doc_type : null;
+  if (!docType) return json(res, 400, { error: 'Pick a credential type.' });
+  const expiry = clean(body.expiry_date, 10);
+  if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return json(res, 400, { error: 'Expiry date looks wrong.' });
+  if (docType !== 'other' && !expiry) return json(res, 400, { error: 'Please enter the expiry date — it drives the automatic checks.' });
+  let fileName = '', fileMime = '', filePath = '';
+  if (body.file && body.file.data) {
+    fileMime = String(body.file.mime || '');
+    if (!DOC_MIMES[fileMime]) return json(res, 400, { error: 'Files must be PDF, JPG or PNG.' });
+    let buf;
+    try { buf = Buffer.from(String(body.file.data).replace(/^data:[^,]*,/, ''), 'base64'); } catch { return json(res, 400, { error: 'Could not read that file.' }); }
+    if (!buf.length || buf.length > 4 * 1024 * 1024) return json(res, 400, { error: 'Files can be up to 4 MB.' });
+    fileName = clean(body.file.name, 80).replace(/[^A-Za-z0-9. _-]/g, '') || ('document' + DOC_MIMES[fileMime]);
+    filePath = path.join(DOCS_DIR, `w${user.id}-${Date.now()}${DOC_MIMES[fileMime]}`);
+    fs.writeFileSync(filePath, buf);
+  }
+  const r = db.prepare('INSERT INTO worker_docs (worker_id, doc_type, label, check_number, expiry_date, file_name, file_mime, file_path, uploaded_at) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run(user.id, docType, clean(body.label, 80), clean(body.check_number, 40), expiry, fileName, fileMime, filePath, now());
+  if (MAIL_FROM) sendMail(MAIL_FROM, 'Credential uploaded — BookIt', 'A worker updated their credentials',
+    `<p><b>${escHtml(user.name)}</b> added a <b>${DOC_TYPES[docType]}</b>${expiry ? ` (expires ${escHtml(expiry)})` : ''}${clean(body.check_number, 40) ? ` — number ${escHtml(clean(body.check_number, 40))}` : ''}.</p><p>Verify it against the NDIS Worker Screening Database, then press Verify in the Credentials section.</p>`,
+    'Open credentials', `${baseUrl(req)}/#/admin`).catch(() => {});
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
+});
+
+route('POST', /^\/api\/me\/documents\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const d = db.prepare('SELECT * FROM worker_docs WHERE id = ? AND worker_id = ?').get(Number(m[1]), user.id);
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  if (d.verified_at) return json(res, 400, { error: 'That one\'s been verified — ask the BookIt team to update it.' });
+  if (d.file_path) { try { fs.unlinkSync(d.file_path); } catch {} }
+  db.prepare('DELETE FROM worker_docs WHERE id = ?').run(d.id);
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/documents\/(\d+)\/file$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const d = db.prepare('SELECT * FROM worker_docs WHERE id = ?').get(Number(m[1]));
+  if (!d || !d.file_path) return json(res, 404, { error: 'No file.' });
+  if (!(user.admin || user.id === d.worker_id)) return json(res, 403, { error: 'Not yours.' });
+  if (!fs.existsSync(d.file_path)) return json(res, 404, { error: 'File missing from disk.' });
+  res.writeHead(200, { 'Content-Type': d.file_mime || 'application/octet-stream', 'Content-Disposition': `inline; filename="${d.file_name || 'document'}"` });
+  fs.createReadStream(d.file_path).pipe(res);
+});
+
+route('GET', /^\/api\/admin\/credentials$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const workers = db.prepare(`SELECT u.id, u.name, u.email, u.verified, p.visible FROM users u
+    JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' ORDER BY u.name`).all()
+    .map(w => ({
+      ...w,
+      demo: w.email.endsWith('@demo.bookit.life'),
+      screening: screeningState(w.id),
+      documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(w.id).map(docOut)
+    }));
+  json(res, 200, { workers });
+});
+
+route('POST', /^\/api\/admin\/documents\/(\d+)\/verify$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const d = db.prepare('SELECT id FROM worker_docs WHERE id = ?').get(Number(m[1]));
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  db.prepare('UPDATE worker_docs SET verified_at = ?, verified_by = ? WHERE id = ?').run(now(), user.name, d.id);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/documents\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const d = db.prepare('SELECT * FROM worker_docs WHERE id = ?').get(Number(m[1]));
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  if (d.file_path) { try { fs.unlinkSync(d.file_path); } catch {} }
+  db.prepare('DELETE FROM worker_docs WHERE id = ?').run(d.id);
+  json(res, 200, { ok: true });
+});
+
+/* the automatic checker: warns ahead of expiry and hides workers whose
+   screening has lapsed. Runs on boot, twice a day, and on demand. */
+function credentialSweep(req) {
+  const actions = [];
+  const base = req ? baseUrl(req) : APP_URL || 'https://bookit.life';
+  const workers = db.prepare(`SELECT u.id, u.name, u.email, p.visible FROM users u
+    JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker'`).all();
+  for (const w of workers) {
+    if (w.email.endsWith('@demo.bookit.life')) continue;
+    const docs = db.prepare('SELECT * FROM worker_docs WHERE worker_id = ?').all(w.id);
+    for (const d of docs) {
+      const st = docStatus(d), days = docDays(d);
+      let stage = '';
+      if (st === 'expired') stage = 'expired';
+      else if (st === 'expiring' && days <= 7) stage = '7';
+      else if (st === 'expiring') stage = '30';
+      if (stage && d.warned_stage !== stage) {
+        db.prepare('UPDATE worker_docs SET warned_stage = ? WHERE id = ?').run(stage, d.id);
+        const what = `${DOC_TYPES[d.doc_type] || d.doc_type}${d.check_number ? ` (${d.check_number})` : ''}`;
+        const when = st === 'expired' ? 'has EXPIRED' : `expires in ${days} day${days === 1 ? '' : 's'} (${d.expiry_date})`;
+        sendMail(w.email, `Your ${DOC_TYPES[d.doc_type] || 'credential'} ${st === 'expired' ? 'has expired' : 'is expiring'} — BookIt`,
+          `Heads up, ${firstName(w.name)}`,
+          `<p>Your <b>${escHtml(what)}</b> ${escHtml(when)}.</p><p>${st === 'expired' ? 'You can\'t deliver supports until a current check is on file — please renew it and upload the new details today.' : 'Renewals can be lodged up to 90 days early — please update your credentials in BookIt as soon as you have the new document.'}</p>`,
+          'Update my credentials', `${base}/#/bookings`).catch(() => {});
+        if (MAIL_FROM) sendMail(MAIL_FROM, `Credential ${st === 'expired' ? 'EXPIRED' : 'expiring'}: ${w.name} — BookIt`,
+          `${w.name} — ${DOC_TYPES[d.doc_type] || d.doc_type}`,
+          `<p><b>${escHtml(w.name)}</b>'s <b>${escHtml(what)}</b> ${escHtml(when)}.</p>`,
+          'Open credentials', `${base}/#/admin`).catch(() => {});
+        actions.push({ worker: w.name, doc: d.doc_type, stage });
+      }
+    }
+    /* auto-hide: a screening doc exists but none is current */
+    if (w.visible && screeningState(w.id) === 'expired') {
+      db.prepare('UPDATE worker_profiles SET visible = 0 WHERE user_id = ?').run(w.id);
+      actions.push({ worker: w.name, hidden: true });
+      sendMail(w.email, 'Your BookIt profile is paused — BookIt', `Your profile is paused, ${firstName(w.name)}`,
+        '<p>Your NDIS Worker Screening Check has expired, so your profile has been automatically hidden and new bookings are paused — this is a legal requirement, not a judgement! Upload your renewed check and we\'ll switch you back on straight away.</p>',
+        'Update my credentials', `${base}/#/bookings`).catch(() => {});
+      if (MAIL_FROM) sendMail(MAIL_FROM, `Worker auto-hidden (screening expired): ${w.name} — BookIt`,
+        'Worker automatically hidden',
+        `<p><b>${escHtml(w.name)}</b> was hidden from Find Workers because their NDIS Worker Screening Check has expired. They've been asked to renew; re-approve them once the new check is verified.</p>`,
+        'Open credentials', `${base}/#/admin`).catch(() => {});
+    }
+  }
+  return actions;
+}
+route('POST', /^\/api\/admin\/credentials\/sweep$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { ok: true, actions: credentialSweep(req) });
+});
+setTimeout(() => { try { credentialSweep(); } catch (e) { console.error('sweep:', e.message); } }, 30_000);
+setInterval(() => { try { credentialSweep(); } catch (e) { console.error('sweep:', e.message); } }, 12 * 3600e3);
+
+/* ---------- compliance: incident register ---------- */
+const REPORTABLE_24H = ['death', 'serious-injury', 'abuse-neglect', 'unlawful-contact', 'sexual-misconduct'];
+const INCIDENT_CATS = {
+  'death': 'Death of a person with disability', 'serious-injury': 'Serious injury', 'abuse-neglect': 'Abuse or neglect',
+  'unlawful-contact': 'Unlawful sexual or physical contact', 'sexual-misconduct': 'Sexual misconduct or grooming',
+  'restrictive-practice': 'Unauthorised restrictive practice', 'near-miss': 'Near miss', 'other': 'Other incident'
+};
+function addBusinessDays(fromIso, n) {
+  const d = new Date(fromIso);
+  let added = 0;
+  while (added < n) { d.setDate(d.getDate() + 1); const w = d.getDay(); if (w !== 0 && w !== 6) added++; }
+  return d.toISOString();
+}
+function incidentOut(i) {
+  let hoursLeft = null;
+  if (i.notify_due && !i.commission_notified_at) hoursLeft = Math.round((new Date(i.notify_due) - Date.now()) / 36e5);
+  return { ...i, category_label: INCIDENT_CATS[i.category] || i.category, hours_left: hoursLeft };
+}
+
+route('POST', /^\/api\/incidents$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (limited(ip, 'incidents', 30)) return json(res, 429, { error: 'Slow down a moment.' });
+  const category = INCIDENT_CATS[body.category] ? body.category : 'other';
+  const description = clean(body.description, 4000);
+  if (!description) return json(res, 400, { error: 'Describe what happened.' });
+  const reportable = REPORTABLE_24H.includes(category) || category === 'restrictive-practice' ? 1 : 0;
+  const created = now();
+  const due = REPORTABLE_24H.includes(category) ? new Date(Date.now() + 24 * 3600e3).toISOString()
+    : category === 'restrictive-practice' ? addBusinessDays(created, 5) : null;
+  const r = db.prepare(`INSERT INTO incidents (created_by, created_by_name, participant_name, worker_name, occurred_at, location, category, reportable, description, immediate_action, notify_due, created)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(user.id, user.name, clean(body.participant_name, 80), clean(body.worker_name, 80),
+      clean(body.occurred_at, 25) || created, clean(body.location, 120), category, reportable,
+      description, clean(body.immediate_action, 2000), due, created);
+  if (reportable && MAIL_FROM) sendMail(MAIL_FROM, `⚠ REPORTABLE INCIDENT logged — BookIt`,
+    'Reportable incident — the clock is running',
+    `<p><b>${escHtml(INCIDENT_CATS[category])}</b> logged by ${escHtml(user.name)}.</p><p><b>Notify the NDIS Commission ${REPORTABLE_24H.includes(category) ? 'within 24 HOURS' : 'within 5 business days'}</b> via the Commission portal, then record it in the incident register. Full written report within 14 days.</p><p>${escHtml(description.slice(0, 300))}</p>`,
+    'Open the incident register', `${baseUrl(req)}/#/admin`).catch(() => {});
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid), reportable, notify_due: due });
+});
+
+route('GET', /^\/api\/admin\/incidents$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { incidents: db.prepare('SELECT * FROM incidents ORDER BY id DESC LIMIT 500').all().map(incidentOut), categories: INCIDENT_CATS });
+});
+
+route('POST', /^\/api\/admin\/incidents\/(\d+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const i = db.prepare('SELECT * FROM incidents WHERE id = ?').get(Number(m[1]));
+  if (!i) return json(res, 404, { error: 'No such incident.' });
+  if (body.action === 'notified') db.prepare('UPDATE incidents SET commission_notified_at = ?, status = ? WHERE id = ?').run(now(), 'investigating', i.id);
+  else if (body.action === 'investigating') db.prepare('UPDATE incidents SET status = ? WHERE id = ?').run('investigating', i.id);
+  else if (body.action === 'close') db.prepare('UPDATE incidents SET status = ?, closed_at = ?, lessons = ? WHERE id = ?').run('closed', now(), clean(body.lessons, 2000), i.id);
+  else return json(res, 400, { error: 'Unknown action.' });
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/admin\/incidents\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['ID', 'Created', 'Occurred', 'Category', 'Reportable', 'Participant', 'Worker', 'Location', 'Description', 'Immediate action', 'Notify due', 'Commission notified', 'Status', 'Lessons', 'Closed'].map(q).join(',')];
+  for (const i of db.prepare('SELECT * FROM incidents ORDER BY id').all()) {
+    lines.push([i.id, i.created, i.occurred_at, INCIDENT_CATS[i.category] || i.category, i.reportable ? 'YES' : 'no', i.participant_name, i.worker_name, i.location, i.description, i.immediate_action, i.notify_due || '', i.commission_notified_at || '', i.status, i.lessons, i.closed_at || ''].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-incident-register.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* ---------- compliance: complaints register ---------- */
+route('POST', /^\/api\/admin\/complaints$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const summary = clean(body.summary, 200);
+  if (!summary) return json(res, 400, { error: 'Give the complaint a one-line summary.' });
+  const r = db.prepare('INSERT INTO complaints (source_name, source_email, channel, summary, details, created) VALUES (?,?,?,?,?,?)')
+    .run(clean(body.source_name, 80), clean(body.source_email, 120), ['site', 'email', 'phone', 'in-person', 'other'].includes(body.channel) ? body.channel : 'other', summary, clean(body.details, 4000), now());
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
+});
+
+route('GET', /^\/api\/admin\/complaints$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { complaints: db.prepare('SELECT * FROM complaints ORDER BY id DESC LIMIT 500').all() });
+});
+
+route('POST', /^\/api\/admin\/complaints\/(\d+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const c = db.prepare('SELECT * FROM complaints WHERE id = ?').get(Number(m[1]));
+  if (!c) return json(res, 404, { error: 'No such complaint.' });
+  if (body.action === 'acknowledge') db.prepare('UPDATE complaints SET acknowledged_at = ?, status = ? WHERE id = ?').run(now(), 'resolving', c.id);
+  else if (body.action === 'resolve') db.prepare('UPDATE complaints SET resolved_at = ?, status = ?, outcome = ? WHERE id = ?').run(now(), 'resolved', clean(body.outcome, 2000), c.id);
+  else if (body.action === 'reopen') db.prepare('UPDATE complaints SET status = ?, resolved_at = NULL WHERE id = ?').run('open', c.id);
+  else return json(res, 400, { error: 'Unknown action.' });
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/admin\/complaints\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['ID', 'Received', 'From', 'Email', 'Channel', 'Summary', 'Details', 'Acknowledged', 'Resolved', 'Outcome', 'Status'].map(q).join(',')];
+  for (const c of db.prepare('SELECT * FROM complaints ORDER BY id').all()) {
+    lines.push([c.id, c.created, c.source_name, c.source_email, c.channel, c.summary, c.details, c.acknowledged_at || '', c.resolved_at || '', c.outcome, c.status].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-complaints-register.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
 route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -1171,6 +1503,11 @@ route('POST', /^\/api\/contact$/, (req, res, m, user, body, ip) => {
   if (limited(ip, 'contact', 20)) return json(res, 429, { error: 'Too many messages — try again later.' });
   db.prepare('INSERT INTO contact_messages (name, email, topic, body, created) VALUES (?,?,?,?,?)')
     .run(clean(body.name, 80), clean(body.email, 120), clean(body.topic, 80), clean(body.body, 2000), now());
+  /* complaints land straight in the complaints register too */
+  if (/complaint/i.test(String(body.topic || ''))) {
+    db.prepare('INSERT INTO complaints (source_name, source_email, channel, summary, details, created) VALUES (?,?,?,?,?,?)')
+      .run(clean(body.name, 80), clean(body.email, 120), 'site', clean(body.body, 2000).slice(0, 200) || 'Complaint via contact form', clean(body.body, 4000), now());
+  }
   /* forward a copy to the BookIt inbox so nothing sits unseen in the database */
   const fromEmail = clean(body.email, 120);
   if (MAIL_FROM) sendMail(MAIL_FROM, `Contact form — ${clean(body.topic, 80) || 'General'}`,
@@ -1272,9 +1609,10 @@ const server = http.createServer((req, res) => {
 
   let raw = '';
   let overflow = false;
+  const bodyCap = pathname === '/api/me/documents' ? 6_000_000 : 100_000; /* credential uploads carry base64 files */
   req.on('data', chunk => {
     raw += chunk;
-    if (raw.length > 100_000) { overflow = true; req.destroy(); }
+    if (raw.length > bodyCap) { overflow = true; req.destroy(); }
   });
   req.on('end', () => {
     if (overflow) return;
