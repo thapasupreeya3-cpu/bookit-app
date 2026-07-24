@@ -1678,10 +1678,15 @@ const server = http.createServer((req, res) => {
 
   let raw = '';
   let overflow = false;
-  const bodyCap = (pathname === '/api/me/documents' || pathname === '/api/me/photo') ? 6_000_000 : 100_000; /* uploads carry base64 files */
+  const bodyCap = (pathname === '/api/me/documents' || pathname === '/api/me/photo') ? 8_000_000 : 100_000; /* uploads carry base64 files */
   req.on('data', chunk => {
+    if (overflow) return; /* keep draining so the response can get through, but stop buffering */
     raw += chunk;
-    if (raw.length > bodyCap) { overflow = true; req.destroy(); }
+    if (raw.length > bodyCap) {
+      overflow = true;
+      raw = '';
+      json(res, 413, { error: 'That file is too big to upload. Photos are shrunk automatically before sending — refresh the page and try again. PDFs need to be under 4 MB.' });
+    }
   });
   req.on('end', () => {
     if (overflow) return;

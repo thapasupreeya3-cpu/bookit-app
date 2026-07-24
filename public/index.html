@@ -3850,7 +3850,7 @@ window.API = {
     });
     let data = {};
     try { data = await res.json(); } catch(e){}
-    if(!res.ok) throw new Error(data.error || 'Something went wrong.');
+    if(!res.ok) throw new Error(data.error || `Something went wrong (error ${res.status}) — please try again.`);
     return data;
   }
 };
@@ -4174,7 +4174,7 @@ async function renderBookingsPage(){
     workerCards += `
     <div class="info-card" id="cardProfile" style="margin-bottom:18px;">
       <h3 style="margin:0 0 6px;">My profile</h3>
-      <p class="muted-sm" style="margin:0 0 12px;">Your photo is <b>required</b> before your profile can go live — participants choose people, not initials. A friendly, clear head-and-shoulders shot works best.</p>
+      <p class="muted-sm" style="margin:0 0 12px;">Your photo is <b>required</b> before your profile can go live — participants choose people, not initials. A friendly, clear head-and-shoulders shot works best. Any size is fine — we shrink it automatically.</p>
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">
         <div class="wc-avatar" style="background:#0E6B62;width:92px;height:92px;font-size:1.8rem;">
           ${prof.photo ? `<img src="${prof.photo}" alt="Your profile photo">` : (API.me.name || '?').split(' ').map(p => p[0]).join('').slice(0,2)}
@@ -4208,7 +4208,7 @@ async function renderBookingsPage(){
           </select></label>
           <label style="font-size:.85rem;">Number<br><input id="wdNumber" placeholder="check / card number" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:170px;"></label>
           <label style="font-size:.85rem;">Expiry<br><input id="wdExpiry" type="date" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
-          <label style="font-size:.85rem;">File (PDF/JPG/PNG, 4 MB)<br><input id="wdFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.85rem;"></label>
+          <label style="font-size:.85rem;">File (photo any size, PDF ≤ 4 MB)<br><input id="wdFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.85rem;"></label>
           <button type="button" class="btn btn-primary btn-sm" id="wdAdd">Add</button>
         </div>
       </details>
@@ -4275,13 +4275,41 @@ function fileToB64(input){
     r.readAsDataURL(f);
   });
 }
+/* phone photos are 5–15 MB — shrink images in the browser before uploading so
+   uploads always sail under the server limits. PDFs pass through untouched. */
+async function fileToB64Shrunk(input, maxEdge, quality){
+  const f = input.files && input.files[0];
+  if(!f) return null;
+  if(!/^image\/(jpeg|png)$/.test(f.type)) return fileToB64(input);
+  const url = URL.createObjectURL(f);
+  try{
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i); i.onerror = rej;
+      i.src = url;
+    });
+    const scale = Math.min(1, (maxEdge || 1280) / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); /* PNG transparency → white, not black */
+    ctx.drawImage(img, 0, 0, w, h);
+    const data = c.toDataURL('image/jpeg', quality || 0.85);
+    return { name: f.name.replace(/\.\w+$/, '') + '.jpg', mime: 'image/jpeg', data };
+  }catch(e){
+    return fileToB64(input); /* couldn't decode — send as-is, the server still guards */
+  }finally{ URL.revokeObjectURL(url); }
+}
 document.addEventListener('click', async e => {
   if(e.target && e.target.id === 'mpPhotoSave'){
     e.target.disabled = true;
     try{
-      const file = await fileToB64($('#mpPhoto'));
+      const file = await fileToB64Shrunk($('#mpPhoto'), 1280, 0.85);
       if(!file){ toast('Choose a photo first.'); e.target.disabled = false; return; }
-      await API.call('/me/photo', {method:'POST', body:{file}});
+      const r = await API.call('/me/photo', {method:'POST', body:{file}});
+      if(API.me){ API.me.photo = r.photo; renderAcctChip(); } /* nav chip updates straight away */
       toast('Photo saved — looking sharp! 📸');
       renderBookingsPage();
     }catch(err){ toast(err.message); e.target.disabled = false; }
@@ -4297,7 +4325,12 @@ document.addEventListener('click', async e => {
   if(e.target && e.target.id === 'wdAdd'){
     e.target.disabled = true;
     try{
-      const file = await fileToB64($('#wdFile'));
+      /* images shrink automatically (1600px keeps card text readable); PDFs upload as-is */
+      const file = await fileToB64Shrunk($('#wdFile'), 1600, 0.85);
+      if(file && file.mime === 'application/pdf' && file.data.length > 5_400_000){
+        toast('That PDF is over the 4 MB limit — export a smaller copy, or photograph the document instead.');
+        e.target.disabled = false; return;
+      }
       await API.call('/me/documents', {method:'POST', body:{doc_type:$('#wdType').value, check_number:$('#wdNumber').value.trim(), expiry_date:$('#wdExpiry').value, file}});
       toast('Credential added — the team will verify it. 👍');
       renderBookingsPage();
