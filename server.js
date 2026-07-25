@@ -7,6 +7,7 @@
    ============================================================ */
 'use strict';
 const http = require('node:http');
+const https = require('node:https');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -108,6 +109,10 @@ for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_
 for (const col of ['photo TEXT DEFAULT \'\'', 'photo_at TEXT DEFAULT \'\'']) {
   try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
 }
+/* migration (stripe build): card-payment link per invoiced booking */
+for (const col of ['stripe_session TEXT', 'pay_url TEXT']) {
+  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+}
 /* compliance build: credentials + incident + complaint registers */
 db.exec(`
   CREATE TABLE IF NOT EXISTS worker_docs (
@@ -158,6 +163,42 @@ db.exec(`
     created TEXT NOT NULL
   );
 `);
+/* reviews build: post-shift ratings + written reviews (one per completed booking) */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS reviews (
+    id INTEGER PRIMARY KEY,
+    booking_id INTEGER NOT NULL UNIQUE REFERENCES bookings(id),
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    participant_id INTEGER NOT NULL REFERENCES users(id),
+    rating INTEGER NOT NULL,
+    comment TEXT DEFAULT '',
+    published INTEGER DEFAULT 1,
+    created TEXT NOT NULL
+  );
+`);
+/* SIL rosters build: shared-living houses with weekly repeating shift slots */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sil_houses (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    address TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS sil_slots (
+    id INTEGER PRIMARY KEY,
+    house_id INTEGER NOT NULL REFERENCES sil_houses(id),
+    day INTEGER NOT NULL,
+    start TEXT NOT NULL,
+    hours REAL NOT NULL,
+    service TEXT NOT NULL DEFAULT 'daily-tasks',
+    sleepover INTEGER DEFAULT 0,
+    worker_id INTEGER,
+    participant_id INTEGER,
+    created TEXT NOT NULL
+  );
+`);
+try { db.exec('ALTER TABLE bookings ADD COLUMN sil_slot_id INTEGER'); } catch {}
 
 /* …and allow the 'completed' status. SQLite can't edit a CHECK constraint,
    so databases created before invoicing get their bookings table rebuilt once. */
@@ -462,6 +503,92 @@ const RESEND_KEY = process.env.RESEND_API_KEY || '';
 const RESEND_BASE = (process.env.RESEND_BASE || 'https://api.resend.com').replace(/\/+$/, '');
 const EMAIL_ON = Boolean(RESEND_KEY || (SMTP_USER && SMTP_PASS));
 
+/* ---------- Stripe (card payments for self-managed invoices) ----------
+   Set STRIPE_SECRET_KEY (sk_live_… from dashboard.stripe.com → Developers → API keys)
+   and the feature switches on: self-managed invoices get a hosted "pay by card" link.
+   Set STRIPE_WEBHOOK_SECRET (whsec_… — add a webhook in the Stripe dashboard pointing
+   at https://bookit.life/api/stripe/webhook for the checkout.session.completed event)
+   and paid shifts mark themselves paid the moment the card goes through.
+   No keys set = feature dormant, invoices show bank transfer only. */
+const STRIPE_KEY = process.env.STRIPE_SECRET_KEY || '';
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
+const STRIPE_API_URL = (process.env.STRIPE_API_URL || 'https://api.stripe.com').replace(/\/+$/, ''); /* overridable for tests */
+function stripeRequest(pathName, params) {
+  return new Promise((resolve, reject) => {
+    const form = new URLSearchParams();
+    const add = (k, v) => { if (v !== undefined && v !== null) form.append(k, String(v)); };
+    for (const [k, v] of Object.entries(params)) add(k, v);
+    const body = form.toString();
+    const u = new URL(STRIPE_API_URL + pathName);
+    const mod = u.protocol === 'http:' ? http : https;
+    const req2 = mod.request({
+      hostname: u.hostname, port: u.port || (u.protocol === 'http:' ? 80 : 443), path: u.pathname,
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${STRIPE_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, r => {
+      let data = '';
+      r.on('data', c => { data += c; });
+      r.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (r.statusCode >= 400 || parsed.error) return reject(new Error((parsed.error && parsed.error.message) || `Stripe error ${r.statusCode}`));
+          resolve(parsed);
+        } catch { reject(new Error('Stripe returned an unreadable response.')); }
+      });
+    });
+    req2.on('error', reject);
+    req2.setTimeout(15000, () => req2.destroy(new Error('Stripe request timed out.')));
+    req2.end(body);
+  });
+}
+function verifyStripeSig(raw, header) {
+  if (!STRIPE_WEBHOOK_SECRET) return false;
+  let t = '';
+  const v1s = [];
+  for (const kv of String(header || '').split(',')) {
+    const i = kv.indexOf('=');
+    if (i === -1) continue;
+    const k = kv.slice(0, i).trim(), v = kv.slice(i + 1).trim();
+    if (k === 't') t = v;
+    else if (k === 'v1') v1s.push(v);
+  }
+  if (!t || !v1s.length) return false;
+  if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false; /* 5-minute replay window */
+  const expected = crypto.createHmac('sha256', STRIPE_WEBHOOK_SECRET).update(`${t}.${raw}`).digest('hex');
+  return v1s.some(v => {
+    try { return v.length === expected.length && crypto.timingSafeEqual(Buffer.from(v), Buffer.from(expected)); }
+    catch { return false; }
+  });
+}
+function handleStripeWebhook(req, res, raw) {
+  if (!verifyStripeSig(raw, req.headers['stripe-signature'])) {
+    return json(res, 400, { error: 'Bad signature.' });
+  }
+  let event = {};
+  try { event = JSON.parse(raw); } catch { return json(res, 400, { error: 'Bad payload.' }); }
+  if (event.type === 'checkout.session.completed') {
+    const s = event.data && event.data.object ? event.data.object : {};
+    const invNo = s.metadata && s.metadata.invoice_no;
+    if (invNo) {
+      const rows = db.prepare("SELECT id, total FROM bookings WHERE invoice_no = ? AND claim_status != 'paid'").all(invNo);
+      if (rows.length) {
+        db.prepare("UPDATE bookings SET claim_status = 'paid', paid_at = ? WHERE invoice_no = ? AND claim_status != 'paid'").run(now(), invNo);
+        const total = rows.reduce((n, r) => n + (r.total || 0), 0);
+        console.log(`[stripe] card payment received — invoice ${invNo}, ${rows.length} shift(s), $${total.toFixed(2)}`);
+        if (MAIL_FROM) sendMail(MAIL_FROM, `Card payment received — ${invNo}`,
+          `💳 $${total.toFixed(2)} paid by card`,
+          `<p>Invoice <b>${escHtml(invNo)}</b> has been paid by card through Stripe — <b>$${total.toFixed(2)}</b> across ${rows.length} shift${rows.length > 1 ? 's' : ''}. The shifts are marked paid automatically.</p>`,
+          'Open claims', `${APP_URL || 'https://bookit.life'}/#/admin`).catch(() => {});
+      }
+    }
+  }
+  json(res, 200, { received: true });
+}
+
 /* ---------- admins ----------
    ADMIN_EMAILS = comma-separated list of account emails that get the admin
    dashboard (approve workers, see users/bookings/messages). */
@@ -666,6 +793,7 @@ function limited(ip, key, max = 25, windowMs = 10 * 60e3) {
 
 /* ---------- seed ---------- */
 function seed() {
+  if (process.env.SEED_DEMO === 'off') return; /* set after launch so a fresh DB never re-seeds demo data */
   const count = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
   if (count > 0) return;
   const demoWorkers = [
@@ -705,6 +833,15 @@ function publicWorker(row) {
     photo: row.photo ? `/photos/${row.user_id}?v=${encodeURIComponent(row.photo_at || '')}` : null
   };
 }
+/* live review aggregates override the seeded rating/shift numbers once real reviews exist */
+function reviewAgg(workerId) {
+  return db.prepare('SELECT COUNT(*) AS n, AVG(rating) AS avg FROM reviews WHERE worker_id = ? AND published = 1').get(workerId);
+}
+function withReviewAgg(w) {
+  const agg = reviewAgg(w.id);
+  if (agg.n) { w.rating = Math.round(agg.avg * 10) / 10; w.shifts = agg.n; }
+  return w;
+}
 function convoForUser(user, convoRow) {
   const otherId = user.role === 'participant' ? convoRow.worker_id : convoRow.participant_id;
   const other = db.prepare("SELECT u.id, u.name, u.suburb, COALESCE(p.color, '#0E6B62') AS color FROM users u LEFT JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(otherId);
@@ -729,7 +866,10 @@ function route(method, pattern, handler) { routes.push({ method, pattern, handle
 
 route('GET', /^\/api\/health$/, (req, res) => json(res, 200, { ok: true, time: now() }));
 
-route('GET', /^\/api\/me$/, (req, res, m, user) => json(res, 200, { user }));
+route('GET', /^\/api\/me$/, (req, res, m, user) => json(res, 200, {
+  user,
+  demo: Boolean(db.prepare("SELECT id FROM users WHERE email LIKE '%@demo.bookit.life' LIMIT 1").get())
+}));
 
 route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
   if (limited(ip, 'register', 15)) return json(res, 429, { error: 'Too many attempts — try again later.' });
@@ -856,6 +996,10 @@ route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
     urgent_incidents: db.prepare("SELECT COUNT(*) AS n FROM incidents WHERE reportable = 1 AND commission_notified_at IS NULL AND status != 'closed'").get().n,
     open_complaints: db.prepare("SELECT COUNT(*) AS n FROM complaints WHERE status != 'resolved'").get().n
   };
+  const launch = {
+    gate: Boolean(SITE_PASSWORD),
+    demo_accounts: db.prepare("SELECT COUNT(*) AS n FROM users WHERE email LIKE '%@demo.bookit.life'").get().n
+  };
   const pending = db.prepare(`SELECT p.user_id, p.bio, p.services, p.photo, p.photo_at, u.name, u.email, u.suburb, u.phone, u.verified, u.created
     FROM worker_profiles p JOIN users u ON u.id = p.user_id WHERE p.visible = 0 ORDER BY u.created DESC`).all()
     .map(w => ({ ...w, photo: w.photo ? `/photos/${w.user_id}?v=${encodeURIComponent(w.photo_at || '')}` : null, services: JSON.parse(w.services || '[]') }));
@@ -864,7 +1008,30 @@ route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
     up.name AS participant_name, uw.name AS worker_name FROM bookings b
     JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id ORDER BY b.id DESC LIMIT 50`).all();
   const contacts = db.prepare('SELECT id, name, email, topic, body, created FROM contact_messages ORDER BY id DESC LIMIT 50').all();
-  json(res, 200, { counts, pending, users, bookings, contacts });
+  json(res, 200, { counts, pending, users, bookings, contacts, launch });
+});
+
+/* launch sweep — permanently removes every demo account and everything they touched.
+   Run it once, just before going live; deleting SITE_PASSWORD is then the only step left. */
+route('POST', /^\/api\/admin\/launch-sweep$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  if (clean(body.confirm, 20) !== 'LAUNCH') return json(res, 400, { error: 'Type LAUNCH to confirm — this permanently removes all demo accounts and their data.' });
+  const demoIds = db.prepare("SELECT id FROM users WHERE email LIKE '%@demo.bookit.life'").all().map(r => r.id);
+  if (!demoIds.length) return json(res, 200, { ok: true, removed: 0, note: 'Already clean — no demo accounts left.' });
+  const ph = demoIds.map(() => '?').join(',');
+  const convos = db.prepare(`SELECT id FROM conversations WHERE participant_id IN (${ph}) OR worker_id IN (${ph})`).all(...demoIds, ...demoIds).map(r => r.id);
+  if (convos.length) {
+    const cph = convos.map(() => '?').join(',');
+    db.prepare(`DELETE FROM messages WHERE convo_id IN (${cph})`).run(...convos);
+    db.prepare(`DELETE FROM conversations WHERE id IN (${cph})`).run(...convos);
+  }
+  db.prepare(`DELETE FROM reviews WHERE participant_id IN (${ph}) OR worker_id IN (${ph})`).run(...demoIds, ...demoIds);
+  const bk = db.prepare(`DELETE FROM bookings WHERE participant_id IN (${ph}) OR worker_id IN (${ph})`).run(...demoIds, ...demoIds);
+  db.prepare(`DELETE FROM worker_docs WHERE worker_id IN (${ph})`).run(...demoIds);
+  db.prepare(`DELETE FROM worker_profiles WHERE user_id IN (${ph})`).run(...demoIds);
+  const u = db.prepare(`DELETE FROM users WHERE id IN (${ph})`).run(...demoIds);
+  console.log(`LAUNCH SWEEP by ${user.email}: removed ${u.changes} demo accounts, ${bk.changes} bookings, ${convos.length} conversations.`);
+  json(res, 200, { ok: true, removed: Number(u.changes), bookings: Number(bk.changes), conversations: convos.length });
 });
 
 route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user, body) => {
@@ -945,7 +1112,7 @@ route('GET', /^\/api\/admin\/invoices\.csv$/, (req, res, m, user) => {
 const dmy = iso => String(iso || '').split('-').reverse().join('/');
 function claimRows(where) {
   return db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.rate_category, b.unit_price, b.total,
-      b.claim_status, b.claim_ref, b.invoice_no, b.support_item, b.claimed_at, b.paid_at,
+      b.claim_status, b.claim_ref, b.invoice_no, b.support_item, b.claimed_at, b.paid_at, b.pay_url,
       up.id AS pid, up.name AS participant_name, up.email AS participant_email, up.plan AS funding, up.ndis_number, up.pm_email,
       uw.name AS worker_name
     FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id
@@ -1018,6 +1185,25 @@ route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
     }
     const self = first.funding === 'self';
     const dest = self ? first.participant_email : first.pm_email;
+    /* self-managed + Stripe configured → hosted card-payment link for the whole invoice */
+    let payUrl = '';
+    if (self && STRIPE_KEY) {
+      try {
+        const session = await stripeRequest('/v1/checkout/sessions', {
+          mode: 'payment',
+          'line_items[0][quantity]': 1,
+          'line_items[0][price_data][currency]': 'aud',
+          'line_items[0][price_data][unit_amount]': Math.round(total * 100),
+          'line_items[0][price_data][product_data][name]': `BookIt invoice ${invNo} — NDIS supports for ${first.participant_name}`,
+          'metadata[invoice_no]': invNo,
+          customer_email: dest,
+          success_url: `${APP_URL || baseUrl(req)}/#/pay-success`,
+          cancel_url: `${APP_URL || baseUrl(req)}/#/bookings`
+        });
+        payUrl = session.url || '';
+        if (payUrl) db.prepare('UPDATE bookings SET stripe_session = ?, pay_url = ? WHERE invoice_no = ?').run(session.id || '', payUrl, invNo);
+      } catch (e) { console.error(`[stripe] session failed for ${invNo}: ${e.message}`); }
+    }
     const pdf = makeInvoicePdf({
       invoice_no: invNo,
       date: dmy(new Date().toISOString().slice(0, 10)),
@@ -1038,8 +1224,8 @@ route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
     try {
       await sendMail(dest, `Invoice ${invNo} — BookIt supports for ${first.participant_name}`,
         `Invoice ${invNo}`,
-        `<p>Please find attached invoice <b>${invNo}</b> for NDIS supports delivered to <b>${escHtml(first.participant_name)}</b> — total <b>$${total.toFixed(2)}</b> (GST-free). Payment within 14 days, thank you.</p><p>Prices align with the NDIS Pricing Arrangements and Price Limits 2026–27. Questions? Just reply to this email.</p>`,
-        null, null, MAIL_FROM, [{ filename: `${invNo}.pdf`, mime: 'application/pdf', buffer: pdf }]);
+        `<p>Please find attached invoice <b>${invNo}</b> for NDIS supports delivered to <b>${escHtml(first.participant_name)}</b> — total <b>$${total.toFixed(2)}</b> (GST-free). Payment within 14 days, thank you.</p>${payUrl ? '<p>Fastest way: press the button below to <b>pay by card</b> — the invoice marks itself paid instantly. Bank transfer details are on the attached PDF if you prefer.</p>' : ''}<p>Prices align with the NDIS Pricing Arrangements and Price Limits 2026–27. Questions? Just reply to this email.</p>`,
+        payUrl ? '💳 Pay by card' : null, payUrl || null, MAIL_FROM, [{ filename: `${invNo}.pdf`, mime: 'application/pdf', buffer: pdf }]);
       emailed = EMAIL_ON;
     } catch (e) { console.error(`[claims] invoice email failed for ${invNo}: ${e.message}`); }
     invoices.push({ invoice_no: invNo, to: dest, funding: first.funding, lines: group.length, total, emailed });
@@ -1497,7 +1683,7 @@ route('GET', /^\/api\/workers$/, (req, res) => {
     SELECT p.*, u.name, u.suburb FROM worker_profiles p
     JOIN users u ON u.id = p.user_id
     WHERE p.visible = 1 ORDER BY p.shifts DESC`).all();
-  json(res, 200, { workers: rows.map(publicWorker) });
+  json(res, 200, { workers: rows.map(r => withReviewAgg(publicWorker(r))) });
 });
 
 /* one worker's full public profile — powers the #/worker/:id page.
@@ -1508,7 +1694,14 @@ route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m) => {
     JOIN users u ON u.id = p.user_id
     WHERE p.user_id = ? AND p.visible = 1`).get(Number(m[1]));
   if (!row) return json(res, 404, { error: 'That profile isn\'t available right now.' });
-  const w = publicWorker(row);
+  const w = withReviewAgg(publicWorker(row));
+  w.reviews = db.prepare(`SELECT r.rating, r.comment, r.created, u.name FROM reviews r
+    JOIN users u ON u.id = r.participant_id
+    WHERE r.worker_id = ? AND r.published = 1 ORDER BY r.id DESC LIMIT 12`).all(w.id)
+    .map(r => ({
+      rating: r.rating, comment: r.comment, when: String(r.created).slice(0, 10),
+      author: `${r.name.split(' ')[0]} ${(r.name.split(' ')[1] || '').slice(0, 1)}${r.name.split(' ')[1] ? '.' : ''}`.trim()
+    }));
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const joined = new Date(row.created);
   w.member_since = isNaN(joined) ? '' : `${MONTHS[joined.getMonth()]} ${joined.getFullYear()}`;
@@ -1602,7 +1795,8 @@ route('GET', /^\/api\/bookings$/, (req, res, m, user) => {
   const col = user.role === 'participant' ? 'participant_id' : 'worker_id';
   const otherCol = user.role === 'participant' ? 'worker_id' : 'participant_id';
   const rows = db.prepare(`SELECT b.*, u.name AS other_name,
-      COALESCE(p.color, '#0E6B62') AS other_color
+      COALESCE(p.color, '#0E6B62') AS other_color,
+      (SELECT COUNT(*) FROM reviews r WHERE r.booking_id = b.id) AS reviewed
     FROM bookings b
     JOIN users u ON u.id = b.${otherCol}
     LEFT JOIN worker_profiles p ON p.user_id = u.id
@@ -1680,6 +1874,139 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
   json(res, 403, { error: 'That change isn\'t allowed.' });
 });
 
+/* post-shift review: one per completed booking, written by the participant */
+route('POST', /^\/api\/bookings\/(\d+)\/review$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'participant') return json(res, 403, { error: 'Only participants can review shifts.' });
+  if (limited(ip, 'review', 20)) return json(res, 429, { error: 'Slow down a moment.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ? AND participant_id = ?').get(Number(m[1]), user.id);
+  if (!b) return json(res, 404, { error: 'No such booking.' });
+  if (b.status !== 'completed') return json(res, 400, { error: 'You can review a shift once it\'s marked completed.' });
+  const rating = Math.round(Number(body.rating));
+  if (!(rating >= 1 && rating <= 5)) return json(res, 400, { error: 'Pick a star rating from 1 to 5.' });
+  if (db.prepare('SELECT id FROM reviews WHERE booking_id = ?').get(b.id)) return json(res, 409, { error: 'You\'ve already reviewed this shift — thank you!' });
+  const comment = clean(body.comment, 800);
+  db.prepare('INSERT INTO reviews (booking_id, worker_id, participant_id, rating, comment, published, created) VALUES (?,?,?,?,?,1,?)')
+    .run(b.id, b.worker_id, user.id, rating, comment, now());
+  const w = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.worker_id);
+  if (w && !w.email.endsWith('@demo.bookit.life')) sendMail(w.email, 'You\'ve got a new review — BookIt',
+    `⭐ ${rating} / 5 from ${firstName(user.name)}`,
+    `<p><b>${escHtml(firstName(user.name))}</b> rated your ${prettyDate(b.date)} shift <b>${rating} / 5</b>.</p>${comment ? `<p>“${escHtml(comment)}”</p>` : ''}<p>Reviews appear on your public profile and help new participants choose you. Nice work!</p>`,
+    'See my profile', `${baseUrl(req)}/#/worker/${b.worker_id}`).catch(() => {});
+  json(res, 200, { ok: true });
+});
+
+/* admin: review moderation */
+route('GET', /^\/api\/admin\/reviews$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = db.prepare(`SELECT r.*, uw.name AS worker_name, up.name AS participant_name FROM reviews r
+    JOIN users uw ON uw.id = r.worker_id JOIN users up ON up.id = r.participant_id
+    ORDER BY r.id DESC LIMIT 100`).all();
+  json(res, 200, { reviews: rows });
+});
+route('POST', /^\/api\/admin\/reviews\/(\d+)\/toggle$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const r = db.prepare('SELECT id, published FROM reviews WHERE id = ?').get(Number(m[1]));
+  if (!r) return json(res, 404, { error: 'No such review.' });
+  db.prepare('UPDATE reviews SET published = ? WHERE id = ?').run(r.published ? 0 : 1, r.id);
+  json(res, 200, { ok: true, published: r.published ? 0 : 1 });
+});
+
+/* ---------- SIL rosters: houses + weekly repeating slots → generated bookings ---------- */
+route('GET', /^\/api\/admin\/sil$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const houses = db.prepare('SELECT * FROM sil_houses ORDER BY name').all().map(h => ({
+    ...h,
+    slots: db.prepare(`SELECT s.*, uw.name AS worker_name, up.name AS participant_name FROM sil_slots s
+      LEFT JOIN users uw ON uw.id = s.worker_id LEFT JOIN users up ON up.id = s.participant_id
+      WHERE s.house_id = ? ORDER BY s.day, s.start`).all(h.id)
+  }));
+  const workers = db.prepare(`SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id
+    WHERE u.role = 'worker' AND p.visible = 1 ORDER BY u.name`).all();
+  const participants = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
+  json(res, 200, { houses, workers, participants });
+});
+
+route('POST', /^\/api\/admin\/sil\/houses$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const name = clean(body.name, 80);
+  if (!name) return json(res, 400, { error: 'Give the house a name (e.g. "Gosford — Wattle St").' });
+  const r = db.prepare('INSERT INTO sil_houses (name, address, notes, created) VALUES (?,?,?,?)')
+    .run(name, clean(body.address, 160), clean(body.notes, 400), now());
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
+});
+
+route('POST', /^\/api\/admin\/sil\/houses\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const h = db.prepare('SELECT id FROM sil_houses WHERE id = ?').get(Number(m[1]));
+  if (!h) return json(res, 404, { error: 'No such house.' });
+  db.prepare('DELETE FROM sil_slots WHERE house_id = ?').run(h.id);
+  db.prepare('DELETE FROM sil_houses WHERE id = ?').run(h.id);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/sil\/slots$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const house = db.prepare('SELECT id FROM sil_houses WHERE id = ?').get(Number(body.house_id));
+  if (!house) return json(res, 404, { error: 'No such house.' });
+  const day = Number(body.day);
+  if (!(day >= 0 && day <= 6)) return json(res, 400, { error: 'Pick a day of the week.' });
+  const start = clean(body.start, 5);
+  if (!/^\d{2}:\d{2}$/.test(start)) return json(res, 400, { error: 'Start time looks wrong (use 24-hour HH:MM).' });
+  const hours = Number(body.hours);
+  if (!(hours >= 1 && hours <= 12)) return json(res, 400, { error: 'Slots are between 1 and 12 hours.' });
+  const service = clean(body.service, 30) || 'daily-tasks';
+  if (!SERVICES.includes(service)) return json(res, 400, { error: 'Pick a service.' });
+  const sleepover = body.sleepover && ['personal-care', 'daily-tasks'].includes(service) ? 1 : 0;
+  const workerId = body.worker_id ? Number(body.worker_id) : null;
+  if (workerId && !db.prepare("SELECT id FROM users WHERE id = ? AND role = 'worker'").get(workerId)) return json(res, 404, { error: 'No such worker.' });
+  const participantId = body.participant_id ? Number(body.participant_id) : null;
+  if (participantId && !db.prepare("SELECT id FROM users WHERE id = ? AND role = 'participant'").get(participantId)) return json(res, 404, { error: 'No such participant.' });
+  const r = db.prepare('INSERT INTO sil_slots (house_id, day, start, hours, service, sleepover, worker_id, participant_id, created) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run(house.id, day, start, hours, service, sleepover, workerId, participantId, now());
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
+});
+
+route('POST', /^\/api\/admin\/sil\/slots\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const s = db.prepare('SELECT id FROM sil_slots WHERE id = ?').get(Number(m[1]));
+  if (!s) return json(res, 404, { error: 'No such slot.' });
+  db.prepare('DELETE FROM sil_slots WHERE id = ?').run(s.id);
+  json(res, 200, { ok: true });
+});
+
+/* turn the weekly template into real bookings for one week (idempotent per slot+date) */
+route('POST', /^\/api\/admin\/sil\/generate$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  let weekStart = clean(body.week_start, 10);
+  if (!weekStart) {
+    const d = new Date();
+    const dow = (d.getUTCDay() + 6) % 7; /* 0 = Monday */
+    d.setUTCDate(d.getUTCDate() + (7 - dow));
+    weekStart = d.toISOString().slice(0, 10);
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) return json(res, 400, { error: 'Week start looks wrong.' });
+  const ws = new Date(weekStart + 'T00:00:00Z');
+  if (isNaN(ws)) return json(res, 400, { error: 'Week start looks wrong.' });
+  if ((ws.getUTCDay() + 6) % 7 !== 0) return json(res, 400, { error: 'The week starts on a Monday — pick a Monday date.' });
+  const slots = db.prepare(`SELECT s.*, h.name AS house_name FROM sil_slots s JOIN sil_houses h ON h.id = s.house_id`).all();
+  let created = 0, existing = 0;
+  const unfilled = [];
+  for (const s of slots) {
+    if (!s.worker_id || !s.participant_id) { unfilled.push({ house: s.house_name, day: s.day, start: s.start, missing: !s.worker_id ? 'worker' : 'participant' }); continue; }
+    const d = new Date(ws);
+    d.setUTCDate(d.getUTCDate() + s.day);
+    const date = d.toISOString().slice(0, 10);
+    if (db.prepare('SELECT id FROM bookings WHERE sil_slot_id = ? AND date = ?').get(s.id, date)) { existing++; continue; }
+    db.prepare(`INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, status, created, sil_slot_id)
+      VALUES (?,?,?,?,?,?,?,?,'accepted',?,?)`)
+      .run(s.participant_id, s.worker_id, s.service, date, s.start, s.hours, `SIL roster — ${s.house_name}`, s.sleepover, now(), s.id);
+    created++;
+  }
+  console.log(`SIL generate ${weekStart}: ${created} bookings created, ${existing} already existed, ${unfilled.length} slots unfilled.`);
+  json(res, 200, { ok: true, week_start: weekStart, created, existing, unfilled });
+});
+
 route('POST', /^\/api\/contact$/, (req, res, m, user, body, ip) => {
   if (limited(ip, 'contact', 20)) return json(res, 429, { error: 'Too many messages — try again later.' });
   db.prepare('INSERT INTO contact_messages (name, email, topic, body, created) VALUES (?,?,?,?,?)')
@@ -1739,7 +2066,7 @@ const server = http.createServer((req, res) => {
   }
 
   /* ----- private preview gate ----- */
-  if (SITE_PASSWORD) {
+  if (SITE_PASSWORD && pathname !== '/api/stripe/webhook') { /* Stripe's servers can't type passwords — the webhook is HMAC-verified instead */
     if (pathname === '/robots.txt') {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       return res.end('User-agent: *\nDisallow: /\n');
@@ -1814,6 +2141,8 @@ const server = http.createServer((req, res) => {
   });
   req.on('end', () => {
     if (overflow) return;
+    /* Stripe webhook needs the raw body for signature verification */
+    if (pathname === '/api/stripe/webhook' && req.method === 'POST') return handleStripeWebhook(req, res, raw);
     let body = {};
     if (raw) { try { body = JSON.parse(raw); } catch { return json(res, 400, { error: 'Invalid JSON.' }); } }
     const user = readSession(req.headers.cookie);

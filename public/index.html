@@ -647,6 +647,29 @@ td b{font-variant-numeric:tabular-nums;}
 .day-toggle button[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff;}
 .day-toggle button:focus-visible{outline:3px solid var(--amber);outline-offset:1px;}
 
+/* ============ Reviews ============ */
+.rate-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;}
+.stars{display:inline-flex;gap:1px;}
+.star{background:none;border:none;font-size:1.4rem;line-height:1;cursor:pointer;color:var(--amber);padding:1px 2px;}
+.star:focus-visible{outline:3px solid var(--amber);outline-offset:1px;border-radius:6px;}
+.rate-more{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;width:100%;}
+.rate-text{font:inherit;font-size:.88rem;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);flex:1;min-width:220px;}
+.rev{border-top:1px solid var(--line);padding:12px 0 4px;}
+.rev:first-of-type{border-top:none;padding-top:4px;}
+.rev-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.rev-top b{font-size:.95rem;}
+.rev-stars{color:var(--amber);letter-spacing:2px;font-size:.95rem;}
+.rev-top time{color:var(--ink-soft);font-size:.8rem;margin-left:auto;}
+.rev p{margin:6px 0 8px;font-size:.95rem;color:var(--ink-soft);line-height:1.6;}
+
+/* ============ SIL rosters ============ */
+.sil-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:12px;}
+@media (max-width:900px){.sil-grid{grid-template-columns:repeat(2,1fr);}}
+.sil-day{background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:8px;font-size:.78rem;min-height:64px;}
+.sil-day > b{display:block;color:var(--teal-deep);margin-bottom:2px;}
+.sil-slot{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 8px;margin-top:6px;line-height:1.5;}
+.sil-slot.sil-unfilled{border-color:var(--coral);background:var(--coral-tint);}
+
 /* ============ Document catalogue: onboarding checklist + typeahead ============ */
 .ob-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
 .ob-bar{flex:1;min-width:140px;height:9px;border-radius:99px;background:var(--cream);border:1px solid var(--line);overflow:hidden;}
@@ -2378,6 +2401,18 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
   </section>
 </section>
 
+<section class="page" id="page-pay-success" data-title="Payment received — BookIt">
+  <section class="block">
+    <div class="container center" style="max-width:640px;padding-top:70px;">
+      <div class="info-card">
+        <h3>💳 Payment received — thank you!</h3>
+        <p>Your card payment went through and the invoice is marked paid on our side automatically. Stripe emails you a receipt for your records — perfect for claiming back through the myplace participant portal if you self-manage.</p>
+        <p style="margin-top:18px;"><a class="btn btn-primary" href="#/bookings">Back to my bookings</a></p>
+      </div>
+    </div>
+  </section>
+</section>
+
 <section class="page" id="page-verified" data-title="Email confirmed — BookIt">
   <section class="block">
     <div class="container center" style="max-width:640px;padding-top:70px;">
@@ -3165,9 +3200,16 @@ async function renderWorkerPage(id){
       </div>
       <div class="wp-card">
         <h2>Feedback</h2>
-        ${w.shifts
-          ? `<p style="font-size:1rem;"><b style="font-family:var(--font-head);font-size:1.55rem;color:var(--teal);">★ ${Number(w.rating).toFixed(1)}</b> &nbsp;from ${w.shifts} rated shifts.</p><p class="muted-sm" style="margin-top:6px;">Ratings are collected after every completed shift.</p>`
-          : `<p><b>No reviews yet — ${first} is new to BookIt.</b> Every great worker starts somewhere. Book a free meet &amp; greet and see if you click.</p>`}
+        ${(w.reviews && w.reviews.length)
+          ? `<p style="font-size:1rem;margin-bottom:10px;"><b style="font-family:var(--font-head);font-size:1.55rem;color:var(--teal);">★ ${Number(w.rating).toFixed(1)}</b> &nbsp;from ${w.shifts} review${w.shifts > 1 ? 's' : ''} — written by participants after real shifts.</p>` +
+            w.reviews.map(r => `
+            <div class="rev">
+              <div class="rev-top"><b>${esc(r.author)}</b><span class="rev-stars" aria-label="${r.rating} out of 5 stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span><time>${(d => isNaN(d) ? '' : d.toLocaleDateString('en-AU', {month:'short', year:'numeric'}))(new Date(r.when))}</time></div>
+              ${r.comment ? `<p>“${esc(r.comment)}”</p>` : ''}
+            </div>`).join('')
+          : w.shifts
+            ? `<p style="font-size:1rem;"><b style="font-family:var(--font-head);font-size:1.55rem;color:var(--teal);">★ ${Number(w.rating).toFixed(1)}</b> &nbsp;from ${w.shifts} rated shifts.</p><p class="muted-sm" style="margin-top:6px;">Ratings are collected after every completed shift.</p>`
+            : `<p><b>No reviews yet — ${first} is new to BookIt.</b> Every great worker starts somewhere. Book a free meet &amp; greet and see if you click.</p>`}
       </div>
     </div>
     <aside class="wp-aside">
@@ -4017,6 +4059,7 @@ const ROUTES = {
   '/reset': 'page-reset',
   '/verified': 'page-verified',
   '/verify-failed': 'page-verify-failed',
+  '/pay-success': 'page-pay-success',
   '/admin': 'page-admin'
 };
 function route(){
@@ -4087,7 +4130,9 @@ function updateAuthUI(){
   const hint = $('#loginHint');
   if(hint){
     hint.innerHTML = API.online
-      ? 'Try a demo account — participant: <b>demo@demo.bookit.life</b> · worker: <b>sarah@demo.bookit.life</b> · password <b>demo1234</b>'
+      ? (API.demo === false
+          ? 'Log in with your BookIt account email. Forgot your password? Use the link below.'
+          : 'Try a demo account — participant: <b>demo@demo.bookit.life</b> · worker: <b>sarah@demo.bookit.life</b> · password <b>demo1234</b>')
       : 'This is a demo — accounts aren\'t connected yet. <a href="#/get-started" data-close>Create a profile instead →</a>';
   }
   const note = $('#workersNote');
@@ -4608,6 +4653,16 @@ async function renderBookingsPage(){
         ${b.notes ? `<span class="muted-sm">“${esc(b.notes)}”</span>` : ''}
         ${b.sleepover ? '<span class="muted-sm">🌙 Overnight sleepover (inactive night — flat rate)</span>' : ''}
         ${b.status === 'completed' && b.total ? `<span class="muted-sm"><b>$${Number(b.total).toFixed(2)}</b> — ${b.rate_category === 'sleepover' ? '1 night flat' : `${b.hours}h × $${Number(b.unit_price).toFixed(2)}`} (${RATE_LABEL[b.rate_category] || b.rate_category} rate)</span>` : ''}
+        ${API.me.role === 'participant' && b.status === 'completed' && !b.reviewed ? `
+        <div class="rate-row" data-rate-bk="${b.id}">
+          <b style="font-size:.88rem;">Rate this shift:</b>
+          <span class="stars">${[1,2,3,4,5].map(n => `<button type="button" class="star" data-star="${n}" aria-label="${n} star${n > 1 ? 's' : ''}">☆</button>`).join('')}</span>
+          <span class="rate-more" hidden>
+            <textarea class="rate-text" rows="2" maxlength="800" placeholder="A sentence for ${esc(b.other_name.split(' ')[0])}'s profile (optional)"></textarea>
+            <button type="button" class="btn btn-primary btn-sm rate-send">Send review</button>
+          </span>
+        </div>` : ''}
+        ${API.me.role === 'participant' && b.status === 'completed' && b.reviewed ? '<span class="muted-sm" style="color:#1C7C43;">Reviewed ✓ — thank you!</span>' : ''}
       </div>
       <span class="bk-status bk-${b.status}">${STATUS_LABEL[b.status] || b.status}</span>
       <div class="bk-actions">
@@ -4672,6 +4727,27 @@ document.addEventListener('click', async e => {
       toast('Photo saved — looking sharp! 📸');
       renderBookingsPage();
     }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  const st = e.target.closest('.star');
+  if(st){
+    const row = st.closest('.rate-row');
+    const n = Number(st.dataset.star);
+    row.dataset.sel = n;
+    $$('.star', row).forEach(s => { s.textContent = Number(s.dataset.star) <= n ? '★' : '☆'; });
+    row.querySelector('.rate-more').hidden = false;
+    return;
+  }
+  const rs = e.target.closest('.rate-send');
+  if(rs){
+    const row = rs.closest('.rate-row');
+    if(!row.dataset.sel){ toast('Tap a star first.'); return; }
+    rs.disabled = true;
+    try{
+      await API.call('/bookings/' + row.dataset.rateBk + '/review', {method:'POST', body:{rating: Number(row.dataset.sel), comment: row.querySelector('.rate-text').value}});
+      toast('Thank you — your review is live on their profile. ⭐');
+      renderBookingsPage();
+    }catch(err){ toast(err.message); rs.disabled = false; }
     return;
   }
   const dayBtn = e.target.closest('#mpDays button');
@@ -4761,10 +4837,12 @@ async function renderAdminPage(){
   let cl;
   try{ cl = await API.call('/admin/claims'); }
   catch(e){ cl = { unclaimed: [], claimed: [], paid: [], totals: { unclaimed: 0, claimed: 0, paid: 0 } }; }
-  let creds = { workers: [] }, incs = { incidents: [] }, comps = { complaints: [] };
+  let creds = { workers: [] }, incs = { incidents: [] }, comps = { complaints: [] }, revs = { reviews: [] }, sil = { houses: [], workers: [], participants: [] };
   try{ creds = await API.call('/admin/credentials'); }catch(e){}
   try{ incs = await API.call('/admin/incidents'); }catch(e){}
   try{ comps = await API.call('/admin/complaints'); }catch(e){}
+  try{ revs = await API.call('/admin/reviews'); }catch(e){}
+  try{ sil = await API.call('/admin/sil'); }catch(e){}
   const credById = {};
   creds.workers.forEach(w => credById[w.id] = w);
   const c = d.counts;
@@ -4894,7 +4972,7 @@ async function renderAdminPage(){
     <td><b>$${Number(r.total || 0).toFixed(2)}</b></td>
     <td>${showActions
       ? (r.flags.length ? `<span style="color:#D94F32;font-size:.78rem;">${esc(r.flags.join(' · '))}</span>` : '<span style="color:#1C7C43;font-size:.78rem;">ready ✓</span>')
-      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `<button class="adm-btn-sm" data-claim-paid="${r.id}">Mark paid</button>`)}</td>
+      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `<button class="adm-btn-sm" data-claim-paid="${r.id}">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
   </tr>`;
   const claimTable = (rows, showActions) => `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Date</th><th>Participant</th><th>Funding</th><th>Shift</th><th>Support item</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(r => claimRow(r, showActions)).join('')}</tbody></table></div>`;
   const claims = `
@@ -4918,11 +4996,90 @@ async function renderAdminPage(){
       ${claimTable(cl.claimed, false)}` : ''}
     ${cl.paid.length ? `<p style="margin:14px 0 0;color:#3E5A64;font-size:.9rem;">${cl.paid.length} shift${cl.paid.length > 1 ? 's' : ''} fully paid · $${cl.totals.paid.toFixed(2)} all-time.</p>` : ''}
     <p style="margin:16px 0 0;"><a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/payroll.csv" download>⬇ Payroll CSV (worker shares)</a></p>`;
+  const DAYN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const nextMon = (() => {
+    const dt = new Date();
+    const dow = (dt.getDay() + 6) % 7;
+    dt.setDate(dt.getDate() + (7 - dow));
+    const pad = n => String(n).padStart(2, '0');
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  })();
+  const inpStyle = 'font:inherit;font-size:.85rem;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;';
+  const silSection = `
+    <div class="info-card" style="margin-bottom:14px;">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <label style="font-size:.85rem;">House name<br><input id="silHouseName" placeholder="Gosford — Wattle St" style="${inpStyle}width:190px;"></label>
+        <label style="font-size:.85rem;">Address<br><input id="silHouseAddr" style="${inpStyle}width:220px;"></label>
+        <button class="btn btn-primary btn-sm" id="silAddHouse">Add house</button>
+        <span style="flex:1;"></span>
+        <label style="font-size:.85rem;">Week starting (a Monday)<br><input id="silWeek" type="date" value="${nextMon}" style="${inpStyle}"></label>
+        <button class="btn btn-coral btn-sm" id="silGenerate">▶ Generate the week's bookings</button>
+      </div>
+      <p class="muted-sm" style="margin:10px 0 0;">Each house holds a weekly repeating roster. Generating a week turns every filled slot into a real accepted booking tagged with the house name — completion, invoicing and claims then flow exactly like any other shift (0115 shared-living items, sleepovers at the flat night rate). Running it twice never duplicates.</p>
+    </div>
+    ${sil.houses.length ? sil.houses.map(h => `
+    <div class="info-card" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;">
+        <h3 style="margin:0;">${esc(h.name)} <span style="font-weight:400;font-size:.85rem;color:#3E5A64;">${esc(h.address || '')}</span></h3>
+        <button class="adm-btn-sm" data-sil-house-del="${h.id}">remove house</button>
+      </div>
+      <div class="sil-grid">
+        ${DAYN.map((dn, di) => `
+        <div class="sil-day"><b>${dn}</b>
+          ${h.slots.filter(s => s.day === di).map(s => `
+          <div class="sil-slot ${s.worker_id && s.participant_id ? '' : 'sil-unfilled'}">
+            <b>${esc(s.start)}</b> · ${s.hours}h${s.sleepover ? ' 🌙' : ''}<br>
+            <span>${esc((SVC_NAME[s.service] || s.service))}</span><br>
+            <span>${s.worker_name ? esc(s.worker_name.split(' ')[0]) : '<b style="color:#D94F32;">no worker</b>'} → ${s.participant_name ? esc(s.participant_name.split(' ')[0]) : '<b style="color:#D94F32;">no participant</b>'}</span><br>
+            <button class="adm-btn-sm" data-sil-slot-del="${s.id}" style="margin-top:4px;">remove</button>
+          </div>`).join('') || '<span style="color:#3E5A64;">—</span>'}
+        </div>`).join('')}
+      </div>
+      <details style="margin-top:10px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;">＋ Add a repeating slot</summary>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;" data-sil-slot-form="${h.id}">
+          <label style="font-size:.82rem;">Day<br><select class="sil-day-in" style="${inpStyle}">${DAYN.map((dd, i) => `<option value="${i}">${dd}</option>`).join('')}</select></label>
+          <label style="font-size:.82rem;">Start<br><input class="sil-start-in" type="time" value="09:00" style="${inpStyle}"></label>
+          <label style="font-size:.82rem;">Hours<br><input class="sil-hours-in" type="number" min="1" max="12" value="4" style="${inpStyle}width:70px;"></label>
+          <label style="font-size:.82rem;">Service<br><select class="sil-svc-in" style="${inpStyle}">
+            <option value="daily-tasks">Daily tasks &amp; shared living</option><option value="personal-care">Personal care</option><option value="household">Household tasks</option><option value="community">Community participation</option>
+          </select></label>
+          <label style="font-size:.82rem;display:flex;align-items:center;gap:5px;padding-bottom:8px;"><input type="checkbox" class="sil-sleep-in"> 🌙 Sleepover</label>
+          <label style="font-size:.82rem;">Worker<br><select class="sil-worker-in" style="${inpStyle}"><option value="">— pick —</option>${sil.workers.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('')}</select></label>
+          <label style="font-size:.82rem;">Participant<br><select class="sil-part-in" style="${inpStyle}"><option value="">— pick —</option>${sil.participants.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label>
+          <button class="btn btn-primary btn-sm" data-sil-slot-add="${h.id}">Add slot</button>
+        </div>
+      </details>
+    </div>`).join('') : '<p class="adm-empty">No SIL houses yet — add your first above. Each house holds a weekly repeating roster of shifts.</p>'}`;
+  const ln = d.launch || {};
+  const launchCard = `
+    <div class="info-card" style="margin-bottom:6px;">
+      <p style="margin:0 0 8px;"><b>Preview lock:</b> ${ln.gate
+        ? '<span style="color:#1C7C43;font-weight:700;">ON</span> — the site is private behind SITE_PASSWORD'
+        : '<span style="color:#D94F32;font-weight:700;">OFF — the site is PUBLIC</span>'}
+        &nbsp;·&nbsp; <b>Demo data:</b> ${ln.demo_accounts ? `${ln.demo_accounts} demo account${ln.demo_accounts > 1 ? 's' : ''} still in the database` : '<span style="color:#1C7C43;font-weight:700;">clean ✓</span>'}</p>
+      <ol style="margin:0 0 10px 20px;font-size:.92rem;line-height:1.7;">
+        <li>${ln.demo_accounts ? '<button class="adm-btn-sm" id="admLaunchSweep">Remove all demo data</button> — deletes the 12 demo workers, the demo participant, and every demo conversation & booking. Permanent.' : 'Demo data removed ✓'}</li>
+        <li>On the server: <code>sudo nano /etc/bookit.env</code> → delete the <code>SITE_PASSWORD</code> line, add <code>SEED_DEMO=off</code>, save, then <code>sudo systemctl restart bookit</code>.</li>
+        <li>That's launch — bookit.life is live and indexable. 🎉</li>
+      </ol>
+      <p class="muted-sm" style="margin:0;">Do step 1 only when you're ready — demo data can't be restored (a fresh database would re-seed it, but your real accounts live in this one).</p>
+    </div>`;
   wrap.innerHTML = tiles
+    + `<h2 class="adm-section">Launch ${ln.demo_accounts || ln.gate ? '' : '— LIVE 🎉'}</h2>` + launchCard
     + `<h2 class="adm-section">Workers awaiting approval ${c.pending ? `(${c.pending})` : ''}</h2>` + pending
     + `<h2 class="adm-section">Credentials — the automatic checker</h2>` + credentials
     + `<h2 class="adm-section">Incident register ${c.urgent_incidents ? `<span style="color:#D94F32;">(${c.urgent_incidents} awaiting Commission notice!)</span>` : ''}</h2>` + incidents
     + `<h2 class="adm-section">Complaints register</h2>` + complaints
+    + `<h2 class="adm-section">Reviews ${revs.reviews.length ? `(${revs.reviews.length})` : ''}</h2>`
+    + (revs.reviews.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Worker</th><th>From</th><th>Rating</th><th>Comment</th><th>Shown?</th></tr></thead><tbody>
+        ${revs.reviews.map(r => `<tr style="${r.published ? '' : 'opacity:.55;'}">
+          <td>${esc(r.worker_name)}</td><td>${esc(r.participant_name)}</td>
+          <td style="color:#F5B841;white-space:nowrap;">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</td>
+          <td style="max-width:340px;">${esc(r.comment || '—')}</td>
+          <td><button class="adm-btn-sm" data-rev-toggle="${r.id}">${r.published ? 'Hide' : 'Show'}</button>${r.published ? '' : ' <span class="adm-hidden">(hidden)</span>'}</td>
+        </tr>`).join('')}</tbody></table></div>`
+      : '<p class="adm-empty">No reviews yet — participants are asked to rate each shift once it\'s completed.</p>')
+    + `<h2 class="adm-section">SIL rosters</h2>` + silSection
     + `<h2 class="adm-section">Claims &amp; payments</h2>` + claims
     + `<h2 class="adm-section">Invoicing — completed shifts ${inv.invoices.length ? `(${inv.invoices.length})` : ''}</h2>` + invoicing
     + '<h2 class="adm-section">Recent bookings</h2>' + bookings
@@ -4971,6 +5128,19 @@ document.addEventListener('click', async e => {
     }catch(err){ toast(err.message); pd.disabled = false; }
     return;
   }
+  if(e.target && e.target.id === 'admLaunchSweep'){
+    const v = prompt('This permanently removes every demo account (the 12 demo workers + the demo participant) and all their conversations and bookings.\n\nType LAUNCH to confirm:');
+    if(v === null) return;
+    e.target.disabled = true;
+    try{
+      const r = await API.call('/admin/launch-sweep', {method:'POST', body:{confirm: v.trim()}});
+      API.demo = false;
+      toast(r.removed ? `Swept clean — ${r.removed} demo accounts, ${r.bookings} bookings and ${r.conversations} conversations removed.` : (r.note || 'Already clean.'));
+      loadWorkersLive();
+      renderAdminPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
   if(e.target && e.target.id === 'admSweep'){
     e.target.disabled = true;
     try{
@@ -4978,6 +5148,68 @@ document.addEventListener('click', async e => {
       toast(r.actions.length ? `Check complete — ${r.actions.length} action${r.actions.length > 1 ? 's' : ''} taken (warnings/auto-hides).` : 'Check complete — everything current. ✓');
       renderAdminPage();
     }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  if(e.target && e.target.id === 'silAddHouse'){
+    try{
+      await API.call('/admin/sil/houses', {method:'POST', body:{name:$('#silHouseName').value, address:$('#silHouseAddr').value}});
+      toast('House added — now build its weekly roster.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  if(e.target && e.target.id === 'silGenerate'){
+    e.target.disabled = true;
+    try{
+      const r = await API.call('/admin/sil/generate', {method:'POST', body:{week_start:$('#silWeek').value}});
+      const bits = [`${r.created} booking${r.created === 1 ? '' : 's'} created for the week of ${fmtAU(r.week_start)}`];
+      if(r.existing) bits.push(`${r.existing} already existed (skipped)`);
+      if(r.unfilled.length) bits.push(`${r.unfilled.length} slot${r.unfilled.length > 1 ? 's' : ''} skipped — missing a worker or participant`);
+      toast(bits.join(' · ') + '.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  const shd = e.target.closest('[data-sil-house-del]');
+  if(shd){
+    if(!confirm('Remove this house and its roster template? Already-generated bookings stay.')) return;
+    try{ await API.call('/admin/sil/houses/' + shd.dataset.silHouseDel + '/delete', {method:'POST'}); toast('House removed.'); renderAdminPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
+  const ssa = e.target.closest('[data-sil-slot-add]');
+  if(ssa){
+    const f = ssa.closest('[data-sil-slot-form]');
+    ssa.disabled = true;
+    try{
+      await API.call('/admin/sil/slots', {method:'POST', body:{
+        house_id: Number(ssa.dataset.silSlotAdd),
+        day: Number(f.querySelector('.sil-day-in').value),
+        start: f.querySelector('.sil-start-in').value,
+        hours: Number(f.querySelector('.sil-hours-in').value),
+        service: f.querySelector('.sil-svc-in').value,
+        sleepover: f.querySelector('.sil-sleep-in').checked,
+        worker_id: f.querySelector('.sil-worker-in').value || null,
+        participant_id: f.querySelector('.sil-part-in').value || null
+      }});
+      toast('Slot added to the weekly roster.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); ssa.disabled = false; }
+    return;
+  }
+  const ssd = e.target.closest('[data-sil-slot-del]');
+  if(ssd){
+    try{ await API.call('/admin/sil/slots/' + ssd.dataset.silSlotDel + '/delete', {method:'POST'}); toast('Slot removed.'); renderAdminPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
+  const rt = e.target.closest('[data-rev-toggle]');
+  if(rt){
+    try{
+      const r = await API.call('/admin/reviews/' + rt.dataset.revToggle + '/toggle', {method:'POST'});
+      toast(r.published ? 'Review shown on the profile again.' : 'Review hidden from the profile.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
     return;
   }
   const dv = e.target.closest('[data-doc-verify]');
@@ -5042,6 +5274,7 @@ document.addEventListener('click', async e => {
     const d = await API.call('/me');
     API.online = true;
     API.me = d.user;
+    API.demo = d.demo !== false; /* false once the launch sweep has removed demo accounts */
   }catch(e){ API.online = false; }
   API.booted = true;
   updateAuthUI();
