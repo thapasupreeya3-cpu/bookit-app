@@ -647,6 +647,18 @@ td b{font-variant-numeric:tabular-nums;}
 .day-toggle button[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff;}
 .day-toggle button:focus-visible{outline:3px solid var(--amber);outline-offset:1px;}
 
+/* ============ Shift notes ============ */
+.note-box{margin-top:10px;padding:13px 15px;border:1.5px solid var(--line);border-radius:12px;background:var(--cream);}
+.note-box textarea{font:inherit;font-size:.9rem;width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);box-sizing:border-box;background:#fff;}
+.note-box textarea:focus-visible{outline:3px solid var(--amber);outline-offset:1px;}
+.note-out{margin-top:8px;}
+.note-entry{margin-top:8px;padding:10px 13px;border-left:3px solid var(--teal);background:#F4F9F8;border-radius:0 10px 10px 0;}
+.note-entry.note-flag{border-left-color:#D94F32;background:#FDF6EC;}
+.note-entry p{margin:5px 0 0;font-size:.92rem;line-height:1.6;color:var(--ink-soft);}
+.note-meta{font-size:.74rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
+.note-scope-out{margin-top:9px;font-size:.88rem;line-height:1.55;}
+.note-locked{font-size:.8rem;color:var(--ink-soft);margin:9px 0 0;}
+
 /* ============ Reviews ============ */
 .rate-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;}
 .stars{display:inline-flex;gap:1px;}
@@ -1354,21 +1366,22 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
     <div class="container svc-layout">
       <div>
         <div class="info-card">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 114.1 1.9c-.8.7-1.6 1.2-1.6 2.6M12 17h.01"/></svg> First — what we don't do</h3>
+          <p>BookIt provides <b>standard-intensity</b> personal care. We're registered for 0107, not 0104, so we don't deliver <b>high intensity daily personal activities</b>: complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections, or complex wound management.</p>
+          <p style="margin-bottom:0;">If any of those are part of your day, <a href="#/contact">talk to us anyway</a>. We'll introduce you to a provider registered for 0104 who you engage directly for those supports, and we can still cover everything else on your plan alongside them.</p>
+        </div>
+        <div class="info-card">
           <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> What this support can include</h3>
           <ul>
             <li>Showering, bathing and personal hygiene</li>
             <li>Dressing, grooming and getting ready for the day</li>
             <li>Support at mealtimes, eating and drinking</li>
             <li>Day-to-day medication management and reminders</li>
-            <li>Toileting and continence support</li>
+            <li>Toileting and continence assistance, at standard intensity</li>
             <li>Transfers and mobility around your home</li>
             <li>Morning and evening routines</li>
             <li>Overnight support — active or sleepover</li>
           </ul>
-        </div>
-        <div class="info-card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 114.1 1.9c-.8.7-1.6 1.2-1.6 2.6M12 17h.01"/></svg> Higher-intensity needs?</h3>
-          <p>We currently support standard-intensity personal care. If you need complex supports (like PEG feeding or complex bowel care under registration group 0104), <a href="#/contact">talk to us</a> — we'll help you plan the right mix and connect you with specialist providers where needed.</p>
         </div>
       </div>
       <aside>
@@ -2232,6 +2245,15 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
               <label class="choice-pill"><input type="checkbox" name="pSvc" value="community"><span>Community</span></label>
             </div>
           </div>
+          <div class="field full" id="pHiWrap" hidden>
+            <label>Does your support include any of these? <span class="hint">(only tick what a support worker would actually do for you)</span></label>
+            <p class="muted-sm" style="margin:2px 0 10px;">These eight are the <b>high intensity daily personal activities</b> named in the NDIS Practice Standards. Most people tick nothing here &mdash; everyday showering, dressing, toileting and continence assistance are <b>not</b> on this list, and neither is emptying or cleaning around a catheter you already have.</p>
+            <div class="choice-row" id="pHiPills"></div>
+            <div class="info-card" id="pHiNote" hidden style="margin-top:14px;border-color:#B45309;background:#FDF6EC;">
+              <h3 style="margin:0 0 6px;">We're not registered for those &mdash; but don't go anywhere</h3>
+              <p style="margin:0;">Those supports sit in registration group <b>0104</b>, and we hold <b>0107</b>. We can't deliver them and we won't pretend otherwise. Finish signing up anyway: our team will call you within one business day, introduce you to a provider registered for 0104 who you engage directly for those supports, and set up everything else on your plan alongside them.</p>
+            </div>
+          </div>
           <button type="submit" class="btn btn-primary btn-lg full" style="grid-column:1/-1;">Create my free profile</button>
           <p class="form-note full" style="grid-column:1/-1;">By continuing you agree to our <a href="#/legal">terms and privacy policy</a>. No payment details required.</p>
         </form>
@@ -2257,6 +2279,7 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
               <label class="choice-pill"><input type="checkbox" name="wSvc" value="household"><span>Household</span></label>
               <label class="choice-pill"><input type="checkbox" name="wSvc" value="community"><span>Community</span></label>
             </div>
+            <p class="muted-sm" style="margin:10px 0 0;"><b>What you won't be asked to do.</b> BookIt delivers standard-intensity supports only. You will never be rostered for high intensity daily personal activities &mdash; complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, catheter insertion or changes, subcutaneous injections, or complex wound management. If a participant ever asks you for one of those on shift, don't do it: stop, and tell us the same day.</p>
           </div>
           <div class="field full">
             <label>Do you have an NDIS Worker Screening Check?</label>
@@ -2736,7 +2759,7 @@ const FAQS = [
   {q:'Are workers employees or contractors?', a:'Employees — always. That means we handle super, tax, workers\' compensation and public liability insurance, and every shift is covered. You get the flexibility of choosing your own team without the risks of engaging contractors.'},
   {q:'What if I need to cancel a booking?', a:'Life happens. Cancel free of charge with more than 2 clear business days\' notice. Short-notice cancellations may be charged in line with the NDIS Pricing Arrangements, and your worker still gets paid for the shift.'},
   {q:'Can my worker drive me in their car?', a:'Yes. Workers providing transport hold a police check, a valid licence and appropriate insurance. A per-kilometre vehicle allowance applies, which can be claimed from your plan where funded (0108 Assist-Travel/Transport).'},
-  {q:'What can\'t I book on BookIt?', a:'We don\'t offer high-intensity daily personal activities (e.g. complex clinical supports) or nursing. We <b>are</b> registered for Supported Independent Living (Registration Group 138) — SIL is arranged as a package rather than booked shift-by-shift, so <a href="#/contact">talk to us</a> about SIL and shared-living arrangements and we\'ll set it up properly.'},
+  {q:'What can\'t I book on BookIt?', a:'We\'re registered for personal care at <b>standard intensity</b> (registration group 0107), not for <b>high intensity daily personal activities</b> (0104) — so we don\'t deliver complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections or complex wound management. We don\'t provide nursing either. If you need any of those, tell us: we\'ll introduce you to a provider registered for 0104 who you engage directly, and we can still cover the rest of your plan alongside them. We <b>are</b> registered for Supported Independent Living (Registration Group 138) — SIL is arranged as a package rather than booked shift-by-shift, so <a href="#/contact">talk to us</a> about SIL and shared-living arrangements and we\'ll set it up properly.', home:true},
   {q:'Where is BookIt available?', a:'We\'re Australia-wide, with the deepest worker pools in greater Sydney, Melbourne and Brisbane. Enter your suburb on <a href="#/find-workers">Find workers</a> to see who\'s nearby.'},
   {q:'How do workers get paid?', a:'Automatically, fortnightly, straight from your approved shift hours — including super and penalty rates. Workers see their full pay breakdown for every shift before they accept it.'},
   {q:'Is my information safe?', a:'Yes. We follow the Privacy Act and NDIS Practice Standards. Your data is encrypted, stored in Australia, never sold, and you control what appears on your profile.'}
@@ -2758,6 +2781,23 @@ const $ = (s, el=document) => el.querySelector(s);
 const $$ = (s, el=document) => [...el.querySelectorAll(s)];
 const money = n => '$' + n.toFixed(2);
 const SVC_NAME = Object.fromEntries(SERVICES.map(s => [s.slug, s.name]));
+/* The eight supports in NDIS Practice Standards Supplementary Module 1 (high intensity daily
+   personal activities, registration group 0104). DMHC holds 0107, not 0104, so BookIt screens
+   for these at signup and routes rather than refuses. Mirror of HI_SUPPORTS in server.js —
+   change both together. The catheter label says "inserting, changing or irrigating" on purpose:
+   emptying a leg bag and washing around an established catheter is ordinary 0107 personal care,
+   and an unqualified label would make every catheter user tick a box that doesn't apply to them. */
+const HI_SUPPORTS = [
+  { key:'bowel',      label:'Complex bowel care' },
+  { key:'enteral',    label:'PEG or tube (enteral) feeding' },
+  { key:'dysphagia',  label:'Dysphagia \u2014 help managing swallowing difficulties' },
+  { key:'ventilator', label:'Ventilator support' },
+  { key:'trach',      label:'Tracheostomy management' },
+  { key:'catheter',   label:'Urinary catheter management \u2014 inserting, changing or irrigating' },
+  { key:'injections', label:'Subcutaneous injections' },
+  { key:'wounds',     label:'Complex wound management' }
+];
+const hiLabel = k => (HI_SUPPORTS.find(x => x.key === k) || {}).label || k;
 
 function toast(msg){
   const t = $('#toast');
@@ -2955,6 +2995,26 @@ $$('input[name="pPlan"]').forEach(r => r.addEventListener('change', () => {
   const w = $('#pPmWrap');
   if(w) w.hidden = (document.querySelector('input[name="pPlan"]:checked') || {}).value !== 'plan';
 }));
+
+/* High-intensity screening on the participant signup form. Shown once someone picks a support
+   type where a worker is hands-on with their body or their day; hidden for employment- and
+   household-only signups, where none of the eight could arise. Ticking one doesn't block signup —
+   it flags the account and emails the office so someone calls before a shift is ever booked. */
+(function initHiScreen(){
+  const pills = $('#pHiPills'), wrap = $('#pHiWrap'), note = $('#pHiNote');
+  if(!pills || !wrap) return;
+  pills.innerHTML = HI_SUPPORTS.map(h => `<label class="choice-pill"><input type="checkbox" name="pHi" value="${h.key}"><span>${h.label}</span></label>`).join('');
+  const HANDS_ON = ['personal-care','daily-tasks','community','transport'];
+  const sync = () => {
+    const show = $$('input[name="pSvc"]:checked').some(c => HANDS_ON.includes(c.value));
+    wrap.hidden = !show;
+    if(!show) $$('input[name="pHi"]:checked').forEach(c => { c.checked = false; });
+    note.hidden = !$$('input[name="pHi"]:checked').length;
+  };
+  $$('input[name="pSvc"]').forEach(c => c.addEventListener('change', sync));
+  pills.addEventListener('change', sync);
+  sync();
+})();
 
 /* ============ Forgot / reset password ============ */
 $('#btnForgot').addEventListener('click', () => {
@@ -3303,12 +3363,15 @@ $('#participantForm').addEventListener('submit', async e => {
   if(window.API && API.online){
     try{
       const services = $$('input[name="pSvc"]:checked').map(c => c.value);
+      const hi_flags = $('#pHiWrap') && !$('#pHiWrap').hidden ? $$('input[name="pHi"]:checked').map(c => c.value) : [];
       const plan = (document.querySelector('input[name="pPlan"]:checked') || {}).value || '';
       const pw = $('#pPassword').value;
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
-      const d = await API.call('/register', {method:'POST', body:{role:'participant', name:$('#pName').value, email:$('#pEmail').value, password:pw, phone:$('#pPhone').value, suburb:$('#pPostcode').value, plan, services, ndis_number:$('#pNdis').value.trim(), pm_email:$('#pPmEmail').value.trim()}});
+      const d = await API.call('/register', {method:'POST', body:{role:'participant', name:$('#pName').value, email:$('#pEmail').value, password:pw, phone:$('#pPhone').value, suburb:$('#pPostcode').value, plan, services, hi_flags, ndis_number:$('#pNdis').value.trim(), pm_email:$('#pPmEmail').value.trim()}});
       API.me = d.user; updateAuthUI();
-      gsSuccess(`Welcome aboard, ${d.user.name.split(' ')[0]}! 🎉`, 'Your account is live and you\'re logged in. We\'ve emailed you a link to confirm your address. Browse workers, say hello in Messages, and request your first booking whenever you\'re ready.');
+      gsSuccess(`Welcome aboard, ${d.user.name.split(' ')[0]}! 🎉`, hi_flags.length
+        ? 'Your account is live and you\'re logged in. Because you told us about supports we aren\'t registered to deliver, our team will call you within one business day before you book anything — we\'ll introduce you to a provider registered for those, and set up everything else on your plan alongside them. In the meantime, have a browse.'
+        : 'Your account is live and you\'re logged in. We\'ve emailed you a link to confirm your address. Browse workers, say hello in Messages, and request your first booking whenever you\'re ready.');
       $('#gsDemoNote').textContent = 'Log back in any time with your email and password.';
     }catch(err){ toast(err.message); }
     return;
@@ -4523,6 +4586,23 @@ async function renderBookingsPage(){
         <button type="button" class="btn btn-primary btn-sm" id="bdSave">Save</button>
       </div>
     </div>` : '';
+  /* Participants can update their high-intensity declaration any time — needs change, and the
+     dated record of what they told us and when is the thing an auditor asks to see. */
+  const myHi = Array.isArray(API.me.hi_flags) ? API.me.hi_flags : [];
+  const hiCard = API.me.role === 'participant' ? `
+    <div class="info-card" id="cardHi" style="margin-bottom:18px;">
+      <h3 style="margin:0 0 6px;">Supports we can't cover</h3>
+      <p class="muted-sm" style="margin:0 0 12px;">Tick anything a BookIt worker would be asked to do <b>for</b> you. These eight are the high intensity daily personal activities named in the NDIS Practice Standards &mdash; we're registered for <b>0107</b>, not <b>0104</b>, so we don't deliver them. Everyday showering, dressing, toileting and continence help are <b>not</b> on this list, and neither is emptying or cleaning around a catheter you already have. Most people tick nothing.</p>
+      <div class="choice-row" id="hiPills">
+        ${HI_SUPPORTS.map(h => `<label class="choice-pill"><input type="checkbox" name="myHi" value="${h.key}" ${myHi.includes(h.key) ? 'checked' : ''}><span>${h.label}</span></label>`).join('')}
+      </div>
+      <div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <button type="button" class="btn btn-primary btn-sm" id="hiSave">Save</button>
+        <span class="muted-sm" id="hiSaveNote">${myHi.length
+          ? 'Our team knows about these and will introduce you to a provider registered for 0104. Your other supports carry on as normal.'
+          : 'Tell us here if that ever changes and we\'ll sort out an introduction.'}</span>
+      </div>
+    </div>` : '';
   let workerCards = '';
   if(API.me.role === 'worker'){
     let docs = [], sum = {}, prof = { bio: '', photo: null, visible: 0, days: [1,1,1,1,1,0,0], langs: 'English', exp: 'New to BookIt' };
@@ -4638,13 +4718,13 @@ async function renderBookingsPage(){
   let d;
   try { d = await API.call('/bookings'); } catch(e){ return; }
   if(!d.bookings.length){
-    wrap.innerHTML = billingCard + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
+    wrap.innerHTML = billingCard + hiCard + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
       ? 'Find a worker you like, have a chat, then hit "Request a booking" on their profile.'
       : 'When participants request you, their bookings appear here for you to accept or decline.') + '</p></div>';
     revealPendingSection();
     return;
   }
-  wrap.innerHTML = billingCard + workerCards + incidentCard + d.bookings.map(b => `
+  wrap.innerHTML = billingCard + hiCard + workerCards + incidentCard + d.bookings.map(b => `
     <div class="bk-card">
       <div class="wc-avatar" style="background:${b.other_color};">${b.other_name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
       <div class="bk-main">
@@ -4663,11 +4743,33 @@ async function renderBookingsPage(){
           </span>
         </div>` : ''}
         ${API.me.role === 'participant' && b.status === 'completed' && b.reviewed ? '<span class="muted-sm" style="color:#1C7C43;">Reviewed ✓ — thank you!</span>' : ''}
+        ${b.status === 'completed' && b.note_count ? `
+        <button type="button" class="btn btn-secondary btn-sm" data-note-read="${b.id}" style="align-self:flex-start;margin-top:8px;">Read the shift note${b.note_count > 1 ? ` (${b.note_count})` : ''}</button>
+        <div class="note-out" data-note-out="${b.id}" hidden></div>` : ''}
+        ${API.me.role === 'worker' && b.status === 'accepted' && b.date <= new Date().toISOString().slice(0,10) ? `
+        <div class="note-box" data-note-form="${b.id}" hidden>
+          <b style="font-size:.92rem;">Your shift note</b>
+          <p class="muted-sm" style="margin:4px 0 9px;">What you did together and how it went — a few lines is plenty. ${esc(b.other_name.split(' ')[0])} and their support coordinator can read this, and it's the record that the shift happened.</p>
+          <textarea class="note-body" rows="4" maxlength="4000" placeholder="e.g. Arrived 10am. We did the fortnightly shop and put it all away. ${esc(b.other_name.split(' ')[0])} was in good spirits and managed the trolley on their own today, which is new. Home and settled by 12."></textarea>
+          <div style="margin-top:12px;">
+            <b style="font-size:.9rem;">Were you asked to do anything outside what you're booked for?</b>
+            <div class="choice-row" style="margin-top:7px;">
+              <label class="choice-pill"><input type="radio" name="bkScope${b.id}" value="no" checked><span>No</span></label>
+              <label class="choice-pill"><input type="radio" name="bkScope${b.id}" value="yes"><span>Yes</span></label>
+            </div>
+            <textarea class="note-scope-detail" rows="2" maxlength="4000" hidden style="margin-top:9px;" placeholder="What were you asked to do? We'll follow it up — you're not in trouble for telling us."></textarea>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary btn-sm" data-note-save="${b.id}">Save note &amp; complete shift</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-note-cancel="${b.id}">Not yet</button>
+          </div>
+          <p class="note-locked">Once it's saved it can't be edited — if you need to correct something you add a note underneath it.</p>
+        </div>` : ''}
       </div>
       <span class="bk-status bk-${b.status}">${STATUS_LABEL[b.status] || b.status}</span>
       <div class="bk-actions">
         ${API.me.role === 'worker' && b.status === 'requested' ? `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="accepted">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined">Decline</button>` : ''}
-        ${API.me.role === 'worker' && b.status === 'accepted' && b.date <= new Date().toISOString().slice(0,10) ? `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="completed">Mark shift completed</button>` : ''}
+        ${API.me.role === 'worker' && b.status === 'accepted' && b.date <= new Date().toISOString().slice(0,10) ? `<button class="btn btn-primary btn-sm" data-note-open="${b.id}">Mark shift completed</button>` : ''}
         ${API.me.role === 'participant' && ['requested','accepted'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="cancelled">Cancel</button>` : ''}
       </div>
     </div>`).join('');
@@ -4716,7 +4818,97 @@ async function fileToB64Shrunk(input, maxEdge, quality){
     return fileToB64(input); /* couldn't decode — send as-is, the server still guards */
   }finally{ URL.revokeObjectURL(url); }
 }
+/* Shift notes are append-only — the panel shows every entry in the order it was
+   written, and a worker who needs to correct one adds another underneath. */
+function noteEntryHtml(n){
+  return `<div class="note-entry${n.scope_flag ? ' note-flag' : ''}">
+    <div class="note-meta">${n.addendum ? 'Added later' : 'Shift note'} · ${esc(n.worker_name)} · ${fmtAU(n.created)}</div>
+    <p>${esc(n.body).replace(/\n/g, '<br>')}</p>
+    ${n.scope_flag ? `<div class="note-scope-out"><b style="color:#D94F32;">Flagged — asked to do something outside scope:</b> ${esc(n.scope_detail)}${n.reviewed_at ? ' <b style="color:#1C7C43;">The office has followed this up.</b>' : ''}</div>` : ''}
+  </div>`;
+}
+function noteAddHtml(id){
+  return `<div class="note-box" style="margin-top:10px;">
+    <b style="font-size:.9rem;">Need to add something?</b>
+    <p class="muted-sm" style="margin:4px 0 8px;">Notes are never edited or deleted — that's what makes them worth anything. Anything you add appears underneath, dated.</p>
+    <textarea class="note-body" rows="3" maxlength="4000" placeholder="What you'd like to add or correct."></textarea>
+    <button type="button" class="btn btn-primary btn-sm" data-note-add="${id}" style="margin-top:9px;">Add to the notes</button>
+  </div>`;
+}
+async function paintNotes(id, box){
+  box.innerHTML = '<p class="muted-sm">Loading…</p>';
+  try{
+    const d = await API.call('/bookings/' + id + '/notes');
+    box.innerHTML = (d.notes.length ? d.notes.map(noteEntryHtml).join('') : '<p class="muted-sm">No note was written for this shift.</p>')
+      + (API.me && API.me.role === 'worker' ? noteAddHtml(id) : '');
+  }catch(err){ box.innerHTML = '<p class="muted-sm">' + esc(err.message) + '</p>'; }
+}
+document.addEventListener('change', e => {
+  const r = e.target.closest('input[type="radio"][name^="bkScope"]');
+  if(r){
+    const box = r.closest('.note-box');
+    const det = box && box.querySelector('.note-scope-detail');
+    if(det) det.hidden = r.value !== 'yes';
+  }
+});
 document.addEventListener('click', async e => {
+  const nOpen = e.target.closest('[data-note-open]');
+  if(nOpen){
+    const form = $(`[data-note-form="${nOpen.dataset.noteOpen}"]`);
+    if(form){ form.hidden = false; nOpen.hidden = true; const t = form.querySelector('.note-body'); if(t) t.focus(); }
+    return;
+  }
+  const nCancel = e.target.closest('[data-note-cancel]');
+  if(nCancel){
+    const form = nCancel.closest('.note-box');
+    if(form) form.hidden = true;
+    const btn = $(`[data-note-open="${nCancel.dataset.noteCancel}"]`);
+    if(btn) btn.hidden = false;
+    return;
+  }
+  const nRead = e.target.closest('[data-note-read]');
+  if(nRead){
+    const id = nRead.dataset.noteRead;
+    const box = $(`[data-note-out="${id}"]`);
+    if(!box) return;
+    /* remember the label so closing it again doesn't lose the "(2)" count */
+    if(!nRead.dataset.label) nRead.dataset.label = nRead.textContent;
+    if(!box.hidden){ box.hidden = true; nRead.textContent = nRead.dataset.label; return; }
+    box.hidden = false;
+    nRead.textContent = 'Hide the shift note';
+    await paintNotes(id, box);
+    return;
+  }
+  const nSave = e.target.closest('[data-note-save]');
+  if(nSave){
+    const id = nSave.dataset.noteSave;
+    const form = nSave.closest('.note-box');
+    const body = form.querySelector('.note-body').value;
+    const scope = form.querySelector(`input[name="bkScope${id}"]:checked`).value === 'yes';
+    const detail = form.querySelector('.note-scope-detail').value;
+    nSave.disabled = true;
+    try{
+      const r = await API.call('/bookings/' + id, {method:'PATCH', body:{status:'completed', note: body, scope, scope_detail: detail}});
+      toast(scope
+        ? 'Shift completed and your note is saved. Thanks for flagging that — the office has been alerted and will call you.'
+        : (r.invoice ? `Shift completed — note saved and $${r.invoice.total.toFixed(2)} recorded for invoicing. 🎉` : 'Shift completed — note saved.'));
+      renderBookingsPage();
+    }catch(err){ toast(err.message); nSave.disabled = false; }
+    return;
+  }
+  const nAdd = e.target.closest('[data-note-add]');
+  if(nAdd){
+    const id = nAdd.dataset.noteAdd;
+    const box = nAdd.closest('.note-box');
+    nAdd.disabled = true;
+    try{
+      await API.call('/bookings/' + id + '/notes', {method:'POST', body:{note: box.querySelector('.note-body').value}});
+      toast('Added to the notes. 📝');
+      const out = $(`[data-note-out="${id}"]`);
+      if(out) await paintNotes(id, out);
+    }catch(err){ toast(err.message); nAdd.disabled = false; }
+    return;
+  }
   if(e.target && e.target.id === 'mpPhotoSave'){
     e.target.disabled = true;
     try{
@@ -4800,6 +4992,19 @@ document.addEventListener('click', async e => {
     }catch(err){ toast(err.message); e.target.disabled = false; }
     return;
   }
+  if(e.target && e.target.id === 'hiSave'){
+    try{
+      const flags = $$('input[name="myHi"]:checked').map(c => c.value);
+      const d = await API.call('/me/high-intensity', {method:'POST', body:{hi_flags:flags}});
+      API.me = d.user;
+      const note = $('#hiSaveNote');
+      if(note) note.textContent = flags.length
+        ? 'Saved. Our team has been alerted and will call you to arrange an introduction to a provider registered for 0104.'
+        : 'Saved \u2014 nothing on this list applies to you.';
+      toast(flags.length ? 'Saved. We\'ll call you about those supports.' : 'Saved. 👍');
+    }catch(err){ toast(err.message); }
+    return;
+  }
   if(e.target && e.target.id === 'bdSave'){
     try{
       const d = await API.call('/me/billing', {method:'POST', body:{plan:$('#bdPlan').value, ndis_number:$('#bdNdis').value.trim(), pm_email:($('#bdPm') ? $('#bdPm').value.trim() : '')}});
@@ -4834,6 +5039,9 @@ async function renderAdminPage(){
   let inv;
   try{ inv = await API.call('/admin/invoices'); }
   catch(e){ inv = { invoices: [], totals: { billed: 0, worker_share: 0 }, categories: [] }; }
+  let sn;
+  try{ sn = await API.call('/admin/shift-notes'); }
+  catch(e){ sn = { notes: [], people: [], flagged_open: 0 }; }
   let cl;
   try{ cl = await API.call('/admin/claims'); }
   catch(e){ cl = { unclaimed: [], claimed: [], paid: [], totals: { unclaimed: 0, claimed: 0, paid: 0 } }; }
@@ -4857,7 +5065,72 @@ async function renderAdminPage(){
     <div class="adm-tile"><b>${c.contacts}</b><span>Contact forms</span></div>
     <div class="adm-tile"><b style="${c.urgent_incidents ? 'color:#D94F32;' : ''}">${c.urgent_incidents || 0}</b><span>Reportable — not yet notified</span></div>
     <div class="adm-tile"><b style="${c.open_complaints ? 'color:#8a6d00;' : ''}">${c.open_complaints || 0}</b><span>Open complaints</span></div>
+    <div class="adm-tile"><b style="${c.hi_open ? 'color:#D94F32;' : ''}">${c.hi_open || 0}</b><span>High-intensity — call not yet made</span></div>
+    <div class="adm-tile"><b style="${c.notes_flagged ? 'color:#D94F32;' : ''}">${c.notes_flagged || 0}</b><span>Out-of-scope flags to follow up</span></div>
+    <div class="adm-tile"><b>${c.notes_total || 0}</b><span>Shift notes on file</span></div>
   </div>`;
+  /* High-intensity enquiries: participants who declared a Module 1 support at signup or from
+     their account page. Nothing here blocks them — the whole point is that somebody rings before
+     a worker is ever standing in their bathroom being asked to do something we aren't registered
+     for. Recording the introduction is what closes the row. */
+  const admDate = t => { const x = new Date(t); return isNaN(x) ? '—' : x.toLocaleDateString('en-AU', {day:'2-digit', month:'2-digit', year:'numeric'}); };
+  const hiRows = d.high_intensity || [];
+  const hiOpenN = hiRows.filter(r => !r.hi_referred_at).length;
+  const highIntensity = hiRows.length ? `
+    <p class="muted-sm" style="margin:0 0 12px;">These participants told us they need a support inside <b>Supplementary Module 1 &mdash; high intensity daily personal activities</b> (registration group <b>0104</b>). Disability &amp; Mental Health Care holds <b>0107</b>, so BookIt does not deliver them. Ring the participant, introduce them to a provider registered for 0104 that <b>they</b> engage directly, then write one line about what was said. That line is the record.</p>
+    <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Participant</th><th>Contact</th><th>Told us</th><th>What they need</th><th>Also asked for</th><th style="min-width:270px;">Outcome</th></tr></thead><tbody>
+      ${hiRows.map(r => `<tr style="${r.hi_referred_at ? 'opacity:.62;' : ''}">
+        <td><b>${esc(r.name)}</b>${r.suburb ? `<br><span class="muted-sm">${esc(r.suburb)}</span>` : ''}</td>
+        <td style="font-size:.85rem;">${esc(r.email)}${r.phone ? `<br>${esc(r.phone)}` : ''}</td>
+        <td style="white-space:nowrap;font-size:.85rem;">${admDate(r.hi_at || r.created)}</td>
+        <td style="max-width:260px;">${r.hi_labels.length ? r.hi_labels.map(l => `<span class="adm-badge" style="background:#FDF6EC;border-color:#B45309;color:#8a5a09;">${esc(l)}</span>`).join(' ') : '<span class="muted-sm">declaration since cleared</span>'}</td>
+        <td style="max-width:170px;font-size:.85rem;">${(r.svc_interest || []).map(x => esc(svcName(x))).join(', ') || '—'}</td>
+        <td>${r.hi_referred_at
+          ? `<span class="adm-badge" style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;">${r.hi_labels.length ? 'handled' : 'cleared'} ${admDate(r.hi_referred_at)} ✓</span><br><span class="muted-sm">${esc(r.hi_note || '')}</span>`
+          : `<input class="adm-hi-note" data-hi-note="${r.id}" placeholder="Called 21/07 — introduced to ___, they'll contact them directly." style="font:inherit;font-size:.85rem;padding:6px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:100%;box-sizing:border-box;">
+             <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+               <button class="adm-btn-sm" data-hi-refer="${r.id}">Record introduction</button>
+               <button class="adm-btn-sm" data-hi-clear="${r.id}">Ticked in error</button>
+             </div>`}</td>
+      </tr>`).join('')}
+    </tbody></table></div>`
+    : '<p class="adm-empty">Nobody has declared a high-intensity support need. The question is asked at signup whenever someone picks a hands-on support, and stays editable on every participant\'s Bookings page.</p>';
+  /* Shift notes: the record that a support was delivered, which is what an auditor samples.
+     Two jobs on this screen — clear the out-of-scope flags (those need a phone call today),
+     and be able to hand over one participant's whole history as a file without hunting. */
+  const snRows = sn.notes || [];
+  const snFlagged = snRows.filter(r => r.scope_flag && !r.reviewed_at);
+  const snPeople = sn.people || [];
+  const shiftNotes = `
+    <p class="muted-sm" style="margin:0 0 12px;">A shift can't be marked completed &mdash; and so can't be invoiced or claimed &mdash; until the worker has written a note. Notes are never edited or deleted; a correction is added underneath, dated. At audit, hand over the participant's file below rather than a shoebox.</p>
+    ${snFlagged.length ? `
+    <div class="info-card" style="border-color:#D94F32;background:#FDF6EC;margin-bottom:16px;">
+      <h3 style="margin:0 0 6px;">${snFlagged.length} worker${snFlagged.length > 1 ? 's were' : ' was'} asked to do something outside scope</h3>
+      <p class="muted-sm" style="margin:0 0 10px;">Ring the worker today. If what was asked sits inside <b>0104</b> the answer is that BookIt doesn't deliver it &mdash; introduce the participant to a provider who is registered for it. If it actually happened rather than only being asked for, it belongs in the incident register too.</p>
+      ${snFlagged.map(r => `<div style="border-top:1px solid #E7DFD4;padding:11px 0;">
+        <b>${esc(r.worker_name)}</b> <span class="muted-sm">with ${esc(r.participant_name)} &middot; ${esc(svcName(r.service))} &middot; ${fmtAU(r.date)}</span>
+        <p style="margin:6px 0 0;font-size:.92rem;">&ldquo;${esc(r.scope_detail)}&rdquo;</p>
+        <textarea class="adm-sn-note" data-sn-note="${r.id}" rows="2" placeholder="Called ${esc(r.worker_name.split(' ')[0])} today — confirmed it's a 0104 support, told them they were right to decline. Participant to be introduced to ___." style="font:inherit;font-size:.85rem;line-height:1.5;padding:8px 10px;border-radius:8px;border:1.5px solid #E7DFD4;width:100%;box-sizing:border-box;margin-top:8px;resize:vertical;"></textarea>
+        <button class="adm-btn-sm" data-sn-review="${r.id}" style="margin-top:6px;">Record what we did</button>
+      </div>`).join('')}
+    </div>` : ''}
+    ${snPeople.length ? `
+    <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Participant</th><th>Notes on file</th><th>Latest shift</th><th>For the auditor</th></tr></thead><tbody>
+      ${snPeople.map(r => `<tr>
+        <td><b>${esc(r.name)}</b></td>
+        <td>${r.notes}</td>
+        <td style="white-space:nowrap;">${fmtAU(r.last_shift)}</td>
+        <td><a class="adm-btn-sm" href="/api/admin/participants/${r.id}/notes.csv" download style="text-decoration:none;">&#11015; Download their notes</a></td>
+      </tr>`).join('')}
+    </tbody></table></div>` : ''}
+    ${snRows.length ? `
+    <details style="margin-top:14px;"><summary style="cursor:pointer;font-weight:700;">Read the latest ${snRows.length} note${snRows.length > 1 ? 's' : ''}</summary>
+      ${snRows.map(r => `<div class="note-entry${r.scope_flag ? ' note-flag' : ''}" style="margin-top:10px;">
+        <div class="note-meta">${r.addendum ? 'Added later' : 'Shift note'} &middot; ${esc(r.worker_name)} with ${esc(r.participant_name)} &middot; ${esc(svcName(r.service))} &middot; ${fmtAU(r.date)}</div>
+        <p>${esc(r.body).replace(/\n/g, '<br>')}</p>
+        ${r.scope_flag ? `<div class="note-scope-out"><b style="color:#D94F32;">Out of scope:</b> ${esc(r.scope_detail)}${r.reviewed_at ? `<br><b style="color:#1C7C43;">Followed up ${admDate(r.reviewed_at)} by ${esc(r.reviewed_by || '')} &mdash;</b> ${esc(r.review_note || '')}` : ''}</div>` : ''}
+      </div>`).join('')}
+    </details>` : '<p class="adm-empty">No shift notes yet. The first one is written when a worker marks a shift completed.</p>'}`;
   const scChip = s => s === 'valid' ? '<span class="adm-badge" style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;">screening current ✓</span>'
     : s === 'expiring' ? '<span class="adm-badge">screening expiring soon</span>'
     : s === 'expired' ? '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">screening EXPIRED</span>'
@@ -4948,7 +5221,7 @@ async function renderAdminPage(){
     </div>
     ${comps.complaints.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>#</th><th>From</th><th>Complaint</th><th>Status</th><th></th></tr></thead><tbody>${comps.complaints.map(compRow).join('')}</tbody></table></div>` : '<p class="adm-empty">No complaints on the register.</p>'}`;
   const bookings = d.bookings.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>When</th><th>Participant</th><th>Worker</th><th>Service</th><th>Status</th></tr></thead><tbody>
-    ${d.bookings.map(b => `<tr><td>${esc(b.date)} ${esc(b.start)} · ${b.hours}h</td><td>${esc(b.participant_name)}</td><td>${esc(b.worker_name)}</td><td>${esc(svcName(b.service))}</td><td>${esc(b.status)}</td></tr>`).join('')}
+    ${d.bookings.map(b => `<tr><td>${admDate(b.date)} ${esc(b.start)} · ${b.hours}h</td><td>${esc(b.participant_name)}</td><td>${esc(b.worker_name)}</td><td>${esc(svcName(b.service))}</td><td>${esc(b.status)}</td></tr>`).join('')}
   </tbody></table></div>` : '<p class="adm-empty">No bookings yet.</p>';
   const contacts = d.contacts.length ? d.contacts.map(x => `
     <div class="info-card" style="margin-bottom:12px;">
@@ -5067,6 +5340,7 @@ async function renderAdminPage(){
   wrap.innerHTML = tiles
     + `<h2 class="adm-section">Launch ${ln.demo_accounts || ln.gate ? '' : '— LIVE 🎉'}</h2>` + launchCard
     + `<h2 class="adm-section">Workers awaiting approval ${c.pending ? `(${c.pending})` : ''}</h2>` + pending
+    + `<h2 class="adm-section">High-intensity enquiries ${hiOpenN ? `<span style="color:#D94F32;">(${hiOpenN} to call)</span>` : ''}</h2>` + highIntensity
     + `<h2 class="adm-section">Credentials — the automatic checker</h2>` + credentials
     + `<h2 class="adm-section">Incident register ${c.urgent_incidents ? `<span style="color:#D94F32;">(${c.urgent_incidents} awaiting Commission notice!)</span>` : ''}</h2>` + incidents
     + `<h2 class="adm-section">Complaints register</h2>` + complaints
@@ -5082,6 +5356,7 @@ async function renderAdminPage(){
     + `<h2 class="adm-section">SIL rosters</h2>` + silSection
     + `<h2 class="adm-section">Claims &amp; payments</h2>` + claims
     + `<h2 class="adm-section">Invoicing — completed shifts ${inv.invoices.length ? `(${inv.invoices.length})` : ''}</h2>` + invoicing
+    + `<h2 class="adm-section">Shift notes ${snFlagged.length ? `<span style="color:#D94F32;">(${snFlagged.length} flagged)</span>` : ''}</h2>` + shiftNotes
     + '<h2 class="adm-section">Recent bookings</h2>' + bookings
     + '<h2 class="adm-section">Contact-form messages</h2>' + contacts
     + '<h2 class="adm-section">Everyone (latest 100)</h2>' + users;
@@ -5201,6 +5476,42 @@ document.addEventListener('click', async e => {
   if(ssd){
     try{ await API.call('/admin/sil/slots/' + ssd.dataset.silSlotDel + '/delete', {method:'POST'}); toast('Slot removed.'); renderAdminPage(); }
     catch(err){ toast(err.message); }
+    return;
+  }
+  const hiBtn = e.target.closest('[data-hi-refer], [data-hi-clear]');
+  if(hiBtn){
+    const id = hiBtn.dataset.hiRefer || hiBtn.dataset.hiClear;
+    const clear = !!hiBtn.dataset.hiClear;
+    const field = $(`[data-hi-note="${id}"]`);
+    const note = field ? field.value.trim() : '';
+    if(!note){
+      toast(clear ? 'Say why it is being cleared — "ticked in error, confirmed by phone 21/07" is enough.'
+                  : 'Write a line about what was discussed and who they were introduced to — that line is the record.');
+      if(field) field.focus();
+      return;
+    }
+    try{
+      await API.call('/admin/participants/' + id + '/high-intensity', {method:'POST', body:{note, clear}});
+      toast(clear ? 'Cleared, with your note kept on file.' : 'Introduction recorded. 👍');
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  const snBtn = e.target.closest('[data-sn-review]');
+  if(snBtn){
+    const id = snBtn.dataset.snReview;
+    const field = $(`[data-sn-note="${id}"]`);
+    const note = field ? field.value.trim() : '';
+    if(!note){
+      toast('Write what you did about it — who you rang and what you told them. That line is the record.');
+      if(field) field.focus();
+      return;
+    }
+    try{
+      await API.call('/admin/shift-notes/' + id + '/review', {method:'POST', body:{note}});
+      toast('Recorded. 👍');
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
     return;
   }
   const rt = e.target.closest('[data-rev-toggle]');
