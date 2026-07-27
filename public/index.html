@@ -2387,6 +2387,77 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
   </section>
 </section>
 
+<!-- ===== cover: care web, standby, offers ===== -->
+<style>
+  /* the participant's own ordered list of people */
+  .cw-list{list-style:none;margin:12px 0 0;padding:0;}
+  .cw-item{display:flex;gap:12px;align-items:center;background:rgba(255,255,255,.86);border:1.5px solid #E7DFD4;border-radius:14px;padding:11px 13px;margin-bottom:9px;}
+  .cw-item.dragging{opacity:.45;border-style:dashed;}
+  .cw-item.cw-over{border-color:#0E6B62;box-shadow:0 0 0 3px rgba(14,107,98,.13);}
+  .cw-rank{width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:#0E6B62;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.92rem;}
+  .cw-rank.cw-r1{background:#F5B841;color:#17313A;}
+  .cw-face{width:42px;height:42px;flex:0 0 42px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.9rem;}
+  .cw-face img{width:100%;height:100%;object-fit:cover;}
+  .cw-body{flex:1;min-width:0;}
+  .cw-body b{display:block;font-size:.98rem;}
+  .cw-body small{display:block;color:#4a5c58;font-size:.82rem;line-height:1.5;}
+  .cw-grip{cursor:grab;color:#9aa8a4;font-size:1.15rem;line-height:1;padding:2px 4px;user-select:none;}
+  .cw-grip:active{cursor:grabbing;}
+  .cw-moves{display:flex;flex-direction:column;gap:3px;}
+  .cw-moves button{width:26px;height:22px;border:1.5px solid #E7DFD4;background:#fff;border-radius:7px;cursor:pointer;font-size:.7rem;line-height:1;color:#0E6B62;font-family:inherit;}
+  .cw-moves button:disabled{opacity:.32;cursor:default;}
+  .cw-role{font:inherit;font-size:.82rem;padding:5px 8px;border-radius:9px;border:1.5px solid #E7DFD4;background:#fff;}
+  .cw-x{border:none;background:none;color:#B4451F;cursor:pointer;font-size:1.05rem;line-height:1;padding:4px 6px;font-family:inherit;}
+  .cw-tag{display:inline-block;border-radius:999px;padding:1px 9px;font-size:.74rem;font-weight:600;margin-right:5px;}
+  .cw-tag.ok{background:#DBF2E4;color:#146b39;}
+  .cw-tag.warn{background:#FBE3DC;color:#B4451F;}
+  .cw-sug{display:flex;gap:9px;flex-wrap:wrap;margin-top:10px;}
+  .cw-sug button{display:flex;gap:8px;align-items:center;background:#fff;border:1.5px dashed #C9BFAE;border-radius:999px;padding:5px 14px 5px 6px;cursor:pointer;font:inherit;font-size:.87rem;}
+  .cw-sug button:hover{border-color:#0E6B62;border-style:solid;}
+  .cw-sug .cw-face{width:28px;height:28px;flex:0 0 28px;font-size:.72rem;}
+  .cw-depth{background:#EEF6F4;border:1.5px solid #BFDDD8;border-radius:13px;padding:12px 14px;margin-top:14px;font-size:.9rem;line-height:1.6;}
+  .cw-depth b{color:#0E6B62;}
+
+  /* the strip that appears on a shift while cover is being found */
+  .cv-strip{background:#FFF6E3;border:1.5px solid #F5B841;border-radius:12px;padding:10px 13px;margin-top:9px;font-size:.89rem;line-height:1.55;}
+  .cv-strip.done{background:#EAF6EF;border-color:#8FC9A7;}
+  .cv-strip b{display:block;}
+  .cv-chain{list-style:none;margin:8px 0 0;padding:0;font-size:.84rem;}
+  .cv-chain li{padding:3px 0 3px 20px;position:relative;color:#3E5A64;}
+  .cv-chain li::before{content:'○';position:absolute;left:2px;color:#9aa8a4;}
+  .cv-chain li.yes::before{content:'●';color:#1C7C43;}
+  .cv-chain li.no::before{content:'·';color:#B4451F;font-size:1.4rem;line-height:.7;}
+
+  /* worker: live cover offers */
+  .of-card{background:#FFF9EC;border:2px solid #F5B841;border-radius:18px;padding:18px;margin-bottom:18px;}
+  .of-row{background:#fff;border:1.5px solid #EFE3C7;border-radius:14px;padding:13px 15px;margin-top:11px;}
+  .of-row h4{margin:0 0 3px;font-size:1.02rem;}
+  .of-pay{font-weight:700;color:#0E6B62;}
+  .of-when{font-size:.85rem;color:#4a5c58;}
+  .of-acts{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px;align-items:center;}
+  .of-clock{font-size:.8rem;color:#8a6d00;font-weight:600;}
+
+  /* worker: standby */
+  .sb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:10px;margin-top:12px;}
+  .sb-day{border:1.5px solid #E7DFD4;border-radius:13px;padding:11px 13px;background:rgba(255,255,255,.86);font-size:.87rem;}
+  .sb-day b{display:block;font-size:.92rem;}
+  .sb-day.offered{border-color:#F5B841;background:#FFF9EC;}
+  .sb-day.accepted{border-color:#8FC9A7;background:#EAF6EF;}
+  .sb-money{color:#0E6B62;font-weight:700;}
+  .sb-acts{display:flex;gap:7px;margin-top:9px;}
+
+  /* admin cover board */
+  .cb-open{border:2px solid #F5B841;background:#FFF9EC;border-radius:16px;padding:15px 17px;margin-bottom:13px;}
+  .cb-open.late{border-color:#D94F32;background:#FDF0EC;}
+  .cb-head{display:flex;gap:12px;flex-wrap:wrap;align-items:baseline;justify-content:space-between;}
+  .cb-head b{font-size:1.02rem;}
+  .cb-tier{background:#0E6B62;color:#fff;border-radius:999px;padding:2px 11px;font-size:.76rem;font-weight:600;}
+  .cb-who{margin:9px 0 0;font-size:.87rem;color:#3E5A64;}
+  .cb-cands{margin-top:11px;border-top:1px dashed #E0D3B6;padding-top:10px;}
+  .cb-cands h5{margin:0 0 5px;font-size:.82rem;text-transform:uppercase;letter-spacing:.4px;color:#4a5c58;}
+  .cb-cand{display:inline-flex;gap:7px;align-items:center;background:#fff;border:1.5px solid #E7DFD4;border-radius:999px;padding:3px 5px 3px 12px;margin:0 6px 6px 0;font-size:.85rem;}
+</style>
+
 <!-- ================= BOOKINGS ================= -->
 <section class="page" id="page-bookings" data-title="My bookings — BookIt">
   <div class="page-hero">
@@ -4715,16 +4786,19 @@ async function renderBookingsPage(){
         <button type="button" class="btn btn-primary btn-sm" id="incSubmitW" style="margin-top:10px;">Submit incident report</button>
       </details>
     </div>`;
+  /* cover: a live offer is the most urgent thing on this page, so it goes above
+     everything; the care web / standby settings sit with the other saved settings. */
+  const cover = await renderCoverPanels();
   let d;
   try { d = await API.call('/bookings'); } catch(e){ return; }
   if(!d.bookings.length){
-    wrap.innerHTML = billingCard + hiCard + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
+    wrap.innerHTML = cover.top + billingCard + hiCard + cover.mid + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
       ? 'Find a worker you like, have a chat, then hit "Request a booking" on their profile.'
       : 'When participants request you, their bookings appear here for you to accept or decline.') + '</p></div>';
     revealPendingSection();
     return;
   }
-  wrap.innerHTML = billingCard + hiCard + workerCards + incidentCard + d.bookings.map(b => `
+  wrap.innerHTML = cover.top + billingCard + hiCard + cover.mid + workerCards + incidentCard + d.bookings.map(b => `
     <div class="bk-card">
       <div class="wc-avatar" style="background:${b.other_color};">${b.other_name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
       <div class="bk-main">
@@ -4732,6 +4806,7 @@ async function renderBookingsPage(){
         <span class="muted-sm">${SVC_NAME[b.service] || b.service} · ${fmtAU(b.date)} · ${b.start} · ${b.hours} hrs</span>
         ${b.notes ? `<span class="muted-sm">“${esc(b.notes)}”</span>` : ''}
         ${b.sleepover ? '<span class="muted-sm">🌙 Overnight sleepover (inactive night — flat rate)</span>' : ''}
+        ${coverStripHtml(b)}
         ${b.status === 'completed' && b.total ? `<span class="muted-sm"><b>$${Number(b.total).toFixed(2)}</b> — ${b.rate_category === 'sleepover' ? '1 night flat' : `${b.hours}h × $${Number(b.unit_price).toFixed(2)}`} (${RATE_LABEL[b.rate_category] || b.rate_category} rate)</span>` : ''}
         ${API.me.role === 'participant' && b.status === 'completed' && !b.reviewed ? `
         <div class="rate-row" data-rate-bk="${b.id}">
@@ -4771,9 +4846,13 @@ async function renderBookingsPage(){
         ${API.me.role === 'worker' && b.status === 'requested' ? `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="accepted">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined">Decline</button>` : ''}
         ${API.me.role === 'worker' && b.status === 'accepted' && b.date <= new Date().toISOString().slice(0,10) ? `<button class="btn btn-primary btn-sm" data-note-open="${b.id}">Mark shift completed</button>` : ''}
         ${API.me.role === 'participant' && ['requested','accepted'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="cancelled">Cancel</button>` : ''}
+        ${API.me.role === 'worker' && ['requested','accepted'].includes(b.status) && !b.cover_state && b.date >= new Date().toISOString().slice(0,10) ? `<button class="btn btn-secondary btn-sm" data-cant="${b.id}">I can't make it</button>` : ''}
+        ${API.me.role === 'participant' && b.cover_state === 'finding' ? `<button class="btn btn-secondary btn-sm" data-standdown="${b.id}">Don't find cover</button>` : ''}
       </div>
     </div>`).join('');
   revealPendingSection();
+  /* the chain of who's been asked is a second call per shift, so it paints after the list */
+  d.bookings.filter(b => b.cover_state === 'finding').forEach(b => paintCoverChain(b.id));
 }
 document.addEventListener('change', e => {
   if(e.target && e.target.id === 'bdPlan'){
@@ -5051,6 +5130,8 @@ async function renderAdminPage(){
   try{ comps = await API.call('/admin/complaints'); }catch(e){}
   try{ revs = await API.call('/admin/reviews'); }catch(e){}
   try{ sil = await API.call('/admin/sil'); }catch(e){}
+  let cvr = null;
+  try{ cvr = await API.call('/admin/cover'); }catch(e){}
   const credById = {};
   creds.workers.forEach(w => credById[w.id] = w);
   const c = d.counts;
@@ -5339,6 +5420,8 @@ async function renderAdminPage(){
     </div>`;
   wrap.innerHTML = tiles
     + `<h2 class="adm-section">Launch ${ln.demo_accounts || ln.gate ? '' : '— LIVE 🎉'}</h2>` + launchCard
+    + `<h2 class="adm-section">Cover — when a worker can't make it ${cvr && cvr.open.length ? `<span style="color:#D94F32;">(${cvr.open.length} open)</span>` : ''}</h2>`
+    + (cvr ? coverBoardHtml(cvr) : '<p class="adm-empty">The cover board couldn\'t be loaded.</p>')
     + `<h2 class="adm-section">Workers awaiting approval ${c.pending ? `(${c.pending})` : ''}</h2>` + pending
     + `<h2 class="adm-section">High-intensity enquiries ${hiOpenN ? `<span style="color:#D94F32;">(${hiOpenN} to call)</span>` : ''}</h2>` + highIntensity
     + `<h2 class="adm-section">Credentials — the automatic checker</h2>` + credentials
@@ -5577,6 +5660,578 @@ document.addEventListener('click', async e => {
     renderAdminPage();
     loadWorkersLive();
   }catch(err){ toast(err.message); b.disabled = false; }
+});
+
+
+/* ============================================================================
+   COVER — the front end.
+   Three things live here, and they are the same three things a participant,
+   a worker and the office each need to see:
+     · the care web   — the participant's own ordered list of who steps in
+     · offers/standby — the worker's side: paid to be reachable, one tap to say yes
+     · the board      — the office's view, which should mostly be empty
+   ============================================================================ */
+
+/* The registration group already lives in SERVICES[].code — '0102 · Assist Access/Maintain Employ'.
+   Derive it rather than keeping a second list here, which would quietly drift out of step with the
+   server's REG_GROUPS and start offering partner providers shifts they aren't registered for. */
+const regGroupOf = slug => ((SERVICES.find(s => s.slug === slug) || {}).code || '').split('·')[0].trim();
+
+const CW_ROLE_LABEL = { regular: 'Regular', backup: 'Backup', emergency: 'Emergency only' };
+const CW_ROLE_HINT = {
+  regular: 'Someone you book often. Asked first when a shift needs covering.',
+  backup: 'Happy for them to step in when your regular can\'t.',
+  emergency: 'Only when there\'s nobody else — a last resort you\'re still comfortable with.'
+};
+
+function cwFace(x, size){
+  const initials = (x.name || '?').split(' ').map(p => p[0]).join('').slice(0, 2);
+  return `<span class="cw-face" style="background:${x.color || '#0E6B62'};">${x.photo
+    ? `<img src="${esc(x.photo)}" alt="">` : esc(initials)}</span>`;
+}
+
+/* ---------------------------------------------------------------- care web */
+function careWebHtml(d){
+  const web = d.web || [];
+  const sug = d.suggestions || [];
+  const ready = web.filter(w => w.auto_offer && w.visible && w.screening !== 'expired').length;
+  const items = web.map((w, i) => `
+    <li class="cw-item" draggable="true" data-cw="${w.id}" data-cw-worker="${w.worker_id}">
+      <span class="cw-grip" aria-hidden="true">⠿</span>
+      <span class="cw-moves">
+        <button type="button" data-cw-up="${w.id}" ${i === 0 ? 'disabled' : ''} aria-label="Move ${esc(w.name)} up">▲</button>
+        <button type="button" data-cw-down="${w.id}" ${i === web.length - 1 ? 'disabled' : ''} aria-label="Move ${esc(w.name)} down">▼</button>
+      </span>
+      <span class="cw-rank ${i === 0 ? 'cw-r1' : ''}">${i + 1}</span>
+      ${cwFace(w)}
+      <span class="cw-body">
+        <b>${esc(w.name)}</b>
+        <small>
+          ${w.shifts_together ? `${w.shifts_together} shift${w.shifts_together > 1 ? 's' : ''} together` : 'No shifts together yet'}${w.covers_done ? ` · stepped in ${w.covers_done}×` : ''}
+          ${w.suburb ? ' · ' + esc(w.suburb) : ''}
+        </small>
+        <small style="margin-top:3px;">
+          ${w.screening === 'expired'
+            ? '<span class="cw-tag warn">screening lapsed — can\'t be offered shifts</span>'
+            : (!w.visible ? '<span class="cw-tag warn">profile paused</span>'
+              : (w.auto_offer ? '<span class="cw-tag ok">will be asked automatically</span>' : '<span class="cw-tag warn">ask me first</span>'))}
+        </small>
+      </span>
+      <select class="cw-role" data-cw-role="${w.id}" aria-label="How ${esc(w.name)} fits in">
+        ${['regular','backup','emergency'].map(r => `<option value="${r}" ${w.role === r ? 'selected' : ''}>${CW_ROLE_LABEL[r]}</option>`).join('')}
+      </select>
+      <label style="font-size:.78rem;display:flex;gap:5px;align-items:center;white-space:nowrap;">
+        <input type="checkbox" data-cw-auto="${w.id}" ${w.auto_offer ? 'checked' : ''}> auto
+      </label>
+      <button type="button" class="cw-x" data-cw-del="${w.id}" aria-label="Remove ${esc(w.name)} from my care web">✕</button>
+    </li>`).join('');
+
+  return `
+  <div class="info-card" id="cardCareWeb" style="margin-bottom:18px;">
+    <h3 style="margin:0 0 6px;">My care web</h3>
+    <p class="muted-sm" style="margin:0 0 4px;">The people you're happy to have in your home, in the order <b>you</b> want them asked. If a worker can't make a shift, BookIt asks this list first — top to bottom, automatically, in minutes. Nobody rings around, and your booking is never cancelled out from under you.</p>
+    <p class="muted-sm" style="margin:0 0 10px;">Drag to reorder, or use the ▲▼ buttons. Untick <b>auto</b> for anyone you'd rather be asked about first.</p>
+    ${web.length ? `<ol class="cw-list" id="cwList">${items}</ol>` : `
+      <p class="muted-sm" style="margin:14px 0 0;padding:14px;background:#FFF6E3;border:1.5px solid #F5B841;border-radius:12px;">
+        <b>Your care web is empty.</b> That means if a worker pulls out, we start from the whole pool of available workers instead of people you already know. Add two or three below — it takes a minute and it's the difference between a stranger and a familiar face.</p>`}
+    ${sug.length ? `
+      <p class="muted-sm" style="margin:16px 0 0;"><b>People you've already worked with</b> — tap to add:</p>
+      <div class="cw-sug">${sug.map(s => `<button type="button" data-cw-add="${s.worker_id}">${cwFace(s)}<span>${esc(s.name)}${s.shifts_together ? ` · ${s.shifts_together} shift${s.shifts_together > 1 ? 's' : ''}` : ''}</span></button>`).join('')}</div>`
+      : '<p class="muted-sm" style="margin:14px 0 0;">Once you\'ve had a few shifts, the people who turned up will appear here to add in one tap. You can also add anyone from <a href="#/find-workers">Find workers</a>.</p>'}
+    <div class="cw-depth">
+      ${ready
+        ? `<b>${ready} ${ready === 1 ? 'person is' : 'people are'} ready to step in</b> before we ever look outside your care web. After that we ask whoever is on paid standby that day, then the wider pool, then a partner provider we hold an agreement with — in that order, and only as far down as it needs to go.`
+        : `<b>Nothing in your web is offerable yet.</b> We'd go straight to the paid standby bench, then the wider pool. That still works — it just won't be someone you already know.`}
+    </div>
+  </div>`;
+}
+
+/* -------------------------------------------------- worker: live cover offers */
+function offerClock(iso){
+  const mins = Math.round((new Date(iso) - Date.now()) / 60000);
+  if(!isFinite(mins)) return '';
+  if(mins <= 0) return 'closing now';
+  if(mins < 60) return `${mins} min to answer`;
+  const h = Math.round(mins / 60);
+  return h < 48 ? `${h} hr${h > 1 ? 's' : ''} to answer` : `${Math.round(h / 24)} days to answer`;
+}
+function offersHtml(d){
+  const offers = d.offers || [];
+  if(!offers.length) return '';
+  return `
+  <div class="of-card" id="cardOffers">
+    <h3 style="margin:0 0 4px;">${offers.length === 1 ? 'A shift needs covering' : `${offers.length} shifts need covering`}</h3>
+    <p class="muted-sm" style="margin:0;">Somebody couldn't make it. You're being asked because ${offers.some(o => o.tier === 'web') ? 'the participant has you in their care web' : 'you\'re free and screened for it'}. Saying no is always fine and never counts against you.</p>
+    ${offers.map(o => `
+      <div class="of-row" data-offer-row="${o.id}">
+        <h4>${esc(o.participant_name)} · ${esc(o.service_label)}</h4>
+        <div class="of-when">${fmtAU(o.date)} · ${o.start} · ${o.hours} hrs${o.suburb ? ' · ' + esc(o.suburb) : ''}</div>
+        ${o.pay ? `<div class="of-pay" style="margin-top:5px;">$${o.pay.toFixed(2)} to you${o.rate_label ? ` <span class="muted-sm" style="font-weight:400;">(${esc(o.rate_label)} rate, incl. super)</span>` : ''}</div>` : ''}
+        ${o.reason ? `<div class="muted-sm" style="margin-top:4px;">Reason given: “${esc(o.reason)}”</div>` : ''}
+        <div class="of-acts">
+          <button type="button" class="btn btn-primary btn-sm" data-offer-yes="${o.id}">Yes, I can cover it</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-offer-no="${o.id}">Can't do it</button>
+          <span class="of-clock">${o.tier === 'web' ? 'Asked first — you\'re in their care web · ' : ''}${offerClock(o.expires_at)}</span>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+/* ------------------------------------------------------- worker: paid standby */
+function standbyHtml(d){
+  const rows = (d.standby || []).filter(s => s.date >= new Date().toISOString().slice(0, 10));
+  const live = rows.filter(s => ['offered','accepted'].includes(s.status));
+  const svcs = d.standby_services || [];
+  return `
+  <div class="info-card" id="cardStandby" style="margin-bottom:18px;">
+    <h3 style="margin:0 0 6px;">On-call standby</h3>
+    <p class="muted-sm" style="margin:0 0 10px;">Say yes to a day and you're paid the SCHADS on-call allowance — <b>$${(d.rates && d.rates.weekday || 0).toFixed(2)}</b> a weekday, <b>$${(d.rates && d.rates.other || 0).toFixed(2)}</b> a weekend or public holiday — <b>whether or not we call you</b>. It's for keeping your phone on, not for working. If we do call, the shift is paid on top at your normal rate, and you can still say no on the day.</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;background:rgba(255,255,255,.7);border:1.5px solid #E7DFD4;border-radius:13px;padding:13px 15px;">
+      <label style="font-size:.88rem;display:flex;gap:7px;align-items:center;">
+        <input type="checkbox" id="sbOptin" ${d.standby_optin ? 'checked' : ''}> <b>Count me in for standby</b>
+      </label>
+      <label style="font-size:.85rem;">Most days a week<br>
+        <select id="sbMax" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;">
+          ${[0,1,2,3,4,5,6,7].map(n => `<option value="${n}" ${(d.standby_max ?? 2) === n ? 'selected' : ''}>${n}</option>`).join('')}
+        </select></label>
+      <button type="button" class="btn btn-primary btn-sm" id="sbSave">Save</button>
+      ${d.allowance_earned ? `<span class="muted-sm">You've earned <b class="sb-money">$${d.allowance_earned.toFixed(2)}</b> in on-call allowance so far.</span>` : ''}
+      ${d.in_care_webs ? `<span class="muted-sm">${d.in_care_webs} participant${d.in_care_webs > 1 ? 's have' : ' has'} you in their care web.</span>` : ''}
+    </div>
+    <div class="choice-row" style="margin-top:11px;">
+      ${SERVICES.map(s => `<label class="choice-pill"><input type="checkbox" name="sbSvc" value="${s.slug}" ${svcs.includes(s.slug) ? 'checked' : ''}><span>${esc(s.name)}</span></label>`).join('')}
+    </div>
+    ${live.length ? `<div class="sb-grid">${live.map(s => `
+      <div class="sb-day ${s.status}" data-sb="${s.id}">
+        <b>${fmtAU(s.date)}</b>
+        <span class="sb-money">$${Number(s.allowance).toFixed(2)}</span> · ${s.band === 'weekday' ? 'weekday' : 'weekend/public hol'}
+        ${s.called_at ? '<div style="color:#0E6B62;font-weight:600;margin-top:4px;">You were called on ✓</div>' : ''}
+        ${s.status === 'offered' ? `<div class="sb-acts">
+          <button type="button" class="btn btn-primary btn-sm" data-sb-yes="${s.id}">I'm on call</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-sb-no="${s.id}">Not that day</button>
+        </div>` : '<div style="color:#1C7C43;font-weight:600;margin-top:4px;">On call — allowance is yours ✓</div>'}
+      </div>`).join('')}</div>`
+      : `<p class="muted-sm" style="margin-top:11px;">${d.standby_optin
+        ? 'No standby days offered to you right now. They\'re offered automatically about a week and a half ahead, spread evenly across everyone who\'s opted in.'
+        : 'Tick the box above and standby days will start being offered to you automatically.'}</p>`}
+  </div>`;
+}
+
+/* ------------------------------------------ the strip on a booking being covered */
+function coverStripHtml(b){
+  if(b.cover_state === 'finding') return `
+    <div class="cv-strip" data-cv-for="${b.id}">
+      <b>Your worker can't make this shift — we're finding cover now.</b>
+      This booking has <b>not</b> been cancelled. We're working down your care web first, then the standby bench.
+      <div data-cv-chain="${b.id}"><span class="muted-sm">Loading who's being asked…</span></div>
+    </div>`;
+  if(b.cover_state === 'covered') return `
+    <div class="cv-strip done">
+      <b>Covered ✓ — ${esc(b.other_name)} is taking this shift.</b>
+      Same day, same time, same supports. ${b.swap_count > 1 ? `This shift has changed hands ${b.swap_count} times.` : ''}
+    </div>`;
+  if(b.cover_state === 'referred') return `
+    <div class="cv-strip done">
+      <b>Covered by a partner provider ✓</b>
+      Nobody on BookIt was free, so a provider we hold an agreement with is delivering this one. We stay responsible for it either way.
+    </div>`;
+  if(b.cover_state === 'failed') return `
+    <div class="cv-strip">
+      <b>We couldn't find cover for this one.</b> The office has been told and someone will call you. We're sorry — that's a failure on our side, not yours.
+    </div>`;
+  return '';
+}
+async function paintCoverChain(id){
+  const box = document.querySelector(`[data-cv-chain="${id}"]`);
+  if(!box) return;
+  try{
+    const d = await API.call(`/bookings/${id}/cover`);
+    const offers = d.offers || [];
+    if(!offers.length){ box.innerHTML = '<span class="muted-sm">Working out who to ask…</span>'; return; }
+    box.innerHTML = `<ul class="cv-chain">${offers.map(o => {
+      const cls = o.response === 'accepted' ? 'yes' : (o.response ? 'no' : '');
+      const state = o.response === 'accepted' ? 'said yes ✓'
+        : o.response === 'declined' ? 'couldn\'t'
+        : o.response === 'expired' ? 'no answer'
+        : o.response === 'withdrawn' ? 'no longer needed'
+        : 'asked — waiting';
+      return `<li class="${cls}">${esc(o.who || 'A partner provider')} · ${esc(o.tier_label)} · ${state}</li>`;
+    }).join('')}</ul>`;
+  }catch(e){ box.innerHTML = ''; }
+}
+
+/* ------------------------------------------------------- assemble both panels */
+async function renderCoverPanels(){
+  const out = { top: '', mid: '' };
+  if(!(API.online && API.me)) return out;
+  if(API.me.role === 'participant'){
+    try{ out.mid = careWebHtml(await API.call('/me/care-web')); }catch(e){}
+  }else if(API.me.role === 'worker'){
+    try{
+      const d = await API.call('/me/offers');
+      out.top = offersHtml(d);
+      out.mid = standbyHtml(d);
+    }catch(e){}
+  }
+  return out;
+}
+
+/* --------------------------------------------------------- the admin board */
+function coverBoardHtml(d){
+  const s = d.stats || {};
+  const tiles = `<div class="adm-tiles">
+    <div class="adm-tile"><b style="${d.open.length ? 'color:#D94F32;' : ''}">${d.open.length}</b><span>Open right now</span></div>
+    <div class="adm-tile"><b>${s.hands_off_pct === null || s.hands_off_pct === undefined ? '—' : s.hands_off_pct + '%'}</b><span>Filled with no human</span></div>
+    <div class="adm-tile"><b>${s.median_fill_minutes === null || s.median_fill_minutes === undefined ? '—' : s.median_fill_minutes + ' min'}</b><span>Median time to fill</span></div>
+    <div class="adm-tile"><b>${s.filled || 0}</b><span>Filled in-house</span></div>
+    <div class="adm-tile"><b>${s.referred || 0}</b><span>Sent to a partner</span></div>
+    <div class="adm-tile"><b style="${s.failed ? 'color:#D94F32;' : ''}">${s.failed || 0}</b><span>Not covered</span></div>
+    <div class="adm-tile"><b>$${(d.standby_spend_90d || 0).toFixed(2)}</b><span>On-call allowance, 90 days</span></div>
+    <div class="adm-tile"><b>${d.optins.length}</b><span>Workers on the bench</span></div>
+  </div>`;
+
+  const open = d.open.length ? d.open.map(c => {
+    const mins = Math.round((Date.now() - new Date(c.opened_at)) / 60000);
+    return `
+    <div class="cb-open ${c.office_alerted_at ? 'late' : ''}" data-cb="${c.id}">
+      <div class="cb-head">
+        <b>${esc(c.participant_name)} · ${esc(c.service_label)} · ${fmtAU(c.date)} ${c.start} · ${c.hours} hrs</b>
+        <span><span class="cb-tier">${esc(c.tier_label)}</span> ${c.office_alerted_at ? '<b style="color:#D94F32;">needs you</b>' : '<span class="muted-sm">running itself</span>'}</span>
+      </div>
+      <p class="cb-who">${esc(c.from_worker_name || 'The worker')} pulled out ${mins < 60 ? mins + ' min' : Math.round(mins / 60) + ' hr'} ago${c.reason ? ` — “${esc(c.reason)}”` : ''}. ${c.offers_sent} ${c.offers_sent === 1 ? 'person has' : 'people have'} been asked.
+        ${c.live_offers.length ? '<br>Waiting on: <b>' + c.live_offers.map(o => esc(o.who || 'partner provider')).join(', ') + '</b>' : '<br><b>Nobody is currently being waited on.</b>'}
+        ${c.participant_phone ? `<br>Participant: ${esc(c.participant_phone)}` : ''}</p>
+      <div class="adm-actions">
+        <button class="adm-btn-sm" data-cb-cands="${c.id}">Who could take it?</button>
+        <button class="adm-btn-sm" data-cb-esc="${c.id}">Push to the next tier</button>
+        <button class="adm-btn-sm" data-cb-close="${c.id}">Close it off</button>
+      </div>
+      <div class="cb-cands" data-cb-cands-out="${c.id}" hidden></div>
+    </div>`;
+  }).join('') : '<p class="adm-empty">Nothing open — every shift that lost a worker has already been covered. That is what this page looking empty means.</p>';
+
+  const byTier = (s.by_tier || []).filter(t => t.n);
+  const tierLine = byTier.length
+    ? `<p class="muted-sm" style="margin:0 0 12px;">Where cover came from: ${byTier.map(t => `<b>${t.n}</b> ${esc(t.label.toLowerCase())}`).join(' · ')}. Every one filled at a tier below <b>allied</b> is a shift that cost nothing extra.</p>`
+    : '';
+
+  const recent = d.recent.length ? `<div class="adm-table-wrap"><table class="adm-table">
+    <thead><tr><th>When</th><th>Participant</th><th>Pulled out</th><th>Outcome</th><th>Tier</th><th>Time to fill</th><th>Human mins</th></tr></thead><tbody>
+    ${d.recent.map(c => {
+      const t = c.filled_at ? Math.round((new Date(c.filled_at) - new Date(c.opened_at)) / 60000) : null;
+      return `<tr><td>${fmtAU(c.date)}</td><td>${esc(c.participant_name)}</td><td>${esc(c.from_worker_name || '—')}</td>
+        <td>${c.status === 'filled' ? `<span class="adm-live">${esc(c.filled_worker_name || 'covered')} ✓</span>`
+          : c.status === 'referred' ? `<span class="adm-live">${esc(c.allied_name || 'partner')} (partner)</span>`
+          : c.status === 'stood-down' ? 'Stood down by participant'
+          : '<span style="color:#D94F32;font-weight:700;">Not covered</span>'}</td>
+        <td>${esc(c.tier_label)}</td><td>${t === null ? '—' : (t < 60 ? t + ' min' : Math.round(t / 60) + ' hr')}</td>
+        <td>${c.human_minutes || 0}</td></tr>`;
+    }).join('')}</tbody></table></div>` : '<p class="adm-empty">No cover history yet.</p>';
+
+  const today = new Date().toISOString().slice(0, 10);
+  const sbLive = d.standby.filter(s => ['offered','accepted'].includes(s.status) && s.date >= today);
+  const byDate = {};
+  sbLive.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
+  const bench = Object.keys(byDate).sort().slice(0, 21).map(dt => `
+    <div class="sb-day ${byDate[dt].some(s => s.status === 'accepted') ? 'accepted' : 'offered'}">
+      <b>${fmtAU(dt)}</b>
+      ${byDate[dt].map(s => `<div>${esc(s.name)} — <span class="sb-money">$${Number(s.allowance).toFixed(2)}</span>
+        ${s.status === 'accepted' ? '✓' : '<span class="muted-sm">asked</span>'}
+        <button class="adm-btn-sm" data-sb-release="${s.id}" style="padding:1px 8px;">release</button></div>`).join('')}
+    </div>`).join('');
+
+  const allied = d.allied.length ? `<div class="adm-table-wrap"><table class="adm-table">
+    <thead><tr><th>Provider</th><th>NDIS reg</th><th>Groups</th><th>Areas</th><th>Their share</th><th>Agreement</th><th>Insurance</th><th></th></tr></thead><tbody>
+    ${d.allied.map(a => `<tr style="${a.active ? '' : 'opacity:.5;'}">
+      <td><b>${esc(a.name)}</b><br><span class="muted-sm">${esc(a.contact_name || '')} ${esc(a.email)}${a.phone ? ' · ' + esc(a.phone) : ''}</span></td>
+      <td>${esc(a.ndis_reg || '—')}</td>
+      <td>${(a.reg_groups || []).map(g => `<span class="adm-badge">${esc(g)}</span>`).join('') || '<span class="muted-sm">any</span>'}</td>
+      <td>${(a.suburbs || []).join(', ') || '<span class="muted-sm">any</span>'}</td>
+      <td>${Math.round(a.share * 100)}%</td>
+      <td>${a.agreement_ref ? esc(a.agreement_ref) + (a.agreement_date ? '<br><span class="muted-sm">' + fmtAU(a.agreement_date) + '</span>' : '') : '<b style="color:#D94F32;">none — never offered</b>'}</td>
+      <td>${a.insurance_expiry ? (a.insurance_expiry < today ? `<b style="color:#D94F32;">expired ${fmtAU(a.insurance_expiry)}</b>` : fmtAU(a.insurance_expiry)) : '<span class="muted-sm">not recorded</span>'}</td>
+      <td><button class="adm-btn-sm" data-allied-off="${a.id}">${a.active ? 'Deactivate' : 'Deactivated'}</button></td>
+    </tr>`).join('')}</tbody></table></div>` : '<p class="adm-empty">No partner providers on file. Until one is added with a signed agreement reference, the cascade stops at the BookIt pool.</p>';
+
+  const alliedForm = `
+    <details style="margin-top:12px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;">＋ Add a partner provider</summary>
+      <p class="muted-sm" style="margin:9px 0;">A provider is only ever offered a shift once an <b>agreement reference</b> is recorded — that field is the gate. We keep the service agreement, the funding and the accountability whichever way the shift is delivered; the NDIS Commission holds us responsible for work done by contractors, so the paperwork has to exist before the shift does.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <label style="font-size:.85rem;">Provider name<br><input id="apName" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:200px;"></label>
+        <label style="font-size:.85rem;">Contact email<br><input id="apEmail" type="email" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:210px;"></label>
+        <label style="font-size:.85rem;">Contact name<br><input id="apContact" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:150px;"></label>
+        <label style="font-size:.85rem;">Phone<br><input id="apPhone" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:130px;"></label>
+        <label style="font-size:.85rem;">ABN<br><input id="apAbn" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:130px;"></label>
+        <label style="font-size:.85rem;">NDIS registration<br><input id="apReg" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:130px;"></label>
+        <label style="font-size:.85rem;">Agreement reference<br><input id="apAgree" placeholder="e.g. DMHC-SUB-2026-01" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:180px;"></label>
+        <label style="font-size:.85rem;">Agreement date<br><input id="apAgreeDate" type="date" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
+        <label style="font-size:.85rem;">Insurance expiry<br><input id="apIns" type="date" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
+        <label style="font-size:.85rem;">Their share of the line item<br><input id="apShare" type="number" min="50" max="100" step="1" value="85" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:90px;"> %</label>
+        <label style="font-size:.85rem;">Suburbs (comma separated)<br><input id="apSubs" placeholder="Wyong, Tuggerah, The Entrance" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:260px;"></label>
+      </div>
+      <div class="choice-row" style="margin-top:10px;">
+        ${SERVICES.map(x => `<label class="choice-pill"><input type="checkbox" name="apGrp" value="${esc(regGroupOf(x.slug))}"><span>${esc(x.name)}</span></label>`).join('')}
+      </div>
+      <button type="button" class="btn btn-primary btn-sm" id="apSave" style="margin-top:11px;">Add provider</button>
+    </details>`;
+
+  return tiles + tierLine + `<h3 style="margin:18px 0 10px;">Open now</h3>` + open
+    + `<h3 style="margin:24px 0 10px;">The standby bench — next three weeks</h3>`
+    + `<p class="muted-sm" style="margin:0 0 10px;">These are SCHADS cl.26 <b>on-call allowances</b>, not rostered shifts. Nobody is rostered a standby shift, deliberately: a rostered shift cancelled inside seven days has to be paid or replaced under cl.25.5(f), so a bench built that way would cost a full shift every time it wasn't needed. An allowance buys the same availability for ${'$' + ((d.rates && d.rates.weekday) || 0).toFixed(2)} and carries no cancellation exposure.</p>`
+    + (bench ? `<div class="sb-grid">${bench}</div>` : '<p class="adm-empty">Nobody on the bench for the next three weeks.</p>')
+    + `<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-top:14px;background:rgba(255,255,255,.7);border:1.5px solid #E7DFD4;border-radius:13px;padding:13px 15px;">
+        <label style="font-size:.85rem;">Weekday allowance<br>$<input id="ocWeek" type="number" step="0.01" value="${((d.rates && d.rates.weekday) || 0).toFixed(2)}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:100px;"></label>
+        <label style="font-size:.85rem;">Weekend / public holiday<br>$<input id="ocOther" type="number" step="0.01" value="${((d.rates && d.rates.other) || 0).toFixed(2)}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:100px;"></label>
+        <label style="font-size:.85rem;">One on call per … shifts<br><input id="ocRatio" type="number" min="1" max="50" value="8" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:80px;"></label>
+        <label style="font-size:.85rem;">Days ahead to fill<br><input id="ocHorizon" type="number" min="1" max="28" value="10" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:80px;"></label>
+        <button type="button" class="btn btn-primary btn-sm" id="ocSave">Save rates</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="sbFill">Fill the bench now</button>
+        <span class="muted-sm">SCHADS moves every 1 July — this is a form field, not a deploy.</span>
+      </div>`
+    + `<h3 style="margin:24px 0 10px;">Partner providers — the third option</h3>` + allied + alliedForm
+    + `<h3 style="margin:24px 0 10px;">Cover history</h3>` + recent;
+}
+
+/* ============================ handlers ============================ */
+
+/* --- care web: reorder, roles, add, remove --- */
+async function cwSaveOrder(){
+  const ids = $$('#cwList .cw-item').map(li => Number(li.dataset.cw));
+  if(!ids.length) return;
+  try{ await API.call('/me/care-web/order', {method:'POST', body:{ids}}); renderBookingsPage(); }
+  catch(err){ toast(err.message); }
+}
+document.addEventListener('dragstart', e => {
+  const li = e.target.closest && e.target.closest('.cw-item');
+  if(!li) return;
+  li.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  try{ e.dataTransfer.setData('text/plain', li.dataset.cw); }catch(x){}
+});
+document.addEventListener('dragend', e => {
+  const li = e.target.closest && e.target.closest('.cw-item');
+  if(li){ li.classList.remove('dragging'); $$('.cw-over').forEach(n => n.classList.remove('cw-over')); cwSaveOrder(); }
+});
+document.addEventListener('dragover', e => {
+  const li = e.target.closest && e.target.closest('.cw-item');
+  const held = $('.cw-item.dragging');
+  if(!li || !held || li === held) return;
+  e.preventDefault();
+  $$('.cw-over').forEach(n => { if(n !== li) n.classList.remove('cw-over'); });
+  li.classList.add('cw-over');
+  const box = li.getBoundingClientRect();
+  const below = e.clientY > box.top + box.height / 2;
+  li.parentNode.insertBefore(held, below ? li.nextSibling : li);
+});
+document.addEventListener('drop', e => { if(e.target.closest && e.target.closest('.cw-item')) e.preventDefault(); });
+
+document.addEventListener('click', async e => {
+  const up = e.target.closest('[data-cw-up]'), down = e.target.closest('[data-cw-down]');
+  if(up || down){
+    const id = (up || down).dataset[up ? 'cwUp' : 'cwDown'];
+    const li = $(`.cw-item[data-cw="${id}"]`);
+    if(!li) return;
+    if(up && li.previousElementSibling) li.parentNode.insertBefore(li, li.previousElementSibling);
+    if(down && li.nextElementSibling) li.parentNode.insertBefore(li.nextElementSibling, li);
+    await cwSaveOrder();
+    return;
+  }
+  const add = e.target.closest('[data-cw-add]');
+  if(add){
+    add.disabled = true;
+    try{
+      await API.call('/me/care-web', {method:'POST', body:{worker_id: Number(add.dataset.cwAdd), role:'backup'}});
+      toast('Added to your care web — they\'ll be asked before anyone you don\'t know.');
+      renderBookingsPage();
+    }catch(err){ toast(err.message); add.disabled = false; }
+    return;
+  }
+  const del = e.target.closest('[data-cw-del]');
+  if(del){
+    if(!confirm('Take this person out of your care web? They can still be booked normally — they just won\'t be asked automatically when a shift needs covering.')) return;
+    try{ await API.call(`/me/care-web/${del.dataset.cwDel}/delete`, {method:'POST', body:{}}); renderBookingsPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
+
+  /* --- worker: cover offers --- */
+  const yes = e.target.closest('[data-offer-yes]'), nope = e.target.closest('[data-offer-no]');
+  if(yes || nope){
+    const btn = yes || nope;
+    const id = btn.dataset[yes ? 'offerYes' : 'offerNo'];
+    btn.disabled = true;
+    try{
+      await API.call(`/me/offers/${id}/${yes ? 'accept' : 'decline'}`, {method:'POST', body:{}});
+      toast(yes ? 'Locked in — it\'s in your bookings now. Thank you, that\'s a real difference to someone\'s day.'
+        : 'No worries — it\'s moved on to the next person already. Saying no never counts against you.');
+      renderBookingsPage();
+    }catch(err){ toast(err.message); btn.disabled = false; renderBookingsPage(); }
+    return;
+  }
+
+  /* --- worker: standby --- */
+  const sy = e.target.closest('[data-sb-yes]'), sn = e.target.closest('[data-sb-no]');
+  if(sy || sn){
+    const btn = sy || sn;
+    const id = btn.dataset[sy ? 'sbYes' : 'sbNo'];
+    btn.disabled = true;
+    try{
+      await API.call(`/me/standby/${id}/${sy ? 'accept' : 'decline'}`, {method:'POST', body:{}});
+      toast(sy ? 'You\'re on call — the allowance is yours whether or not we ring.' : 'Noted, we won\'t call you that day.');
+      renderBookingsPage();
+    }catch(err){ toast(err.message); btn.disabled = false; }
+    return;
+  }
+  if(e.target && e.target.id === 'sbSave'){
+    e.target.disabled = true;
+    try{
+      await API.call('/me/standby-settings', {method:'POST', body:{
+        optin: $('#sbOptin').checked,
+        max: Number($('#sbMax').value),
+        services: $$('input[name="sbSvc"]:checked').map(i => i.value)
+      }});
+      toast($('#sbOptin').checked ? 'You\'re on the standby bench — days will be offered automatically.' : 'Taken off the standby bench.');
+      renderBookingsPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+
+  /* --- a worker who can't make it --- */
+  const cant = e.target.closest('[data-cant]');
+  if(cant){
+    const why = prompt('What\'s happened? One line is plenty — it goes to the participant so they know it isn\'t personal.\n\nYou are not in trouble for this. Telling us now is what lets us find cover in time.');
+    if(why === null) return;
+    cant.disabled = true;
+    try{
+      const r = await API.call(`/bookings/${cant.dataset.cant}/cant-make-it`, {method:'POST', body:{reason: why}});
+      toast(r.message || 'We\'re on it.');
+      renderBookingsPage();
+    }catch(err){ toast(err.message); cant.disabled = false; }
+    return;
+  }
+  const sd = e.target.closest('[data-standdown]');
+  if(sd){
+    if(!confirm('Cancel this shift instead of finding cover? Nobody else will be asked and you won\'t be charged.')) return;
+    try{ await API.call(`/bookings/${sd.dataset.standdown}/stand-down`, {method:'POST', body:{}}); toast('Stood down — no cover will be sent.'); renderBookingsPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
+
+  /* --- admin board --- */
+  const cands = e.target.closest('[data-cb-cands]');
+  if(cands){
+    const id = cands.dataset.cbCands;
+    const box = $(`[data-cb-cands-out="${id}"]`);
+    if(!box) return;
+    if(!box.hidden){ box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = '<span class="muted-sm">Looking…</span>';
+    try{
+      const d = await API.call(`/admin/cover/${id}/candidates`);
+      const blocks = Object.keys(d.candidates).map(t => {
+        const list = d.candidates[t];
+        if(!list.length) return '';
+        return `<h5>${esc(d.labels[t] || t)}</h5>` + list.map(x => x.allied
+          ? `<span class="cb-cand">${esc(x.name)} · ${esc(x.email)}${x.phone ? ' · ' + esc(x.phone) : ''} · ${Math.round(x.share * 100)}%</span>`
+          : `<span class="cb-cand">${esc(x.name)}${x.phone ? ' · ' + esc(x.phone) : ''}<button class="adm-btn-sm" data-cb-assign="${id}" data-cb-worker="${x.id}">assign</button></span>`).join('');
+      }).join('');
+      box.innerHTML = blocks || '<p class="muted-sm">Nobody is free and screened for this shift at any tier. This is the case that needs a phone call.</p>';
+    }catch(err){ box.innerHTML = '<span class="muted-sm">' + esc(err.message) + '</span>'; }
+    return;
+  }
+  const asg = e.target.closest('[data-cb-assign]');
+  if(asg){
+    asg.disabled = true;
+    try{
+      await API.call(`/admin/cover/${asg.dataset.cbAssign}/assign`, {method:'POST', body:{worker_id: Number(asg.dataset.cbWorker)}});
+      toast('Assigned — the participant and the worker have both been told.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); asg.disabled = false; }
+    return;
+  }
+  const esc2 = e.target.closest('[data-cb-esc]');
+  if(esc2){
+    esc2.disabled = true;
+    try{
+      const r = await API.call(`/admin/cover/${esc2.dataset.cbEsc}/escalate`, {method:'POST', body:{}});
+      toast(r.sent ? `Pushed to ${r.tier} — ${r.sent} more asked.` : `Pushed to ${r.tier}, but nobody was available there.`);
+      renderAdminPage();
+    }catch(err){ toast(err.message); esc2.disabled = false; }
+    return;
+  }
+  const cbc = e.target.closest('[data-cb-close]');
+  if(cbc){
+    const note = prompt('Close this off — what happened? (This is the audit trail, so a plain sentence is right.)');
+    if(note === null) return;
+    const mins = Number(prompt('Roughly how many minutes of office time did this one take? (0 if none)', '0')) || 0;
+    try{
+      await API.call(`/admin/cover/${cbc.dataset.cbClose}/close`, {method:'POST', body:{status:'failed', note, human_minutes: mins}});
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  const rel = e.target.closest('[data-sb-release]');
+  if(rel){
+    try{ await API.call(`/admin/standby/${rel.dataset.sbRelease}/release`, {method:'POST', body:{}}); renderAdminPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
+  if(e.target && e.target.id === 'sbFill'){
+    e.target.disabled = true;
+    try{
+      const r = await API.call('/admin/standby/fill', {method:'POST', body:{days: 14}});
+      toast(r.offered ? `${r.offered} standby period${r.offered > 1 ? 's' : ''} offered across ${r.days} day${r.days > 1 ? 's' : ''} with shifts on them.`
+        : 'The bench is already covered for every day that has shifts booked.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  if(e.target && e.target.id === 'ocSave'){
+    e.target.disabled = true;
+    try{
+      await API.call('/admin/oncall-rates', {method:'POST', body:{
+        weekday: Number($('#ocWeek').value), other: Number($('#ocOther').value),
+        ratio: Number($('#ocRatio').value), horizon: Number($('#ocHorizon').value)
+      }});
+      toast('Saved — new periods use these figures. Ones already accepted keep the rate they were offered at.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  const aoff = e.target.closest('[data-allied-off]');
+  if(aoff){
+    try{ await API.call(`/admin/allied/${aoff.dataset.alliedOff}/delete`, {method:'POST', body:{}}); renderAdminPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
+  if(e.target && e.target.id === 'apSave'){
+    e.target.disabled = true;
+    try{
+      await API.call('/admin/allied', {method:'POST', body:{
+        name: $('#apName').value, email: $('#apEmail').value, contact_name: $('#apContact').value,
+        phone: $('#apPhone').value, abn: $('#apAbn').value, ndis_reg: $('#apReg').value,
+        agreement_ref: $('#apAgree').value, agreement_date: $('#apAgreeDate').value,
+        insurance_expiry: $('#apIns').value, share: Number($('#apShare').value) / 100,
+        suburbs: $('#apSubs').value, reg_groups: $$('input[name="apGrp"]:checked').map(i => i.value)
+      }});
+      toast('Provider saved.' + ($('#apAgree').value.trim() ? '' : ' No agreement reference yet — they won\'t be offered shifts until there is one.'));
+      renderAdminPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+});
+
+/* role + auto-offer changes save straight away — no Save button to forget */
+document.addEventListener('change', async e => {
+  const role = e.target.closest('[data-cw-role]'), auto = e.target.closest('[data-cw-auto]');
+  if(!role && !auto) return;
+  const id = (role || auto).dataset[role ? 'cwRole' : 'cwAuto'];
+  const body = role ? { role: role.value } : { auto_offer: auto.checked };
+  try{
+    await API.call(`/me/care-web/${id}`, {method:'POST', body});
+    if(auto) toast(auto.checked ? 'They\'ll be asked automatically.' : 'We\'ll check with you before asking them.');
+    renderBookingsPage();
+  }catch(err){ toast(err.message); }
 });
 
 /* ---------- boot ---------- */

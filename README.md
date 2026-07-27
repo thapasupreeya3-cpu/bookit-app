@@ -100,13 +100,17 @@ This is a working MVP, deliberately simple. Before onboarding real people:
 ## Tests
 
 ```
-./run-tests.sh              everything (22 suites, 567 checks)
+./run-tests.sh              everything (23 suites, 603 checks)
 ./run-tests.sh e2e          just the API suites
 ./run-tests.sh ui           just the browser suites
 ./run-tests.sh shiftnotes   anything whose name contains "shiftnotes"
 ```
 
-The API suites (`e2e-*.sh`, curl against a server they start themselves) need nothing installed. The browser suites (`ui-*.js`) need Playwright and drive a real Chromium; the script gives each one a clean database on its own port and takes it away again afterwards. A green run ends with `22/22 suites green`.
+The suites live in `tests/`; `run-tests.sh` stays at the root and is the only entry point you need. Everything runs with the repo root as the working directory, so it works from wherever you check the repo out — you can call it by absolute path from anywhere.
+
+The API suites (`tests/e2e-*.sh`, curl against a server they start themselves) need nothing installed. The browser suites (`tests/ui-*.js`) need Playwright and drive a real Chromium; the script gives each one a clean database on its own port and takes it away again afterwards. A green run ends with `23/23 suites green`.
+
+`tests/ui-upload-fix-test.js` needs three large files (a phone-sized photo, a scanned certificate, an oversized PDF). They're generated rather than committed — `run-tests.sh` calls `tests/make-fixtures.sh` for you the first time.
 
 ## The database
 

@@ -227,6 +227,172 @@ db.exec(`
 `);
 try { db.exec('ALTER TABLE bookings ADD COLUMN sil_slot_id INTEGER'); } catch {}
 
+/* ============================================================================
+   COVER — nobody gets left without a shift
+   ----------------------------------------------------------------------------
+   The problem this solves, stated plainly: when a support worker pulls out of a
+   confirmed shift, every platform in this market hands the problem back to the
+   participant. Hireup says so in writing — "Hireup does not provide 'back up'
+   workers for coverage if a shift is cancelled by a Support Worker" — and tells
+   clients to go build "relationships with service providers who can assist with
+   'on call support'" themselves. Mable's own sample agreement says "It is your
+   responsibility to find alternative support options if I am unavailable."
+
+   The NDIS price rules make the asymmetry worse: when a PARTICIPANT cancels late
+   the provider can claim up to 100% of the fee. When a WORKER cancels there is no
+   claim, no compensation and no obligation on anyone. The participant absorbs the
+   whole loss.
+
+   Cover inverts that. A worker pulling out does not cancel the booking — it opens
+   a cover request against a booking that stays confirmed, and the system works
+   down four tiers until somebody is standing at the door:
+
+     1  CARE WEB   the participant's own nominated people, in the order they chose
+     2  STANDBY    workers paid a SCHADS on-call allowance to be reachable that day
+     3  POOL       every matched, screened, available worker in the area
+     4  ALLIED     partner NDIS providers who take the shift as a subcontract
+
+   The office is emailed when cover reaches tier 4 or runs out — not when a worker
+   pulls out. That is the whole economic point: being reachable stops being a
+   person's job and becomes the system's job.
+   ============================================================================ */
+db.exec(`
+  /* --- the participant's own web of carers, in their own priority order --- */
+  CREATE TABLE IF NOT EXISTS care_web (
+    id INTEGER PRIMARY KEY,
+    participant_id INTEGER NOT NULL REFERENCES users(id),
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    rank INTEGER NOT NULL DEFAULT 1,
+    role TEXT NOT NULL DEFAULT 'backup' CHECK (role IN ('regular','backup','emergency')),
+    auto_offer INTEGER NOT NULL DEFAULT 1,
+    note TEXT DEFAULT '',
+    added_at TEXT NOT NULL,
+    UNIQUE (participant_id, worker_id)
+  );
+
+  /* --- locked-in backups: a paid on-call period, NOT a rostered shift ---
+     SCHADS cl.26 pays an on-call allowance per 24-hour period for being
+     "available for recall to duty". That is the lawful, cheap mechanism.
+     Rostering a standby SHIFT instead would trip cl.25.5(f): cancel it inside
+     7 days and you must pay it or find make-up work. An allowance carries no
+     such exposure — you pay for availability, and the shift is only paid if the
+     person is actually called on, in which case the participant's plan pays for
+     it anyway. A casual accepts each period separately, so nothing here obliges
+     anyone to work: they opt in, period by period, and get paid for saying yes. */
+  CREATE TABLE IF NOT EXISTS standby (
+    id INTEGER PRIMARY KEY,
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    date TEXT NOT NULL,
+    band TEXT NOT NULL CHECK (band IN ('weekday','other')),
+    allowance REAL NOT NULL,
+    services TEXT DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'offered'
+      CHECK (status IN ('offered','accepted','declined','released')),
+    offered_at TEXT NOT NULL,
+    responded_at TEXT,
+    called_at TEXT,
+    booking_id INTEGER,
+    UNIQUE (worker_id, date)
+  );
+
+  /* --- tier 4: other registered providers who will take a shift we can't fill.
+     The Commission's position on contractors is unambiguous — the registered
+     provider stays accountable. So this table holds the evidence that makes that
+     accountability real: their registration number, the groups they're registered
+     for, their agreement reference and their insurance expiry. No agreement on
+     file, no referrals sent. --- */
+  CREATE TABLE IF NOT EXISTS allied_providers (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    abn TEXT DEFAULT '',
+    ndis_reg TEXT DEFAULT '',
+    contact_name TEXT DEFAULT '',
+    email TEXT NOT NULL,
+    phone TEXT DEFAULT '',
+    reg_groups TEXT DEFAULT '[]',
+    suburbs TEXT DEFAULT '[]',
+    share REAL NOT NULL DEFAULT 0.85,
+    agreement_ref TEXT DEFAULT '',
+    agreement_date TEXT DEFAULT '',
+    insurance_expiry TEXT DEFAULT '',
+    reciprocal INTEGER NOT NULL DEFAULT 1,
+    active INTEGER NOT NULL DEFAULT 1,
+    created TEXT NOT NULL
+  );
+
+  /* --- one cover request per wobble. The booking itself is never cancelled. --- */
+  CREATE TABLE IF NOT EXISTS cover (
+    id INTEGER PRIMARY KEY,
+    booking_id INTEGER NOT NULL REFERENCES bookings(id),
+    from_worker_id INTEGER,
+    reason TEXT DEFAULT '',
+    opened_at TEXT NOT NULL,
+    lead_minutes INTEGER NOT NULL DEFAULT 0,
+    window_minutes INTEGER NOT NULL DEFAULT 45,
+    parallel INTEGER NOT NULL DEFAULT 0,
+    tier TEXT NOT NULL DEFAULT 'web',
+    status TEXT NOT NULL DEFAULT 'open'
+      CHECK (status IN ('open','filled','referred','failed','stood-down')),
+    filled_worker_id INTEGER,
+    allied_id INTEGER,
+    allied_share REAL,
+    filled_at TEXT,
+    closed_at TEXT,
+    office_alerted_at TEXT,
+    human_minutes REAL NOT NULL DEFAULT 0,
+    outcome_note TEXT DEFAULT ''
+  );
+
+  /* --- every offer sent, every answer, every expiry. This is the audit trail
+     that shows a participant was never simply abandoned. --- */
+  CREATE TABLE IF NOT EXISTS cover_offers (
+    id INTEGER PRIMARY KEY,
+    cover_id INTEGER NOT NULL REFERENCES cover(id),
+    tier TEXT NOT NULL CHECK (tier IN ('web','standby','pool','allied')),
+    worker_id INTEGER,
+    allied_id INTEGER,
+    rank INTEGER NOT NULL DEFAULT 1,
+    sent_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    response TEXT,
+    responded_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_cover_open ON cover (status);
+  CREATE INDEX IF NOT EXISTS idx_cover_offers ON cover_offers (cover_id, response);
+  CREATE INDEX IF NOT EXISTS idx_standby_date ON standby (date, status);
+`);
+/* the booking keeps its own status ('accepted' stays 'accepted') — cover state
+   rides alongside it, because a participant whose worker pulled out still has a
+   confirmed booking. That is the promise. */
+for (const col of ['cover_state TEXT DEFAULT \'\'', 'original_worker_id INTEGER', 'delivered_by_allied INTEGER', 'swap_count INTEGER NOT NULL DEFAULT 0']) {
+  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+}
+
+/* --- who is willing to be on standby at all, and how often. A worker opts in
+   once; the roster then fills itself without anybody ringing around. --- */
+for (const col of ['standby_optin INTEGER NOT NULL DEFAULT 0', 'standby_max INTEGER NOT NULL DEFAULT 2', "standby_services TEXT DEFAULT '[]'"]) {
+  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+}
+
+/* --- a tiny key/value store so award figures aren't welded into the source.
+   SCHADS rates move every 1 July; an admin should be able to change one number
+   in a form rather than wait for a deploy. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT '',
+  updated TEXT NOT NULL DEFAULT ''
+);`);
+function setting(key, fallback = '') {
+  const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  return r ? r.value : fallback;
+}
+function setSetting(key, value) {
+  db.prepare(`INSERT INTO settings (key, value, updated) VALUES (?,?,?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated = excluded.updated`)
+    .run(key, String(value ?? ''), new Date().toISOString());
+}
+
+
 /* …and allow the 'completed' status. SQLite can't edit a CHECK constraint,
    so databases created before invoicing get their bookings table rebuilt once. */
 const bkDef = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'").get();
@@ -1816,10 +1982,22 @@ route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
       uw.name AS worker_name, uw.email AS worker_email
     FROM bookings b JOIN users uw ON uw.id = b.worker_id
     WHERE b.status = 'completed' ORDER BY uw.name, b.date`).all();
-  const lines = [['Worker', 'Worker email', 'Date', 'Start', 'Hours', 'Service', 'Rate category', 'Worker share incl. super ($)', 'Claim status'].map(q).join(',')];
+  const lines = [['Worker', 'Worker email', 'Date', 'Start', 'Hours', 'Service', 'Pay type', 'Rate category', 'Worker share incl. super ($)', 'Claim status'].map(q).join(',')];
   for (const r of rows) {
-    lines.push([q(r.worker_name), q(r.worker_email), q(r.date), q(r.start), r.hours, q(SERVICE_LABELS[r.service] || r.service),
+    lines.push([q(r.worker_name), q(r.worker_email), q(r.date), q(r.start), r.hours, q(SERVICE_LABELS[r.service] || r.service), q('Shift'),
       q((INVOICE_RATES[r.rate_category] || {}).label || r.rate_category), (r.worker_share || 0).toFixed(2), q(r.claim_status || 'unclaimed')].join(','));
+  }
+  /* SCHADS cl.26 on-call allowance. This is payable whether or not the worker was
+     ever called — that is what buys the availability, and it is the entire marginal
+     cost of the standby tier. It is NOT claimable against a participant's plan, so
+     it is flagged 'not claimable' rather than left to look like an unclaimed shift. */
+  const sb = db.prepare(`SELECT s.date, s.band, s.allowance, s.called_at, u.name, u.email
+    FROM standby s JOIN users u ON u.id = s.worker_id
+    WHERE s.status = 'accepted' ORDER BY u.name, s.date`).all();
+  for (const r of sb) {
+    lines.push([q(r.name), q(r.email), q(r.date), q(''), '', q('On-call standby'), q('Allowance'),
+      q(`SCHADS cl.26 on-call — ${r.band === 'weekday' ? 'Mon–Fri' : 'weekend/public holiday'}${r.called_at ? ', called on' : ''}`),
+      (r.allowance || 0).toFixed(2), q('not claimable')].join(','));
   }
   res.writeHead(200, {
     'Content-Type': 'text/csv; charset=utf-8',
@@ -2284,6 +2462,1005 @@ route('POST', /^\/api\/contact$/, (req, res, m, user, body, ip) => {
   json(res, 200, { ok: true });
 });
 
+
+/* ============================================================================
+   COVER ENGINE
+   ============================================================================ */
+
+/* SCHADS MA000100 cl.26 on-call allowance, per 24-hour period, from 01/07/2026.
+   Weekday band runs from the end of ordinary duty Monday to the end of ordinary
+   duty Friday; everything else — weekends and public holidays — is the other band.
+   Editable from the admin console, because award rates move every July. */
+const ONCALL_DEFAULT = { weekday: 25.66, other: 50.81 };
+function oncallRates() {
+  const w = Number(setting('oncall_weekday'));
+  const o = Number(setting('oncall_other'));
+  return { weekday: w > 0 ? w : ONCALL_DEFAULT.weekday, other: o > 0 ? o : ONCALL_DEFAULT.other };
+}
+/* SCHADS cl.20.9: remote work taken while on call is paid at a minimum of 15
+   minutes (6am–10pm) or 30 minutes (10pm–6am). Every phone call the cascade
+   removes is that minimum saved, on top of the coordinator's time. */
+const REMOTE_MIN = { day: 15, night: 30 };
+
+const COVER_TIERS = ['web', 'standby', 'pool', 'allied'];
+const TIER_LABELS = {
+  web: 'the participant\'s care web',
+  standby: 'workers on standby that day',
+  pool: 'every matched worker in the area',
+  allied: 'partner providers'
+};
+
+/* How long each tier gets before the cascade moves on. The closer the shift, the
+   shorter the patience — and inside four hours everybody is asked at once,
+   because sequencing politely through a list is how a shift goes unfilled. */
+function coverClock(leadMin) {
+  if (leadMin > 7 * 24 * 60) return { win: 720, parallel: 0, label: 'more than a week away' };
+  if (leadMin > 24 * 60) return { win: 180, parallel: 0, label: 'more than a day away' };
+  if (leadMin > 4 * 60) return { win: 45, parallel: 0, label: 'later today' };
+  return { win: 15, parallel: 1, label: 'in the next few hours' };
+}
+function bookingStart(b) { return new Date(`${b.date}T${b.start || '00:00'}:00`); }
+function leadMinutes(b) { return Math.round((bookingStart(b) - Date.now()) / 60000); }
+function standbyBand(dateIso) {
+  const d = new Date(dateIso + 'T00:00:00').getDay();
+  return (d === 0 || d === 6) ? 'other' : 'weekday';
+}
+
+/* Is this worker actually free? Overlapping bookings are the silent killer of
+   auto-offers — offering a shift to somebody already working it is how a system
+   loses a participant's trust in one move. */
+function workerFree(workerId, date, start, hours, excludeBookingId) {
+  const s0 = new Date(`${date}T${start}:00`).getTime();
+  const e0 = s0 + hours * 3600e3;
+  const rows = db.prepare(`SELECT id, start, hours FROM bookings
+    WHERE worker_id = ? AND date = ? AND status IN ('requested','accepted','completed') AND id != ?`)
+    .all(workerId, date, excludeBookingId || 0);
+  for (const r of rows) {
+    const s1 = new Date(`${date}T${r.start}:00`).getTime();
+    const e1 = s1 + r.hours * 3600e3;
+    if (s0 < e1 && s1 < e0) return false;
+  }
+  return true;
+}
+/* Everything that has to be true before a name goes on an offer list: live
+   profile, current screening, offers the service, works that weekday, free. */
+function workerEligible(workerId, b) {
+  const p = db.prepare(`SELECT p.visible, p.services, p.days, u.email FROM worker_profiles p
+    JOIN users u ON u.id = p.user_id WHERE p.user_id = ?`).get(workerId);
+  if (!p || !p.visible) return false;
+  if (screeningState(workerId) === 'expired') return false;
+  const svcs = safeJson(p.services, []);
+  if (svcs.length && !svcs.includes(b.service)) return false;
+  const days = safeJson(p.days, [1, 1, 1, 1, 1, 0, 0]);
+  const dow = new Date(b.date + 'T00:00:00').getDay();
+  const idx = dow === 0 ? 6 : dow - 1;           /* profile days are Mon-first */
+  if (days.length === 7 && !days[idx]) return false;
+  return workerFree(workerId, b.date, b.start, b.hours, b.id);
+}
+
+/* The ranked candidate list for one tier. Order matters and is never random:
+   the care web is in the participant's own order, standby is by who has been
+   called on least, the pool is by who this participant has worked with most. */
+function coverCandidates(cv, b, tier) {
+  const already = db.prepare('SELECT worker_id FROM cover_offers WHERE cover_id = ? AND worker_id IS NOT NULL').all(cv.id).map(r => r.worker_id);
+  const skip = new Set(already.concat([cv.from_worker_id].filter(Boolean)));
+  if (tier === 'web') {
+    return db.prepare(`SELECT cw.worker_id AS id, cw.rank, cw.role FROM care_web cw
+      WHERE cw.participant_id = ? AND cw.auto_offer = 1 ORDER BY cw.rank ASC, cw.id ASC`).all(b.participant_id)
+      .filter(r => !skip.has(r.id) && workerEligible(r.id, b));
+  }
+  if (tier === 'standby') {
+    return db.prepare(`SELECT s.worker_id AS id, s.id AS standby_id, s.services,
+        (SELECT COUNT(*) FROM standby s2 WHERE s2.worker_id = s.worker_id AND s2.called_at IS NOT NULL) AS called
+      FROM standby s WHERE s.date = ? AND s.status = 'accepted' ORDER BY called ASC, s.id ASC`).all(b.date)
+      .filter(r => {
+        if (skip.has(r.id)) return false;
+        const svcs = safeJson(r.services, []);
+        if (svcs.length && !svcs.includes(b.service)) return false;
+        return workerEligible(r.id, b);
+      });
+  }
+  if (tier === 'pool') {
+    return db.prepare(`SELECT u.id,
+        (SELECT COUNT(*) FROM bookings bb WHERE bb.worker_id = u.id AND bb.participant_id = ? AND bb.status = 'completed') AS shared,
+        COALESCE(p.rating, 0) AS rating
+      FROM users u JOIN worker_profiles p ON p.user_id = u.id
+      WHERE u.role = 'worker' AND p.visible = 1 ORDER BY shared DESC, rating DESC, p.shifts DESC`).all(b.participant_id)
+      .filter(r => !skip.has(r.id) && workerEligible(r.id, b));
+  }
+  /* allied: registered for this support type, covers this suburb, agreement on
+     file, insurance not expired. An empty suburb list means statewide. */
+  const group = REG_GROUPS[b.service] || '';
+  const pt = db.prepare('SELECT suburb FROM users WHERE id = ?').get(b.participant_id) || {};
+  const sub = String(pt.suburb || '').toLowerCase();
+  const sentTo = db.prepare('SELECT allied_id FROM cover_offers WHERE cover_id = ? AND allied_id IS NOT NULL').all(cv.id).map(r => r.allied_id);
+  const today = new Date().toISOString().slice(0, 10);
+  return db.prepare('SELECT * FROM allied_providers WHERE active = 1 ORDER BY reciprocal DESC, share ASC, id ASC').all()
+    .filter(a => {
+      if (sentTo.includes(a.id)) return false;
+      if (!a.agreement_ref) return false;
+      if (a.insurance_expiry && a.insurance_expiry < today) return false;
+      const groups = safeJson(a.reg_groups, []);
+      if (groups.length && group && !groups.some(g => String(group).includes(g))) return false;
+      const subs = safeJson(a.suburbs, []).map(s => String(s).toLowerCase());
+      if (subs.length && sub && !subs.includes(sub)) return false;
+      return true;
+    });
+}
+
+/* one-click accept from the email — the single biggest lever on fill time.
+   Signed, single-purpose, and it still checks eligibility at the moment of
+   acceptance rather than the moment of sending. */
+function coverToken(offerId) { return sign(`cover.${offerId}`).slice(0, 32); }
+function coverLink(req, offerId, kind) {
+  return `${baseUrl(req)}/cover?o=${offerId}&t=${coverToken(offerId)}&k=${kind}`;
+}
+
+/* A worker reading this on a phone at a bus stop should not have to log in to
+   say yes. One tap, one signed link, one plain-English page. */
+function coverPage(heading, body, ctaText, ctaUrl, tone) {
+  const accent = tone === 'bad' ? '#B4451F' : '#0E6B62';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>${escHtml(heading)} — BookIt</title>
+<style>
+ :root{color-scheme:light}
+ body{margin:0;background:#F5F3EF;color:#17211F;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+   display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+ .card{background:#fff;border:1px solid #E4E0D9;border-radius:18px;max-width:520px;width:100%;padding:34px 30px;
+   box-shadow:0 12px 34px rgba(23,33,31,.07)}
+ .mark{font-weight:800;letter-spacing:-.02em;color:${accent};font-size:20px;margin:0 0 18px}
+ h1{font-size:25px;line-height:1.25;margin:0 0 14px;letter-spacing:-.02em}
+ p{margin:0 0 14px;color:#3D4B48}
+ b{color:#17211F}
+ .btn{display:inline-block;background:${accent};color:#fff;text-decoration:none;font-weight:600;
+   padding:13px 24px;border-radius:10px;margin-top:10px}
+ .fine{font-size:13.5px;color:#6C7A77;margin-top:20px}
+</style></head><body><div class="card">
+<p class="mark">BookIt</p><h1>${escHtml(heading)}</h1>${body}
+${ctaUrl ? `<a class="btn" href="${escHtml(ctaUrl)}">${escHtml(ctaText || 'Open BookIt')}</a>` : ''}
+<p class="fine">Disability &amp; Mental Health Care Pty Ltd · registered NDIS provider 4-LO5XNY0</p>
+</div></body></html>`;
+}
+
+/* the whole one-tap flow, in one place: cover offers and standby offers both
+   land here, both are signed, and neither requires a session. */
+function handleCoverLink(req, res, url) {
+  const kind = url.searchParams.get('k') || '';
+  const token = url.searchParams.get('t') || '';
+  const send = html => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' }); res.end(html); };
+  const bad = msg => send(coverPage('That link has expired', `<p>${escHtml(msg)}</p>`, 'Open BookIt', `${baseUrl(req)}/#/bookings`, 'bad'));
+
+  if (kind === 'standby-yes' || kind === 'standby-no') {
+    const id = Number(url.searchParams.get('s') || 0);
+    const s = id ? db.prepare('SELECT * FROM standby WHERE id = ?').get(id) : null;
+    if (!s || token !== standbyToken(id)) return bad('We couldn\'t match that link to a standby offer.');
+    if (s.status !== 'offered') return send(coverPage('Already answered',
+      `<p>You've already told us <b>${escHtml(s.status === 'accepted' ? 'yes' : 'no')}</b> for ${escHtml(prettyDate(s.date))}. Nothing more to do.</p>`,
+      'Open my shifts', `${baseUrl(req)}/#/bookings`));
+    const yes = kind === 'standby-yes';
+    db.prepare('UPDATE standby SET status = ?, responded_at = ? WHERE id = ?').run(yes ? 'accepted' : 'declined', now(), id);
+    return send(yes
+      ? coverPage(`You're on call for ${prettyDate(s.date).replace(/,.*$/, '')}`,
+          `<p><b>$${s.allowance.toFixed(2)}</b> is yours for that period whether or not we call you. It'll show on your next pay as an on-call allowance.</p>
+           <p>All it means is keeping your phone on. If a shift comes up you'll get one message with the details, and you can still say no on the day.</p>`,
+          'See my shifts', `${baseUrl(req)}/#/bookings`)
+      : coverPage('No worries', `<p>We've taken you off standby for <b>${escHtml(prettyDate(s.date))}</b> and we'll ask someone else.</p><p>You'll still be asked about other days — declining one never counts against you.</p>`,
+          'See my shifts', `${baseUrl(req)}/#/bookings`));
+  }
+
+  const offerId = Number(url.searchParams.get('o') || 0);
+  const o = offerId ? db.prepare('SELECT * FROM cover_offers WHERE id = ?').get(offerId) : null;
+  if (!o || token !== coverToken(offerId)) return bad('We couldn\'t match that link to an open shift.');
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(o.cover_id);
+  const b = cv ? db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id) : null;
+  const svc = b ? (SERVICE_LABELS[b.service] || b.service) : '';
+
+  if (kind === 'decline') {
+    if (!o.response) db.prepare("UPDATE cover_offers SET response = 'declined', responded_at = ? WHERE id = ?").run(now(), offerId);
+    return send(coverPage('Thanks for telling us', '<p>We\'ve passed it straight to the next person. Knowing quickly is genuinely the most useful thing you can do.</p>',
+      'See my shifts', `${baseUrl(req)}/#/bookings`));
+  }
+
+  const r = coverAccept(offerId, req, o.worker_id);
+  if (r.error) return send(coverPage('Someone got there first', `<p>${escHtml(r.error)}</p><p>Thanks for being quick — that's exactly how this is meant to work.</p>`,
+    'See my shifts', `${baseUrl(req)}/#/bookings`, 'bad'));
+  if (r.allied) return send(coverPage('Thank you — the shift is yours',
+    `<p>We've recorded <b>${escHtml(r.allied)}</b> as delivering this ${escHtml(svc)} shift on <b>${escHtml(prettyDate(b.date))}</b> at <b>${escHtml(b.start)}</b>.</p>
+     <p>Please reply to the cover email with the name and NDIS Worker Screening Check number of the worker attending. Disability &amp; Mental Health Care remains the registered provider of record.</p>`,
+    null, null));
+  return send(coverPage('You\'re locked in 🎉',
+    `<p><b>${escHtml(svc)}</b><br>${escHtml(prettyDate(b.date))} at <b>${escHtml(b.start)}</b> · ${b.hours} hours</p>
+     <p>It's in your shifts now and it pays exactly like any other shift — covering someone never pays less.</p>
+     <p>${escHtml((db.prepare('SELECT name FROM users WHERE id = ?').get(b.participant_id) || {}).name || 'The participant')} has already been told you're coming.</p>`,
+    'Open my shifts', `${baseUrl(req)}/#/bookings`));
+}
+
+function sendCoverOffer(req, cv, b, tier, cand, rank) {
+  const exp = new Date(Date.now() + cv.window_minutes * 60000).toISOString();
+  const isAllied = tier === 'allied';
+  const r = db.prepare(`INSERT INTO cover_offers (cover_id, tier, worker_id, allied_id, rank, sent_at, expires_at)
+    VALUES (?,?,?,?,?,?,?)`).run(cv.id, tier, isAllied ? null : cand.id, isAllied ? cand.id : null, rank, now(), exp);
+  const offerId = Number(r.lastInsertRowid);
+  const pt = db.prepare('SELECT name, suburb FROM users WHERE id = ?').get(b.participant_id) || {};
+  const svc = SERVICE_LABELS[b.service] || b.service;
+  const when = `${prettyDate(b.date)} at ${escHtml(b.start)} (${b.hours} hours)`;
+  const clock = coverClock(cv.lead_minutes);
+  if (isAllied) {
+    const a = db.prepare('SELECT * FROM allied_providers WHERE id = ?').get(cand.id);
+    const rate = INVOICE_RATES[suggestCategory(b)] || {};
+    const payable = rate.price ? (rate.price * (a.share || 0.85) * (rate.perNight ? 1 : b.hours)) : 0;
+    sendMail(a.email, `Cover request — ${svc}, ${prettyDate(b.date)} — BookIt`,
+      `A shift we'd like your help with`,
+      `<p>We have a confirmed <b>${escHtml(svc)}</b> shift we can't staff from our own team, and under our partner agreement <b>${escHtml(a.agreement_ref)}</b> we're offering it to you first.</p>
+       <p><b>When:</b> ${when}<br><b>Where:</b> ${escHtml(pt.suburb || 'see booking')}<br><b>Support type:</b> ${escHtml(svc)} (${escHtml(REG_GROUPS[b.service] || '')})<br><b>We pay you:</b> ${payable.toFixed(2)} (${Math.round((a.share || 0.85) * 100)}% of the NDIS price limit for this line)</p>
+       <p>Disability &amp; Mental Health Care Pty Ltd remains the registered provider of record for this support and keeps the participant's service agreement, the claim and the incident-reporting duty. Your worker delivers under our agreement — please confirm their NDIS Worker Screening Check number when you accept.</p>
+       <p>This offer is open for <b>${cv.window_minutes} minutes</b>, then it moves on.</p>`,
+      'Accept this shift', coverLink(req, offerId, 'allied')).catch(() => {});
+    return offerId;
+  }
+  const w = db.prepare('SELECT name, email FROM users WHERE id = ?').get(cand.id);
+  const onStandby = tier === 'standby';
+  if (w) sendMail(w.email, `Cover needed — ${prettyDate(b.date)} — BookIt`,
+    onStandby ? `You're on standby today, ${firstName(w.name)}` : `Can you cover this one, ${firstName(w.name)}?`,
+    `<p>${tier === 'web'
+      ? `<b>${escHtml(pt.name || 'A participant')}</b> has you in their care web, and the worker booked for this shift can't make it.`
+      : onStandby
+        ? `You accepted the on-call standby for today, and a shift has come up.`
+        : `A shift near you needs covering and you're a match for it.`}</p>
+     <p><b>${escHtml(svc)}</b><br>${when}<br>${escHtml(pt.suburb || '')}</p>
+     <p>The booking is still confirmed — ${escHtml((pt.name || 'they').split(' ')[0])} is expecting somebody. First to accept gets it. This offer is open for <b>${cv.window_minutes} minutes</b>${clock.parallel ? ' and has gone to everyone available at once' : ', then it passes to the next person'}.</p>
+     <p style="font-size:14px;color:#6C7A77">Can't do it? <a href="${coverLink(req, offerId, 'decline')}" style="color:#6C7A77">Tell us now</a> and it moves to the next person immediately. Saying no never counts against you.</p>`,
+    'Yes, I can cover it', coverLink(req, offerId, 'accept')).catch(() => {});
+  return offerId;
+}
+
+/* Send the next wave. Returns the number of offers sent. */
+function coverWave(cv, req) {
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+  if (!b) return 0;
+  let sent = 0;
+  const tiers = cv.parallel ? COVER_TIERS.slice(COVER_TIERS.indexOf(cv.tier)) : [cv.tier];
+  for (const tier of tiers) {
+    /* the allied tier is never fired automatically inside the parallel sweep
+       without an office alert — subcontracting is a decision, not a reflex */
+    const cands = coverCandidates(cv, b, tier);
+    if (!cands.length) continue;
+    const batch = cv.parallel ? cands : cands.slice(0, tier === 'pool' ? 5 : 1);
+    batch.forEach((c, i) => { sendCoverOffer(req, cv, b, tier, c, i + 1); sent++; });
+    if (tier === 'standby') batch.forEach(c => {
+      db.prepare("UPDATE standby SET called_at = ?, booking_id = ? WHERE worker_id = ? AND date = ? AND status = 'accepted'")
+        .run(now(), b.id, c.id, b.date);
+    });
+    if (!cv.parallel) break;
+  }
+  return sent;
+}
+
+function alertOffice(req, cv, b, why) {
+  if (cv.office_alerted_at || !MAIL_FROM) return;
+  db.prepare('UPDATE cover SET office_alerted_at = ? WHERE id = ?').run(now(), cv.id);
+  const pt = db.prepare('SELECT name, phone, suburb FROM users WHERE id = ?').get(b.participant_id) || {};
+  const tried = db.prepare('SELECT COUNT(*) AS n FROM cover_offers WHERE cover_id = ?').get(cv.id).n;
+  sendMail(MAIL_FROM, `Cover needs a person — ${pt.name || 'participant'} ${b.date}`,
+    'The cascade needs you',
+    `<p><b>${escHtml(why)}</b></p>
+     <p><b>${escHtml(pt.name || '')}</b> — ${escHtml(SERVICE_LABELS[b.service] || b.service)}, ${prettyDate(b.date)} at ${escHtml(b.start)}, ${b.hours} hours, ${escHtml(pt.suburb || '')}.<br>
+     ${tried} offer${tried === 1 ? '' : 's'} sent, none accepted. Phone: ${escHtml(pt.phone || 'not on file')}.</p>
+     <p>This is the only stage that needs a human. Everything before it ran without one.</p>`,
+    'Open the cover board', `${baseUrl(req) || APP_URL}/#/admin`).catch(() => {});
+}
+
+/* Open a cover request. The booking is NOT cancelled — it keeps its confirmed
+   status and its date, and only the person changes. */
+function openCover(bookingId, fromWorkerId, reason, req) {
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
+  if (!b) return null;
+  const open = db.prepare("SELECT id FROM cover WHERE booking_id = ? AND status = 'open'").get(bookingId);
+  if (open) return db.prepare('SELECT * FROM cover WHERE id = ?').get(open.id);
+  const lead = leadMinutes(b);
+  const clock = coverClock(lead);
+  const r = db.prepare(`INSERT INTO cover (booking_id, from_worker_id, reason, opened_at, lead_minutes, window_minutes, parallel, tier, status)
+    VALUES (?,?,?,?,?,?,?,'web','open')`).run(bookingId, fromWorkerId || null, clean(reason, 300), now(), lead, clock.win, clock.parallel);
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(Number(r.lastInsertRowid));
+  db.prepare('UPDATE bookings SET cover_state = ?, original_worker_id = COALESCE(original_worker_id, worker_id) WHERE id = ?')
+    .run('finding', bookingId);
+  const sent = coverWave(cv, req);
+  /* tell the participant immediately — before they find out from the worker.
+     "we are on it" beats "your shift is cancelled" every time. */
+  const pt = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
+  if (pt) sendMail(pt.email, `We're finding cover for ${prettyDate(b.date)} — BookIt`,
+    `We're on it, ${firstName(pt.name)}`,
+    `<p>The worker booked for your <b>${escHtml(SERVICE_LABELS[b.service] || b.service)}</b> shift on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> can't make it.</p>
+     <p><b>Your booking has not been cancelled.</b> ${sent > 0
+       ? `We've already asked ${sent} ${sent === 1 ? 'person' : 'people'}, starting with your own care web, and we'll email you the moment somebody says yes.`
+       : `We're working through who's available now and we'll email you the moment somebody says yes.`}</p>
+     <p>If you'd rather not have cover this time, you can stand it down from your bookings page and nothing is charged.</p>`,
+    'See what\'s happening', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  if (!sent) alertOffice(req, cv, b, 'Nobody was eligible on the first pass.');
+  return cv;
+}
+
+/* Somebody said yes. Swap the worker, keep the booking, tell everyone. */
+function coverAccept(offerId, req, acceptingWorkerId) {
+  const o = db.prepare('SELECT * FROM cover_offers WHERE id = ?').get(offerId);
+  if (!o) return { error: 'That offer no longer exists.' };
+  if (o.response) return { error: o.response === 'accepted' ? 'You\'ve already accepted this one.' : 'That offer has already been answered.' };
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(o.cover_id);
+  if (!cv || cv.status !== 'open') return { error: 'This shift has already been covered — thank you for being quick.' };
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+  if (!b) return { error: 'Booking not found.' };
+  if (new Date(o.expires_at) < new Date()) {
+    db.prepare("UPDATE cover_offers SET response = 'expired', responded_at = ? WHERE id = ?").run(now(), offerId);
+    return { error: 'That offer had already timed out and moved on.' };
+  }
+  if (o.tier === 'allied') {
+    const a = db.prepare('SELECT * FROM allied_providers WHERE id = ?').get(o.allied_id);
+    db.prepare("UPDATE cover_offers SET response = 'accepted', responded_at = ? WHERE id = ?").run(now(), offerId);
+    db.prepare("UPDATE cover SET status = 'referred', allied_id = ?, allied_share = ?, filled_at = ?, closed_at = ? WHERE id = ?")
+      .run(a.id, a.share, now(), now(), cv.id);
+    db.prepare("UPDATE bookings SET cover_state = 'allied', delivered_by_allied = ?, swap_count = swap_count + 1 WHERE id = ?").run(a.id, b.id);
+    closeSiblings(cv.id, offerId);
+    notifyCovered(req, b, null, a);
+    return { ok: true, allied: a.name };
+  }
+  const workerId = acceptingWorkerId || o.worker_id;
+  if (!workerId || workerId !== o.worker_id) return { error: 'That offer belongs to someone else.' };
+  if (!workerEligible(workerId, b)) return { error: 'Something has changed since we sent this — you\'re no longer free at that time, or a credential needs updating.' };
+  db.prepare("UPDATE cover_offers SET response = 'accepted', responded_at = ? WHERE id = ?").run(now(), offerId);
+  db.prepare("UPDATE cover SET status = 'filled', filled_worker_id = ?, filled_at = ?, closed_at = ? WHERE id = ?")
+    .run(workerId, now(), now(), cv.id);
+  db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', swap_count = swap_count + 1 WHERE id = ?")
+    .run(workerId, b.id);
+  closeSiblings(cv.id, offerId);
+  const w = db.prepare('SELECT name FROM users WHERE id = ?').get(workerId);
+  notifyCovered(req, b, w, null);
+  /* a person who has now worked with this participant belongs in their care web —
+     offered, never imposed */
+  return { ok: true, worker: w ? w.name : '' };
+}
+function closeSiblings(coverId, keepOfferId) {
+  db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND id != ? AND response IS NULL")
+    .run(now(), coverId, keepOfferId);
+}
+function notifyCovered(req, b, w, allied) {
+  const pt = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
+  const svc = SERVICE_LABELS[b.service] || b.service;
+  if (pt) sendMail(pt.email, `Cover confirmed for ${prettyDate(b.date)} — BookIt`,
+    `Sorted, ${firstName(pt.name)} 🎉`,
+    allied
+      ? `<p>Your <b>${escHtml(svc)}</b> shift on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> will be delivered by a worker from <b>${escHtml(allied.name)}</b>, one of our partner providers.</p>
+         <p>We stay responsible for this support — same agreement, same standards, same complaints line. They'll confirm the worker's name with you before the day, and you can tell us any time if you'd rather wait for one of our own team instead.</p>`
+      : `<p><b>${escHtml(w ? w.name : 'A worker')}</b> is covering your <b>${escHtml(svc)}</b> shift on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>
+         <p>Same time, same booking, same price. You can message them from your bookings page before the day.</p>
+         <p>If they were a good fit, add them to your care web — next time somebody can't make it, they'll be asked first.</p>`,
+    'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  if (w) {
+    const wu = db.prepare('SELECT email, name FROM users WHERE id = ?').get(b.worker_id);
+    if (wu) sendMail(wu.email, `Confirmed — you're covering ${prettyDate(b.date)} — BookIt`,
+      `You're locked in, ${firstName(wu.name)}`,
+      `<p>Thanks for stepping in. <b>${escHtml(svc)}</b> with <b>${escHtml(pt ? pt.name : '')}</b>, <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>, ${b.hours} hours.</p>
+       <p>It's in your bookings now and pays exactly like any other shift — covering someone doesn't pay less.</p>`,
+      'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  }
+}
+
+/* The clock. Expires stale offers, advances tiers, escalates to a human only
+   when the machine has genuinely run out of options. */
+function coverSweep(req) {
+  const acted = [];
+  const open = db.prepare("SELECT * FROM cover WHERE status = 'open'").all();
+  for (const cv0 of open) {
+    let cv = cv0;
+    const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+    if (!b) { db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ? WHERE id = ?").run(now(), cv.id); continue; }
+    /* the shift has started and nobody came — close it, flag it, and make sure a
+       human knows a participant went without. This is a reportable-quality event,
+       not a rostering footnote. */
+    if (bookingStart(b) < new Date()) {
+      db.prepare("UPDATE cover SET status = 'failed', closed_at = ?, outcome_note = ? WHERE id = ?")
+        .run(now(), 'Shift start passed with no cover found.', cv.id);
+      db.prepare("UPDATE bookings SET cover_state = 'uncovered' WHERE id = ?").run(b.id);
+      alertOffice(req, cv, b, 'A shift started with no cover. Please contact the participant today.');
+      acted.push({ cover: cv.id, outcome: 'failed' });
+      continue;
+    }
+    /* the lead time has shortened since we opened — tighten the clock */
+    const lead = leadMinutes(b);
+    const clock = coverClock(lead);
+    if (clock.win !== cv.window_minutes || clock.parallel !== cv.parallel) {
+      db.prepare('UPDATE cover SET window_minutes = ?, parallel = ?, lead_minutes = ? WHERE id = ?')
+        .run(clock.win, clock.parallel, lead, cv.id);
+      cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(cv.id);
+    }
+    const live = db.prepare("SELECT COUNT(*) AS n FROM cover_offers WHERE cover_id = ? AND response IS NULL AND expires_at > ?").get(cv.id, now()).n;
+    if (live > 0) continue;
+    db.prepare("UPDATE cover_offers SET response = 'expired', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
+    /* same tier again if there are more names, otherwise step down */
+    let sent = coverWave(cv, req);
+    while (!sent) {
+      const next = COVER_TIERS[COVER_TIERS.indexOf(cv.tier) + 1];
+      if (!next) {
+        db.prepare("UPDATE cover SET status = 'failed', closed_at = ?, outcome_note = ? WHERE id = ?")
+          .run(now(), 'Every tier exhausted before the shift.', cv.id);
+        db.prepare("UPDATE bookings SET cover_state = 'uncovered' WHERE id = ?").run(b.id);
+        alertOffice(req, cv, b, 'All four tiers exhausted — no one available.');
+        acted.push({ cover: cv.id, outcome: 'exhausted' });
+        break;
+      }
+      db.prepare('UPDATE cover SET tier = ? WHERE id = ?').run(next, cv.id);
+      cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(cv.id);
+      if (next === 'allied') alertOffice(req, cv, b, 'Cover has reached the partner-provider tier.');
+      sent = coverWave(cv, req);
+    }
+    if (sent) acted.push({ cover: cv.id, tier: cv.tier, sent });
+  }
+  return acted;
+}
+setTimeout(() => { try { coverSweep(); } catch (e) { console.error('cover:', e.message); } }, 20_000);
+setInterval(() => { try { coverSweep(); } catch (e) { console.error('cover:', e.message); } }, 60_000);
+
+/* How exposed is this booking? Answered when the booking is made, not at 6am on
+   the day — which is the only time it can still be fixed cheaply. */
+function coverDepth(b) {
+  const fake = { id: 0, from_worker_id: b.worker_id };
+  const web = db.prepare('SELECT worker_id FROM care_web WHERE participant_id = ? AND auto_offer = 1').all(b.participant_id)
+    .filter(r => r.worker_id !== b.worker_id && workerEligible(r.worker_id, b)).length;
+  const standby = db.prepare("SELECT worker_id FROM standby WHERE date = ? AND status = 'accepted'").all(b.date)
+    .filter(r => r.worker_id !== b.worker_id && workerEligible(r.worker_id, b)).length;
+  const pool = coverCandidates(fake, b, 'pool').length;
+  const allied = coverCandidates(fake, b, 'allied').length;
+  return { web, standby, pool, allied, total: web + standby + pool + allied };
+}
+
+
+/* ============================================================================
+   STANDBY — the locked-in backup bench, rostered by the machine
+   ----------------------------------------------------------------------------
+   This is the part that has to be automatic or it doesn't happen. Nobody is
+   going to sit down every Sunday night and decide who's on call next week.
+
+   The rule is simple: for every day inside the horizon that has shifts on it,
+   there should be at least one worker being paid to be reachable. If there
+   isn't, the sweep offers the period to the opted-in worker who has been asked
+   least recently — spreading both the money and the imposition — and the worker
+   accepts or declines with one tap. Nobody is ever rostered a standby SHIFT
+   (see the note in the schema: cl.25.5(f) would make that expensive). They are
+   offered a cl.26 on-call ALLOWANCE, which is paid whether or not they get
+   called, and which is the entire marginal cost of the whole system.
+   ============================================================================ */
+
+function standbyToken(id) { return sign(`standby.${id}`).slice(0, 32); }
+
+function offerStandby(workerId, date, req) {
+  if (db.prepare('SELECT id FROM standby WHERE worker_id = ? AND date = ?').get(workerId, date)) return null;
+  const w = db.prepare(`SELECT u.name, u.email, p.standby_services FROM users u
+    JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?`).get(workerId);
+  if (!w) return null;
+  const band = standbyBand(date);
+  const allowance = oncallRates()[band];
+  const r = db.prepare(`INSERT INTO standby (worker_id, date, band, allowance, services, status, offered_at)
+    VALUES (?,?,?,?,?, 'offered', ?)`).run(workerId, date, band, allowance, w.standby_services || '[]', now());
+  const id = Number(r.lastInsertRowid);
+  const link = k => `${baseUrl(req)}/cover?s=${id}&t=${standbyToken(id)}&k=${k}`;
+  sendMail(w.email, `On-call standby for ${prettyDate(date)} — ${allowance.toFixed(2)} — BookIt`,
+    `Free on ${prettyDate(date).split(',')[0]}, ${firstName(w.name)}?`,
+    `<p>We're asking you to be <b>on call</b> for <b>${prettyDate(date)}</b>. That means keeping your phone on and being able to get to a shift if somebody can't make theirs.</p>
+     <p><b>You get paid ${allowance.toFixed(2)} just for saying yes</b> — that's the SCHADS on-call allowance for a ${band === 'weekday' ? 'weekday' : 'weekend or public holiday'} period, and it's yours whether or not we end up calling you.</p>
+     <p>If we do call you, the shift is paid on top at your normal rate, and you can still say no on the day. Saying yes to standby is not agreeing to work — it's agreeing to be reachable.</p>
+     <p style="margin:24px 0"><a href="${link('standby-yes')}" style="background:#0E6B62;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Yes, I'm on call that day</a>
+     &nbsp;&nbsp;<a href="${link('standby-no')}" style="color:#5b6b68;text-decoration:underline">Not that day</a></p>`,
+    null, null).catch(() => {});
+  return id;
+}
+
+/* how many people should be reachable on a given day */
+function standbyWanted(date) {
+  const ratio = Math.max(1, Number(setting('standby_ratio')) || 8);
+  const n = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE date = ? AND status IN ('requested','accepted')").get(date).n;
+  if (!n) return 0;
+  return Math.max(1, Math.min(3, Math.ceil(n / ratio)));
+}
+
+/* Ordered list of who to ask next: opted in, visible, screened, not already
+   working most of that day, under their own weekly cap, asked least recently. */
+function standbyCandidates(date, want) {
+  const dow = new Date(date + 'T00:00:00').getDay();
+  const idx = dow === 0 ? 6 : dow - 1;
+  const weekStart = (() => { const d = new Date(date + 'T00:00:00'); d.setDate(d.getDate() - idx); return d.toISOString().slice(0, 10); })();
+  const weekEnd = (() => { const d = new Date(weekStart + 'T00:00:00'); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })();
+  return db.prepare(`SELECT u.id, u.name, p.standby_max, p.days,
+      (SELECT COUNT(*) FROM standby s WHERE s.worker_id = u.id AND s.date BETWEEN ? AND ? AND s.status IN ('offered','accepted')) AS this_week,
+      (SELECT COUNT(*) FROM standby s WHERE s.worker_id = u.id AND s.status = 'accepted' AND s.date >= ?) AS recent,
+      (SELECT COUNT(*) FROM bookings b WHERE b.worker_id = u.id AND b.date = ? AND b.status IN ('requested','accepted')) AS working
+    FROM users u JOIN worker_profiles p ON p.user_id = u.id
+    WHERE u.role = 'worker' AND p.visible = 1 AND p.standby_optin = 1
+      AND u.id NOT IN (SELECT worker_id FROM standby WHERE date = ?)
+    ORDER BY recent ASC, this_week ASC, u.id ASC`)
+    .all(weekStart, weekEnd, new Date(Date.now() - 90 * 86400e3).toISOString().slice(0, 10), date, date)
+    .filter(c => {
+      if (screeningState(c.id) === 'expired') return false;
+      if (c.this_week >= (c.standby_max ?? 2)) return false;
+      if (c.working) return false;                     /* already on shift most of that day */
+      const days = safeJson(c.days, [1, 1, 1, 1, 1, 0, 0]);
+      return !(days.length === 7 && !days[idx]);       /* respects the days they said they work */
+    })
+    .slice(0, want);
+}
+
+/* The sweep. Runs on a timer, and can be pushed from the admin console. */
+function standbySweep(req, days) {
+  const horizon = days || Math.max(1, Number(setting('standby_horizon')) || 10);
+  const out = { days: 0, offered: 0, short: [] };
+  for (let i = 0; i < horizon; i++) {
+    const d = new Date(Date.now() + i * 86400e3).toISOString().slice(0, 10);
+    const want = standbyWanted(d);
+    if (!want) continue;
+    out.days++;
+    const have = db.prepare("SELECT COUNT(*) AS n FROM standby WHERE date = ? AND status IN ('offered','accepted')").get(d).n;
+    const gap = want - have;
+    if (gap <= 0) continue;
+    const cands = standbyCandidates(d, gap);
+    if (!cands.length) { out.short.push(d); continue; }
+    for (const c of cands) { if (offerStandby(c.id, d, req)) out.offered++; }
+  }
+  /* If the bench can't be filled at all, that is worth a human knowing about
+     once a day — not at 6am on the day it bites. */
+  if (out.short.length && MAIL_FROM) {
+    const last = setting('standby_short_alert');
+    const today = new Date().toISOString().slice(0, 10);
+    if (last !== today) {
+      setSetting('standby_short_alert', today);
+      sendMail(MAIL_FROM, `Standby bench short on ${out.short.length} day${out.short.length === 1 ? '' : 's'}`,
+        'Nobody available to be on call',
+        `<p>These days have shifts booked but nobody on standby, and there's no opted-in worker left to ask:</p>
+         <p><b>${out.short.map(d => escHtml(prettyDate(d))).join('<br>')}</b></p>
+         <p>Either more workers need to opt in to standby, or the allowance needs to be worth more. Both are fixable this week; neither is fixable on the morning.</p>`,
+        'Open the cover board', `${baseUrl(req) || APP_URL}/#/admin`).catch(() => {});
+    }
+  }
+  return out;
+}
+setTimeout(() => { try { standbySweep(); } catch (e) { console.error('standby:', e.message); } }, 45_000);
+setInterval(() => { try { standbySweep(); } catch (e) { console.error('standby:', e.message); } }, 6 * 3600e3);
+
+
+/* ============================================================================
+   COVER — routes
+   ============================================================================ */
+
+/* ---------- the participant's care web ---------- */
+
+function careWebRows(participantId) {
+  return db.prepare(`SELECT cw.id, cw.worker_id, cw.rank, cw.role, cw.auto_offer, cw.note, cw.added_at,
+      u.name, u.suburb, COALESCE(p.color, '#0E6B62') AS color, COALESCE(p.visible, 0) AS visible,
+      p.photo, p.photo_at, p.services, p.days,
+      (SELECT COUNT(*) FROM bookings b WHERE b.worker_id = cw.worker_id AND b.participant_id = cw.participant_id AND b.status = 'completed') AS shifts_together,
+      (SELECT COUNT(*) FROM cover_offers o JOIN cover c ON c.id = o.cover_id
+        JOIN bookings bb ON bb.id = c.booking_id
+        WHERE o.worker_id = cw.worker_id AND bb.participant_id = cw.participant_id AND o.response = 'accepted') AS covers_done
+    FROM care_web cw JOIN users u ON u.id = cw.worker_id
+    LEFT JOIN worker_profiles p ON p.user_id = cw.worker_id
+    WHERE cw.participant_id = ? ORDER BY cw.rank ASC, cw.id ASC`).all(participantId)
+    .map(r => ({
+      ...r,
+      services: safeJson(r.services, []),
+      days: safeJson(r.days, []),
+      screening: screeningState(r.worker_id),
+      photo: r.photo ? `/photos/${r.worker_id}?v=${encodeURIComponent(r.photo_at || '')}` : null
+    }));
+}
+
+/* Everyone this participant has actually worked with who isn't in the web yet.
+   Nobody should have to remember a name — the system already knows who turned up. */
+function careWebSuggestions(participantId) {
+  return db.prepare(`SELECT u.id AS worker_id, u.name, u.suburb, COALESCE(p.color, '#0E6B62') AS color,
+      p.photo, p.photo_at, p.services,
+      COUNT(b.id) AS shifts_together, MAX(b.date) AS last_shift
+    FROM bookings b JOIN users u ON u.id = b.worker_id
+    LEFT JOIN worker_profiles p ON p.user_id = u.id
+    WHERE b.participant_id = ? AND b.status IN ('completed','accepted')
+      AND u.id NOT IN (SELECT worker_id FROM care_web WHERE participant_id = ?)
+      AND COALESCE(p.visible, 0) = 1
+    GROUP BY u.id ORDER BY shifts_together DESC, last_shift DESC LIMIT 12`).all(participantId, participantId)
+    .map(r => ({ ...r, services: safeJson(r.services, []), photo: r.photo ? `/photos/${r.worker_id}?v=${encodeURIComponent(r.photo_at || '')}` : null }));
+}
+
+route('GET', /^\/api\/me\/care-web$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'participant') return json(res, 403, { error: 'Care webs belong to participants.' });
+  json(res, 200, {
+    web: careWebRows(user.id),
+    suggestions: careWebSuggestions(user.id),
+    tiers: COVER_TIERS.map(t => ({ key: t, label: TIER_LABELS[t] }))
+  });
+});
+
+route('POST', /^\/api\/me\/care-web$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'participant') return json(res, 403, { error: 'Care webs belong to participants.' });
+  const workerId = Number(body.worker_id);
+  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker' AND p.visible = 1").get(workerId);
+  if (!w) return json(res, 404, { error: 'That worker isn\'t available to add.' });
+  if (db.prepare('SELECT id FROM care_web WHERE participant_id = ? AND worker_id = ?').get(user.id, workerId))
+    return json(res, 400, { error: `${w.name.split(' ')[0]} is already in your care web.` });
+  const role = ['regular', 'backup', 'emergency'].includes(body.role) ? body.role : 'backup';
+  const next = db.prepare('SELECT COALESCE(MAX(rank), 0) + 1 AS r FROM care_web WHERE participant_id = ?').get(user.id).r;
+  db.prepare('INSERT INTO care_web (participant_id, worker_id, rank, role, auto_offer, note, added_at) VALUES (?,?,?,?,?,?,?)')
+    .run(user.id, workerId, next, role, body.auto_offer === false ? 0 : 1, clean(body.note, 200), now());
+  json(res, 200, { ok: true, web: careWebRows(user.id), suggestions: careWebSuggestions(user.id) });
+});
+
+route('POST', /^\/api\/me\/care-web\/(\d+)$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const row = db.prepare('SELECT * FROM care_web WHERE id = ? AND participant_id = ?').get(Number(m[1]), user.id);
+  if (!row) return json(res, 404, { error: 'Not in your care web.' });
+  const role = ['regular', 'backup', 'emergency'].includes(body.role) ? body.role : row.role;
+  const auto = body.auto_offer === undefined ? row.auto_offer : (body.auto_offer ? 1 : 0);
+  db.prepare('UPDATE care_web SET role = ?, auto_offer = ?, note = ? WHERE id = ?')
+    .run(role, auto, body.note === undefined ? row.note : clean(body.note, 200), row.id);
+  json(res, 200, { ok: true, web: careWebRows(user.id) });
+});
+
+/* One move, one save: the whole order arrives as a list of ids. */
+route('POST', /^\/api\/me\/care-web\/order$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const ids = Array.isArray(body.ids) ? body.ids.map(Number).filter(Boolean) : [];
+  if (!ids.length) return json(res, 400, { error: 'Nothing to reorder.' });
+  const mine = new Set(db.prepare('SELECT id FROM care_web WHERE participant_id = ?').all(user.id).map(r => r.id));
+  const up = db.prepare('UPDATE care_web SET rank = ? WHERE id = ? AND participant_id = ?');
+  ids.forEach((id, i) => { if (mine.has(id)) up.run(i + 1, id, user.id); });
+  json(res, 200, { ok: true, web: careWebRows(user.id) });
+});
+
+route('POST', /^\/api\/me\/care-web\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const row = db.prepare('SELECT * FROM care_web WHERE id = ? AND participant_id = ?').get(Number(m[1]), user.id);
+  if (!row) return json(res, 404, { error: 'Not in your care web.' });
+  db.prepare('DELETE FROM care_web WHERE id = ?').run(row.id);
+  db.prepare('SELECT id FROM care_web WHERE participant_id = ? ORDER BY rank ASC, id ASC').all(user.id)
+    .forEach((r, i) => db.prepare('UPDATE care_web SET rank = ? WHERE id = ?').run(i + 1, r.id));
+  json(res, 200, { ok: true, web: careWebRows(user.id), suggestions: careWebSuggestions(user.id) });
+});
+
+/* ---------- the worker's side: offers and standby ---------- */
+
+function offerRows(workerId) {
+  return db.prepare(`SELECT o.id, o.tier, o.rank, o.sent_at, o.expires_at, o.response,
+      c.id AS cover_id, c.reason, c.status AS cover_status,
+      b.id AS booking_id, b.service, b.date, b.start, b.hours, b.sleepover,
+      up.name AS participant_name, up.suburb
+    FROM cover_offers o JOIN cover c ON c.id = o.cover_id
+    JOIN bookings b ON b.id = c.booking_id
+    JOIN users up ON up.id = b.participant_id
+    WHERE o.worker_id = ? AND o.response IS NULL AND o.expires_at > ? AND c.status = 'open'
+    ORDER BY b.date ASC, b.start ASC`).all(workerId, now())
+    .map(r => {
+      const rate = INVOICE_RATES[suggestCategory(r)] || {};
+      return {
+        ...r,
+        service_label: SERVICE_LABELS[r.service] || r.service,
+        tier_label: TIER_LABELS[r.tier] || r.tier,
+        pay: rate.worker ? Number((rate.worker * (rate.perNight ? 1 : r.hours)).toFixed(2)) : null,
+        rate_label: rate.label || ''
+      };
+    });
+}
+function standbyRows(workerId) {
+  return db.prepare(`SELECT s.*, (SELECT COUNT(*) FROM bookings b WHERE b.date = s.date) AS shifts_that_day
+    FROM standby s WHERE s.worker_id = ? AND s.date >= ? ORDER BY s.date ASC`)
+    .all(workerId, new Date(Date.now() - 30 * 86400e3).toISOString().slice(0, 10))
+    .map(r => ({ ...r, services: safeJson(r.services, []) }));
+}
+
+route('GET', /^\/api\/me\/offers$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 200, { offers: [], standby: [] });
+  const p = db.prepare('SELECT standby_optin, standby_max, standby_services FROM worker_profiles WHERE user_id = ?').get(user.id) || {};
+  const rates = oncallRates();
+  const paid = db.prepare("SELECT COALESCE(SUM(allowance), 0) AS s FROM standby WHERE worker_id = ? AND status = 'accepted'").get(user.id).s;
+  const webs = db.prepare(`SELECT COUNT(*) AS n FROM care_web WHERE worker_id = ?`).get(user.id).n;
+  json(res, 200, {
+    offers: offerRows(user.id),
+    standby: standbyRows(user.id),
+    standby_optin: p.standby_optin ? 1 : 0,
+    standby_max: p.standby_max ?? 2,
+    standby_services: safeJson(p.standby_services, []),
+    rates,
+    allowance_earned: Number(paid.toFixed(2)),
+    in_care_webs: webs
+  });
+});
+
+route('POST', /^\/api\/me\/offers\/(\d+)\/(accept|decline)$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const offerId = Number(m[1]);
+  const o = db.prepare('SELECT * FROM cover_offers WHERE id = ?').get(offerId);
+  if (!o || o.worker_id !== user.id) return json(res, 404, { error: 'That offer isn\'t yours.' });
+  if (m[2] === 'decline') {
+    if (!o.response) db.prepare("UPDATE cover_offers SET response = 'declined', responded_at = ? WHERE id = ?").run(now(), offerId);
+    return json(res, 200, { ok: true, offers: offerRows(user.id) });
+  }
+  const r = coverAccept(offerId, req, user.id);
+  if (r.error) return json(res, 400, { error: r.error, offers: offerRows(user.id) });
+  json(res, 200, { ok: true, ...r, offers: offerRows(user.id) });
+});
+
+/* opt in once, and the roster fills itself from then on */
+route('POST', /^\/api\/me\/standby-settings$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const svcs = Array.isArray(body.services) ? body.services.filter(s => SERVICES.includes(s)) : [];
+  const max = Math.max(0, Math.min(7, Number(body.max) || 0));
+  db.prepare('UPDATE worker_profiles SET standby_optin = ?, standby_max = ?, standby_services = ? WHERE user_id = ?')
+    .run(body.optin ? 1 : 0, max, JSON.stringify(svcs), user.id);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/me\/standby\/(\d+)\/(accept|decline)$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const s = db.prepare('SELECT * FROM standby WHERE id = ?').get(Number(m[1]));
+  if (!s || s.worker_id !== user.id) return json(res, 404, { error: 'That standby period isn\'t yours.' });
+  if (s.status !== 'offered') return json(res, 400, { error: 'That one has already been answered.' });
+  const answer = m[2] === 'accept' ? 'accepted' : 'declined';
+  db.prepare('UPDATE standby SET status = ?, responded_at = ? WHERE id = ?').run(answer, now(), s.id);
+  json(res, 200, { ok: true, standby: standbyRows(user.id) });
+});
+
+/* ---------- the trigger: a worker who can't make it ---------- */
+
+route('POST', /^\/api\/bookings\/(\d+)\/cant-make-it$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'Booking not found.' });
+  if (!(user.role === 'worker' && b.worker_id === user.id) && !user.admin)
+    return json(res, 403, { error: 'That isn\'t your shift.' });
+  if (!['requested', 'accepted'].includes(b.status)) return json(res, 400, { error: 'That shift isn\'t live any more.' });
+  if (b.cover_state === 'finding') return json(res, 400, { error: 'Cover is already being found for this shift.' });
+  const reason = clean(body.reason, 300);
+  const cv = openCover(b.id, user.id, reason, req);
+  if (!cv) return json(res, 500, { error: 'Couldn\'t open a cover request.' });
+  const depth = coverDepth(b);
+  /* SCHADS cl.25.5(f) belongs to the employer's roster, not to this exchange —
+     no penalty is applied to a worker here, deliberately. Punishing a cancellation
+     buys you a worker who turns up sick and tells nobody. */
+  json(res, 200, {
+    ok: true, cover_id: cv.id, depth,
+    message: depth.total
+      ? `We're on it — ${depth.total} ${depth.total === 1 ? 'person is' : 'people are'} being asked, starting with the participant's own care web.`
+      : 'We\'re on it — the office has been alerted straight away because nobody was free.'
+  });
+});
+
+/* the participant can wave it off — no cover, no charge, and the worker's slot frees */
+route('POST', /^\/api\/bookings\/(\d+)\/stand-down$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'Booking not found.' });
+  if (b.participant_id !== user.id && !user.admin) return json(res, 403, { error: 'That isn\'t your booking.' });
+  const cv = db.prepare("SELECT * FROM cover WHERE booking_id = ? AND status = 'open'").get(b.id);
+  if (cv) {
+    db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = ? WHERE id = ?")
+      .run(now(), clean(body.reason, 200) || 'Participant stood cover down.', cv.id);
+    db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
+  }
+  db.prepare("UPDATE bookings SET status = 'cancelled', cover_state = 'stood-down' WHERE id = ?").run(b.id);
+  json(res, 200, { ok: true });
+});
+
+/* what's happening with my shift, in plain words */
+route('GET', /^\/api\/bookings\/(\d+)\/cover$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'Booking not found.' });
+  if (b.participant_id !== user.id && b.worker_id !== user.id && !user.admin) return json(res, 403, { error: 'Not your booking.' });
+  const cv = db.prepare('SELECT * FROM cover WHERE booking_id = ? ORDER BY id DESC LIMIT 1').get(b.id);
+  const offers = cv ? db.prepare(`SELECT o.tier, o.sent_at, o.expires_at, o.response, o.responded_at,
+      COALESCE(u.name, a.name) AS who
+    FROM cover_offers o LEFT JOIN users u ON u.id = o.worker_id
+    LEFT JOIN allied_providers a ON a.id = o.allied_id
+    WHERE o.cover_id = ? ORDER BY o.id ASC`).all(cv.id) : [];
+  json(res, 200, {
+    cover: cv || null,
+    tier_label: cv ? TIER_LABELS[cv.tier] : '',
+    offers: offers.map(o => ({ ...o, tier_label: TIER_LABELS[o.tier] || o.tier })),
+    depth: ['requested', 'accepted'].includes(b.status) ? coverDepth(b) : null
+  });
+});
+
+/* ---------- admin: the cover board ---------- */
+
+route('GET', /^\/api\/admin\/cover$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const base = `SELECT c.*, b.date, b.start, b.hours, b.service, b.participant_id,
+      up.name AS participant_name, up.phone AS participant_phone, up.suburb,
+      uw.name AS from_worker_name, uf.name AS filled_worker_name, a.name AS allied_name,
+      (SELECT COUNT(*) FROM cover_offers o WHERE o.cover_id = c.id) AS offers_sent
+    FROM cover c JOIN bookings b ON b.id = c.booking_id
+    JOIN users up ON up.id = b.participant_id
+    LEFT JOIN users uw ON uw.id = c.from_worker_id
+    LEFT JOIN users uf ON uf.id = c.filled_worker_id
+    LEFT JOIN allied_providers a ON a.id = c.allied_id`;
+  const dec = r => ({ ...r, tier_label: TIER_LABELS[r.tier] || r.tier, service_label: SERVICE_LABELS[r.service] || r.service });
+  const open = db.prepare(`${base} WHERE c.status = 'open' ORDER BY b.date ASC, b.start ASC`).all().map(r => ({
+    ...dec(r),
+    live_offers: db.prepare(`SELECT o.tier, o.expires_at, COALESCE(u.name, a.name) AS who FROM cover_offers o
+      LEFT JOIN users u ON u.id = o.worker_id LEFT JOIN allied_providers a ON a.id = o.allied_id
+      WHERE o.cover_id = ? AND o.response IS NULL ORDER BY o.id ASC`).all(r.id)
+  }));
+  const recent = db.prepare(`${base} WHERE c.status != 'open' ORDER BY c.id DESC LIMIT 40`).all().map(dec);
+  /* the number that matters: how much of this ran without a person */
+  const all = db.prepare("SELECT status, tier, office_alerted_at, opened_at, filled_at FROM cover WHERE status != 'open'").all();
+  const done = all.length;
+  const noHuman = all.filter(c => !c.office_alerted_at && ['filled', 'referred'].includes(c.status)).length;
+  const fillTimes = all.filter(c => c.filled_at).map(c => (new Date(c.filled_at) - new Date(c.opened_at)) / 60000);
+  const stats = {
+    total: done,
+    filled: all.filter(c => c.status === 'filled').length,
+    referred: all.filter(c => c.status === 'referred').length,
+    failed: all.filter(c => c.status === 'failed').length,
+    stood_down: all.filter(c => c.status === 'stood-down').length,
+    hands_off_pct: done ? Math.round((noHuman / done) * 100) : null,
+    median_fill_minutes: fillTimes.length ? Math.round(fillTimes.sort((a, b) => a - b)[Math.floor(fillTimes.length / 2)]) : null,
+    by_tier: COVER_TIERS.map(t => ({ tier: t, label: TIER_LABELS[t], n: all.filter(c => c.tier === t && ['filled', 'referred'].includes(c.status)).length }))
+  };
+  const today = new Date().toISOString().slice(0, 10);
+  const standby = db.prepare(`SELECT s.*, u.name FROM standby s JOIN users u ON u.id = s.worker_id
+    WHERE s.date >= ? ORDER BY s.date ASC, u.name ASC LIMIT 200`).all(today);
+  const rates = oncallRates();
+  const spend = db.prepare("SELECT COALESCE(SUM(allowance),0) AS s, COUNT(*) AS n FROM standby WHERE status = 'accepted' AND date >= ?")
+    .get(new Date(Date.now() - 90 * 86400e3).toISOString().slice(0, 10));
+  json(res, 200, {
+    open, recent, stats, rates,
+    standby: standby.map(s => ({ ...s, services: safeJson(s.services, []) })),
+    standby_spend_90d: Number(spend.s.toFixed(2)),
+    standby_periods_90d: spend.n,
+    allied: db.prepare('SELECT * FROM allied_providers ORDER BY active DESC, reciprocal DESC, name ASC').all()
+      .map(a => ({ ...a, reg_groups: safeJson(a.reg_groups, []), suburbs: safeJson(a.suburbs, []) })),
+    optins: db.prepare(`SELECT u.id, u.name, p.standby_max, p.standby_services FROM users u JOIN worker_profiles p ON p.user_id = u.id
+      WHERE p.standby_optin = 1 AND p.visible = 1 ORDER BY u.name`).all()
+      .map(o => ({ ...o, standby_services: safeJson(o.standby_services, []) }))
+  });
+});
+
+route('POST', /^\/api\/admin\/cover\/(\d+)\/escalate$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  let cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(Number(m[1]));
+  if (!cv || cv.status !== 'open') return json(res, 400, { error: 'That cover request isn\'t open.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+  db.prepare("UPDATE cover_offers SET response = 'expired', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
+  const next = COVER_TIERS[COVER_TIERS.indexOf(cv.tier) + 1];
+  if (next) { db.prepare('UPDATE cover SET tier = ? WHERE id = ?').run(next, cv.id); cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(cv.id); }
+  const sent = coverWave(cv, req);
+  json(res, 200, { ok: true, tier: cv.tier, sent });
+});
+
+route('POST', /^\/api\/admin\/cover\/(\d+)\/assign$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(Number(m[1]));
+  if (!cv || cv.status !== 'open') return json(res, 400, { error: 'That cover request isn\'t open.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+  const workerId = Number(body.worker_id);
+  if (!workerEligible(workerId, b)) return json(res, 400, { error: 'That worker isn\'t free or isn\'t currently screened for this shift.' });
+  const r = db.prepare(`INSERT INTO cover_offers (cover_id, tier, worker_id, rank, sent_at, expires_at, response, responded_at)
+    VALUES (?,?,?,?,?,?,'accepted',?)`).run(cv.id, cv.tier, workerId, 99, now(), new Date(Date.now() + 60000).toISOString(), now());
+  db.prepare("UPDATE cover SET status = 'filled', filled_worker_id = ?, filled_at = ?, closed_at = ?, human_minutes = human_minutes + 5, outcome_note = ? WHERE id = ?")
+    .run(workerId, now(), now(), 'Assigned by the office.', cv.id);
+  db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', swap_count = swap_count + 1 WHERE id = ?").run(workerId, b.id);
+  closeSiblings(cv.id, Number(r.lastInsertRowid));
+  notifyCovered(req, db.prepare('SELECT * FROM bookings WHERE id = ?').get(b.id), db.prepare('SELECT name FROM users WHERE id = ?').get(workerId), null);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/cover\/(\d+)\/close$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(Number(m[1]));
+  if (!cv) return json(res, 404, { error: 'Not found.' });
+  const mins = Math.max(0, Math.min(600, Number(body.human_minutes) || 0));
+  db.prepare("UPDATE cover SET status = ?, closed_at = ?, outcome_note = ?, human_minutes = human_minutes + ? WHERE id = ?")
+    .run(clean(body.status, 20) === 'failed' ? 'failed' : 'stood-down', now(), clean(body.note, 300), mins, cv.id);
+  db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
+  db.prepare("UPDATE bookings SET cover_state = ? WHERE id = ?").run('stood-down', cv.booking_id);
+  json(res, 200, { ok: true });
+});
+
+/* who could take this, right now — the office's answer to "who do I ring?" */
+route('GET', /^\/api\/admin\/cover\/(\d+)\/candidates$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(Number(m[1]));
+  if (!cv) return json(res, 404, { error: 'Not found.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+  const out = {};
+  for (const t of COVER_TIERS) {
+    out[t] = coverCandidates(cv, b, t).slice(0, 10).map(c => {
+      if (t === 'allied') return { id: c.id, allied: 1, name: c.name, phone: c.phone || '', email: c.email, share: c.share, agreement: c.agreement_ref };
+      const u = db.prepare('SELECT name, phone FROM users WHERE id = ?').get(c.id) || {};
+      return { id: c.id, name: u.name || '', phone: u.phone || '' };
+    });
+  }
+  json(res, 200, { candidates: out, labels: TIER_LABELS });
+});
+
+/* ---------- admin: allied providers ---------- */
+
+route('GET', /^\/api\/admin\/allied$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, {
+    allied: db.prepare('SELECT * FROM allied_providers ORDER BY active DESC, name ASC').all()
+      .map(a => ({ ...a, reg_groups: safeJson(a.reg_groups, []), suburbs: safeJson(a.suburbs, []) })),
+    groups: Object.entries(REG_GROUPS).map(([k, v]) => ({ service: k, label: SERVICE_LABELS[k], group: v }))
+  });
+});
+
+route('POST', /^\/api\/admin\/allied$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const name = clean(body.name, 120);
+  const email = clean(body.email, 160).toLowerCase();
+  if (!name) return json(res, 400, { error: 'A provider name is needed.' });
+  if (!EMAIL_RE.test(email)) return json(res, 400, { error: 'A valid contact email is needed — that\'s where cover requests go.' });
+  const groups = Array.isArray(body.reg_groups) ? body.reg_groups.map(g => clean(g, 12)).filter(Boolean) : [];
+  const subs = Array.isArray(body.suburbs) ? body.suburbs.map(s => clean(s, 60)).filter(Boolean)
+    : clean(body.suburbs, 600).split(',').map(s => s.trim()).filter(Boolean);
+  const share = Math.max(0.5, Math.min(1, Number(body.share) || 0.85));
+  const id = Number(body.id) || 0;
+  const vals = [name, clean(body.abn, 20), clean(body.ndis_reg, 30), clean(body.contact_name, 80), email, clean(body.phone, 30),
+    JSON.stringify(groups), JSON.stringify(subs), share, clean(body.agreement_ref, 60), clean(body.agreement_date, 10),
+    clean(body.insurance_expiry, 10), body.reciprocal === false ? 0 : 1, body.active === false ? 0 : 1];
+  if (id && db.prepare('SELECT id FROM allied_providers WHERE id = ?').get(id)) {
+    db.prepare(`UPDATE allied_providers SET name=?, abn=?, ndis_reg=?, contact_name=?, email=?, phone=?, reg_groups=?, suburbs=?,
+      share=?, agreement_ref=?, agreement_date=?, insurance_expiry=?, reciprocal=?, active=? WHERE id=?`).run(...vals, id);
+    return json(res, 200, { ok: true, id });
+  }
+  const r = db.prepare(`INSERT INTO allied_providers (name, abn, ndis_reg, contact_name, email, phone, reg_groups, suburbs,
+    share, agreement_ref, agreement_date, insurance_expiry, reciprocal, active, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(...vals, now());
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
+});
+
+route('POST', /^\/api\/admin\/allied\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  db.prepare('UPDATE allied_providers SET active = 0 WHERE id = ?').run(Number(m[1]));
+  json(res, 200, { ok: true });
+});
+
+/* ---------- admin: standby roster ---------- */
+
+route('POST', /^\/api\/admin\/standby$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const date = clean(body.date, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: 'Pick a date.' });
+  const ids = Array.isArray(body.worker_ids) ? body.worker_ids.map(Number).filter(Boolean) : [];
+  if (!ids.length) return json(res, 400, { error: 'Pick at least one worker.' });
+  const out = ids.map(id => offerStandby(id, date, req)).filter(Boolean);
+  json(res, 200, { ok: true, offered: out.length });
+});
+
+route('POST', /^\/api\/admin\/standby\/(\d+)\/release$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const s = db.prepare('SELECT * FROM standby WHERE id = ?').get(Number(m[1]));
+  if (!s) return json(res, 404, { error: 'Not found.' });
+  db.prepare("UPDATE standby SET status = 'released' WHERE id = ?").run(s.id);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/standby\/fill$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const r = standbySweep(req, Number(body.days) || 14);
+  json(res, 200, { ok: true, ...r });
+});
+
+/* SCHADS moves every 1 July — this is a form field, not a deploy */
+route('POST', /^\/api\/admin\/oncall-rates$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const w = Number(body.weekday), o = Number(body.other);
+  if (!(w > 0 && w < 500) || !(o > 0 && o < 500)) return json(res, 400, { error: 'Both allowances need to be a sensible dollar figure.' });
+  setSetting('oncall_weekday', w.toFixed(2));
+  setSetting('oncall_other', o.toFixed(2));
+  setSetting('standby_ratio', String(Math.max(1, Math.min(50, Number(body.ratio) || 8))));
+  setSetting('standby_horizon', String(Math.max(1, Math.min(28, Number(body.horizon) || 10))));
+  json(res, 200, { ok: true, rates: oncallRates() });
+});
+
 /* ---------- static files ---------- */
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 function serveStatic(req, res, pathname) {
@@ -2374,6 +3551,12 @@ const server = http.createServer((req, res) => {
   }
 
   /* emailed verification links land here, then bounce into the app */
+  /* one-tap cover + standby answers from an email — signed, no login needed */
+  if (pathname === '/cover' && req.method === 'GET') {
+    try { return handleCoverLink(req, res, url); }
+    catch (e) { console.error(e); res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(coverPage('Something went wrong', '<p>Please open BookIt and answer from your shifts page.</p>', 'Open BookIt', '/#/bookings', 'bad')); }
+  }
+
   if (pathname === '/verify-email' && req.method === 'GET') {
     const u = readEmailToken('v', url.searchParams.get('token') || '');
     if (u) db.prepare('UPDATE users SET verified = 1 WHERE id = ?').run(u.id);
