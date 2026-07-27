@@ -113,6 +113,11 @@ for (const col of ['photo TEXT DEFAULT \'\'', 'photo_at TEXT DEFAULT \'\'']) {
 for (const col of ['stripe_session TEXT', 'pay_url TEXT']) {
   try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
 }
+/* migration (scope build): what a participant asked for, what they told us about high-intensity
+   supports, and how we handled it. Kept on users so it travels with the account, not the booking. */
+for (const col of ["svc_interest TEXT DEFAULT '[]'", "hi_flags TEXT DEFAULT '[]'", "hi_at TEXT DEFAULT ''", "hi_referred_at TEXT DEFAULT ''", "hi_note TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+}
 /* compliance build: credentials + incident + complaint registers */
 db.exec(`
   CREATE TABLE IF NOT EXISTS worker_docs (
@@ -176,6 +181,28 @@ db.exec(`
     created TEXT NOT NULL
   );
 `);
+/* shift notes build: the record that a support was actually delivered.
+   Append-only on purpose. A worker who needs to correct a note adds an addendum
+   (addendum = 1) — nothing is ever edited or deleted, because a progress note
+   that can be quietly rewritten afterwards is not evidence of anything. */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS shift_notes (
+    id INTEGER PRIMARY KEY,
+    booking_id INTEGER NOT NULL REFERENCES bookings(id),
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    participant_id INTEGER NOT NULL REFERENCES users(id),
+    body TEXT NOT NULL,
+    scope_flag INTEGER DEFAULT 0,
+    scope_detail TEXT DEFAULT '',
+    addendum INTEGER DEFAULT 0,
+    reviewed_at TEXT,
+    reviewed_by TEXT DEFAULT '',
+    review_note TEXT DEFAULT '',
+    created TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_shift_notes_booking ON shift_notes(booking_id);
+  CREATE INDEX IF NOT EXISTS idx_shift_notes_participant ON shift_notes(participant_id);
+`);
 /* SIL rosters build: shared-living houses with weekly repeating shift slots */
 db.exec(`
   CREATE TABLE IF NOT EXISTS sil_houses (
@@ -232,6 +259,28 @@ if (bkDef && !bkDef.sql.includes("'completed'")) {
 /* ---------- helpers ---------- */
 const now = () => new Date().toISOString();
 const SERVICES = ['employment','personal-care','transport','daily-tasks','household','community'];
+/* The eight supports in NDIS Practice Standards Supplementary Module 1 — High Intensity Daily
+   Personal Activities, registration group 0104. DMHC holds 0107, not 0104, so BookIt does not
+   deliver any of these: we introduce the participant to a provider who is registered for them.
+   Asked at signup so a mismatch surfaces before a shift is booked rather than when a support
+   worker is already standing in someone's bathroom.
+   Note the catheter wording: emptying a leg bag and hygiene around an established catheter is
+   ordinary personal care under 0107. Only inserting, changing or irrigating one is Module 1 —
+   the label has to say so, or every participant with a catheter ticks a box they shouldn't. */
+const HI_SUPPORTS = [
+  { key: 'bowel',      label: 'Complex bowel care' },
+  { key: 'enteral',    label: 'PEG or tube (enteral) feeding' },
+  { key: 'dysphagia',  label: 'Dysphagia — help managing swallowing difficulties' },
+  { key: 'ventilator', label: 'Ventilator support' },
+  { key: 'trach',      label: 'Tracheostomy management' },
+  { key: 'catheter',   label: 'Urinary catheter management — inserting, changing or irrigating' },
+  { key: 'injections', label: 'Subcutaneous injections' },
+  { key: 'wounds',     label: 'Complex wound management' }
+];
+const HI_KEYS = HI_SUPPORTS.map(x => x.key);
+const hiLabel = k => (HI_SUPPORTS.find(x => x.key === k) || {}).label || k;
+const hiFrom = body => (Array.isArray(body && body.hi_flags) ? [...new Set(body.hi_flags)] : []).filter(k => HI_KEYS.includes(k));
+const safeJson = (v, fallback) => { try { const x = JSON.parse(v); return Array.isArray(x) ? x : fallback; } catch { return fallback; } };
 const RATES = [
   { label: 'Weekday daytime', you: 73.58, worker: 53.25 },
   { label: 'Weekday evening', you: 81.07, worker: 58.70 },
@@ -409,8 +458,9 @@ function makeSession(uid) {
 /* the user object handed to routes and returned by /api/me — includes the worker's
    photo url + live (visible) flag so the front-end account menu can show them */
 function sessionUser(uid) {
-  const u = db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email FROM users WHERE id = ?').get(Number(uid));
+  const u = db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email, hi_flags, hi_at, hi_referred_at FROM users WHERE id = ?').get(Number(uid));
   if (!u) return null;
+  u.hi_flags = safeJson(u.hi_flags, []);
   if (u.role === 'worker') {
     const p = db.prepare('SELECT photo, photo_at, visible FROM worker_profiles WHERE user_id = ?').get(u.id);
     u.photo = p && p.photo ? `/photos/${u.id}?v=${encodeURIComponent(p.photo_at || '')}` : null;
@@ -871,6 +921,52 @@ route('GET', /^\/api\/me$/, (req, res, m, user) => json(res, 200, {
   demo: Boolean(db.prepare("SELECT id FROM users WHERE email LIKE '%@demo.bookit.life' LIMIT 1").get())
 }));
 
+/* Someone has told us they need a support we are not registered to deliver. Nobody should find
+   that out from a roster — mail the office the moment it is said, and leave it open in admin
+   until a human records what was discussed. */
+function hiAlert(req, who, flags, when) {
+  if (!MAIL_FROM) return;
+  sendMail(MAIL_FROM, 'High-intensity supports declared — BookIt',
+    'Someone has asked for supports we are not registered to deliver',
+    `<p><b>${escHtml(who.name)}</b> (${escHtml(who.email)}${who.suburb ? ', ' + escHtml(who.suburb) : ''}) told us ${escHtml(when)} that they need:</p>
+     <ul>${flags.map(k => `<li>${escHtml(hiLabel(k))}</li>`).join('')}</ul>
+     <p>These sit inside NDIS Practice Standards Supplementary Module 1 — high intensity daily personal activities, registration group <b>0104</b>. Disability &amp; Mental Health Care is registered for 0107, not 0104, so BookIt does not deliver them.</p>
+     <p><b>Call them before any shift is booked.</b> Everything else on their plan we can still support. For these supports, introduce them to a provider registered for 0104 and let them engage that provider directly — then record what was discussed in the admin dashboard, which closes the flag.</p>`,
+    'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
+}
+
+/* ---------- shift notes ----------
+   A note is written at the end of the shift, by the person who did it, and it is
+   what an auditor samples to see that the support happened as agreed. Keeping the
+   bar low is deliberate: a note nobody can face writing is a note nobody writes. */
+const NOTE_MIN = 20, NOTE_MAX = 4000, SCOPE_MIN = 10;
+function noteProblem(note) {
+  if (!note) return 'Please write a shift note before you mark the shift completed — it\'s the record that the support happened.';
+  if (note.length < NOTE_MIN) return `A few more words, please — what you did together and how it went (at least ${NOTE_MIN} characters).`;
+  return '';
+}
+function scopeProblem(scope, detail) {
+  if (!scope) return '';
+  if (detail.length < SCOPE_MIN) return 'Tell us what you were asked to do — a sentence is plenty.';
+  return '';
+}
+/* A worker flagging an out-of-scope request is the early warning the front-door
+   screening question can't give us: it catches needs that appear after sign-up. */
+function scopeAlert(req, bk, workerName, partName, detail) {
+  if (!MAIL_FROM) return;
+  sendMail(MAIL_FROM, 'Out-of-scope request flagged on a shift — BookIt',
+    'A worker was asked to do something outside their scope',
+    `<p><b>${escHtml(workerName)}</b> has flagged their <b>${SERVICE_LABELS[bk.service] || escHtml(bk.service)}</b> shift with <b>${escHtml(partName)}</b> on <b>${prettyDate(bk.date)}</b>.</p>
+     <p><b>What they were asked to do:</b></p>
+     <blockquote style="margin:0;padding:8px 14px;border-left:3px solid #D94F32;background:#FDF6EC;">${escHtml(detail)}</blockquote>
+     <p><b>Call the worker today.</b> If what was asked sits inside high intensity daily personal activities (registration group <b>0104</b>) then BookIt doesn't deliver it — introduce the participant to a provider registered for 0104 and record that against their account.</p>
+     <p>If it actually happened rather than only being asked for, it belongs in the incident register too.</p>`,
+    'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
+}
+
+/* the canonical Module 1 list, so the sign-up form and the account page can never drift from it */
+route('GET', /^\/api\/high-intensity$/, (req, res) => json(res, 200, { supports: HI_SUPPORTS }));
+
 route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
   if (limited(ip, 'register', 15)) return json(res, 429, { error: 'Too many attempts — try again later.' });
   const role = body.role === 'worker' ? 'worker' : 'participant';
@@ -884,11 +980,14 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
   if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) return json(res, 409, { error: 'That email already has an account — try logging in.' });
   const ndisNum = /^\d{9}$/.test(clean(body.ndis_number, 12)) ? clean(body.ndis_number, 12) : '';
   const pmEmail = EMAIL_RE.test(clean(body.pm_email, 120)) ? clean(body.pm_email, 120).toLowerCase() : '';
-  const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, ndis_number, pm_email, created) VALUES (?,?,?,?,?,?,?,?,?,?)')
-    .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), clean(body.plan, 30), ndisNum, pmEmail, now());
+  const services = Array.isArray(body.services) ? body.services.filter(s => SERVICES.includes(s)).slice(0, 6) : [];
+  const hiFlags = role === 'participant' ? hiFrom(body) : [];
+  const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, ndis_number, pm_email, svc_interest, hi_flags, hi_at, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), clean(body.plan, 30), ndisNum, pmEmail,
+         JSON.stringify(services), JSON.stringify(hiFlags), hiFlags.length ? now() : '', now());
   const uid = Number(r.lastInsertRowid);
+  if (hiFlags.length) hiAlert(req, { id: uid, name, email, suburb }, hiFlags, 'at signup');
   if (role === 'worker') {
-    const services = Array.isArray(body.services) ? body.services.filter(s => SERVICES.includes(s)).slice(0, 6) : [];
     /* vetting: new workers start hidden (visible = 0) until an admin approves them */
     db.prepare('INSERT INTO worker_profiles (user_id, bio, services, visible) VALUES (?,?,?,0)')
       .run(uid, clean(body.bio, 600), JSON.stringify(services));
@@ -926,6 +1025,24 @@ route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
   db.prepare('UPDATE users SET plan = ?, ndis_number = ?, pm_email = ? WHERE id = ?').run(plan || user.plan, nd, pm, user.id);
   const me = sessionUser(user.id);
   json(res, 200, { user: me });
+});
+
+/* a participant's own declaration — they can add to it or correct it whenever they like.
+   Changing what was declared reopens the flag, because the last conversation was about
+   something else; re-saving the same answer leaves the recorded referral alone. */
+route('POST', /^\/api\/me\/high-intensity$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'participant') return json(res, 403, { error: 'Only participants have a support-needs declaration.' });
+  const flags = hiFrom(body);
+  const row = db.prepare('SELECT hi_flags, hi_referred_at FROM users WHERE id = ?').get(user.id) || {};
+  const before = safeJson(row.hi_flags, []);
+  const changed = before.slice().sort().join(',') !== flags.slice().sort().join(',');
+  if (!changed) return json(res, 200, { user: sessionUser(user.id), unchanged: true });
+  db.prepare('UPDATE users SET hi_flags = ?, hi_at = ?, hi_referred_at = ?, hi_note = ? WHERE id = ?')
+    .run(JSON.stringify(flags), flags.length ? now() : '', '', '', user.id);
+  const added = flags.filter(k => !before.includes(k));
+  if (added.length) hiAlert(req, user, flags, 'from their account page');
+  json(res, 200, { user: sessionUser(user.id), flagged: flags.length > 0 });
 });
 
 /* ---------- email flows: forgot / reset / verify ---------- */
@@ -994,7 +1111,10 @@ route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
     billed: Math.round(db.prepare("SELECT COALESCE(SUM(total), 0) AS s FROM bookings WHERE status = 'completed'").get().s * 100) / 100,
     open_incidents: db.prepare("SELECT COUNT(*) AS n FROM incidents WHERE status != 'closed'").get().n,
     urgent_incidents: db.prepare("SELECT COUNT(*) AS n FROM incidents WHERE reportable = 1 AND commission_notified_at IS NULL AND status != 'closed'").get().n,
-    open_complaints: db.prepare("SELECT COUNT(*) AS n FROM complaints WHERE status != 'resolved'").get().n
+    open_complaints: db.prepare("SELECT COUNT(*) AS n FROM complaints WHERE status != 'resolved'").get().n,
+    hi_open: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'participant' AND COALESCE(hi_flags,'[]') NOT IN ('[]','') AND COALESCE(hi_referred_at,'') = ''").get().n,
+    notes_flagged: db.prepare('SELECT COUNT(*) AS n FROM shift_notes WHERE scope_flag = 1 AND reviewed_at IS NULL').get().n,
+    notes_total: db.prepare('SELECT COUNT(*) AS n FROM shift_notes').get().n
   };
   const launch = {
     gate: Boolean(SITE_PASSWORD),
@@ -1008,7 +1128,15 @@ route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
     up.name AS participant_name, uw.name AS worker_name FROM bookings b
     JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id ORDER BY b.id DESC LIMIT 50`).all();
   const contacts = db.prepare('SELECT id, name, email, topic, body, created FROM contact_messages ORDER BY id DESC LIMIT 50').all();
-  json(res, 200, { counts, pending, users, bookings, contacts, launch });
+  /* open ones first — an unanswered declaration is the one that can put a worker somewhere they shouldn't be */
+  const highIntensity = db.prepare(`SELECT id, name, email, phone, suburb, plan, created, svc_interest, hi_flags, hi_at, hi_referred_at, hi_note
+    FROM users WHERE role = 'participant' AND (COALESCE(hi_flags,'[]') NOT IN ('[]','') OR COALESCE(hi_note,'') <> '')
+    ORDER BY (COALESCE(hi_referred_at,'') = '') DESC, id DESC`).all()
+    .map(r => {
+      const flags = safeJson(r.hi_flags, []);
+      return { ...r, hi_flags: flags, hi_labels: flags.map(hiLabel), svc_interest: safeJson(r.svc_interest, []) };
+    });
+  json(res, 200, { counts, pending, users, bookings, contacts, launch, high_intensity: highIntensity });
 });
 
 /* launch sweep — permanently removes every demo account and everything they touched.
@@ -1026,6 +1154,7 @@ route('POST', /^\/api\/admin\/launch-sweep$/, (req, res, m, user, body) => {
     db.prepare(`DELETE FROM conversations WHERE id IN (${cph})`).run(...convos);
   }
   db.prepare(`DELETE FROM reviews WHERE participant_id IN (${ph}) OR worker_id IN (${ph})`).run(...demoIds, ...demoIds);
+  db.prepare(`DELETE FROM shift_notes WHERE participant_id IN (${ph}) OR worker_id IN (${ph})`).run(...demoIds, ...demoIds);
   const bk = db.prepare(`DELETE FROM bookings WHERE participant_id IN (${ph}) OR worker_id IN (${ph})`).run(...demoIds, ...demoIds);
   db.prepare(`DELETE FROM worker_docs WHERE worker_id IN (${ph})`).run(...demoIds);
   db.prepare(`DELETE FROM worker_profiles WHERE user_id IN (${ph})`).run(...demoIds);
@@ -1075,6 +1204,27 @@ function invoiceRows() {
     FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id
     WHERE b.status = 'completed' ORDER BY b.date DESC, b.id DESC`).all();
 }
+/* Record what was actually discussed with someone who declared a high-intensity support.
+   The note IS the record — an auditor asking "what did you do when someone asked for a support
+   you're not registered for?" gets a dated line with a name against it. */
+route('POST', /^\/api\/admin\/participants\/(\d+)\/high-intensity$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const id = Number(m[1]);
+  const p = db.prepare("SELECT id, name FROM users WHERE id = ? AND role = 'participant'").get(id);
+  if (!p) return json(res, 404, { error: 'Participant not found.' });
+  const note = clean(body.note, 500);
+  if (body.clear) {
+    if (!note) return json(res, 400, { error: 'Say why it is being cleared — "ticked in error, confirmed by phone 21/07" is enough.' });
+    db.prepare("UPDATE users SET hi_flags = '[]', hi_at = '', hi_referred_at = ?, hi_note = ? WHERE id = ?").run(now(), note, id);
+    console.log(`HIGH-INTENSITY flag cleared by ${user.email} for participant ${id}`);
+    return json(res, 200, { ok: true, cleared: true });
+  }
+  if (!note) return json(res, 400, { error: 'Write a line about what was discussed and who they were introduced to — that line is the record.' });
+  db.prepare('UPDATE users SET hi_referred_at = ?, hi_note = ? WHERE id = ?').run(now(), note, id);
+  console.log(`HIGH-INTENSITY referral recorded by ${user.email} for participant ${id}`);
+  json(res, 200, { ok: true });
+});
+
 route('GET', /^\/api\/admin\/invoices$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const rows = invoiceRows();
@@ -1796,7 +1946,8 @@ route('GET', /^\/api\/bookings$/, (req, res, m, user) => {
   const otherCol = user.role === 'participant' ? 'worker_id' : 'participant_id';
   const rows = db.prepare(`SELECT b.*, u.name AS other_name,
       COALESCE(p.color, '#0E6B62') AS other_color,
-      (SELECT COUNT(*) FROM reviews r WHERE r.booking_id = b.id) AS reviewed
+      (SELECT COUNT(*) FROM reviews r WHERE r.booking_id = b.id) AS reviewed,
+      (SELECT COUNT(*) FROM shift_notes n WHERE n.booking_id = b.id) AS note_count
     FROM bookings b
     JOIN users u ON u.id = b.${otherCol}
     LEFT JOIN worker_profiles p ON p.user_id = u.id
@@ -1858,20 +2009,128 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
       'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
     return json(res, 200, { ok: true });
   }
-  /* worker marks an accepted shift as completed (on/after the shift date) → invoice line is born */
+  /* worker marks an accepted shift as completed (on/after the shift date) → invoice line is born.
+     The shift note is written here rather than "some time later", and the shift can't be
+     completed without one — which means it can't be invoiced or claimed without one either.
+     Welding the note to the money is the only version of this that doesn't need chasing. */
   if (user.role === 'worker' && b.worker_id === user.id && status === 'completed' && b.status === 'accepted') {
     const today = new Date().toISOString().slice(0, 10);
     if (b.date > today) return json(res, 400, { error: 'You can mark a shift completed on the day of the shift or after — this one hasn\'t happened yet.' });
+    const note = clean(body.note, NOTE_MAX);
+    const noteBad = noteProblem(note);
+    if (noteBad) return json(res, 400, { error: noteBad });
+    const scope = body.scope ? 1 : 0;
+    const scopeDetail = clean(body.scope_detail, NOTE_MAX);
+    const scopeBad = scopeProblem(scope, scopeDetail);
+    if (scopeBad) return json(res, 400, { error: scopeBad });
     const inv = applyInvoice(b.id, suggestCategory(b));
     db.prepare('UPDATE bookings SET status = ?, completed_at = ? WHERE id = ?').run('completed', now(), b.id);
+    db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,0,?)')
+      .run(b.id, user.id, b.participant_id, note, scope, scopeDetail, now());
     const pu2 = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
+    if (scope) scopeAlert(req, b, user.name, pu2 ? pu2.name : `participant #${b.participant_id}`, scopeDetail);
     if (pu2 && inv) sendMail(pu2.email, 'Shift completed — BookIt',
       `Shift completed, ${firstName(pu2.name)}`,
-      `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${inv.qty === 1 && inv.category === 'sleepover' ? '1 night (flat)' : `${b.hours} hours ×`} $${inv.unit_price.toFixed(2)}</b> (${inv.label} — 2026–27 NDIS price limit) = <b>$${inv.total.toFixed(2)}</b>.</p><p>If anything about this shift doesn't look right, just reply to this email and we'll sort it out before it's claimed.</p>`,
-      'View my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+      `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${inv.qty === 1 && inv.category === 'sleepover' ? '1 night (flat)' : `${b.hours} hours ×`} $${inv.unit_price.toFixed(2)}</b> (${inv.label} — 2026–27 NDIS price limit) = <b>$${inv.total.toFixed(2)}</b>.</p><p><b>${firstName(user.name)} has written a shift note</b> about how it went — you can read it on your bookings page.</p><p>If anything about this shift doesn't look right, just reply to this email and we'll sort it out before it's claimed.</p>`,
+      'Read the shift note', `${baseUrl(req)}/#/bookings`).catch(() => {});
     return json(res, 200, { ok: true, invoice: inv });
   }
   json(res, 403, { error: 'That change isn\'t allowed.' });
+});
+
+/* ---------- shift notes: read them, add to them, never rewrite them ---------- */
+function noteRows(bookingId) {
+  return db.prepare(`SELECT n.id, n.body, n.scope_flag, n.scope_detail, n.addendum, n.created, n.reviewed_at, u.name AS worker_name
+    FROM shift_notes n JOIN users u ON u.id = n.worker_id
+    WHERE n.booking_id = ? ORDER BY n.id ASC`).all(bookingId);
+}
+
+/* the participant and their worker can both read the notes on their own shift.
+   Participants seeing what was written about them is the point, not a risk. */
+route('GET', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = db.prepare('SELECT participant_id, worker_id FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'Booking not found.' });
+  if (b.participant_id !== user.id && b.worker_id !== user.id && !user.admin) return json(res, 403, { error: 'That isn\'t your booking.' });
+  json(res, 200, { notes: noteRows(Number(m[1])) });
+});
+
+/* an addendum, never an edit — the original note stays exactly as written */
+route('POST', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 403, { error: 'Only the worker who did the shift can add to its notes.' });
+  if (limited(ip, 'note', 40)) return json(res, 429, { error: 'Slow down a moment.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ? AND worker_id = ?').get(Number(m[1]), user.id);
+  if (!b) return json(res, 404, { error: 'No such booking.' });
+  if (b.status !== 'completed') return json(res, 400, { error: 'You can add to the notes once the shift is marked completed.' });
+  const note = clean(body.note, NOTE_MAX);
+  const noteBad = noteProblem(note);
+  if (noteBad) return json(res, 400, { error: noteBad });
+  const scope = body.scope ? 1 : 0;
+  const scopeDetail = clean(body.scope_detail, NOTE_MAX);
+  const scopeBad = scopeProblem(scope, scopeDetail);
+  if (scopeBad) return json(res, 400, { error: scopeBad });
+  const r = db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,1,?)')
+    .run(b.id, user.id, b.participant_id, note, scope, scopeDetail, now());
+  if (scope) {
+    const pu = db.prepare('SELECT name FROM users WHERE id = ?').get(b.participant_id);
+    scopeAlert(req, b, user.name, pu ? pu.name : `participant #${b.participant_id}`, scopeDetail);
+  }
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
+});
+
+/* admin: flagged notes float to the top, because those are the ones that need a phone call */
+route('GET', /^\/api\/admin\/shift-notes$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const notes = db.prepare(`SELECT n.id, n.booking_id, n.body, n.scope_flag, n.scope_detail, n.addendum, n.created,
+      n.reviewed_at, n.reviewed_by, n.review_note,
+      b.service, b.date, b.start, b.hours,
+      uw.name AS worker_name, up.id AS participant_id, up.name AS participant_name
+    FROM shift_notes n
+    JOIN bookings b ON b.id = n.booking_id
+    JOIN users uw ON uw.id = n.worker_id
+    JOIN users up ON up.id = n.participant_id
+    ORDER BY (n.scope_flag = 1 AND n.reviewed_at IS NULL) DESC, n.id DESC LIMIT 80`).all();
+  const people = db.prepare(`SELECT up.id, up.name, COUNT(*) AS notes, MAX(b.date) AS last_shift
+    FROM shift_notes n JOIN bookings b ON b.id = n.booking_id JOIN users up ON up.id = n.participant_id
+    GROUP BY up.id ORDER BY up.name`).all();
+  json(res, 200, { notes, people, flagged_open: notes.filter(r => r.scope_flag && !r.reviewed_at).length });
+});
+
+/* closing a flag records who dealt with it and what they did — the note is the whole point */
+route('POST', /^\/api\/admin\/shift-notes\/(\d+)\/review$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const n = db.prepare('SELECT id FROM shift_notes WHERE id = ?').get(Number(m[1]));
+  if (!n) return json(res, 404, { error: 'No such note.' });
+  const outcome = clean(body.note, 800);
+  if (outcome.length < 5) return json(res, 400, { error: 'Write what you did about it — that record is the point.' });
+  db.prepare('UPDATE shift_notes SET reviewed_at = ?, reviewed_by = ?, review_note = ? WHERE id = ?').run(now(), user.email, outcome, n.id);
+  json(res, 200, { ok: true });
+});
+
+/* one participant's whole note history as a file — this is the thing an auditor asks for */
+route('GET', /^\/api\/admin\/participants\/(\d+)\/notes\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const pid = Number(m[1]);
+  const p = db.prepare("SELECT name FROM users WHERE id = ? AND role = 'participant'").get(pid);
+  if (!p) return json(res, 404, { error: 'No such participant.' });
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = db.prepare(`SELECT n.booking_id, n.body, n.scope_flag, n.scope_detail, n.addendum, n.created,
+      n.reviewed_at, n.reviewed_by, n.review_note, b.service, b.date, b.start, b.hours, uw.name AS worker_name
+    FROM shift_notes n JOIN bookings b ON b.id = n.booking_id JOIN users uw ON uw.id = n.worker_id
+    WHERE n.participant_id = ? ORDER BY b.date ASC, n.id ASC`).all(pid);
+  const lines = [['Shift ID', 'Date', 'Start', 'Hours', 'Service', 'Registration group', 'Worker', 'Entry',
+    'Shift note', 'Out-of-scope request flagged', 'What was asked for', 'Written at', 'Reviewed at', 'Reviewed by', 'What we did about it'].map(q).join(',')];
+  for (const r of rows) {
+    lines.push([r.booking_id, dmy(r.date), r.start, r.hours, SERVICE_LABELS[r.service] || r.service, REG_GROUPS[r.service] || '',
+      r.worker_name, r.addendum ? 'Addendum' : 'Shift note', r.body, r.scope_flag ? 'Yes' : 'No', r.scope_detail,
+      r.created, r.reviewed_at || '', r.reviewed_by || '', r.review_note || ''].map(q).join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-shift-notes-${p.name.replace(/[^A-Za-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end('\ufeff' + lines.join('\r\n'));
 });
 
 /* post-shift review: one per completed booking, written by the participant */
