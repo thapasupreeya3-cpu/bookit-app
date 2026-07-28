@@ -1181,8 +1181,8 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
         <div class="cc-head">Weekday daytime · per hour</div>
         <div class="cc-body">
           <div class="compare-row"><span>You pay <small>(the 2026–27 NDIS price limit)</small></span><b style="font-size:1.5rem;color:var(--teal);">$73.58</b></div>
-          <div class="compare-row"><span>Your worker earns <small>(incl. super)</small></span><b>$53.35 &ndash; $56.29</b></div>
-          <div class="compare-row"><span>Worker's share with us</span><b class="good">72.5% &ndash; 76.5%</b></div>
+          <div class="compare-row"><span>Your worker earns <small>(incl. super)</small></span><b id="ccEarns">$53.35 &ndash; $56.29</b></div>
+          <div class="compare-row"><span>Worker's share with us</span><b class="good" id="ccShare">72.5% &ndash; 76.5%</b></div>
           <div class="compare-row"><span>Typical agency worker share</span><b>55–60%</b></div>
         </div>
       </div>
@@ -1902,7 +1902,44 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
           <tbody><!-- filled by JS --></tbody>
         </table>
       </div>
-      <p class="tbl-note">Rates sit above the SCHADS Award for comparable classifications. Sleepovers pay a flat allowance per night plus active-hour rates. A per-kilometre vehicle allowance applies when you drive clients during shifts.</p>
+      <p class="tbl-note">Rates sit above the SCHADS Award for comparable classifications. Sleepovers pay a flat allowance per night plus active-hour rates. A per-kilometre vehicle allowance applies when you drive clients during shifts. The two columns above are the bottom and the top of the pay ladder &mdash; here's how you move between them.</p>
+    </div>
+  </section>
+
+  <section class="block" id="blockLadder" style="background:var(--card);">
+    <div class="container">
+      <span class="kicker">The pay ladder</span>
+      <h2 class="mb-2">Your share goes up the longer you stay</h2>
+      <p class="lead">You're paid a share of what the NDIS pays for the hour &mdash; not a rate we invented, and not what's left over after we've taken ours. That share starts at <b id="plFrom">72.5%</b> and rises to <b id="plTo">76.5%</b> as your hours add up. Four rungs, the same for everyone, thresholds published right here.</p>
+      <div class="pl-grid" id="plGrid"></div>
+      <p class="tbl-note" id="plNote">Dollar figures are one weekday daytime hour including 12% superannuation. Every other rate &mdash; evenings, nights, Saturdays, Sundays, public holidays &mdash; moves by the same percentage, so the whole table above lifts with you.</p>
+      <div class="pl-rules">
+        <div class="pl-rule">
+          <h4>Hours are counted over a rolling year</h4>
+          <p>Not since you joined, and not since January &mdash; the twelve months behind you, recalculated every month. A break doesn't send you back to the start.</p>
+        </div>
+        <div class="pl-rule">
+          <h4>You move up straight away</h4>
+          <p>Cross the line and the very next shift you accept is priced at the new share. Nobody has to nominate you and there's no review to wait for.</p>
+        </div>
+        <div class="pl-rule">
+          <h4>Moving down is slow, and you'll see it coming</h4>
+          <p>You'd have to sit under the threshold for 90 days first. Then it's one rung, with 28 days' written notice, and never more than one rung in a 90-day period. There is no button in our system that lowers anyone's tier by hand.</p>
+        </div>
+        <div class="pl-rule">
+          <h4>The clock stops for leave</h4>
+          <p>Parental leave, carer's leave, workers compensation, long-term illness &mdash; your hours are frozen where they are, not counted as zero. Breaking your wrist should not cost you your pay rate.</p>
+        </div>
+        <div class="pl-rule">
+          <h4>The Award is a floor under all of it</h4>
+          <p>On a few supports the NDIS price limit is low enough that a percentage of it would fall under the SCHADS minimum for your classification. When that happens we pay the Award, not the share &mdash; and your payslip says which one you got.</p>
+        </div>
+        <div class="pl-rule">
+          <h4>Super, penalties and cover on top</h4>
+          <p>Superannuation at 12% is included in every figure on this page. Evening, night, weekend and public holiday penalty rates are on top of your share, as is the per-kilometre allowance when you drive.</p>
+        </div>
+      </div>
+      <div class="mt-3"><a href="#/get-started" class="btn btn-coral btn-lg">Apply now &mdash; it's free</a></div>
     </div>
   </section>
 
@@ -2490,6 +2527,26 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
   .tier-flag{margin-top:13px;border-radius:12px;padding:11px 14px;font-size:.88rem;line-height:1.55;}
   .tier-flag.warn{background:#FDF0EC;border:1.5px solid #E7B4A5;}
   .tier-flag.calm{background:#EAF5F3;border:1.5px solid #A9D5CD;}
+  /* the ladder as a public recruitment page. Same four rungs as the worker's own
+     card, but nobody is logged in — so no progress bar, no "you", and the hour
+     thresholds are stated as published facts rather than a distance to travel. */
+  .pl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));gap:14px;margin:24px 0 0;}
+  .pl-rung{border:2px solid #E7DFD4;border-radius:18px;padding:18px 20px;background:#fff;}
+  .pl-rung h3{margin:0 0 2px;font-size:1.08rem;letter-spacing:-.2px;}
+  .pl-dot{width:13px;height:13px;border-radius:50%;display:inline-block;margin-right:8px;vertical-align:0;}
+  .pl-when{margin:0 0 13px;font-size:.82rem;color:#3E5A64;}
+  .pl-rate{font-size:1.66rem;font-weight:800;color:#0E6B62;letter-spacing:-1px;line-height:1.1;}
+  .pl-rate small{display:block;font-size:.76rem;font-weight:500;color:#3E5A64;letter-spacing:0;margin-top:4px;line-height:1.45;}
+  .pl-share{margin:11px 0 0;font-size:.85rem;color:#3E5A64;line-height:1.5;}
+  .pl-share b{color:#17313A;}
+  .pl-b{border-color:#C08A5B;} .pl-b .pl-dot{background:#C08A5B;}
+  .pl-s{border-color:#9AA7AD;} .pl-s .pl-dot{background:#9AA7AD;}
+  .pl-g{border-color:#D9A62B;} .pl-g .pl-dot{background:#D9A62B;}
+  .pl-p{border-color:#0E6B62;background:linear-gradient(180deg,#EAF5F3,#fff 70%);} .pl-p .pl-dot{background:#0E6B62;}
+  .pl-rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:18px 26px;margin-top:30px;}
+  .pl-rule{border-left:3px solid #0E6B62;padding:1px 0 1px 16px;}
+  .pl-rule h4{margin:0 0 5px;font-size:.99rem;}
+  .pl-rule p{margin:0;font-size:.9rem;line-height:1.65;color:#3E5A64;}
   /* admin ladder board */
   .lad-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-bottom:14px;}
   .lad-rung{border:2px solid #E7DFD4;border-radius:16px;padding:14px 16px;background:#fff;}
@@ -2910,6 +2967,11 @@ let RATES = [
 const $ = (s, el=document) => el.querySelector(s);
 const $$ = (s, el=document) => [...el.querySelectorAll(s)];
 const money = n => '$' + n.toFixed(2);
+/* Lives up here with the other one-line formatters rather than down in the messaging
+   section where it started. `const` is not hoisted, so anything that runs during
+   script-init — the public rate tables and the pay ladder both do — hits the temporal
+   dead zone and throws, which kills the whole inline script and blanks every page. */
+const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SVC_NAME = Object.fromEntries(SERVICES.map(s => [s.slug, s.name]));
 /* The eight supports in NDIS Practice Standards Supplementary Module 1 (high intensity daily
    personal activities, registration group 0104). DMHC holds 0107, not 0104, so BookIt screens
@@ -3211,15 +3273,64 @@ function renderRateTables(){
     <td>${money(r.worker_top || r.worker)}${r.award_floored ? ' <small>(award floor)</small>' : ''}</td>
     <td>${money(r.worker / 1.12)}</td>
   </tr>`).join('');
+
+  renderPublicLadder();
+}
+
+/* The ladder on the recruitment page. Driven by /api/rates, so when the shares or
+   the hour bands are changed on the admin board the page that promises them
+   changes with it — a published pay ladder that drifts from the one being paid is
+   worse than not publishing one at all. The seed below only holds the page steady
+   for the split second before the fetch lands, and while the site is offline. */
+let LADDER = [
+  { key:'bronze',   label:'Bronze',   sub:'Starter',   share:72.5, band:0 },
+  { key:'silver',   label:'Silver',   sub:'Regular',   share:74,   band:200 },
+  { key:'gold',     label:'Gold',     sub:'Committed', share:75.5, band:600 },
+  { key:'platinum', label:'Platinum', sub:'Career',    share:76.5, band:1200 }
+];
+function renderPublicLadder(){
+  const g = $('#plGrid'); if(!g) return;
+  const wd = RATES.find(r => r.category === 'weekday-day') || { you: 73.58 };
+  const cls = { bronze:'pl-b', silver:'pl-s', gold:'pl-g', platinum:'pl-p' };
+  g.innerHTML = LADDER.map((t, i) => `
+    <div class="pl-rung ${cls[t.key] || ''}">
+      <h3><span class="pl-dot"></span>${esc(t.label)}</h3>
+      <p class="pl-when">${t.band ? `from ${t.band.toLocaleString()} hours` : 'from your first shift'}${t.sub ? ` &middot; ${esc(t.sub)}` : ''}</p>
+      <div class="pl-rate">${money(wd.you * t.share / 100)}<small>an hour, weekday daytime, incl. super</small></div>
+      <p class="pl-share"><b>${t.share}%</b> of everything the NDIS pays for your hour${
+        i ? `<br>&plus;${(t.share - LADDER[i-1].share).toFixed(1)} points on ${esc(LADDER[i-1].label)}` : ''}</p>
+    </div>`).join('');
+  const a = $('#plFrom'), b = $('#plTo');
+  if(a) a.textContent = LADDER[0].share + '%';
+  if(b) b.textContent = LADDER[LADDER.length - 1].share + '%';
+  /* the home-page comparison card quotes the same two numbers. It used to carry
+     them as literal text, which is fine right up until somebody moves a share on
+     the admin board and the front page starts advertising a rate nobody is paid. */
+  const lo = LADDER[0].share, hi = LADDER[LADDER.length - 1].share;
+  const cs = $('#ccShare'); if(cs) cs.innerHTML = `${lo}% &ndash; ${hi}%`;
+  const ce = $('#ccEarns');
+  if(ce) ce.innerHTML = `${money(Math.max(wd.worker || 0, wd.you * lo / 100))} &ndash; ${money(Math.max(wd.worker_top || 0, wd.you * hi / 100))}`;
 }
 renderRateTables();
 
 /* Hydrate from the server when it's there. The tables above are a static
-   preview so the page is right before the JS lands; this makes them exact. */
+   preview so the page is right before the JS lands; this makes them exact.
+
+   Deliberately a bare fetch and not API.call. window.API is assigned further
+   down this same script, so at the moment this runs it is still undefined —
+   which threw a TypeError straight into the empty catch below and left the
+   published prices and the pay ladder silently frozen on the seed constants.
+   A page that promises "these are the rates we pay" has to actually go and
+   ask, so the ordering dependency is removed rather than worked around.
+   /api/rates needs no session, so nothing is lost by calling fetch directly. */
 (async () => {
   try{
-    const d = await API.call('/rates');
-    if(d && d.rates && d.rates.length){ RATES = d.rates.map(r => ({ ...r, cap: r.you })); renderRateTables(); }
+    const res = await fetch('/api/rates', { credentials: 'same-origin' });
+    if(!res.ok) return;
+    const d = await res.json();
+    if(d && d.ladder && d.ladder.length) LADDER = d.ladder;
+    if(d && d.rates && d.rates.length) RATES = d.rates.map(r => ({ ...r, cap: r.you }));
+    if(d && ((d.rates && d.rates.length) || (d.ladder && d.ladder.length))) renderRateTables();
   }catch(e){}
 })();
 
@@ -4038,7 +4149,8 @@ $$('.ill-scene').forEach(scene => {
 });
 
 /* ============ Messaging system (in-memory demo) ============ */
-const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* `esc` used to be declared here; it now sits beside `money` near the top of the
+   script so init-time renderers can use it. */
 /* Australian date display: 2029-05-01 → 01/05/2029 (storage stays ISO) */
 const fmtAU = iso => /^\d{4}-\d{2}-\d{2}/.test(iso || '') ? String(iso).slice(0,10).split('-').reverse().join('/') : (iso || '');
 const fmtTime = d => d.toLocaleTimeString('en-AU', {hour:'numeric', minute:'2-digit'}).toLowerCase();
