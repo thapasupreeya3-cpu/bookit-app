@@ -447,14 +447,40 @@ const HI_KEYS = HI_SUPPORTS.map(x => x.key);
 const hiLabel = k => (HI_SUPPORTS.find(x => x.key === k) || {}).label || k;
 const hiFrom = body => (Array.isArray(body && body.hi_flags) ? [...new Set(body.hi_flags)] : []).filter(k => HI_KEYS.includes(k));
 const safeJson = (v, fallback) => { try { const x = JSON.parse(v); return Array.isArray(x) ? x : fallback; } catch { return fallback; } };
-const RATES = [
-  { label: 'Weekday daytime', you: 73.58, worker: 53.25 },
-  { label: 'Weekday evening', you: 81.07, worker: 58.70 },
-  { label: 'Weekday night', you: 82.57, worker: 59.80 },
-  { label: 'Saturday', you: 103.54, worker: 74.95 },
-  { label: 'Sunday', you: 133.50, worker: 96.65 },
-  { label: 'Public holiday', you: 163.46, worker: 118.35 }
+/* The published rate table. Derived from the ladder rather than hardcoded, so
+   the number on the marketing page can never drift away from the number that
+   lands in a worker's account. "from" is Bronze — what a worker earns on day
+   one. "to" is Platinum. Both are floored by the award, which is the whole
+   reason household tasks reads differently from the rest of the table. */
+const RATE_ROWS = [
+  { label: 'Weekday daytime', category: 'weekday-day' },
+  { label: 'Weekday evening', category: 'weekday-evening' },
+  { label: 'Weekday night',   category: 'weekday-night' },
+  { label: 'Saturday',        category: 'saturday' },
+  { label: 'Sunday',          category: 'sunday' },
+  { label: 'Public holiday',  category: 'public-holiday' },
+  { label: 'Household tasks', category: 'household' },
+  { label: 'Employment support', category: 'employment' }
 ];
+function publicRates() {
+  const shares = tierShares(), sup = superRate();
+  return RATE_ROWS.map(row => {
+    const r = INVOICE_RATES[row.category];
+    const floor = awardFloorFor(2, row.category); /* Level 2 — the common casual classification */
+    const at = pct => {
+      const ladder = round2(r.price * pct / 100);
+      return { rate: Math.max(ladder, floor.rate), floored: floor.rate > ladder };
+    };
+    const from = at(shares.bronze), to = at(shares.platinum);
+    return {
+      label: row.label, category: row.category, you: r.price,
+      worker: from.rate, worker_top: to.rate,
+      base: round2(from.rate / (1 + sup / 100)), base_top: round2(to.rate / (1 + sup / 100)),
+      pct_from: shares.bronze, pct_to: shares.platinum,
+      award_floored: from.floored, note: from.floored ? 'Lifted to the SCHADS minimum — the price limit on this item sits below the award.' : ''
+    };
+  });
+}
 
 /* ---------- invoicing (NDIS Pricing Arrangements 2026–27 price limits) ----------
    A completed shift gets a rate category. The category is auto-suggested from
@@ -589,16 +615,33 @@ function makeInvoicePdf(inv) {
   return Buffer.from(pdf, 'latin1');
 }
 
+/* The claim side and the pay side of one shift.
+
+   The claim is fixed: the NDIS price limit, which is the same for everybody.
+   The pay is not: it is the worker's tier share of that limit, lifted to the
+   SCHADS minimum for their classification if the share falls short. Both get
+   frozen onto the booking row at completion, because a worker who moves up a
+   tier next month must not silently reprice already-completed shifts, and an
+   audit two years from now has to be able to see what was actually paid and
+   why. workerPay() is the only function allowed to answer "what is this hour
+   worth" — see THE AWARDS LADDER further down. */
 function applyInvoice(id, category) {
   const r = INVOICE_RATES[category];
-  const b = db.prepare('SELECT hours FROM bookings WHERE id = ?').get(id);
+  const b = db.prepare('SELECT hours, worker_id FROM bookings WHERE id = ?').get(id);
   if (!r || !b) return null;
   const qty = r.perNight ? 1 : b.hours; /* sleepovers are one flat per-night price */
   const total = Math.round(r.price * qty * 100) / 100;
-  const workerShare = Math.round(r.worker * qty * 100) / 100;
-  db.prepare('UPDATE bookings SET rate_category = ?, unit_price = ?, worker_share = ?, total = ? WHERE id = ?')
-    .run(category, r.price, workerShare, total, id);
-  return { category, label: r.label, unit_price: r.price, qty, total, worker_share: workerShare };
+
+  const pay = workerPay(b.worker_id, category, b.hours)
+    /* fallback only if the profile row is missing entirely — never leave pay unset */
+    || { tier: 'bronze', share_pct: null, rate: r.worker, amount: Math.round(r.worker * qty * 100) / 100, floored: false, why: '' };
+
+  db.prepare(`UPDATE bookings SET rate_category = ?, unit_price = ?, worker_share = ?, total = ?,
+      tier_at_shift = ?, share_pct = ?, award_floored = ? WHERE id = ?`)
+    .run(category, r.price, pay.amount, total, pay.tier, pay.share_pct, pay.floored ? 1 : 0, id);
+
+  return { category, label: r.label, unit_price: r.price, qty, total, worker_share: pay.amount,
+    tier: pay.tier, share_pct: pay.share_pct, worker_rate: pay.rate, award_floored: !!pay.floored, pay_note: pay.why };
 }
 
 function hashPassword(pw) {
@@ -2051,7 +2094,13 @@ route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m) => {
   json(res, 200, { worker: w });
 });
 
-route('GET', /^\/api\/rates$/, (req, res) => json(res, 200, { rates: RATES }));
+route('GET', /^\/api\/rates$/, (req, res) => {
+  const shares = tierShares(), bands = tierBands();
+  json(res, 200, {
+    rates: publicRates(), super: superRate(),
+    ladder: TIERS.map(t => ({ ...t, share: shares[t.key], band: t.key === 'bronze' ? 0 : bands[t.key] }))
+  });
+});
 
 route('GET', /^\/api\/conversations$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
@@ -3460,6 +3509,441 @@ route('POST', /^\/api\/admin\/oncall-rates$/, (req, res, m, user, body) => {
   setSetting('standby_horizon', String(Math.max(1, Math.min(28, Number(body.horizon) || 10))));
   json(res, 200, { ok: true, rates: oncallRates() });
 });
+
+/* ============================================================================
+   THE AWARDS LADDER
+   ============================================================================
+
+   Two things wearing one name, because they are the same mechanism:
+
+   1. The reward ladder. Four tiers set by rolling 12-month hours. Each tier is
+      a percentage share of the NDIS price limit, not a dollar figure — so one
+      number drives all nine rate categories and the ladder survives every
+      annual price review without being rebuilt.
+
+   2. The SCHADS award floor. The ladder is not allowed to pay below the award,
+      and on household tasks (0120) the flat share ALREADY DOES — $38.84 base
+      against a Level 2 casual minimum of $45.28. That is a live problem today,
+      before any tier exists, and no percentage fixes it because the 0120 price
+      limit is capped 18% below personal care while the award doesn't fall with
+      it. It needs a floor. That is why the floor ships with the ladder rather
+      than after it.
+
+   Nothing here is a constant. Shares, bands, award minimums and penalty
+   multipliers are all settings, because SCHADS moves every 1 July and the
+   ladder is a commercial decision that should not need a deploy to change. */
+
+for (const col of ["tier TEXT DEFAULT 'bronze'", 'schads_level INTEGER DEFAULT 2',
+  "tier_below_since TEXT DEFAULT ''", "tier_notice_at TEXT DEFAULT ''", "tier_pending TEXT DEFAULT ''",
+  "tier_paused_until TEXT DEFAULT ''", "tier_pause_reason TEXT DEFAULT ''", "tier_reviewed_at TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+}
+/* what was actually applied to this shift, frozen at completion. A tier change
+   next month must never silently restate last month's pay. */
+for (const col of ["tier_at_shift TEXT DEFAULT ''", 'share_pct REAL', 'award_floored INTEGER DEFAULT 0']) {
+  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+}
+/* Append-only. Under the Fair Work Act employee-like worker provisions (in force
+   26/08/2024) a pay-rate reduction needs a defensible record of when the
+   threshold was crossed and when notice was given. Rows are never updated. */
+db.exec(`CREATE TABLE IF NOT EXISTS tier_log (
+  id INTEGER PRIMARY KEY,
+  worker_id INTEGER NOT NULL REFERENCES users(id),
+  from_tier TEXT NOT NULL DEFAULT '',
+  to_tier TEXT NOT NULL DEFAULT '',
+  direction TEXT NOT NULL DEFAULT '',
+  hours REAL NOT NULL DEFAULT 0,
+  reason TEXT NOT NULL DEFAULT '',
+  notice_at TEXT NOT NULL DEFAULT '',
+  actor TEXT NOT NULL DEFAULT 'system',
+  created TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tier_log_worker ON tier_log(worker_id);`);
+
+const TIERS = [
+  { key: 'bronze',   label: 'Bronze',   sub: 'Starter' },
+  { key: 'silver',   label: 'Silver',   sub: 'Regular' },
+  { key: 'gold',     label: 'Gold',     sub: 'Committed' },
+  { key: 'platinum', label: 'Platinum', sub: 'Career' }
+];
+const TIER_KEYS = TIERS.map(t => t.key);
+const tierIndex = k => Math.max(0, TIER_KEYS.indexOf(k));
+
+/* Seeded to the "Steady" ladder — 72.5 / 74.0 / 75.5 / 76.5 — which costs about
+   $19,510 a year against the flat 72.4% and lands within $209 of the solved
+   "Level" ladder where no tier returns less than any other. The ladder
+   DECELERATES on purpose: the retention dividend that funds it arrives almost
+   entirely at the first step ($1.29/hr Bronze→Silver, $0.45 Silver→Gold,
+   $0.11 Gold→Platinum) while every extra percentage point costs a flat
+   $0.7358/hr. A conventional +3/+3/+3 ladder spends the most money exactly
+   where the least comes back.
+
+   Bands seeded low — 200/600/1,200 rather than 300/900/1,500 — because moving
+   the bands is cheaper than raising the percentages, and Silver is the step
+   that pays for itself. At the sector's average 22.7 hours a week, 1,500 hours
+   puts the top tier out of reach for most casuals. */
+const LADDER_DEFAULT = {
+  share: { bronze: 72.5, silver: 74.0, gold: 75.5, platinum: 76.5 },
+  band: { silver: 200, gold: 600, platinum: 1200 },
+  super: 12,
+  /* SCHADS MA000100 casual minimums, per hour, from 01/07/2026. Level 1 pp1
+     $34.44 · Level 2 pp1 $45.28 · Level 3 pp1 $50.61. These already include the
+     25% casual loading — the whole ladder only clears the award because they do.
+     Engage anyone permanent and these figures are wrong. */
+  schads: { 1: 34.44, 2: 45.28, 3: 50.61 },
+  notice_days: 28,
+  grace_days: 90
+};
+
+/* Casual penalty multipliers, expressed against the casual ORDINARY rate (125%),
+   because that is what the SCHADS figures above already are.
+
+   Casual loading is added TO the penalty, not compounded with it — Saturday
+   casual is 175%, not 150%. So Saturday = 175/125 = 1.40, Sunday = 225/125 =
+   1.80, public holiday = 275/125 = 2.20.
+
+   Evening and night are deliberately left at 1.00 and flagged. SCHADS handles
+   those with shift allowances that vary by classification rather than a clean
+   multiplier, and inventing one here would put a wrong number into a wage
+   calculation. 1.00 means the floor tests against the ordinary casual rate,
+   which is the conservative direction — it can under-protect an evening shift,
+   so CONFIRM THESE AGAINST THE AWARD before relying on them. The admin console
+   shows exactly which multipliers are unconfirmed. */
+const AWARD_MULT_DEFAULT = {
+  'weekday-day': { mult: 1.00, confirmed: true, note: 'Ordinary casual rate.' },
+  'weekday-evening': { mult: 1.00, confirmed: false, note: 'TO CONFIRM — SCHADS pays evening work as a shift allowance that varies by classification, not a flat multiplier.' },
+  'weekday-night': { mult: 1.00, confirmed: false, note: 'TO CONFIRM — as above, night work is an allowance, not a multiplier.' },
+  'saturday': { mult: 1.40, confirmed: true, note: '175% casual ÷ 125% ordinary casual.' },
+  'sunday': { mult: 1.80, confirmed: true, note: '225% casual ÷ 125% ordinary casual.' },
+  'public-holiday': { mult: 2.20, confirmed: true, note: '275% casual ÷ 125% ordinary casual.' },
+  'household': { mult: 1.00, confirmed: true, note: 'Ordinary casual rate. SCHADS classifies the EMPLOYEE, not the task — a Level 2 worker cannot be paid Level 1 for a cleaning shift.' },
+  'employment': { mult: 1.00, confirmed: true, note: 'Ordinary casual rate.' }
+};
+
+const round2 = n => Math.round(n * 100) / 100;
+function numSetting(key, fallback) { const n = Number(setting(key)); return Number.isFinite(n) && n > 0 ? n : fallback; }
+function tierShares() {
+  const out = {};
+  for (const k of TIER_KEYS) out[k] = numSetting(`tier_share_${k}`, LADDER_DEFAULT.share[k]);
+  return out;
+}
+function tierBands() {
+  return {
+    silver: numSetting('tier_band_silver', LADDER_DEFAULT.band.silver),
+    gold: numSetting('tier_band_gold', LADDER_DEFAULT.band.gold),
+    platinum: numSetting('tier_band_platinum', LADDER_DEFAULT.band.platinum)
+  };
+}
+function superRate() { return numSetting('super_rate', LADDER_DEFAULT.super); }
+function schadsCasual(level) {
+  const lv = [1, 2, 3].includes(Number(level)) ? Number(level) : 2;
+  return numSetting(`schads_l${lv}_casual`, LADDER_DEFAULT.schads[lv]);
+}
+function awardMult(category) {
+  const d = AWARD_MULT_DEFAULT[category];
+  if (!d) return { mult: 1, confirmed: false, note: 'No multiplier recorded for this category.' };
+  const n = Number(setting(`award_mult_${category}`));
+  return { ...d, mult: Number.isFinite(n) && n > 0 ? n : d.mult };
+}
+
+/* Rolling 12 months of completed hours. Recalculated on review, not on read,
+   so a worker's rate can't move mid-fortnight underneath a payroll run. */
+function rollingHours(workerId) {
+  const since = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+  const r = db.prepare(`SELECT COALESCE(SUM(hours), 0) AS h FROM bookings
+    WHERE worker_id = ? AND status = 'completed' AND date >= ? AND COALESCE(sleepover, 0) = 0`).get(workerId, since);
+  return Math.round((r.h || 0) * 10) / 10;
+}
+function tierForHours(hours) {
+  const b = tierBands();
+  if (hours >= b.platinum) return 'platinum';
+  if (hours >= b.gold) return 'gold';
+  if (hours >= b.silver) return 'silver';
+  return 'bronze';
+}
+function tierOf(workerId) {
+  const p = db.prepare('SELECT tier FROM worker_profiles WHERE user_id = ?').get(workerId);
+  return p && TIER_KEYS.includes(p.tier) ? p.tier : 'bronze';
+}
+
+/* The floor. base award × penalty multiplier × (1 + super), because the ladder
+   share is quoted all-in and the two have to be compared on the same basis. */
+function awardFloorFor(level, category) {
+  const m = awardMult(category);
+  return {
+    rate: round2(schadsCasual(level) * m.mult * (1 + superRate() / 100)),
+    base: round2(schadsCasual(level) * m.mult),
+    mult: m.mult, confirmed: m.confirmed, note: m.note, level: Number(level) || 2
+  };
+}
+
+/* The one function that decides what an hour is worth to a worker.
+     share of the price limit, floored by the award for their classification.
+   Sleepovers are excluded from the floor by design: the 0115/0138 item is
+   priced per night, and SCHADS treats a sleepover as an allowance plus payment
+   for hours actually worked, so an hourly minimum does not test it. It stays on
+   its own rule rather than being forced through a formula that doesn't fit. */
+/* Rounding note, because it changes cents and cents get audited: the hourly
+   rate is rounded to the cent FIRST, then multiplied by hours. Not the other
+   way round. A payslip has to state an hourly rate, and "$55.5529" is not a
+   rate anyone can be paid — so the rate is the real number and the total
+   follows from it. It also means the award comparison is rate against rate,
+   which is how the award itself is written. */
+function workerPay(workerId, category, hours) {
+  const r = INVOICE_RATES[category];
+  if (!r) return null;
+  const prof = db.prepare('SELECT tier, schads_level FROM worker_profiles WHERE user_id = ?').get(workerId) || {};
+  const tier = TIER_KEYS.includes(prof.tier) ? prof.tier : 'bronze';
+  const share = tierShares()[tier];
+  const qty = r.perNight ? 1 : hours;
+  const ladderRate = round2(r.price * share / 100);
+
+  if (r.perNight) {
+    return { tier, share_pct: share, rate: ladderRate, qty, amount: round2(ladderRate * qty),
+      floored: false, floor: null, why: 'Per-night sleepover allowance — the hourly award floor does not apply.' };
+  }
+  const floor = awardFloorFor(prof.schads_level, category);
+  const floored = floor.rate > ladderRate;
+  const rate = floored ? floor.rate : ladderRate;
+  return {
+    tier, share_pct: share, rate, qty, amount: round2(rate * qty), floored, floor,
+    why: floored
+      ? `Award floor applied. ${TIERS[tierIndex(tier)].label} at ${share}% of $${r.price.toFixed(2)} is $${ladderRate.toFixed(2)}, below the SCHADS Level ${floor.level} casual minimum of $${floor.base.toFixed(2)} plus ${superRate()}% super.`
+      : `${TIERS[tierIndex(tier)].label} — ${share}% of the $${r.price.toFixed(2)} price limit.`
+  };
+}
+
+/* ---------- movement ----------
+   Up immediately. Down slowly, one step, with notice, never while on leave.
+   These rules are not decoration: unfair-deactivation protections apply to
+   platform care work, and a pay cut is the kind of change that gets tested. */
+function reviewWorkerTier(workerId, opts = {}) {
+  const p = db.prepare('SELECT tier, tier_below_since, tier_notice_at, tier_pending, tier_paused_until FROM worker_profiles WHERE user_id = ?').get(workerId);
+  if (!p) return null;
+  const cur = TIER_KEYS.includes(p.tier) ? p.tier : 'bronze';
+  const hours = rollingHours(workerId);
+  const earned = tierForHours(hours);
+  const nowIso = now();
+  const today = nowIso.slice(0, 10);
+  const paused = p.tier_paused_until && p.tier_paused_until >= today;
+  const log = (to, direction, reason, noticeAt = '') =>
+    db.prepare('INSERT INTO tier_log (worker_id, from_tier, to_tier, direction, hours, reason, notice_at, actor, created) VALUES (?,?,?,?,?,?,?,?,?)')
+      .run(workerId, cur, to, direction, hours, reason, noticeAt, opts.actor || 'system', nowIso);
+  const touch = fields => db.prepare(`UPDATE worker_profiles SET ${Object.keys(fields).map(k => `${k} = ?`).join(', ')}, tier_reviewed_at = ? WHERE user_id = ?`)
+    .run(...Object.values(fields), nowIso, workerId);
+
+  /* Going up is immediate and cancels any pending drop outright. */
+  if (tierIndex(earned) > tierIndex(cur)) {
+    touch({ tier: earned, tier_below_since: '', tier_notice_at: '', tier_pending: '' });
+    log(earned, 'up', `${hours} hours in the last 12 months.`);
+    return { moved: 'up', from: cur, to: earned, hours };
+  }
+  /* At or above your own band: nothing pending, clock cleared. */
+  if (tierIndex(earned) >= tierIndex(cur)) {
+    if (p.tier_below_since || p.tier_notice_at) touch({ tier_below_since: '', tier_notice_at: '', tier_pending: '' });
+    else db.prepare('UPDATE worker_profiles SET tier_reviewed_at = ? WHERE user_id = ?').run(nowIso, workerId);
+    return { moved: null, from: cur, to: cur, hours };
+  }
+  /* Below. Nothing at all happens while the clock is paused — someone who
+     breaks a wrist does not lose their pay rate. */
+  if (paused) return { moved: null, from: cur, to: cur, hours, paused: true };
+
+  const grace = numSetting('tier_grace_days', LADDER_DEFAULT.grace_days);
+  const noticeDays = numSetting('tier_notice_days', LADDER_DEFAULT.notice_days);
+
+  if (!p.tier_below_since) { touch({ tier_below_since: nowIso }); return { moved: null, from: cur, to: cur, hours, below_since: nowIso }; }
+  const belowDays = Math.floor((Date.parse(nowIso) - Date.parse(p.tier_below_since)) / 864e5);
+  if (belowDays < grace) return { moved: null, from: cur, to: cur, hours, below_days: belowDays };
+
+  /* One step down only, never straight to the earned tier. */
+  const next = TIER_KEYS[Math.max(0, tierIndex(cur) - 1)];
+
+  if (!p.tier_notice_at) {
+    touch({ tier_notice_at: nowIso, tier_pending: next });
+    log(next, 'notice', `${hours} hours in the last 12 months — ${belowDays} days below the ${TIERS[tierIndex(cur)].label} band. ${noticeDays} days' notice given.`, nowIso);
+    const w = db.prepare('SELECT name, email FROM users WHERE id = ?').get(workerId);
+    if (w) sendMail(w.email, `A change to your BookIt pay tier on ${fmtDate(new Date(Date.now() + noticeDays * 864e5).toISOString().slice(0, 10))}`,
+      `<p>Hi ${escHtml(w.name.split(' ')[0])},</p>
+       <p>Your hours over the last 12 months come to <b>${hours}</b>. That has been below the ${escHtml(TIERS[tierIndex(cur)].label)} band for ${belowDays} days, so from <b>${escHtml(fmtDate(new Date(Date.now() + noticeDays * 864e5).toISOString().slice(0, 10)))}</b> your tier will move from ${escHtml(TIERS[tierIndex(cur)].label)} to ${escHtml(TIERS[tierIndex(next)].label)} — one step, not more.</p>
+       <p><b>This is reversible before it happens.</b> Tiers go up the moment you cross back over the band, and crossing back cancels this change entirely. You need ${Math.max(0, tierBands()[cur] - hours).toFixed(1)} more hours in the rolling 12 months.</p>
+       <p>If you have been on parental leave, carer's leave, workers compensation or long-term illness during this period, tell us — the clock pauses for all of those and this notice should not have been sent.</p>`);
+    return { moved: 'notice', from: cur, to: next, hours, effective: new Date(Date.now() + noticeDays * 864e5).toISOString() };
+  }
+  const noticeDaysElapsed = Math.floor((Date.parse(nowIso) - Date.parse(p.tier_notice_at)) / 864e5);
+  if (noticeDaysElapsed < noticeDays) return { moved: null, from: cur, to: cur, hours, notice_days_left: noticeDays - noticeDaysElapsed };
+
+  /* Reset the below-clock rather than clearing it, so the next step down can't
+     happen for another full grace period. Never more than one step per 90 days. */
+  touch({ tier: next, tier_below_since: nowIso, tier_notice_at: '', tier_pending: '' });
+  log(next, 'down', `${hours} hours in the last 12 months. ${noticeDays} days' notice given on ${p.tier_notice_at.slice(0, 10)}.`, p.tier_notice_at);
+  return { moved: 'down', from: cur, to: next, hours };
+}
+
+function reviewAllTiers(opts = {}) {
+  const ids = db.prepare("SELECT id FROM users WHERE role = 'worker'").all().map(r => r.id);
+  const out = { checked: 0, up: 0, down: 0, notice: 0 };
+  for (const id of ids) {
+    const r = reviewWorkerTier(id, opts);
+    if (!r) continue;
+    out.checked++;
+    if (r.moved === 'up') out.up++;
+    else if (r.moved === 'down') out.down++;
+    else if (r.moved === 'notice') out.notice++;
+  }
+  return out;
+}
+
+/* ---------- what a worker sees ---------- */
+route('GET', /^\/api\/me\/tier$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const p = db.prepare('SELECT tier, schads_level, tier_pending, tier_notice_at, tier_paused_until, tier_pause_reason FROM worker_profiles WHERE user_id = ?').get(user.id) || {};
+  const tier = TIER_KEYS.includes(p.tier) ? p.tier : 'bronze';
+  const hours = rollingHours(user.id);
+  const shares = tierShares(); const bands = tierBands();
+  const i = tierIndex(tier);
+  const nextKey = TIER_KEYS[i + 1] || null;
+  const noticeDays = numSetting('tier_notice_days', LADDER_DEFAULT.notice_days);
+  json(res, 200, {
+    tier, label: TIERS[i].label, sub: TIERS[i].sub, share_pct: shares[tier], hours,
+    /* the headline figure: what a weekday daytime hour is worth to them right now */
+    weekday_rate: (workerPay(user.id, 'weekday-day', 1) || {}).rate,
+    next: nextKey ? { tier: nextKey, label: TIERS[i + 1].label, share_pct: shares[nextKey], at_hours: bands[nextKey],
+      hours_to_go: Math.max(0, round2(bands[nextKey] - hours)),
+      worth: round2(INVOICE_RATES['weekday-day'].price * (shares[nextKey] - shares[tier]) / 100) } : null,
+    ladder: TIERS.map((t, n) => ({ ...t, share_pct: shares[t.key], from_hours: n === 0 ? 0 : bands[t.key],
+      weekday_rate: round2(INVOICE_RATES['weekday-day'].price * shares[t.key] / 100), current: t.key === tier })),
+    schads_level: p.schads_level || 2,
+    pending: p.tier_pending ? { tier: p.tier_pending, label: TIERS[tierIndex(p.tier_pending)].label,
+      effective: p.tier_notice_at ? new Date(Date.parse(p.tier_notice_at) + noticeDays * 864e5).toISOString() : '',
+      hours_to_cancel: Math.max(0, round2(bands[tier] - hours)) } : null,
+    paused: p.tier_paused_until && p.tier_paused_until >= now().slice(0, 10) ? { until: p.tier_paused_until, reason: p.tier_pause_reason || '' } : null,
+    history: db.prepare('SELECT from_tier, to_tier, direction, hours, reason, created FROM tier_log WHERE worker_id = ? ORDER BY id DESC LIMIT 20').all(user.id)
+  });
+});
+
+/* ---------- admin: the ladder board ---------- */
+route('GET', /^\/api\/admin\/ladder$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const shares = tierShares(); const bands = tierBands();
+  const price = INVOICE_RATES['weekday-day'].price;
+  const workers = db.prepare(`SELECT u.id, u.name, u.email, p.tier, p.schads_level, p.tier_pending, p.tier_notice_at,
+      p.tier_paused_until, p.tier_pause_reason, p.tier_below_since, p.visible
+    FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' ORDER BY u.name`).all()
+    .map(w => {
+      const tier = TIER_KEYS.includes(w.tier) ? w.tier : 'bronze';
+      const hours = rollingHours(w.id);
+      const pay = workerPay(w.id, 'weekday-day', 1) || {};
+      return { ...w, tier, label: TIERS[tierIndex(tier)].label, hours, share_pct: shares[tier],
+        weekday_rate: pay.rate, floored: !!pay.floored, earned: tierForHours(hours) };
+    });
+  const counts = {};
+  for (const k of TIER_KEYS) counts[k] = workers.filter(w => w.tier === k).length;
+  json(res, 200, {
+    tiers: TIERS.map((t, n) => ({ ...t, share_pct: shares[t.key], from_hours: n === 0 ? 0 : bands[t.key],
+      weekday_all_in: round2(price * shares[t.key] / 100),
+      weekday_base: round2(price * shares[t.key] / 100 / (1 + superRate() / 100)),
+      you_keep: round2(price - price * shares[t.key] / 100), n: counts[t.key] })),
+    settings: { shares, bands, super: superRate(), notice_days: numSetting('tier_notice_days', LADDER_DEFAULT.notice_days),
+      grace_days: numSetting('tier_grace_days', LADDER_DEFAULT.grace_days),
+      schads: { 1: schadsCasual(1), 2: schadsCasual(2), 3: schadsCasual(3) } },
+    /* every category, tested against the floor at every tier — this is the table
+       that shows household tasks failing before anyone has to discover it */
+    award_check: Object.entries(INVOICE_RATES).filter(([, r]) => !r.perNight).map(([key, r]) => {
+      const mult = awardMult(key);
+      return { key, label: r.label, price: r.price, mult: mult.mult, confirmed: mult.confirmed, note: mult.note,
+        levels: [1, 2, 3].map(lv => {
+          const floor = awardFloorFor(lv, key);
+          const bronzeRate = round2(r.price * shares.bronze / 100);
+          const topRate = round2(r.price * shares.platinum / 100);
+          return { level: lv, floor: floor.rate, bronze_short: round2(floor.rate - bronzeRate),
+            clears_at_bronze: bronzeRate >= floor.rate, clears_at_top: topRate >= floor.rate };
+        }) };
+    }),
+    workers,
+    log: db.prepare(`SELECT l.*, u.name FROM tier_log l JOIN users u ON u.id = l.worker_id ORDER BY l.id DESC LIMIT 50`).all()
+  });
+});
+
+route('POST', /^\/api\/admin\/ladder\/settings$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const saved = [];
+  const put = (key, val, min, max) => {
+    const n = Number(val);
+    if (!Number.isFinite(n) || n < min || n > max) return;
+    setSetting(key, n); saved.push(key);
+  };
+  for (const k of TIER_KEYS) if (body[`share_${k}`] !== undefined) put(`tier_share_${k}`, body[`share_${k}`], 50, 100);
+  for (const k of ['silver', 'gold', 'platinum']) if (body[`band_${k}`] !== undefined) put(`tier_band_${k}`, body[`band_${k}`], 1, 20000);
+  if (body.super !== undefined) put('super_rate', body.super, 0, 30);
+  if (body.notice_days !== undefined) put('tier_notice_days', body.notice_days, 1, 365);
+  if (body.grace_days !== undefined) put('tier_grace_days', body.grace_days, 1, 730);
+  for (const lv of [1, 2, 3]) if (body[`schads_l${lv}`] !== undefined) put(`schads_l${lv}_casual`, body[`schads_l${lv}`], 1, 500);
+  for (const key of Object.keys(AWARD_MULT_DEFAULT)) if (body[`mult_${key}`] !== undefined) put(`award_mult_${key}`, body[`mult_${key}`], 0.5, 5);
+  /* shares must not invert — a lower tier paying more than a higher one is not a
+     ladder, and it would quietly reverse the incentive the whole thing exists for */
+  const s = tierShares();
+  for (let i = 1; i < TIER_KEYS.length; i++) {
+    if (s[TIER_KEYS[i]] < s[TIER_KEYS[i - 1]]) {
+      return json(res, 400, { error: `${TIERS[i].label} (${s[TIER_KEYS[i]]}%) can't pay less than ${TIERS[i - 1].label} (${s[TIER_KEYS[i - 1]]}%). Saved what was valid; fix the order and save again.`, saved });
+    }
+  }
+  const b = tierBands();
+  if (!(b.silver < b.gold && b.gold < b.platinum)) return json(res, 400, { error: 'Hour bands must increase: Silver, then Gold, then Platinum.', saved });
+  json(res, 200, { ok: true, saved, shares: s, bands: b });
+});
+
+route('POST', /^\/api\/admin\/workers\/(\d+)\/tier$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const id = Number(m[1]);
+  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(id);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  const cur = tierOf(id);
+
+  if (body.schads_level !== undefined) {
+    const lv = Number(body.schads_level);
+    if (![1, 2, 3].includes(lv)) return json(res, 400, { error: 'SCHADS level must be 1, 2 or 3.' });
+    db.prepare('UPDATE worker_profiles SET schads_level = ? WHERE user_id = ?').run(lv, id);
+    db.prepare('INSERT INTO tier_log (worker_id, from_tier, to_tier, direction, hours, reason, actor, created) VALUES (?,?,?,?,?,?,?,?)')
+      .run(id, cur, cur, 'classification', rollingHours(id), `SCHADS classification set to Level ${lv}.`, user.email || 'admin', now());
+  }
+  /* Pausing is the leave rule. It stops downward movement dead — parental leave,
+     carer's leave, workers compensation, long-term illness. */
+  if (body.pause_until !== undefined) {
+    const until = clean(body.pause_until, 10);
+    const reason = clean(body.pause_reason || '', 200);
+    db.prepare('UPDATE worker_profiles SET tier_paused_until = ?, tier_pause_reason = ?, tier_notice_at = ?, tier_pending = ? WHERE user_id = ?')
+      .run(until, reason, '', '', id);
+    db.prepare('INSERT INTO tier_log (worker_id, from_tier, to_tier, direction, hours, reason, actor, created) VALUES (?,?,?,?,?,?,?,?)')
+      .run(id, cur, cur, until ? 'paused' : 'unpaused', rollingHours(id),
+        until ? `Tier clock paused until ${until}${reason ? ` — ${reason}` : ''}. Any pending reduction cancelled.` : 'Tier clock resumed.', user.email || 'admin', now());
+  }
+  /* A manual set is always allowed upward. Downward by hand would route around
+     the notice rule, so it is refused and the reviewer is pointed at the sweep. */
+  if (body.tier !== undefined) {
+    const t = String(body.tier);
+    if (!TIER_KEYS.includes(t)) return json(res, 400, { error: 'Unknown tier.' });
+    if (tierIndex(t) < tierIndex(cur)) return json(res, 400, {
+      error: `Tiers can't be lowered by hand — that would skip the 90-day grace period and the 28 days' written notice. Let the monthly review do it, or pause the clock if this worker is on leave.` });
+    if (t !== cur) {
+      db.prepare("UPDATE worker_profiles SET tier = ?, tier_below_since = '', tier_notice_at = '', tier_pending = '' WHERE user_id = ?").run(t, id);
+      db.prepare('INSERT INTO tier_log (worker_id, from_tier, to_tier, direction, hours, reason, actor, created) VALUES (?,?,?,?,?,?,?,?)')
+        .run(id, cur, t, 'up', rollingHours(id), clean(body.reason || '', 300) || 'Set by an administrator.', user.email || 'admin', now());
+    }
+  }
+  json(res, 200, { ok: true, tier: tierOf(id), hours: rollingHours(id) });
+});
+
+route('POST', /^\/api\/admin\/ladder\/review$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { ok: true, ...reviewAllTiers({ actor: user.email || 'admin' }) });
+});
+
+/* Daily rather than monthly. The bands are checked against a rolling window, so
+   a monthly cadence would mean somebody sits a rate below what they've earned
+   for up to four weeks — and upward movement is supposed to be immediate. */
+setInterval(() => { try { reviewAllTiers(); } catch (e) { console.error('tier review', e); } }, 24 * 3600e3);
+setTimeout(() => { try { reviewAllTiers(); } catch (e) { console.error('tier review', e); } }, 8000);
 
 /* ---------- static files ---------- */
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
