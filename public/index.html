@@ -2110,7 +2110,7 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
     <div class="container narrow">
       <h2>The two checks we do for everyone</h2>
       <p>Every person who takes a booking through BookIt holds a current <b>NDIS Worker Screening Check</b>, and we confirm the clearance itself with the screening unit rather than taking the card at face value. A card can still read 2029 after a clearance has been suspended, so the date on the document is not the thing we rely on.</p>
-      <p>We also check each worker against the NDIS Quality and Safeguards Commission's <b>banning orders register</b>, and we check again on a rolling cycle rather than once at induction — because the register changes, and a check done two years ago tells you about two years ago. What we found, and roughly when we looked, is written on the worker's own profile.</p>
+      <p>We also check each worker against <b>three separate banning orders registers</b> — the NDIS Quality and Safeguards Commission's register, aged care banning orders made under the <i>Aged Care Act 2024</i>, and aged care orders made under the earlier <i>Aged Care Quality and Safety Commission Act 2018</i> before that Act commenced. All three are named in the conditions, and a clear answer on one says nothing about the other two. We check again on a rolling cycle rather than once at induction — because the registers change, and a check done two years ago tells you about two years ago. What we found on each, and roughly when we looked, is written on the worker's own profile.</p>
 
       <h2 style="margin-top:34px;">What "verified" means on a profile</h2>
       <p>A credential shows on a profile only when a person on our team has looked at it and recorded how they satisfied themselves — whether they sighted the original, checked the number against the issuing register, or confirmed it with the issuer directly. That record is kept, and it is what an auditor sees.</p>
@@ -2119,9 +2119,9 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
       <div class="vf-steps">
         <div class="vf-step"><div class="n">1</div><div><b>Documents come in</b><p>A worker uploads their screening check, ID, training certificates and qualifications through their own account. Nothing they upload is visible to participants at this point.</p></div></div>
         <div class="vf-step"><div class="n">2</div><div><b>We verify each one</b><p>Someone on our team checks the document and records how — sighted original, sighted copy, checked against the issuing register, or confirmed with the issuer — plus a reference and any note. Only then does it appear on the profile.</p></div></div>
-        <div class="vf-step"><div class="n">3</div><div><b>We confirm the clearance and check the register</b><p>Separately from the document, we confirm the worker screening clearance with the screening unit, and check the banning orders register. Both answers are recorded with the date and source.</p></div></div>
+        <div class="vf-step"><div class="n">3</div><div><b>We confirm the clearance and check the registers</b><p>Separately from the document, we confirm the worker screening clearance with the screening unit, and check all three banning orders registers — NDIS, <i>Aged Care Act 2024</i>, and the earlier <i>ACQSC Act</i>. Every answer is recorded on its own, with its own date and source.</p></div></div>
         <div class="vf-step"><div class="n">4</div><div><b>The profile goes live</b><p>A profile can only be approved once all of the above is in place. This can't be waived — not for a busy week, not for a worker we know well.</p></div></div>
-        <div class="vf-step"><div class="n">5</div><div><b>We keep watching</b><p>Expiry dates are tracked automatically and workers are reminded at 30 days, 7 days and on the day. The banning orders re-check is chased before it falls due.</p></div></div>
+        <div class="vf-step"><div class="n">5</div><div><b>We keep watching</b><p>Expiry dates are tracked automatically and workers are reminded at 30 days, 7 days and on the day. Each banning orders re-check is chased before it falls due, register by register.</p></div></div>
         <div class="vf-step"><div class="n">6</div><div><b>If something lapses, the profile comes down</b><p>An expired check, a suspended or revoked clearance, a banning order, or an overdue register check all withdraw the profile automatically — off search, unbookable, unmessageable. It comes back by itself once the problem is fixed.</p></div></div>
       </div>
 
@@ -3607,7 +3607,7 @@ async function renderWorkerPage(id){
 
   /* The two conditions of registration, said plainly, on the profile of the
      person they are about — which is where the condition puts them. */
-  const scr = w.screening || {}, ban = w.banning || {};
+  const scr = w.screening || {}, ban = w.banning || {}, regs = w.registers || [];
   /* On a demo profile the shield is never the ticked one, whatever the seeded
      status says — the tick is the claim, and nobody checked anything here. */
   const condLine = (ok, label, sub) =>
@@ -3616,9 +3616,14 @@ async function renderWorkerPage(id){
     condLine(scr.cleared, scr.label || 'NDIS Worker Screening Check',
       w.demo ? 'Demonstration profile — this is fictional data, not a real clearance.'
              : (scr.cleared ? `Confirmed with the screening unit${scr.confirmed_on ? ' in ' + scr.confirmed_on : ''}${scr.valid_to ? ', valid to ' + scr.valid_to : ''}.` : 'Not currently confirmed — this worker can\'t take bookings.')) +
-    condLine(ban.clear, ban.label || 'Banning orders register',
-      w.demo ? 'Demonstration profile — the register was not actually checked.'
-             : (ban.clear ? `We checked the NDIS Commission's banning orders register${ban.checked_on ? ' in ' + ban.checked_on : ''} — no order in force.` : 'Not yet checked — this worker can\'t take bookings.'));
+    (regs.length
+      ? regs.map(r => condLine(r.clear, r.heading, r.finding)).join('')
+      : condLine(ban.clear, ban.label || 'Banning orders register',
+          w.demo ? 'Demonstration profile — the register was not actually checked.'
+                 : (ban.clear ? `We checked the NDIS Commission's banning orders register${ban.checked_on ? ' in ' + ban.checked_on : ''} — no order in force.` : 'Not yet checked — this worker can\'t take bookings.'))) +
+    /* s13D(6)(f) — general information about how the checks above were done,
+       reachable from the profile of the person they are about. */
+    `<div class="cred-line" style="background:transparent;border-style:dashed;"><div><b>How we checked</b><small><a href="#/verification">Read what we do, step by step, and what happens when a check lapses.</a></small></div></div>`;
   body.innerHTML = `
   <div class="wp-layout">
     <div>
@@ -5711,12 +5716,20 @@ async function renderAdminPage(){
           </div>
           <span style="font-size:.74rem;color:#3E5A64;">${scr.status_at ? 'Confirmed ' + admDate(scr.status_at) + (scr.source ? ' · ' + esc(scr.source) : '') : 'Look the worker up on the NDIS Worker Check portal, then record what it says.'}</span></td>
         <td>${w.c_banning_result === 'banned' ? '<span class="c37-no">✗ BANNING ORDER</span>'
-              : w.c_banning_checked ? '<span class="c37-ok">✓ clear</span>'
+              : w.c_banning_checked ? '<span class="c37-ok">✓ all three clear</span>'
               : `<span class="c37-no">✗ ${esc(BAN_LABEL[w.c_banning_result] || w.c_banning_result)}</span>`}
-          <br><span style="font-size:.78rem;color:#3E5A64;">${ban.checked_at ? 'Checked ' + admDate(ban.checked_at) + (ban.age_days !== null ? ` · ${ban.age_days} day${ban.age_days === 1 ? '' : 's'} ago` : '') : 'never checked'}</span>
+          <div style="font-size:.76rem;color:#3E5A64;margin-top:3px;">${(w.c_registers || []).map(r =>
+            `${esc(r.short)}: <b style="color:${r.result === 'clear' ? '#2E6B4F' : '#D94F32'};">${r.result === 'clear' ? 'clear' : r.result === 'banned' ? 'ORDER' : 'not checked'}</b>${r.checked_at ? ' · ' + admDate(r.checked_at) : ''}`
+          ).join('<br>')}</div>
           <div class="c37-ctl">
-            <button class="adm-btn-sm" data-c37-ban="${w.id}" data-result="clear">Checked — clear</button>
-            <button class="adm-btn-sm" data-c37-ban="${w.id}" data-result="banned" style="border-color:#D94F32;color:#D94F32;">Order in force</button>
+            <button class="adm-btn-sm" data-c37-ban="${w.id}" data-all="clear">All three checked — clear</button>
+          </div>
+          <div class="c37-ctl">
+            <select class="c37-ban-reg" data-uid="${w.id}" style="font:inherit;font-size:.76rem;">
+              ${(w.c_registers || []).map(r => `<option value="${r.key}">${esc(r.short)}</option>`).join('')}
+            </select>
+            <button class="adm-btn-sm" data-c37-ban-one="${w.id}" data-result="clear">clear</button>
+            <button class="adm-btn-sm" data-c37-ban-one="${w.id}" data-result="banned" style="border-color:#D94F32;color:#D94F32;">order in force</button>
           </div></td>
         <td>${yn(w.c_evidence, 'recorded', 'not recorded')}
           ${sd && sd.method ? `<br><span style="font-size:.78rem;color:#3E5A64;">${esc(VERIFY_METHODS[sd.method] || sd.method)}${sd.ref ? ' · ' + esc(sd.ref) : ''}</span>` : ''}</td>
@@ -6122,9 +6135,27 @@ document.addEventListener('click', async e => {
     }catch(err){ toast(err.message); cs.disabled = false; }
     return;
   }
-  const cb = e.target.closest('[data-c37-ban]');
+  /* "all three clear" — the ordinary case, one sitting, three registers.
+     It is a separate button rather than a default on the per-register control
+     so that recording three answers is always something you chose to do. */
+  const cbAll = e.target.closest('[data-c37-ban]');
+  if(cbAll){
+    const uid = cbAll.dataset.c37Ban;
+    if(!confirm('Record that you have just checked all three banning-order registers for this worker — the NDIS Commission register, aged care orders under the Aged Care Act 2024, and earlier orders under the ACQSC Act — and that none of them shows an order in force?')) return;
+    cbAll.disabled = true;
+    try{
+      const r = await API.call(`/admin/workers/${uid}/banning`, {method:'POST', body:{all:'clear'}});
+      toast(r.changed && r.changed.restored ? 'Recorded — this worker is back on the platform. ✓' : 'All three registers recorded as checked and clear. ✓');
+      renderAdminPage();
+    }catch(err){ toast(err.message); cbAll.disabled = false; }
+    return;
+  }
+  const cb = e.target.closest('[data-c37-ban-one]');
   if(cb){
-    const uid = cb.dataset.c37Ban, result = cb.dataset.result;
+    const uid = cb.dataset.c37BanOne, result = cb.dataset.result;
+    const sel = document.querySelector(`.c37-ban-reg[data-uid="${uid}"]`);
+    const key = sel ? sel.value : 'ndis';
+    const field = key === 'ndis' ? 'result' : key + '_result';
     let note = '';
     if(result === 'banned'){
       note = prompt('A banning order in force removes this worker from the platform immediately and permanently until you clear it.\n\nWhat does the register say? (order number, date, scope)') || '';
@@ -6132,7 +6163,8 @@ document.addEventListener('click', async e => {
     }
     cb.disabled = true;
     try{
-      const r = await API.call(`/admin/workers/${uid}/banning`, {method:'POST', body:{result, note: note.trim()}});
+      const body = {note: note.trim()}; body[field] = result;
+      const r = await API.call(`/admin/workers/${uid}/banning`, {method:'POST', body});
       toast(r.changed && r.changed.hidden ? 'Recorded — this worker has been withdrawn from the platform.'
         : r.changed && r.changed.restored ? 'Recorded — this worker is back on the platform. ✓'
         : 'Banning-order check recorded. ✓');

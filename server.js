@@ -408,6 +408,19 @@ for (const col of [
   "banning_checked_by TEXT DEFAULT ''",
   "banning_source TEXT DEFAULT ''",
   "banning_note TEXT DEFAULT ''",
+  /* s13D(6) names three banning-order registers, not one. (a) is an order
+     under the NDIS Act; (b) is an order within the meaning of the Aged Care
+     Act 2024; (c) is an order under the Aged Care Quality and Safety
+     Commission Act 2018 as it stood before that Act commenced. They are three
+     separate pieces of information about the same person, so they get three
+     separate answers and three separate dates — an auditor who asks to see
+     the aged care check must not be handed the NDIS one. */
+  "banning_aged_result TEXT NOT NULL DEFAULT 'unchecked'",
+  "banning_aged_at TEXT DEFAULT ''",
+  "banning_aged_source TEXT DEFAULT ''",
+  "banning_acqsc_result TEXT NOT NULL DEFAULT 'unchecked'",
+  "banning_acqsc_at TEXT DEFAULT ''",
+  "banning_acqsc_source TEXT DEFAULT ''",
   "platform_block INTEGER NOT NULL DEFAULT 0",
   "platform_block_reason TEXT DEFAULT ''",
   "auto_hidden INTEGER NOT NULL DEFAULT 0"   /* hidden by the 0137 gate, not by a person — so it can be safely restored */
@@ -1162,8 +1175,10 @@ function seed() {
     }
     db.prepare(`UPDATE worker_profiles SET screening_status = 'cleared', screening_status_at = ?, screening_status_by = 'BookIt (demo seed)',
       screening_source = 'Demo data — not a real clearance', banning_result = 'clear', banning_checked_at = ?,
+      banning_aged_result = 'clear', banning_aged_at = ?, banning_aged_source = 'Demo data — register not actually checked',
+      banning_acqsc_result = 'clear', banning_acqsc_at = ?, banning_acqsc_source = 'Demo data — register not actually checked',
       banning_checked_by = 'BookIt (demo seed)', banning_source = 'Demo data — register not actually checked' WHERE user_id = ?`)
-      .run(now(), now(), uid);
+      .run(now(), now(), now(), now(), uid);
   }
   insUser.run('participant', 'Demo Participant', 'demo@demo.bookit.life', demoPass, 'Wyong NSW', now());
   db.exec("UPDATE users SET verified = 1 WHERE email LIKE '%@demo.bookit.life'");
@@ -1185,7 +1200,7 @@ function publicWorker(row) {
     id: row.user_id, name: row.name, suburb: row.suburb, color: row.color,
     exp: row.exp, langs: row.langs, bio: row.bio,
     services: JSON.parse(row.services),
-    checks: v.checks, screening: v.screening, banning: v.banning, demo: v.demo,
+    checks: v.checks, screening: v.screening, banning: v.banning, registers: v.registers, demo: v.demo,
     days: JSON.parse(row.days), rating: row.rating, shifts: row.shifts,
     photo: row.photo ? `/photos/${row.user_id}?v=${encodeURIComponent(row.photo_at || '')}` : null
   };
@@ -1849,6 +1864,24 @@ function docOut(d) {
    the Commission may put a number on it; the grace period exists so a check
    nobody got to on a Friday warns the team rather than pulling the entire
    roster offline over a weekend. After the grace period it does block. */
+/* The three registers s13D(6)(a)-(c) requires be checked and displayed, in
+   the order the Rules list them. `rc`/`ac`/`sc` are the result, checked-at and
+   source columns on worker_profiles; the NDIS trio keeps its original column
+   names so no data has to move. */
+const BAN_REGISTERS = [
+  { key: 'ndis', short: 'NDIS', rc: 'banning_result', ac: 'banning_checked_at', sc: 'banning_source',
+    label: 'NDIS Commission banning orders register',
+    where: 'the NDIS Quality and Safeguards Commission banning orders register' },
+  { key: 'aged', short: 'Aged Care Act 2024', rc: 'banning_aged_result', ac: 'banning_aged_at', sc: 'banning_aged_source',
+    label: 'Aged care banning orders register (Aged Care Act 2024)',
+    where: 'the aged care banning orders register, for orders under the Aged Care Act 2024' },
+  { key: 'acqsc', short: 'ACQSC Act', rc: 'banning_acqsc_result', ac: 'banning_acqsc_at', sc: 'banning_acqsc_source',
+    label: 'Aged care banning orders made before the Aged Care Act 2024 (ACQSC Act)',
+    where: 'the aged care banning orders register, for orders made under the Aged Care Quality and Safety Commission Act 2018 before the Aged Care Act 2024 commenced' }
+];
+const BAN_BY_KEY = Object.fromEntries(BAN_REGISTERS.map(r => [r.key, r]));
+const BAN_COLS = BAN_REGISTERS.flatMap(r => [r.rc, r.ac, r.sc]);
+
 function banningWindowDays() { return Math.max(1, Number(setting('banning_recheck_days', '90')) || 90); }
 function banningGraceDays()  { return Math.max(0, Number(setting('banning_grace_days', '30')) || 0); }
 
@@ -1881,10 +1914,11 @@ function logCompliance(o) {
    bookable. `warnings` are things that will become blocks if left. */
 function platformStatus(workerId) {
   const w = db.prepare(`SELECT u.id, u.name, u.email, p.screening_status, p.screening_status_at,
-      p.screening_source, p.screening_ref, p.banning_checked_at, p.banning_result, p.banning_source,
-      p.banning_note, p.platform_block, p.platform_block_reason, p.visible
+      p.screening_source, p.screening_ref, p.banning_checked_by, p.banning_note,
+      ${BAN_COLS.map(c => 'p.' + c).join(', ')},
+      p.platform_block, p.platform_block_reason, p.visible
     FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?`).get(workerId);
-  if (!w) return { ok: false, blocks: ['No worker profile.'], warnings: [], screening: {}, banning: {} };
+  if (!w) return { ok: false, blocks: ['No worker profile.'], warnings: [], screening: {}, banning: {}, registers: [] };
 
   const blocks = [], warnings = [];
 
@@ -1914,14 +1948,26 @@ function platformStatus(workerId) {
   /* ---- condition (b): check whether a banning order is in force, and
      display what we found. A check that was done once at induction is not a
      check; the register changes. So an unchecked worker is blocked outright,
-     and a stale check warns, then blocks once the grace period runs out. ---- */
-  const bage = daysSince(w.banning_checked_at);
+     and a stale check warns, then blocks once the grace period runs out.
+     Three registers, each answered and dated on its own: a clear NDIS result
+     says nothing about an aged care order, and s13D(6) asks for all three. -- */
   const win = banningWindowDays(), grace = banningGraceDays();
-  if (w.banning_result === 'banned') blocks.push('A banning order is in force against this worker.');
-  else if (w.banning_result !== 'clear' || bage === null) blocks.push('The NDIS banning orders register has never been checked for this worker.');
-  else if (bage > win + grace) blocks.push(`Banning orders register last checked ${bage} days ago — past the ${win}-day window and the ${grace}-day grace period.`);
-  else if (bage > win) warnings.push(`Banning orders register is due for re-check — last checked ${bage} days ago.`);
-  else if (bage > win - 14) warnings.push(`Banning orders re-check due in ${win - bage} days.`);
+  const registers = BAN_REGISTERS.map(r => {
+    const result = w[r.rc] || 'unchecked';
+    const at = w[r.ac] || '';
+    const age = daysSince(at);
+    return { key: r.key, short: r.short, label: r.label, where: r.where, result,
+             checked_at: at, age_days: age, window_days: win, source: w[r.sc] || '' };
+  });
+  for (const r of registers) {
+    const name = r.key === 'ndis' ? 'NDIS banning orders register' : r.label;
+    if (r.result === 'banned') blocks.push(`A banning order is in force against this worker — ${r.short}.`);
+    else if (r.result !== 'clear' || r.age_days === null) blocks.push(`The ${name} has never been checked for this worker.`);
+    else if (r.age_days > win + grace) blocks.push(`${name} last checked ${r.age_days} days ago — past the ${win}-day window and the ${grace}-day grace period.`);
+    else if (r.age_days > win) warnings.push(`${name} is due for re-check — last checked ${r.age_days} days ago.`);
+    else if (r.age_days > win - 14) warnings.push(`${name} re-check due in ${win - r.age_days} days.`);
+  }
+  const bage = registers[0].age_days;
 
   /* ---- an admin's manual stop, which needs no sweep and no reason to wait ---- */
   if (w.platform_block) blocks.push(w.platform_block_reason || 'Blocked from the platform by an administrator.');
@@ -1935,10 +1981,15 @@ function platformStatus(workerId) {
       ref: w.screening_ref || '', doc_state: screeningState(workerId),
       expiry: best ? (best.expiry_date || '') : '', verified: Boolean(verified.length)
     },
+    /* `banning` stays the NDIS register on its own, because everything built
+       before the aged care limbs existed reads it. `registers` is the full
+       s13D(6)(a)-(c) set, and `registers_ok` is the one-line answer. */
     banning: {
       result: w.banning_result || 'unchecked', checked_at: w.banning_checked_at || '',
       age_days: bage, window_days: win, source: w.banning_source || '', note: w.banning_note || ''
     },
+    registers,
+    registers_ok: registers.every(r => r.result === 'clear' && r.age_days !== null && r.age_days <= win),
     /* returned as its own flag rather than left to be read out of the blocks
        list — the reason is free text an admin typed, so pattern-matching it
        would break the moment somebody words it differently. */
@@ -2065,6 +2116,22 @@ function publicVerification(workerId, email) {
                      : s.banning.result === 'banned' ? 'A banning order is in force' : 'Banning orders register not yet checked'),
       checked_on: demo ? '' : monthYear(s.banning.checked_at)
     },
+    /* One entry per register named in s13D(6)(a)-(c). The condition is check
+       AND display, worker by worker, so all three answers go to the profile
+       rather than being collapsed into a single tick. */
+    registers: (s.registers || []).map(r => ({
+      key: r.key, short: r.short, label: r.label,
+      clear: demo ? false : r.result === 'clear',
+      demo,
+      heading: r.key === 'ndis' ? 'NDIS banning orders register'
+             : r.key === 'aged' ? 'Aged care banning orders — Aged Care Act 2024'
+             : 'Aged care banning orders — earlier ACQSC Act orders',
+      finding: demo ? 'Demonstration profile — the register was not actually checked.'
+             : r.result === 'clear' ? `We checked ${r.where}${monthYear(r.checked_at) ? ' in ' + monthYear(r.checked_at) : ''} — no order in force.`
+             : r.result === 'banned' ? 'An order is in force. This worker cannot take bookings.'
+             : 'Not yet checked — this worker can\'t take bookings.',
+      checked_on: demo ? '' : monthYear(r.checked_at)
+    })),
     demo
   };
 }
@@ -2244,28 +2311,50 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/screening$/, (req, res, m, user, b
   json(res, 200, { ok: true, platform: platformStatus(uid), changed: out });
 });
 
-/* Condition (b) — the banning orders register. The Commission publishes it;
-   somebody has to look, on a cycle, and write down what they saw. */
+/* Condition (b) — the banning orders registers. Somebody has to look, on a
+   cycle, and write down what they saw. Three registers are named in the Rules,
+   so the route takes three answers: `result` is the NDIS register (the field
+   name predates the others and is left alone), `aged_result` is the Aged Care
+   Act 2024 limb and `acqsc_result` the pre-2024 ACQSC Act limb. `all` is the
+   shorthand for one sitting in which all three were looked at and all three
+   said the same thing — which is the ordinary case, but it has to be asked for
+   rather than assumed, because recording a check nobody did is the one thing
+   this whole system exists to prevent. Anything left out is left untouched. */
 route('POST', /^\/api\/admin\/workers\/(\d+)\/banning$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
   const uid = Number(m[1]);
   const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
   if (!w) return json(res, 404, { error: 'No such worker.' });
   const OK = ['clear', 'banned', 'unchecked'];
-  const result = OK.includes(String(body.result)) ? String(body.result) : null;
-  if (!result) return json(res, 400, { error: `Result must be one of: ${OK.join(', ')}.` });
-  const source = clean(body.source, 160) || 'NDIS Commission banning orders register';
+  const val = v => (OK.includes(String(v)) ? String(v) : null);
+  const all = val(body.all);
+  const given = {
+    ndis: val(body.result) || all,
+    aged: val(body.aged_result) || all,
+    acqsc: val(body.acqsc_result) || all
+  };
+  if (!given.ndis && !given.aged && !given.acqsc) {
+    return json(res, 400, { error: `Give a result for at least one register — one of: ${OK.join(', ')}.` });
+  }
   const note = clean(body.note, 400);
-  db.prepare(`UPDATE worker_profiles SET banning_result = ?, banning_checked_at = ?, banning_checked_by = ?,
-    banning_source = ?, banning_note = ? WHERE user_id = ?`)
-    .run(result, result === 'unchecked' ? '' : now(), user.name, source, note, uid);
-  logCompliance({ worker_id: uid, worker_name: w.name, kind: 'banning-check', result,
-    detail: result === 'clear' ? 'Checked the banning orders register — no banning order in force.'
-      : result === 'banned' ? `A banning order is in force against this worker.${note ? ' ' + note : ''}`
-      : 'Banning-order check cleared back to unchecked.',
-    source, checked_by: user.name });
+  const stamp = now();
+  const done = [];
+  for (const r of BAN_REGISTERS) {
+    const result = given[r.key];
+    if (!result) continue;
+    const source = clean(body[r.key === 'ndis' ? 'source' : r.key + '_source'], 160) || r.label;
+    db.prepare(`UPDATE worker_profiles SET ${r.rc} = ?, ${r.ac} = ?, ${r.sc} = ?,
+      banning_checked_by = ?, banning_note = ? WHERE user_id = ?`)
+      .run(result, result === 'unchecked' ? '' : stamp, source, user.name, note, uid);
+    logCompliance({ worker_id: uid, worker_name: w.name, kind: 'banning-check', result,
+      detail: result === 'clear' ? `Checked ${r.where} — no banning order in force.`
+        : result === 'banned' ? `A banning order is in force against this worker — ${r.short}.${note ? ' ' + note : ''}`
+        : `Banning-order check cleared back to unchecked — ${r.short}.`,
+      source, checked_by: user.name });
+    done.push(r.key);
+  }
   const out = reconcileVisibility(uid, 'Banning-order check recorded');
-  json(res, 200, { ok: true, platform: platformStatus(uid), changed: out });
+  json(res, 200, { ok: true, checked: done, platform: platformStatus(uid), changed: out });
 });
 
 /* The manual stop. An admin who hears something at 9pm should not have to
@@ -2365,7 +2454,7 @@ route('POST', /^\/api\/admin\/credentials\/sweep$/, (req, res, m, user) => {
 function board0137() {
   const rows = db.prepare(`SELECT u.id, u.name, u.email, p.visible, p.auto_hidden, p.screening_status,
       p.screening_status_at, p.screening_status_by, p.screening_source, p.screening_ref,
-      p.banning_checked_at, p.banning_result, p.banning_checked_by, p.banning_source,
+      p.banning_checked_by, ${BAN_COLS.map(c => 'p.' + c).join(', ')},
       p.platform_block, p.platform_block_reason
     FROM users u JOIN worker_profiles p ON p.user_id = u.id
     WHERE u.role = 'worker' ORDER BY u.name`).all();
@@ -2382,8 +2471,13 @@ function board0137() {
       /* the four things the conditions actually require, one column each */
       c_screening_held: Boolean(sdoc && sdoc.verified_at && (!sdoc.expiry_date || sdoc.expiry_date >= today)),
       c_screening_status: st.screening.status,
-      c_banning_checked: st.banning.result === 'clear' && st.banning.age_days !== null && st.banning.age_days <= st.banning.window_days,
-      c_banning_result: st.banning.result,
+      /* the column on the board is now "all three registers", because one
+         clear answer out of three is not the condition being met */
+      c_banning_checked: st.registers_ok,
+      c_banning_result: st.registers.some(r => r.result === 'banned') ? 'banned'
+        : st.registers.every(r => r.result === 'clear') ? 'clear' : 'unchecked',
+      c_registers: st.registers.map(r => ({ key: r.key, short: r.short, result: r.result,
+        checked_at: r.checked_at, age_days: r.age_days })),
       c_evidence: Boolean(sdoc && sdoc.verify_method),
       c_displayed: pv.checks.length > 0 || pv.screening.cleared,
       screening_doc: sdoc ? { expiry: sdoc.expiry_date || '', verified_at: sdoc.verified_at || '', verified_by: sdoc.verified_by || '', method: sdoc.verify_method || '', ref: sdoc.verify_ref || '' } : null,
@@ -2444,14 +2538,22 @@ route('GET', /^\/api\/admin\/compliance\/0137\.csv$/, (req, res, m, user) => {
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const b = board0137();
   const lines = [['Worker', 'On the platform', 'Screening check held & verified', 'Screening clearance status',
-    'Screening expiry', 'Verified by', 'How verified', 'Banning register result', 'Banning register last checked',
-    'Days since', 'Shown on profile', 'Blocks', 'Demo profile'].map(q).join(',')];
+    'Screening expiry', 'Verified by', 'How verified',
+    'NDIS banning register', 'NDIS last checked', 'Days since',
+    'Aged Care Act 2024 banning orders', 'Aged Care Act 2024 last checked',
+    'ACQSC Act banning orders', 'ACQSC Act last checked',
+    'All three registers current', 'Shown on profile', 'Blocks', 'Demo profile'].map(q).join(',')];
+  const reg = (w, k) => (w.c_registers || []).find(r => r.key === k) || {};
+  const dt = v => (v ? String(v).slice(0, 10) : '');
   for (const w of b.workers) {
+    const rn = reg(w, 'ndis'), ra = reg(w, 'aged'), rc = reg(w, 'acqsc');
     lines.push([w.name, w.visible ? 'Yes' : 'No', w.c_screening_held ? 'Yes' : 'No', w.c_screening_status,
       w.screening_doc ? w.screening_doc.expiry : '', w.screening_doc ? w.screening_doc.verified_by : '',
-      w.screening_doc ? w.screening_doc.method : '', w.c_banning_result,
-      w.platform.banning.checked_at ? String(w.platform.banning.checked_at).slice(0, 10) : '',
-      w.platform.banning.age_days === null ? '' : w.platform.banning.age_days,
+      w.screening_doc ? w.screening_doc.method : '',
+      rn.result || 'unchecked', dt(rn.checked_at), rn.age_days === null || rn.age_days === undefined ? '' : rn.age_days,
+      ra.result || 'unchecked', dt(ra.checked_at),
+      rc.result || 'unchecked', dt(rc.checked_at),
+      w.c_banning_checked ? 'Yes' : 'No',
       w.c_displayed ? 'Yes' : 'No', w.platform.blocks.join(' | '), w.demo ? 'Yes' : 'No'].map(q).join(','));
   }
   res.writeHead(200, {
