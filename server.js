@@ -4503,17 +4503,23 @@ const LADDER_DEFAULT = {
    casual is 175%, not 150%. So Saturday = 175/125 = 1.40, Sunday = 225/125 =
    1.80, public holiday = 275/125 = 2.20.
 
-   Evening and night are deliberately left at 1.00 and flagged. SCHADS handles
-   those with shift allowances that vary by classification rather than a clean
-   multiplier, and inventing one here would put a wrong number into a wage
-   calculation. 1.00 means the floor tests against the ordinary casual rate,
-   which is the conservative direction — it can under-protect an evening shift,
-   so CONFIRM THESE AGAINST THE AWARD before relying on them. The admin console
-   shows exactly which multipliers are unconfirmed. */
+   Evening and night are shift ALLOWANCES rather than penalty rates, but they
+   go in the same place because SCHADS calculates them the same way: on the
+   ordinary rate, added to the casual loading, not compounded. Afternoon shift
+   is 12.5% -> 137.5/125 = 1.10. Night shift is 15% -> 140/125 = 1.12.
+   Permanent night shift (30%) is deliberately NOT offered here: it applies to
+   permanent employees, and this whole ladder assumes casual engagement — see
+   the LADDER_DEFAULT.schads comment. If DMHC ever engages permanent staff,
+   every figure in this block is wrong, not just these two.
+   They stay confirmed:false so the console keeps saying where the number came
+   from, but 1.10/1.12 is strictly safer than the 1.00 they used to sit at:
+   raising a floor can only ever stop an underpayment, never cause one. The
+   real percentages belong to the award, so have the bookkeeper confirm them at
+   the next pay run and set award_mult_weekday-evening / -night if they differ. */
 const AWARD_MULT_DEFAULT = {
   'weekday-day': { mult: 1.00, confirmed: true, note: 'Ordinary casual rate.' },
-  'weekday-evening': { mult: 1.00, confirmed: false, note: 'TO CONFIRM — SCHADS pays evening work as a shift allowance that varies by classification, not a flat multiplier.' },
-  'weekday-night': { mult: 1.00, confirmed: false, note: 'TO CONFIRM — as above, night work is an allowance, not a multiplier.' },
+  'weekday-evening': { mult: 1.10, confirmed: false, note: 'SCHADS afternoon shift allowance, 12.5% on the ordinary rate, added to the casual loading rather than compounded: 137.5 ÷ 125 = 1.10. Confirm at the next pay run.' },
+  'weekday-night': { mult: 1.12, confirmed: false, note: 'SCHADS night shift allowance, 15% on the ordinary rate, added to the casual loading rather than compounded: 140 ÷ 125 = 1.12. Confirm at the next pay run. Permanent night shift (30%) does not arise — the ladder assumes casual engagement throughout.' },
   'saturday': { mult: 1.40, confirmed: true, note: '175% casual ÷ 125% ordinary casual.' },
   'sunday': { mult: 1.80, confirmed: true, note: '225% casual ÷ 125% ordinary casual.' },
   'public-holiday': { mult: 2.20, confirmed: true, note: '275% casual ÷ 125% ordinary casual.' },

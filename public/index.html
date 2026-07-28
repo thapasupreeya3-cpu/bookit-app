@@ -6866,14 +6866,14 @@ function ladderBoardHtml(d){
         const margin = Math.round((a.price - paid) * 100) / 100;
         const cell = l => `<td class="${l.clears_at_bronze ? '' : 'lad-fail'}">$${l.floor.toFixed(2)}${l.clears_at_bronze ? '' : ` <span class="lad-bad">+$${l.bronze_short.toFixed(2)}</span>`}</td>`;
         return `<tr>
-          <td><b>${esc(a.label)}</b>${a.confirmed ? '' : '<br><span class="lad-bad" style="font-size:.78rem;">penalty TO CONFIRM</span>'}</td>
+          <td><b>${esc(a.label)}</b>${a.confirmed ? '' : '<br><span class="lad-bad" style="font-size:.78rem;">allowance — confirm at pay run</span>'}</td>
           <td>$${a.price.toFixed(2)}</td>
           <td>×${a.mult.toFixed(2)}</td>
           ${cell(by[1])}${cell(by[2])}${cell(by[3])}
           <td class="${margin < 12 ? 'lad-fail' : ''}"><b>$${margin.toFixed(2)}</b><br><span class="muted-sm">${(margin / a.price * 100).toFixed(1)}%</span></td>
         </tr>`; }).join('')}</tbody>
     </table></div>
-    ${unconfirmed.length ? `<p class="muted-sm" style="margin:9px 0 0;"><b>${unconfirmed.map(a => esc(a.label)).join(' and ')}</b> ${unconfirmed.length === 1 ? 'is' : 'are'} sitting on a ×1.00 multiplier because SCHADS pays ${unconfirmed.length === 1 ? 'that' : 'those'} as a shift allowance that varies by classification, not as a flat penalty. Until the real figure is entered, the floor on ${unconfirmed.length === 1 ? 'that item' : 'those items'} is calculated as if there were no penalty at all — the safe direction to be wrong in for the claim, but it means the floor may be sitting lower than it should. Those two rows are provisional.</p>` : ''}`;
+    ${unconfirmed.length ? `<p class="muted-sm" style="margin:9px 0 0;"><b>${unconfirmed.map(a => esc(a.label)).join(' and ')}</b> ${unconfirmed.length === 1 ? 'carries' : 'carry'} a SCHADS shift <b>allowance</b> rather than a penalty rate — 12.5% afternoon, 15% night, each calculated on the ordinary rate and added to the casual loading rather than compounded, which is ×1.10 and ×1.12 against the casual ordinary rate used everywhere else in this table. Permanent night shift (30%) is not offered here because it applies to permanent employees and this ladder assumes casual engagement throughout. Have the bookkeeper confirm the percentages at the next pay run and change them below if they differ — raising a floor can only ever stop an underpayment, never cause one.</p>` : ''}`;
 
   const workers = `<div class="adm-table-wrap"><table class="adm-table">
     <thead><tr><th>Worker</th><th>Tier</th><th>Hours (12 mo)</th><th>Earned</th><th>Weekday rate</th><th>SCHADS</th><th></th></tr></thead>
