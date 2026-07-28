@@ -1385,9 +1385,9 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
     <div class="container svc-layout">
       <div>
         <div class="info-card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 114.1 1.9c-.8.7-1.6 1.2-1.6 2.6M12 17h.01"/></svg> First — what we don't do</h3>
-          <p>BookIt provides <b>standard-intensity</b> personal care. We're registered for 0107, not 0104, so we don't deliver <b>high intensity daily personal activities</b>: complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections, or complex wound management.</p>
-          <p style="margin-bottom:0;">If any of those are part of your day, <a href="#/contact">talk to us anyway</a>. We'll introduce you to a provider registered for 0104 who you engage directly for those supports, and we can still cover everything else on your plan alongside them.</p>
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 114.1 1.9c-.8.7-1.6 1.2-1.6 2.6M12 17h.01"/></svg> First &mdash; where the line sits</h3>
+          <p id="pcScopeLine">BookIt provides <b>standard-intensity</b> personal care.</p>
+          <p style="margin-bottom:0;">If a <b>high intensity daily personal activity</b> is part of your day, that's a <a href="#/specialist-supports">specialist support</a> &mdash; we arrange it rather than turn you away. You get one team coordinating the week and a provider registered for the clinical part, working alongside each other.</p>
         </div>
         <div class="info-card">
           <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> What this support can include</h3>
@@ -2097,6 +2097,53 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
 </section>
 
 <!-- ================= HOW WE CHECK EVERY WORKER ================= -->
+<section class="page" id="page-specialist-supports" data-title="Specialist supports — BookIt">
+  <div class="page-hero">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/services/personal-care">Personal care</a> / Specialist supports</nav>
+      <h1>Specialist supports</h1>
+      <p class="lead">Eight supports need a provider registered for them specifically. If one of them is part of your day, we arrange it and work alongside the provider who delivers it &mdash; you don't get sent away and you don't end up managing two disconnected teams.</p>
+    </div>
+  </div>
+
+  <section class="block">
+    <div class="container narrow">
+      <h2>Which supports these are</h2>
+      <p>The NDIS Practice Standards set out eight <b>high intensity daily personal activities</b> in Supplementary Module 1, registration group <b>0104</b>. They are the supports where getting it wrong is a clinical event rather than a bad shift, so a provider has to be assessed against a separate standard for each one before it can deliver it.</p>
+      <div class="adm-table-wrap" style="margin:18px 0 6px;"><table class="adm-table" id="ssTable"><thead><tr><th>Support</th><th style="white-space:nowrap;">Practice Standard</th><th>Who delivers it</th></tr></thead><tbody></tbody></table></div>
+      <p class="muted-sm" id="ssTableNote"></p>
+
+      <h2 style="margin-top:34px;">What happens if you need one</h2>
+      <div class="vf-steps">
+        <div class="vf-step"><div class="n">1</div><div><b>You tell us</b><p>There's a question about it on the sign-up form, and the same list stays on your account page so you can change it whenever your needs change. Most people tick nothing on it.</p></div></div>
+        <div class="vf-step"><div class="n">2</div><div><b>We call you — before anything is booked</b><p>Within one business day. Not after a worker has already been rostered and is standing in your bathroom being asked to do something they can't.</p></div></div>
+        <div class="vf-step"><div class="n">3</div><div><b>We introduce you to a provider registered for it</b><p>You engage them directly, so your agreement is with the people actually delivering that support and your plan is charged by them for it. We don't take a margin on the introduction.</p></div></div>
+        <div class="vf-step"><div class="n">4</div><div><b>We keep the rest of your week</b><p>Personal care, daily tasks, household, community, transport, employment — all of it carries on with us, rostered around their visits rather than clashing with them. One roster, two providers, coordinated by us.</p></div></div>
+        <div class="vf-step"><div class="n">5</div><div><b>It goes on our register</b><p>Every request for a support we don't hold is recorded the moment it's made, with the date and what we did about it. That register is part of what our auditor looks at. It's also how we know whether we should be registering for a support ourselves.</p></div></div>
+      </div>
+
+      <div class="vf-cond">
+        <h2 style="margin:0;">Why we don't just say we do it</h2>
+        <p style="margin-top:8px;">Because saying it would be the offence. Section 13C of the <i>NDIS (Provider Registration and Practice Standards) Rules 2018</i> puts a condition on every 0104 registration:</p>
+        <blockquote>
+          the provider must not provide a support mentioned in Schedule 2 if the support is not set out in the provider's certificate of registration.
+        </blockquote>
+        <p style="margin-top:12px;font-size:.92rem;">It's granted support by support, not as a single tick, and delivering one that isn't named on the certificate breaches a condition of registration rather than being a stretch of scope. From 1 January 2027 the platform conditions go further and make what a provider <i>displays</i> checkable in its own right. So a page claiming a support we don't hold wouldn't be optimistic marketing — it would be the thing the rule is written to catch. We'd rather tell you what we do and arrange the rest.</p>
+      </div>
+
+      <h2 style="margin-top:34px;">What we are registered for</h2>
+      <p>Disability &amp; Mental Health Care Pty Ltd, registered NDIS provider <b>4-LO5XNY0</b>, ABN 19 658 578 575. Certificate current to <b>21 January 2029</b>.</p>
+      <div class="adm-table-wrap" style="margin-top:14px;"><table class="adm-table" id="ssCert"><thead><tr><th style="white-space:nowrap;">Group</th><th>Registration group</th></tr></thead><tbody></tbody></table></div>
+      <p class="muted-sm" style="margin-top:10px;">If a specialist support is added to that certificate, this page changes on the day it happens and says which one and when. Nothing here is a promise about what we might do later.</p>
+
+      <div class="btns" style="margin-top:26px;">
+        <a href="#/get-started" class="btn btn-primary btn-lg">Get started</a>
+        <a href="#/contact" class="btn btn-ghost btn-lg">Talk to us first</a>
+      </div>
+    </div>
+  </section>
+</section>
+
 <section class="page" id="page-verification" data-title="How we check every worker — BookIt">
   <div class="page-hero">
     <div class="container">
@@ -2357,9 +2404,10 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
             <label>Does your support include any of these? <span class="hint">(only tick what a support worker would actually do for you)</span></label>
             <p class="muted-sm" style="margin:2px 0 10px;">These eight are the <b>high intensity daily personal activities</b> named in the NDIS Practice Standards. Most people tick nothing here &mdash; everyday showering, dressing, toileting and continence assistance are <b>not</b> on this list, and neither is emptying or cleaning around a catheter you already have.</p>
             <div class="choice-row" id="pHiPills"></div>
-            <div class="info-card" id="pHiNote" hidden style="margin-top:14px;border-color:#B45309;background:#FDF6EC;">
-              <h3 style="margin:0 0 6px;">We're not registered for those &mdash; but don't go anywhere</h3>
-              <p style="margin:0;">Those supports sit in registration group <b>0104</b>, and we hold <b>0107</b>. We can't deliver them and we won't pretend otherwise. Finish signing up anyway: our team will call you within one business day, introduce you to a provider registered for 0104 who you engage directly for those supports, and set up everything else on your plan alongside them.</p>
+            <div class="info-card" id="pHiNote" hidden style="margin-top:14px;border-color:#0E6B62;background:#EEF6F4;">
+              <h3 style="margin:0 0 6px;">That's a specialist support &mdash; keep going</h3>
+              <p style="margin:0;" id="pHiNoteBody">We arrange those rather than deliver them ourselves. Finish signing up: our team calls you within one business day, before anything is booked, and introduces you to a provider registered for that support who you engage directly. Everything else on your plan carries on with us, rostered around them. <a href="#/specialist-supports">How specialist supports work &rarr;</a></p>
+              <p class="muted-sm" style="margin:8px 0 0;">Why: these eight sit in registration group <b>0104</b> (high intensity daily personal activities). Disability &amp; Mental Health Care is registered for <b>0107</b> personal activities and not for 0104, and under the Registration Rules a provider must not deliver a support its certificate doesn't carry.</p>
             </div>
           </div>
           <button type="submit" class="btn btn-primary btn-lg full" style="grid-column:1/-1;">Create my free profile</button>
@@ -2797,6 +2845,7 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
           <li><a href="#/easy-read">Easy Read</a></li>
           <li><a href="#/safety">Safety & quality</a></li>
           <li><a href="#/verification">How we check every worker</a></li>
+          <li><a href="#/specialist-supports">Specialist supports</a></li>
           <li><a href="#/get-started">Get started</a></li>
         </ul>
       </nav>
@@ -3035,7 +3084,7 @@ const FAQS = [
   {q:'Are workers employees or contractors?', a:'Employees — always. That means we handle super, tax, workers\' compensation and public liability insurance, and every shift is covered. You get the flexibility of choosing your own team without the risks of engaging contractors.'},
   {q:'What if I need to cancel a booking?', a:'Life happens. Cancel free of charge with more than 2 clear business days\' notice. Short-notice cancellations may be charged in line with the NDIS Pricing Arrangements, and your worker still gets paid for the shift.'},
   {q:'Can my worker drive me in their car?', a:'Yes. Workers providing transport hold a police check, a valid licence and appropriate insurance. A per-kilometre vehicle allowance applies, which can be claimed from your plan where funded (0108 Assist-Travel/Transport).'},
-  {q:'What can\'t I book on BookIt?', a:'We\'re registered for personal care at <b>standard intensity</b> (registration group 0107), not for <b>high intensity daily personal activities</b> (0104) — so we don\'t deliver complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections or complex wound management. We don\'t provide nursing either. If you need any of those, tell us: we\'ll introduce you to a provider registered for 0104 who you engage directly, and we can still cover the rest of your plan alongside them. We <b>are</b> registered for Supported Independent Living (Registration Group 138) — SIL is arranged as a package rather than booked shift-by-shift, so <a href="#/contact">talk to us</a> about SIL and shared-living arrangements and we\'ll set it up properly.', home:true},
+  {q:'What can\'t I book on BookIt?', a:'We\'re registered for personal care at <b>standard intensity</b> (registration group 0107), not for <b>high intensity daily personal activities</b> (0104) — so complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections and complex wound management are <b>specialist supports</b>: we arrange them rather than deliver them. We don\'t provide nursing either. Tell us and we\'ll introduce you to a provider registered for it who you engage directly, then roster the rest of your plan around them — <a href="#/specialist-supports">how that works</a>. We <b>are</b> registered for Supported Independent Living (Registration Group 138) — SIL is arranged as a package rather than booked shift-by-shift, so <a href="#/contact">talk to us</a> about SIL and shared-living arrangements and we\'ll set it up properly.', home:true},
   {q:'Where is BookIt available?', a:'We\'re Australia-wide, with the deepest worker pools in greater Sydney, Melbourne and Brisbane. Enter your suburb on <a href="#/find-workers">Find workers</a> to see who\'s nearby.'},
   {q:'How do workers get paid?', a:'Automatically, fortnightly, straight from your approved shift hours — including super and penalty rates. Workers see their full pay breakdown for every shift before they accept it.'},
   {q:'Is my information safe?', a:'Yes. We follow the Privacy Act and NDIS Practice Standards. Your data is encrypted, stored in Australia, never sold, and you control what appears on your profile.'}
@@ -3077,16 +3126,42 @@ const SVC_NAME = Object.fromEntries(SERVICES.map(s => [s.slug, s.name]));
    emptying a leg bag and washing around an established catheter is ordinary 0107 personal care,
    and an unqualified label would make every catheter user tick a box that doesn't apply to them. */
 const HI_SUPPORTS = [
-  { key:'bowel',      label:'Complex bowel care' },
-  { key:'enteral',    label:'PEG or tube (enteral) feeding' },
-  { key:'dysphagia',  label:'Dysphagia \u2014 help managing swallowing difficulties' },
-  { key:'ventilator', label:'Ventilator support' },
-  { key:'trach',      label:'Tracheostomy management' },
-  { key:'catheter',   label:'Urinary catheter management \u2014 inserting, changing or irrigating' },
-  { key:'injections', label:'Subcutaneous injections' },
-  { key:'wounds',     label:'Complex wound management' }
+  { key:'bowel',      clause:'Sch 2 cl 3',  label:'Complex bowel care',                                              prose:'complex bowel care',                     held:false, since:'' },
+  { key:'enteral',    clause:'Sch 2 cl 4',  label:'PEG or tube (enteral) feeding',                                   prose:'PEG or tube feeding',                    held:false, since:'' },
+  { key:'dysphagia',  clause:'Sch 2 cl 4A', label:'Dysphagia \u2014 help managing swallowing difficulties',           prose:'dysphagia management',                   held:false, since:'' },
+  { key:'ventilator', clause:'Sch 2 cl 7',  label:'Ventilator support',                                              prose:'ventilator support',                     held:false, since:'' },
+  { key:'trach',      clause:'Sch 2 cl 5',  label:'Tracheostomy management',                                         prose:'tracheostomy management',                held:false, since:'' },
+  { key:'catheter',   clause:'Sch 2 cl 6',  label:'Urinary catheter management \u2014 inserting, changing or irrigating', prose:'urinary catheter management (inserting, changing or irrigating one)', held:false, since:'' },
+  { key:'injections', clause:'Sch 2 cl 8',  label:'Subcutaneous injections',                                         prose:'subcutaneous injections',                held:false, since:'' },
+  { key:'wounds',     clause:'Sch 2 cl 9',  label:'Complex wound management',                                        prose:'complex wound management',               held:false, since:'' }
 ];
-const hiLabel = k => (HI_SUPPORTS.find(x => x.key === k) || {}).label || k;
+/* Everything the site says about these eight is computed from `held` above. Nothing is written
+   into a sentence. Add a support to the certificate under s13C, flip its flag here and in
+   server.js, and every page, pill, email and form changes with it — including this one going
+   from "we don't deliver these" to "we deliver two of these, and here are the other six". */
+const hiSupport = k => HI_SUPPORTS.find(x => x.key === k) || null;
+const hiLabel = k => (hiSupport(k) || {}).label || k;
+const hiHeld = k => Boolean((hiSupport(k) || {}).held);
+const HI_WE_DO = () => HI_SUPPORTS.filter(x => x.held);
+const HI_WE_DONT = () => HI_SUPPORTS.filter(x => !x.held);
+const holds0104 = () => HI_SUPPORTS.some(x => x.held);
+/* "a, b, c or d" — the Oxford-less list English actually uses in a sentence */
+const hiProse = (list, join) => {
+  const p = (list || []).map(x => x.prose);
+  if(!p.length) return '';
+  if(p.length === 1) return p[0];
+  return p.slice(0, -1).join(', ') + ' ' + (join || 'or') + ' ' + p[p.length - 1];
+};
+/* The certificate, mirrored from server.js. What we hold, in the order it reads on the document. */
+const CERT_GROUPS = [
+  { code:'0102', name:'Assist Access/Maintain Employment', service:'employment'   },
+  { code:'0107', name:'Assist — Personal Activities',   service:'personal-care'},
+  { code:'0108', name:'Assist — Travel/Transport',      service:'transport'    },
+  { code:'0115', name:'Daily Tasks / Shared Living',       service:'daily-tasks'  },
+  { code:'0120', name:'Household Tasks',                   service:'household'    },
+  { code:'0125', name:'Participate in Community',          service:'community'    },
+  { code:'0138', name:'Supported Independent Living',      service:'daily-tasks'  }
+];
 
 function toast(msg){
   const t = $('#toast');
@@ -3292,13 +3367,15 @@ $$('input[name="pPlan"]').forEach(r => r.addEventListener('change', () => {
 (function initHiScreen(){
   const pills = $('#pHiPills'), wrap = $('#pHiWrap'), note = $('#pHiNote');
   if(!pills || !wrap) return;
-  pills.innerHTML = HI_SUPPORTS.map(h => `<label class="choice-pill"><input type="checkbox" name="pHi" value="${h.key}"><span>${h.label}</span></label>`).join('');
+  pills.innerHTML = HI_SUPPORTS.map(h => `<label class="choice-pill"><input type="checkbox" name="pHi" value="${h.key}"><span>${h.label}${h.held ? ' <b style="color:#2E6B4F;">— we deliver this</b>' : ''}</span></label>`).join('');
   const HANDS_ON = ['personal-care','daily-tasks','community','transport'];
   const sync = () => {
     const show = $$('input[name="pSvc"]:checked').some(c => HANDS_ON.includes(c.value));
     wrap.hidden = !show;
     if(!show) $$('input[name="pHi"]:checked').forEach(c => { c.checked = false; });
-    note.hidden = !$$('input[name="pHi"]:checked').length;
+    /* Only a support we don't hold needs the card. Ticking one we've since been registered for
+       is a normal booking, not an exception, and shouldn't read like one. */
+    note.hidden = !$$('input[name="pHi"]:checked').some(c => !hiHeld(c.value));
   };
   $$('input[name="pSvc"]').forEach(c => c.addEventListener('change', sync));
   pills.addEventListener('change', sync);
@@ -3786,8 +3863,8 @@ $('#participantForm').addEventListener('submit', async e => {
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
       const d = await API.call('/register', {method:'POST', body:{role:'participant', name:$('#pName').value, email:$('#pEmail').value, password:pw, phone:$('#pPhone').value, suburb:$('#pPostcode').value, plan, services, hi_flags, ndis_number:$('#pNdis').value.trim(), pm_email:$('#pPmEmail').value.trim()}});
       API.me = d.user; updateAuthUI();
-      gsSuccess(`Welcome aboard, ${d.user.name.split(' ')[0]}! 🎉`, hi_flags.length
-        ? 'Your account is live and you\'re logged in. Because you told us about supports we aren\'t registered to deliver, our team will call you within one business day before you book anything — we\'ll introduce you to a provider registered for those, and set up everything else on your plan alongside them. In the meantime, have a browse.'
+      gsSuccess(`Welcome aboard, ${d.user.name.split(' ')[0]}! 🎉`, hi_flags.some(k => !hiHeld(k))
+        ? 'Your account is live and you\'re logged in. You told us about a specialist support — one we aren\'t registered to deliver — so our team will call you within one business day, before anything is booked. We\'ll introduce you to a provider who is registered for it and you engage them directly, and we roster everything else on your plan around them. In the meantime, have a browse.'
         : 'Your account is live and you\'re logged in. We\'ve emailed you a link to confirm your address. Browse workers, say hello in Messages, and request your first booking whenever you\'re ready.');
       $('#gsDemoNote').textContent = 'Log back in any time with your email and password.';
     }catch(err){ toast(err.message); }
@@ -4530,6 +4607,7 @@ const ROUTES = {
   '/support-workers': 'page-support-workers',
   '/safety': 'page-safety',
   '/verification': 'page-verification',
+  '/specialist-supports': 'page-specialist-supports',
   '/about': 'page-about',
   '/faq': 'page-faq',
   '/contact': 'page-contact',
@@ -4544,6 +4622,35 @@ const ROUTES = {
   '/pay-success': 'page-pay-success',
   '/admin': 'page-admin'
 };
+/* The specialist-supports page is drawn from HI_SUPPORTS and CERT_GROUPS rather than written out,
+   so it cannot fall out of step with what the certificate actually says. Runs once at load. */
+(function renderSpecialistSupports(){
+  const t = $('#ssTable'), c = $('#ssCert'), note = $('#ssTableNote');
+  if(!t || !c) return;
+  t.querySelector('tbody').innerHTML = HI_SUPPORTS.map(h => `<tr>
+      <td><b>${esc(h.label)}</b></td>
+      <td style="white-space:nowrap;font-size:.85rem;">${esc(h.clause)}</td>
+      <td>${h.held
+        ? `<span class="adm-badge" style="background:#DBF2E4;border-color:#2E6B4F;color:#2E6B4F;">We deliver this${h.since ? ' — since ' + esc(fmtAU(h.since)) : ''}</span>`
+        : `<span class="adm-badge" style="background:#FBF7F1;border-color:#E7DFD4;color:#7A6E5F;">We arrange a registered provider</span>`}</td>
+    </tr>`).join('');
+  const dont = HI_WE_DONT();
+  if(note) note.innerHTML = holds0104()
+    ? `We hold ${HI_WE_DO().length} of the eight on our certificate. For the other ${dont.length} — ${esc(hiProse(dont))} — we arrange a provider registered for them and coordinate around their visits.`
+    : `We hold none of the eight, and we'd rather say so plainly than let you find out later. For ${esc(hiProse(dont))} we arrange a provider registered for them and coordinate around their visits.`;
+  c.querySelector('tbody').innerHTML = CERT_GROUPS.map(g => `<tr><td><b>${esc(g.code)}</b></td><td>${esc(g.name)}</td></tr>`).join('');
+})();
+
+/* One sentence on the personal-care page, kept honest the same way. */
+(function renderPcScopeLine(){
+  const el = $('#pcScopeLine');
+  if(!el) return;
+  const dont = HI_WE_DONT();
+  el.innerHTML = `BookIt provides <b>standard-intensity</b> personal care. ${dont.length
+    ? `We're registered for 0107, and ${holds0104() ? `for ${HI_WE_DO().length} of the eight` : 'not for'} <b>high intensity daily personal activities</b> (0104), so ${esc(hiProse(dont, 'and'))} ${dont.length === 1 ? 'is a' : 'are'} <a href="#/specialist-supports">specialist support${dont.length === 1 ? '' : 's'}</a> we arrange rather than deliver.`
+    : `We're registered for 0107 and for all eight <b>high intensity daily personal activities</b> (0104).`}`;
+})();
+
 function route(){
   let path = location.hash.replace(/^#/, '');
   const qi = path.indexOf('?');
@@ -5011,16 +5118,18 @@ async function renderBookingsPage(){
   const myHi = Array.isArray(API.me.hi_flags) ? API.me.hi_flags : [];
   const hiCard = API.me.role === 'participant' ? `
     <div class="info-card" id="cardHi" style="margin-bottom:18px;">
-      <h3 style="margin:0 0 6px;">Supports we can't cover</h3>
-      <p class="muted-sm" style="margin:0 0 12px;">Tick anything a BookIt worker would be asked to do <b>for</b> you. These eight are the high intensity daily personal activities named in the NDIS Practice Standards &mdash; we're registered for <b>0107</b>, not <b>0104</b>, so we don't deliver them. Everyday showering, dressing, toileting and continence help are <b>not</b> on this list, and neither is emptying or cleaning around a catheter you already have. Most people tick nothing.</p>
+      <h3 style="margin:0 0 6px;">Specialist supports</h3>
+      <p class="muted-sm" style="margin:0 0 12px;">Tick anything a BookIt worker would be asked to do <b>for</b> you. These eight are the high intensity daily personal activities named in the NDIS Practice Standards. ${holds0104()
+        ? `We're registered to deliver ${HI_WE_DO().length} of them; for the rest we arrange a provider who is, and roster around them.`
+        : `We arrange these through a provider registered for them rather than delivering them ourselves — <a href="#/specialist-supports">here's how that works</a>.`} Everyday showering, dressing, toileting and continence help are <b>not</b> on this list, and neither is emptying or cleaning around a catheter you already have. Most people tick nothing.</p>
       <div class="choice-row" id="hiPills">
-        ${HI_SUPPORTS.map(h => `<label class="choice-pill"><input type="checkbox" name="myHi" value="${h.key}" ${myHi.includes(h.key) ? 'checked' : ''}><span>${h.label}</span></label>`).join('')}
+        ${HI_SUPPORTS.map(h => `<label class="choice-pill"><input type="checkbox" name="myHi" value="${h.key}" ${myHi.includes(h.key) ? 'checked' : ''}><span>${h.label}${h.held ? ' <b style="color:#2E6B4F;">— we deliver this</b>' : ''}</span></label>`).join('')}
       </div>
       <div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
         <button type="button" class="btn btn-primary btn-sm" id="hiSave">Save</button>
-        <span class="muted-sm" id="hiSaveNote">${myHi.length
-          ? 'Our team knows about these and will introduce you to a provider registered for 0104. Your other supports carry on as normal.'
-          : 'Tell us here if that ever changes and we\'ll sort out an introduction.'}</span>
+        <span class="muted-sm" id="hiSaveNote">${myHi.some(k => !hiHeld(k))
+          ? 'Our team knows about these and will arrange the provider for you. Everything else on your plan carries on as normal.'
+          : (myHi.length ? 'Saved \u2014 all of those are supports we deliver.' : 'Tell us here if that ever changes and we\'ll sort out the introduction.')}</span>
       </div>
     </div>` : '';
   let workerCards = '';
@@ -5448,10 +5557,11 @@ document.addEventListener('click', async e => {
       const d = await API.call('/me/high-intensity', {method:'POST', body:{hi_flags:flags}});
       API.me = d.user;
       const note = $('#hiSaveNote');
-      if(note) note.textContent = flags.length
-        ? 'Saved. Our team has been alerted and will call you to arrange an introduction to a provider registered for 0104.'
-        : 'Saved \u2014 nothing on this list applies to you.';
-      toast(flags.length ? 'Saved. We\'ll call you about those supports.' : 'Saved. 👍');
+      const outOfScope = flags.filter(k => !hiHeld(k));
+      if(note) note.textContent = outOfScope.length
+        ? 'Saved. Our team has been alerted and will call you to arrange the provider for that support.'
+        : (flags.length ? 'Saved \u2014 all of those are supports we deliver.' : 'Saved \u2014 nothing on this list applies to you.');
+      toast(outOfScope.length ? 'Saved. We\'ll call you about that support.' : 'Saved. 👍');
     }catch(err){ toast(err.message); }
     return;
   }
@@ -5553,6 +5663,35 @@ async function renderAdminPage(){
       </tr>`).join('')}
     </tbody></table></div>`
     : '<p class="adm-empty">Nobody has declared a high-intensity support need. The question is asked at signup whenever someone picks a hands-on support, and stays editable on every participant\'s Bookings page.</p>';
+  /* The out-of-scope register. One row per person per support, opened by the system the moment
+     it is asked for, closable only by naming who they were introduced to. This is the answer to
+     "what do you do when someone asks for a support you aren't registered for?" — not a policy
+     document saying what we would do, a list of what we did, with dates on it. */
+  const srRows = d.scope_register || [];
+  const srOpen = srRows.filter(r => r.outcome === 'open');
+  const srBadge = o => o === 'open' ? '<span class="adm-badge" style="background:#FDECE8;border-color:#D94F32;color:#B03A20;">open</span>'
+    : o === 'referred' ? '<span class="adm-badge" style="background:#DBF2E4;border-color:#2E6B4F;color:#2E6B4F;">introduced ✓</span>'
+    : o === 'in-scope' ? '<span class="adm-badge" style="background:#DBF2E4;border-color:#2E6B4F;color:#2E6B4F;">now in scope</span>'
+    : '<span class="adm-badge" style="background:#F3EFE8;border-color:#E7DFD4;color:#7A6E5F;">withdrawn</span>';
+  const scopeRegister = `
+    <p class="muted-sm" style="margin:0 0 12px;">Every request for a support outside our registration, one row per support, opened automatically the moment it is declared. A row closes as <b>introduced</b> only when you name the provider — an unnamed referral will not save, because it is not a record. ${srRows.length ? `<a href="/api/admin/scope-register.csv">Download the register (CSV)</a> for your audit pack.` : ''}</p>
+    ${srRows.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>#</th><th>Participant</th><th>Support asked for</th><th style="white-space:nowrap;">Declared</th><th>Status</th><th style="min-width:290px;">What we did</th></tr></thead><tbody>
+      ${srRows.map(r => `<tr style="${r.outcome === 'open' ? '' : 'opacity:.62;'}">
+        <td style="font-size:.8rem;color:#7A6E5F;">${r.id}</td>
+        <td><b>${esc(r.name)}</b><br><span class="muted-sm">${esc(r.email)}${r.phone ? ' · ' + esc(r.phone) : ''}</span></td>
+        <td style="max-width:230px;">${esc(r.label)}<br><span class="muted-sm">${esc(r.clause || '')}</span></td>
+        <td style="white-space:nowrap;font-size:.85rem;">${admDate(r.declared_at)}<br><span class="muted-sm">${esc(r.channel || '')}</span></td>
+        <td>${srBadge(r.outcome)}</td>
+        <td>${r.outcome === 'open'
+          ? `<input class="adm-sr-to" data-sr-to="${r.id}" placeholder="Provider you introduced them to" style="font:inherit;font-size:.85rem;padding:6px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:100%;box-sizing:border-box;">
+             <input class="adm-sr-note" data-sr-note="${r.id}" placeholder="Called 21/07, sent their details across, participant to contact them." style="font:inherit;font-size:.85rem;padding:6px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:100%;box-sizing:border-box;margin-top:6px;">
+             <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+               <button class="adm-btn-sm" data-sr-refer="${r.id}">Record introduction</button>
+               <button class="adm-btn-sm" data-sr-withdraw="${r.id}">Ticked in error</button>
+             </div>`
+          : `${r.referred_to ? `<b>${esc(r.referred_to)}</b><br>` : ''}<span class="muted-sm">${esc(r.note || '')}</span>${r.closed_at ? `<br><span class="muted-sm">${admDate(r.closed_at)}${r.closed_by ? ' · ' + esc(r.closed_by) : ''}</span>` : ''}`}</td>
+      </tr>`).join('')}
+    </tbody></table></div>` : '<p class="adm-empty">Nothing on the register. Every out-of-scope request lands here by itself — an empty register means nobody has asked, not that nobody wrote it down.</p>'}`;
   /* Shift notes: the record that a support was delivered, which is what an auditor samples.
      Two jobs on this screen — clear the out-of-scope flags (those need a phone call today),
      and be able to hand over one participant's whole history as a file without hunting. */
@@ -5949,6 +6088,7 @@ async function renderAdminPage(){
     + (lad ? ladderBoardHtml(lad) : '<p class="adm-empty">The pay ladder couldn\'t be loaded.</p>')
     + `<h2 class="adm-section">Workers awaiting approval ${c.pending ? `(${c.pending})` : ''}</h2>` + pending
     + `<h2 class="adm-section">High-intensity enquiries ${hiOpenN ? `<span style="color:#D94F32;">(${hiOpenN} to call)</span>` : ''}</h2>` + highIntensity
+    + `<h2 class="adm-section">Out-of-scope register ${srOpen.length ? `<span style="color:#D94F32;">(${srOpen.length} open)</span>` : (srRows.length ? `<span style="color:#2E6B4F;">(${srRows.length} closed)</span>` : '')}</h2>` + scopeRegister
     + `<h2 class="adm-section">0137 conditions of registration ${cmp && cmp.blocked ? `<span style="color:#D94F32;">(${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform)</span>` : ''}</h2>` + compliance
     + `<h2 class="adm-section">Credentials — the automatic checker</h2>` + credentials
     + `<h2 class="adm-section">Incident register ${c.urgent_incidents ? `<span style="color:#D94F32;">(${c.urgent_incidents} awaiting Commission notice!)</span>` : ''}</h2>` + incidents
@@ -6256,6 +6396,33 @@ document.addEventListener('click', async e => {
     try{
       await API.call('/admin/participants/' + id + '/high-intensity', {method:'POST', body:{note, clear}});
       toast(clear ? 'Cleared, with your note kept on file.' : 'Introduction recorded. 👍');
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  const srBtn = e.target.closest('[data-sr-refer], [data-sr-withdraw]');
+  if(srBtn){
+    const id = srBtn.dataset.srRefer || srBtn.dataset.srWithdraw;
+    const referred = !!srBtn.dataset.srRefer;
+    const toF = $(`[data-sr-to="${id}"]`);
+    const noteF = $(`[data-sr-note="${id}"]`);
+    const referred_to = toF ? toF.value.trim() : '';
+    const note = noteF ? noteF.value.trim() : '';
+    /* The server refuses these too — checking here as well is only so the message lands next to
+       the box you have to type in, rather than as a toast after a round trip. */
+    if(referred && !referred_to){
+      toast('Name the provider you introduced them to — an unnamed referral is not a record.');
+      if(toF) toF.focus();
+      return;
+    }
+    if(!referred && !note){
+      toast('Say why it came off — "ticked in error, confirmed by phone 21/07" is enough.');
+      if(noteF) noteF.focus();
+      return;
+    }
+    try{
+      await API.call('/admin/scope-requests/' + id, {method:'POST', body:{outcome: referred ? 'referred' : 'withdrawn', referred_to, note}});
+      toast(referred ? 'Introduction recorded — that row is the evidence now. 👍' : 'Off the register, with your note kept against it.');
       renderAdminPage();
     }catch(err){ toast(err.message); }
     return;

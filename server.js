@@ -118,6 +118,28 @@ for (const col of ['stripe_session TEXT', 'pay_url TEXT']) {
 for (const col of ["svc_interest TEXT DEFAULT '[]'", "hi_flags TEXT DEFAULT '[]'", "hi_at TEXT DEFAULT ''", "hi_referred_at TEXT DEFAULT ''", "hi_note TEXT DEFAULT ''"]) {
   try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
 }
+/* scope build v34: the out-of-scope register. One row per participant per support they asked
+   for that we are not registered to deliver — opened automatically the moment it is declared,
+   and closable only by recording who they were introduced to. The old hi_note column held one
+   free-text line per person; this holds a dated row per support, which is what an auditor asks
+   for when they ask what happens when someone requests a support you don't hold. */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS scope_requests (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    support TEXT NOT NULL,
+    channel TEXT NOT NULL DEFAULT 'signup',
+    declared_at TEXT NOT NULL,
+    outcome TEXT NOT NULL DEFAULT 'open'
+      CHECK (outcome IN ('open','referred','withdrawn','in-scope')),
+    referred_to TEXT DEFAULT '',
+    note TEXT DEFAULT '',
+    closed_by TEXT DEFAULT '',
+    closed_at TEXT DEFAULT ''
+  );
+  CREATE INDEX IF NOT EXISTS idx_scope_open ON scope_requests (outcome, user_id);
+`);
+
 /* compliance build: credentials + incident + complaint registers */
 db.exec(`
   CREATE TABLE IF NOT EXISTS worker_docs (
@@ -505,27 +527,90 @@ if (bkDef && !bkDef.sql.includes("'completed'")) {
 /* ---------- helpers ---------- */
 const now = () => new Date().toISOString();
 const SERVICES = ['employment','personal-care','transport','daily-tasks','household','community'];
+/* ---------- the certificate, as data ----------
+   Everything the site says about what we can and can't deliver is derived from the two tables
+   below. Nothing is hardcoded into a sentence. That matters twice over: s13D(6)(d) of the
+   Registration Rules makes credentials *displayed on a platform* a thing the Commission checks,
+   so a claim on a page has to be traceable to the certificate; and when a support is added to
+   the certificate later, one boolean changes here and every page, email and form follows.
+   CERT_GROUPS is the current DMHC certificate (NDIS 4-LO5XNY0, to 21 January 2029). 0138 was
+   added by notice of variation effective 1 July 2026. It is the certificate as published, so it
+   sits alongside the older REG_GROUPS map (service -> code, used for claiming) rather than
+   replacing it — that one answers "which line do I bill", this one answers "what may we do". */
+const CERT_GROUPS = [
+  { code: '0102', name: 'Assist Access/Maintain Employment',   service: 'employment'   },
+  { code: '0107', name: 'Assist — Personal Activities',        service: 'personal-care'},
+  { code: '0108', name: 'Assist — Travel/Transport',           service: 'transport'    },
+  { code: '0115', name: 'Daily Tasks / Shared Living',         service: 'daily-tasks'  },
+  { code: '0120', name: 'Household Tasks',                     service: 'household'    },
+  { code: '0125', name: 'Participate in Community',            service: 'community'    },
+  { code: '0138', name: 'Supported Independent Living',        service: 'daily-tasks'  }
+];
+
 /* The eight supports in NDIS Practice Standards Supplementary Module 1 — High Intensity Daily
-   Personal Activities, registration group 0104. DMHC holds 0107, not 0104, so BookIt does not
-   deliver any of these: we introduce the participant to a provider who is registered for them.
-   Asked at signup so a mismatch surfaces before a shift is booked rather than when a support
-   worker is already standing in someone's bathroom.
+   Personal Activities, registration group 0104, each mapped to its clause in Schedule 2 of the
+   Provider Registration and Practice Standards Rules 2018.
+   `held` is the load-bearing field. Section 13C of those Rules grants 0104 support by support:
+   a provider "must not provide a support mentioned in Schedule 2 if the support is not set out
+   in the provider's certificate of registration". So this is not one yes/no — it is eight, and
+   a provider can hold any subset. DMHC currently holds none of them, which is why every entry
+   reads false; adding one under s13C is a two-field edit here (held: true, since: 'YYYY-MM-DD')
+   and the whole site tells the truth again on the next restart.
    Note the catheter wording: emptying a leg bag and hygiene around an established catheter is
    ordinary personal care under 0107. Only inserting, changing or irrigating one is Module 1 —
    the label has to say so, or every participant with a catheter ticks a box they shouldn't. */
 const HI_SUPPORTS = [
-  { key: 'bowel',      label: 'Complex bowel care' },
-  { key: 'enteral',    label: 'PEG or tube (enteral) feeding' },
-  { key: 'dysphagia',  label: 'Dysphagia — help managing swallowing difficulties' },
-  { key: 'ventilator', label: 'Ventilator support' },
-  { key: 'trach',      label: 'Tracheostomy management' },
-  { key: 'catheter',   label: 'Urinary catheter management — inserting, changing or irrigating' },
-  { key: 'injections', label: 'Subcutaneous injections' },
-  { key: 'wounds',     label: 'Complex wound management' }
+  { key: 'bowel',      clause: 'Sch 2 cl 3',  label: 'Complex bowel care',                                            held: false, since: '' },
+  { key: 'enteral',    clause: 'Sch 2 cl 4',  label: 'PEG or tube (enteral) feeding',                                 held: false, since: '' },
+  { key: 'dysphagia',  clause: 'Sch 2 cl 4A', label: 'Dysphagia — help managing swallowing difficulties',             held: false, since: '' },
+  { key: 'ventilator', clause: 'Sch 2 cl 7',  label: 'Ventilator support',                                            held: false, since: '' },
+  { key: 'trach',      clause: 'Sch 2 cl 5',  label: 'Tracheostomy management',                                       held: false, since: '' },
+  { key: 'catheter',   clause: 'Sch 2 cl 6',  label: 'Urinary catheter management — inserting, changing or irrigating',held: false, since: '' },
+  { key: 'injections', clause: 'Sch 2 cl 8',  label: 'Subcutaneous injections',                                       held: false, since: '' },
+  { key: 'wounds',     clause: 'Sch 2 cl 9',  label: 'Complex wound management',                                      held: false, since: '' }
 ];
 const HI_KEYS = HI_SUPPORTS.map(x => x.key);
-const hiLabel = k => (HI_SUPPORTS.find(x => x.key === k) || {}).label || k;
+const hiSupport = k => HI_SUPPORTS.find(x => x.key === k) || null;
+const hiLabel = k => (hiSupport(k) || {}).label || k;
+const hiHeld = k => Boolean((hiSupport(k) || {}).held);
+const hiUnheld = ks => (ks || []).filter(k => !hiHeld(k));
+const holds0104 = () => HI_SUPPORTS.some(x => x.held);
 const hiFrom = body => (Array.isArray(body && body.hi_flags) ? [...new Set(body.hi_flags)] : []).filter(k => HI_KEYS.includes(k));
+
+/* Adding one support to the certificate. s13C grants Schedule 2 supports one at a time, and the
+   whole point of holding the certificate as data is that the day one is added this is a single
+   config line rather than an edit to nine pages:  CERT_SCH2="catheter:2027-03-14"
+   The date is not optional. It is the date the support appeared on the certificate of
+   registration, it is what an auditor asks for, and requiring it is what stops this being set
+   casually. Never set it for a support that is not printed on the certificate. */
+for (const pair of String(process.env.CERT_SCH2 || '').split(',').map(x => x.trim()).filter(Boolean)) {
+  const [key, since] = pair.split(':').map(x => (x || '').trim());
+  const sup = hiSupport(key);
+  if (!sup) { console.error(`CERT_SCH2: '${key}' is not a Schedule 2 support — ignored`); continue; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(since || '')) { console.error(`CERT_SCH2: '${key}' needs the date it went on the certificate (YYYY-MM-DD) — ignored`); continue; }
+  sup.held = true; sup.since = since;
+  console.log(`CERT: Schedule 2 ${sup.clause} — ${sup.label} — held since ${since}`);
+}
+
+/* The provider we introduce people to for the supports we don't hold. Environment-driven so it
+   can be filled in without a deploy — and deliberately gated on BOTH a name and the date the
+   collaboration agreement was signed. An unsigned arrangement is not a referral pathway, it is
+   an intention, and the site will not name a partner it cannot evidence. Until both are set the
+   site says we will introduce you, without putting a name to it. */
+const SCOPE_PARTNER = {
+  name:         process.env.SCOPE_PARTNER_NAME || '',
+  ndis:         process.env.SCOPE_PARTNER_NDIS || '',
+  phone:        process.env.SCOPE_PARTNER_PHONE || '',
+  agreement_at: process.env.SCOPE_PARTNER_AGREEMENT_AT || ''
+};
+const partnerNamed = () => Boolean(SCOPE_PARTNER.name && SCOPE_PARTNER.agreement_at);
+const publicPartner = () => partnerNamed() ? { name: SCOPE_PARTNER.name, ndis: SCOPE_PARTNER.ndis, phone: SCOPE_PARTNER.phone } : null;
+const scopeView = () => ({
+  supports: HI_SUPPORTS,           /* the eight of Module 1, each with its clause and whether we hold it */
+  groups: CERT_GROUPS,
+  holds_0104: holds0104(),
+  partner: publicPartner()
+});
 const safeJson = (v, fallback) => { try { const x = JSON.parse(v); return Array.isArray(x) ? x : fallback; } catch { return fallback; } };
 /* The published rate table. Derived from the ladder rather than hardcoded, so
    the number on the marketing page can never drift away from the number that
@@ -1243,17 +1328,78 @@ route('GET', /^\/api\/me$/, (req, res, m, user) => json(res, 200, {
   demo: Boolean(db.prepare("SELECT id FROM users WHERE email LIKE '%@demo.bookit.life' LIMIT 1").get())
 }));
 
+/* ---------- the out-of-scope register ----------
+   A flag is a policy. A gate is evidence. These four functions are the gate: declaring a support
+   we don't hold opens a dated row automatically, taking it back closes it as withdrawn, adding
+   the support to the certificate closes it as in-scope, and a human closing it has to name who
+   the participant was introduced to. Nothing here can be satisfied by an intention. */
+function openScope(uid, support) {
+  return db.prepare("SELECT * FROM scope_requests WHERE user_id = ? AND support = ? AND outcome = 'open'").get(Number(uid), support) || null;
+}
+function recordScope(uid, flags, channel) {
+  const opened = [];
+  for (const k of hiUnheld(flags || [])) {
+    if (openScope(uid, k)) continue;
+    db.prepare('INSERT INTO scope_requests (user_id, support, channel, declared_at) VALUES (?,?,?,?)').run(Number(uid), k, channel, now());
+    opened.push(k);
+  }
+  if (opened.length) console.log(`SCOPE REGISTER opened ${opened.join(', ')} for user ${uid} via ${channel}`);
+  return opened;
+}
+function withdrawScope(uid, flags, by) {
+  const keep = new Set(flags || []);
+  const rows = db.prepare("SELECT id, support FROM scope_requests WHERE user_id = ? AND outcome = 'open'").all(Number(uid));
+  let closed = 0;
+  for (const r of rows) {
+    if (keep.has(r.support)) continue;
+    db.prepare("UPDATE scope_requests SET outcome = 'withdrawn', closed_by = ?, closed_at = ?, note = ? WHERE id = ?")
+      .run(by, now(), 'Removed from the participant\'s own declaration.', r.id);
+    closed++;
+  }
+  return closed;
+}
+/* Run at boot. If a support has been added to the certificate since these rows were opened, they
+   are no longer refusals — close them as in-scope. The row keeps its original declared_at, so the
+   register still shows the date the answer changed rather than pretending it never said no. */
+function reconcileScope() {
+  let n = 0;
+  for (const sup of HI_SUPPORTS) {
+    if (!sup.held) continue;
+    const r = db.prepare("UPDATE scope_requests SET outcome = 'in-scope', closed_at = ?, note = ? WHERE support = ? AND outcome = 'open'")
+      .run(now(), `Added to the certificate${sup.since ? ' on ' + sup.since : ''} — now delivered in scope.`, sup.key);
+    n += r.changes;
+  }
+  if (n) console.log(`SCOPE REGISTER ${n} row(s) closed as in-scope — certificate now covers them`);
+  return n;
+}
+try { reconcileScope(); } catch (e) { console.error('reconcileScope failed', e && e.message); }
+
+/* What a worker needs to know before they walk in, derived live rather than stored: any support
+   this participant has on the register that we still don't hold. If it later goes on the
+   certificate the warning disappears by itself, because it was never a sentence, only a query. */
+function scopeWarning(uid) {
+  const rows = db.prepare("SELECT support FROM scope_requests WHERE user_id = ? AND outcome = 'open'").all(Number(uid));
+  const keys = hiUnheld(rows.map(r => r.support));
+  return keys.length ? { keys, labels: keys.map(hiLabel) } : null;
+}
+
 /* Someone has told us they need a support we are not registered to deliver. Nobody should find
-   that out from a roster — mail the office the moment it is said, and leave it open in admin
-   until a human records what was discussed. */
+   that out from a roster — mail the office the moment it is said. The register row is already
+   open by the time this sends; the mail exists so a human rings before a shift is booked. */
 function hiAlert(req, who, flags, when) {
   if (!MAIL_FROM) return;
-  sendMail(MAIL_FROM, 'High-intensity supports declared — BookIt',
-    'Someone has asked for supports we are not registered to deliver',
+  const out = hiUnheld(flags);
+  if (!out.length) return;
+  const partner = publicPartner();
+  sendMail(MAIL_FROM, 'Specialist support requested — BookIt',
+    'Someone has asked for a support outside our registration',
     `<p><b>${escHtml(who.name)}</b> (${escHtml(who.email)}${who.suburb ? ', ' + escHtml(who.suburb) : ''}) told us ${escHtml(when)} that they need:</p>
-     <ul>${flags.map(k => `<li>${escHtml(hiLabel(k))}</li>`).join('')}</ul>
-     <p>These sit inside NDIS Practice Standards Supplementary Module 1 — high intensity daily personal activities, registration group <b>0104</b>. Disability &amp; Mental Health Care is registered for 0107, not 0104, so BookIt does not deliver them.</p>
-     <p><b>Call them before any shift is booked.</b> Everything else on their plan we can still support. For these supports, introduce them to a provider registered for 0104 and let them engage that provider directly — then record what was discussed in the admin dashboard, which closes the flag.</p>`,
+     <ul>${out.map(k => `<li>${escHtml(hiLabel(k))} <span style="color:#7A6E5F;">(${escHtml((hiSupport(k) || {}).clause || '')})</span></li>`).join('')}</ul>
+     <p>These sit inside NDIS Practice Standards Supplementary Module 1 — high intensity daily personal activities, registration group <b>0104</b>. Disability &amp; Mental Health Care does not hold them, so under s13C of the Registration Rules BookIt must not deliver them.</p>
+     <p><b>Call them before any shift is booked.</b> Everything else on their plan we can still support, and coordinate around whoever does the clinical part. ${partner
+       ? `Introduce them to <b>${escHtml(partner.name)}</b>${partner.ndis ? ` (NDIS ${escHtml(partner.ndis)})` : ''}${partner.phone ? `, ${escHtml(partner.phone)}` : ''}, who they engage directly.`
+       : 'Introduce them to a provider registered for 0104, who they engage directly.'}</p>
+     <p>The register row is already open. Recording who they were introduced to is what closes it.</p>`,
     'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
 }
 
@@ -1287,7 +1433,10 @@ function scopeAlert(req, bk, workerName, partName, detail) {
 }
 
 /* the canonical Module 1 list, so the sign-up form and the account page can never drift from it */
-route('GET', /^\/api\/high-intensity$/, (req, res) => json(res, 200, { supports: HI_SUPPORTS }));
+route('GET', /^\/api\/high-intensity$/, (req, res) => json(res, 200, scopeView()));
+/* the whole registration position in one place — every claim the site makes about what we can
+   deliver reads from this, so no page can outrun the certificate */
+route('GET', /^\/api\/scope$/, (req, res) => json(res, 200, scopeView()));
 
 route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
   if (limited(ip, 'register', 15)) return json(res, 429, { error: 'Too many attempts — try again later.' });
@@ -1308,7 +1457,7 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
     .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), clean(body.plan, 30), ndisNum, pmEmail,
          JSON.stringify(services), JSON.stringify(hiFlags), hiFlags.length ? now() : '', now());
   const uid = Number(r.lastInsertRowid);
-  if (hiFlags.length) hiAlert(req, { id: uid, name, email, suburb }, hiFlags, 'at signup');
+  if (hiFlags.length) { recordScope(uid, hiFlags, 'signup'); hiAlert(req, { id: uid, name, email, suburb }, hiFlags, 'at signup'); }
   if (role === 'worker') {
     /* vetting: new workers start hidden (visible = 0) until an admin approves them */
     db.prepare('INSERT INTO worker_profiles (user_id, bio, services, visible) VALUES (?,?,?,0)')
@@ -1362,9 +1511,11 @@ route('POST', /^\/api\/me\/high-intensity$/, (req, res, m, user, body) => {
   if (!changed) return json(res, 200, { user: sessionUser(user.id), unchanged: true });
   db.prepare('UPDATE users SET hi_flags = ?, hi_at = ?, hi_referred_at = ?, hi_note = ? WHERE id = ?')
     .run(JSON.stringify(flags), flags.length ? now() : '', '', '', user.id);
+  withdrawScope(user.id, flags, user.email);
+  recordScope(user.id, flags, 'account page');
   const added = flags.filter(k => !before.includes(k));
   if (added.length) hiAlert(req, user, flags, 'from their account page');
-  json(res, 200, { user: sessionUser(user.id), flagged: flags.length > 0 });
+  json(res, 200, { user: sessionUser(user.id), flagged: hiUnheld(flags).length > 0 });
 });
 
 /* ---------- email flows: forgot / reset / verify ---------- */
@@ -1435,6 +1586,8 @@ route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
     urgent_incidents: db.prepare("SELECT COUNT(*) AS n FROM incidents WHERE reportable = 1 AND commission_notified_at IS NULL AND status != 'closed'").get().n,
     open_complaints: db.prepare("SELECT COUNT(*) AS n FROM complaints WHERE status != 'resolved'").get().n,
     hi_open: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'participant' AND COALESCE(hi_flags,'[]') NOT IN ('[]','') AND COALESCE(hi_referred_at,'') = ''").get().n,
+    scope_open: db.prepare("SELECT COUNT(*) AS n FROM scope_requests WHERE outcome = 'open'").get().n,
+    scope_total: db.prepare('SELECT COUNT(*) AS n FROM scope_requests').get().n,
     notes_flagged: db.prepare('SELECT COUNT(*) AS n FROM shift_notes WHERE scope_flag = 1 AND reviewed_at IS NULL').get().n,
     notes_total: db.prepare('SELECT COUNT(*) AS n FROM shift_notes').get().n
   };
@@ -1458,7 +1611,10 @@ route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
       const flags = safeJson(r.hi_flags, []);
       return { ...r, hi_flags: flags, hi_labels: flags.map(hiLabel), svc_interest: safeJson(r.svc_interest, []) };
     });
-  json(res, 200, { counts, pending, users, bookings, contacts, launch, high_intensity: highIntensity });
+  const scopeRegister = db.prepare(`SELECT r.*, u.name, u.email, u.phone FROM scope_requests r
+    JOIN users u ON u.id = r.user_id ORDER BY (r.outcome = 'open') DESC, r.id DESC LIMIT 100`).all()
+    .map(r => ({ ...r, label: hiLabel(r.support), clause: (hiSupport(r.support) || {}).clause || '' }));
+  json(res, 200, { counts, pending, users, bookings, contacts, launch, high_intensity: highIntensity, scope_register: scopeRegister, scope: scopeView() });
 });
 
 /* launch sweep — permanently removes every demo account and everything they touched.
@@ -1542,6 +1698,58 @@ function invoiceRows() {
     FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id
     WHERE b.status = 'completed' ORDER BY b.date DESC, b.id DESC`).all();
 }
+/* The register itself — every row, newest open first, with the participant against it. This is
+   the page you turn to an auditor: dated, per support, with a named referral on every closed row. */
+function scopeRegisterRows() {
+  return db.prepare(`SELECT r.*, u.name, u.email, u.phone, u.suburb FROM scope_requests r
+    JOIN users u ON u.id = r.user_id ORDER BY (r.outcome = 'open') DESC, r.id DESC`).all()
+    .map(r => ({ ...r, label: hiLabel(r.support), clause: (hiSupport(r.support) || {}).clause || '' }));
+}
+route('GET', /^\/api\/admin\/scope-register$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { rows: scopeRegisterRows(), supports: HI_SUPPORTS, partner: publicPartner() });
+});
+route('GET', /^\/api\/admin\/scope-register\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  const lines = [['Entry', 'Participant', 'Email', 'Phone', 'Suburb', 'Support requested', 'Schedule 2 clause', 'Declared via', 'Declared', 'Outcome', 'Introduced to', 'Note', 'Closed by', 'Closed'].map(q).join(',')];
+  for (const r of scopeRegisterRows()) {
+    const day = t => t ? dmy(String(t).slice(0, 10)) : ''; /* dmy() wants a bare date, and these are full timestamps */
+    lines.push([r.id, r.name, r.email, r.phone, r.suburb, r.label, r.clause, r.channel, day(r.declared_at), r.outcome, r.referred_to, r.note, r.closed_by, day(r.closed_at)].map(q).join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="scope-register-${now().slice(0, 10)}.csv"`
+  });
+  res.end('\ufeff' + lines.join('\r\n'));
+});
+
+/* Closing a row. 'referred' is the only outcome that means we did our job, and it will not save
+   without a name in it — "introduced them to someone" is not a record, "introduced them to
+   <provider> on <date>" is. Everything else is honest bookkeeping, not a way around that. */
+route('POST', /^\/api\/admin\/scope-requests\/(\d+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const row = db.prepare('SELECT * FROM scope_requests WHERE id = ?').get(Number(m[1]));
+  if (!row) return json(res, 404, { error: 'Register entry not found.' });
+  if (row.outcome !== 'open') return json(res, 400, { error: 'That entry is already closed.' });
+  const outcome = clean(body.outcome, 20);
+  if (!['referred', 'withdrawn'].includes(outcome)) return json(res, 400, { error: 'Choose whether they were introduced to another provider, or took the request back.' });
+  const note = clean(body.note, 500);
+  const referredTo = clean(body.referred_to, 160);
+  if (outcome === 'referred' && !referredTo) return json(res, 400, { error: 'Name the provider you introduced them to — an unnamed referral is not a record.' });
+  if (outcome === 'withdrawn' && !note) return json(res, 400, { error: 'Say why it came off — "ticked in error, confirmed by phone 21/07" is enough.' });
+  db.prepare('UPDATE scope_requests SET outcome = ?, referred_to = ?, note = ?, closed_by = ?, closed_at = ? WHERE id = ?')
+    .run(outcome, referredTo, note, user.email, now(), row.id);
+  if (outcome === 'withdrawn') {
+    const left = safeJson((db.prepare('SELECT hi_flags FROM users WHERE id = ?').get(row.user_id) || {}).hi_flags, []).filter(k => k !== row.support);
+    db.prepare('UPDATE users SET hi_flags = ? WHERE id = ?').run(JSON.stringify(left), row.user_id);
+  }
+  const stillOpen = db.prepare("SELECT COUNT(*) AS n FROM scope_requests WHERE user_id = ? AND outcome = 'open'").get(row.user_id).n;
+  if (!stillOpen) db.prepare('UPDATE users SET hi_referred_at = ? WHERE id = ?').run(now(), row.user_id);
+  console.log(`SCOPE REGISTER #${row.id} closed as ${outcome} by ${user.email}`);
+  json(res, 200, { ok: true, outcome, still_open: stillOpen });
+});
+
 /* Record what was actually discussed with someone who declared a high-intensity support.
    The note IS the record — an auditor asking "what did you do when someone asked for a support
    you're not registered for?" gets a dated line with a name against it. */
@@ -2876,12 +3084,23 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   const sleepover = body.sleepover && ['personal-care', 'daily-tasks'].includes(service) ? 1 : 0;
   const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, created) VALUES (?,?,?,?,?,?,?,?,?)')
     .run(user.id, workerId, service, date, start, hours, clean(body.notes, 600), sleepover, now());
+  /* The gate at the point it matters. If this participant has told us they need a support we
+     don't hold, the worker is told before the shift instead of finding out mid-task. It is not
+     a reason to block the booking — everything else on the plan is still ours to deliver — but
+     nobody should be improvising an answer in someone's bathroom. Derived, not stored: put the
+     support on the certificate and this stops appearing on its own. */
+  const warn = ['personal-care', 'daily-tasks'].includes(service) ? scopeWarning(user.id) : null;
+  const scopeBlock = warn ? `<p style="background:#FFF6E5;border-left:3px solid #8A6D00;padding:10px 14px;margin:16px 0;">
+      <b>Before you accept — one thing about this booking.</b> ${escHtml(user.name)} has told us they need help with
+      ${warn.labels.map(l => escHtml(l)).join(', ')}. That is a high intensity daily personal activity and DMHC is not
+      registered to deliver it, so it is not part of this shift and you must not do it. If you are asked on the day,
+      say you're not able to and write a shift note — the office is already arranging that support with another provider.</p>` : '';
   const wu = db.prepare('SELECT name, email FROM users WHERE id = ?').get(workerId);
   if (wu) sendMail(wu.email, 'New booking request — BookIt',
     `New booking request, ${firstName(wu.name)}!`,
-    `<p><b>${escHtml(user.name)}</b> has requested <b>${SERVICE_LABELS[service] || service}</b> on <b>${prettyDate(date)}</b> starting <b>${escHtml(start)}</b> (${hours} hours).</p><p>Accept or decline from your bookings page — they'll see your answer straight away.</p>`,
+    `<p><b>${escHtml(user.name)}</b> has requested <b>${SERVICE_LABELS[service] || service}</b> on <b>${prettyDate(date)}</b> starting <b>${escHtml(start)}</b> (${hours} hours).</p>${scopeBlock}<p>Accept or decline from your bookings page — they'll see your answer straight away.</p>`,
     'View the request', `${baseUrl(req)}/#/bookings`).catch(() => {});
-  json(res, 200, { id: Number(r.lastInsertRowid), ok: true });
+  json(res, 200, { id: Number(r.lastInsertRowid), ok: true, scope_warning: warn });
 });
 
 route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
