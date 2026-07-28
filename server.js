@@ -374,6 +374,73 @@ for (const col of ['standby_optin INTEGER NOT NULL DEFAULT 0', 'standby_max INTE
   try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
 }
 
+/* --- 0137 NDIS Digital Platform Service.
+   From 1 January 2027 two conditions of registration attach to any provider on
+   the 0137 registration group:
+
+     • worker screening check requirements ensuring that only persons who hold
+       a worker screening clearance may use the platform; and
+     • requirements to check and display certain information about persons
+       providing supports on the platform, such as whether a banning order
+       against a person is in force.
+
+   Read them carefully. The first is a *gate on platform access*, not a filing
+   obligation — an uncleared worker must not be able to use BookIt at all, so
+   the state has to be a thing the code can refuse on, not a PDF in a folder.
+   The second is *check AND display*, and it is worded at the level of the
+   individual worker, so each profile has to carry its own answer.
+
+   Hence these columns. screening_status is deliberately separate from the
+   screening document's expiry date: a clearance can be suspended or revoked
+   by the NSW screening unit on a Tuesday while the card still says 2029, and
+   an expiry-driven system would never notice. banning_checked_at is the date
+   we last looked a worker up on the Commission's banning orders register;
+   banning_result is what we found. platform_block is the manual override an
+   admin can pull at any moment without waiting for a sweep. --- */
+for (const col of [
+  "screening_status TEXT NOT NULL DEFAULT 'unknown'",   /* unknown | cleared | pending | suspended | revoked | excluded */
+  "screening_status_at TEXT DEFAULT ''",
+  "screening_status_by TEXT DEFAULT ''",
+  "screening_source TEXT DEFAULT ''",                   /* where the answer came from — NDISWC portal, letter, etc. */
+  "screening_ref TEXT DEFAULT ''",
+  "banning_checked_at TEXT DEFAULT ''",
+  "banning_result TEXT NOT NULL DEFAULT 'unchecked'",   /* unchecked | clear | banned */
+  "banning_checked_by TEXT DEFAULT ''",
+  "banning_source TEXT DEFAULT ''",
+  "banning_note TEXT DEFAULT ''",
+  "platform_block INTEGER NOT NULL DEFAULT 0",
+  "platform_block_reason TEXT DEFAULT ''",
+  "auto_hidden INTEGER NOT NULL DEFAULT 0"   /* hidden by the 0137 gate, not by a person — so it can be safely restored */
+]) {
+  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+}
+
+/* --- how a document was verified, not merely that somebody ticked it.
+   An auditor's question is never "is it verified" — it is "how did you
+   satisfy yourself, and what would you show me". --- */
+for (const col of ["verify_method TEXT DEFAULT ''", "verify_ref TEXT DEFAULT ''", "verify_note TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE worker_docs ADD COLUMN ${col}`); } catch {}
+}
+
+/* --- the evidence trail itself: append-only, never edited, never deleted.
+   Every screening decision, every banning-order check, every document
+   verification and every automatic block lands here with who, when and from
+   what source. This table is the answer to "show me your records". --- */
+db.exec(`CREATE TABLE IF NOT EXISTS compliance_log (
+  id INTEGER PRIMARY KEY,
+  worker_id INTEGER REFERENCES users(id),
+  worker_name TEXT DEFAULT '',
+  kind TEXT NOT NULL,
+  result TEXT DEFAULT '',
+  detail TEXT DEFAULT '',
+  source TEXT DEFAULT '',
+  ref TEXT DEFAULT '',
+  doc_id INTEGER,
+  checked_at TEXT NOT NULL,
+  checked_by TEXT DEFAULT ''
+);`);
+db.exec('CREATE INDEX IF NOT EXISTS idx_complog_worker ON compliance_log (worker_id, id)');
+
 /* --- a tiny key/value store so award figures aren't welded into the source.
    SCHADS rates move every 1 July; an admin should be able to change one number
    in a form rather than wait for a deploy. --- */
@@ -1072,9 +1139,31 @@ function seed() {
   const insUser = db.prepare('INSERT INTO users (role, name, email, pass, suburb, created) VALUES (?,?,?,?,?,?)');
   const insProf = db.prepare('INSERT INTO worker_profiles (user_id, bio, services, langs, exp, color, rating, shifts, checks, days) VALUES (?,?,?,?,?,?,?,?,?,?)');
   const demoPass = hashPassword('demo1234');
+  /* Demo profiles carry real document rows rather than the free-text `checks`
+     list they used to, so the demo actually demonstrates the machinery: every
+     shield on a demo profile traces to a verified document, exactly as it will
+     for a real worker. The verification note says "demo data" in as many words
+     — a demonstration should never look like evidence. */
+  const CRED_KEY = { 'NDIS Worker Screening': 'ndis-screening', 'WWCC (NSW)': 'wwcc', 'WWCC (VIC)': 'wwcc',
+    'First Aid & CPR': 'first-aid', 'NDIS Orientation Module': 'ndis-orientation', 'Police check (transport)': 'police-check',
+    'Cert III Individual Support': 'cert3-support', 'Cert IV Disability': 'cert4-disability',
+    'Manual handling training': 'manual-handling', 'White Card': 'qualification',
+    'Comprehensive car insurance': 'other' };
+  const insDoc = db.prepare(`INSERT INTO worker_docs (worker_id, doc_type, label, expiry_date, uploaded_at,
+    verified_at, verified_by, verify_method, verify_note) VALUES (?,?,?,?,?,?,?,?,?)`);
+  const inThreeYears = (() => { const d = new Date(); d.setFullYear(d.getFullYear() + 3); return d.toISOString().slice(0, 10); })();
   for (const w of demoWorkers) {
     const r = insUser.run('worker', w.name, w.email, demoPass, w.suburb, now());
-    insProf.run(Number(r.lastInsertRowid), w.bio, JSON.stringify(w.services), w.langs, w.exp, w.color, w.rating, w.shifts, JSON.stringify(w.checks), JSON.stringify(w.days));
+    const uid = Number(r.lastInsertRowid);
+    insProf.run(uid, w.bio, JSON.stringify(w.services), w.langs, w.exp, w.color, w.rating, w.shifts, JSON.stringify(w.checks), JSON.stringify(w.days));
+    for (const label of w.checks) {
+      insDoc.run(uid, CRED_KEY[label] || 'other', label, inThreeYears, now(), now(), 'BookIt (demo seed)',
+        'sighted-original', 'Demo data — this is a fictional profile, not a real credential.');
+    }
+    db.prepare(`UPDATE worker_profiles SET screening_status = 'cleared', screening_status_at = ?, screening_status_by = 'BookIt (demo seed)',
+      screening_source = 'Demo data — not a real clearance', banning_result = 'clear', banning_checked_at = ?,
+      banning_checked_by = 'BookIt (demo seed)', banning_source = 'Demo data — register not actually checked' WHERE user_id = ?`)
+      .run(now(), now(), uid);
   }
   insUser.run('participant', 'Demo Participant', 'demo@demo.bookit.life', demoPass, 'Wyong NSW', now());
   db.exec("UPDATE users SET verified = 1 WHERE email LIKE '%@demo.bookit.life'");
@@ -1083,11 +1172,20 @@ function seed() {
 seed();
 
 /* ---------- data access ---------- */
+/* Note what is NOT here any more: the `checks` column. It was seeded free text
+   — "NDIS Worker Screening (in progress)" — that nothing ever updated from the
+   documents actually on file, and the front end drew a verification shield
+   beside every line of it. That is exactly the claim 0137's display condition
+   is about, so it is gone. What a participant now sees is derived, every time,
+   from documents a human has verified. If nobody has checked it, it does not
+   appear. */
 function publicWorker(row) {
+  const v = publicVerification(row.user_id, row.email);
   return {
     id: row.user_id, name: row.name, suburb: row.suburb, color: row.color,
     exp: row.exp, langs: row.langs, bio: row.bio,
-    services: JSON.parse(row.services), checks: JSON.parse(row.checks),
+    services: JSON.parse(row.services),
+    checks: v.checks, screening: v.screening, banning: v.banning, demo: v.demo,
     days: JSON.parse(row.days), rating: row.rating, shifts: row.shifts,
     photo: row.photo ? `/photos/${row.user_id}?v=${encodeURIComponent(row.photo_at || '')}` : null
   };
@@ -1377,20 +1475,34 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user, bod
   const uid = Number(m[1]);
   const w = db.prepare("SELECT u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
   if (!w) return json(res, 404, { error: 'No such worker.' });
-  /* approval requirements: current NDIS Worker Screening + a profile photo — or an explicit override */
-  if (!w.email.endsWith('@demo.bookit.life') && !body.override) {
-    const missing = [];
-    const state = screeningState(uid);
-    if (state !== 'valid' && state !== 'expiring') {
-      missing.push(state === 'none' ? 'a current NDIS Worker Screening Check (nothing on file)' : 'a current NDIS Worker Screening Check (the one on file has expired or has no expiry)');
+  /* Two different kinds of requirement, and the difference matters.
+
+     The 0137 conditions are conditions of registration. They are not house
+     rules we can wave through when someone is short-staffed on a Friday, so
+     `override` does not reach them — an admin who ticks "approve anyway" gets
+     the same refusal. Everything else (a missing profile photo) is ours, and
+     stays overridable exactly as before. */
+  if (!isDemoWorker(w.email)) {
+    const st = platformStatus(uid);
+    if (!st.ok) {
+      return json(res, 400, {
+        blocked_0137: true,
+        blocks: st.blocks,
+        error: `This worker can't be approved yet — it would breach BookIt's conditions of registration for 0137 NDIS Digital Platform Service. ${st.blocks.join(' ')} These can't be overridden.`
+      });
     }
-    const prof = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(uid);
-    if (!prof || !prof.photo) missing.push('a profile photo');
-    if (missing.length) {
-      return json(res, 400, { needs_override: true, error: `Still needed before approval: ${missing.join(' and ')}. Ask the worker to add ${missing.length > 1 ? 'them' : 'it'} from their Bookings page — or tick "approve anyway" to override.` });
+    if (!body.override) {
+      const missing = [];
+      const prof = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(uid);
+      if (!prof || !prof.photo) missing.push('a profile photo');
+      if (missing.length) {
+        return json(res, 400, { needs_override: true, error: `Still needed before approval: ${missing.join(' and ')}. Ask the worker to add ${missing.length > 1 ? 'them' : 'it'} from their Bookings page — or tick "approve anyway" to override.` });
+      }
     }
   }
   db.prepare('UPDATE worker_profiles SET visible = 1 WHERE user_id = ?').run(uid);
+  logCompliance({ worker_id: uid, worker_name: w.name, kind: 'platform-access', result: 'granted',
+    detail: 'Profile approved and made visible — 0137 conditions met at time of approval.', checked_by: user.name });
   sendMail(w.email, 'Your BookIt profile is live', `Great news, ${firstName(w.name)} 🎉`,
     `<p>Your checks are in order and your profile has been approved — you're now visible in <b>Find Workers</b> across BookIt.</p><p>Participants can message you and request bookings from today. Keep your availability up to date, reply promptly, and welcome aboard!</p>`,
     'Open BookIt', `${baseUrl(req)}/#/find-workers`).catch(() => {});
@@ -1400,9 +1512,11 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user, bod
 route('POST', /^\/api\/admin\/workers\/(\d+)\/hide$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const uid = Number(m[1]);
-  const w = db.prepare("SELECT u.id FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
+  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
   if (!w) return json(res, 404, { error: 'No such worker.' });
   db.prepare('UPDATE worker_profiles SET visible = 0 WHERE user_id = ?').run(uid);
+  logCompliance({ worker_id: uid, worker_name: w.name, kind: 'platform-access', result: 'withdrawn',
+    detail: 'Profile hidden by an administrator.', checked_by: user.name });
   json(res, 200, { ok: true });
 });
 
@@ -1726,6 +1840,235 @@ function docOut(d) {
     type_label: d.label || cat.label || d.doc_type, category: cat.category || 'other', has_file: Boolean(d.file_path) };
 }
 
+/* ============================================================================
+   0137 — NDIS Digital Platform Service: conditions of registration
+   ==========================================================================*/
+
+/* How often we re-check the banning orders register, and how long a worker
+   keeps working after that check falls due. The window is a setting because
+   the Commission may put a number on it; the grace period exists so a check
+   nobody got to on a Friday warns the team rather than pulling the entire
+   roster offline over a weekend. After the grace period it does block. */
+function banningWindowDays() { return Math.max(1, Number(setting('banning_recheck_days', '90')) || 90); }
+function banningGraceDays()  { return Math.max(0, Number(setting('banning_grace_days', '30')) || 0); }
+
+function daysSince(iso) {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (isNaN(t)) return null;
+  return Math.floor((Date.now() - t) / 864e5);
+}
+
+function isDemoWorker(email) { return Boolean(email) && email.endsWith('@demo.bookit.life'); }
+
+/* Write to the evidence trail. Append only — nothing in the codebase updates
+   or deletes a row of this table, and that is the point of it. */
+function logCompliance(o) {
+  db.prepare(`INSERT INTO compliance_log
+    (worker_id, worker_name, kind, result, detail, source, ref, doc_id, checked_at, checked_by)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`)
+    .run(o.worker_id || null, o.worker_name || '', o.kind, o.result || '', o.detail || '',
+         o.source || '', o.ref || '', o.doc_id || null, o.checked_at || now(), o.checked_by || 'System');
+}
+
+/* The single source of truth on whether a worker may be on the platform.
+   Everything else — the approve route, the sweep, the booking and message
+   endpoints, the cover cascade, the admin board — asks this one function, so
+   there is exactly one definition of "eligible" to keep right.
+
+   Returns { ok, blocks[], warnings[], screening{}, banning{} }. `blocks` are
+   hard: any one of them means the worker must not be visible and must not be
+   bookable. `warnings` are things that will become blocks if left. */
+function platformStatus(workerId) {
+  const w = db.prepare(`SELECT u.id, u.name, u.email, p.screening_status, p.screening_status_at,
+      p.screening_source, p.screening_ref, p.banning_checked_at, p.banning_result, p.banning_source,
+      p.banning_note, p.platform_block, p.platform_block_reason, p.visible
+    FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?`).get(workerId);
+  if (!w) return { ok: false, blocks: ['No worker profile.'], warnings: [], screening: {}, banning: {} };
+
+  const blocks = [], warnings = [];
+
+  /* ---- condition (a): only a person holding a worker screening clearance
+     may use the platform. Two separate things must both hold: a screening
+     document that is on file, current and verified by a human; and a
+     clearance status that the screening unit has not withdrawn. Either one
+     alone is not enough — a valid-looking card proves nothing if the
+     clearance behind it was suspended last week. ---- */
+  const sdocs = db.prepare("SELECT * FROM worker_docs WHERE worker_id = ? AND doc_type = 'ndis-screening'").all(workerId);
+  const current = sdocs.filter(d => { const s = docStatus(d); return s === 'valid' || s === 'expiring' || s === 'no-expiry'; });
+  const verified = current.filter(d => d.verified_at);
+  const best = verified[0] || current[0] || sdocs[0] || null;
+
+  if (!sdocs.length) blocks.push('No NDIS worker screening check on file.');
+  else if (!current.length) blocks.push('NDIS worker screening check has expired.');
+  else if (!verified.length) blocks.push('NDIS worker screening check is on file but has not been verified by our team.');
+  else if (best && docStatus(best) === 'expiring') warnings.push(`Screening check expires in ${docDays(best)} days.`);
+
+  const st = w.screening_status || 'unknown';
+  if (st === 'suspended') blocks.push('NDIS worker screening clearance is suspended.');
+  else if (st === 'revoked') blocks.push('NDIS worker screening clearance has been revoked.');
+  else if (st === 'excluded') blocks.push('An NDIS worker screening exclusion is in force.');
+  else if (st === 'pending') blocks.push('NDIS worker screening clearance is still pending — an application is not a clearance.');
+  else if (st === 'unknown') blocks.push('NDIS worker screening clearance status has never been confirmed against the screening unit.');
+
+  /* ---- condition (b): check whether a banning order is in force, and
+     display what we found. A check that was done once at induction is not a
+     check; the register changes. So an unchecked worker is blocked outright,
+     and a stale check warns, then blocks once the grace period runs out. ---- */
+  const bage = daysSince(w.banning_checked_at);
+  const win = banningWindowDays(), grace = banningGraceDays();
+  if (w.banning_result === 'banned') blocks.push('A banning order is in force against this worker.');
+  else if (w.banning_result !== 'clear' || bage === null) blocks.push('The NDIS banning orders register has never been checked for this worker.');
+  else if (bage > win + grace) blocks.push(`Banning orders register last checked ${bage} days ago — past the ${win}-day window and the ${grace}-day grace period.`);
+  else if (bage > win) warnings.push(`Banning orders register is due for re-check — last checked ${bage} days ago.`);
+  else if (bage > win - 14) warnings.push(`Banning orders re-check due in ${win - bage} days.`);
+
+  /* ---- an admin's manual stop, which needs no sweep and no reason to wait ---- */
+  if (w.platform_block) blocks.push(w.platform_block_reason || 'Blocked from the platform by an administrator.');
+
+  return {
+    ok: blocks.length === 0,
+    blocks, warnings,
+    worker: { id: w.id, name: w.name, email: w.email, visible: w.visible },
+    screening: {
+      status: st, status_at: w.screening_status_at || '', source: w.screening_source || '',
+      ref: w.screening_ref || '', doc_state: screeningState(workerId),
+      expiry: best ? (best.expiry_date || '') : '', verified: Boolean(verified.length)
+    },
+    banning: {
+      result: w.banning_result || 'unchecked', checked_at: w.banning_checked_at || '',
+      age_days: bage, window_days: win, source: w.banning_source || '', note: w.banning_note || ''
+    },
+    /* returned as its own flag rather than left to be read out of the blocks
+       list — the reason is free text an admin typed, so pattern-matching it
+       would break the moment somebody words it differently. */
+    block: { on: Boolean(w.platform_block), reason: w.platform_block_reason || '' }
+  };
+}
+
+/* The same question, asked cheaply at a gate. Demo workers are exempt from
+   enforcement throughout the codebase — they carry no real clearance and are
+   never real people — but they are *shown* honestly on the compliance board
+   as demo data rather than quietly counted as compliant. */
+function platformEligible(workerId, email) {
+  if (email === undefined) {
+    const u = db.prepare('SELECT email FROM users WHERE id = ?').get(workerId);
+    email = u ? u.email : '';
+  }
+  if (isDemoWorker(email)) return true;
+  return platformStatus(workerId).ok;
+}
+
+/* Make `visible` tell the truth, right now.
+
+   BookIt already had a single flag every access path consults — nineteen
+   queries say `p.visible = 1`. Rather than teach nineteen queries about 0137,
+   the flag is kept honest at source: a worker who fails a condition cannot be
+   visible, and the moment the condition is met again they come back.
+
+   `auto_hidden` is what makes the second half safe. A worker hidden by this
+   gate carries the flag, so lifting a suspension restores them automatically.
+   A worker an admin hid by hand does not carry it, and no sweep will ever
+   undo that decision. Returns a description of what changed, or null. */
+function reconcileVisibility(workerId, why, req) {
+  const w = db.prepare(`SELECT u.id, u.name, u.email, p.visible, p.auto_hidden
+    FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'`).get(workerId);
+  if (!w || isDemoWorker(w.email)) return null;
+  const st = platformStatus(workerId);
+  const base = req ? baseUrl(req) : (APP_URL || 'https://bookit.life');
+
+  if (!st.ok && w.visible) {
+    db.prepare('UPDATE worker_profiles SET visible = 0, auto_hidden = 1 WHERE user_id = ?').run(workerId);
+    logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'auto-withdrawn',
+      detail: `${why}. Platform access withdrawn automatically: ${st.blocks.join(' ')}`, source: '0137 conditions of registration' });
+    sendMail(w.email, 'Your BookIt profile is paused — BookIt', `Your profile is paused, ${firstName(w.name)}`,
+      `<p>Your profile has been hidden and new bookings are paused, because of the checks BookIt has to keep current for every worker on the platform:</p><ul>${st.blocks.map(b => `<li>${escHtml(b)}</li>`).join('')}</ul><p>This is a requirement of BookIt's registration, not a judgement about you. As soon as it's sorted your profile switches back on automatically.</p>`,
+      'Update my credentials', `${base}/#/bookings`).catch(() => {});
+    if (MAIL_FROM) sendMail(MAIL_FROM, `Worker withdrawn from the platform: ${w.name} — BookIt`, 'Platform access withdrawn',
+      `<p><b>${escHtml(w.name)}</b> was withdrawn from Find Workers.</p><ul>${st.blocks.map(b => `<li>${escHtml(b)}</li>`).join('')}</ul>`,
+      'Open the 0137 board', `${base}/#/admin`).catch(() => {});
+    return { worker: w.name, hidden: true, blocks: st.blocks };
+  }
+
+  if (st.ok && !w.visible && w.auto_hidden) {
+    db.prepare('UPDATE worker_profiles SET visible = 1, auto_hidden = 0 WHERE user_id = ?').run(workerId);
+    logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'restored',
+      detail: `${why}. All 0137 conditions met again — profile restored automatically.`, source: '0137 conditions of registration' });
+    sendMail(w.email, 'Your BookIt profile is live again', `You're back on, ${firstName(w.name)}`,
+      '<p>Your checks are current again, so your profile is visible in <b>Find Workers</b> and participants can book you from now.</p>',
+      'Open BookIt', `${base}/#/find-workers`).catch(() => {});
+    return { worker: w.name, restored: true };
+  }
+
+  if (st.ok && w.visible && w.auto_hidden) db.prepare('UPDATE worker_profiles SET auto_hidden = 0 WHERE user_id = ?').run(workerId);
+  return null;
+}
+
+/* Everything that goes on a public profile about how a worker was checked.
+   Deliberately narrow: status and month-level dates only. A participant needs
+   to know the check was done and is current; nobody outside the office needs
+   the worker's clearance number, exact dates, or documents. */
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function monthYear(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return `${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
+function publicVerification(workerId, email) {
+  const demo = isDemoWorker(email);
+  const s = platformStatus(workerId);
+  const today = new Date().toISOString().slice(0, 10);
+  const PUBLIC_CATS = ['checks', 'training', 'qualification'];
+
+  /* Only documents a human has actually verified appear here. This is the
+     whole point of the change: a shield must never sit beside a claim we
+     have not checked ourselves. */
+  const checks = db.prepare('SELECT doc_type, label, expiry_date, verified_at FROM worker_docs WHERE worker_id = ? ORDER BY id').all(workerId)
+    .filter(d => {
+      const c = DOC_MAP[d.doc_type];
+      return c && PUBLIC_CATS.includes(c.category) && d.doc_type !== 'resume'
+        && d.verified_at && (!d.expiry_date || d.expiry_date >= today);
+    })
+    .map(d => ({
+      label: d.label || DOC_TYPES[d.doc_type] || d.doc_type,
+      /* Demo credentials are seeded with a verified_at so the office screens
+         have something to show, but nobody checked them, so the payload must
+         not say anybody did. The front end already draws demo profiles in
+         amber — this makes the same statement one layer down, where it can't
+         be lost by a page that forgets to look at `demo`. A tick is a claim
+         wherever it is made. */
+      verified: !demo,
+      demo,
+      valid_to: monthYear(d.expiry_date)
+    }));
+
+  return {
+    checks,
+    screening: {
+      /* Not `true` for a demo profile, and not `false` either — the honest
+         answer is "there is nothing here to be cleared", so the flag stays
+         down and `demo` says why. Anything that ticks on `cleared` alone then
+         fails safe rather than certifying a person who doesn't exist. */
+      cleared: demo ? false : (s.screening.status === 'cleared' && s.screening.verified),
+      demo,
+      label: demo ? 'NDIS Worker Screening Check — demo profile, not checked'
+                  : (s.screening.status === 'cleared' && s.screening.verified ? 'NDIS Worker Screening Check — cleared' : 'NDIS Worker Screening Check — not confirmed'),
+      valid_to: demo ? '' : monthYear(s.screening.expiry),
+      confirmed_on: demo ? '' : monthYear(s.screening.status_at)
+    },
+    banning: {
+      clear: demo ? false : s.banning.result === 'clear',
+      demo,
+      label: demo ? 'Banning orders register — demo profile, not checked'
+                  : (s.banning.result === 'clear' ? 'No banning order in force'
+                     : s.banning.result === 'banned' ? 'A banning order is in force' : 'Banning orders register not yet checked'),
+      checked_on: demo ? '' : monthYear(s.banning.checked_at)
+    },
+    demo
+  };
+}
+
 /* the document catalogue — powers the typeahead on the worker's documents card */
 route('GET', /^\/api\/doc-catalog$/, (req, res) => json(res, 200, { categories: DOC_CATEGORIES, types: DOC_CATALOG }));
 
@@ -1835,20 +2178,110 @@ route('GET', /^\/api\/admin\/credentials$/, (req, res, m, user) => {
     .map(w => ({
       ...w,
       photo: w.photo ? `/photos/${w.id}?v=${encodeURIComponent(w.photo_at || '')}` : null,
-      demo: w.email.endsWith('@demo.bookit.life'),
+      demo: isDemoWorker(w.email),
       screening: screeningState(w.id),
+      platform: platformStatus(w.id),
       summary: onboardingSummary(w.id),
       documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(w.id).map(docOut)
     }));
   json(res, 200, { workers });
 });
 
-route('POST', /^\/api\/admin\/documents\/(\d+)\/verify$/, (req, res, m, user) => {
+route('POST', /^\/api\/admin\/documents\/(\d+)\/verify$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
-  const d = db.prepare('SELECT id FROM worker_docs WHERE id = ?').get(Number(m[1]));
+  const d = db.prepare(`SELECT wd.*, u.name AS worker_name FROM worker_docs wd
+    JOIN users u ON u.id = wd.worker_id WHERE wd.id = ?`).get(Number(m[1]));
   if (!d) return json(res, 404, { error: 'No such document.' });
-  db.prepare('UPDATE worker_docs SET verified_at = ?, verified_by = ? WHERE id = ?').run(now(), user.name, d.id);
-  json(res, 200, { ok: true });
+  body = body || {};
+  /* "Verified" on its own is a tick, and a tick is not evidence. What an
+     auditor asks is how you satisfied yourself — did you sight the original,
+     check the number against the issuing register, or take it on a copy — and
+     what reference you can point at. So the method is recorded, defaults to
+     the honest answer ("sighted the document"), and lands in the log. */
+  const METHODS = {
+    'sighted-original': 'Sighted the original document',
+    'sighted-copy': 'Sighted a copy of the document',
+    'issuer-register': 'Checked against the issuing register',
+    'issuer-confirmed': 'Confirmed directly with the issuer',
+    'other': 'Other — see note'
+  };
+  const method = METHODS[body.method] ? body.method : 'sighted-copy';
+  const ref = clean(body.ref, 120);
+  const note = clean(body.note, 400);
+  db.prepare('UPDATE worker_docs SET verified_at = ?, verified_by = ?, verify_method = ?, verify_ref = ?, verify_note = ? WHERE id = ?')
+    .run(now(), user.name, method, ref, note, d.id);
+  logCompliance({ worker_id: d.worker_id, worker_name: d.worker_name, kind: 'document-verified', result: 'verified',
+    detail: `${d.label || DOC_TYPES[d.doc_type] || d.doc_type} — ${METHODS[method]}${d.expiry_date ? `, expires ${d.expiry_date}` : ''}${note ? `. ${note}` : ''}`,
+    source: METHODS[method], ref, doc_id: d.id, checked_by: user.name });
+  /* A newly verified screening check can be the last thing standing between a
+     worker and the platform, so re-test straight away rather than waiting up
+     to twelve hours for the sweep. */
+  reconcileVisibility(d.worker_id, 'Document verified');
+  json(res, 200, { ok: true, method, methods: METHODS });
+});
+
+/* ---------- 0137: recording the two conditions ---------- */
+
+/* Condition (a) — the clearance itself, as distinct from the card on file.
+   An admin looks the worker up on the NDIS Worker Check portal and records
+   what the screening unit says today. */
+route('POST', /^\/api\/admin\/workers\/(\d+)\/screening$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const uid = Number(m[1]);
+  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  const OK = ['cleared', 'pending', 'suspended', 'revoked', 'excluded', 'unknown'];
+  const status = OK.includes(String(body.status)) ? String(body.status) : null;
+  if (!status) return json(res, 400, { error: `Status must be one of: ${OK.join(', ')}.` });
+  const source = clean(body.source, 160) || 'NDIS Worker Check portal';
+  const ref = clean(body.ref, 120);
+  db.prepare(`UPDATE worker_profiles SET screening_status = ?, screening_status_at = ?, screening_status_by = ?,
+    screening_source = ?, screening_ref = ? WHERE user_id = ?`).run(status, now(), user.name, source, ref, uid);
+  logCompliance({ worker_id: uid, worker_name: w.name, kind: 'screening-status', result: status,
+    detail: `Worker screening clearance recorded as "${status}".${clean(body.note, 400) ? ' ' + clean(body.note, 400) : ''}`,
+    source, ref, checked_by: user.name });
+  const out = reconcileVisibility(uid, 'Screening status recorded');
+  json(res, 200, { ok: true, platform: platformStatus(uid), changed: out });
+});
+
+/* Condition (b) — the banning orders register. The Commission publishes it;
+   somebody has to look, on a cycle, and write down what they saw. */
+route('POST', /^\/api\/admin\/workers\/(\d+)\/banning$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const uid = Number(m[1]);
+  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  const OK = ['clear', 'banned', 'unchecked'];
+  const result = OK.includes(String(body.result)) ? String(body.result) : null;
+  if (!result) return json(res, 400, { error: `Result must be one of: ${OK.join(', ')}.` });
+  const source = clean(body.source, 160) || 'NDIS Commission banning orders register';
+  const note = clean(body.note, 400);
+  db.prepare(`UPDATE worker_profiles SET banning_result = ?, banning_checked_at = ?, banning_checked_by = ?,
+    banning_source = ?, banning_note = ? WHERE user_id = ?`)
+    .run(result, result === 'unchecked' ? '' : now(), user.name, source, note, uid);
+  logCompliance({ worker_id: uid, worker_name: w.name, kind: 'banning-check', result,
+    detail: result === 'clear' ? 'Checked the banning orders register — no banning order in force.'
+      : result === 'banned' ? `A banning order is in force against this worker.${note ? ' ' + note : ''}`
+      : 'Banning-order check cleared back to unchecked.',
+    source, checked_by: user.name });
+  const out = reconcileVisibility(uid, 'Banning-order check recorded');
+  json(res, 200, { ok: true, platform: platformStatus(uid), changed: out });
+});
+
+/* The manual stop. An admin who hears something at 9pm should not have to
+   compose a status change to get somebody off the platform. */
+route('POST', /^\/api\/admin\/workers\/(\d+)\/platform-block$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const uid = Number(m[1]);
+  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  const on = body.block ? 1 : 0;
+  const reason = clean(body.reason, 300) || (on ? 'Blocked from the platform by an administrator.' : '');
+  db.prepare('UPDATE worker_profiles SET platform_block = ?, platform_block_reason = ? WHERE user_id = ?').run(on, reason, uid);
+  logCompliance({ worker_id: uid, worker_name: w.name, kind: 'platform-block', result: on ? 'blocked' : 'lifted',
+    detail: on ? reason : 'Platform block lifted.', checked_by: user.name });
+  const out = reconcileVisibility(uid, on ? 'Platform block applied' : 'Platform block lifted');
+  json(res, 200, { ok: true, platform: platformStatus(uid), changed: out });
 });
 
 route('POST', /^\/api\/admin\/documents\/(\d+)\/delete$/, (req, res, m, user) => {
@@ -1891,24 +2324,165 @@ function credentialSweep(req) {
         actions.push({ worker: w.name, doc: d.doc_type, stage });
       }
     }
-    /* auto-hide: a screening doc exists but none is current */
-    if (w.visible && screeningState(w.id) === 'expired') {
-      db.prepare('UPDATE worker_profiles SET visible = 0 WHERE user_id = ?').run(w.id);
-      actions.push({ worker: w.name, hidden: true });
-      sendMail(w.email, 'Your BookIt profile is paused — BookIt', `Your profile is paused, ${firstName(w.name)}`,
-        '<p>Your NDIS Worker Screening Check has expired, so your profile has been automatically hidden and new bookings are paused — this is a legal requirement, not a judgement! Upload your renewed check and we\'ll switch you back on straight away.</p>',
-        'Update my credentials', `${base}/#/bookings`).catch(() => {});
-      if (MAIL_FROM) sendMail(MAIL_FROM, `Worker auto-hidden (screening expired): ${w.name} — BookIt`,
-        'Worker automatically hidden',
-        `<p><b>${escHtml(w.name)}</b> was hidden from Find Workers because their NDIS Worker Screening Check has expired. They've been asked to renew; re-approve them once the new check is verified.</p>`,
-        'Open credentials', `${base}/#/admin`).catch(() => {});
+    /* ---- 0137 condition (b): the banning-orders re-check falls due on a
+       cycle, so chase it before it starts pulling people off the roster.
+       Nagging the office twice is much cheaper than a worker disappearing
+       from Find Workers on a Monday morning. ---- */
+    const st = platformStatus(w.id);
+    const age = st.banning.age_days;
+    if (st.banning.result === 'clear' && age !== null && age > st.banning.window_days - 14 && MAIL_FROM) {
+      const overdue = age > st.banning.window_days;
+      const stage = overdue ? `ban-overdue-${Math.floor(age / 7)}` : 'ban-due';
+      if (setting(`banwarn:${w.id}`, '') !== stage) {
+        setSetting(`banwarn:${w.id}`, stage);
+        sendMail(MAIL_FROM, `Banning-order re-check ${overdue ? 'OVERDUE' : 'due'}: ${w.name} — BookIt`,
+          `${w.name} — banning orders register`,
+          `<p>The banning orders register was last checked for <b>${escHtml(w.name)}</b> ${age} days ago. The re-check window is ${st.banning.window_days} days${overdue ? `, and after a further ${banningGraceDays()}-day grace period their profile will be withdrawn automatically` : ''}.</p>`,
+          'Open the 0137 board', `${base}/#/admin`).catch(() => {});
+        actions.push({ worker: w.name, banning_recheck: overdue ? 'overdue' : 'due', days: age });
+      }
     }
+
+    /* ---- and the gate itself. This replaces the old screening-expiry-only
+       auto-hide: it now covers every 0137 condition, and it restores a worker
+       the moment the problem is fixed rather than waiting for someone to
+       remember to re-approve them. ---- */
+    const changed = reconcileVisibility(w.id, 'Scheduled credential sweep', req);
+    if (changed) actions.push(changed);
   }
   return actions;
 }
 route('POST', /^\/api\/admin\/credentials\/sweep$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   json(res, 200, { ok: true, actions: credentialSweep(req) });
+});
+
+/* ---------- 0137: the compliance board ----------
+   Every worker against every condition, in one view, with the evidence behind
+   each answer. This is the screen you open when the Commission asks how you
+   satisfy your conditions of registration, and it is the screen the office
+   works from on a Monday morning. Same data both times. */
+function board0137() {
+  const rows = db.prepare(`SELECT u.id, u.name, u.email, p.visible, p.auto_hidden, p.screening_status,
+      p.screening_status_at, p.screening_status_by, p.screening_source, p.screening_ref,
+      p.banning_checked_at, p.banning_result, p.banning_checked_by, p.banning_source,
+      p.platform_block, p.platform_block_reason
+    FROM users u JOIN worker_profiles p ON p.user_id = u.id
+    WHERE u.role = 'worker' ORDER BY u.name`).all();
+
+  const today = new Date().toISOString().slice(0, 10);
+  const workers = rows.map(w => {
+    const st = platformStatus(w.id);
+    const sdoc = db.prepare(`SELECT id, expiry_date, verified_at, verified_by, verify_method, verify_ref, check_number
+      FROM worker_docs WHERE worker_id = ? AND doc_type = 'ndis-screening'
+      ORDER BY (expiry_date >= '${today}') DESC, expiry_date DESC LIMIT 1`).get(w.id) || null;
+    const pv = publicVerification(w.id, w.email);
+    return {
+      id: w.id, name: w.name, demo: isDemoWorker(w.email), visible: w.visible, auto_hidden: w.auto_hidden,
+      /* the four things the conditions actually require, one column each */
+      c_screening_held: Boolean(sdoc && sdoc.verified_at && (!sdoc.expiry_date || sdoc.expiry_date >= today)),
+      c_screening_status: st.screening.status,
+      c_banning_checked: st.banning.result === 'clear' && st.banning.age_days !== null && st.banning.age_days <= st.banning.window_days,
+      c_banning_result: st.banning.result,
+      c_evidence: Boolean(sdoc && sdoc.verify_method),
+      c_displayed: pv.checks.length > 0 || pv.screening.cleared,
+      screening_doc: sdoc ? { expiry: sdoc.expiry_date || '', verified_at: sdoc.verified_at || '', verified_by: sdoc.verified_by || '', method: sdoc.verify_method || '', ref: sdoc.verify_ref || '' } : null,
+      platform: st
+    };
+  });
+
+  const live = workers.filter(w => !w.demo);
+  return {
+    workers,
+    conditions: [
+      { key: 'a', title: 'Only cleared workers may use the platform',
+        detail: 'A verified, current NDIS worker screening check on file, and a clearance the screening unit has not withdrawn.',
+        met: live.filter(w => w.c_screening_held && w.c_screening_status === 'cleared').length, of: live.length },
+      { key: 'b', title: 'Banning orders checked',
+        detail: `Checked against the Commission's banning orders register within the last ${banningWindowDays()} days.`,
+        met: live.filter(w => w.c_banning_checked).length, of: live.length },
+      { key: 'c', title: 'Verification evidence recorded',
+        detail: 'How each check was verified, by whom and against what source — not merely that somebody ticked it.',
+        met: live.filter(w => w.c_evidence).length, of: live.length },
+      { key: 'd', title: 'Information displayed on the profile',
+        detail: 'What we checked, and what we found, shown on the worker\'s public profile.',
+        met: live.filter(w => w.c_displayed).length, of: live.length }
+    ],
+    settings: { banning_recheck_days: banningWindowDays(), banning_grace_days: banningGraceDays() },
+    blocked: workers.filter(w => !w.demo && !w.platform.ok).length,
+    live_count: live.length
+  };
+}
+
+route('GET', /^\/api\/admin\/compliance\/0137$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, board0137());
+});
+
+route('POST', /^\/api\/admin\/compliance\/0137\/settings$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  if (body.banning_recheck_days !== undefined) setSetting('banning_recheck_days', Math.max(1, Number(body.banning_recheck_days) || 90));
+  if (body.banning_grace_days !== undefined) setSetting('banning_grace_days', Math.max(0, Number(body.banning_grace_days) || 0));
+  json(res, 200, { ok: true, settings: { banning_recheck_days: banningWindowDays(), banning_grace_days: banningGraceDays() } });
+});
+
+/* The evidence trail, newest first — filterable to one worker. */
+route('GET', /^\/api\/admin\/compliance\/log$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = new URL(req.url, 'http://x').searchParams;
+  const wid = Number(q.get('worker') || 0);
+  const rows = wid
+    ? db.prepare('SELECT * FROM compliance_log WHERE worker_id = ? ORDER BY id DESC LIMIT 500').all(wid)
+    : db.prepare('SELECT * FROM compliance_log ORDER BY id DESC LIMIT 500').all();
+  json(res, 200, { entries: rows });
+});
+
+/* The same thing an auditor can take away. Two files: the board as it stands,
+   and the full log behind it. */
+route('GET', /^\/api\/admin\/compliance\/0137\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const b = board0137();
+  const lines = [['Worker', 'On the platform', 'Screening check held & verified', 'Screening clearance status',
+    'Screening expiry', 'Verified by', 'How verified', 'Banning register result', 'Banning register last checked',
+    'Days since', 'Shown on profile', 'Blocks', 'Demo profile'].map(q).join(',')];
+  for (const w of b.workers) {
+    lines.push([w.name, w.visible ? 'Yes' : 'No', w.c_screening_held ? 'Yes' : 'No', w.c_screening_status,
+      w.screening_doc ? w.screening_doc.expiry : '', w.screening_doc ? w.screening_doc.verified_by : '',
+      w.screening_doc ? w.screening_doc.method : '', w.c_banning_result,
+      w.platform.banning.checked_at ? String(w.platform.banning.checked_at).slice(0, 10) : '',
+      w.platform.banning.age_days === null ? '' : w.platform.banning.age_days,
+      w.c_displayed ? 'Yes' : 'No', w.platform.blocks.join(' | '), w.demo ? 'Yes' : 'No'].map(q).join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-0137-conditions-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+route('GET', /^\/api\/admin\/compliance\/log\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = db.prepare('SELECT * FROM compliance_log ORDER BY id ASC').all();
+  const lines = [['Entry', 'When', 'Worker', 'What was checked', 'Result', 'Detail', 'Source', 'Reference', 'Recorded by'].map(q).join(',')];
+  for (const r of rows) {
+    lines.push([r.id, r.checked_at, r.worker_name, r.kind, r.result, r.detail, r.source, r.ref, r.checked_by].map(q).join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-0137-evidence-log-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* Re-test everybody. Useful after a settings change, and it is what the
+   "Recheck all" button on the board calls. */
+route('POST', /^\/api\/admin\/compliance\/0137\/reconcile$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const ids = db.prepare("SELECT u.id FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker'").all();
+  const changed = ids.map(r => reconcileVisibility(r.id, 'Manual recheck from the 0137 board', req)).filter(Boolean);
+  json(res, 200, { ok: true, changed });
 });
 setTimeout(() => { try { credentialSweep(); } catch (e) { console.error('sweep:', e.message); } }, 30_000);
 setInterval(() => { try { credentialSweep(); } catch (e) { console.error('sweep:', e.message); } }, 12 * 3600e3);
@@ -2051,9 +2625,13 @@ route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
 
 route('GET', /^\/api\/workers$/, (req, res) => {
   const rows = db.prepare(`
-    SELECT p.*, u.name, u.suburb FROM worker_profiles p
+    SELECT p.*, u.name, u.suburb, u.email FROM worker_profiles p
     JOIN users u ON u.id = p.user_id
-    WHERE p.visible = 1 ORDER BY p.shifts DESC`).all();
+    WHERE p.visible = 1 ORDER BY p.shifts DESC`).all()
+    /* belt and braces. `visible` is held at 0 for anyone who fails the 0137
+       conditions, at approval and again on every sweep — but the search page
+       is the front door, so it re-asks rather than trusting the flag. */
+    .filter(r => platformEligible(r.user_id, r.email));
   json(res, 200, { workers: rows.map(r => withReviewAgg(publicWorker(r))) });
 });
 
@@ -2061,10 +2639,11 @@ route('GET', /^\/api\/workers$/, (req, res) => {
    Credential info is label + month-level expiry only: never numbers, dates or files. */
 route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m) => {
   const row = db.prepare(`
-    SELECT p.*, u.name, u.suburb, u.created FROM worker_profiles p
+    SELECT p.*, u.name, u.suburb, u.created, u.email FROM worker_profiles p
     JOIN users u ON u.id = p.user_id
     WHERE p.user_id = ? AND p.visible = 1`).get(Number(m[1]));
   if (!row) return json(res, 404, { error: 'That profile isn\'t available right now.' });
+  if (!platformEligible(row.user_id, row.email)) return json(res, 404, { error: 'That profile isn\'t available right now.' });
   const w = withReviewAgg(publicWorker(row));
   w.reviews = db.prepare(`SELECT r.rating, r.comment, r.created, u.name FROM reviews r
     JOIN users u ON u.id = r.participant_id
@@ -2077,20 +2656,11 @@ route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m) => {
   const joined = new Date(row.created);
   w.member_since = isNaN(joined) ? '' : `${MONTHS[joined.getMonth()]} ${joined.getFullYear()}`;
   w.completed = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE worker_id = ? AND status = 'completed'").get(w.id).n;
-  const today = new Date().toISOString().slice(0, 10);
-  /* public-safe credentials only: checks, training and qualifications — never
-     identity documents (passports, licences), visas or resumes */
-  const PUBLIC_CATS = ['checks', 'training', 'qualification'];
-  w.docs = db.prepare('SELECT doc_type, label, expiry_date, verified_at FROM worker_docs WHERE worker_id = ? ORDER BY id').all(w.id)
-    .filter(d => {
-      const c = DOC_MAP[d.doc_type];
-      return c && PUBLIC_CATS.includes(c.category) && d.doc_type !== 'resume' && (!d.expiry_date || d.expiry_date >= today);
-    })
-    .map(d => {
-      let valid_to = '';
-      if (d.expiry_date) { const e = new Date(d.expiry_date); if (!isNaN(e)) valid_to = `${MONTHS[e.getMonth()]} ${e.getFullYear()}`; }
-      return { label: d.label || DOC_TYPES[d.doc_type] || d.doc_type, verified: Boolean(d.verified_at), valid_to };
-    });
+  /* One derivation, used by both the search card and this profile page, so the
+     two can never drift apart: publicVerification() above already filtered to
+     public-safe categories (checks, training, qualifications — never identity
+     documents, visas or resumes), unexpired, and verified by a human. */
+  w.docs = w.checks;
   json(res, 200, { worker: w });
 });
 
@@ -2118,9 +2688,13 @@ route('POST', /^\/api\/conversations$/, (req, res, m, user, body) => {
   if (user.role === 'participant') {
     workerId = Number(body.worker_id);
     participantId = user.id;
-    const w = db.prepare("SELECT u.id, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(workerId);
+    const w = db.prepare("SELECT u.id, u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(workerId);
     if (!w) return json(res, 404, { error: 'Worker not found.' });
-    if (!w.visible) return json(res, 400, { error: 'That worker isn\'t taking messages yet.' });
+    /* 0137: an uncleared worker must not be able to use the platform, and a
+       message thread is using the platform. The `visible` flag is already
+       held at 0 for them — this re-asks anyway, because a gate that depends
+       on a flag being correct is only as good as the last sweep. */
+    if (!w.visible || !platformEligible(workerId, w.email)) return json(res, 400, { error: 'That worker isn\'t taking messages yet.' });
   } else {
     participantId = Number(body.participant_id);
     workerId = user.id;
@@ -2186,9 +2760,9 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   if (user.role !== 'participant') return json(res, 403, { error: 'Only participants can request bookings.' });
   const workerId = Number(body.worker_id);
-  const w = db.prepare("SELECT u.id, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(workerId);
+  const w = db.prepare("SELECT u.id, u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(workerId);
   if (!w) return json(res, 404, { error: 'Worker not found.' });
-  if (!w.visible) return json(res, 400, { error: 'That worker isn\'t taking bookings yet.' });
+  if (!w.visible || !platformEligible(workerId, w.email)) return json(res, 400, { error: 'That worker isn\'t taking bookings yet.' });
   const service = clean(body.service, 30);
   if (!SERVICES.includes(service)) return json(res, 400, { error: 'Please choose a service.' });
   const date = clean(body.date, 10);
@@ -2407,8 +2981,9 @@ route('GET', /^\/api\/admin\/sil$/, (req, res, m, user) => {
       LEFT JOIN users uw ON uw.id = s.worker_id LEFT JOIN users up ON up.id = s.participant_id
       WHERE s.house_id = ? ORDER BY s.day, s.start`).all(h.id)
   }));
-  const workers = db.prepare(`SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id
-    WHERE u.role = 'worker' AND p.visible = 1 ORDER BY u.name`).all();
+  const workers = db.prepare(`SELECT u.id, u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id
+    WHERE u.role = 'worker' AND p.visible = 1 ORDER BY u.name`).all()
+    .filter(w => platformEligible(w.id, w.email));   /* 0137 — not rosterable to a SIL house either */
   const participants = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
   json(res, 200, { houses, workers, participants });
 });
@@ -2577,6 +3152,9 @@ function workerEligible(workerId, b) {
   const p = db.prepare(`SELECT p.visible, p.services, p.days, u.email FROM worker_profiles p
     JOIN users u ON u.id = p.user_id WHERE p.user_id = ?`).get(workerId);
   if (!p || !p.visible) return false;
+  /* the cover cascade fills shifts at short notice, which is exactly when a
+     compliance gate is most likely to be skipped — so it is asked here too */
+  if (!platformEligible(workerId, p.email)) return false;
   if (screeningState(workerId) === 'expired') return false;
   const svcs = safeJson(p.services, []);
   if (svcs.length && !svcs.includes(b.service)) return false;
@@ -3028,6 +3606,7 @@ function standbyCandidates(date, want) {
     ORDER BY recent ASC, this_week ASC, u.id ASC`)
     .all(weekStart, weekEnd, new Date(Date.now() - 90 * 86400e3).toISOString().slice(0, 10), date, date)
     .filter(c => {
+      if (!platformEligible(c.id)) return false;       /* 0137 — never offer standby to a worker who can't be on the platform */
       if (screeningState(c.id) === 'expired') return false;
       if (c.this_week >= (c.standby_max ?? 2)) return false;
       if (c.working) return false;                     /* already on shift most of that day */
@@ -3112,6 +3691,7 @@ function careWebSuggestions(participantId) {
       AND u.id NOT IN (SELECT worker_id FROM care_web WHERE participant_id = ?)
       AND COALESCE(p.visible, 0) = 1
     GROUP BY u.id ORDER BY shifts_together DESC, last_shift DESC LIMIT 12`).all(participantId, participantId)
+    .filter(r => platformEligible(r.worker_id))
     .map(r => ({ ...r, services: safeJson(r.services, []), photo: r.photo ? `/photos/${r.worker_id}?v=${encodeURIComponent(r.photo_at || '')}` : null }));
 }
 
@@ -3129,8 +3709,8 @@ route('POST', /^\/api\/me\/care-web$/, (req, res, m, user, body) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   if (user.role !== 'participant') return json(res, 403, { error: 'Care webs belong to participants.' });
   const workerId = Number(body.worker_id);
-  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker' AND p.visible = 1").get(workerId);
-  if (!w) return json(res, 404, { error: 'That worker isn\'t available to add.' });
+  const w = db.prepare("SELECT u.id, u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker' AND p.visible = 1").get(workerId);
+  if (!w || !platformEligible(workerId, w.email)) return json(res, 404, { error: 'That worker isn\'t available to add.' });
   if (db.prepare('SELECT id FROM care_web WHERE participant_id = ? AND worker_id = ?').get(user.id, workerId))
     return json(res, 400, { error: `${w.name.split(' ')[0]} is already in your care web.` });
   const role = ['regular', 'backup', 'emergency'].includes(body.role) ? body.role : 'backup';

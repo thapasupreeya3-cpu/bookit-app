@@ -92,6 +92,7 @@ p{color:var(--ink-soft);}
 a{color:var(--teal);}
 img,svg{max-width:100%;display:block;}
 .container{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+.container.narrow{max-width:820px;}
 section.block{padding:76px 0;}
 .center{text-align:center;}
 .kicker{
@@ -631,6 +632,23 @@ td b{font-variant-numeric:tabular-nums;}
 .cred-line > svg{width:20px;height:20px;color:var(--ok);flex:none;margin-top:3px;}
 .cred-line small{display:block;color:var(--ink-soft);font-size:.82rem;}
 .cred-badge{display:inline-block;background:#DBF2E4;color:#1C7C43;border:1px solid #1C7C43;font-size:.66rem;font-weight:800;letter-spacing:.03em;padding:1px 8px;border-radius:999px;margin-left:7px;vertical-align:2px;text-transform:uppercase;}
+.cred-badge.demo{background:#FFF3D6;color:#8a6d00;border-color:#F5B841;}
+.wc-demo{display:inline-block;background:#FFF3D6;color:#8a6d00;border:1px solid #F5B841;font-size:.62rem;font-weight:800;letter-spacing:.04em;padding:1px 7px;border-radius:999px;margin-left:7px;vertical-align:3px;text-transform:uppercase;}
+.demo-note{background:#FFF8E8;border:1.5px solid #F5B841;border-radius:12px;padding:10px 16px;margin-top:12px;font-size:.95rem;color:#5a4a12;}
+/* a check we have NOT satisfied ourselves never gets the green shield */
+.cred-line-no > svg{color:#B4451F;}
+.cred-line-no b{color:#B4451F;}
+.cred-line-demo > svg{color:#8a6d00;}
+.cred-head{font-family:var(--font-head);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);margin:14px 0 2px;font-weight:800;}
+.cred-head:first-of-type{margin-top:2px;}
+/* the public "how we check" page */
+.vf-steps{display:grid;gap:14px;margin:18px 0 0;}
+.vf-step{display:flex;gap:14px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;}
+.vf-step .n{width:34px;height:34px;flex:none;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:1rem;}
+.vf-step b{display:block;font-size:1.02rem;margin-bottom:3px;}
+.vf-step p{margin:0;font-size:.93rem;line-height:1.6;color:var(--ink-soft);}
+.vf-cond{background:var(--teal-tint);border-radius:16px;padding:18px 20px;margin-top:18px;}
+.vf-cond blockquote{margin:10px 0 0;padding-left:14px;border-left:3px solid var(--teal);font-size:.92rem;line-height:1.65;}
 .wp-trustbox{background:var(--teal-tint);border-radius:14px;padding:14px 16px;margin-top:14px;font-size:.9rem;line-height:1.55;}
 .wp-aside{position:sticky;top:86px;}
 @media (max-width:940px){.wp-aside{position:static;}}
@@ -1196,6 +1214,7 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
         <span class="kicker">Real people, verified</span>
         <h2 id="wkHead">Meet a few of our support workers</h2>
         <p class="lead">Every profile is screened, checked and interviewed before it goes live.</p>
+        <p class="lead demo-note" id="homeWorkersDemo" hidden></p>
       </div>
       <div class="worker-grid" id="homeWorkers"></div>
       <div class="center mt-3">
@@ -1829,6 +1848,7 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Find workers</nav>
       <h1>Find your kind of support worker</h1>
       <p class="lead">Every profile below is a real style of worker you'll find on BookIt — verified, insured and interviewed. Filter by service and search by name or suburb.</p>
+      <p class="lead demo-note" id="findWorkersDemo" hidden></p>
     </div>
   </div>
   <section class="block">
@@ -2069,7 +2089,57 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
         </div>
         <div class="btns">
           <a href="#/get-started" class="btn btn-primary btn-lg">Get started</a>
+          <a href="#/verification" class="btn btn-ghost btn-lg">How we check every worker</a>
         </div>
+      </div>
+    </div>
+  </section>
+</section>
+
+<!-- ================= HOW WE CHECK EVERY WORKER ================= -->
+<section class="page" id="page-verification" data-title="How we check every worker — BookIt">
+  <div class="page-hero">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/safety">Safety &amp; quality</a> / How we check every worker</nav>
+      <h1>How we check every worker</h1>
+      <p class="lead">Nothing appears on a worker's profile until someone on our team has verified it themselves. Here's exactly what that means, and what happens when a check lapses.</p>
+    </div>
+  </div>
+
+  <section class="block">
+    <div class="container narrow">
+      <h2>The two checks we do for everyone</h2>
+      <p>Every person who takes a booking through BookIt holds a current <b>NDIS Worker Screening Check</b>, and we confirm the clearance itself with the screening unit rather than taking the card at face value. A card can still read 2029 after a clearance has been suspended, so the date on the document is not the thing we rely on.</p>
+      <p>We also check each worker against the NDIS Quality and Safeguards Commission's <b>banning orders register</b>, and we check again on a rolling cycle rather than once at induction — because the register changes, and a check done two years ago tells you about two years ago. What we found, and roughly when we looked, is written on the worker's own profile.</p>
+
+      <h2 style="margin-top:34px;">What "verified" means on a profile</h2>
+      <p>A credential shows on a profile only when a person on our team has looked at it and recorded how they satisfied themselves — whether they sighted the original, checked the number against the issuing register, or confirmed it with the issuer directly. That record is kept, and it is what an auditor sees.</p>
+      <p>If we haven't verified something, it isn't listed. There is no third state where a claim sits on a profile with a tick beside it because a worker typed it in. That was true of an earlier version of this site and it isn't any more.</p>
+
+      <div class="vf-steps">
+        <div class="vf-step"><div class="n">1</div><div><b>Documents come in</b><p>A worker uploads their screening check, ID, training certificates and qualifications through their own account. Nothing they upload is visible to participants at this point.</p></div></div>
+        <div class="vf-step"><div class="n">2</div><div><b>We verify each one</b><p>Someone on our team checks the document and records how — sighted original, sighted copy, checked against the issuing register, or confirmed with the issuer — plus a reference and any note. Only then does it appear on the profile.</p></div></div>
+        <div class="vf-step"><div class="n">3</div><div><b>We confirm the clearance and check the register</b><p>Separately from the document, we confirm the worker screening clearance with the screening unit, and check the banning orders register. Both answers are recorded with the date and source.</p></div></div>
+        <div class="vf-step"><div class="n">4</div><div><b>The profile goes live</b><p>A profile can only be approved once all of the above is in place. This can't be waived — not for a busy week, not for a worker we know well.</p></div></div>
+        <div class="vf-step"><div class="n">5</div><div><b>We keep watching</b><p>Expiry dates are tracked automatically and workers are reminded at 30 days, 7 days and on the day. The banning orders re-check is chased before it falls due.</p></div></div>
+        <div class="vf-step"><div class="n">6</div><div><b>If something lapses, the profile comes down</b><p>An expired check, a suspended or revoked clearance, a banning order, or an overdue register check all withdraw the profile automatically — off search, unbookable, unmessageable. It comes back by itself once the problem is fixed.</p></div></div>
+      </div>
+
+      <div class="vf-cond">
+        <h2 style="margin:0;">Why we do it this way</h2>
+        <p style="margin-top:8px;">From 1 January 2027, providers registered for <b>0137 NDIS Digital Platform Service</b> carry conditions of registration set by the NDIS Quality and Safeguards Commission:</p>
+        <blockquote>
+          worker screening check requirements ensuring that only persons who hold a worker screening clearance may use the platform; and requirements to check and display certain information about persons providing supports on the platform, such as whether a banning order against a person is in force.
+        </blockquote>
+        <p style="margin-top:12px;font-size:.92rem;">We read the first as a gate on using the platform, not a filing obligation — so an uncleared worker isn't hidden from search while still able to take a booking; they can't do either. And we read the second as it's written: check <i>and</i> display, worker by worker. Both are built into how BookIt works rather than added on top of it.</p>
+      </div>
+
+      <h2 style="margin-top:34px;">Who employs your worker</h2>
+      <p>Everyone you can book through BookIt is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd, a registered NDIS provider — registration <b>4-LO5XNY0</b>, ABN 19 658 578 575. That means award pay, superannuation, workers compensation and supervision sit with us, not with you.</p>
+
+      <div class="btns" style="margin-top:26px;">
+        <a href="#/find-workers" class="btn btn-primary btn-lg">Find a worker</a>
+        <a href="#/safety" class="btn btn-ghost btn-lg">Safety &amp; quality</a>
       </div>
     </div>
   </section>
@@ -2656,6 +2726,27 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
     .adm-badge{display:inline-block;background:#FFF4D6;border:1px solid #F5B841;color:#5d4a12;border-radius:999px;padding:2px 10px;font-size:.78rem;margin:2px 4px 2px 0;}
     .adm-live{color:#1C7C43;font-weight:600;} .adm-hidden{color:#B0468A;font-weight:600;}
     .adm-btn-sm{font-size:.8rem;padding:4px 12px;border-radius:999px;border:1.5px solid #0E6B62;background:none;color:#0E6B62;cursor:pointer;font-family:inherit;}
+    /* ---- 0137 conditions board ----
+       The four condition cards read as a rollup, so they get their own grid
+       rather than reusing .adm-tiles: an auditor's first question is "how many
+       of your workers meet this condition", and the answer wants the wording of
+       the condition sitting right beside the number. */
+    .c37-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:0 0 14px;}
+    .c37-card{background:rgba(255,255,255,.78);border:1.5px solid #E7DFD4;border-radius:16px;padding:14px 16px;border-left:5px solid #1C7C43;}
+    .c37-card.part{border-left-color:#F5B841;} .c37-card.none{border-left-color:#D94F32;}
+    .c37-card b{display:block;font-size:1.5rem;color:#0E6B62;line-height:1.2;}
+    .c37-card i{font-style:normal;font-weight:700;font-size:.86rem;color:#2B4A55;display:block;margin:2px 0 4px;}
+    .c37-card small{color:#3E5A64;font-size:.78rem;line-height:1.45;display:block;}
+    .c37-ok{color:#1C7C43;font-weight:700;} .c37-no{color:#D94F32;font-weight:700;} .c37-warn{color:#8a6d00;font-weight:700;}
+    .c37-blocks{margin:4px 0 0;font-size:.78rem;color:#D94F32;line-height:1.5;}
+    .c37-row-off{background:#FDF3F0;}
+    .c37-ctl{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:3px 0;}
+    .c37-ctl select,.c37-ctl input{font:inherit;font-size:.8rem;padding:4px 7px;border-radius:8px;border:1.5px solid #E7DFD4;background:#fff;}
+    .c37-log{font-size:.85rem;}
+    .c37-log td{vertical-align:top;}
+    .vr-box{background:#FFFBF2;border:1.5px solid #F5B841;border-radius:12px;padding:10px 12px;margin:6px 0;}
+    .vr-box label{font-size:.8rem;display:block;margin-bottom:6px;}
+    .vr-box select,.vr-box input{font:inherit;font-size:.82rem;padding:5px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:100%;max-width:280px;background:#fff;}
   </style>
   <div class="page-hero">
     <div class="container">
@@ -2705,6 +2796,7 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
           <li><a href="#/messages">Messages</a></li>
           <li><a href="#/easy-read">Easy Read</a></li>
           <li><a href="#/safety">Safety & quality</a></li>
+          <li><a href="#/verification">How we check every worker</a></li>
           <li><a href="#/get-started">Get started</a></li>
         </ul>
       </nav>
@@ -2926,6 +3018,11 @@ const WORKERS = [
    bio:'Melbourne through and through: markets, galleries and the best souvlaki. Experienced with complex routines and hoists.',shifts:132,rating:4.9,
    checks:['NDIS Worker Screening','WWCC (VIC)','First Aid & CPR','Manual handling training']}
 ];
+/* These twelve are the offline fallback used before /api/workers answers — the
+   same fictional people the server seeds. Flag them as demo here rather than
+   repeating `demo:true` twelve times, so the "Demo" chip is drawn even in the
+   split second before the real list arrives, and still drawn if it never does. */
+WORKERS.forEach(w => { w.demo = true; });
 
 const FAQS = [
   {q:'What is BookIt?', a:'BookIt is an NDIS-registered online platform where you find, book and manage your own support workers. Unlike directories or gig apps, every worker is <b>our employee</b> — screened, insured and paid under the SCHADS Award — while you stay in control of who supports you and when.', home:true},
@@ -3359,13 +3456,31 @@ function avatarHtml(w, extra){
   const initials = w.name.split(' ').map(p => p[0]).join('').slice(0,2);
   return `<div class="wc-avatar" style="background:${w.color};${extra || ''}">${w.photo ? `<img src="${w.photo}" alt="Photo of ${esc(w.name)}" loading="lazy">` : initials}</div>`;
 }
+/* The rosette says "we verified this person". It is drawn in two places, so it
+   lives in one constant — and a demo profile gets a plain "Demo" chip instead,
+   because a fictional worker has not been verified by anybody. */
+const VERIFIED_ROSETTE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-label="Verified"><path d="M12 2l2.4 2.4 3.3-.5.5 3.3L20.6 9 22 12l-1.4 3-2.4 1.8-.5 3.3-3.3-.5L12 22l-2.4-2.4-3.3.5-.5-3.3L3.4 15 2 12l1.4-3 2.4-1.8.5-3.3 3.3.5L12 2z" opacity=".2"/><path d="M12 1.5l2.7 2.6 3.7-.5.6 3.6 3 2.2-1.5 3.4 1.5 3.4-3 2.2-.6 3.6-3.7-.5-2.7 2.6-2.7-2.6-3.7.5-.6-3.6-3-2.2L2.5 16 1 12.6l3-2.2.6-3.6 3.7.5L12 1.5zm-1.6 13.9l5.4-5.4-1.2-1.2-4.2 4.2-1.8-1.8-1.2 1.2 3 3z"/></svg>';
+/* "Real people, verified" sitting above a grid of invented profiles is the
+   same false claim as a shield on an unchecked certificate, just at section
+   level. This note appears only while every card on screen is a demo, so it
+   removes itself the moment a real approved worker joins the list — no flag to
+   remember to turn off at launch. */
+function demoNote(id, list, wording){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const allDemo = list.length > 0 && list.every(w => w.demo);
+  el.hidden = !allDemo;
+  if(allDemo) el.innerHTML = wording;
+}
+const DEMO_NOTE_HOME = 'The three profiles below are <b>demonstration profiles</b> — invented people, shown so you can see how a profile looks. Real workers appear here once they\'ve been screened and approved.';
+const DEMO_NOTE_FIND = 'Everything showing right now is a <b>demonstration profile</b> — invented people with invented credentials, so you can try the search. Real, screened workers replace them as they\'re approved.';
 function workerCard(w){
   return `<article class="worker-card">
     <div class="wc-top">
       ${avatarHtml(w)}
       <div>
         <div class="wc-name">${w.name}
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-label="Verified"><path d="M12 2l2.4 2.4 3.3-.5.5 3.3L20.6 9 22 12l-1.4 3-2.4 1.8-.5 3.3-3.3-.5L12 22l-2.4-2.4-3.3.5-.5-3.3L3.4 15 2 12l1.4-3 2.4-1.8.5-3.3 3.3.5L12 2z" opacity=".2"/><path d="M12 1.5l2.7 2.6 3.7-.5.6 3.6 3 2.2-1.5 3.4 1.5 3.4-3 2.2-.6 3.6-3.7-.5-2.7 2.6-2.7-2.6-3.7.5-.6-3.6-3-2.2L2.5 16 1 12.6l3-2.2.6-3.6 3.7.5L12 1.5zm-1.6 13.9l5.4-5.4-1.2-1.2-4.2 4.2-1.8-1.8-1.2 1.2 3 3z"/></svg>
+          ${w.demo ? '<span class="wc-demo">Demo</span>' : VERIFIED_ROSETTE}
         </div>
         <div class="wc-meta">${w.suburb} · ${w.exp} · ${w.shifts ? `★ ${w.rating.toFixed(1)} (${w.shifts} shifts)` : 'New to BookIt'}</div>
       </div>
@@ -3379,6 +3494,7 @@ function workerCard(w){
   </article>`;
 }
 $('#homeWorkers').innerHTML = WORKERS.slice(0,3).map(workerCard).join('');
+demoNote('homeWorkersDemo', WORKERS.slice(0, 3), DEMO_NOTE_HOME);
 
 const filterService = $('#filterService');
 const filterSearch = $('#filterSearch');
@@ -3393,6 +3509,7 @@ function renderWorkerGrid(){
     ? list.map(workerCard).join('')
     : '<p style="grid-column:1/-1;text-align:center;padding:40px 0;">No matches — try widening your filters. On the live platform we\'d also suggest posting a job so workers can come to you.</p>';
   $('#filterCount').textContent = list.length + ' worker' + (list.length === 1 ? '' : 's') + ' shown';
+  demoNote('findWorkersDemo', list, DEMO_NOTE_FIND);
 }
 filterService.addEventListener('change', renderWorkerGrid);
 filterSearch.addEventListener('input', renderWorkerGrid);
@@ -3434,6 +3551,10 @@ const SVC_DESC = {
 };
 const WP_TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 const WP_SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>';
+/* the shield's opposite number — an open shield with a bar, for a check that
+   has not been satisfied. The point of having it is that the tick can never be
+   the only symbol available to the renderer. */
+const WP_WARN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
 async function renderWorkerPage(id){
   const body = $('#wpBody');
   if(!body) return;
@@ -3469,9 +3590,35 @@ async function renderWorkerPage(id){
   if(w.completed) stats.push([w.completed, w.completed === 1 ? 'shift completed' : 'shifts completed']);
   stats.push(w.member_since ? [w.member_since, 'joined BookIt'] : [esc(String(w.exp).replace(/ experience$/,'')), 'experience']);
   stats.push([langList.length === 1 ? esc(langList[0]) : `${langList.length} languages`, langList.length === 1 ? 'language spoken' : 'spoken']);
-  const creds = (w.docs && w.docs.length)
-    ? w.docs.map(d => `<div class="cred-line">${WP_SHIELD}<div><b>${esc(d.label)}</b>${d.verified ? '<span class="cred-badge">Verified by BookIt</span>' : ''}<small>${d.valid_to ? 'Valid to ' + esc(d.valid_to) : 'On file with our team'}</small></div></div>`).join('')
-    : (w.checks || []).map(c => `<div class="cred-line">${WP_SHIELD}<div><b>${esc(c)}</b></div></div>`).join('');
+  /* Every line here is a document a person on our team has verified — the
+     server sends nothing else. The shield used to be drawn beside seeded free
+     text nobody had checked; that is exactly the claim 0137's display
+     condition is about, so it went. */
+  /* A demo profile must never wear the same badge as a real one. The two
+     condition lines below already say "demonstration profile", but a green
+     "Verified by BookIt" sitting beside a fictional certificate is a
+     verification claim in its own right — and an untrue one. Same shield rule
+     as everywhere else: the tick is only drawn over something we checked. */
+  const creds = (w.checks || [])
+    .map(d => typeof d === 'string' ? { label: d, valid_to: '' } : d)   /* offline demo data is a plain list */
+    .map(d => w.demo
+      ? `<div class="cred-line cred-line-demo">${WP_WARN}<div><b>${esc(d.label)}</b><span class="cred-badge demo">Demo data</span><small>Fictional — nobody verified this certificate.</small></div></div>`
+      : `<div class="cred-line">${WP_SHIELD}<div><b>${esc(d.label)}</b><span class="cred-badge">Verified by BookIt</span><small>${d.valid_to ? 'Valid to ' + esc(d.valid_to) : 'No expiry'}</small></div></div>`).join('');
+
+  /* The two conditions of registration, said plainly, on the profile of the
+     person they are about — which is where the condition puts them. */
+  const scr = w.screening || {}, ban = w.banning || {};
+  /* On a demo profile the shield is never the ticked one, whatever the seeded
+     status says — the tick is the claim, and nobody checked anything here. */
+  const condLine = (ok, label, sub) =>
+    `<div class="cred-line ${w.demo ? 'cred-line-demo' : ok ? '' : 'cred-line-no'}">${ok && !w.demo ? WP_SHIELD : WP_WARN}<div><b>${esc(label)}</b><small>${esc(sub)}</small></div></div>`;
+  const conds =
+    condLine(scr.cleared, scr.label || 'NDIS Worker Screening Check',
+      w.demo ? 'Demonstration profile — this is fictional data, not a real clearance.'
+             : (scr.cleared ? `Confirmed with the screening unit${scr.confirmed_on ? ' in ' + scr.confirmed_on : ''}${scr.valid_to ? ', valid to ' + scr.valid_to : ''}.` : 'Not currently confirmed — this worker can\'t take bookings.')) +
+    condLine(ban.clear, ban.label || 'Banning orders register',
+      w.demo ? 'Demonstration profile — the register was not actually checked.'
+             : (ban.clear ? `We checked the NDIS Commission's banning orders register${ban.checked_on ? ' in ' + ban.checked_on : ''} — no order in force.` : 'Not yet checked — this worker can\'t take bookings.'));
   body.innerHTML = `
   <div class="wp-layout">
     <div>
@@ -3479,7 +3626,7 @@ async function renderWorkerPage(id){
         <div class="wp-hero">
           ${avatarHtml(w, 'width:116px;height:116px;font-size:2.2rem;border:4px solid var(--teal-tint);')}
           <div style="flex:1;min-width:220px;">
-            <h1 class="wp-name">${esc(w.name)}<svg viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Verified worker"><path d="M12 1.5l2.7 2.6 3.7-.5.6 3.6 3 2.2-1.5 3.4 1.5 3.4-3 2.2-.6 3.6-3.7-.5-2.7 2.6-2.7-2.6-3.7.5-.6-3.6-3-2.2L2.5 16 1 12.6l3-2.2.6-3.6 3.7.5L12 1.5zm-1.6 13.9l5.4-5.4-1.2-1.2-4.2 4.2-1.8-1.8-1.2 1.2 3 3z"/></svg></h1>
+            <h1 class="wp-name">${esc(w.name)}${w.demo ? '<span class="wc-demo" style="font-size:.8rem;vertical-align:6px;">Demo profile</span>' : VERIFIED_ROSETTE}</h1>
             <div class="wc-meta" style="margin-top:5px;">${esc(w.suburb)} · ${esc(w.exp)}</div>
             <div class="wc-tags" style="margin-top:11px;">${(w.services || []).map(s => `<span class="wc-tag">${SVC_NAME[s] || s}</span>`).join('')}</div>
           </div>
@@ -3509,8 +3656,19 @@ async function renderWorkerPage(id){
       </div>
       <div class="wp-card">
         <h2>Checks &amp; credentials</h2>
-        ${creds || '<p class="muted-sm">Checks are being finalised with our team.</p>'}
-        <div class="wp-trustbox">Every BookIt worker is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b>. Credentials are tracked automatically, and a lapsed screening pauses a profile the same day.</div>
+        <h3 class="cred-head">What we check for every worker</h3>
+        ${conds}
+        <h3 class="cred-head">${first}'s qualifications and training</h3>
+        ${creds || '<p class="muted-sm">Nothing else on file yet. We only list credentials our team has verified — so this space stays empty until we\'ve checked something ourselves.</p>'}
+        <div class="wp-trustbox"${w.demo ? ' style="background:#FFF8E8;border-color:#F5B841;"' : ''}>${w.demo
+          /* Two separate claims live in this box, and only one of them is about
+             the person on screen. That this profile is invented has to be said
+             plainly. How BookIt treats real workers is true whether or not this
+             particular profile is — and it is the thing a visitor came here to
+             find out — so it stays, worded so it can't be read as a claim about
+             the fictional person above it. */
+          ? `<b>This is a demonstration profile.</b> ${esc(w.name)} is not a real person and none of the credentials above were checked — they exist so you can see how a profile works. Real BookIt workers are <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b> — and nothing appears on a real profile until someone on our team has verified it. `
+          : 'Every BookIt worker is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b>. Nothing appears above until someone on our team has verified it, and a profile is withdrawn automatically the moment a check lapses. '}<a href="#/verification">How we check every worker →</a></div>
       </div>
       <div class="wp-card">
         <h2>Feedback</h2>
@@ -4366,6 +4524,7 @@ const ROUTES = {
   '/find-workers': 'page-find-workers',
   '/support-workers': 'page-support-workers',
   '/safety': 'page-safety',
+  '/verification': 'page-verification',
   '/about': 'page-about',
   '/faq': 'page-faq',
   '/contact': 'page-contact',
@@ -4690,6 +4849,7 @@ async function loadWorkersLive(){
     d.workers.forEach(w => WORKERS.push(w));
     renderWorkerGrid();
     $('#homeWorkers').innerHTML = WORKERS.slice(0, 3).map(workerCard).join('');
+    demoNote('homeWorkersDemo', WORKERS.slice(0, 3), DEMO_NOTE_HOME);
   }catch(e){}
 }
 
@@ -5332,6 +5492,9 @@ async function renderAdminPage(){
   catch(e){ cl = { unclaimed: [], claimed: [], paid: [], totals: { unclaimed: 0, claimed: 0, paid: 0 } }; }
   let creds = { workers: [] }, incs = { incidents: [] }, comps = { complaints: [] }, revs = { reviews: [] }, sil = { houses: [], workers: [], participants: [] };
   try{ creds = await API.call('/admin/credentials'); }catch(e){}
+  let cmp = null, clog = { entries: [] };
+  try{ cmp = await API.call('/admin/compliance/0137'); }catch(e){}
+  try{ clog = await API.call('/admin/compliance/log'); }catch(e){}
   try{ incs = await API.call('/admin/incidents'); }catch(e){}
   try{ comps = await API.call('/admin/complaints'); }catch(e){}
   try{ revs = await API.call('/admin/reviews'); }catch(e){}
@@ -5357,6 +5520,7 @@ async function renderAdminPage(){
     <div class="adm-tile"><b style="${c.hi_open ? 'color:#D94F32;' : ''}">${c.hi_open || 0}</b><span>High-intensity — call not yet made</span></div>
     <div class="adm-tile"><b style="${c.notes_flagged ? 'color:#D94F32;' : ''}">${c.notes_flagged || 0}</b><span>Out-of-scope flags to follow up</span></div>
     <div class="adm-tile"><b>${c.notes_total || 0}</b><span>Shift notes on file</span></div>
+    <div class="adm-tile"><b style="${cmp && cmp.blocked ? 'color:#D94F32;' : ''}">${cmp ? cmp.blocked : '—'}</b><span>0137 — off the platform</span></div>
   </div>`;
   /* High-intensity enquiries: participants who declared a Module 1 support at signup or from
      their account page. Nothing here blocks them — the whole point is that somebody rings before
@@ -5420,11 +5584,37 @@ async function renderAdminPage(){
         ${r.scope_flag ? `<div class="note-scope-out"><b style="color:#D94F32;">Out of scope:</b> ${esc(r.scope_detail)}${r.reviewed_at ? `<br><b style="color:#1C7C43;">Followed up ${admDate(r.reviewed_at)} by ${esc(r.reviewed_by || '')} &mdash;</b> ${esc(r.review_note || '')}` : ''}</div>` : ''}
       </div>`).join('')}
     </details>` : '<p class="adm-empty">No shift notes yet. The first one is written when a worker marks a shift completed.</p>'}`;
-  const scChip = s => s === 'valid' ? '<span class="adm-badge" style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;">screening current ✓</span>'
-    : s === 'expiring' ? '<span class="adm-badge">screening expiring soon</span>'
-    : s === 'expired' ? '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">screening EXPIRED</span>'
-    : s === 'no-expiry' ? '<span class="adm-badge">screening — no expiry set</span>'
-    : '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">no screening on file</span>';
+  /* 0137 vocabulary — declared here because the credentials chips below use it
+     as well as the conditions board further down. */
+  const SCREEN_LABEL = {
+    cleared: 'Cleared', pending: 'Application pending', suspended: 'Suspended',
+    revoked: 'Revoked', excluded: 'Exclusion in force', unknown: 'Never confirmed'
+  };
+  const BAN_LABEL = { clear: 'No banning order', banned: 'BANNING ORDER IN FORCE', unchecked: 'Never checked' };
+  const VERIFY_METHODS = {
+    'sighted-original': 'Sighted the original document',
+    'sighted-copy': 'Sighted a copy of the document',
+    'issuer-register': 'Checked against the issuing register',
+    'issuer-confirmed': 'Confirmed directly with the issuer',
+    'other': 'Other — see note'
+  };
+  /* The chip has to tell the truth about the whole condition, not just about
+     the card in the folder. A screening document that nobody has verified, or
+     one sitting behind a clearance the screening unit hasn't confirmed, is not
+     "screening current ✓" — reading it that way is exactly the mistake 0137
+     exists to prevent. So the green chip needs the document AND the clearance. */
+  const GREEN = 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"';
+  const RED = 'style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;"';
+  const scChip = (s, pl) => {
+    const scr = (pl || {}).screening || {};
+    const docOk = s === 'valid' || s === 'no-expiry';
+    if(docOk && scr.verified && scr.status === 'cleared') return `<span class="adm-badge" ${GREEN}>screening cleared ✓</span>`;
+    if(s === 'none') return `<span class="adm-badge" ${RED}>no screening on file</span>`;
+    if(s === 'expired') return `<span class="adm-badge" ${RED}>screening EXPIRED</span>`;
+    if(docOk && !scr.verified) return '<span class="adm-badge">screening on file — not verified</span>';
+    if(s === 'expiring') return `<span class="adm-badge">screening expiring soon${scr.status === 'cleared' ? '' : ' · clearance not confirmed'}</span>`;
+    return `<span class="adm-badge">screening on file — clearance ${esc(SCREEN_LABEL[scr.status] || 'not confirmed').toLowerCase()}</span>`;
+  };
   const invoicing = inv.invoices.length ? `
     <p style="margin:0 0 12px;"><a class="btn btn-primary" href="/api/admin/invoices.csv" download>⬇ Download invoice CSV</a>
     <span style="font-size:.85rem;color:#3E5A64;margin-left:10px;">Rates auto-picked from each shift's day &amp; time — switch any line to <b>Public holiday</b> yourself (that one can't be auto-detected).</span></p>
@@ -5446,19 +5636,31 @@ async function renderAdminPage(){
       <p style="margin:6px 0;font-size:.92rem;">${esc(w.email || '')}${w.phone ? ' · ' + esc(w.phone) : ''} · email ${w.verified ? 'verified ✓' : '<b>not verified yet</b>'}</p>
       <p style="margin:6px 0;">${(w.services || []).map(s => `<span class="adm-badge">${esc(svcName(s))}</span>`).join('') || '<i>no services picked</i>'}</p>
       ${w.bio ? `<p style="margin:8px 0 0;font-size:.92rem;color:#3E5A64;">“${esc(w.bio)}”</p>` : ''}
-      <p style="margin:8px 0 0;">${scChip((credById[w.user_id] || {}).screening || 'none')}
+      <p style="margin:8px 0 0;">${scChip((credById[w.user_id] || {}).screening || 'none', (credById[w.user_id] || {}).platform)}
         ${((credById[w.user_id] || {}).documents || []).map(dd => `<span class="adm-badge">${esc(dd.type_label)}${dd.expiry_date ? ' → ' + fmtAU(dd.expiry_date) : ''}${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">file</a>` : ''}</span>`).join('')}</p>
+      ${(() => {
+        /* Show the 0137 blocks before the button, not after the refusal. An
+           admin who can see exactly what is missing can go and fix it; one who
+           clicks Approve and gets an error message has to guess. */
+        const pl = (credById[w.user_id] || {}).platform;
+        if(!pl || pl.ok) return '';
+        return `<div class="vr-box" style="border-color:#D94F32;background:#FDF3F0;">
+          <p style="margin:0 0 4px;font-size:.86rem;"><b class="c37-no">Can't be approved yet — this would breach BookIt's 0137 conditions of registration:</b></p>
+          <p style="margin:0;font-size:.85rem;line-height:1.6;">${pl.blocks.map(x => '• ' + esc(x)).join('<br>')}</p>
+          <p style="margin:6px 0 0;font-size:.78rem;color:#3E5A64;">Fix these on the 0137 board below. The override doesn't apply to them.</p>
+        </div>`;
+      })()}
       <div class="adm-actions">
         <button class="btn btn-primary" data-adm-act="approve" data-uid="${w.user_id}">Approve — make visible</button>
-        <label style="font-size:.82rem;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="ov-${w.user_id}"> approve anyway (screening sighted outside BookIt)</label>
+        <label style="font-size:.82rem;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="ov-${w.user_id}"> approve anyway (profile photo still missing)</label>
       </div>
-      <p style="margin:10px 0 0;font-size:.8rem;color:#3E5A64;">Approval is blocked without a current NDIS Worker Screening <b>and a profile photo</b> — the override is your call and it's recorded.</p>
+      <p style="margin:10px 0 0;font-size:.8rem;color:#3E5A64;">The 0137 conditions above <b>can't</b> be overridden — a person without a screening clearance may not use the platform, full stop. The profile-photo requirement is a BookIt rule, so that one is your call and the override is recorded.</p>
         </div>
       </div>
     </div>`).join('') : '<p class="adm-empty">No workers waiting — all caught up. 🎉</p>';
   const credRows = creds.workers.filter(w => !w.demo).map(w => `<tr>
-    <td><div style="display:flex;gap:8px;align-items:center;"><div class="wc-avatar" style="background:#0E6B62;width:34px;height:34px;font-size:.75rem;">${w.photo ? `<img src="${w.photo}" alt="">` : (w.name || '?').split(' ').map(p => p[0]).join('').slice(0,2)}</div><span>${esc(w.name)}${w.visible ? '' : ' <span class="adm-hidden">(hidden)</span>'}${w.photo ? '' : '<br><span style="color:#D94F32;font-size:.75rem;">no photo</span>'}</span></div></td>
-    <td>${scChip(w.screening)}</td>
+    <td><div style="display:flex;gap:8px;align-items:center;"><div class="wc-avatar" style="background:#0E6B62;width:34px;height:34px;font-size:.75rem;">${w.photo ? `<img src="${w.photo}" alt="">` : (w.name || '?').split(' ').map(p => p[0]).join('').slice(0,2)}</div><span>${esc(w.name)}${w.visible ? '' : ' <span class="adm-hidden">(hidden)</span>'}${w.photo ? '' : '<br><span style="color:#D94F32;font-size:.75rem;">no photo</span>'}${w.platform && !w.platform.ok ? `<br><span style="color:#D94F32;font-size:.74rem;">off the platform — see the 0137 board</span>` : ''}</span></div></td>
+    <td>${scChip(w.screening, w.platform)}</td>
     <td>${w.summary ? `<div style="margin:0 0 6px;">
         <span class="adm-badge" ${w.summary.id_ok ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>ID ${w.summary.id_points || 0} pts${w.summary.has_primary ? ' · primary ✓' : ''}</span>
         <span class="adm-badge" ${w.summary.right_to_work ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Right to work${w.summary.right_to_work ? ' ✓' : ''}</span>
@@ -5471,9 +5673,109 @@ async function renderAdminPage(){
       ${dd.verified_at ? ` · <span style="color:#1C7C43;">verified ✓ ${esc(dd.verified_by || '')}</span>` : ` · <button class="adm-btn-sm" data-doc-verify="${dd.id}">Verify (checked NWSD)</button>`}
       · <button class="adm-btn-sm" data-doc-del="${dd.id}">remove</button></div>`).join('') : '<span class="adm-empty">nothing on file</span>'}</td>
   </tr>`).join('');
+  /* ---------- 0137 conditions board ----------
+     BookIt is applying to be registered for 0137 NDIS Digital Platform Service,
+     and that registration carries two conditions: only people holding a worker
+     screening clearance may use the platform, and we must check and display
+     certain information about the people on it — including whether a banning
+     order is in force. Everything below exists so that both are true by
+     construction and provable on any given day, rather than true because
+     somebody remembered. */
+  const yn = (ok, yes, no) => ok ? `<span class="c37-ok">✓ ${yes}</span>` : `<span class="c37-no">✗ ${no}</span>`;
+  let compliance;
+  if(!cmp){
+    compliance = '<p class="adm-empty">The 0137 board couldn\'t be loaded.</p>';
+  } else {
+    const cCards = cmp.conditions.map(cn => {
+      const cls = cn.of === 0 ? '' : cn.met === cn.of ? '' : cn.met === 0 ? 'none' : 'part';
+      return `<div class="c37-card ${cls}"><b>${cn.met}<span style="font-size:.9rem;color:#3E5A64;font-weight:400;"> / ${cn.of}</span></b>
+        <i>${esc(cn.title)}</i><small>${esc(cn.detail)}</small></div>`;
+    }).join('');
+    const c37Rows = cmp.workers.filter(w => !w.demo).map(w => {
+      const p = w.platform || { blocks: [], warnings: [], screening: {}, banning: {} };
+      const sd = w.screening_doc;
+      const ban = p.banning || {}, scr = p.screening || {}, blk = p.block || { on: false, reason: '' };
+      return `<tr class="${p.ok ? '' : 'c37-row-off'}">
+        <td><b>${esc(w.name)}</b><br>
+          ${w.visible ? '<span class="adm-live">on the platform</span>' : `<span class="adm-hidden">off the platform</span>${w.auto_hidden ? '<br><span style="font-size:.74rem;color:#3E5A64;">withdrawn automatically</span>' : ''}`}
+          ${p.blocks.length ? `<div class="c37-blocks">${p.blocks.map(b => '• ' + esc(b)).join('<br>')}</div>` : ''}
+          ${p.warnings.length ? `<div class="c37-blocks" style="color:#8a6d00;">${p.warnings.map(b => '• ' + esc(b)).join('<br>')}</div>` : ''}</td>
+        <td>${yn(w.c_screening_held, 'check held', 'no current verified check')}
+          ${sd ? `<br><span style="font-size:.78rem;color:#3E5A64;">${sd.expiry ? 'expires ' + fmtAU(sd.expiry) : 'no expiry'}${sd.verified_by ? ' · verified by ' + esc(sd.verified_by) : ''}</span>` : ''}
+          <div class="c37-ctl">
+            <select class="c37-scr" data-uid="${w.id}">
+              ${Object.keys(SCREEN_LABEL).map(k => `<option value="${k}" ${w.c_screening_status === k ? 'selected' : ''}>${SCREEN_LABEL[k]}</option>`).join('')}
+            </select>
+            <input class="c37-scr-ref" data-uid="${w.id}" placeholder="ref / clearance no." value="${esc(scr.ref || '')}" style="width:130px;">
+            <button class="adm-btn-sm" data-c37-scr="${w.id}">Record</button>
+          </div>
+          <span style="font-size:.74rem;color:#3E5A64;">${scr.status_at ? 'Confirmed ' + admDate(scr.status_at) + (scr.source ? ' · ' + esc(scr.source) : '') : 'Look the worker up on the NDIS Worker Check portal, then record what it says.'}</span></td>
+        <td>${w.c_banning_result === 'banned' ? '<span class="c37-no">✗ BANNING ORDER</span>'
+              : w.c_banning_checked ? '<span class="c37-ok">✓ clear</span>'
+              : `<span class="c37-no">✗ ${esc(BAN_LABEL[w.c_banning_result] || w.c_banning_result)}</span>`}
+          <br><span style="font-size:.78rem;color:#3E5A64;">${ban.checked_at ? 'Checked ' + admDate(ban.checked_at) + (ban.age_days !== null ? ` · ${ban.age_days} day${ban.age_days === 1 ? '' : 's'} ago` : '') : 'never checked'}</span>
+          <div class="c37-ctl">
+            <button class="adm-btn-sm" data-c37-ban="${w.id}" data-result="clear">Checked — clear</button>
+            <button class="adm-btn-sm" data-c37-ban="${w.id}" data-result="banned" style="border-color:#D94F32;color:#D94F32;">Order in force</button>
+          </div></td>
+        <td>${yn(w.c_evidence, 'recorded', 'not recorded')}
+          ${sd && sd.method ? `<br><span style="font-size:.78rem;color:#3E5A64;">${esc(VERIFY_METHODS[sd.method] || sd.method)}${sd.ref ? ' · ' + esc(sd.ref) : ''}</span>` : ''}</td>
+        <td>${yn(w.c_displayed, 'shown', 'nothing to show')}
+          <div class="c37-ctl">
+            <button class="adm-btn-sm" data-c37-block="${w.id}" data-on="${blk.on ? '0' : '1'}"
+              style="${blk.on ? '' : 'border-color:#D94F32;color:#D94F32;'}">${blk.on ? 'Lift the block' : 'Block from platform'}</button>
+          </div>
+          ${blk.on && blk.reason ? `<span style="font-size:.74rem;color:#D94F32;">${esc(blk.reason)}</span>` : ''}</td>
+      </tr>`;
+    }).join('');
+    const demoN = cmp.workers.filter(w => w.demo).length;
+    const LOG_KIND = { 'document-verified': 'Document verified', 'screening-status': 'Screening clearance',
+      'banning-check': 'Banning orders register', 'platform-block': 'Platform block', 'platform-access': 'Platform access' };
+    const LOG_RESULT = { granted: 'granted', withdrawn: 'withdrawn by an admin', 'auto-withdrawn': 'withdrawn automatically',
+      restored: 'restored automatically', blocked: 'blocked', lifted: 'lifted', verified: 'verified',
+      clear: 'no order in force', banned: 'ORDER IN FORCE', unchecked: 'cleared back to unchecked' };
+    const logRows = (clog.entries || []).slice(0, 60).map(r => `<tr>
+      <td style="white-space:nowrap;">${fmtStamp(r.checked_at)}</td>
+      <td>${esc(r.worker_name || '—')}</td>
+      <td>${esc(LOG_KIND[r.kind] || r.kind)}
+        ${r.result ? `<br><span style="font-size:.78rem;color:${r.result === 'banned' || r.result === 'auto-withdrawn' ? '#D94F32' : '#3E5A64'};">${esc(LOG_RESULT[r.result] || SCREEN_LABEL[r.result] || r.result)}</span>` : ''}</td>
+      <td>${esc(r.detail || '')}${r.source ? `<br><span style="font-size:.78rem;color:#3E5A64;">${esc(r.source)}${r.ref ? ' · ' + esc(r.ref) : ''}</span>` : ''}</td>
+      <td style="white-space:nowrap;">${esc(r.checked_by || 'System')}</td>
+    </tr>`).join('');
+    compliance = `
+      <div class="info-card" style="margin-bottom:14px;">
+        <p style="margin:0 0 8px;"><b>Registration group 0137 — NDIS Digital Platform Service</b> carries two conditions of registration. BookIt enforces both in code, so a worker who stops meeting them comes off the platform the same day rather than at the next audit.</p>
+        <blockquote style="margin:0 0 10px;padding:8px 14px;border-left:4px solid #0E6B62;background:rgba(255,255,255,.6);font-size:.9rem;line-height:1.65;">
+          • worker screening check requirements ensuring that only persons who hold a worker screening clearance may use the platform; and<br>
+          • requirements to check and display certain information about persons providing supports on the platform, such as whether a banning order against a person is in force.
+        </blockquote>
+        <p style="margin:0 0 10px;font-size:.9rem;color:#3E5A64;">${cmp.blocked
+          ? `<b class="c37-no">${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} can't be on the platform right now</b> — each one is listed below with the reason. Nobody in that state can be found, messaged, booked, added to a care web, offered cover or rostered into a SIL house; the gate is the same in all of them.`
+          : `<b class="c37-ok">All ${cmp.live_count} worker${cmp.live_count === 1 ? '' : 's'} meet both conditions.</b>`}
+          ${demoN ? ` ${demoN} demo profile${demoN === 1 ? ' is' : 's are'} excluded from these counts — they are fictional and are removed at launch.` : ''}</p>
+        <div class="c37-grid">${cCards}</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+          <button class="adm-btn-sm" id="c37Recheck">▶ Re-test every worker now</button>
+          <a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/compliance/0137.csv" download>⬇ Conditions register (CSV)</a>
+          <a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/compliance/log.csv" download>⬇ Evidence log (CSV)</a>
+          <span style="flex:1;"></span>
+          <label style="font-size:.8rem;">Re-check banning orders every<br><input id="c37Win" type="number" min="1" max="365" value="${cmp.settings.banning_recheck_days}" style="font:inherit;font-size:.82rem;padding:5px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:80px;"> days</label>
+          <label style="font-size:.8rem;">Grace before withdrawal<br><input id="c37Grace" type="number" min="0" max="120" value="${cmp.settings.banning_grace_days}" style="font:inherit;font-size:.82rem;padding:5px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:80px;"> days</label>
+          <button class="adm-btn-sm" id="c37Save">Save</button>
+        </div>
+      </div>
+      ${c37Rows ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr>
+          <th>Worker</th><th>Screening clearance (a)</th><th>Banning orders (b)</th><th>Evidence</th><th>Displayed</th>
+        </tr></thead><tbody>${c37Rows}</tbody></table></div>`
+        : '<p class="adm-empty">No real workers yet — every worker who joins appears here against both conditions.</p>'}
+      <h3 class="adm-sub">Evidence log ${clog.entries && clog.entries.length ? `(latest ${Math.min(60, clog.entries.length)} of ${clog.entries.length})` : ''}</h3>
+      <p class="muted-sm" style="margin:0 0 10px;">Every check, who did it, what they checked it against and what they found — written once and never edited. This is the answer to "show me how you satisfy your conditions".</p>
+      ${logRows ? `<div class="adm-table-wrap"><table class="adm-table c37-log"><thead><tr><th>When</th><th>Worker</th><th>What</th><th>Detail</th><th>By</th></tr></thead><tbody>${logRows}</tbody></table></div>`
+        : '<p class="adm-empty">Nothing logged yet — verifying a document or recording a check writes the first entry.</p>'}`;
+  }
   const credentials = `
     <p style="margin:0 0 10px;"><button class="adm-btn-sm" id="admSweep">▶ Run the automatic check now</button>
-    <span style="font-size:.85rem;color:#3E5A64;margin-left:8px;">Runs by itself twice a day: warns workers + you at 30 and 7 days before expiry, and auto-hides anyone whose NDIS screening lapses. "Verify" records that you checked the number in the NDIS Worker Screening Database (the database has no public connection, so that step is a human one).</span></p>
+    <span style="font-size:.85rem;color:#3E5A64;margin-left:8px;">Runs by itself twice a day: warns workers and you at 30 and 7 days before expiry, chases the banning-order re-check before it falls due, and withdraws — then restores — anyone whose 0137 position changes. "Verify" asks how you satisfied yourself and records it; the screening database has no public connection, so that step is a human one either way.</span></p>
     ${credRows ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Worker</th><th>Screening</th><th>Documents</th></tr></thead><tbody>${credRows}</tbody></table></div>` : '<p class="adm-empty">No real workers yet — credentials appear as workers add them.</p>'}`;
   const incRow = i => `<tr>
     <td>#${i.id}<br><span style="font-size:.78rem;color:#3E5A64;">${fmtStamp(i.created)}</span></td>
@@ -5634,6 +5936,7 @@ async function renderAdminPage(){
     + (lad ? ladderBoardHtml(lad) : '<p class="adm-empty">The pay ladder couldn\'t be loaded.</p>')
     + `<h2 class="adm-section">Workers awaiting approval ${c.pending ? `(${c.pending})` : ''}</h2>` + pending
     + `<h2 class="adm-section">High-intensity enquiries ${hiOpenN ? `<span style="color:#D94F32;">(${hiOpenN} to call)</span>` : ''}</h2>` + highIntensity
+    + `<h2 class="adm-section">0137 conditions of registration ${cmp && cmp.blocked ? `<span style="color:#D94F32;">(${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform)</span>` : ''}</h2>` + compliance
     + `<h2 class="adm-section">Credentials — the automatic checker</h2>` + credentials
     + `<h2 class="adm-section">Incident register ${c.urgent_incidents ? `<span style="color:#D94F32;">(${c.urgent_incidents} awaiting Commission notice!)</span>` : ''}</h2>` + incidents
     + `<h2 class="adm-section">Complaints register</h2>` + complaints
@@ -5781,6 +6084,78 @@ document.addEventListener('click', async e => {
     }catch(err){ toast(err.message); e.target.disabled = false; }
     return;
   }
+  /* ---------- 0137 board actions ---------- */
+  if(e.target && e.target.id === 'c37Recheck'){
+    e.target.disabled = true;
+    try{
+      const r = await API.call('/admin/compliance/0137/reconcile', {method:'POST'});
+      const off = r.changed.filter(x => x.hidden), on = r.changed.filter(x => x.restored);
+      toast(r.changed.length
+        ? `Re-tested — ${off.length ? `${off.length} withdrawn` : ''}${off.length && on.length ? ', ' : ''}${on.length ? `${on.length} restored` : ''}.`
+        : 'Re-tested — nothing changed, everyone is where they should be. ✓');
+      renderAdminPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  if(e.target && e.target.id === 'c37Save'){
+    try{
+      const r = await API.call('/admin/compliance/0137/settings', {method:'POST', body:{
+        banning_recheck_days: Number($('#c37Win').value), banning_grace_days: Number($('#c37Grace').value)
+      }});
+      toast(`Saved — banning orders re-checked every ${r.settings.banning_recheck_days} days, ${r.settings.banning_grace_days} days' grace.`);
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  const cs = e.target.closest('[data-c37-scr]');
+  if(cs){
+    const uid = cs.dataset.c37Scr;
+    const sel = document.querySelector(`.c37-scr[data-uid="${uid}"]`);
+    const ref = document.querySelector(`.c37-scr-ref[data-uid="${uid}"]`);
+    cs.disabled = true;
+    try{
+      const r = await API.call(`/admin/workers/${uid}/screening`, {method:'POST', body:{status: sel.value, ref: ref.value.trim()}});
+      toast(r.changed && r.changed.hidden ? 'Recorded — this worker has been withdrawn from the platform.'
+        : r.changed && r.changed.restored ? 'Recorded — this worker is back on the platform. ✓'
+        : 'Screening clearance recorded. ✓');
+      renderAdminPage();
+    }catch(err){ toast(err.message); cs.disabled = false; }
+    return;
+  }
+  const cb = e.target.closest('[data-c37-ban]');
+  if(cb){
+    const uid = cb.dataset.c37Ban, result = cb.dataset.result;
+    let note = '';
+    if(result === 'banned'){
+      note = prompt('A banning order in force removes this worker from the platform immediately and permanently until you clear it.\n\nWhat does the register say? (order number, date, scope)') || '';
+      if(!note.trim()) return;
+    }
+    cb.disabled = true;
+    try{
+      const r = await API.call(`/admin/workers/${uid}/banning`, {method:'POST', body:{result, note: note.trim()}});
+      toast(r.changed && r.changed.hidden ? 'Recorded — this worker has been withdrawn from the platform.'
+        : r.changed && r.changed.restored ? 'Recorded — this worker is back on the platform. ✓'
+        : 'Banning-order check recorded. ✓');
+      renderAdminPage();
+    }catch(err){ toast(err.message); cb.disabled = false; }
+    return;
+  }
+  const cbl = e.target.closest('[data-c37-block]');
+  if(cbl){
+    const uid = cbl.dataset.c37Block, on = cbl.dataset.on === '1';
+    let reason = '';
+    if(on){
+      reason = prompt('Block this worker from the platform straight away.\n\nWhy? (this is recorded in the evidence log)') || '';
+      if(!reason.trim()) return;
+    }
+    cbl.disabled = true;
+    try{
+      await API.call(`/admin/workers/${uid}/platform-block`, {method:'POST', body:{block: on, reason: reason.trim()}});
+      toast(on ? 'Blocked — the worker is off the platform now.' : 'Block lifted.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); cbl.disabled = false; }
+    return;
+  }
   if(e.target && e.target.id === 'silAddHouse'){
     try{
       await API.call('/admin/sil/houses', {method:'POST', body:{name:$('#silHouseName').value, address:$('#silHouseAddr').value}});
@@ -5879,10 +6254,56 @@ document.addEventListener('click', async e => {
     }catch(err){ toast(err.message); }
     return;
   }
+  /* Verifying used to be one click, which recorded that somebody had ticked a
+     box and nothing about how they satisfied themselves. Under 0137 that is the
+     part an auditor asks about, so the button now opens a short form: how you
+     checked it, against what, and any note. Two clicks instead of one, and a
+     defensible record instead of a tick. */
   const dv = e.target.closest('[data-doc-verify]');
   if(dv){
-    try{ await API.call('/admin/documents/' + dv.dataset.docVerify + '/verify', {method:'POST'}); toast('Recorded as verified in the NWSD. ✓'); renderAdminPage(); }
-    catch(err){ toast(err.message); }
+    if(dv.dataset.open === '1') return;
+    dv.dataset.open = '1';
+    const box = document.createElement('div');
+    box.className = 'vr-box';
+    box.innerHTML = `
+      <label><b>How did you verify this?</b><br>
+        <select class="vr-method">
+          <option value="sighted-original">Sighted the original document</option>
+          <option value="sighted-copy" selected>Sighted a copy of the document</option>
+          <option value="issuer-register">Checked against the issuing register</option>
+          <option value="issuer-confirmed">Confirmed directly with the issuer</option>
+          <option value="other">Other — see note</option>
+        </select></label>
+      <label>Reference you checked it against <span style="color:#3E5A64;">(clearance number, registration number, receipt)</span><br>
+        <input class="vr-ref" placeholder="e.g. NDISWC-123456789" maxlength="120"></label>
+      <label>Note <span style="color:#3E5A64;">(optional)</span><br>
+        <input class="vr-note" placeholder="e.g. rang the RTO, confirmed with A. Nguyen" maxlength="400"></label>
+      <button class="btn btn-primary btn-sm vr-go" data-doc-verify-go="${dv.dataset.docVerify}" style="margin-top:4px;">Record verification</button>
+      <button class="adm-btn-sm vr-cancel" style="margin-left:6px;">Cancel</button>`;
+    dv.parentNode.insertBefore(box, dv.nextSibling);
+    box.querySelector('.vr-ref').focus();
+    return;
+  }
+  if(e.target && e.target.classList.contains('vr-cancel')){
+    const bx = e.target.closest('.vr-box');
+    const btn = bx && bx.previousElementSibling;
+    if(btn && btn.dataset) btn.dataset.open = '';
+    if(bx) bx.remove();
+    return;
+  }
+  const dvg = e.target.closest('[data-doc-verify-go]');
+  if(dvg){
+    const bx = dvg.closest('.vr-box');
+    dvg.disabled = true;
+    try{
+      await API.call('/admin/documents/' + dvg.dataset.docVerifyGo + '/verify', {method:'POST', body:{
+        method: bx.querySelector('.vr-method').value,
+        ref: bx.querySelector('.vr-ref').value.trim(),
+        note: bx.querySelector('.vr-note').value.trim()
+      }});
+      toast('Verified — how you checked it is now on the record. ✓');
+      renderAdminPage();
+    }catch(err){ toast(err.message); dvg.disabled = false; }
     return;
   }
   const dd2 = e.target.closest('[data-doc-del]');
