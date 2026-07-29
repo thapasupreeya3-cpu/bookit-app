@@ -12,6 +12,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const tls = require('node:tls');
+const zlib = require('node:zlib');
 const { DatabaseSync } = require('node:sqlite');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -225,6 +226,87 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_shift_notes_booking ON shift_notes(booking_id);
   CREATE INDEX IF NOT EXISTS idx_shift_notes_participant ON shift_notes(participant_id);
 `);
+/* support plans: what a worker needs to know before they walk in, and what the
+   office needs to know if nobody turns up.
+
+   Versioned rather than updated, for the same reason shift notes are append-only.
+   A support plan is the document an auditor reads after an incident, and the
+   question they ask is not "what does it say" but "what did it say on the day".
+   Every confirmed submission writes a new row; `current` marks the live one.
+   A draft is edited in place until it is confirmed, so half-finished answers
+   never become a version of record. */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS support_plans (
+    id INTEGER PRIMARY KEY,
+    participant_id INTEGER NOT NULL REFERENCES users(id),
+    version INTEGER NOT NULL DEFAULT 1,
+    current INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','confirmed')),
+
+    /* reliance — the five answers that decide what happens when a shift falls over */
+    main_source INTEGER DEFAULT 0,
+    health_safety INTEGER DEFAULT 0,
+    impact_detail TEXT DEFAULT '',
+    backup_24h INTEGER DEFAULT 0,
+    backup_detail TEXT DEFAULT '',
+    preventative_health INTEGER DEFAULT 0,
+
+    /* the six supports DMHC is registered to deliver, and only those six */
+    use_employ INTEGER DEFAULT 0,
+    employ_detail TEXT DEFAULT '',
+    use_personal INTEGER DEFAULT 0,
+    personal_detail TEXT DEFAULT '',
+    use_transport INTEGER DEFAULT 0,
+    transport_detail TEXT DEFAULT '',
+    use_daily INTEGER DEFAULT 0,
+    daily_detail TEXT DEFAULT '',
+    use_household INTEGER DEFAULT 0,
+    household_detail TEXT DEFAULT '',
+    use_community INTEGER DEFAULT 0,
+    community_detail TEXT DEFAULT '',
+
+    /* about you */
+    goals TEXT DEFAULT '',
+    communication TEXT DEFAULT '',
+    health_supports TEXT DEFAULT '',
+    cognition TEXT DEFAULT '',
+    mental_health TEXT DEFAULT '',
+    mobility TEXT DEFAULT '',
+    other_info TEXT DEFAULT '',
+
+    /* safety */
+    home_safety TEXT DEFAULT '',
+    disaster_8h INTEGER DEFAULT 0,
+    community_safety TEXT DEFAULT '',
+
+    /* care plans named by the participant — [{name, on_file}] */
+    care_plans TEXT DEFAULT '[]',
+
+    /* emergency contact */
+    ec_name TEXT DEFAULT '',
+    ec_relationship TEXT DEFAULT '',
+    ec_phone TEXT DEFAULT '',
+    ec_email TEXT DEFAULT '',
+
+    confirmed_at TEXT DEFAULT '',
+    confirmed_by TEXT DEFAULT '',
+    created TEXT NOT NULL,
+    updated TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_support_plans_person ON support_plans (participant_id, current);
+`);
+/* v38 — the plan moved off borrowed abstract categories onto the six supports
+   DMHC is actually registered to deliver. Existing databases pick the columns
+   up here; a plan written before v38 simply has them empty, which reads as
+   "not answered yet" rather than "does not use that support". */
+for (const [col, type] of [
+  ['use_employ', 'INTEGER DEFAULT 0'], ['employ_detail', "TEXT DEFAULT ''"],
+  ['use_personal', 'INTEGER DEFAULT 0'], ['personal_detail', "TEXT DEFAULT ''"],
+  ['use_transport', 'INTEGER DEFAULT 0'], ['transport_detail', "TEXT DEFAULT ''"],
+  ['use_daily', 'INTEGER DEFAULT 0'], ['daily_detail', "TEXT DEFAULT ''"],
+  ['use_household', 'INTEGER DEFAULT 0'], ['household_detail', "TEXT DEFAULT ''"],
+  ['use_community', 'INTEGER DEFAULT 0'], ['community_detail', "TEXT DEFAULT ''"]
+]) { try { db.exec(`ALTER TABLE support_plans ADD COLUMN ${col} ${type}`); } catch { } }
 /* SIL rosters build: shared-living houses with weekly repeating shift slots */
 db.exec(`
   CREATE TABLE IF NOT EXISTS sil_houses (
@@ -456,6 +538,13 @@ for (const col of [
 for (const col of ["verify_method TEXT DEFAULT ''", "verify_ref TEXT DEFAULT ''", "verify_note TEXT DEFAULT ''"]) {
   try { db.exec(`ALTER TABLE worker_docs ADD COLUMN ${col}`); } catch {}
 }
+
+/* --- why the office was rung, not merely that it was. "Needs you" on the
+   board is a bell without a reason attached; the person picking it up at 6am
+   wants to know in one line whether this is "nobody was free" or "this person
+   has nobody else inside 24 hours", because those two calls are made in a
+   different order and in a different tone of voice. --- */
+try { db.exec("ALTER TABLE cover ADD COLUMN office_alert_why TEXT DEFAULT ''"); } catch {}
 
 /* --- the evidence trail itself: append-only, never edited, never deleted.
    Every screening decision, every banning-order check, every document
@@ -2000,7 +2089,10 @@ const DOC_CATALOG = [
   /* checks & clearances */
   { key: 'ndis-screening', label: 'NDIS Worker Screening Check', category: 'checks', expiry: 'required', numberLabel: 'Check number', aliases: ['screening', 'worker screening', 'ndiswc', 'ndis check'], help: 'Required before your profile can go live — apply through your state screening unit.' },
   { key: 'wwcc', label: 'Working with Children Check', category: 'checks', expiry: 'required', numberLabel: 'WWCC number', aliases: ['working with childrens check', 'wwc', 'blue card', 'wwvp', 'ochre card'], help: 'Needed to support participants under 18. State-based (Blue Card in QLD, Ochre Card in NT).' },
-  { key: 'police-check', label: 'National Police Check', category: 'checks', expiry: 'optional', numberLabel: 'Reference number', aliases: ['police check', 'afp check', 'criminal history check', 'national police certificate'], help: 'Issued within the last 3 years.' },
+  /* Kept so existing uploads still have a home and nothing 404s, but no longer
+     a form the register asks for: the NDIS Worker Screening Check already
+     contains a nationally coordinated criminal history check. */
+  { key: 'police-check', label: 'National Police Check', category: 'checks', expiry: 'optional', numberLabel: 'Reference number', aliases: ['police check', 'afp check', 'criminal history check', 'national police certificate'], help: 'Optional — your NDIS Worker Screening Check already includes a national criminal history check. Only upload this if a host organisation has asked for one separately.' },
   /* training certificates */
   { key: 'ndis-orientation', label: 'NDIS Worker Orientation Module', category: 'training', expiry: 'none', numberLabel: 'Certificate ID', aliases: ['quality safety and you', 'orientation module', 'worker orientation'], help: 'The free 90-minute Commission module "Quality, Safety and You".', link: 'https://training.ndiscommission.gov.au/' },
   { key: 'infection-control', label: 'Infection Prevention & Control Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['infection free', 'infection control', 'covid training', 'supporting people to stay infection free'], help: 'e.g. "Supporting People to Stay Infection Free".', link: 'https://teamdsc.com.au/learning/supporting-people-to-stay-infection-free' },
@@ -3206,6 +3298,1167 @@ route('POST', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user, body, ip) =
   json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
 });
 
+/* ============================================================================
+   SUPPORT PLANS
+   ==========================================================================*/
+
+/* Every question, in one place, so the form, the validator, the worker's brief
+   and the printed plan are all generated from the same list. A question that is
+   only in the HTML is a question no other part of the system can act on. */
+const PLAN_SECTIONS = [
+  { key: 'supports', title: 'The supports you use',
+    intro: 'DMHC is registered for six things and only six. Ticking one here tells the roster which workers can be offered your shifts, and what they read before the first one. Leave the rest untouched — an empty answer means "not yet", never "does not need it".' },
+  { key: 'reliance', title: 'If a shift falls over',
+    intro: 'These five answers are the only part of this plan the roster acts on by itself. They decide how hard BookIt chases a replacement when a worker pulls out, and how early it starts. Worth a minute of thought.' },
+  { key: 'about', title: 'What a worker needs to know',
+    intro: 'Written for somebody who has never met you and is about to walk in the door. Only workers whose booking with you has already been accepted ever see this — nobody browsing the site does.' },
+  { key: 'safety', title: 'Your home and your community',
+    intro: 'The hazards and the habits a stranger would not guess. This is where a shift goes wrong or does not.' },
+  { key: 'emergency', title: 'Who we ring',
+    intro: 'One person we contact if we cannot reach you and something has happened.' }
+];
+
+/* type: 'yn' | 'text'. required: the plan cannot be confirmed without it.
+   showIf: only asked, and only required, once that answer is yes.
+   worker_brief: appears on the brief a booked worker reads before the shift.
+
+   The first section is the one that makes this BookIt's form rather than a
+   copy of somebody else's. Every other platform asks about "daily living" in
+   the abstract; DMHC holds six registration groups and delivers nothing
+   outside them, so the plan asks about those six by name. That does three
+   things a generic form cannot: the answers line up one-to-one with what gets
+   claimed, a support nobody ticked is a support nobody rosters, and a request
+   that fits none of the six is visibly out of scope on the form itself rather
+   than three weeks into a service agreement. */
+const PLAN_QUESTIONS = [
+  { key: 'use_personal', section: 'supports', type: 'yn', required: true,
+    q: 'Personal care — help with your body and your routine',
+    help: 'Showering, dressing, toileting, transfers, eating, medication prompts, and the morning and evening routine around them. NDIS calls this Assistance with Self-Care Activities (0107).' },
+  { key: 'personal_detail', section: 'supports', type: 'text', required: false, showIf: 'use_personal', worker_brief: true,
+    q: 'What does personal care look like on a good shift?', brief_title: 'Personal care',
+    help: 'The order you like things done in, the equipment involved, how much you direct and how much you want done for you. Write it the way you would say it to a new worker on day one.' },
+
+  { key: 'use_daily', section: 'supports', type: 'yn', required: true,
+    q: 'Daily tasks, or support in shared living',
+    help: 'Support to run your day — including overnight and sleepover support, and support in a shared living arrangement. NDIS calls this Assistance with Daily Life Tasks in a Group or Shared Living Arrangement (0115 and 0138).' },
+  { key: 'daily_detail', section: 'supports', type: 'text', required: false, showIf: 'use_daily', worker_brief: true,
+    q: 'What does a day of that look like?', brief_title: 'Daily tasks & shared living',
+    help: 'What happens overnight, who else is in the house, what has to be handed over between shifts, and anything that has to happen at a fixed time rather than when it suits.' },
+
+  { key: 'use_community', section: 'supports', type: 'yn', required: true,
+    q: 'Getting out — community, social and recreation',
+    help: 'Support to take part in things outside the house: sport, groups, classes, appointments, the shops, seeing people. NDIS calls this Participation in Community, Social and Recreational Activities (0125).' },
+  { key: 'community_detail', section: 'supports', type: 'text', required: false, showIf: 'use_community', worker_brief: true,
+    q: 'Where do you go, and what makes it work?', brief_title: 'Community & social',
+    help: 'The regular places and times, what you need packed, how long you can comfortably be out, and what tends to cut a day short.' },
+
+  { key: 'use_transport', section: 'supports', type: 'yn', required: true,
+    q: 'Travel and transport',
+    help: 'Being driven, or being supported to use transport yourself. NDIS calls this Assistance with Travel and Transport Arrangements (0108). Tick this and BookIt will only offer your shifts to workers whose licence, registration, CTP and comprehensive insurance are all current on the day.' },
+  { key: 'transport_detail', section: 'supports', type: 'text', required: false, showIf: 'use_transport', worker_brief: true,
+    q: 'How do you travel?', brief_title: 'Travel & transport',
+    help: 'Your own vehicle or the worker’s, whether you transfer or stay in your chair, hoist or ramp, tie-downs, how long you can sit, and anything about getting in and out that is easy to get wrong.' },
+
+  { key: 'use_household', section: 'supports', type: 'yn', required: true,
+    q: 'Household tasks',
+    help: 'Cleaning, laundry, linen, dishes, and the shopping and meal prep that go with them. NDIS calls this Household Tasks (0120). A shift that is only household tasks is rostered to a Level 1 worker — that is deliberate, it is what the price limit for this line item pays for.' },
+  { key: 'household_detail', section: 'supports', type: 'text', required: false, showIf: 'use_household', worker_brief: true,
+    q: 'What needs doing, and how do you like it done?', brief_title: 'Household tasks',
+    help: 'Which rooms, which products, what is off-limits, where things live, and anything that has to be done a particular way rather than the usual way.' },
+
+  { key: 'use_employ', section: 'supports', type: 'yn', required: true,
+    q: 'Work — finding it or keeping it',
+    help: 'Support to get to work, to stay in a job, or to take part in work-related training. NDIS calls this Assistance to Access and Maintain Employment or Higher Education (0102).' },
+  { key: 'employ_detail', section: 'supports', type: 'text', required: false, showIf: 'use_employ', worker_brief: true,
+    q: 'What does the support at work involve?', brief_title: 'Support at work',
+    help: 'Where you work, what days and hours, what the worker does while they are there, and who at your workplace they should speak to.' },
+
+  { key: 'main_source', section: 'reliance', type: 'yn', required: true,
+    q: 'Is BookIt your main source of support for daily living?',
+    help: 'Yes if BookIt covers your essential personal care, or your morning and evening routine — the support that has to happen whether or not anyone is available.' },
+  { key: 'health_safety', section: 'reliance', type: 'yn', required: true,
+    q: 'If your workers could not attend, would your health or safety be significantly affected?',
+    help: 'Meals, mobility, personal care, essential health appointments, or the activities that keep you well.' },
+  { key: 'impact_detail', section: 'reliance', type: 'text', required: false, showIf: 'health_safety',
+    q: 'Say how, and say how fast.',
+    help: 'Hours are more useful to us than days. "No transfer means no toilet after about four hours" tells the roster what to do; "it would be difficult" does not.' },
+  { key: 'backup_24h', section: 'reliance', type: 'yn', required: true,
+    q: 'If BookIt were disrupted, is there other support you could call on within 24 hours?',
+    help: 'Family, friends, or another provider you already use. This is not a test — answering no is what tells us to treat a gap in your roster as urgent.' },
+  { key: 'backup_detail', section: 'reliance', type: 'text', required: false, showIf: 'backup_24h',
+    q: 'Who, and how do we reach them?',
+    help: 'A name and a number. We only ever use it if you have told us we can.' },
+  { key: 'preventative_health', section: 'reliance', type: 'yn', required: true,
+    q: 'Do you want support keeping on top of preventative health?',
+    help: 'Vaccinations, dental, health assessments and screening. Say yes and BookIt emails you a reminder when one is due rather than letting it drift.' },
+
+  { key: 'goals', section: 'about', type: 'text', required: true,
+    q: 'What you are working towards',
+    help: 'The goals from your NDIS plan, in your words — and what the support is meant to help you do.', worker_brief: true },
+  { key: 'communication', section: 'about', type: 'text', required: true,
+    q: 'How you communicate',
+    help: 'Speech, devices, signs, boards, apps, gestures. What helps somebody understand you, and what helps you understand them. Say what a worker should do if they have not understood.', worker_brief: true },
+  { key: 'mobility', section: 'about', type: 'text', required: true,
+    q: 'How you move',
+    help: 'Walking, stairs, transfers, chairs, hoists and aids. If a transfer has a right way and a wrong way, this is where the right way goes. Name any transfer or manual handling plan below.', worker_brief: true },
+  { key: 'health_supports', section: 'about', type: 'text', required: false,
+    q: 'Health things a worker must know (optional)',
+    help: 'Seizures, anaphylaxis and allergies, blood glucose, pressure area care, autonomic dysreflexia, catheter or stoma care. Name the matching care plan below — the office ticks it off once the document is on file.', worker_brief: true },
+  { key: 'cognition', section: 'about', type: 'text', required: false,
+    q: 'Processing, memory and thinking (optional)',
+    help: 'Short and long-term memory, how much notice you need before a change, and how you like information given to you.', worker_brief: true },
+  { key: 'mental_health', section: 'about', type: 'text', required: false,
+    q: 'Mental health (optional)',
+    help: 'What helps, what does not, what a hard day looks like from the outside, and what you want a worker to do when they see one.', worker_brief: true },
+  { key: 'other_info', section: 'about', type: 'text', required: false,
+    q: 'Anything else before the first shift (optional)',
+    help: 'Triggers, phobias, pets, house rules, the thing everybody gets wrong the first time.', worker_brief: true },
+
+  { key: 'home_safety', section: 'safety', type: 'text', required: true,
+    q: 'Safety in your home',
+    help: 'Slips, trips and falls; smoking, drugs or alcohol in the home; where the exits are; manual handling; pets; and what a worker should do if something goes wrong while they are there alone with you.', worker_brief: true },
+  { key: 'community_safety', section: 'safety', type: 'text', required: true,
+    q: 'Safety when you are out',
+    help: 'Roads, crowds, places or people to avoid, what happens if you become separated, and what a worker should do in an emergency away from home.', worker_brief: true },
+  { key: 'disaster_8h', section: 'safety', type: 'yn', required: true,
+    q: 'In a flood, fire or heatwave, would you need essential support within 8 hours?',
+    help: 'Personal care, health support, transport or a way to communicate, so you can follow your emergency plan. Yes puts you on the list BookIt works down first when a disaster is declared in your area.' },
+
+  { key: 'ec_name', section: 'emergency', type: 'text', required: true, q: 'Name', short: true },
+  { key: 'ec_relationship', section: 'emergency', type: 'text', required: true, q: 'Relationship to you', short: true },
+  { key: 'ec_phone', section: 'emergency', type: 'text', required: true, q: 'Phone', short: true },
+  { key: 'ec_email', section: 'emergency', type: 'text', required: false, q: 'Email (optional)', short: true }
+];
+const PLAN_KEYS = PLAN_QUESTIONS.map(q => q.key);
+const PLAN_YN = PLAN_QUESTIONS.filter(q => q.type === 'yn').map(q => q.key);
+const PLAN_TEXT = PLAN_QUESTIONS.filter(q => q.type === 'text').map(q => q.key);
+
+/* The standing safety notice — the one instruction that applies to every home
+   regardless of what the participant writes. It is here because a worker in
+   somebody's house is DMHC's worker under WHS law, and the three things below
+   are what actually turns up in incident reports: a daisy-chained double
+   adapter, a smoke alarm with the battery out, and a worker who spent six hours
+   in a room full of cigarette smoke. Held as one constant so the form, the
+   printed plan and the worker's brief cannot drift apart. */
+const PLAN_HOME_NOTICE = 'Before your first shift, a few things about the house. Appliances and power cords should be in working order and plugged into a power board or a wall socket rather than a double adapter. Smoke alarms should be fitted and working. And there should be somewhere in the home a support worker can be without breathing cigarette smoke. If any of that is hard to arrange, tell us rather than leaving it — we would rather sort it out with you than have a worker find it on the day.';
+
+/* How long a confirmed plan stands before it has to be looked at again.
+   Twelve months matches the NDIS Practice Standards review expectation and the
+   plan cycle most participants are on. */
+const PLAN_REVIEW_MONTHS = 12;
+
+function planDue(confirmed_at) {
+  if (!confirmed_at) return '';
+  const d = new Date(confirmed_at.slice(0, 10) + 'T00:00:00');
+  d.setMonth(d.getMonth() + PLAN_REVIEW_MONTHS);
+  return d.toISOString().slice(0, 10);
+}
+
+/* THE MECHANISM.
+
+   Hireup asks these three questions and files the answers. That is where the
+   value leaks out: a form that only produces prose produces nothing an on-call
+   phone at 6am can act on. Here the same three answers resolve to one tier, and
+   the tier is what the cover board sorts by and what decides whether the office
+   is rung before the offer round or after it.
+
+   Tier 1 is the combination that means a missed shift is not a gap in a roster,
+   it is a person with nobody: BookIt is the main source of support, health or
+   safety is significantly affected, and there is no one else inside 24 hours.
+   Nothing about that requires a judgement call, so nothing about it waits for
+   one. */
+function continuityTier(p) {
+  if (!p || p.status !== 'confirmed') {
+    return { tier: 0, key: 'unknown', label: 'No confirmed plan',
+      why: 'Nobody has confirmed a support plan for this participant, so we do not know what a missed shift costs them.' };
+  }
+  const relies = !!p.main_source, harm = !!p.health_safety, alone = !p.backup_24h;
+  if (relies && harm && alone) {
+    return { tier: 1, key: 'critical', label: 'Critical — 24/7',
+      why: 'BookIt is the main source of support, health or safety is significantly affected without it, and there is no other support available within 24 hours.' };
+  }
+  if (relies && (harm || alone)) {
+    return { tier: 2, key: 'high', label: 'High',
+      why: relies && harm
+        ? 'BookIt is the main source of support and health or safety is significantly affected without it, but other support is available within 24 hours.'
+        : 'BookIt is the main source of support and there is no other support available within 24 hours, though health and safety are not significantly affected.' };
+  }
+  return { tier: 3, key: 'standard', label: 'Standard',
+    why: 'Other support is available, or BookIt is not the main source of support for daily living.' };
+}
+
+function currentPlan(participantId) {
+  return db.prepare('SELECT * FROM support_plans WHERE participant_id = ? AND current = 1').get(Number(participantId)) || null;
+}
+/* the most recent CONFIRMED plan, which is not always the current row — while a
+   review is in progress the current row is a draft. The worker's brief and the
+   continuity tier both read this one, because a half-edited draft must never
+   change what a worker is told or how urgently the office is rung. */
+function confirmedPlan(participantId) {
+  return db.prepare("SELECT * FROM support_plans WHERE participant_id = ? AND status = 'confirmed' ORDER BY version DESC LIMIT 1").get(Number(participantId)) || null;
+}
+function planOut(p) {
+  if (!p) return null;
+  const o = { ...p };
+  for (const k of PLAN_YN) o[k] = !!o[k];
+  o.care_plans = safeJson(p.care_plans, []);
+  o.review_due = planDue(p.confirmed_at);
+  o.overdue = !!(o.review_due && o.review_due < new Date().toISOString().slice(0, 10));
+  return o;
+}
+/* which required questions are still empty. Returned rather than thrown, so the
+   form can mark them and the participant can save a draft with gaps in it —
+   only confirming is gated. */
+function planMissing(body) {
+  const miss = [];
+  for (const q of PLAN_QUESTIONS) {
+    if (!q.required) continue;
+    if (q.type === 'yn') { if (body[q.key] !== true && body[q.key] !== false && body[q.key] !== 0 && body[q.key] !== 1) miss.push(q.key); }
+    else if (!clean(body[q.key], 6000)) miss.push(q.key);
+  }
+  /* the conditional follow-ups: only required once the answer above makes them
+     relevant. "Yes it would affect my health" with no description is the answer
+     that helps nobody, and "yes I use transport" with nothing about the hoist
+     is the one that hurts somebody. Driven off showIf rather than listed here,
+     so adding a question to the catalogue cannot leave its follow-up ungated. */
+  for (const q of PLAN_QUESTIONS) {
+    if (!q.showIf) continue;
+    const on = body[q.showIf] === true || body[q.showIf] === 1;
+    if (on && !clean(body[q.key], 6000)) miss.push(q.key);
+  }
+  return miss;
+}
+/* The last thing anybody said about each named document, across every version
+   of the plan. Walking oldest to newest and letting later rows win means a tick
+   made by the office on version 1 survives a version 2 the participant saved
+   without mentioning care plans at all — and an untick still wins, because it is
+   also the latest thing said. Reading only the immediately previous row loses
+   the tick the first time somebody saves a draft with the section untouched,
+   which is most of the time. */
+function carePlanHistory(participantId) {
+  const map = new Map();
+  for (const r of db.prepare('SELECT care_plans FROM support_plans WHERE participant_id = ? ORDER BY id ASC').all(participantId))
+    for (const c of safeJson(r.care_plans, [])) if (c && c.name) map.set(c.name, c);
+  return [...map.values()];
+}
+function planFieldsFrom(body, prior) {
+  const f = {};
+  for (const k of PLAN_YN) f[k] = (body[k] === true || body[k] === 1 || body[k] === 'yes') ? 1 : 0;
+  for (const k of PLAN_TEXT) f[k] = clean(body[k], 6000);
+  const plans = Array.isArray(body.care_plans) ? body.care_plans : [];
+  /* The participant names the care plan; the office says whether the document is
+     in the folder. Those are two different claims and only one of them is the
+     participant's to make, so `on_file` is never read off the request body — it
+     is carried forward by name from the plan already on record. Otherwise the
+     one field an auditor actually tests would be self-attested, and a rename in
+     the form would silently clear a tick somebody in the office had put there. */
+  const was = Array.isArray(prior) ? prior : [];
+  f.care_plans = JSON.stringify(plans.slice(0, 20).map(c => {
+    const name = clean(c && c.name, 160);
+    const before = was.find(x => x.name === name);
+    return { name, on_file: !!(before && before.on_file),
+      filed_by: before ? (before.filed_by || '') : '', filed_at: before ? (before.filed_at || '') : '' };
+  }).filter(c => c.name));
+  return f;
+}
+function planWrite(participantId, f, status, byName) {
+  const cols = [...PLAN_YN, ...PLAN_TEXT, 'care_plans'];
+  const cur = currentPlan(participantId);
+  const t = now();
+  if (cur && cur.status === 'draft') {
+    /* a draft is edited in place — it is not a version of anything yet */
+    db.prepare(`UPDATE support_plans SET ${cols.map(c => c + ' = ?').join(', ')}, status = ?, confirmed_at = ?, confirmed_by = ?, updated = ? WHERE id = ?`)
+      .run(...cols.map(c => f[c]), status, status === 'confirmed' ? t : '', status === 'confirmed' ? byName : '', t, cur.id);
+    return cur.id;
+  }
+  const version = cur ? cur.version + 1 : 1;
+  if (cur) db.prepare('UPDATE support_plans SET current = 0 WHERE id = ?').run(cur.id);
+  const r = db.prepare(`INSERT INTO support_plans (participant_id, version, current, status, ${cols.join(', ')}, confirmed_at, confirmed_by, created, updated)
+      VALUES (?,?,1,?,${cols.map(() => '?').join(',')},?,?,?,?)`)
+    .run(participantId, version, status, ...cols.map(c => f[c]), status === 'confirmed' ? t : '', status === 'confirmed' ? byName : '', t, t);
+  return Number(r.lastInsertRowid);
+}
+
+/* the four things a worker actually needs, and nothing else. A support plan
+   holds health information; a worker gets the operational slice of it, and only
+   for a participant whose booking they have already accepted. */
+function workerBrief(participantId) {
+  const p = confirmedPlan(participantId);
+  if (!p) return null;
+  const out = { confirmed_at: p.confirmed_at, version: p.version, home_notice: PLAN_HOME_NOTICE, sections: [] };
+  for (const q of PLAN_QUESTIONS) {
+    if (!q.worker_brief) continue;
+    const v = clean(p[q.key], 6000);
+    if (v) out.sections.push({ key: q.key, title: q.brief_title || q.q.replace(/ \(optional\)$/, ''), body: v });
+  }
+  out.care_plans = safeJson(p.care_plans, []);
+  out.emergency = { name: p.ec_name, relationship: p.ec_relationship, phone: p.ec_phone };
+  return out;
+}
+
+route('GET', /^\/api\/support-plan\/questions$/, (req, res) =>
+  json(res, 200, { sections: PLAN_SECTIONS, questions: PLAN_QUESTIONS, home_notice: PLAN_HOME_NOTICE, review_months: PLAN_REVIEW_MONTHS }));
+
+route('GET', /^\/api\/me\/support-plan$/, (req, res, m, user) => {
+  if (!user || user.role !== 'participant') return json(res, 403, { error: 'Participants only.' });
+  const cur = currentPlan(user.id);
+  const conf = confirmedPlan(user.id);
+  json(res, 200, {
+    plan: planOut(cur),
+    /* what they said last time, so step 1 of the review — read your previous
+       answers and check they still hold — is possible without hunting */
+    previous: cur && conf && cur.id !== conf.id ? planOut(conf) : null,
+    continuity: continuityTier(conf),
+    history: db.prepare("SELECT version, status, confirmed_at, confirmed_by FROM support_plans WHERE participant_id = ? AND status = 'confirmed' ORDER BY version DESC").all(user.id)
+  });
+});
+
+route('POST', /^\/api\/me\/support-plan$/, (req, res, m, user, body) => {
+  if (!user || user.role !== 'participant') return json(res, 403, { error: 'Participants only.' });
+  const confirm = body.confirm === true;
+  const missing = planMissing(body);
+  if (confirm) {
+    if (!body.declaration) return json(res, 400, { error: 'Tick the box to confirm this plan is up to date before submitting.', missing });
+    if (missing.length) return json(res, 400, { error: `${missing.length} question${missing.length === 1 ? '' : 's'} still needs an answer before you can submit.`, missing });
+  }
+  const id = planWrite(user.id, planFieldsFrom(body, carePlanHistory(user.id)), confirm ? 'confirmed' : 'draft', user.name);
+  const cur = db.prepare('SELECT * FROM support_plans WHERE id = ?').get(id);
+  json(res, 200, { ok: true, plan: planOut(cur), continuity: continuityTier(confirmedPlan(user.id)), missing });
+});
+
+/* the shift brief. A worker sees it only for a participant they are booked with,
+   and only for a booking that has actually been accepted — a pending request is
+   not consent to read somebody's health information. */
+route('GET', /^\/api\/support-plan\/(\d+)\/brief$/, (req, res, m, user) => {
+  if (!user) return json(res, 403, { error: 'Log in first.' });
+  const pid = Number(m[1]);
+  if (!user.admin && user.id !== pid) {
+    if (user.role !== 'worker') return json(res, 403, { error: 'Not yours to read.' });
+    const linked = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE worker_id = ? AND participant_id = ? AND status IN ('accepted','completed')").get(user.id, pid).n;
+    if (!linked) return json(res, 403, { error: 'You can read a support plan once a booking with this participant has been accepted.' });
+  }
+  const brief = workerBrief(pid);
+  if (!brief) return json(res, 404, { error: 'No confirmed support plan yet.' });
+  json(res, 200, { brief, continuity: continuityTier(confirmedPlan(pid)) });
+});
+
+/* admin: every participant, what tier they are, and what is overdue */
+route('GET', /^\/api\/admin\/support-plans$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const people = db.prepare("SELECT id, name, email, suburb FROM users WHERE role = 'participant' ORDER BY name").all();
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = people.map(u => {
+    const conf = confirmedPlan(u.id);
+    const cur = currentPlan(u.id);
+    const c = continuityTier(conf);
+    const due = planDue(conf && conf.confirmed_at);
+    return {
+      id: u.id, name: u.name, email: u.email, suburb: u.suburb,
+      has_plan: !!conf, version: conf ? conf.version : 0,
+      draft_open: !!(cur && cur.status === 'draft'),
+      confirmed_at: conf ? conf.confirmed_at : '', confirmed_by: conf ? conf.confirmed_by : '',
+      review_due: due, overdue: !!(due && due < today),
+      tier: c.tier, tier_key: c.key, tier_label: c.label, tier_why: c.why,
+      disaster_8h: !!(conf && conf.disaster_8h),
+      preventative_health: !!(conf && conf.preventative_health),
+      /* a care plan the participant has named and nobody has filed is the exact
+         shape of the finding that costs providers at audit: the support is being
+         delivered, the document that says how is not in the folder. */
+      care_plans: safeJson(conf && conf.care_plans, []),
+      plans_missing: safeJson(conf && conf.care_plans, []).filter(c2 => !c2.on_file).map(c2 => c2.name)
+    };
+  });
+  json(res, 200, {
+    participants: rows,
+    counts: {
+      none: rows.filter(r => !r.has_plan).length,
+      overdue: rows.filter(r => r.overdue).length,
+      critical: rows.filter(r => r.tier === 1).length,
+      disaster: rows.filter(r => r.disaster_8h).length,
+      plans_missing: rows.reduce((n, r) => n + r.plans_missing.length, 0)
+    },
+    review_months: PLAN_REVIEW_MONTHS
+  });
+});
+
+route('GET', /^\/api\/admin\/support-plans\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const people = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
+  const today = new Date().toISOString().slice(0, 10);
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['Participant', 'Plan on file', 'Version', 'Confirmed', 'Review due', 'Overdue', 'Continuity tier', 'Why',
+    'Disaster support within 8h', 'Preventative health', 'Care plans named', 'Care plans not on file'].map(q).join(',')];
+  for (const u of people) {
+    const p = confirmedPlan(u.id), c = continuityTier(p), due = planDue(p && p.confirmed_at);
+    const cps = safeJson(p && p.care_plans, []);
+    lines.push([u.name, p ? 'yes' : 'no', p ? p.version : '', p ? p.confirmed_at.slice(0, 10) : '', due,
+      due && due < today ? 'YES' : '', c.label, c.why,
+      p && p.disaster_8h ? 'yes' : 'no', p && p.preventative_health ? 'yes' : 'no',
+      cps.map(x => x.name).join('; '), cps.filter(x => !x.on_file).map(x => x.name).join('; ')].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-support-plans.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* admin: mark a named care plan as filed. The tick is the evidence trail — who
+   said the document exists, and when — so it is recorded with a name against it
+   rather than flipping a silent boolean. */
+route('POST', /^\/api\/admin\/support-plans\/(\d+)\/care-plan$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const p = confirmedPlan(Number(m[1]));
+  if (!p) return json(res, 404, { error: 'No confirmed support plan for that participant.' });
+  const name = clean(body.name, 160);
+  const list = safeJson(p.care_plans, []);
+  const hit = list.find(c => c.name === name);
+  if (!hit) return json(res, 404, { error: 'That care plan is not named in this support plan.' });
+  hit.on_file = body.on_file === true;
+  hit.filed_by = hit.on_file ? user.name : '';
+  hit.filed_at = hit.on_file ? now() : '';
+  db.prepare('UPDATE support_plans SET care_plans = ?, updated = ? WHERE id = ?').run(JSON.stringify(list), now(), p.id);
+  logCompliance({ kind: 'care-plan', result: hit.on_file ? 'on-file' : 'not-on-file',
+    detail: `${name} — support plan v${p.version} for participant #${p.participant_id}`,
+    source: 'admin', checked_by: user.name });
+  json(res, 200, { ok: true, care_plans: list });
+});
+
+/* ============================================================================
+   THE FORMS REGISTER — every document DMHC has to be able to produce
+   ==========================================================================*/
+
+/* The question this answers is "where are my forms", and the honest answer has
+   three parts, so the register has three parts.
+
+   `live` means BookIt holds the record itself and watches its own clock. There
+   is nothing to keep track of by hand, because the system is the register.
+
+   `drive` means the document exists as a file in Google Drive. It is real, it is
+   probably fine, and nothing on earth is watching it. Every finding at DMHC's
+   last review was in this pile: a credential held as a phone photo has no expiry
+   date as far as any system is concerned, which is how two workers ended up
+   rostered on expired screening while their certificates sat in a folder.
+
+   `missing` means it does not exist yet.
+
+   `requires` names the Practice Standards outcome or the Rules instrument, not a
+   clause number. The outcome names are stable and checkable; invented clause
+   numbers are worse than no citation, because they look authoritative. Where the
+   basis is DMHC's own audit sheet rather than my reading of the rules, it says
+   so.
+
+   `cadence`: once | annual | monthly | quarterly | per-event | expiry | on-change */
+const FORMS = [
+  /* ---------- governance: the company holds one of each ---------- */
+  { key: 'cert-registration', name: 'NDIS certificate of registration + scope', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'NDIS Commission', template: 'n/a', requires: 'NDIS Act — registration', note: 'Current certificate runs to 21/01/2029. Mid-term audit window opens 21/07/2027.' },
+  { key: 'policy-register', name: 'Policy Register', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management', note: 'Currently lists 24 documents including the five added July 2026.' },
+  { key: 'doc-list-core', name: 'Document List — Core', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Information management' },
+  { key: 'gov-review', name: 'Governing Personnel Skills and Performance Review', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
+  { key: 'coi-declaration', name: 'Conflict of Interest Declaration (governing person)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management', note: 'A nil declaration is still evidence. An empty register is not.' },
+  { key: 'mgmt-minutes', name: 'Management meeting agenda + minutes', scope: 'company', track: 'drive', cadence: 'monthly', signed: 'Chair', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
+  { key: 'staff-minutes', name: 'Staff meeting agenda + minutes', scope: 'company', track: 'drive', cadence: 'monthly', signed: 'Chair', template: 'DMHC', requires: 'Core Module — Human resource management' },
+  { key: 'internal-audit', name: 'Internal Audit Schedule + completed audits', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
+  { key: 'ci-plan', name: 'Continuous Improvement Plan', scope: 'company', track: 'drive', cadence: 'quarterly', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
+  { key: 'risk-plan', name: 'Risk Management Plan + risk register', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management' },
+  { key: 'continuity-plan', name: 'Business continuity / emergency and disaster management plan', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Continuity of supports' },
+  { key: 'insurance-pl', name: 'Certificate of currency — Public and Products Liability', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management', note: 'Held in the Business folder, renews about November. Copy into Core Documents.' },
+  { key: 'insurance-pi', name: 'Certificate of currency — Professional Indemnity', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management' },
+  { key: 'insurance-wc', name: 'Certificate of currency — Workers Compensation', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Workers compensation legislation (NSW)', note: 'The premium rate on this certificate is the number that sets the platform margin floor.' },
+  { key: 'pol-incident', name: 'Incident Management policy and procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Incident Management and Reportable Incidents) Rules 2018' },
+  { key: 'pol-complaints', name: 'Complaints Management and Resolution policy', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Complaints Management and Resolution) Rules 2018' },
+  { key: 'pol-screening', name: 'Worker Screening policy and procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018' },
+  { key: 'pol-privacy', name: 'Privacy policy + data breach response', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Privacy and dignity', note: 'Breach response 1 business day; retention 7 years / 25 years.' },
+  { key: 'pol-behaviour', name: 'Behaviour Support and Restrictive Practices policy', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Violence, abuse, neglect, exploitation and discrimination', note: 'Added and signed July 2026.' },
+  { key: 'pol-decisions', name: 'Supported Decision-Making procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Independence and informed choice', note: 'Added and signed July 2026.' },
+  { key: 'pol-living-alone', name: 'Living Alone Safeguards procedure (s73G)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'NDIS Act s73G condition on this registration', note: 'Added and signed July 2026.' },
+  { key: 'pol-transport', name: 'Transport and Vehicle Safety procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Added and signed July 2026. 0108 is on the certificate.' },
+  { key: 'pol-tenancy', name: 'Tenancy and Support Separation statement', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'SIL / SDA module as audited', note: 'Added and signed July 2026.' },
+  { key: 'sil-collab', name: 'SDA and SIL Collaboration Agreement', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Both providers', template: 'BookIt', requires: 'SIL module as audited', note: 'Drafted July 2026 — to be filed and added to the Policy Register.' },
+  { key: 'sil-info-pack', name: 'SIL Information Pack (participant-facing)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Access to supports' },
+  { key: 'contractor-agreement', name: 'Engagement model — employment or contractor agreement template', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'Unresolved with the lawyer. It decides superannuation, award coverage, workers compensation, insurance response and who carries the duty of care on shift.' },
+
+  /* ---------- registers: living lists, never a snapshot ---------- */
+  { key: 'reg-worker', name: 'Worker Register', scope: 'register', track: 'live', live: 'workers', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'BookIt holds the live version. The Drive copy is a quarterly export, not the record.' },
+  { key: 'reg-participant', name: 'Participant Register', scope: 'register', track: 'live', live: 'participants', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'Core Module — Information management' },
+  { key: 'reg-incident', name: 'Incident Register', scope: 'register', track: 'live', live: 'incidents', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Incident Management and Reportable Incidents) Rules 2018', note: 'BookIt runs the 24-hour and 5-business-day clocks itself.' },
+  { key: 'reg-complaints', name: 'Complaints and Feedback Register', scope: 'register', track: 'live', live: 'complaints', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Complaints Management and Resolution) Rules 2018' },
+  { key: 'reg-banning', name: 'Banning orders check register', scope: 'register', track: 'live', live: 'banning', cadence: 'quarterly', signed: 'System', template: 'BookIt', requires: '0137 conditions of registration', note: 'Three registers per worker, re-checked automatically.' },
+  { key: 'reg-coi', name: 'Conflict of Interest Register', scope: 'register', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
+  { key: 'reg-ci', name: 'Continuous Improvement Register', scope: 'register', track: 'drive', cadence: 'quarterly', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
+  { key: 'reg-restrictive', name: 'Restrictive Practices Register', scope: 'register', track: 'drive', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Restrictive Practices and Behaviour Support) Rules 2018', note: 'Nil is the expected state. A nil register still has to exist and be dated.' },
+  { key: 'reg-training', name: 'Training and Development Register (one per worker)', scope: 'register', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: '151 blanks across seven registers. Filling the Worker Register first turns these into transcription.' },
+  { key: 'reg-medicine', name: 'Medicine Register (per participant, per month)', scope: 'register', track: 'drive', cadence: 'monthly', signed: 'Worker on each administration', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'Register 13 covers 25/11/2025 only and every worker signature cell in it is blank. Nothing between 26/11/2025 and 30/06/2026. Do not backfill — the file note discloses the gap.' },
+
+  /* ---------- one per worker ---------- */
+  { key: 'w-agreement', name: 'Signed engagement agreement', scope: 'worker', track: 'drive', cadence: 'once', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
+  { key: 'w-position', name: 'Position description acknowledgement', scope: 'worker', track: 'drive', cadence: 'once', signed: 'Worker', template: 'DMHC', requires: 'Core Module — Human resource management' },
+  { key: 'w-declaration', name: 'Worker Declaration (policies read and understood)', scope: 'worker', track: 'drive', cadence: 'on-change', signed: 'Worker', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'Re-signed whenever the policy list changes. The five July 2026 policies were missing from the list workers had signed.' },
+  { key: 'w-induction', name: 'Worker Induction Checklist', scope: 'worker', track: 'drive', cadence: 'once', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
+  { key: 'w-id', name: '100 points of identification', scope: 'worker', track: 'live', live: 'doc:id-points', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
+  { key: 'w-rtw', name: 'Right to work — visa grant / VEVO check', scope: 'worker', track: 'live', live: 'doc:visa', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Migration Act — work rights', note: 'Condition 8105 caps a subclass 500 holder at 48 hours a fortnight. That is a rostering constraint, not just a file.' },
+  { key: 'w-screening', name: 'NDIS Worker Screening Check', scope: 'worker', track: 'live', live: 'doc:ndis-screening', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018', note: 'Blocks bookings on an expired or unverified check. This IS the criminal history check — the NDIS check is a nationally coordinated police check plus a risk assessment, so a separate National Police Certificate is not a second requirement and is not tracked as one. Workers who uploaded one anyway keep it on file.' },
+  { key: 'w-wwcc', name: 'Working with Children Check', scope: 'worker', track: 'live', live: 'doc:wwcc', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'State child protection legislation' },
+  { key: 'w-orientation', name: 'NDIS Worker Orientation Module certificate', scope: 'worker', track: 'live', live: 'doc:ndis-orientation', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
+  { key: 'w-firstaid', name: 'First Aid and CPR certificate', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'CPR renews yearly, first aid every three years. The yearly one is what lapses.' },
+  { key: 'w-infection', name: 'Infection prevention and control training', scope: 'worker', track: 'live', live: 'doc:infection-control', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment' },
+  { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Nobody has one on file, for a participant needing daily transfers. Largest uncovered risk to both sides.' },
+  { key: 'w-medication', name: 'Medication administration training', scope: 'worker', track: 'live', live: 'doc:medication-training', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Management of medication' },
+  { key: 'w-hi-competency', name: 'High-intensity skills competency sign-off (catheter, stoma, AD)', scope: 'worker', track: 'missing', cadence: 'annual', signed: 'Clinician or supervisor', template: 'none', requires: 'High Intensity Daily Personal Activities module', note: 'The training has been delivered. No certificate or competency sign-off is in any worker folder. The gap is evidence, not care.' },
+  { key: 'w-qualification', name: 'Qualification certificates', scope: 'worker', track: 'live', live: 'doc:qualification', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
+  { key: 'w-licence', name: 'Driver licence + vehicle registration, CTP and comprehensive insurance', scope: 'worker', track: 'live', live: 'doc:driver-licence', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Needed by anyone rostered on 0108 transport. Nobody has a licence recorded.' },
+  { key: 'w-supervision', name: 'Supervision and performance review record', scope: 'worker', track: 'drive', cadence: 'annual', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
+
+  /* ---------- one per participant ---------- */
+  { key: 'p-intake', name: 'Intake / referral form', scope: 'participant', track: 'drive', cadence: 'once', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Access to supports' },
+  { key: 'p-agreement', name: 'Service Agreement', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Service agreements with participants', note: 'On file at 2025–26 limits, which have ceased. New figures must be agreed in writing before invoicing at them.' },
+  { key: 'p-schedule', name: 'Schedule of Supports', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Service agreements with participants' },
+  { key: 'p-support-plan', name: 'Support Plan', scope: 'participant', track: 'live', live: 'support_plan', cadence: 'annual', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Support planning', note: 'BookIt holds this now. The participant confirms it themselves and the review clock runs from their confirmation.' },
+  { key: 'p-risk', name: 'Risk Assessment', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management' },
+  { key: 'p-emergency', name: 'Participant Emergency and Disaster Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Continuity of supports', note: 'The support plan asks whether essential safety support is needed within 8 hours of a disaster. That answer belongs in this plan.' },
+  { key: 'p-consent-privacy', name: 'Privacy and information-sharing consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
+  { key: 'p-consent-media', name: 'Photo and media consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
+  { key: 'p-advocate', name: 'Advocate / nominee / decision-maker form', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Independence and informed choice' },
+  { key: 'p-money', name: 'Money and Property Declaration', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Participant money and property' },
+  { key: 'p-medication', name: 'Medication Plan and Administration Form + consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + prescriber', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'On file but entirely blank per-medication.' },
+  { key: 'p-mealtime', name: 'Mealtime Management Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'DMHC', requires: 'Recorded as met on DMHC\'s 2025 Core Module audit sheet', note: 'The two 2025 audit sheets contradict each other — one ticks it as met, the participant file records it was declined. Both cannot be true.' },
+  { key: 'p-care-plans', name: 'Clinical care plans named in the support plan', scope: 'participant', track: 'live', live: 'care_plans', cadence: 'on-change', signed: 'Clinician', template: 'none', requires: 'Core Module — Support planning', note: 'The support plan asks the participant to name every care plan they have. Any name with no document behind it shows up here.' },
+  { key: 'p-ndis-plan', name: 'Copy of the current NDIS plan + plan dates', scope: 'participant', track: 'drive', cadence: 'expiry', signed: 'NDIA', template: 'none', requires: 'Core Module — Service agreements with participants', note: 'The plan on file expired 24/06/2026 while supports continued.' },
+  { key: 'p-notes', name: 'Progress notes / shift notes', scope: 'participant', track: 'live', live: 'shift_notes', cadence: 'per-event', signed: 'Worker', template: 'BookIt', requires: 'Core Module — Responsive support provision', note: 'Append-only in BookIt. A note that can be quietly rewritten is not evidence of anything.' },
+  { key: 'p-satisfaction', name: 'Participant Satisfaction Survey', scope: 'participant', track: 'missing', cadence: 'annual', signed: 'Participant', template: 'none', requires: 'Core Module — Quality management', note: 'Never run. Due annually.' },
+  { key: 'p-annual-review', name: 'Annual review record', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'none', requires: 'Core Module — Support planning' },
+  { key: 'p-living-arrangement', name: 'Living Arrangement Determination (s73G)', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'NDIS Act s73G condition on this registration', note: 'Settles the contradiction between "lives with parents" in the support plan and the sole-worker clause in the agreement.' },
+  { key: 'p-exit', name: 'Exit / transition record', scope: 'participant', track: 'drive', cadence: 'per-event', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Transitions to or from the provider' }
+];
+const FORM_SCOPES = [
+  { key: 'company', label: 'The company holds one of each', per: 'once' },
+  { key: 'register', label: 'Registers — living lists, never a snapshot', per: 'ongoing' },
+  { key: 'worker', label: 'One set per worker', per: 'per worker' },
+  { key: 'participant', label: 'One set per participant', per: 'per participant' }
+];
+
+/* The register as data rather than as a response. The admin route serves it,
+   the audit pack embeds it and the nightly snapshot counts it — all three from
+   this one function, so a number on the admin screen and the same number in the
+   audit zip cannot disagree. */
+function formsRegister() {
+  const today = new Date().toISOString().slice(0, 10);
+  const workers = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id ORDER BY u.name").all();
+  const participants = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
+
+  /* what BookIt can actually answer for itself. Everything not in here is a file
+     in a folder, and the register says so rather than implying coverage. */
+  function liveState(f) {
+    if (f.track !== 'live') return null;
+    if (String(f.live || '').startsWith('doc:')) {
+      const key = f.live.slice(4);
+      const of = w => key === 'id-points'
+        ? (onboardingSummary(w.id).id_ok ? { held: 1, ok: 1 } : { held: 0, ok: 0 })
+        : (() => {
+            const rows = db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? AND doc_type = ?').all(w.id, key);
+            if (!rows.length) return { held: 0, ok: 0 };
+            const good = rows.some(d => d.verified_at && (!d.expiry_date || d.expiry_date >= today));
+            const expired = rows.some(d => d.expiry_date && d.expiry_date < today);
+            return { held: 1, ok: good ? 1 : 0, expired: expired ? 1 : 0 };
+          })();
+      const st = workers.map(of);
+      return { of: workers.length, unit: 'workers',
+        held: st.filter(x => x.held).length, ok: st.filter(x => x.ok).length,
+        expired: st.filter(x => x.expired).length,
+        gaps: workers.filter((w, i) => !st[i].ok).map(w => w.name) };
+    }
+    if (f.live === 'support_plan') {
+      const ok = participants.filter(p => !!confirmedPlan(p.id));
+      return { of: participants.length, unit: 'participants', held: ok.length, ok: ok.length,
+        gaps: participants.filter(p => !confirmedPlan(p.id)).map(p => p.name) };
+    }
+    if (f.live === 'care_plans') {
+      const named = [], missing = [];
+      for (const p of participants) {
+        for (const c of safeJson((confirmedPlan(p.id) || {}).care_plans, [])) {
+          named.push(c.name);
+          if (!c.on_file) missing.push(`${p.name} — ${c.name}`);
+        }
+      }
+      return { of: named.length, unit: 'named care plans', held: named.length - missing.length,
+        ok: named.length - missing.length, gaps: missing };
+    }
+    if (f.live === 'shift_notes') {
+      const n = db.prepare('SELECT COUNT(*) AS n FROM shift_notes').get().n;
+      return { of: n, unit: 'notes', held: n, ok: n, gaps: [] };
+    }
+    if (f.live === 'incidents') {
+      const n = db.prepare('SELECT COUNT(*) AS n FROM incidents').get().n;
+      const late = db.prepare("SELECT COUNT(*) AS n FROM incidents WHERE reportable = 1 AND commission_notified_at IS NULL").get().n;
+      return { of: n, unit: 'incidents', held: n, ok: n - late, gaps: late ? [`${late} reportable incident${late === 1 ? '' : 's'} not yet notified to the Commission`] : [] };
+    }
+    if (f.live === 'complaints') {
+      const n = db.prepare('SELECT COUNT(*) AS n FROM complaints').get().n;
+      return { of: n, unit: 'complaints', held: n, ok: n, gaps: [] };
+    }
+    if (f.live === 'banning') {
+      const n = db.prepare("SELECT COUNT(*) AS n FROM compliance_log WHERE kind LIKE 'banning%'").get().n;
+      return { of: workers.length, unit: 'workers', held: n ? workers.length : 0, ok: n ? workers.length : 0, gaps: [] };
+    }
+    if (f.live === 'workers') return { of: workers.length, unit: 'workers', held: workers.length, ok: workers.length, gaps: [] };
+    if (f.live === 'participants') return { of: participants.length, unit: 'participants', held: participants.length, ok: participants.length, gaps: [] };
+    return null;
+  }
+
+  const forms = FORMS.map(f => {
+    const state = liveState(f);
+    return { ...f, state,
+      /* the copies you actually have to produce at audit. A per-worker form is
+         one form on paper and seven documents in a folder, and the difference is
+         the whole reason the Worker Register has 82 blanks in it. */
+      copies: f.scope === 'worker' ? workers.length : f.scope === 'participant' ? participants.length : 1 };
+  });
+  const byTrack = t => forms.filter(f => f.track === t);
+  return {
+    scopes: FORM_SCOPES, forms,
+    workers: workers.length, participants: participants.length,
+    counts: {
+      total: forms.length,
+      live: byTrack('live').length,
+      drive: byTrack('drive').length,
+      missing: byTrack('missing').length,
+      /* the number worth quoting: how many separate documents exist once the
+         per-person forms are multiplied out */
+      documents: forms.reduce((n, f) => n + f.copies, 0),
+      gaps: forms.reduce((n, f) => n + (f.state ? f.state.gaps.length : 0), 0)
+    }
+  };
+}
+
+route('GET', /^\/api\/admin\/forms$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, formsRegister());
+});
+
+route('GET', /^\/api\/admin\/forms\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const scope = { company: 'Company', register: 'Register', worker: 'Per worker', participant: 'Per participant' };
+  const track = { live: 'BookIt tracks it', drive: 'File in Drive — nothing watches it', missing: 'Does not exist yet' };
+  const lines = [['Form', 'Belongs to', 'Where it is tracked', 'How often', 'Who signs', 'Whose template', 'What requires it', 'Note'].map(q).join(',')];
+  for (const f of FORMS) {
+    lines.push([f.name, scope[f.scope] || f.scope, track[f.track] || f.track, f.cadence, f.signed,
+      f.template === 'DMHC' ? "DMHC's own form" : f.template === 'BookIt' ? 'Built for DMHC (no template existed)' : f.template,
+      f.requires, f.note || ''].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="dmhc-forms-register.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* ================================================================
+   THE AUDIT PACK — one button, everything, dated.
+
+   Bee's requirement, in his words: "All I want to do is download when
+   audit day comes and everything is there."
+
+   Two things make that true rather than aspirational.
+
+   FIRST, THE PACK DOES NOT HAVE ITS OWN COPY OF ANYTHING. Every register
+   in the zip is produced by calling the *same route* the individual
+   download button calls — dispatched internally through the router table
+   (`collect()` below). So the incident register inside the pack is byte
+   for byte the incident register you get from the Incidents card. There
+   is no second implementation to drift, and no way to fix a bug in one
+   and not the other. This is the same argument as PLAN_QUESTIONS: one
+   source, two consumers.
+
+   SECOND, IT RUNS ITSELF. `auditSnapshot()` writes one row a night —
+   how many forms, how many documents, how many gaps, and what the gaps
+   were. That history ships in the pack as monitoring-history.csv, and it
+   is the part an auditor actually cares about. A pack generated on audit
+   morning proves what is true on audit morning. A year of dated rows
+   proves you were watching all year, which is what "continuous
+   improvement" and Practice Standard "Governance and operational
+   management" are asking for. Nobody has to remember to press anything.
+   ================================================================ */
+
+for (const stmt of [
+  `CREATE TABLE IF NOT EXISTS audit_snapshots (
+     day TEXT PRIMARY KEY,
+     taken_at TEXT NOT NULL,
+     forms INTEGER DEFAULT 0,
+     documents INTEGER DEFAULT 0,
+     tracked_live INTEGER DEFAULT 0,
+     gaps INTEGER DEFAULT 0,
+     workers INTEGER DEFAULT 0,
+     participants INTEGER DEFAULT 0,
+     detail TEXT DEFAULT ''
+   )`
+]) { try { db.exec(stmt); } catch { } }
+
+/* ---------- a zip file, by hand ----------
+   BookIt has no dependencies and this is not the release that starts. A zip
+   is a well-specified container: a local header per entry, a central
+   directory, an end record. deflate comes from node's own zlib. Stored
+   rather than deflated when deflate makes it bigger, which is the usual
+   case for a JPEG or a PDF that is already compressed. */
+let CRC_TABLE = null;
+function crc32(buf) {
+  if (!CRC_TABLE) {
+    CRC_TABLE = new Int32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      CRC_TABLE[n] = c;
+    }
+  }
+  let c = -1;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ -1) >>> 0;
+}
+
+function dosStamp(d) {
+  const y = Math.max(1980, d.getFullYear());
+  return {
+    time: ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xFFFF,
+    date: (((y - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xFFFF
+  };
+}
+
+function zipBuffer(entries, when) {
+  const stamp = dosStamp(when || new Date());
+  const parts = [], central = [];
+  let offset = 0;
+  for (const e of entries) {
+    const name = Buffer.from(e.name, 'utf8');
+    const raw = Buffer.isBuffer(e.data) ? e.data : Buffer.from(String(e.data), 'utf8');
+    const crc = crc32(raw);
+    let body = raw, method = 0;
+    if (raw.length > 256) {
+      const comp = zlib.deflateRawSync(raw, { level: 6 });
+      if (comp.length < raw.length) { body = comp; method = 8; }
+    }
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0x0800, 6);              /* names are UTF-8 */
+    local.writeUInt16LE(method, 8);
+    local.writeUInt16LE(stamp.time, 10);
+    local.writeUInt16LE(stamp.date, 12);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(body.length, 18);
+    local.writeUInt32LE(raw.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    local.writeUInt16LE(0, 28);
+    parts.push(local, name, body);
+
+    const c = Buffer.alloc(46);
+    c.writeUInt32LE(0x02014b50, 0);
+    c.writeUInt16LE(20, 4); c.writeUInt16LE(20, 6);
+    c.writeUInt16LE(0x0800, 8);
+    c.writeUInt16LE(method, 10);
+    c.writeUInt16LE(stamp.time, 12);
+    c.writeUInt16LE(stamp.date, 14);
+    c.writeUInt32LE(crc, 16);
+    c.writeUInt32LE(body.length, 20);
+    c.writeUInt32LE(raw.length, 24);
+    c.writeUInt16LE(name.length, 28);
+    c.writeUInt16LE(0, 30); c.writeUInt16LE(0, 32); c.writeUInt16LE(0, 34);
+    c.writeUInt16LE(0, 36); c.writeUInt32LE(0, 38);
+    c.writeUInt32LE(offset, 42);
+    central.push(c, name);
+    offset += local.length + name.length + body.length;
+  }
+  const dir = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(0, 4); end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(dir.length, 12);
+  end.writeUInt32LE(offset, 16);
+  end.writeUInt16LE(0, 20);
+  return Buffer.concat([...parts, dir, end]);
+}
+
+/* ---------- call our own routes, in-process ----------
+   The pack must not contain a second implementation of any register. So it
+   asks the router for the same handler the download button hits, hands it a
+   response object that keeps the bytes instead of sending them, and puts
+   those exact bytes in the zip. If a register is ever wrong, it is wrong in
+   one place. */
+function collect(url, user) {
+  const pathOnly = url.split('?')[0];
+  const r = routes.find(rt => rt.method === 'GET' && rt.pattern.test(pathOnly));
+  if (!r) return { status: 404, body: '' };
+  let status = 200, body = '';
+  const sink = {
+    writeHead(code) { status = code; return sink; },
+    setHeader() { },
+    write(chunk) { body += chunk; },
+    end(chunk) { if (chunk != null) body += chunk; }
+  };
+  try {
+    r.handler({ url, method: 'GET', headers: { host: 'localhost' } }, sink, r.pattern.exec(pathOnly), user, null, '127.0.0.1');
+  } catch (e) {
+    return { status: 500, body: 'This register could not be generated: ' + e.message };
+  }
+  return { status, body };
+}
+
+/* The pack's table of contents. Order is the order an auditor reads in:
+   what you must hold, then what went wrong, then what you did about it,
+   then the money. */
+const AUDIT_REPORTS = [
+  { path: 'registers/01-forms-register.csv', url: '/api/admin/forms.csv', title: 'Every form DMHC must hold, what requires it, and where it is tracked' },
+  { path: 'registers/02-worker-credentials.csv', url: '/api/admin/worker-credentials.csv', title: 'Every credential on file for every worker, with expiry and verification' },
+  { path: 'registers/03-participants.csv', url: '/api/admin/participant-register.csv', title: 'Participants, service start, plan dates and support plan status' },
+  { path: 'registers/04-incident-register.csv', url: '/api/admin/incidents.csv', title: 'Incident register — Practice Standards, incident management' },
+  { path: 'registers/05-complaints-register.csv', url: '/api/admin/complaints.csv', title: 'Complaints register — Practice Standards, feedback and complaints' },
+  { path: 'registers/06-out-of-scope-register.csv', url: '/api/admin/scope-register.csv', title: 'Requests for supports outside the certificate, and how each was closed' },
+  { path: 'registers/07-conditions-of-registration.csv', url: '/api/admin/compliance/0137.csv', title: 'Platform conditions of registration, evidenced condition by condition' },
+  { path: 'registers/08-support-plans.csv', url: '/api/admin/support-plans.csv', title: 'Support plans — version, continuity tier, confirmation and review dates' },
+  { path: 'evidence/compliance-log.csv', url: '/api/admin/compliance/log.csv', title: 'Every automated check the platform has ever run, with its result' },
+  { path: 'finance/invoices.csv', url: '/api/admin/invoices.csv', title: 'Invoices raised' },
+  { path: 'finance/payroll.csv', url: '/api/admin/payroll.csv', title: 'Worker payments including SCHADS on-call allowances' },
+  { path: 'finance/pace-claims.csv', url: '/api/admin/claims/pace.csv', title: 'PACE claim file as submitted' }
+];
+
+/* ---------- two registers an auditor asks for that had no export ---------- */
+route('GET', /^\/api\/admin\/worker-credentials\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const today = new Date().toISOString().slice(0, 10);
+  const lines = [['Worker', 'Email', 'Document', 'Label', 'Number', 'Expires', 'Status today', 'Uploaded', 'Verified', 'Verified by', 'File in pack'].map(q).join(',')];
+  const rows = db.prepare(`SELECT d.*, u.name, u.email FROM worker_docs d JOIN users u ON u.id = d.worker_id
+    ORDER BY u.name, d.doc_type, d.id`).all();
+  for (const d of rows) {
+    const state = !d.expiry_date ? 'No expiry recorded'
+      : d.expiry_date < today ? 'EXPIRED'
+        : d.expiry_date <= new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10) ? 'Expires within 30 days' : 'Current';
+    lines.push([d.name, d.email, DOC_TYPES[d.doc_type] || d.doc_type, d.label, d.check_number,
+      d.expiry_date ? dmy(d.expiry_date) : '', state, d.uploaded_at ? dmy(d.uploaded_at.slice(0, 10)) : '',
+      d.verified_at ? dmy(d.verified_at.slice(0, 10)) : 'NOT VERIFIED', d.verified_by || '',
+      d.file_path && fs.existsSync(d.file_path) ? 'yes' : 'no file attached'].map(q).join(','));
+  }
+  /* a worker with no documents at all never appears in a join over worker_docs,
+     and that worker is the one worth finding */
+  for (const w of db.prepare(`SELECT u.id, u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id
+      WHERE NOT EXISTS (SELECT 1 FROM worker_docs d WHERE d.worker_id = u.id) ORDER BY u.name`).all()) {
+    lines.push([w.name, w.email, '—', '', '', '', 'NOTHING ON FILE', '', '', '', 'no'].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-worker-credentials.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+route('GET', /^\/api\/admin\/participant-register\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['Participant', 'Email', 'Suburb', 'Joined', 'Shifts booked', 'Last shift',
+    'Support plan', 'Version', 'Continuity tier', 'Confirmed', 'Review due', 'Care plans named', 'Care plans on file'].map(q).join(',')];
+  for (const p of db.prepare("SELECT id, name, email, suburb, created FROM users WHERE role = 'participant' ORDER BY name").all()) {
+    const plan = db.prepare("SELECT * FROM support_plans WHERE participant_id = ? AND current = 1").get(p.id);
+    const b = db.prepare("SELECT COUNT(*) n, MAX(date) last FROM bookings WHERE participant_id = ?").get(p.id) || {};
+    /* care plans are a JSON column on the plan itself, not a table — the
+       participant names them and only the office can mark one filed */
+    const cps = plan ? safeJson(plan.care_plans, []) : [];
+    const due = plan && plan.confirmed_at ? planDue(plan.confirmed_at) : '';
+    lines.push([p.name, p.email, p.suburb, p.created ? dmy(p.created.slice(0, 10)) : '', b.n || 0, b.last ? dmy(b.last) : '',
+      plan ? (plan.status === 'confirmed' ? 'Confirmed' : 'Draft only') : 'NONE',
+      plan ? plan.version : '', plan ? continuityTier(plan).label : '',
+      plan && plan.confirmed_at ? dmy(plan.confirmed_at.slice(0, 10)) : '',
+      due ? dmy(due) + (due < new Date().toISOString().slice(0, 10) ? ' — OVERDUE' : '') : '',
+      cps.length, cps.filter(c => c && c.on_file).length].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-participant-register.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* ---------- the nightly snapshot ----------
+   One row a night. This is the difference between a pack that says "we are
+   compliant today" and a pack that says "here is every day of the year, and
+   here is the day each gap opened and the day it closed". */
+function auditSnapshot(why) {
+  const day = new Date().toISOString().slice(0, 10);
+  const reg = formsRegister();
+  const detail = reg.forms.filter(f => f.state && f.state.gaps.length)
+    .map(f => ({ form: f.name, gaps: f.state.gaps.length, who: f.state.gaps.slice(0, 12) }));
+  db.prepare(`INSERT INTO audit_snapshots (day, taken_at, forms, documents, tracked_live, gaps, workers, participants, detail)
+    VALUES (?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(day) DO UPDATE SET taken_at = excluded.taken_at, forms = excluded.forms,
+      documents = excluded.documents, tracked_live = excluded.tracked_live, gaps = excluded.gaps,
+      workers = excluded.workers, participants = excluded.participants, detail = excluded.detail`)
+    .run(day, now(), reg.counts.total, reg.counts.documents, reg.counts.live, reg.counts.gaps,
+      reg.workers, reg.participants, JSON.stringify({ why: why || 'nightly', open: detail }));
+  return { day, gaps: reg.counts.gaps, documents: reg.counts.documents };
+}
+try { auditSnapshot('boot'); } catch (e) { console.error('audit snapshot:', e.message); }
+setInterval(() => { try { auditSnapshot('nightly'); } catch (e) { console.error('audit snapshot:', e.message); } }, 24 * 3600e3);
+
+route('GET', /^\/api\/admin\/audit-history\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['Date', 'Taken at', 'Forms in the register', 'Documents that implies', 'Forms BookIt tracks live',
+    'Open gaps', 'Workers', 'Participants', 'What was open that day'].map(q).join(',')];
+  for (const s of db.prepare('SELECT * FROM audit_snapshots ORDER BY day').all()) {
+    let open = '';
+    try {
+      const d = JSON.parse(s.detail || '{}');
+      open = (d.open || []).map(o => `${o.form} (${o.gaps})`).join('; ');
+    } catch { open = ''; }
+    lines.push([dmy(s.day), s.taken_at, s.forms, s.documents, s.tracked_live, s.gaps, s.workers, s.participants, open].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-monitoring-history.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* ---------- what is still open, as a worklist ---------- */
+/* liveState() reports gaps as plain strings — a worker's name for a per-worker
+   document, a whole sentence for anything counted in aggregate. Both are carried
+   through as they are; inventing structure they don't have would only lose
+   information on the way to the CSV. */
+function auditGaps(reg) {
+  const out = [];
+  for (const f of (reg || formsRegister()).forms) {
+    if (f.track === 'missing') {
+      out.push({ form: f.name, scope: f.scope, missing: 'This form does not exist yet — it has to be written before it can be held.', requires: f.requires || '' });
+    } else if (f.state) {
+      for (const g of f.state.gaps) out.push({ form: f.name, scope: f.scope, missing: String(g), requires: f.requires || '' });
+    }
+  }
+  return out;
+}
+
+/* ---------- the pack ---------- */
+const PACK_BYTES_CAP = 180 * 1024 * 1024;
+
+function buildAuditPack(user) {
+  const when = new Date();
+  const stampDay = when.toISOString().slice(0, 10);
+  const entries = [];
+  const built = [], failed = [], skipped = [];
+  let bytes = 0;
+  const taken = new Set();
+  const add = (name, data) => {
+    const buf = Buffer.isBuffer(data) ? data : Buffer.from(String(data), 'utf8');
+    if (bytes + buf.length > PACK_BYTES_CAP) { skipped.push(name); return false; }
+    /* A zip is allowed to carry the same name twice. Every extractor on earth
+       then overwrites the first copy with the second and says nothing, so the
+       pack would show 19 files in its index and hand the auditor 18. Two people
+       with the same name is not a rare edge case in a service this size, so the
+       collision is resolved here rather than hoped away — and the surviving
+       names both stay traceable because the disambiguator is the row id. */
+    let n = name;
+    if (taken.has(n)) {
+      const dot = name.lastIndexOf('.'), stem = dot > 0 ? name.slice(0, dot) : name, ext = dot > 0 ? name.slice(dot) : '';
+      let i = 2;
+      while (taken.has(`${stem} (${i})${ext}`)) i++;
+      n = `${stem} (${i})${ext}`;
+    }
+    taken.add(n);
+    bytes += buf.length;
+    entries.push({ name: n, data: buf });
+    return true;
+  };
+
+  for (const r of AUDIT_REPORTS) {
+    const got = collect(r.url, user);
+    if (got.status === 200 && got.body) { add(r.path, got.body); built.push(r); }
+    else { failed.push({ ...r, status: got.status }); }
+  }
+  add('evidence/monitoring-history.csv', collect('/api/admin/audit-history.csv', user).body || '');
+
+  /* one shift-note file per participant — the thing an auditor asks for by name */
+  const participants = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
+  const pNameUse = {};
+  for (const p of participants) { const k = safeName(p.name); pNameUse[k] = (pNameUse[k] || 0) + 1; }
+  for (const p of participants) {
+    const got = collect(`/api/admin/participants/${p.id}/notes.csv`, user);
+    if (got.status !== 200 || !got.body) continue;
+    /* the common case keeps a filename a person can read; only a genuine clash
+       carries the participant number, and that number is the one printed in
+       registers/03-participants.csv so the two can be tied together. */
+    const base = safeName(p.name);
+    add(`evidence/shift-notes/${pNameUse[base] > 1 ? `${base} - participant ${p.id}` : base}.csv`, got.body);
+  }
+
+  /* the actual uploaded files, filed under the person they belong to */
+  const docs = db.prepare(`SELECT d.*, u.name FROM worker_docs d JOIN users u ON u.id = d.worker_id
+    WHERE d.file_path <> '' ORDER BY u.name, d.doc_type, d.id`).all();
+  /* two workers with the same name would otherwise share one folder, and the
+     auditor reading it cannot tell whose WWCC is whose — which is worse than a
+     missing document, because it looks like evidence and is not. */
+  const wSeen = {};
+  for (const d of docs) { const k = safeName(d.name); (wSeen[k] = wSeen[k] || new Set()).add(d.worker_id); }
+  const wFolder = (id, name) => { const k = safeName(name); return wSeen[k].size > 1 ? `${k} - worker ${id}` : k; };
+  let filesIn = 0, filesMissing = 0;
+  for (const d of docs) {
+    if (!d.file_path || !fs.existsSync(d.file_path)) { filesMissing++; continue; }
+    const ext = path.extname(d.file_path) || '';
+    const label = safeName(`${DOC_TYPES[d.doc_type] || d.doc_type}${d.expiry_date ? ' expires ' + d.expiry_date : ''}`);
+    try {
+      if (add(`people/${wFolder(d.worker_id, d.name)}/${label}-${d.id}${ext}`, fs.readFileSync(d.file_path))) filesIn++;
+    } catch { filesMissing++; }
+  }
+
+  const reg = formsRegister();
+  const gaps = auditGaps(reg);
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  add('gaps/open-items.csv', '﻿' + [['Form', 'Belongs to', 'What is missing', 'What requires it'].map(q).join(',')]
+    .concat(gaps.map(g => [g.form, g.scope, g.missing, g.requires].map(q).join(','))).join('\r\n'));
+
+  add('README.txt', packReadme({ when, user, reg, gaps, built, failed, skipped, filesIn, filesMissing, participants }));
+  add('INDEX.html', packIndex({ when, user, reg, gaps, built, failed, skipped, filesIn, filesMissing }));
+
+  return {
+    buffer: zipBuffer(entries, when),
+    filename: `DMHC-audit-pack-${stampDay}.zip`,
+    summary: {
+      generated: when.toISOString(), files: entries.length, bytes,
+      registers: built.length, failed: failed.length, skipped: skipped.length,
+      documents: filesIn, documents_missing: filesMissing, gaps: gaps.length,
+      forms: reg.counts.total, implied_documents: reg.counts.documents
+    }
+  };
+}
+
+function safeName(s) {
+  return String(s || 'unnamed').replace(/[^A-Za-z0-9 _.-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'unnamed';
+}
+
+function packReadme(c) {
+  const L = [];
+  L.push('DMHC PTY LTD — AUDIT PACK');
+  L.push('NDIS provider 4-LO5XNY0 · ABN 19 658 578 575');
+  L.push('');
+  L.push(`Generated ${dmy(c.when.toISOString().slice(0, 10))} at ${c.when.toTimeString().slice(0, 5)} by ${c.user.email}`);
+  L.push(`Generated from bookit.life — every file below was produced by the live system at that moment.`);
+  L.push('');
+  L.push('WHAT IS IN HERE');
+  L.push('  INDEX.html            open this first — the same contents, clickable, with the open items at the top');
+  L.push('  registers/            the registers you are required to keep');
+  L.push('  evidence/            what the platform did, and the shift notes behind it');
+  L.push('  evidence/monitoring-history.csv    one row per day — this is the evidence of ongoing monitoring');
+  L.push('  people/              the actual credential files, filed under the worker they belong to');
+  L.push('  finance/             invoices, payroll and the PACE claim file');
+  L.push('  gaps/open-items.csv  everything the system knows is still missing');
+  L.push('');
+  L.push('THE NUMBERS');
+  L.push(`  ${c.reg.counts.total} forms in the register`);
+  L.push(`  ${c.reg.counts.documents} documents that implies across ${c.reg.workers} workers and ${c.reg.participants} participants`);
+  L.push(`  ${c.filesIn} credential files included`);
+  L.push(`  ${c.gaps.length} open items — listed in gaps/open-items.csv, and again at the top of INDEX.html`);
+  L.push('');
+  L.push('A NOTE ON THE OPEN ITEMS');
+  L.push('  They are in here on purpose. A pack that hides its own gaps is worth less than one');
+  L.push('  that names them, because the first thing an auditor does is look for the thing you');
+  L.push('  did not mention. Every open item below is dated in monitoring-history.csv, so the');
+  L.push('  record shows when it opened rather than implying it was always fine.');
+  if (c.filesMissing) {
+    L.push('');
+    L.push(`  ${c.filesMissing} document record(s) point at a file that is no longer on disk. They are still`);
+    L.push('  listed in registers/02-worker-credentials.csv with "no file attached" so the record is');
+    L.push('  honest about it rather than quietly short.');
+  }
+  if (c.failed.length) {
+    L.push('');
+    L.push('  These registers could not be generated and are NOT in this pack:');
+    for (const f of c.failed) L.push(`    - ${f.path} (${f.title})`);
+  }
+  if (c.skipped.length) {
+    L.push('');
+    L.push(`  ${c.skipped.length} file(s) were left out because the pack hit its ${Math.round(PACK_BYTES_CAP / 1048576)} MB size cap:`);
+    for (const s of c.skipped.slice(0, 30)) L.push(`    - ${s}`);
+  }
+  L.push('');
+  L.push('HOW THIS PACK IS KEPT CURRENT');
+  L.push('  Nothing in here is typed up for an audit. Every register is generated from the live');
+  L.push('  database at the moment you press the button, by the same code that produces the');
+  L.push('  individual downloads inside BookIt. The nightly snapshot runs on its own and needs');
+  L.push('  nobody to remember it.');
+  return L.join('\r\n');
+}
+
+function packIndex(c) {
+  const day = dmy(c.when.toISOString().slice(0, 10));
+  const rows = AUDIT_REPORTS.filter(r => c.built.includes(r))
+    .map(r => `<tr><td><a href="${escHtml(r.path)}">${escHtml(r.path)}</a></td><td>${escHtml(r.title)}</td></tr>`).join('');
+  const gapRows = c.gaps.length
+    ? c.gaps.map(g => `<tr><td>${escHtml(g.form)}</td><td>${escHtml(g.missing)}</td><td>${escHtml(g.requires || '')}</td></tr>`).join('')
+    : '<tr><td colspan="3">Nothing open. Every form the register tracks live has a current document behind it.</td></tr>';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DMHC audit pack — ${escHtml(day)}</title>
+<style>
+ :root{color-scheme:light}
+ body{font:16px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#16202b;background:#fff;max-width:60rem;margin:0 auto;padding:2rem 1.25rem 5rem}
+ h1{font-size:1.7rem;margin:0 0 .25rem} h2{font-size:1.15rem;margin:2.2rem 0 .6rem;border-bottom:2px solid #e6ebf1;padding-bottom:.3rem}
+ .sub{color:#5b6b7c;margin:0 0 1.5rem}
+ table{border-collapse:collapse;width:100%;font-size:.94rem;margin:.5rem 0}
+ th,td{text-align:left;padding:.5rem .6rem;border-bottom:1px solid #e6ebf1;vertical-align:top}
+ th{background:#f5f8fa;font-weight:600}
+ .n{display:flex;gap:1.5rem;flex-wrap:wrap;margin:1rem 0;padding:1rem 1.2rem;background:#f5f8fa;border-radius:10px}
+ .n div{min-width:7rem} .n b{display:block;font-size:1.5rem;line-height:1.2} .n span{color:#5b6b7c;font-size:.85rem}
+ .warn{background:#fff6e8;border-left:4px solid #e08a00;padding:.9rem 1.1rem;border-radius:0 8px 8px 0;margin:1rem 0}
+ .ok{background:#eefaf1;border-left:4px solid #1a9c53;padding:.9rem 1.1rem;border-radius:0 8px 8px 0;margin:1rem 0}
+ a{color:#0b6bcb}
+</style></head><body>
+<h1>DMHC Pty Ltd — audit pack</h1>
+<p class="sub">NDIS provider 4-LO5XNY0 · ABN 19 658 578 575 · generated ${escHtml(day)} at ${escHtml(c.when.toTimeString().slice(0, 5))} by ${escHtml(c.user.email)}</p>
+<div class="n">
+  <div><b>${c.reg.counts.total}</b><span>forms in the register</span></div>
+  <div><b>${c.reg.counts.documents}</b><span>documents that implies</span></div>
+  <div><b>${c.filesIn}</b><span>credential files enclosed</span></div>
+  <div><b>${c.gaps.length}</b><span>open items</span></div>
+</div>
+${c.gaps.length
+      ? `<div class="warn"><b>${c.gaps.length} open item${c.gaps.length === 1 ? '' : 's'}.</b> They are listed below and in <a href="gaps/open-items.csv">gaps/open-items.csv</a>. Each one is dated in <a href="evidence/monitoring-history.csv">monitoring-history.csv</a>, so the record shows the day it opened rather than implying it was never there.</div>`
+      : `<div class="ok"><b>Nothing open.</b> Every form the register tracks live has a current document behind it.</div>`}
+<h2>Still open</h2>
+<table><tr><th>Form</th><th>What is missing</th><th>What requires it</th></tr>${gapRows}</table>
+<h2>Registers</h2>
+<table><tr><th>File</th><th>What it is</th></tr>${rows}</table>
+<h2>Evidence</h2>
+<table>
+<tr><td><a href="evidence/compliance-log.csv">evidence/compliance-log.csv</a></td><td>Every automated check the platform has run, with its result</td></tr>
+<tr><td><a href="evidence/monitoring-history.csv">evidence/monitoring-history.csv</a></td><td>One row per day. This is the evidence of ongoing monitoring — it is written by a nightly job, not by a person</td></tr>
+<tr><td>evidence/shift-notes/</td><td>One file per participant, every shift note in date order, with any out-of-scope request and what was done about it</td></tr>
+<tr><td>people/</td><td>${c.filesIn} credential file${c.filesIn === 1 ? '' : 's'}, filed under the worker they belong to</td></tr>
+</table>
+${c.failed.length ? `<h2>Not in this pack</h2><table><tr><th>File</th><th>Why</th></tr>${c.failed.map(f => `<tr><td>${escHtml(f.path)}</td><td>Could not be generated (HTTP ${f.status})</td></tr>`).join('')}</table>` : ''}
+${c.skipped.length ? `<div class="warn"><b>${c.skipped.length} file(s) left out</b> — the pack hit its ${Math.round(PACK_BYTES_CAP / 1048576)} MB cap. They are named in README.txt.</div>` : ''}
+<h2>How this pack stays true</h2>
+<p>Nothing here was typed up for an audit. Every register was generated from the live database at the moment the button was pressed, by the same code that produces the individual downloads inside BookIt — so a register in this pack and the same register downloaded on its own are the same bytes. The daily snapshot runs on its own and needs nobody to remember it.</p>
+</body></html>`;
+}
+
+route('GET', /^\/api\/admin\/audit-pack\.zip$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  let pack;
+  try { pack = buildAuditPack(user); }
+  catch (e) { console.error('audit pack:', e); return json(res, 500, { error: 'Could not build the pack: ' + e.message }); }
+  logCompliance({
+    kind: 'audit-pack', result: 'ok', source: 'admin', checked_by: user.email,
+    detail: `Audit pack downloaded — ${pack.summary.files} files, ${pack.summary.registers} registers, ${pack.summary.documents} credential files, ${pack.summary.gaps} open items.`
+  });
+  res.writeHead(200, {
+    'Content-Type': 'application/zip',
+    'Content-Length': pack.buffer.length,
+    'Content-Disposition': `attachment; filename="${pack.filename}"`
+  });
+  res.end(pack.buffer);
+});
+
+/* what the button will contain, without building it — so the card can show the
+   numbers before anyone downloads 180 MB */
+route('GET', /^\/api\/admin\/audit-pack$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const reg = formsRegister();
+  const gaps = auditGaps(reg);
+  const files = db.prepare("SELECT COUNT(*) n FROM worker_docs WHERE file_path <> ''").get() || { n: 0 };
+  const history = db.prepare('SELECT COUNT(*) n, MIN(day) first, MAX(day) last FROM audit_snapshots').get() || {};
+  json(res, 200, {
+    reports: AUDIT_REPORTS.map(r => ({ path: r.path, title: r.title })),
+    forms: reg.counts.total, documents: reg.counts.documents,
+    workers: reg.workers, participants: reg.participants,
+    credential_files: files.n, gaps,
+    history: { days: history.n || 0, first: history.first || '', last: history.last || '' },
+    last_download: (db.prepare("SELECT checked_at, checked_by FROM compliance_log WHERE kind = 'audit-pack' ORDER BY id DESC LIMIT 1").get() || null)
+  });
+});
+
 /* admin: flagged notes float to the top, because those are the ones that need a phone call */
 route('GET', /^\/api\/admin\/shift-notes$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
@@ -3690,9 +4943,32 @@ function coverWave(cv, req) {
   return sent;
 }
 
-function alertOffice(req, cv, b, why) {
-  if (cv.office_alerted_at || !MAIL_FROM) return;
-  db.prepare('UPDATE cover SET office_alerted_at = ? WHERE id = ?').run(now(), cv.id);
+/* Two different questions get asked of this function and they were sharing one
+   answer. "Cover has opened and nobody is found yet" can be said twice in three
+   lines of openCover — once because the participant is Tier 1 and once because
+   the first offer round came up empty — and those are the same news, so the
+   second must not ring again or overwrite the first reason. But "the shift
+   started and nobody came" is not the same news as "we are looking", and that
+   one has to get through even though the office has already heard about this
+   cover. So: once-only by default, `escalate` for a genuine change of state.
+
+   The guard also has to read the database rather than the row the caller is
+   holding. openCover hands the same `cv` object to both of its calls, and that
+   object was selected before either write — so a guard on cv.office_alerted_at
+   sees null twice, sends twice, and the "nobody was eligible" line lands on top
+   of the continuity line that was the reason worth reading. Re-read, then write
+   the result back onto the object so the caller's copy stops lying too. */
+function alertOffice(req, cv, b, why, opts) {
+  if (!MAIL_FROM) return;
+  const cur = db.prepare('SELECT office_alerted_at, office_alert_why FROM cover WHERE id = ?').get(cv.id);
+  if (!cur) return;
+  if (cur.office_alerted_at && !(opts && opts.escalate)) {
+    cv.office_alerted_at = cur.office_alerted_at; cv.office_alert_why = cur.office_alert_why;
+    return;
+  }
+  const alertedAt = now();
+  db.prepare('UPDATE cover SET office_alerted_at = ?, office_alert_why = ? WHERE id = ?').run(alertedAt, String(why || ''), cv.id);
+  cv.office_alerted_at = alertedAt; cv.office_alert_why = String(why || '');
   const pt = db.prepare('SELECT name, phone, suburb FROM users WHERE id = ?').get(b.participant_id) || {};
   const tried = db.prepare('SELECT COUNT(*) AS n FROM cover_offers WHERE cover_id = ?').get(cv.id).n;
   sendMail(MAIL_FROM, `Cover needs a person — ${pt.name || 'participant'} ${b.date}`,
@@ -3730,6 +5006,22 @@ function openCover(bookingId, fromWorkerId, reason, req) {
        : `We're working through who's available now and we'll email you the moment somebody says yes.`}</p>
      <p>If you'd rather not have cover this time, you can stand it down from your bookings page and nothing is charged.</p>`,
     'See what\'s happening', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  /* Tier 1 is the participant whose own support plan says BookIt is their main
+     source of support, that their health or safety is significantly affected
+     without it, and that there is nobody else inside 24 hours. For them the
+     cascade still runs — it is faster than a person — but it runs *alongside* a
+     human rather than in front of one. Waiting for the offer rounds to fail
+     before ringing the office is the right default for everybody else and
+     exactly the wrong one here, and the participant has already told us which
+     they are. Acting on the answer is the whole reason for asking it. */
+  const ct = continuityTier(confirmedPlan(b.participant_id));
+  if (ct.tier === 1) alertOffice(req, cv, b,
+    `${ct.label} continuity — their support plan says there is no other support available within 24 hours. Ring them now; the offer round is running in parallel.`);
+  /* and this is the ordinary case: the office hears about it only once the
+     machine has run out of people. The call above has already claimed the alert
+     for a Tier 1 participant, and alertOffice is once-only by default, so the
+     office keeps the reason that actually matters instead of having it painted
+     over by "nobody was eligible". */
   if (!sent) alertOffice(req, cv, b, 'Nobody was eligible on the first pass.');
   return cv;
 }
@@ -3814,7 +5106,7 @@ function coverSweep(req) {
       db.prepare("UPDATE cover SET status = 'failed', closed_at = ?, outcome_note = ? WHERE id = ?")
         .run(now(), 'Shift start passed with no cover found.', cv.id);
       db.prepare("UPDATE bookings SET cover_state = 'uncovered' WHERE id = ?").run(b.id);
-      alertOffice(req, cv, b, 'A shift started with no cover. Please contact the participant today.');
+      alertOffice(req, cv, b, 'A shift started with no cover. Please contact the participant today.', { escalate: true });
       acted.push({ cover: cv.id, outcome: 'failed' });
       continue;
     }
@@ -3837,13 +5129,13 @@ function coverSweep(req) {
         db.prepare("UPDATE cover SET status = 'failed', closed_at = ?, outcome_note = ? WHERE id = ?")
           .run(now(), 'Every tier exhausted before the shift.', cv.id);
         db.prepare("UPDATE bookings SET cover_state = 'uncovered' WHERE id = ?").run(b.id);
-        alertOffice(req, cv, b, 'All four tiers exhausted — no one available.');
+        alertOffice(req, cv, b, 'All four tiers exhausted — no one available.', { escalate: true });
         acted.push({ cover: cv.id, outcome: 'exhausted' });
         break;
       }
       db.prepare('UPDATE cover SET tier = ? WHERE id = ?').run(next, cv.id);
       cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(cv.id);
-      if (next === 'allied') alertOffice(req, cv, b, 'Cover has reached the partner-provider tier.');
+      if (next === 'allied') alertOffice(req, cv, b, 'Cover has reached the partner-provider tier.', { escalate: true });
       sent = coverWave(cv, req);
     }
     if (sent) acted.push({ cover: cv.id, tier: cv.tier, sent });
@@ -4239,10 +5531,21 @@ route('GET', /^\/api\/admin\/cover$/, (req, res, m, user) => {
   const dec = r => ({ ...r, tier_label: TIER_LABELS[r.tier] || r.tier, service_label: SERVICE_LABELS[r.service] || r.service });
   const open = db.prepare(`${base} WHERE c.status = 'open' ORDER BY b.date ASC, b.start ASC`).all().map(r => ({
     ...dec(r),
+    continuity: continuityTier(confirmedPlan(r.participant_id)),
     live_offers: db.prepare(`SELECT o.tier, o.expires_at, COALESCE(u.name, a.name) AS who FROM cover_offers o
       LEFT JOIN users u ON u.id = o.worker_id LEFT JOIN allied_providers a ON a.id = o.allied_id
       WHERE o.cover_id = ? AND o.response IS NULL ORDER BY o.id ASC`).all(r.id)
-  }));
+  }))
+  /* soonest-first is the right order for a roster and the wrong one for a
+     board somebody is working down at 6am. A Tier 1 shift on Thursday matters
+     more than a Tier 3 shift this afternoon, because the Tier 3 participant
+     has somebody else and the Tier 1 participant does not. Tier first, then
+     time. Tier 0 — no confirmed plan — sorts with the standard ones rather
+     than at the top, because an unanswered question is not an emergency; it
+     shows up as a gap on the support-plan board instead, which is where it
+     can actually be closed. */
+    .sort((a, b2) => (a.continuity.tier || 9) - (b2.continuity.tier || 9)
+      || (a.date + a.start < b2.date + b2.start ? -1 : 1));
   const recent = db.prepare(`${base} WHERE c.status != 'open' ORDER BY c.id DESC LIMIT 40`).all().map(dec);
   /* the number that matters: how much of this ran without a person */
   const all = db.prepare("SELECT status, tier, office_alerted_at, opened_at, filled_at FROM cover WHERE status != 'open'").all();

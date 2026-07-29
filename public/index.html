@@ -1030,6 +1030,7 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
         <li><a class="nav-link" href="#/pricing">Pricing</a></li>
         <li><a class="nav-link" href="#/find-workers">Find workers</a></li>
         <li><a class="nav-link" href="#/bookings" id="navBookings" hidden>Bookings</a></li>
+        <li><a class="nav-link" href="#/support-plan" id="navPlan" hidden>Support plan</a></li>
         <li><a class="nav-link" href="#/admin" id="navAdmin" hidden>Admin</a></li>
         <li><a class="nav-link" href="#/support-workers">For support workers</a></li>
         <li class="dropdown" id="ddAbout">
@@ -2609,6 +2610,17 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
   .cb-head b{font-size:1.02rem;}
   .cb-tier{background:#0E6B62;color:#fff;border-radius:999px;padding:2px 11px;font-size:.76rem;font-weight:600;}
   .cb-who{margin:9px 0 0;font-size:.87rem;color:#3E5A64;}
+  .cb-crit{margin:8px 0 0;font-size:.87rem;line-height:1.55;color:#A5301A;font-weight:600;background:#FDECE7;border-radius:10px;padding:8px 11px;}
+  /* ---- forms register ---- */
+  .fr-track{display:inline-block;border-radius:999px;padding:2px 10px;font-size:.75rem;font-weight:700;border:1px solid;white-space:nowrap;}
+  .fr-track.live{background:#DBF2E4;border-color:#2E6B4F;color:#215239;}
+  .fr-track.drive{background:#FFF4D6;border-color:#F5B841;color:#7A5C00;}
+  .fr-track.missing{background:#FDECE7;border-color:#D94F32;color:#A5301A;}
+  .fr-gaps{margin:4px 0 0;font-size:.78rem;color:#A5301A;line-height:1.5;}
+  .fr-filter{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;}
+  .fr-filter button{font:inherit;font-size:.82rem;padding:5px 14px;border-radius:999px;border:1.5px solid #E7DFD4;background:#fff;color:#3E5A64;cursor:pointer;}
+  .fr-filter button[aria-pressed=true]{background:#0E6B62;border-color:#0E6B62;color:#fff;font-weight:600;}
+  .fr-sec{margin:20px 0 8px;font-size:1.02rem;letter-spacing:-.2px;}
   .cb-cands{margin-top:11px;border-top:1px dashed #E0D3B6;padding-top:10px;}
   .cb-cands h5{margin:0 0 5px;font-size:.82rem;text-transform:uppercase;letter-spacing:.4px;color:#4a5c58;}
   .cb-cand{display:inline-flex;gap:7px;align-items:center;background:#fff;border:1.5px solid #E7DFD4;border-radius:999px;padding:3px 5px 3px 12px;margin:0 6px 6px 0;font-size:.85rem;}
@@ -2695,6 +2707,68 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
   </section>
 </section>
 
+<!-- ================= SUPPORT PLAN ================= -->
+<section class="page" id="page-support-plan" data-title="Your support plan &mdash; BookIt">
+  <style>
+    .sp-strip{background:rgba(255,255,255,.78);border:1.5px solid #E7DFD4;border-radius:18px;padding:18px 20px;margin-bottom:20px;border-left:6px solid #0E6B62;}
+    .sp-strip.t1{border-left-color:#D94F32;} .sp-strip.t2{border-left-color:#F5B841;} .sp-strip.t0{border-left-color:#C8BCA9;}
+    .sp-tier{display:inline-block;border-radius:999px;padding:3px 13px;font-size:.82rem;font-weight:700;border:1.5px solid;}
+    .sp-tier.t1{background:#FDECE7;border-color:#D94F32;color:#A5301A;}
+    .sp-tier.t2{background:#FFF4D6;border-color:#F5B841;color:#7A5C00;}
+    .sp-tier.t3{background:#DBF2E4;border-color:#2E6B4F;color:#215239;}
+    .sp-tier.t0{background:#F3EEE5;border-color:#C8BCA9;color:#6B6154;}
+    .sp-steps{counter-reset:sps;list-style:none;margin:0;padding:0;}
+    .sp-steps li{counter-increment:sps;position:relative;padding:0 0 12px 40px;font-size:.95rem;line-height:1.6;}
+    .sp-steps li:before{content:counter(sps);position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;background:#0E6B62;color:#fff;font-weight:700;font-size:.85rem;display:flex;align-items:center;justify-content:center;}
+    .sp-sec{margin:34px 0 0;}
+    .sp-sec > h2{margin:0 0 4px;font-size:1.3rem;letter-spacing:-.3px;}
+    .sp-sec > p.sp-intro{margin:0 0 18px;color:#3E5A64;font-size:.95rem;line-height:1.6;max-width:64ch;}
+    .sp-q{background:rgba(255,255,255,.72);border:1.5px solid #E7DFD4;border-radius:16px;padding:16px 18px;margin-bottom:14px;}
+    .sp-q.miss{border-color:#D94F32;background:#FEF6F4;}
+    .sp-q > b{display:block;font-size:1rem;line-height:1.5;color:#1D3B45;}
+    .sp-q .sp-help{margin:5px 0 11px;color:#5A6E77;font-size:.86rem;line-height:1.55;max-width:70ch;}
+    .sp-q textarea,.sp-q input[type=text]{width:100%;font:inherit;font-size:.95rem;padding:10px 12px;border-radius:12px;border:1.5px solid #E7DFD4;background:#fff;color:#1D3B45;}
+    .sp-q textarea:focus,.sp-q input[type=text]:focus{outline:2px solid #0E6B62;outline-offset:1px;}
+    .sp-yn{display:flex;gap:9px;}
+    .sp-yn label{cursor:pointer;}
+    .sp-yn input{position:absolute;opacity:0;width:0;height:0;}
+    .sp-yn span{display:inline-block;border:1.5px solid #E7DFD4;background:#fff;border-radius:999px;padding:7px 22px;font-size:.92rem;font-weight:600;color:#3E5A64;}
+    .sp-yn input:checked + span{background:#0E6B62;border-color:#0E6B62;color:#fff;}
+    .sp-yn input:focus-visible + span{outline:2px solid #0E6B62;outline-offset:2px;}
+    .sp-prev{margin:10px 0 0;font-size:.84rem;color:#6B6154;background:#FBF7F1;border:1px dashed #DCD2C2;border-radius:10px;padding:8px 11px;line-height:1.55;}
+    .sp-prev b{color:#3E5A64;}
+    .sp-notice{background:#FFF9EC;border:1.5px solid #F5B841;border-radius:14px;padding:14px 16px;margin:0 0 14px;font-size:.9rem;line-height:1.65;color:#5d4a12;}
+    .sp-live{background:#F4FAF8;border:1.5px solid #A8D5C9;border-radius:16px;padding:16px 18px;margin:4px 0 0;}
+    .sp-live h3{margin:0 0 6px;font-size:1rem;}
+    .sp-live p{margin:0;font-size:.9rem;line-height:1.6;color:#2B4A55;}
+    .sp-cp{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+    .sp-cp input[type=text]{flex:1 1 240px;}
+    .sp-cp-state{font-size:.8rem;font-weight:700;white-space:nowrap;}
+    .sp-foot{position:sticky;bottom:0;background:rgba(253,250,245,.96);backdrop-filter:blur(6px);border-top:1.5px solid #E7DFD4;padding:16px 0 18px;margin-top:26px;z-index:5;}
+    .sp-miss{color:#A5301A;font-size:.88rem;margin:0 0 10px;line-height:1.6;}
+    .sp-decl{display:flex;gap:10px;align-items:flex-start;font-size:.92rem;line-height:1.55;margin:0 0 12px;max-width:70ch;}
+    .sp-decl input{margin-top:3px;width:18px;height:18px;flex:none;}
+    .sp-hist{font-size:.85rem;color:#6B6154;margin-top:22px;line-height:1.7;}
+    .sp-brief{background:rgba(255,255,255,.8);border:1.5px solid #A8D5C9;border-radius:16px;padding:16px 18px;margin-top:10px;}
+    .sp-brief h4{margin:14px 0 3px;font-size:.92rem;color:#0E6B62;}
+    .sp-brief h4:first-of-type{margin-top:0;}
+    .sp-brief p{margin:0;font-size:.92rem;line-height:1.6;white-space:pre-wrap;}
+    @media(max-width:640px){.sp-q{padding:14px;}}
+  </style>
+  <div class="page-hero">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/bookings">My bookings</a> / Support plan</nav>
+      <h1>Your support plan</h1>
+      <p class="lead">One document that tells a worker who has never met you what they need to know before they knock &mdash; and tells our roster how hard to work if a shift falls over.</p>
+    </div>
+  </div>
+  <section class="block">
+    <div class="container">
+      <div id="supportPlanContent"></div>
+    </div>
+  </section>
+</section>
+
 <!-- ================= EMAIL FLOWS ================= -->
 <section class="page" id="page-reset" data-title="Choose a new password — BookIt">
   <div class="page-hero">
@@ -2755,6 +2829,7 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
 <!-- ================= ADMIN ================= -->
 <section class="page" id="page-admin" data-title="Admin — BookIt">
   <style>
+    .ap-top{display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap;}
     .adm-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:8px;}
     .adm-tile{background:rgba(255,255,255,.72);border:1.5px solid #E7DFD4;border-radius:16px;padding:16px 18px;text-align:center;}
     .adm-tile b{display:block;font-size:1.9rem;color:#0E6B62;line-height:1.2;}
@@ -4615,6 +4690,7 @@ const ROUTES = {
   '/get-started': 'page-get-started',
   '/messages': 'page-messages',
   '/bookings': 'page-bookings',
+  '/support-plan': 'page-support-plan',
   '/easy-read': 'page-easy-read',
   '/reset': 'page-reset',
   '/verified': 'page-verified',
@@ -4672,6 +4748,7 @@ function route(){
   if(id === 'page-get-started') showPath(null);
   if(id === 'page-messages') renderMessagesPage();
   if(id === 'page-bookings' && window.renderBookingsPage) renderBookingsPage();
+  if(id === 'page-support-plan' && window.renderSupportPlanPage) renderSupportPlanPage();
   if(id === 'page-admin' && window.renderAdminPage) renderAdminPage();
   if(id === 'page-worker') renderWorkerPage(Number(workerMatch[1]));
   closeMobileNav();
@@ -4712,6 +4789,8 @@ function updateAuthUI(){
   if(authed) renderAcctChip(); else closeAcctMenu();
   const nb = $('#navBookings');
   if(nb) nb.hidden = !API.me;
+  const np = $('#navPlan');
+  if(np) np.hidden = !(API.me && API.me.role === 'participant');
   const na = $('#navAdmin');
   if(na) na.hidden = !(API.online && API.me && API.me.admin);
   const vb = $('#verifyBanner');
@@ -4828,6 +4907,7 @@ async function doLogout(){
   toast('Logged out. See you soon!');
   if(location.hash.startsWith('#/messages')) renderMessagesPage();
   if(location.hash.startsWith('#/bookings')) renderBookingsPage();
+  if(location.hash.startsWith('#/support-plan') && window.renderSupportPlanPage) renderSupportPlanPage();
   if(location.hash.startsWith('#/admin') && window.renderAdminPage) renderAdminPage();
 }
 /* ---------- document catalogue typeahead ---------- */
@@ -5132,6 +5212,29 @@ async function renderBookingsPage(){
           : (myHi.length ? 'Saved \u2014 all of those are supports we deliver.' : 'Tell us here if that ever changes and we\'ll sort out the introduction.')}</span>
       </div>
     </div>` : '';
+  /* the support plan, surfaced where people actually are. A plan nobody is
+     reminded about is a plan that is twelve months out of date, and an out of
+     date plan is worse than none: it is a document that says the wrong thing
+     with a confident date on it. */
+  let planCard = '';
+  if(API.me.role === 'participant'){
+    let sp = null;
+    try{ sp = await API.call('/me/support-plan'); }catch(e){}
+    if(sp){
+      const pl = sp.plan, ct = sp.continuity || {}, done = sp.history && sp.history.length;
+      const overdue = pl && pl.overdue;
+      planCard = `
+      <div class="info-card" id="cardPlan" style="margin-bottom:18px;${overdue || !done ? 'border-left:6px solid #F5B841;' : ''}">
+        <h3 style="margin:0 0 6px;">Support plan</h3>
+        <p class="muted-sm" style="margin:0 0 12px;">${done
+          ? (overdue
+            ? `<b style="color:#A5301A;">Your review was due ${fmtAU(pl.review_due)}.</b> It takes a few minutes — most answers will still be right.`
+            : `Confirmed ${fmtAU(String(sp.history[0].confirmed_at).slice(0,10))}. Next review ${fmtAU(pl.review_due)}. Continuity: <b>${esc(ct.label || '')}</b>.`)
+          : '<b>You haven\'t confirmed one yet.</b> It is what a new worker reads before their first shift with you, and what decides how hard our roster works if somebody pulls out.'}</p>
+        <a class="btn ${done && !overdue ? 'btn-secondary' : 'btn-primary'} btn-sm" href="#/support-plan">${done ? (overdue ? 'Review it now' : 'Read or update it') : 'Fill it in'}</a>
+      </div>`;
+    }
+  }
   let workerCards = '';
   if(API.me.role === 'worker'){
     let docs = [], sum = {}, prof = { bio: '', photo: null, visible: 0, days: [1,1,1,1,1,0,0], langs: 'English', exp: 'New to BookIt' };
@@ -5251,13 +5354,13 @@ async function renderBookingsPage(){
   let d;
   try { d = await API.call('/bookings'); } catch(e){ return; }
   if(!d.bookings.length){
-    wrap.innerHTML = cover.top + billingCard + hiCard + cover.mid + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
+    wrap.innerHTML = cover.top + billingCard + planCard + hiCard + cover.mid + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
       ? 'Find a worker you like, have a chat, then hit "Request a booking" on their profile.'
       : 'When participants request you, their bookings appear here for you to accept or decline.') + '</p></div>';
     revealPendingSection();
     return;
   }
-  wrap.innerHTML = cover.top + billingCard + hiCard + cover.mid + workerCards + incidentCard + d.bookings.map(b => `
+  wrap.innerHTML = cover.top + billingCard + planCard + hiCard + cover.mid + workerCards + incidentCard + d.bookings.map(b => `
     <div class="bk-card">
       <div class="wc-avatar" style="background:${b.other_color};">${b.other_name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
       <div class="bk-main">
@@ -5277,6 +5380,9 @@ async function renderBookingsPage(){
           </span>
         </div>` : ''}
         ${API.me.role === 'participant' && b.status === 'completed' && b.reviewed ? '<span class="muted-sm" style="color:#1C7C43;">Reviewed ✓ — thank you!</span>' : ''}
+        ${API.me.role === 'worker' && ['accepted','completed'].includes(b.status) ? `
+        <button type="button" class="btn btn-secondary btn-sm" data-brief="${b.id}" data-brief-p="${b.participant_id}" style="align-self:flex-start;margin-top:8px;">Read their support plan</button>
+        <div data-brief-out="${b.id}" hidden></div>` : ''}
         ${b.status === 'completed' && b.note_count ? `
         <button type="button" class="btn btn-secondary btn-sm" data-note-read="${b.id}" style="align-self:flex-start;margin-top:8px;">Read the shift note${b.note_count > 1 ? ` (${b.note_count})` : ''}</button>
         <div class="note-out" data-note-out="${b.id}" hidden></div>` : ''}
@@ -5319,6 +5425,350 @@ document.addEventListener('change', e => {
     if(w) w.hidden = e.target.value !== 'plan';
   }
 });
+/* ============================================================================
+   THE SUPPORT PLAN
+   ==========================================================================*/
+
+/* The form is drawn from the server's question catalogue rather than written out
+   here, so there is exactly one place a question can be worded, marked required
+   or added. A second copy in the front end is a second copy that goes stale. */
+let SP_CAT = null;
+let SP_VALS = {};      /* what is in the form right now */
+let SP_CARE = [];      /* [{name, on_file, filed_by}] */
+let SP_DIRTY = false;
+let SP_LOADED = null;  /* the server's view at last load */
+
+async function spCatalogue(){
+  if(!SP_CAT) SP_CAT = await API.call('/support-plan/questions');
+  return SP_CAT;
+}
+
+/* A preview of the tier, computed from the same three answers the server uses.
+   The server stays authoritative — this exists so that the consequence of an
+   answer is visible while it is being given, which is the whole difference
+   between a form somebody fills in and a form somebody thinks about. */
+function spTierPreview(v){
+  const relies = v.main_source === true, harm = v.health_safety === true, alone = v.backup_24h === false;
+  if(v.main_source === undefined || v.health_safety === undefined || v.backup_24h === undefined)
+    return { tier: 0, label: 'Not answered yet', why: 'Answer the three questions above and we will show you exactly what happens if a shift falls over.' };
+  if(relies && harm && alone) return { tier: 1, label: 'Critical — 24/7', why: 'If a worker pulls out, our office is rung the same minute the search starts, rather than after it fails. Your shift also sorts to the top of the cover board.' };
+  if(relies && (harm || alone)) return { tier: 2, label: 'High', why: 'Your shifts sort above everyone else’s on the cover board, and the search runs wider before anybody gives up.' };
+  return { tier: 3, label: 'Standard', why: 'The automatic search covers your shifts. It fills most of them without anybody having to ring around.' };
+}
+
+function spQuestionHtml(q, prev){
+  const v = SP_VALS[q.key];
+  const help = q.help ? `<p class="sp-help">${esc(q.help)}</p>` : '';
+  let field;
+  if(q.type === 'yn'){
+    field = `<div class="sp-yn">
+      <label><input type="radio" name="sp_${q.key}" value="yes" data-sp-yn="${q.key}" ${v === true ? 'checked' : ''}><span>Yes</span></label>
+      <label><input type="radio" name="sp_${q.key}" value="no" data-sp-yn="${q.key}" ${v === false ? 'checked' : ''}><span>No</span></label>
+    </div>`;
+  } else if(q.short){
+    field = `<input type="text" maxlength="160" data-sp-text="${q.key}" value="${esc(v || '')}">`;
+  } else {
+    field = `<textarea rows="4" maxlength="6000" data-sp-text="${q.key}">${esc(v || '')}</textarea>`;
+  }
+  /* step 1 of the review is "read your previous answers and check they still
+     hold". Hireup asks you to do that; here the previous answer is sitting
+     underneath the box, because a review you have to go hunting for is a review
+     that gets skipped. */
+  let prevHtml = '';
+  if(prev !== undefined && prev !== null && prev !== ''){
+    const shown = q.type === 'yn' ? (prev ? 'Yes' : 'No') : String(prev);
+    const same = q.type === 'yn' ? (prev === v) : (String(prev) === String(v || ''));
+    if(!same) prevHtml = `<p class="sp-prev"><b>Last time you said:</b> ${esc(shown)}</p>`;
+  }
+  return `<div class="sp-q" data-sp-q="${q.key}" ${q.showIf ? `data-sp-showif="${q.showIf}"` : ''}>
+    <b>${esc(q.q)}${q.required ? '' : ''}</b>${help}${field}${prevHtml}
+  </div>`;
+}
+
+function spCareHtml(){
+  return `<div class="sp-q">
+    <b>Care plans</b>
+    <p class="sp-help">Name any clinical or care plan that goes with the answers above &mdash; an epilepsy management plan, a transfer plan, a mealtime management plan, a bowel care plan. Naming it here is what puts it on our list; we chase the document itself and tell you when it is filed.</p>
+    <div id="spCareList">${SP_CARE.map((c, i) => `
+      <div class="sp-cp">
+        <input type="text" maxlength="160" data-sp-care="${i}" value="${esc(c.name || '')}" placeholder="e.g. Transfer plan">
+        <span class="sp-cp-state" style="color:${c.on_file ? '#1C7C43' : '#8a6d00'};">${c.on_file ? 'Document on file ✓' : 'Document not filed yet'}</span>
+        <button type="button" class="adm-btn-sm" data-sp-care-del="${i}">Remove</button>
+      </div>`).join('')}</div>
+    <button type="button" class="btn btn-secondary btn-sm" id="spCareAdd" style="margin-top:4px;">Add a care plan</button>
+  </div>`;
+}
+
+async function renderSupportPlanPage(){
+  const wrap = $('#supportPlanContent');
+  if(!wrap) return;
+  if(!API.online){
+    wrap.innerHTML = '<div class="info-card"><p><b>Support plans run on the live BookIt server.</b> This preview is demo-only.</p></div>';
+    return;
+  }
+  if(!API.me){
+    wrap.innerHTML = '<div class="info-card"><p><b>Log in to see your support plan</b> — use the Log in button at the top right.</p></div>';
+    return;
+  }
+  if(API.me.role !== 'participant'){
+    wrap.innerHTML = `<div class="info-card"><p><b>This page is for participants.</b> ${API.me.role === 'worker'
+      ? 'You can read the parts of a participant’s plan you need for a shift from your <a href="#/bookings">Bookings page</a>, once they have accepted you.'
+      : ''}</p></div>`;
+    return;
+  }
+  wrap.innerHTML = '<p class="adm-empty">Loading your plan…</p>';
+  let cat, d;
+  try{
+    cat = await spCatalogue();
+    d = await API.call('/me/support-plan');
+  }catch(err){ wrap.innerHTML = '<div class="info-card"><p>' + esc(err.message) + '</p></div>'; return; }
+  SP_LOADED = d;
+  SP_DIRTY = false;
+  const p = d.plan;
+  SP_VALS = {};
+  cat.questions.forEach(q => {
+    if(!p) return;
+    SP_VALS[q.key] = q.type === 'yn' ? !!p[q.key] : (p[q.key] || '');
+  });
+  if(!p) cat.questions.forEach(q => { if(q.type === 'yn') SP_VALS[q.key] = undefined; });
+  SP_CARE = (p && Array.isArray(p.care_plans)) ? p.care_plans.map(c => ({...c})) : [];
+  spPaint();
+}
+window.renderSupportPlanPage = renderSupportPlanPage;
+
+function spPaint(){
+  const wrap = $('#supportPlanContent');
+  const cat = SP_CAT, d = SP_LOADED;
+  if(!wrap || !cat || !d) return;
+  const p = d.plan, prev = d.previous, ct = d.continuity || {};
+  const confirmed = p && p.status === 'confirmed';
+  const today = new Date().toISOString().slice(0,10);
+
+  /* the strip at the top answers the only two questions worth asking on
+     arrival: is my plan current, and what is it doing for me */
+  const strip = `<div class="sp-strip t${ct.tier === undefined ? 0 : ct.tier}">
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+      <span class="sp-tier t${ct.tier === undefined ? 0 : ct.tier}">${esc(ct.label || 'No confirmed plan')}</span>
+      ${d.history && d.history.length
+        ? `<span class="muted-sm">Version ${d.history[0].version} · confirmed ${fmtAU(String(d.history[0].confirmed_at).slice(0,10))} by ${esc(d.history[0].confirmed_by || 'you')}</span>`
+        : '<span class="muted-sm">Never confirmed</span>'}
+      ${p && p.status === 'draft' && d.history && d.history.length ? '<span class="adm-badge">Review in progress — draft saved</span>' : ''}
+    </div>
+    <p style="margin:0;font-size:.93rem;line-height:1.65;color:#2B4A55;max-width:74ch;">${esc(ct.why || '')}</p>
+    ${p && p.review_due ? `<p style="margin:8px 0 0;font-size:.88rem;${p.overdue ? 'color:#A5301A;font-weight:700;' : 'color:#3E5A64;'}">${p.overdue
+      ? `Review was due ${fmtAU(p.review_due)} — ${Math.round((new Date(today) - new Date(p.review_due)) / 864e5)} days ago.`
+      : `Next review due ${fmtAU(p.review_due)}.`}</p>` : ''}
+  </div>`;
+
+  const how = `<div class="info-card" style="margin-bottom:22px;">
+    <h3 style="margin:0 0 10px;">How to review this plan</h3>
+    <ol class="sp-steps">
+      <li>Read what you said last time. Where an answer has changed, your previous words appear under the box so you can see exactly what moved.</li>
+      <li>Answer anything new. Optional questions can stay blank &mdash; they are marked.</li>
+      <li>Tick the box at the bottom and hit <b>Save and submit</b> to confirm the plan is up to date. Nothing you type is shared with a worker until you do.</li>
+    </ol>
+    <p class="muted-sm" style="margin:12px 0 0;">Your answers go two places and nowhere else: a shift brief that only workers you have already accepted can open, and our own roster. We review it with you every ${cat.review_months} months.</p>
+  </div>`;
+
+  const bySec = {};
+  cat.questions.forEach(q => (bySec[q.section] = bySec[q.section] || []).push(q));
+
+  const tp = spTierPreview(SP_VALS);
+  const sections = cat.sections.map(sec => {
+    let inner = (bySec[sec.key] || []).map(q => spQuestionHtml(q, prev ? prev[q.key] : (confirmed ? undefined : undefined))).join('');
+    if(sec.key === 'reliance'){
+      inner += `<div class="sp-live" id="spLive">
+        <h3>What these answers do: <span class="sp-tier t${tp.tier}">${esc(tp.label)}</span></h3>
+        <p>${esc(tp.why)}</p>
+      </div>`;
+    }
+    if(sec.key === 'about') inner += spCareHtml();
+    if(sec.key === 'safety') inner = `<div class="sp-notice">${esc(cat.home_notice)}</div>` + inner;
+    return `<div class="sp-sec"><h2>${esc(sec.title)}</h2><p class="sp-intro">${esc(sec.intro)}</p>${inner}</div>`;
+  }).join('');
+
+  const foot = `<div class="sp-foot">
+    <p class="sp-miss" id="spMiss" hidden></p>
+    <label class="sp-decl"><input type="checkbox" id="spDecl">
+      <span>I have read through this plan and confirm it is up to date${SP_CARE.length ? ', including the care plans I have named' : ''}.</span></label>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <button type="button" class="btn btn-primary" id="spSubmit">Save and submit</button>
+      <button type="button" class="btn btn-secondary" id="spDraft">Save a draft and come back</button>
+      <span class="muted-sm" id="spSaveNote">${SP_DIRTY ? 'Unsaved changes.' : ''}</span>
+    </div>
+  </div>`;
+
+  const hist = d.history && d.history.length > 1 ? `<p class="sp-hist"><b>Earlier versions:</b> ${d.history.map(h =>
+    `v${h.version} — ${fmtAU(String(h.confirmed_at).slice(0,10))}`).join(' · ')}. Every confirmed version is kept. If anyone ever asks what your plan said on a particular day, the answer exists.</p>` : '';
+
+  wrap.innerHTML = strip + how + sections + foot + hist;
+  spToggleConditional();
+}
+
+/* the two follow-up questions only exist once the answer above makes them
+   relevant, and they clear themselves when it stops being relevant so a stale
+   "yes" answer cannot survive a "no" */
+function spToggleConditional(){
+  $$('[data-sp-showif]').forEach(el => {
+    const on = SP_VALS[el.dataset.spShowif] === true;
+    el.hidden = !on;
+  });
+}
+
+function spMark(){
+  const miss = [];
+  (SP_CAT ? SP_CAT.questions : []).forEach(q => {
+    let need = q.required;
+    if(q.showIf) need = SP_VALS[q.showIf] === true;
+    if(!need) return;
+    const v = SP_VALS[q.key];
+    if(q.type === 'yn' ? (v !== true && v !== false) : !String(v || '').trim()) miss.push(q);
+  });
+  $$('[data-sp-q]').forEach(el => el.classList.remove('miss'));
+  miss.forEach(q => { const el = $(`[data-sp-q="${q.key}"]`); if(el) el.classList.add('miss'); });
+  return miss;
+}
+
+function spBody(confirm){
+  const b = { confirm: !!confirm, declaration: !!($('#spDecl') && $('#spDecl').checked),
+    care_plans: SP_CARE.filter(c => String(c.name || '').trim()).map(c => ({ name: c.name })) };
+  (SP_CAT ? SP_CAT.questions : []).forEach(q => { b[q.key] = SP_VALS[q.key]; });
+  return b;
+}
+
+async function spSave(confirm){
+  const note = $('#spSaveNote'), missEl = $('#spMiss');
+  if(confirm){
+    const miss = spMark();
+    if(miss.length){
+      if(missEl){
+        missEl.hidden = false;
+        missEl.innerHTML = `${miss.length} question${miss.length === 1 ? '' : 's'} still needs an answer before you can submit — ${miss.map(q => esc(q.q.replace(/ \(optional\)$/, ''))).join('; ')}.`;
+      }
+      const first = $(`[data-sp-q="${miss[0].key}"]`);
+      if(first) first.scrollIntoView({behavior:'smooth', block:'center'});
+      return;
+    }
+    if(!($('#spDecl') && $('#spDecl').checked)){
+      if(missEl){ missEl.hidden = false; missEl.textContent = 'Tick the box to confirm this plan is up to date before submitting.'; }
+      return;
+    }
+  }
+  if(missEl) missEl.hidden = true;
+  if(note) note.textContent = 'Saving…';
+  try{
+    const r = await API.call('/me/support-plan', { method: 'POST', body: spBody(confirm) });
+    SP_DIRTY = false;
+    if(confirm){
+      toast('Support plan confirmed — thank you.');
+      await renderSupportPlanPage();
+    } else {
+      if(note) note.textContent = 'Draft saved. Nothing is shared until you submit.';
+      SP_LOADED.plan = r.plan;
+    }
+  }catch(err){
+    if(note) note.textContent = '';
+    if(missEl){ missEl.hidden = false; missEl.textContent = err.message; }
+  }
+}
+
+let SP_AUTOSAVE = null;
+function spTouched(){
+  SP_DIRTY = true;
+  const note = $('#spSaveNote');
+  if(note) note.textContent = 'Unsaved changes — saving a draft in a moment…';
+  clearTimeout(SP_AUTOSAVE);
+  /* a draft saves itself. A support plan takes twenty minutes to fill in
+     honestly, and losing it to a closed tab is the reason people fill it in
+     dishonestly the second time. */
+  SP_AUTOSAVE = setTimeout(() => { if(SP_DIRTY) spSave(false); }, 4000);
+}
+
+document.addEventListener('change', e => {
+  const t = e.target;
+  if(!t) return;
+  if(t.dataset && t.dataset.spYn){
+    SP_VALS[t.dataset.spYn] = t.value === 'yes';
+    spToggleConditional();
+    const live = $('#spLive');
+    if(live && ['main_source','health_safety','backup_24h'].includes(t.dataset.spYn)){
+      const tp = spTierPreview(SP_VALS);
+      live.innerHTML = `<h3>What these answers do: <span class="sp-tier t${tp.tier}">${esc(tp.label)}</span></h3><p>${esc(tp.why)}</p>`;
+    }
+    spTouched();
+  }
+});
+document.addEventListener('input', e => {
+  const t = e.target;
+  if(!t || !t.dataset) return;
+  if(t.dataset.spText){ SP_VALS[t.dataset.spText] = t.value; spTouched(); }
+  if(t.dataset.spCare !== undefined && t.dataset.spCare !== ''){
+    const i = Number(t.dataset.spCare);
+    if(SP_CARE[i]) { SP_CARE[i].name = t.value; spTouched(); }
+  }
+});
+document.addEventListener('click', e => {
+  const t = e.target.closest('button');
+  if(!t) return;
+  if(t.id === 'spSubmit') return spSave(true);
+  if(t.id === 'spDraft') return spSave(false);
+  if(t.id === 'spCareAdd'){
+    SP_CARE.push({ name: '', on_file: false });
+    const list = $('#spCareList');
+    if(list){
+      const i = SP_CARE.length - 1;
+      const div = document.createElement('div');
+      div.className = 'sp-cp';
+      div.innerHTML = `<input type="text" maxlength="160" data-sp-care="${i}" value="" placeholder="e.g. Transfer plan">
+        <span class="sp-cp-state" style="color:#8a6d00;">Document not filed yet</span>
+        <button type="button" class="adm-btn-sm" data-sp-care-del="${i}">Remove</button>`;
+      list.appendChild(div);
+      const inp = div.querySelector('input');
+      if(inp) inp.focus();
+    }
+    return;
+  }
+  if(t.dataset.brief){ paintBrief(t.dataset.brief, t.dataset.briefP); return; }
+  if(t.dataset.spCareDel !== undefined){
+    SP_CARE.splice(Number(t.dataset.spCareDel), 1);
+    spPaint();
+    return;
+  }
+});
+window.addEventListener('beforeunload', e => {
+  if(SP_DIRTY && location.hash.indexOf('/support-plan') !== -1){ e.preventDefault(); e.returnValue = ''; }
+});
+
+/* ---- the worker's shift brief -------------------------------------------- */
+/* A worker gets the operational slice of a support plan and only for a
+   participant whose booking they have accepted. The server enforces that; this
+   just draws it. */
+async function paintBrief(bookingId, participantId){
+  const out = $(`[data-brief-out="${bookingId}"]`);
+  if(!out) return;
+  if(!out.hidden){ out.hidden = true; return; }
+  out.hidden = false;
+  out.innerHTML = '<p class="muted-sm">Loading…</p>';
+  try{
+    const d = await API.call(`/support-plan/${participantId}/brief`);
+    const b = d.brief;
+    out.innerHTML = `<div class="sp-brief">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <span class="sp-tier t${d.continuity.tier}">${esc(d.continuity.label)}</span>
+        <span class="muted-sm">Confirmed by them on ${fmtAU(String(b.confirmed_at).slice(0,10))} · v${b.version}</span>
+      </div>
+      ${b.sections.map(sc => `<h4>${esc(sc.title)}</h4><p>${esc(sc.body)}</p>`).join('')}
+      ${b.care_plans && b.care_plans.length ? `<h4>Care plans</h4><p>${b.care_plans.map(c =>
+        esc(c.name) + (c.on_file ? ' — on file, ask the office for a copy' : ' — not yet filed')).join('\n')}</p>` : ''}
+      <h4>Emergency contact</h4><p>${esc(b.emergency.name || 'Not recorded')}${b.emergency.relationship ? ' (' + esc(b.emergency.relationship) + ')' : ''}${b.emergency.phone ? ' — ' + esc(b.emergency.phone) : ''}</p>
+      <h4>Before you start</h4><p>${esc(b.home_notice)}</p>
+      <p class="muted-sm" style="margin-top:12px;">This is health information about someone else. Read it, work from it, don't forward it.</p>
+    </div>`;
+  }catch(err){
+    out.innerHTML = `<p class="muted-sm">${esc(err.message)}</p>`;
+  }
+}
+
 function fileToB64(input){
   return new Promise((resolve) => {
     const f = input.files && input.files[0];
@@ -5618,6 +6068,12 @@ async function renderAdminPage(){
   try{ cvr = await API.call('/admin/cover'); }catch(e){}
   let lad = null;
   try{ lad = await API.call('/admin/ladder'); }catch(e){}
+  let plans = null;
+  try{ plans = await API.call('/admin/support-plans'); }catch(e){}
+  let frm = null;
+  try{ frm = await API.call('/admin/forms'); }catch(e){}
+  let pack = null;
+  try{ pack = await API.call('/admin/audit-pack'); }catch(e){}
   const credById = {};
   creds.workers.forEach(w => credById[w.id] = w);
   const c = d.counts;
@@ -6081,6 +6537,7 @@ async function renderAdminPage(){
       <p class="muted-sm" style="margin:0;">Do step 1 only when you're ready — demo data can't be restored (a fresh database would re-seed it, but your real accounts live in this one).</p>
     </div>`;
   wrap.innerHTML = tiles
+    + `<h2 class="adm-section">Audit pack — one download, everything in it</h2>` + auditPackHtml(pack)
     + `<h2 class="adm-section">Launch ${ln.demo_accounts || ln.gate ? '' : '— LIVE 🎉'}</h2>` + launchCard
     + `<h2 class="adm-section">Cover — when a worker can't make it ${cvr && cvr.open.length ? `<span style="color:#D94F32;">(${cvr.open.length} open)</span>` : ''}</h2>`
     + (cvr ? coverBoardHtml(cvr) : '<p class="adm-empty">The cover board couldn\'t be loaded.</p>')
@@ -6093,6 +6550,10 @@ async function renderAdminPage(){
     + `<h2 class="adm-section">Credentials — the automatic checker</h2>` + credentials
     + `<h2 class="adm-section">Incident register ${c.urgent_incidents ? `<span style="color:#D94F32;">(${c.urgent_incidents} awaiting Commission notice!)</span>` : ''}</h2>` + incidents
     + `<h2 class="adm-section">Complaints register</h2>` + complaints
+    + `<h2 class="adm-section">Support plans ${plans && plans.counts.critical ? `<span style="color:#D94F32;">(${plans.counts.critical} critical)</span>` : ''}</h2>`
+    + (plans ? planBoardHtml(plans) : '<p class="adm-empty">The support-plan board couldn\'t be loaded.</p>')
+    + `<h2 class="adm-section">Forms register — where every document lives</h2>`
+    + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')
     + `<h2 class="adm-section">Reviews ${revs.reviews.length ? `(${revs.reviews.length})` : ''}</h2>`
     + (revs.reviews.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Worker</th><th>From</th><th>Rating</th><th>Comment</th><th>Shown?</th></tr></thead><tbody>
         ${revs.reviews.map(r => `<tr style="${r.published ? '' : 'opacity:.55;'}">
@@ -6981,6 +7442,168 @@ function ladderBoardHtml(d){
 }
 
 /* --------------------------------------------------------- the admin board */
+/* ---- the support-plan board ---------------------------------------------
+   Sorted by tier rather than by name, because the order the office should work
+   down it in is not alphabetical. A participant with no plan at all sits at the
+   bottom of the tiers but the top of the gaps count — the two questions "who is
+   most exposed" and "whose paperwork is missing" have different answers and the
+   board answers both without pretending they are the same. */
+function planBoardHtml(d){
+  const c = d.counts;
+  const tiles = `<div class="adm-tiles">
+    <div class="adm-tile"><b style="${c.critical ? 'color:#D94F32;' : ''}">${c.critical}</b><span>Critical — no backup inside 24h</span></div>
+    <div class="adm-tile"><b style="${c.none ? 'color:#8a6d00;' : ''}">${c.none}</b><span>No plan on file</span></div>
+    <div class="adm-tile"><b style="${c.overdue ? 'color:#D94F32;' : ''}">${c.overdue}</b><span>Review overdue</span></div>
+    <div class="adm-tile"><b>${c.disaster}</b><span>Need help within 8h of a disaster</span></div>
+    <div class="adm-tile"><b style="${c.plans_missing ? 'color:#D94F32;' : ''}">${c.plans_missing}</b><span>Care plans named, not filed</span></div>
+  </div>`;
+  const rows = d.participants.slice().sort((a, b) =>
+    (a.tier || 9) - (b.tier || 9) || (a.name < b.name ? -1 : 1));
+  const table = rows.length ? `<div class="adm-table-wrap"><table class="adm-table">
+    <thead><tr><th>Participant</th><th>Continuity</th><th>Plan</th><th>Review due</th><th>Care plans named</th></tr></thead><tbody>
+    ${rows.map(r => `<tr>
+      <td><b>${esc(r.name)}</b><br><span class="muted-sm">${esc(r.suburb || '')}</span></td>
+      <td><span class="sp-tier t${r.tier}">${esc(r.tier_label)}</span><br><span class="muted-sm" style="display:block;max-width:34ch;margin-top:4px;">${esc(r.tier_why || '')}</span></td>
+      <td>${r.has_plan
+        ? `v${r.version} ${fmtAU(String(r.confirmed_at).slice(0,10))}${r.draft_open ? '<br><span class="adm-badge">review in progress</span>' : ''}`
+        : '<b style="color:#D94F32;">none</b>'}</td>
+      <td>${r.review_due ? (r.overdue ? `<b style="color:#D94F32;">${fmtAU(r.review_due)}</b>` : fmtAU(r.review_due)) : '—'}</td>
+      <td>${r.care_plans.length ? r.care_plans.map(cp => `<div style="margin-bottom:4px;white-space:nowrap;">
+          ${cp.on_file ? '<span class="adm-live">on file ✓</span>' : '<b style="color:#D94F32;">not filed</b>'}
+          ${esc(cp.name)}
+          <button class="adm-btn-sm" data-cp-part="${r.id}" data-cp-name="${esc(cp.name)}" data-cp-on="${cp.on_file ? 0 : 1}" style="padding:1px 8px;">${cp.on_file ? 'undo' : 'mark filed'}</button>
+          ${cp.on_file && cp.filed_by ? `<br><span class="muted-sm">${esc(cp.filed_by)}${cp.filed_at ? ' · ' + fmtAU(String(cp.filed_at).slice(0,10)) : ''}</span>` : ''}
+        </div>`).join('') : '<span class="muted-sm">none named</span>'}</td>
+    </tr>`).join('')}</tbody></table></div>` : '<p class="adm-empty">No participants yet.</p>';
+  return tiles + table + `<p class="muted-sm" style="margin:10px 0 0;">Plans are reviewed every ${d.review_months} months, counted from the day the participant confirmed it themselves — not from the day we sent the form. <a href="/api/admin/support-plans.csv" download>Download the board as CSV</a>.</p>`;
+}
+
+/* ---- the forms register --------------------------------------------------
+   Three states, and the honest one is the middle one. "In Drive" is not a
+   tracking system; it is a place a document is. The register says which of the
+   two it is for every form, because the gap between them is where every finding
+   at the last review came from. */
+function auditPackHtml(d){
+  if(!d) return '<p class="adm-empty">The audit pack preview couldn\'t be loaded. The download button still works — try <a href="/api/admin/audit-pack.zip" download>downloading the pack</a> directly.</p>';
+  const h = d.history || {};
+  const gaps = d.gaps || [];
+  const byForm = {};
+  gaps.forEach(g => { byForm[g.form] = (byForm[g.form] || 0) + 1; });
+  const topGaps = Object.keys(byForm).sort((a,b) => byForm[b] - byForm[a]);
+  return `<div class="info-card" style="margin-bottom:6px;">
+    <div class="ap-top">
+      <div>
+        <p style="margin:0 0 4px;font-size:1.02rem;"><b>One button. Everything an audit asks for.</b></p>
+        <p class="muted-sm" style="margin:0;">Every register below is generated the moment you press it, by the same code that produces the individual downloads on this page. Nothing is typed up beforehand and nothing can drift.</p>
+      </div>
+      <a class="btn btn-primary" href="/api/admin/audit-pack.zip" download style="white-space:nowrap;text-decoration:none;">⬇ Download the audit pack</a>
+    </div>
+    <div class="adm-tiles" style="margin:16px 0 4px;">
+      <div class="adm-tile"><b>${d.reports.length}</b><span>Registers</span></div>
+      <div class="adm-tile"><b>${d.forms}</b><span>Forms tracked</span></div>
+      <div class="adm-tile"><b>${d.documents}</b><span>Documents that implies</span></div>
+      <div class="adm-tile"><b>${d.credential_files}</b><span>Credential files attached</span></div>
+      <div class="adm-tile"><b>${h.days || 0}</b><span>Days of monitoring history</span></div>
+      <div class="adm-tile"><b style="${gaps.length ? 'color:#D94F32;' : 'color:#1C7C43;'}">${gaps.length}</b><span>Open items named in the pack</span></div>
+    </div>
+    <p class="muted-sm" style="margin:8px 0 0;">
+      ${h.days ? `The nightly snapshot has run every day since <b>${fmtAU(h.first)}</b>${h.days > 1 ? ` — ${h.days} days on the record` : ''}. That history ships inside the pack as <code>evidence/monitoring-history.csv</code>, which is the evidence that you were watching all year rather than the morning of the audit.`
+        : 'The nightly snapshot starts recording tonight. Each row is one day: how many forms, how many documents, how many gaps and what they were.'}
+      ${d.last_download ? ` Last downloaded ${fmtAU(d.last_download.checked_at)} by ${esc(d.last_download.checked_by || 'an admin')}.` : ' Not downloaded yet.'}
+    </p>
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer;font-weight:600;">What's inside the zip</summary>
+      <div class="adm-table-wrap" style="margin-top:10px;"><table class="adm-table">
+        <thead><tr><th>File</th><th>What it is</th></tr></thead><tbody>
+        ${d.reports.map(r => `<tr><td><code>${esc(r.path)}</code></td><td><span class="muted-sm">${esc(r.title)}</span></td></tr>`).join('')}
+        <tr><td><code>evidence/monitoring-history.csv</code></td><td><span class="muted-sm">One row per day — the evidence of ongoing monitoring</span></td></tr>
+        <tr><td><code>evidence/shift-notes/</code></td><td><span class="muted-sm">Every shift note, filed under the participant it belongs to</span></td></tr>
+        <tr><td><code>people/</code></td><td><span class="muted-sm">The actual credential files, filed under the worker they belong to</span></td></tr>
+        <tr><td><code>gaps/open-items.csv</code></td><td><span class="muted-sm">Everything the system knows is still missing</span></td></tr>
+        <tr><td><code>INDEX.html</code></td><td><span class="muted-sm">Open this first — the same contents, clickable, open items at the top</span></td></tr>
+        </tbody></table></div>
+    </details>
+    ${gaps.length ? `<details style="margin-top:10px;">
+      <summary style="cursor:pointer;font-weight:600;color:#D94F32;">${gaps.length} open item${gaps.length === 1 ? '' : 's'} the pack will name</summary>
+      <p class="muted-sm" style="margin:8px 0 6px;">These are in the pack on purpose. A pack that hides its own gaps is worth less than one that names them, because the first thing an auditor does is look for the thing you didn't mention.</p>
+      <ul class="muted-sm" style="margin:0;padding-left:20px;">
+        ${topGaps.slice(0, 12).map(f => `<li>${esc(f)} — <b>${byForm[f]}</b></li>`).join('')}
+        ${topGaps.length > 12 ? `<li>+${topGaps.length - 12} more form${topGaps.length - 12 === 1 ? '' : 's'}</li>` : ''}
+      </ul>
+    </details>` : '<p class="muted-sm" style="margin:10px 0 0;color:#1C7C43;"><b>No open items.</b> Every form the register tracks live has everything it needs.</p>'}
+  </div>`;
+}
+
+function formsBoardHtml(d){
+  const c = d.counts;
+  const tiles = `<div class="adm-tiles">
+    <div class="adm-tile"><b>${c.total}</b><span>Distinct forms</span></div>
+    <div class="adm-tile"><b>${c.documents}</b><span>Actual documents (per-person multiplied out)</span></div>
+    <div class="adm-tile"><b class="adm-live">${c.live}</b><span>BookIt watches these</span></div>
+    <div class="adm-tile"><b style="color:#8a6d00;">${c.drive}</b><span>In Drive — nothing watches them</span></div>
+    <div class="adm-tile"><b style="${c.missing ? 'color:#D94F32;' : ''}">${c.missing}</b><span>Don't exist yet</span></div>
+    <div class="adm-tile"><b style="${c.gaps ? 'color:#D94F32;' : ''}">${c.gaps}</b><span>Live gaps right now</span></div>
+  </div>`;
+  const filter = `<div class="fr-filter" id="frFilter">
+    <button data-fr="all" aria-pressed="true">Everything (${c.total})</button>
+    <button data-fr="missing" aria-pressed="false">Doesn't exist yet (${c.missing})</button>
+    <button data-fr="drive" aria-pressed="false">Nothing watching it (${c.drive})</button>
+    <button data-fr="live" aria-pressed="false">BookIt tracks it (${c.live})</button>
+    <button data-fr="gaps" aria-pressed="false">Has a gap now (${d.forms.filter(f => f.state && f.state.gaps.length).length})</button>
+  </div>`;
+  const trackLabel = { live: 'BookIt tracks it', drive: 'File in Drive', missing: 'Not built yet' };
+  const secs = d.scopes.map(sc => {
+    const list = d.forms.filter(f => f.scope === sc.key);
+    if(!list.length) return '';
+    const per = sc.key === 'worker' ? ` — × ${d.workers} worker${d.workers === 1 ? '' : 's'}`
+      : sc.key === 'participant' ? ` — × ${d.participants} participant${d.participants === 1 ? '' : 's'}` : '';
+    return `<h3 class="fr-sec">${esc(sc.label)}${per} <span class="muted-sm">(${list.length})</span></h3>
+    <div class="adm-table-wrap"><table class="adm-table">
+      <thead><tr><th>Form</th><th>Tracked</th><th>How often</th><th>Who signs</th><th>Template</th><th>What requires it</th></tr></thead><tbody>
+      ${list.map(f => `<tr data-fr-row data-fr-track="${f.track}" data-fr-gap="${f.state && f.state.gaps.length ? 1 : 0}">
+        <td><b>${esc(f.name)}</b>${f.note ? `<br><span class="muted-sm">${esc(f.note)}</span>` : ''}
+          ${f.state ? `<br><span class="muted-sm">${f.state.ok}/${f.state.of} ${esc(f.state.unit)} ✓${f.state.expired ? ` · <b style="color:#D94F32;">${f.state.expired} expired</b>` : ''}</span>` : ''}
+          ${f.state && f.state.gaps.length ? `<p class="fr-gaps">Missing: ${esc(f.state.gaps.slice(0, 8).join(', '))}${f.state.gaps.length > 8 ? ` +${f.state.gaps.length - 8} more` : ''}</p>` : ''}</td>
+        <td><span class="fr-track ${f.track}">${esc(trackLabel[f.track] || f.track)}</span></td>
+        <td>${esc(f.cadence)}</td>
+        <td>${esc(f.signed)}</td>
+        <td>${f.template === 'DMHC' ? '<span class="adm-live">DMHC\'s own</span>' : f.template === 'BookIt' ? 'Built for you' : esc(f.template)}</td>
+        <td><span class="muted-sm">${esc(f.requires)}</span></td>
+      </tr>`).join('')}</tbody></table></div>`;
+  }).join('');
+  return tiles + filter + secs + `<p class="muted-sm" style="margin:14px 0 0;"><b>${c.total}</b> distinct forms become <b>${c.documents}</b> separate documents once the per-worker and per-participant sets are multiplied out. That second number is the one an audit actually walks through. <a href="/api/admin/forms.csv" download>Download the register as CSV</a>.</p>`;
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('#frFilter button');
+  if(b){
+    const want = b.dataset.fr;
+    $$('#frFilter button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    $$('[data-fr-row]').forEach(r => {
+      r.hidden = want === 'all' ? false
+        : want === 'gaps' ? r.dataset.frGap !== '1'
+        : r.dataset.frTrack !== want;
+    });
+    /* a section whose every row is filtered out should go too, otherwise the
+       page reads as "these all pass" when it means "none of these matched" */
+    $$('.fr-sec').forEach(h => {
+      const tbl = h.nextElementSibling;
+      const any = tbl && tbl.querySelectorAll('[data-fr-row]:not([hidden])').length;
+      h.hidden = !any; if(tbl) tbl.hidden = !any;
+    });
+    return;
+  }
+  const cp = e.target.closest('[data-cp-part]');
+  if(cp){
+    const was = cp.textContent;
+    cp.disabled = true; cp.textContent = '…';
+    API.call(`/admin/support-plans/${cp.dataset.cpPart}/care-plan`, { method: 'POST',
+      body: { name: cp.dataset.cpName, on_file: cp.dataset.cpOn === '1' } })
+      .then(() => { toast('Recorded.'); renderAdminPage(); })
+      .catch(err => { cp.disabled = false; cp.textContent = was; toast(err.message); });
+  }
+});
+
 function coverBoardHtml(d){
   const s = d.stats || {};
   const tiles = `<div class="adm-tiles">
@@ -7000,8 +7623,11 @@ function coverBoardHtml(d){
     <div class="cb-open ${c.office_alerted_at ? 'late' : ''}" data-cb="${c.id}">
       <div class="cb-head">
         <b>${esc(c.participant_name)} · ${esc(c.service_label)} · ${fmtAU(c.date)} ${c.start} · ${c.hours} hrs</b>
-        <span><span class="cb-tier">${esc(c.tier_label)}</span> ${c.office_alerted_at ? '<b style="color:#D94F32;">needs you</b>' : '<span class="muted-sm">running itself</span>'}</span>
+        <span>${c.continuity && c.continuity.tier && c.continuity.tier < 3
+          ? `<span class="sp-tier t${c.continuity.tier}" title="${esc(c.continuity.why || '')}">${esc(c.continuity.label)}</span> `
+          : ''}<span class="cb-tier">${esc(c.tier_label)}</span> ${c.office_alerted_at ? '<b style="color:#D94F32;">needs you</b>' : '<span class="muted-sm">running itself</span>'}</span>
       </div>
+      ${c.continuity && c.continuity.tier === 1 ? `<p class="cb-crit">${esc(c.continuity.why || '')}</p>` : ''}
       <p class="cb-who">${esc(c.from_worker_name || 'The worker')} pulled out ${mins < 60 ? mins + ' min' : Math.round(mins / 60) + ' hr'} ago${c.reason ? ` — “${esc(c.reason)}”` : ''}. ${c.offers_sent} ${c.offers_sent === 1 ? 'person has' : 'people have'} been asked.
         ${c.live_offers.length ? '<br>Waiting on: <b>' + c.live_offers.map(o => esc(o.who || 'partner provider')).join(', ') + '</b>' : '<br><b>Nobody is currently being waited on.</b>'}
         ${c.participant_phone ? `<br>Participant: ${esc(c.participant_phone)}` : ''}</p>
@@ -7353,6 +7979,7 @@ document.addEventListener('change', async e => {
     if(API.me) refreshUnreadBadge();
     if(location.hash.startsWith('#/messages')) renderMessagesPage();
     if(location.hash.startsWith('#/bookings')) renderBookingsPage();
+    if(location.hash.startsWith('#/support-plan')) renderSupportPlanPage();
   }
   if(location.hash.startsWith('#/admin')) renderAdminPage();
   if(location.hash.startsWith('#/worker/')) renderWorkerPage(Number(location.hash.split('/')[2]));
