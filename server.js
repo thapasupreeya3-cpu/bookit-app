@@ -805,8 +805,13 @@ function applyInvoice(id, category) {
       tier_at_shift = ?, share_pct = ?, award_floored = ? WHERE id = ?`)
     .run(category, r.price, pay.amount, total, pay.tier, pay.share_pct, pay.floored ? 1 : 0, id);
 
+  /* uneconomic and uplift_withheld ride along on the completion response for the
+     same reason award_floored does: the shift is the moment the decision is made,
+     and an audit two years from now needs the flag next to the shift, not
+     reconstructed from settings that may have moved since. */
   return { category, label: r.label, unit_price: r.price, qty, total, worker_share: pay.amount,
-    tier: pay.tier, share_pct: pay.share_pct, worker_rate: pay.rate, award_floored: !!pay.floored, pay_note: pay.why };
+    tier: pay.tier, share_pct: pay.share_pct, worker_rate: pay.rate, award_floored: !!pay.floored,
+    uplift_withheld: !!pay.uplift_withheld, uneconomic: !!pay.uneconomic, pay_note: pay.why };
 }
 
 function hashPassword(pw) {
@@ -4493,7 +4498,13 @@ const LADDER_DEFAULT = {
      Engage anyone permanent and these figures are wrong. */
   schads: { 1: 34.44, 2: 45.28, 3: 50.61 },
   notice_days: 28,
-  grace_days: 90
+  grace_days: 90,
+  /* Bronze already keeps 27.5% and Platinum 23.5%, so on an unfloored rate this
+     never binds. It exists for the floored ones, where the uplift has to stop
+     somewhere. 20% is the point below which the shift stops covering workers
+     comp, insurance and admin — move it in settings once the real on-costs are
+     known, don't guess it lower to make a red row go green. */
+  min_margin_pct: 20
 };
 
 /* Casual penalty multipliers, expressed against the casual ORDINARY rate (125%),
@@ -4542,6 +4553,13 @@ function tierBands() {
   };
 }
 function superRate() { return numSetting('super_rate', LADDER_DEFAULT.super); }
+/* The minimum gross margin the platform has to retain out of the price limit to
+   cover workers comp, insurance, admin and the platform itself. It exists to
+   stop the tier uplift below being paid out of money that isn't there — see
+   `workerPay`. It is NOT permission to pay under the award: the floor always
+   wins over the cap, and a row where the floor is above the cap is a rostering
+   problem, not a pay problem. */
+function minMarginPct() { return numSetting('min_margin_pct', LADDER_DEFAULT.min_margin_pct); }
 function schadsCasual(level) {
   const lv = [1, 2, 3].includes(Number(level)) ? Number(level) : 2;
   return numSetting(`schads_l${lv}_casual`, LADDER_DEFAULT.schads[lv]);
@@ -4601,7 +4619,8 @@ function workerPay(workerId, category, hours) {
   if (!r) return null;
   const prof = db.prepare('SELECT tier, schads_level FROM worker_profiles WHERE user_id = ?').get(workerId) || {};
   const tier = TIER_KEYS.includes(prof.tier) ? prof.tier : 'bronze';
-  const share = tierShares()[tier];
+  const shares = tierShares();
+  const share = shares[tier];
   const qty = r.perNight ? 1 : hours;
   const ladderRate = round2(r.price * share / 100);
 
@@ -4611,12 +4630,64 @@ function workerPay(workerId, category, hours) {
   }
   const floor = awardFloorFor(prof.schads_level, category);
   const floored = floor.rate > ladderRate;
-  const rate = floored ? floor.rate : ladderRate;
+
+  /* THE TIER HAS TO MEAN SOMETHING EVEN WHEN THE FLOOR GOVERNS.
+     max(share, floor) looks fair and isn't. A Level 3 casual costs $56.68 all-in
+     on a weekday; Platinum at 76.5% of $73.58 is $56.29. So under a plain
+     max() a Level 3 worker is paid the floor at Bronze and the same floor at
+     Platinum — their dashboard says Platinum and their payslip says starter, and
+     1,200 hours of loyalty buys them nothing. That is not a rounding artefact,
+     it is the ladder being switched off for the classification that has done the
+     most training.
+     So when the floor wins, the tier is applied TO THE FLOOR, in the same
+     proportion the ladder uses between tiers (share ÷ bronze share). Bronze
+     multiplies by exactly 1, so a Bronze floored worker is paid what they were
+     paid before and no historical rate moves. */
+  const upliftRate = round2(floor.rate * share / shares.bronze);
+  /* `base` is what this hour was worth before any of this existed: the ladder
+     share, or the award if the award is higher. Everything below can only add to
+     it. Writing it down as its own name is the whole safety argument — the cap
+     further down is a limit on the UPLIFT, and if it were allowed to bite into
+     `base` a platform margin setting could cut the pay of a worker the floor
+     never touched. At a 40% target that is exactly what it would do: a Gold
+     Level 2 weekday hour would fall from $55.55 to the $50.71 floor. A margin
+     target is a statement about what the platform keeps, and it is never
+     permitted to become a pay cut. */
+  const base = Math.max(floor.rate, ladderRate);
+  const target = Math.max(base, upliftRate);
+
+  /* ...but the uplift can only be paid out of margin that exists. Household
+     tasks are the case: $60.10 against a Level 3 floor of $56.68 leaves $3.42,
+     and there is no loyalty bonus inside $3.42. The cap withholds the uplift
+     rather than pretending the money is there.
+     The floor OUTRANKS the cap, always. If the award is above the cap the award
+     is still paid — the answer to an unprofitable shift is who gets rostered on
+     it, never a rate below the minimum. `uneconomic` says so out loud. */
+  /* floored to the cent, not rounded to it. This is a MAXIMUM payable rate, and
+     rounding a maximum upwards puts the paid rate a fraction past the target it
+     exists to enforce — on an $81.07 evening the cap wants $64.856, and $64.86
+     leaves $16.21 against a $16.214 target, so the row reports itself as failing
+     by four tenths of a cent. That is a rounding artefact wearing the costume of
+     a finding, and it would have told Bee not to roster Level 3 on evenings.
+     Rounding down costs a capped worker at most one cent and makes the flag
+     mean what it says. */
+  const cap = Math.floor(r.price * (1 - minMarginPct() / 100) * 100) / 100;
+  const rate = round2(Math.max(base, Math.min(target, cap)));
+  const uplift_withheld = floored && target > cap && rate < target;
+  const uneconomic = floor.rate > cap;
+  const L = TIERS[tierIndex(tier)].label;
+
   return {
     tier, share_pct: share, rate, qty, amount: round2(rate * qty), floored, floor,
-    why: floored
-      ? `Award floor applied. ${TIERS[tierIndex(tier)].label} at ${share}% of $${r.price.toFixed(2)} is $${ladderRate.toFixed(2)}, below the SCHADS Level ${floor.level} casual minimum of $${floor.base.toFixed(2)} plus ${superRate()}% super.`
-      : `${TIERS[tierIndex(tier)].label} — ${share}% of the $${r.price.toFixed(2)} price limit.`
+    ladder_rate: ladderRate, uplift_rate: upliftRate, cap, uplift_withheld, uneconomic,
+    margin: round2(r.price - rate), margin_pct: round2((r.price - rate) / r.price * 100),
+    why: !floored
+      ? `${L} — ${share}% of the $${r.price.toFixed(2)} price limit.`
+      : uneconomic
+        ? `Award floor applied, and this shift does not clear the ${minMarginPct()}% margin at Level ${floor.level}. ${L} at ${share}% of $${r.price.toFixed(2)} is $${ladderRate.toFixed(2)}, below the SCHADS Level ${floor.level} casual minimum of $${floor.base.toFixed(2)} plus ${superRate()}% super. The award is paid in full — but the tier uplift is withheld because the price limit cannot fund it, and this classification should not be rostered on this support on its own.`
+        : uplift_withheld
+          ? `Award floor applied, with the ${L} uplift capped. The floor for Level ${floor.level} is $${floor.rate.toFixed(2)}; ${L} would lift it to $${upliftRate.toFixed(2)}, which leaves less than the ${minMarginPct()}% the platform has to retain, so it is paid at $${rate.toFixed(2)}.`
+          : `Award floor applied, then lifted for ${L}. ${L} at ${share}% of $${r.price.toFixed(2)} is $${ladderRate.toFixed(2)}, below the SCHADS Level ${floor.level} casual minimum of $${floor.base.toFixed(2)} plus ${superRate()}% super — so the floor of $${floor.rate.toFixed(2)} applies, lifted by the ${L} share to $${rate.toFixed(2)}.`
   };
 }
 
@@ -4752,19 +4823,47 @@ route('GET', /^\/api\/admin\/ladder$/, (req, res, m, user) => {
       weekday_base: round2(price * shares[t.key] / 100 / (1 + superRate() / 100)),
       you_keep: round2(price - price * shares[t.key] / 100), n: counts[t.key] })),
     settings: { shares, bands, super: superRate(), notice_days: numSetting('tier_notice_days', LADDER_DEFAULT.notice_days),
-      grace_days: numSetting('tier_grace_days', LADDER_DEFAULT.grace_days),
+      grace_days: numSetting('tier_grace_days', LADDER_DEFAULT.grace_days), min_margin: minMarginPct(),
       schads: { 1: schadsCasual(1), 2: schadsCasual(2), 3: schadsCasual(3) } },
     /* every category, tested against the floor at every tier — this is the table
        that shows household tasks failing before anyone has to discover it */
     award_check: Object.entries(INVOICE_RATES).filter(([, r]) => !r.perNight).map(([key, r]) => {
       const mult = awardMult(key);
-      return { key, label: r.label, price: r.price, mult: mult.mult, confirmed: mult.confirmed, note: mult.note,
+      const cap = Math.floor(r.price * (1 - minMarginPct() / 100) * 100) / 100;
+      const bronzeRate = round2(r.price * shares.bronze / 100);
+      const topRate = round2(r.price * shares.platinum / 100);
+      return { key, label: r.label, price: r.price, mult: mult.mult, confirmed: mult.confirmed, note: mult.note, cap,
         levels: [1, 2, 3].map(lv => {
           const floor = awardFloorFor(lv, key);
-          const bronzeRate = round2(r.price * shares.bronze / 100);
-          const topRate = round2(r.price * shares.platinum / 100);
+          /* what the worker is actually paid at each end of the ladder, through
+             the same clamp workerPay uses — so this table cannot drift from the
+             payslip. The old version reported the margin at Level 2 only, which
+             printed 27.5% on rows that were flagged in the same breath for
+             failing at Level 3. Two numbers in one row that could not both be
+             true about the same worker. */
+          const payAt = share => {
+            const ladder = round2(r.price * share / 100);
+            const baseRate = Math.max(floor.rate, ladder);
+            const target = Math.max(baseRate, round2(floor.rate * share / shares.bronze));
+            return round2(Math.max(baseRate, Math.min(target, cap)));
+          };
+          const paidBronze = payAt(shares.bronze);
+          const paidTop = payAt(shares.platinum);
           return { level: lv, floor: floor.rate, bronze_short: round2(floor.rate - bronzeRate),
-            clears_at_bronze: bronzeRate >= floor.rate, clears_at_top: topRate >= floor.rate };
+            clears_at_bronze: bronzeRate >= floor.rate, clears_at_top: topRate >= floor.rate,
+            paid_bronze: paidBronze, paid_top: paidTop,
+            margin: round2(r.price - paidBronze), margin_pct: round2((r.price - paidBronze) / r.price * 100),
+            top_margin_pct: round2((r.price - paidTop) / r.price * 100),
+            /* does the ladder still move for this classification, or has the
+               floor swallowed it whole? */
+            ladder_live: paidTop > paidBronze,
+            /* measured at the TOP of the ladder, not the bottom. A Platinum
+               worker is the most expensive one who could take this shift, so
+               that is the number that decides whether it is affordable — and
+               measuring it here makes this flag agree with `uneconomic` on the
+               payslip by construction rather than by coincidence. */
+            economic: paidTop <= cap
+          };
         }) };
     }),
     workers,
@@ -4784,6 +4883,9 @@ route('POST', /^\/api\/admin\/ladder\/settings$/, (req, res, m, user, body) => {
   for (const k of ['silver', 'gold', 'platinum']) if (body[`band_${k}`] !== undefined) put(`tier_band_${k}`, body[`band_${k}`], 1, 20000);
   if (body.super !== undefined) put('super_rate', body.super, 0, 30);
   if (body.notice_days !== undefined) put('tier_notice_days', body.notice_days, 1, 365);
+  /* capped at 40 deliberately — a margin target above that is not a margin
+     target, it is a decision to pay everyone the award and call it a ladder */
+  if (body.min_margin !== undefined) put('min_margin_pct', body.min_margin, 5, 40);
   if (body.grace_days !== undefined) put('tier_grace_days', body.grace_days, 1, 730);
   for (const lv of [1, 2, 3]) if (body[`schads_l${lv}`] !== undefined) put(`schads_l${lv}_casual`, body[`schads_l${lv}`], 1, 500);
   for (const key of Object.keys(AWARD_MULT_DEFAULT)) if (body[`mult_${key}`] !== undefined) put(`award_mult_${key}`, body[`mult_${key}`], 0.5, 5);

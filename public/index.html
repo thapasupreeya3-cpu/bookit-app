@@ -6176,6 +6176,7 @@ document.addEventListener('click', async e => {
     body.super = num('[data-lad-super]');
     body.grace_days = num('[data-lad-grace]');
     body.notice_days = num('[data-lad-notice]');
+    body.min_margin = num('[data-lad-margin]');
     e.target.disabled = true;
     try{
       await API.call('/admin/ladder/settings', {method:'POST', body});
@@ -6850,27 +6851,55 @@ function ladderBoardHtml(d){
   const fails = [];
   d.award_check.forEach(a => a.levels.forEach(l => { if(!l.clears_at_bronze) fails.push({ a, l }); }));
   const unconfirmed = d.award_check.filter(a => !a.confirmed);
+  /* thin = the award is paid, but the price limit doesn't leave the margin the
+     platform needs. This is a ROSTERING finding, not a pay finding — there is no
+     percentage anywhere on this page that fixes it, which is exactly why it gets
+     its own flag and its own sentence naming who may take the work. */
+  const thin = [];
+  d.award_check.forEach(a => a.levels.forEach(l => { if (!l.economic) thin.push({ a, l }); }));
+  const thinRule = [...new Set(thin.map(t => t.a.label))].map(lab => {
+    const a = d.award_check.find(x => x.label === lab);
+    const okLv = a.levels.filter(l => l.economic).map(l => 'Level ' + l.level);
+    return okLv.length
+      ? `a shift that is only ${lab.toLowerCase()} goes to ${okLv.join(' or ')} — never to ${a.levels.filter(l => !l.economic).map(l => 'Level ' + l.level).join(' or ')}`
+      : `${lab.toLowerCase()} does not cover its own cost at any classification`;
+  }).join('; ') + '.';
 
   const awardTable = `
     ${fails.length ? `<div class="tier-flag warn" style="margin:0 0 12px;">
       <b>${fails.length} rate${fails.length === 1 ? '' : 's'} would fall below the SCHADS minimum on the tier share alone.</b>
       The floor is catching every one of them — nobody is being underpaid — but each one costs you the difference, so it is worth knowing which they are.
-      ${fails.filter(f => !f.l.clears_at_top).length ? `<br><b>${fails.filter(f => !f.l.clears_at_top).length} of them don't clear even at Platinum</b>, which means no amount of moving the ladder fixes them — the price limit itself is below the award.` : ''}
+      ${fails.filter(f => !f.l.clears_at_top).length ? `<br><b>${fails.filter(f => !f.l.clears_at_top).length} of them don't clear even at Platinum</b>, which means no amount of moving the ladder fixes them — the price limit itself is below the award. Those workers are now paid the floor <i>lifted by their tier</i> rather than the bare floor, so the ladder still moves for them.` : ''}
     </div>` : '<div class="tier-flag calm" style="margin:0 0 12px;"><b>Every rate clears the award on the tier share alone.</b> The floor is in place but currently isn\'t needed anywhere.</div>'}
+    ${thin.length ? `<div class="tier-flag warn" style="margin:0 0 12px;">
+      <b>${thin.length} combination${thin.length === 1 ? '' : 's'} of support and classification ${thin.length === 1 ? 'does' : 'do'} not leave the ${d.settings.min_margin}% the platform has to retain.</b>
+      Nobody is underpaid — the award is paid in full and the tier uplift is withheld instead — but these are decided by <b>who gets rostered</b>, not by any pay setting, because the price limit itself is too close to the award.
+      <br>${thin.map(t => `${esc(t.a.label)} at <b>Level ${t.l.level}</b> — keeps $${t.l.margin.toFixed(2)} (${t.l.margin_pct.toFixed(1)}%)`).join('<br>')}
+      <br><br>The rule that follows: <b>${thinRule}</b>
+    </div>` : ''}
     <div class="adm-table-wrap"><table class="adm-table">
-      <thead><tr><th>Support item</th><th>NDIS limit</th><th>Penalty</th><th>Level 1 floor</th><th>Level 2 floor</th><th>Level 3 floor</th><th>Margin at Bronze&nbsp;L2</th></tr></thead>
+      <thead><tr><th>Support item</th><th>NDIS limit</th><th>Penalty</th><th>Level 1 floor</th><th>Level 2 floor</th><th>Level 3 floor</th><th>What you keep, by level<br><span class="muted-sm" style="font-weight:400;">Bronze &rarr; Platinum</span></th></tr></thead>
       <tbody>${d.award_check.map(a => {
         const by = {}; a.levels.forEach(l => by[l.level] = l);
-        const l2 = by[2];
-        const paid = Math.max(l2.floor, Math.round(a.price * sh.bronze) / 100);
-        const margin = Math.round((a.price - paid) * 100) / 100;
         const cell = l => `<td class="${l.clears_at_bronze ? '' : 'lad-fail'}">$${l.floor.toFixed(2)}${l.clears_at_bronze ? '' : ` <span class="lad-bad">+$${l.bronze_short.toFixed(2)}</span>`}</td>`;
+        /* one margin per level, not one margin pretending to speak for three.
+           the old column reported Level 2 only, so a row could print 27.5% and
+           be flagged for failing at Level 3 in the same breath. */
+        const worst = Math.min(...a.levels.map(l => l.top_margin_pct));
+        /* Bronze → Platinum, because a Platinum worker is the most expensive one
+           who could take this shift and is therefore the number that decides
+           whether it is affordable. When the two are equal the arrow disappears,
+           and that flat figure IS the signal that the ladder has gone inert for
+           that classification — you can read it off the column without being
+           told. */
+        const mrow = l => `<span class="${l.economic ? '' : 'lad-bad'}" style="white-space:nowrap;">L${l.level} <b>$${l.margin.toFixed(2)}</b>${l.ladder_live ? ` <span class="muted-sm">→</span> <b>$${(a.price - l.paid_top).toFixed(2)}</b> <span class="muted-sm">${l.margin_pct.toFixed(1)}→${l.top_margin_pct.toFixed(1)}%</span>` : ` <span class="muted-sm">${l.margin_pct.toFixed(1)}% — flat</span>`}${l.economic ? '' : ' ⚠'}</span>`;
         return `<tr>
-          <td><b>${esc(a.label)}</b>${a.confirmed ? '' : '<br><span class="lad-bad" style="font-size:.78rem;">allowance — confirm at pay run</span>'}</td>
+          <td><b>${esc(a.label)}</b>${a.confirmed ? '' : '<br><span class="lad-bad" style="font-size:.78rem;">allowance — confirm at pay run</span>'}
+            ${a.levels.some(l => !l.economic) ? `<br><span class="lad-bad" style="font-size:.78rem;">Level ${a.levels.filter(l => l.economic).map(l => l.level).join(' or ') || '—'} only</span>` : ''}</td>
           <td>$${a.price.toFixed(2)}</td>
           <td>×${a.mult.toFixed(2)}</td>
           ${cell(by[1])}${cell(by[2])}${cell(by[3])}
-          <td class="${margin < 12 ? 'lad-fail' : ''}"><b>$${margin.toFixed(2)}</b><br><span class="muted-sm">${(margin / a.price * 100).toFixed(1)}%</span></td>
+          <td class="${worst < d.settings.min_margin ? 'lad-fail' : ''}">${a.levels.map(mrow).join('<br>')}</td>
         </tr>`; }).join('')}</tbody>
     </table></div>
     ${unconfirmed.length ? `<p class="muted-sm" style="margin:9px 0 0;"><b>${unconfirmed.map(a => esc(a.label)).join(' and ')}</b> ${unconfirmed.length === 1 ? 'carries' : 'carry'} a SCHADS shift <b>allowance</b> rather than a penalty rate — 12.5% afternoon, 15% night, each calculated on the ordinary rate and added to the casual loading rather than compounded, which is ×1.10 and ×1.12 against the casual ordinary rate used everywhere else in this table. Permanent night shift (30%) is not offered here because it applies to permanent employees and this ladder assumes casual engagement throughout. Have the bookkeeper confirm the percentages at the next pay run and change them below if they differ — raising a floor can only ever stop an underpayment, never cause one.</p>` : ''}`;
@@ -6912,6 +6941,12 @@ function ladderBoardHtml(d){
         ${[1,2,3].map(l => `<label>Level ${l} $<br><input type="number" step="0.01" min="1" data-lad-schads="${l}" value="${s.schads[l]}"></label>`).join('')}
         <label>Super %<br><input type="number" step="0.5" min="0" max="30" data-lad-super value="${s.super}"></label>
       </div>
+
+      <p style="margin:14px 0 4px;"><b>Minimum margin the platform keeps</b> <span class="muted-sm">— out of every hour billed, after the worker is paid.</span></p>
+      <div class="lad-set">
+        <label>Minimum %<br><input type="number" step="0.5" min="5" max="40" data-lad-margin value="${s.min_margin}"></label>
+      </div>
+      <p class="muted-sm" style="margin:2px 0 14px;">This never reduces anyone's pay below the award — the SCHADS floor always wins. What it does is stop the tier uplift being paid on a support whose price limit can't fund it: on those the worker is paid the floor in full and the uplift is withheld, and the row above tells you which classifications the shift should go to instead. Bronze already keeps ${(100 - sh.bronze).toFixed(1)}% and Platinum ${(100 - sh.platinum).toFixed(1)}%, so on a rate that clears the award this setting never binds.</p>
 
       <p style="margin:14px 0 4px;"><b>Movement rules</b></p>
       <div class="lad-set">
