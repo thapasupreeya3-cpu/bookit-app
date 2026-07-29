@@ -565,6 +565,67 @@ db.exec(`CREATE TABLE IF NOT EXISTS compliance_log (
 );`);
 db.exec('CREATE INDEX IF NOT EXISTS idx_complog_worker ON compliance_log (worker_id, id)');
 
+/* --- "I have it, it just isn't in Drive." ------------------------------
+   51 of the 72 forms are files in a folder. Until now BookIt had no way to
+   hear that one of them exists: a form it does not track was reported as a
+   gap, and stayed a gap in the audit pack no matter how many times the
+   office said "we've got that one". That is the wrong default. Not in
+   Drive is not the same as does not exist, and a register that cannot tell
+   the difference will hand an auditor a confession that isn't true.
+
+   Two dates, and the difference between them is the entire safeguard:
+
+     covers_from / covers_to  — what the DOCUMENT says. Supplied by whoever
+                                files it, because it is a fact about the
+                                paper, not a claim about when anyone looked.
+     recorded_at              — when someone actually recorded it. Taken
+                                from the server clock and never accepted
+                                from the request body.
+
+   So the register can say "records covering 26/11/2025 to 30/06/2026,
+   located and filed 29/07/2026" — which discloses the late filing instead
+   of hiding it, and is the opposite of a backfill. There is deliberately
+   no way to set recorded_at. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS form_records (
+  form_key TEXT PRIMARY KEY,
+  held INTEGER NOT NULL DEFAULT 1,
+  covers_from TEXT DEFAULT '',
+  covers_to TEXT DEFAULT '',
+  location TEXT DEFAULT '',
+  note TEXT DEFAULT '',
+  recorded_by TEXT DEFAULT '',
+  recorded_at TEXT NOT NULL
+);`);
+
+/* --- the participant's side of the same filing cabinet.
+   Worker documents have lived in BookIt since the compliance build. The
+   participant's never did: the service agreement, the risk assessment, the
+   consents and the copy of the NDIS plan were in a Drive folder, and BookIt
+   only ever held a note saying so. That made "where is this person's file"
+   a question with two answers, and an auditor asking it got the wrong one.
+   One row per document, keyed to the form in the register it satisfies, so
+   the register and the folder cannot drift: if the register says the Risk
+   Assessment is held, this is where the file is. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS participant_docs (
+  id INTEGER PRIMARY KEY,
+  participant_id INTEGER NOT NULL REFERENCES users(id),
+  form_key TEXT NOT NULL DEFAULT 'p-other',
+  label TEXT DEFAULT '',
+  doc_date TEXT DEFAULT '',
+  expiry_date TEXT DEFAULT '',
+  file_name TEXT DEFAULT '',
+  file_mime TEXT DEFAULT '',
+  file_path TEXT DEFAULT '',
+  note TEXT DEFAULT '',
+  uploaded_at TEXT NOT NULL,
+  uploaded_by TEXT DEFAULT '',
+  verified_at TEXT,
+  verified_by TEXT DEFAULT '',
+  verify_method TEXT DEFAULT '',
+  verify_note TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_pdocs_person ON participant_docs (participant_id, form_key);`);
+
 /* --- a tiny key/value store so award figures aren't welded into the source.
    SCHADS rates move every 1 July; an admin should be able to change one number
    in a form rather than wait for a deploy. --- */
@@ -3785,7 +3846,7 @@ const FORMS = [
   { key: 'reg-ci', name: 'Continuous Improvement Register', scope: 'register', track: 'drive', cadence: 'quarterly', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
   { key: 'reg-restrictive', name: 'Restrictive Practices Register', scope: 'register', track: 'drive', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Restrictive Practices and Behaviour Support) Rules 2018', note: 'Nil is the expected state. A nil register still has to exist and be dated.' },
   { key: 'reg-training', name: 'Training and Development Register (one per worker)', scope: 'register', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: '151 blanks across seven registers. Filling the Worker Register first turns these into transcription.' },
-  { key: 'reg-medicine', name: 'Medicine Register (per participant, per month)', scope: 'register', track: 'drive', cadence: 'monthly', signed: 'Worker on each administration', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'Register 13 covers 25/11/2025 only and every worker signature cell in it is blank. Nothing between 26/11/2025 and 30/06/2026. Do not backfill — the file note discloses the gap.' },
+  { key: 'reg-medicine', name: 'Medicine Register (per participant, per month)', scope: 'register', track: 'drive', cadence: 'monthly', signed: 'Worker on each administration', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'Register 13 in Drive covers 25/11/2025 only and every worker signature cell in it is blank; Drive holds nothing between 26/11/2025 and 30/06/2026. Records held outside Drive were identified 29/07/2026 — record them here with the period they actually cover and the date they were filed. Never fill in a blank cell after the fact: what is missing is filing, and a file note discloses that. What was never written cannot be written now.' },
 
   /* ---------- one per worker ---------- */
   { key: 'w-agreement', name: 'Signed engagement agreement', scope: 'worker', track: 'drive', cadence: 'once', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
@@ -3817,7 +3878,7 @@ const FORMS = [
   { key: 'p-consent-media', name: 'Photo and media consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
   { key: 'p-advocate', name: 'Advocate / nominee / decision-maker form', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Independence and informed choice' },
   { key: 'p-money', name: 'Money and Property Declaration', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Participant money and property' },
-  { key: 'p-medication', name: 'Medication Plan and Administration Form + consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + prescriber', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'On file but entirely blank per-medication.' },
+  { key: 'p-medication', name: 'Medication Plan and Administration Form + consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + prescriber', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'The Drive copy is on file but entirely blank per-medication. If a completed copy is held elsewhere, record it here with the date it was filed rather than completing the blank one.' },
   { key: 'p-mealtime', name: 'Mealtime Management Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'DMHC', requires: 'Recorded as met on DMHC\'s 2025 Core Module audit sheet', note: 'The two 2025 audit sheets contradict each other — one ticks it as met, the participant file records it was declined. Both cannot be true.' },
   { key: 'p-care-plans', name: 'Clinical care plans named in the support plan', scope: 'participant', track: 'live', live: 'care_plans', cadence: 'on-change', signed: 'Clinician', template: 'none', requires: 'Core Module — Support planning', note: 'The support plan asks the participant to name every care plan they have. Any name with no document behind it shows up here.' },
   { key: 'p-ndis-plan', name: 'Copy of the current NDIS plan + plan dates', scope: 'participant', track: 'drive', cadence: 'expiry', signed: 'NDIA', template: 'none', requires: 'Core Module — Service agreements with participants', note: 'The plan on file expired 24/06/2026 while supports continued.' },
@@ -3833,6 +3894,56 @@ const FORM_SCOPES = [
   { key: 'worker', label: 'One set per worker', per: 'per worker' },
   { key: 'participant', label: 'One set per participant', per: 'per participant' }
 ];
+
+/* ---------- the participant document catalogue ----------
+   Derived from the register rather than typed out a second time. Every
+   participant-scope form that is a document somebody signs becomes a slot
+   here, in register order, so a form added above immediately has a place to
+   put the file — and a file uploaded here always answers a form an auditor
+   asks for by name. The three live-tracked forms (support plan, care plans,
+   shift notes) are deliberately absent: BookIt already holds those itself,
+   and offering an upload beside them would let a scanned copy compete with
+   the record it was copied from. */
+const PDOC_CATALOG = FORMS.filter(f => f.scope === 'participant' && f.track !== 'live').map(f => ({
+  key: f.key,
+  label: f.name,
+  cadence: f.cadence,
+  signed: f.signed || '',
+  requires: f.requires || '',
+  /* only the NDIS plan carries a hard expiry. Everything else has a review
+     cadence, which is a different thing and should not fail validation. */
+  expiry: f.cadence === 'expiry' ? 'required' : 'optional',
+  help: f.note || ''
+})).concat([{ key: 'p-other', label: 'Other document', cadence: 'per-event', signed: '', requires: '',
+  expiry: 'optional', needsLabel: true, help: 'Anything else that belongs on this person\'s file. Give it a name.' }]);
+const PDOC_MAP = Object.fromEntries(PDOC_CATALOG.map(d => [d.key, d]));
+const PDOC_METHODS = {
+  'original-sighted': 'Original sighted',
+  'signed-copy': 'Signed copy on file',
+  'issuer-confirmed': 'Confirmed with the issuer',
+  'participant-confirmed': 'Confirmed with the participant'
+};
+
+function pdocOut(d) {
+  const cat = PDOC_MAP[d.form_key] || {};
+  return { ...d, file_path: undefined, status: docStatus(d), days: docDays(d),
+    type_label: d.label || cat.label || d.form_key,
+    form_name: cat.label || d.form_key,
+    requires: cat.requires || '',
+    has_file: Boolean(d.file_path) };
+}
+function participantDocs(pid) {
+  return db.prepare('SELECT * FROM participant_docs WHERE participant_id = ? ORDER BY form_key, id DESC')
+    .all(pid).map(pdocOut);
+}
+/* which participants have a file on record against each form key */
+function pdocHolders() {
+  const out = {};
+  for (const r of db.prepare("SELECT DISTINCT form_key, participant_id FROM participant_docs WHERE file_path <> ''").all()) {
+    (out[r.form_key] = out[r.form_key] || new Set()).add(r.participant_id);
+  }
+  return out;
+}
 
 /* The register as data rather than as a response. The admin route serves it,
    the audit pack embeds it and the nightly snapshot counts it — all three from
@@ -3902,9 +4013,45 @@ function formsRegister() {
     return null;
   }
 
+  /* Asserted, not derived — and kept in a different field for that reason.
+     `state` is something BookIt worked out from its own data and can defend.
+     `record` is something a person told it, with their name and the date they
+     said it. Both belong in the register; conflating them would let a typed
+     claim wear the authority of a computed fact. */
+  const recordOf = key => {
+    if (!key) return null;
+    const r = db.prepare('SELECT * FROM form_records WHERE form_key = ?').get(key);
+    return r ? { held: !!r.held, covers_from: r.covers_from || '', covers_to: r.covers_to || '',
+                 location: r.location || '', note: r.note || '',
+                 recorded_by: r.recorded_by || '', recorded_at: r.recorded_at } : null;
+  };
+
+  /* A participant form is evidenced two ways, and either one is enough: the
+     file itself is in BookIt, or somebody has recorded that they hold it and
+     where. Only a form with neither is an open item — and it is named per
+     participant, because "the risk assessment is missing" and "Bernard's risk
+     assessment is missing" are the same fact told at two different levels of
+     usefulness to the person who has to go and find it. */
+  const holders = pdocHolders();
+  function participantFileState(f, record) {
+    if (f.scope !== 'participant' || f.track === 'live') return null;
+    const held = holders[f.key] || new Set();
+    const recorded = !!(record && record.held);
+    const today2 = today;
+    const expired = db.prepare(`SELECT COUNT(DISTINCT participant_id) AS n FROM participant_docs
+      WHERE form_key = ? AND expiry_date <> '' AND expiry_date < ?`).get(f.key, today2).n;
+    return { of: participants.length, unit: 'participants',
+      held: held.size, ok: recorded ? participants.length : held.size,
+      files: held.size, expired, recorded,
+      gaps: recorded ? [] : participants.filter(p => !held.has(p.id)).map(p => `${p.name} — nothing on file`) };
+  }
+
   const forms = FORMS.map(f => {
-    const state = liveState(f);
-    return { ...f, state,
+    /* a live form answers for itself; a record on one would be a person's
+       word competing with the data, so it is not offered and not read. */
+    const record = f.track === 'live' ? null : recordOf(f.key);
+    const state = liveState(f) || participantFileState(f, record);
+    return { ...f, state, record,
       /* the copies you actually have to produce at audit. A per-worker form is
          one form on paper and seven documents in a folder, and the difference is
          the whole reason the Worker Register has 82 blanks in it. */
@@ -3919,10 +4066,20 @@ function formsRegister() {
       live: byTrack('live').length,
       drive: byTrack('drive').length,
       missing: byTrack('missing').length,
+      /* of the forms BookIt cannot see, how many has someone actually put their
+         name to. This is the number that moves when the office says "I have
+         that one" — and the only way it moves is by someone saying so, dated. */
+      recorded: forms.filter(f => f.record && f.record.held).length,
+      unrecorded: forms.filter(f => f.track !== 'live' && !(f.record && f.record.held)).length,
       /* the number worth quoting: how many separate documents exist once the
          per-person forms are multiplied out */
       documents: forms.reduce((n, f) => n + f.copies, 0),
-      gaps: forms.reduce((n, f) => n + (f.state ? f.state.gaps.length : 0), 0)
+      gaps: forms.reduce((n, f) => n + (f.state ? f.state.gaps.length : 0), 0),
+      /* documents BookIt is actually holding the file for, rather than a note
+         about where the file is. The number that turns "we have it somewhere"
+         into "here it is". */
+      participant_files: db.prepare("SELECT COUNT(*) AS n FROM participant_docs WHERE file_path <> ''").get().n,
+      worker_files: db.prepare("SELECT COUNT(*) AS n FROM worker_docs WHERE file_path <> ''").get().n
     }
   };
 }
@@ -3932,16 +4089,261 @@ route('GET', /^\/api\/admin\/forms$/, (req, res, m, user) => {
   json(res, 200, formsRegister());
 });
 
+/* ============================================================================
+   The participant's file — the same filing cabinet the workers have had
+   ==========================================================================*/
+
+route('GET', /^\/api\/participant-doc-catalog$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  json(res, 200, { types: PDOC_CATALOG, methods: PDOC_METHODS });
+});
+
+/* what BookIt holds for one person, plus what it is still waiting for. The
+   second half is the point: a list of documents with nothing missing from it
+   is a list that cannot tell you anything. */
+function participantFile(pid) {
+  const docs = participantDocs(pid);
+  const have = new Set(docs.filter(d => d.has_file).map(d => d.form_key));
+  const noted = new Set(docs.map(d => d.form_key));
+  return {
+    documents: docs,
+    outstanding: PDOC_CATALOG.filter(c => c.key !== 'p-other' && !noted.has(c.key))
+      .map(c => ({ key: c.key, label: c.label, signed: c.signed, requires: c.requires })),
+    held: have.size,
+    of: PDOC_CATALOG.filter(c => c.key !== 'p-other').length
+  };
+}
+
+route('GET', /^\/api\/me\/participant-documents$/, (req, res, m, user) => {
+  if (!user || user.role !== 'participant') return json(res, 403, { error: 'Participants only.' });
+  json(res, 200, participantFile(user.id));
+});
+
+/* One upload path, two callers. A participant uploading a copy of their own
+   plan and the office filing the agreement they had signed are the same act
+   on the same shelf, so they are the same code — but who did it is recorded,
+   because "the participant gave us this" and "we put this here" are not the
+   same provenance and an auditor is entitled to tell them apart. */
+function savePdoc(res, pid, body, byWho, ip) {
+  if (limited(ip, 'pdocs', 40)) return json(res, 429, { error: 'Too many uploads — try again later.' });
+  const cat = PDOC_MAP[clean(body.form_key, 40)];
+  if (!cat) return json(res, 400, { error: 'Pick what this document is.' });
+  const docDate = clean(body.doc_date, 10);
+  const expiry = clean(body.expiry_date, 10);
+  for (const [v, what] of [[docDate, 'date on the document'], [expiry, 'expiry date']]) {
+    if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return json(res, 400, { error: `The ${what} looks wrong.` });
+  }
+  if (cat.expiry === 'required' && !expiry) return json(res, 400, { error: `Please enter the expiry date for the ${cat.label} — it drives the automatic checks.` });
+  if (cat.needsLabel && !clean(body.label, 90)) return json(res, 400, { error: 'Give the document a name so the file makes sense to someone else.' });
+  let fileName = '', fileMime = '', filePath = '';
+  if (body.file && body.file.data) {
+    fileMime = String(body.file.mime || '');
+    if (!DOC_MIMES[fileMime]) return json(res, 400, { error: 'Files must be PDF, JPG or PNG.' });
+    let buf;
+    try { buf = Buffer.from(String(body.file.data).replace(/^data:[^,]*,/, ''), 'base64'); } catch { return json(res, 400, { error: 'Could not read that file.' }); }
+    if (!buf.length || buf.length > 4 * 1024 * 1024) return json(res, 400, { error: 'Files can be up to 4 MB.' });
+    fileName = clean(body.file.name, 80).replace(/[^A-Za-z0-9. _-]/g, '') || ('document' + DOC_MIMES[fileMime]);
+    filePath = path.join(DOCS_DIR, `p${pid}-${Date.now()}${DOC_MIMES[fileMime]}`);
+    fs.writeFileSync(filePath, buf);
+  }
+  /* A row with no file is allowed on purpose: it is how you record that a
+     document exists on paper in a folder, dated and attributed, without
+     pretending BookIt has a copy of it. The register shows the difference. */
+  const r = db.prepare(`INSERT INTO participant_docs
+    (participant_id, form_key, label, doc_date, expiry_date, file_name, file_mime, file_path, note, uploaded_at, uploaded_by)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(pid, cat.key, clean(body.label, 90), docDate, expiry, fileName, fileMime, filePath,
+         clean(body.note, 300), now(), byWho);
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid), has_file: Boolean(filePath) });
+}
+
+route('POST', /^\/api\/me\/participant-documents$/, (req, res, m, user, body, ip) => {
+  if (!user || user.role !== 'participant') return json(res, 403, { error: 'Participants only.' });
+  savePdoc(res, user.id, body || {}, `${user.name} (participant)`, ip);
+});
+
+route('POST', /^\/api\/me\/participant-documents\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!user || user.role !== 'participant') return json(res, 403, { error: 'Participants only.' });
+  const d = db.prepare('SELECT * FROM participant_docs WHERE id = ? AND participant_id = ?').get(Number(m[1]), user.id);
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  if (d.verified_at) return json(res, 400, { error: 'That one has been checked by the office — ask them to remove it.' });
+  if (d.file_path) { try { fs.unlinkSync(d.file_path); } catch {} }
+  db.prepare('DELETE FROM participant_docs WHERE id = ?').run(d.id);
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/participant-documents\/(\d+)\/file$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const d = db.prepare('SELECT * FROM participant_docs WHERE id = ?').get(Number(m[1]));
+  if (!d || !d.file_path) return json(res, 404, { error: 'No file.' });
+  if (!(user.admin || user.id === d.participant_id)) return json(res, 403, { error: 'Not yours.' });
+  if (!fs.existsSync(d.file_path)) return json(res, 404, { error: 'File missing from disk.' });
+  res.writeHead(200, { 'Content-Type': d.file_mime || 'application/octet-stream', 'Content-Disposition': `inline; filename="${d.file_name || 'document'}"` });
+  fs.createReadStream(d.file_path).pipe(res);
+});
+
+route('GET', /^\/api\/admin\/participant-documents$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const people = db.prepare("SELECT id, name, email, suburb FROM users WHERE role = 'participant' ORDER BY name").all()
+    .map(p => ({ ...p, ...participantFile(p.id) }));
+  json(res, 200, { participants: people, types: PDOC_CATALOG, methods: PDOC_METHODS });
+});
+
+route('POST', /^\/api\/admin\/participants\/(\d+)\/documents$/, (req, res, m, user, body, ip) => {
+  if (!requireAdmin(user, res)) return;
+  const p = db.prepare("SELECT id, name FROM users WHERE id = ? AND role = 'participant'").get(Number(m[1]));
+  if (!p) return json(res, 404, { error: 'No such participant.' });
+  savePdoc(res, p.id, body || {}, user.email, ip);
+});
+
+route('POST', /^\/api\/admin\/participant-documents\/(\d+)\/verify$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const d = db.prepare(`SELECT pd.*, u.name AS participant_name FROM participant_docs pd
+    JOIN users u ON u.id = pd.participant_id WHERE pd.id = ?`).get(Number(m[1]));
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  body = body || {};
+  const method = PDOC_METHODS[clean(body.method, 30)] ? clean(body.method, 30) : 'signed-copy';
+  const note = clean(body.note, 300);
+  const when = now();
+  db.prepare('UPDATE participant_docs SET verified_at = ?, verified_by = ?, verify_method = ?, verify_note = ? WHERE id = ?')
+    .run(when, user.email, method, note, d.id);
+  /* the same evidence trail the worker checks land in, so one export answers
+     "show me everything you checked and when" for both halves of the file */
+  logCompliance({
+    kind: 'participant-document',
+    result: 'verified',
+    detail: `${d.participant_name} — ${d.label || (PDOC_MAP[d.form_key] || {}).label || d.form_key} — ${PDOC_METHODS[method]}${d.expiry_date ? `, expires ${dmy(d.expiry_date)}` : ''}${note ? `. ${note}` : ''}`,
+    source: 'admin', checked_at: when, checked_by: user.email
+  });
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/participant-documents\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const d = db.prepare('SELECT * FROM participant_docs WHERE id = ?').get(Number(m[1]));
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  if (d.file_path) { try { fs.unlinkSync(d.file_path); } catch {} }
+  db.prepare('DELETE FROM participant_docs WHERE id = ?').run(d.id);
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/admin\/participant-documents\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const today = new Date().toISOString().slice(0, 10);
+  const lines = [['Participant', 'NDIS number', 'Document', 'What requires it', 'Dated', 'Expires',
+    'Status today', 'File in BookIt', 'Filed by', 'Filed on', 'Checked', 'Checked by', 'How', 'Note'].map(q).join(',')];
+  const people = db.prepare("SELECT id, name, email, ndis_number FROM users WHERE role = 'participant' ORDER BY name").all();
+  for (const p of people) {
+    const docs = db.prepare('SELECT * FROM participant_docs WHERE participant_id = ? ORDER BY form_key, id DESC').all(p.id);
+    const noted = new Set(docs.map(d => d.form_key));
+    for (const d of docs) {
+      const cat = PDOC_MAP[d.form_key] || {};
+      const state = !d.expiry_date ? 'No expiry recorded'
+        : d.expiry_date < today ? 'EXPIRED'
+          : d.expiry_date <= new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10) ? 'Expires within 30 days' : 'Current';
+      lines.push([p.name, p.ndis_number || '', d.label || cat.label || d.form_key, cat.requires || '',
+        d.doc_date ? dmy(d.doc_date) : '', d.expiry_date ? dmy(d.expiry_date) : '', state,
+        d.file_path && fs.existsSync(d.file_path) ? 'yes' : 'no file attached',
+        d.uploaded_by || '', d.uploaded_at ? dmy(d.uploaded_at.slice(0, 10)) : '',
+        d.verified_at ? dmy(d.verified_at.slice(0, 10)) : 'NOT CHECKED', d.verified_by || '',
+        PDOC_METHODS[d.verify_method] || '', d.verify_note || ''].map(q).join(','));
+    }
+    /* the rows worth having: a form this person's file should contain and does
+       not. A register that only lists what you hold cannot be read for what
+       you are missing, which is the only question anyone asks it. */
+    for (const c of PDOC_CATALOG) {
+      if (c.key === 'p-other' || noted.has(c.key)) continue;
+      lines.push([p.name, p.ndis_number || '', c.label, c.requires || '', '', '', 'NOTHING ON FILE',
+        'no', '', '', '', '', '', ''].map(q).join(','));
+    }
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-participant-documents.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+
+/* Record a form BookIt cannot see for itself. The three rules this enforces
+   are the three that keep it evidence rather than decoration:
+
+     1. It refuses on a live-track form. Those are answered by the data, and a
+        typed assertion must never be able to overrule a computed one.
+     2. `recorded_at` comes from the server, every time. There is no field for
+        it and no way to pass one, so the register can never claim a document
+        was filed earlier than it was.
+     3. The covering period is optional but, once given, is stored verbatim and
+        shown next to the recording date — so a document filed months after the
+        period it covers reads as exactly that. Disclosure, not repair. */
+route('POST', /^\/api\/admin\/forms\/record$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const key = clean(body.key, 60);
+  const f = FORMS.find(x => x.key === key);
+  if (!f) return json(res, 404, { error: 'No such form.' });
+  if (f.track === 'live') return json(res, 400, {
+    error: 'BookIt tracks this form itself, so it cannot be recorded by hand. Whatever is missing has to be fixed in the data, not asserted over it.' });
+
+  const iso = v => { const d = clean(v, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : ''; };
+  const from = iso(body.covers_from), to = iso(body.covers_to);
+  if (from && to && to < from) return json(res, 400, { error: 'The period ends before it starts.' });
+  const today = new Date().toISOString().slice(0, 10);
+  if (from > today || to > today) return json(res, 400, { error: 'A record cannot cover a period that has not happened yet.' });
+
+  const held = body.held === false ? 0 : 1;
+  db.prepare(`INSERT INTO form_records (form_key, held, covers_from, covers_to, location, note, recorded_by, recorded_at)
+    VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT(form_key) DO UPDATE SET held = excluded.held, covers_from = excluded.covers_from,
+      covers_to = excluded.covers_to, location = excluded.location, note = excluded.note,
+      recorded_by = excluded.recorded_by, recorded_at = excluded.recorded_at`)
+    .run(key, held, from, to, clean(body.location, 200), clean(body.note, 600), user.name || user.email, now());
+
+  logCompliance({
+    kind: 'form-record',
+    result: held ? 'held' : 'not held',
+    detail: `${f.name} recorded as ${held ? 'held' : 'not held'}${from || to ? `, covering ${from || 'unstated'} to ${to || 'unstated'}` : ''}${clean(body.location, 200) ? `, kept at ${clean(body.location, 200)}` : ''}.`,
+    source: 'Admin forms register',
+    ref: key,
+    checked_by: user.name || user.email
+  });
+  json(res, 200, formsRegister());
+});
+
+route('DELETE', /^\/api\/admin\/forms\/record\/([a-z0-9-]+)$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const key = m[1];
+  const f = FORMS.find(x => x.key === key);
+  if (!f) return json(res, 404, { error: 'No such form.' });
+  db.prepare('DELETE FROM form_records WHERE form_key = ?').run(key);
+  logCompliance({ kind: 'form-record', result: 'withdrawn',
+    detail: `${f.name} — the record that it is held was withdrawn.`,
+    source: 'Admin forms register', ref: key, checked_by: user.name || user.email });
+  json(res, 200, formsRegister());
+});
+
 route('GET', /^\/api\/admin\/forms\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const scope = { company: 'Company', register: 'Register', worker: 'Per worker', participant: 'Per participant' };
   const track = { live: 'BookIt tracks it', drive: 'File in Drive — nothing watches it', missing: 'Does not exist yet' };
-  const lines = [['Form', 'Belongs to', 'Where it is tracked', 'How often', 'Who signs', 'Whose template', 'What requires it', 'Note'].map(q).join(',')];
+  const reg = formsRegister();
+  const byKey = Object.fromEntries(reg.forms.map(f => [f.key, f]));
+  const lines = [['Form', 'Belongs to', 'Where it is tracked', 'How often', 'Who signs', 'Whose template',
+    'What requires it', 'Held?', 'Period the records cover', 'Where it is kept',
+    'Recorded by', 'Date recorded', 'Note'].map(q).join(',')];
   for (const f of FORMS) {
+    const r = (byKey[f.key] || {}).record;
+    const held = f.track === 'live' ? 'BookIt answers this one'
+      : r ? (r.held ? 'Yes — recorded by hand' : 'No — recorded as not held')
+      : 'Not recorded';
+    /* deliberately DD/MM/YYYY and deliberately side by side. A period ending
+       long before the date it was recorded is the disclosure, not a defect to
+       be smoothed over, and an auditor should be able to see it in one row. */
+    const covers = r && (r.covers_from || r.covers_to)
+      ? `${r.covers_from ? dmy(r.covers_from) : 'unstated'} to ${r.covers_to ? dmy(r.covers_to) : 'unstated'}` : '';
     lines.push([f.name, scope[f.scope] || f.scope, track[f.track] || f.track, f.cadence, f.signed,
       f.template === 'DMHC' ? "DMHC's own form" : f.template === 'BookIt' ? 'Built for DMHC (no template existed)' : f.template,
-      f.requires, f.note || ''].map(q).join(','));
+      f.requires, held, covers, r ? r.location : '', r ? r.recorded_by : '',
+      r ? dmy(String(r.recorded_at).slice(0, 10)) : '',
+      [f.note || '', r && r.note ? `Recorded: ${r.note}` : ''].filter(Boolean).join(' ')].map(q).join(','));
   }
   res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="dmhc-forms-register.csv"' });
   res.end('﻿' + lines.join('\r\n'));
@@ -4105,6 +4507,7 @@ const AUDIT_REPORTS = [
   { path: 'registers/01-forms-register.csv', url: '/api/admin/forms.csv', title: 'Every form DMHC must hold, what requires it, and where it is tracked' },
   { path: 'registers/02-worker-credentials.csv', url: '/api/admin/worker-credentials.csv', title: 'Every credential on file for every worker, with expiry and verification' },
   { path: 'registers/03-participants.csv', url: '/api/admin/participant-register.csv', title: 'Participants, service start, plan dates and support plan status' },
+  { path: 'registers/03a-participant-documents.csv', url: '/api/admin/participant-documents.csv', title: 'Every document on each participant file, what requires it, and what is still missing' },
   { path: 'registers/04-incident-register.csv', url: '/api/admin/incidents.csv', title: 'Incident register — Practice Standards, incident management' },
   { path: 'registers/05-complaints-register.csv', url: '/api/admin/complaints.csv', title: 'Complaints register — Practice Standards, feedback and complaints' },
   { path: 'registers/06-out-of-scope-register.csv', url: '/api/admin/scope-register.csv', title: 'Requests for supports outside the certificate, and how each was closed' },
@@ -4293,14 +4696,35 @@ function buildAuditPack(user) {
     } catch { filesMissing++; }
   }
 
+  /* and the participant's own file, in its own folder. Kept separate from
+     people/ on purpose: a worker's folder answers "is this person safe to send
+     out", a participant's answers "is this person's support properly agreed and
+     planned", and an auditor reads them for different things. Mixing them makes
+     a reader check every folder to find out which kind it is. */
+  const pdocs = db.prepare(`SELECT d.*, u.name FROM participant_docs d JOIN users u ON u.id = d.participant_id
+    WHERE d.file_path <> '' ORDER BY u.name, d.form_key, d.id`).all();
+  const pSeen = {};
+  for (const d of pdocs) { const k = safeName(d.name); (pSeen[k] = pSeen[k] || new Set()).add(d.participant_id); }
+  const pFolder = (id, name) => { const k = safeName(name); return pSeen[k].size > 1 ? `${k} - participant ${id}` : k; };
+  let pFilesIn = 0;
+  for (const d of pdocs) {
+    if (!d.file_path || !fs.existsSync(d.file_path)) { filesMissing++; continue; }
+    const ext = path.extname(d.file_path) || '';
+    const cat = PDOC_MAP[d.form_key] || {};
+    const label = safeName(`${d.label || cat.label || d.form_key}${d.expiry_date ? ' expires ' + d.expiry_date : d.doc_date ? ' dated ' + d.doc_date : ''}`);
+    try {
+      if (add(`participants/${pFolder(d.participant_id, d.name)}/${label}-${d.id}${ext}`, fs.readFileSync(d.file_path))) pFilesIn++;
+    } catch { filesMissing++; }
+  }
+
   const reg = formsRegister();
   const gaps = auditGaps(reg);
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
   add('gaps/open-items.csv', '﻿' + [['Form', 'Belongs to', 'What is missing', 'What requires it'].map(q).join(',')]
     .concat(gaps.map(g => [g.form, g.scope, g.missing, g.requires].map(q).join(','))).join('\r\n'));
 
-  add('README.txt', packReadme({ when, user, reg, gaps, built, failed, skipped, filesIn, filesMissing, participants }));
-  add('INDEX.html', packIndex({ when, user, reg, gaps, built, failed, skipped, filesIn, filesMissing }));
+  add('README.txt', packReadme({ when, user, reg, gaps, built, failed, skipped, filesIn, pFilesIn, filesMissing, participants }));
+  add('INDEX.html', packIndex({ when, user, reg, gaps, built, failed, skipped, filesIn, pFilesIn, filesMissing }));
 
   return {
     buffer: zipBuffer(entries, when),
@@ -4332,13 +4756,15 @@ function packReadme(c) {
   L.push('  evidence/            what the platform did, and the shift notes behind it');
   L.push('  evidence/monitoring-history.csv    one row per day — this is the evidence of ongoing monitoring');
   L.push('  people/              the actual credential files, filed under the worker they belong to');
+  L.push('  participants/        each participant\'s own file — agreements, consents, plans and assessments');
   L.push('  finance/             invoices, payroll and the PACE claim file');
   L.push('  gaps/open-items.csv  everything the system knows is still missing');
   L.push('');
   L.push('THE NUMBERS');
   L.push(`  ${c.reg.counts.total} forms in the register`);
   L.push(`  ${c.reg.counts.documents} documents that implies across ${c.reg.workers} workers and ${c.reg.participants} participants`);
-  L.push(`  ${c.filesIn} credential files included`);
+  L.push(`  ${c.filesIn} worker credential files included`);
+  L.push(`  ${c.pFilesIn || 0} participant document${(c.pFilesIn || 0) === 1 ? '' : 's'} included`);
   L.push(`  ${c.gaps.length} open items — listed in gaps/open-items.csv, and again at the top of INDEX.html`);
   L.push('');
   L.push('A NOTE ON THE OPEN ITEMS');
@@ -4416,6 +4842,7 @@ ${c.gaps.length
 <tr><td><a href="evidence/monitoring-history.csv">evidence/monitoring-history.csv</a></td><td>One row per day. This is the evidence of ongoing monitoring — it is written by a nightly job, not by a person</td></tr>
 <tr><td>evidence/shift-notes/</td><td>One file per participant, every shift note in date order, with any out-of-scope request and what was done about it</td></tr>
 <tr><td>people/</td><td>${c.filesIn} credential file${c.filesIn === 1 ? '' : 's'}, filed under the worker they belong to</td></tr>
+<tr><td>participants/</td><td>${c.pFilesIn || 0} document${(c.pFilesIn || 0) === 1 ? '' : 's'} from the participant files — agreements, consents, plans and assessments</td></tr>
 </table>
 ${c.failed.length ? `<h2>Not in this pack</h2><table><tr><th>File</th><th>Why</th></tr>${c.failed.map(f => `<tr><td>${escHtml(f.path)}</td><td>Could not be generated (HTTP ${f.status})</td></tr>`).join('')}</table>` : ''}
 ${c.skipped.length ? `<div class="warn"><b>${c.skipped.length} file(s) left out</b> — the pack hit its ${Math.round(PACK_BYTES_CAP / 1048576)} MB cap. They are named in README.txt.</div>` : ''}
@@ -6367,7 +6794,9 @@ const server = http.createServer((req, res) => {
 
   let raw = '';
   let overflow = false;
-  const bodyCap = (pathname === '/api/me/documents' || pathname === '/api/me/photo') ? 8_000_000 : 100_000; /* uploads carry base64 files */
+  const bodyCap = (pathname === '/api/me/documents' || pathname === '/api/me/photo'
+    || pathname === '/api/me/participant-documents'
+    || /^\/api\/admin\/participants\/\d+\/documents$/.test(pathname)) ? 8_000_000 : 100_000; /* uploads carry base64 files */
   req.on('data', chunk => {
     if (overflow) return; /* keep draining so the response can get through, but stop buffering */
     raw += chunk;

@@ -2617,6 +2617,13 @@ html.high-contrast .bk-card{background:#fff!important;border:2px solid #000!impo
   .fr-track.drive{background:#FFF4D6;border-color:#F5B841;color:#7A5C00;}
   .fr-track.missing{background:#FDECE7;border-color:#D94F32;color:#A5301A;}
   .fr-gaps{margin:4px 0 0;font-size:.78rem;color:#A5301A;line-height:1.5;}
+  .fr-rec{margin:6px 0 0;font-size:.8rem;color:#215239;line-height:1.55;}
+  .fr-rec.open{color:#7A5C00;}
+  .fr-rec .adm-btn-sm{margin-left:6px;}
+  .fr-form{margin:8px 0 2px;padding:12px 14px;border:1.5px solid #E7DFD4;border-radius:10px;background:#FDFBF7;max-width:520px;}
+  .fr-form label{display:block;font-size:.78rem;font-weight:600;color:#3E5A64;margin:0 0 8px;}
+  .fr-form input,.fr-form textarea{display:block;width:100%;box-sizing:border-box;margin-top:3px;font:inherit;font-size:.85rem;font-weight:400;padding:6px 9px;border:1.5px solid #E7DFD4;border-radius:8px;background:#fff;color:#17313A;}
+  .fr-form-actions{display:flex;gap:8px;align-items:center;}
   .fr-filter{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;}
   .fr-filter button{font:inherit;font-size:.82rem;padding:5px 14px;border-radius:999px;border:1.5px solid #E7DFD4;background:#fff;color:#3E5A64;cursor:pointer;}
   .fr-filter button[aria-pressed=true]{background:#0E6B62;border-color:#0E6B62;color:#fff;font-weight:600;}
@@ -5235,6 +5242,56 @@ async function renderBookingsPage(){
       </div>`;
     }
   }
+  /* The participant's own file, shown to the participant. Everything here is
+     about them and most of it they signed, so hiding it behind an office
+     mailbox was never defensible — and a person who can see what is missing
+     from their own file is the fastest way to close it. */
+  let pdocCard = '';
+  if(API.me.role === 'participant'){
+    const chip = st => st === 'valid' ? '<span class="adm-badge" style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;">current ✓</span>'
+      : st === 'expiring' ? '<span class="adm-badge">expiring soon</span>'
+      : st === 'expired' ? '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">EXPIRED</span>'
+      : '';
+    let pf = null, pTypes = [];
+    try{ pf = await API.call('/me/participant-documents'); }catch(e){}
+    try{ pTypes = (await API.call('/participant-doc-catalog')).types || []; }catch(e){}
+    if(pf){
+      const rows = (pf.documents || []).map(d => `
+        <p style="margin:5px 0;font-size:.92rem;"><b>${esc(d.type_label || '')}</b>${d.doc_date ? ' · dated ' + fmtAU(d.doc_date) : ''}${d.expiry_date ? ' · expires ' + fmtAU(d.expiry_date) : ''} ${d.expiry_date ? chip(d.status) : ''}${d.verified_at
+          ? ' <span style="color:#1C7C43;font-size:.8rem;">checked by the office ✓</span>'
+          : ' <span style="color:#8a6d00;font-size:.8rem;">awaiting check</span>'}${d.has_file
+          ? ` · <a href="/api/participant-documents/${d.id}/file" target="_blank">view file</a>`
+          : ' · <span class="muted-sm">recorded, no file attached</span>'}${!d.verified_at ? ` · <button type="button" class="adm-btn-sm" data-pd-del="${d.id}">remove</button>` : ''}</p>`).join('');
+      const missing = (pf.outstanding || []);
+      pdocCard = `
+      <div class="info-card" id="cardPdocs" style="margin-bottom:18px;">
+        <h3 style="margin:0 0 6px;">My documents</h3>
+        <p class="muted-sm" style="margin:0 0 12px;">Your file — the agreement, the consents, your plan and the assessments that go with it. You can read anything here at any time, and add a copy of something yourself. Nothing here is shared with workers; the only thing a worker sees is the short brief from your support plan.</p>
+        <div class="ob-head">
+          <b style="font-size:.9rem;">${pf.held} of ${pf.of} on file</b>
+          <div class="ob-bar" role="img" aria-label="${pf.held} of ${pf.of} documents on file"><i style="width:${pf.of ? Math.round(pf.held / pf.of * 100) : 0}%;"></i></div>
+        </div>
+        ${rows || '<p class="muted-sm" style="margin-top:8px;">Nothing on file here yet.</p>'}
+        ${missing.length ? `<details style="margin-top:12px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;">Still to come (${missing.length})</summary>
+          <p class="muted-sm" style="margin-top:8px;">The office holds some of these on paper. If one of them matters to you, ask — they can file the copy here so you can read it whenever you like.</p>
+          ${missing.map(mm => `<p style="margin:4px 0;font-size:.9rem;">${esc(mm.label)}${mm.signed ? ` <span class="muted-sm">— signed by ${esc(mm.signed)}</span>` : ''}</p>`).join('')}
+        </details>` : ''}
+        <details style="margin-top:12px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;">＋ Add a document</summary>
+          <div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+            <label style="font-size:.85rem;">What is it?<br><select id="pdType" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;max-width:320px;">
+              ${pTypes.map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}
+            </select></label>
+            <label style="font-size:.85rem;">Name it (if "Other")<br><input id="pdLabel" maxlength="90" placeholder="e.g. OT seating report" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:210px;"></label>
+            <label style="font-size:.85rem;">Date on it<br><input id="pdDate" type="date" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
+            <label style="font-size:.85rem;">Expires<br><input id="pdExpiry" type="date" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
+            <label style="font-size:.85rem;">File (photo any size, PDF ≤ 4 MB)<br><input id="pdFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.85rem;"></label>
+            <button type="button" class="btn btn-primary btn-sm" id="pdAdd">Add</button>
+          </div>
+          <p class="muted-sm" style="margin-top:8px;">A photo of a signed page is fine — it does not need to be a scan.</p>
+        </details>
+      </div>`;
+    }
+  }
   let workerCards = '';
   if(API.me.role === 'worker'){
     let docs = [], sum = {}, prof = { bio: '', photo: null, visible: 0, days: [1,1,1,1,1,0,0], langs: 'English', exp: 'New to BookIt' };
@@ -5354,13 +5411,13 @@ async function renderBookingsPage(){
   let d;
   try { d = await API.call('/bookings'); } catch(e){ return; }
   if(!d.bookings.length){
-    wrap.innerHTML = cover.top + billingCard + planCard + hiCard + cover.mid + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
+    wrap.innerHTML = cover.top + billingCard + planCard + pdocCard + hiCard + cover.mid + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (API.me.role === 'participant'
       ? 'Find a worker you like, have a chat, then hit "Request a booking" on their profile.'
       : 'When participants request you, their bookings appear here for you to accept or decline.') + '</p></div>';
     revealPendingSection();
     return;
   }
-  wrap.innerHTML = cover.top + billingCard + planCard + hiCard + cover.mid + workerCards + incidentCard + d.bookings.map(b => `
+  wrap.innerHTML = cover.top + billingCard + planCard + pdocCard + hiCard + cover.mid + workerCards + incidentCard + d.bookings.map(b => `
     <div class="bk-card">
       <div class="wc-avatar" style="background:${b.other_color};">${b.other_name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
       <div class="bk-main">
@@ -5986,6 +6043,32 @@ document.addEventListener('click', async e => {
     }catch(err){ toast(err.message); e.target.disabled = false; }
     return;
   }
+  if(e.target && e.target.id === 'pdAdd'){
+    e.target.disabled = true;
+    try{
+      const file = await fileToB64Shrunk($('#pdFile'), 1600, 0.85);
+      if(file && file.mime === 'application/pdf' && file.data.length > 5_400_000){
+        toast('That PDF is over the 4 MB limit — export a smaller copy, or photograph the document instead.');
+        e.target.disabled = false; return;
+      }
+      await API.call('/me/participant-documents', {method:'POST', body:{
+        form_key: $('#pdType').value,
+        label: $('#pdLabel').value.trim(),
+        doc_date: $('#pdDate').value,
+        expiry_date: $('#pdExpiry').value,
+        file
+      }});
+      toast('Added to your file. 👍');
+      renderBookingsPage();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  const pdDel = e.target.closest('[data-pd-del]');
+  if(pdDel){
+    try{ await API.call('/me/participant-documents/' + pdDel.dataset.pdDel + '/delete', {method:'POST'}); toast('Removed.'); renderBookingsPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
   const wdDel = e.target.closest('[data-wd-del]');
   if(wdDel){
     try{ await API.call('/me/documents/' + wdDel.dataset.wdDel + '/delete', {method:'POST'}); toast('Removed.'); renderBookingsPage(); }
@@ -6074,6 +6157,8 @@ async function renderAdminPage(){
   try{ frm = await API.call('/admin/forms'); }catch(e){}
   let pack = null;
   try{ pack = await API.call('/admin/audit-pack'); }catch(e){}
+  let pdx = null;
+  try{ pdx = await API.call('/admin/participant-documents'); }catch(e){}
   const credById = {};
   creds.workers.forEach(w => credById[w.id] = w);
   const c = d.counts;
@@ -6385,6 +6470,70 @@ async function renderAdminPage(){
     <p style="margin:0 0 10px;"><button class="adm-btn-sm" id="admSweep">▶ Run the automatic check now</button>
     <span style="font-size:.85rem;color:#3E5A64;margin-left:8px;">Runs by itself twice a day: warns workers and you at 30 and 7 days before expiry, chases the banning-order re-check before it falls due, and withdraws — then restores — anyone whose 0137 position changes. "Verify" asks how you satisfied yourself and records it; the screening database has no public connection, so that step is a human one either way.</span></p>
     ${credRows ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Worker</th><th>Screening</th><th>Documents</th></tr></thead><tbody>${credRows}</tbody></table></div>` : '<p class="adm-empty">No real workers yet — credentials appear as workers add them.</p>'}`;
+  /* ---------- participant files ----------
+     The other half of the filing cabinet. Worker credentials answer "is this
+     person safe to send out"; this answers "is this person's support properly
+     agreed, consented to and planned" — and until now BookIt held a note about
+     where that answer lived instead of the answer itself. Each person's card
+     leads with what is missing, because a list of what you hold is a list
+     nobody needs to read. */
+  let participantFiles;
+  /* null means the board itself failed to load, which is a different thing
+     from "nothing is missing" and must not be shown as a tick. */
+  const pMissingN = pdx && pdx.participants
+    ? pdx.participants.reduce((a, p) => a + (p.outstanding || []).length, 0) : null;
+  if(!pdx){
+    participantFiles = '<p class="adm-empty">The participant files board couldn\'t be loaded.</p>';
+  } else {
+    const pTypeOpts = (pdx.types || []).map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('');
+    const pMethodOpts = Object.entries(pdx.methods || {}).map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join('');
+    const pCards = (pdx.participants || []).map(p => {
+      const docRows = (p.documents || []).map(d => `<div style="margin:4px 0;font-size:.86rem;">
+        <b>${esc(d.type_label || '')}</b>${d.doc_date ? ' · dated ' + fmtAU(d.doc_date) : ''}${d.expiry_date ? ' · exp ' + fmtAU(d.expiry_date) : ''}
+        ${d.status === 'expired' ? '<span style="color:#D94F32;font-weight:700;"> EXPIRED</span>' : d.status === 'expiring' ? `<span style="color:#8a6d00;"> ${d.days}d left</span>` : ''}
+        ${d.has_file ? ` · <a href="/api/participant-documents/${d.id}/file" target="_blank">file</a>`
+          : ' · <span style="color:#8a6d00;">on paper only — no file here</span>'}
+        ${d.uploaded_by ? ` · <span style="color:#3E5A64;font-size:.78rem;">filed by ${esc(d.uploaded_by)}</span>` : ''}
+        ${d.verified_at ? ` · <span style="color:#1C7C43;">checked ✓ ${esc(d.verified_by || '')}${d.verify_method ? ' · ' + esc((pdx.methods || {})[d.verify_method] || d.verify_method) : ''}</span>`
+          : ` · <button class="adm-btn-sm" data-pdoc-verify="${d.id}">Check it</button>`}
+        · <button class="adm-btn-sm" data-pdoc-del="${d.id}">remove</button></div>`).join('');
+      const pct = p.of ? Math.round(p.held / p.of * 100) : 0;
+      return `<div class="info-card" style="margin-bottom:14px;">
+        <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;">
+          <h3 style="margin:0;">${esc(p.name)}</h3>
+          <span class="adm-badge" ${p.held === p.of ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>${p.held} of ${p.of} on file</span>
+          <span style="flex:1;"></span>
+          <span style="font-size:.8rem;color:#3E5A64;">${esc(p.email || '')}</span>
+        </div>
+        <div class="ob-bar" style="margin:8px 0 10px;" role="img" aria-label="${p.held} of ${p.of} documents on file"><i style="width:${pct}%;"></i></div>
+        ${docRows || '<p class="adm-empty" style="margin:0 0 8px;">Nothing on file for this person yet.</p>'}
+        ${(p.outstanding || []).length ? `<p style="margin:10px 0 0;font-size:.86rem;"><b style="color:#D94F32;">Not on file (${p.outstanding.length}):</b>
+          ${p.outstanding.map(o => esc(o.label)).join(' · ')}</p>
+          <p class="muted-sm" style="margin:4px 0 0;">If you hold one of these on paper, file it below — or add the row without a file, which records that it exists and where, without claiming BookIt has a copy.</p>` : ''}
+        <details style="margin-top:10px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;font-size:.9rem;">＋ File a document for ${esc(p.name)}</summary>
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <label style="font-size:.82rem;">What is it?<br><select class="pa-type" style="font:inherit;font-size:.85rem;padding:6px 9px;border-radius:9px;border:1.5px solid #E7DFD4;max-width:300px;">${pTypeOpts}</select></label>
+            <label style="font-size:.82rem;">Name it (if "Other")<br><input class="pa-label" maxlength="90" style="font:inherit;font-size:.85rem;padding:6px 9px;border-radius:9px;border:1.5px solid #E7DFD4;width:180px;"></label>
+            <label style="font-size:.82rem;">Date on it<br><input class="pa-date" type="date" style="font:inherit;font-size:.85rem;padding:6px 9px;border-radius:9px;border:1.5px solid #E7DFD4;"></label>
+            <label style="font-size:.82rem;">Expires<br><input class="pa-expiry" type="date" style="font:inherit;font-size:.85rem;padding:6px 9px;border-radius:9px;border:1.5px solid #E7DFD4;"></label>
+            <label style="font-size:.82rem;">File <span style="color:#3E5A64;">(optional)</span><br><input class="pa-file" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.8rem;"></label>
+            <label style="font-size:.82rem;">Where it is, if not here<br><input class="pa-note" maxlength="300" placeholder="e.g. signed original in the Illawong folder" style="font:inherit;font-size:.85rem;padding:6px 9px;border-radius:9px;border:1.5px solid #E7DFD4;width:230px;"></label>
+            <button class="btn btn-primary btn-sm pa-add" data-pa-add="${p.id}">File it</button>
+          </div>
+        </details>
+      </div>`;
+    }).join('');
+    participantFiles = `
+      <div class="info-card" style="margin-bottom:14px;">
+        <p style="margin:0 0 8px;">Everything on a participant's own file — the service agreement, the consents, the risk assessment, the copy of their NDIS plan and the assessments that go with them. An auditor asking "show me Bernard's file" is answered from here in one place, and the participant can read their own from their account.</p>
+        <p style="margin:0 0 10px;font-size:.9rem;color:#3E5A64;">A row with no file attached is deliberate and honest: it records that the document exists on paper, dated and attributed, without pretending there is a copy here. The register and the CSV show the difference, so nothing is ever counted as held when it is only known about.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/participant-documents.csv" download>⬇ Participant files register (CSV)</a>
+        </div>
+      </div>
+      ${pCards || '<p class="adm-empty">No participants yet — a file appears here for each person as they join.</p>'}
+      <template id="pdocMethodOpts">${pMethodOpts}</template>`;
+  }
   const incRow = i => `<tr>
     <td>#${i.id}<br><span style="font-size:.78rem;color:#3E5A64;">${fmtStamp(i.created)}</span></td>
     <td>${esc(i.category_label)}${i.reportable ? ' <span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">REPORTABLE</span>' : ''}<br><span style="font-size:.82rem;color:#3E5A64;">${esc((i.description || '').slice(0, 90))}${(i.description || '').length > 90 ? '…' : ''}</span></td>
@@ -6548,6 +6697,9 @@ async function renderAdminPage(){
     + `<h2 class="adm-section">Out-of-scope register ${srOpen.length ? `<span style="color:#D94F32;">(${srOpen.length} open)</span>` : (srRows.length ? `<span style="color:#2E6B4F;">(${srRows.length} closed)</span>` : '')}</h2>` + scopeRegister
     + `<h2 class="adm-section">0137 conditions of registration ${cmp && cmp.blocked ? `<span style="color:#D94F32;">(${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform)</span>` : ''}</h2>` + compliance
     + `<h2 class="adm-section">Credentials — the automatic checker</h2>` + credentials
+    + `<h2 class="adm-section">Participant files ${pMissingN === null ? '' : pMissingN
+        ? `<span style="color:#D94F32;">(${pMissingN} not on file)</span>`
+        : '<span style="color:#2E6B4F;">(complete)</span>'}</h2>` + participantFiles
     + `<h2 class="adm-section">Incident register ${c.urgent_incidents ? `<span style="color:#D94F32;">(${c.urgent_incidents} awaiting Commission notice!)</span>` : ''}</h2>` + incidents
     + `<h2 class="adm-section">Complaints register</h2>` + complaints
     + `<h2 class="adm-section">Support plans ${plans && plans.counts.critical ? `<span style="color:#D94F32;">(${plans.counts.critical} critical)</span>` : ''}</h2>`
@@ -6965,6 +7117,68 @@ document.addEventListener('click', async e => {
       toast('Verified — how you checked it is now on the record. ✓');
       renderAdminPage();
     }catch(err){ toast(err.message); dvg.disabled = false; }
+    return;
+  }
+  /* ---- participant files: file on behalf, check, remove ---- */
+  const paAdd = e.target.closest('[data-pa-add]');
+  if(paAdd){
+    const box = paAdd.closest('details');
+    paAdd.disabled = true;
+    try{
+      const file = await fileToB64Shrunk(box.querySelector('.pa-file'), 1600, 0.85);
+      if(file && file.mime === 'application/pdf' && file.data.length > 5_400_000){
+        toast('That PDF is over the 4 MB limit — export a smaller copy, or photograph the document instead.');
+        paAdd.disabled = false; return;
+      }
+      await API.call('/admin/participants/' + paAdd.dataset.paAdd + '/documents', {method:'POST', body:{
+        form_key: box.querySelector('.pa-type').value,
+        label: box.querySelector('.pa-label').value.trim(),
+        doc_date: box.querySelector('.pa-date').value,
+        expiry_date: box.querySelector('.pa-expiry').value,
+        note: box.querySelector('.pa-note').value.trim(),
+        file
+      }});
+      toast(file ? 'Filed — the copy is on their file. 📁' : 'Recorded — noted as held on paper, no copy attached.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); paAdd.disabled = false; }
+    return;
+  }
+  const pdv = e.target.closest('[data-pdoc-verify]');
+  if(pdv){
+    if(pdv.dataset.open) return;
+    pdv.dataset.open = '1';
+    const tpl = $('#pdocMethodOpts');
+    const bx = document.createElement('div');
+    bx.className = 'vr-box';
+    bx.innerHTML = `
+      <label><b>How did you satisfy yourself this is genuine?</b><br>
+        <select class="vr-method">${tpl ? tpl.innerHTML : '<option value="signed-copy">Signed copy on file</option>'}</select></label>
+      <label>Note <span style="color:#3E5A64;">(optional)</span><br>
+        <input class="vr-note" placeholder="e.g. signed original sighted 12/08/2026, filed in the Illawong folder" maxlength="300"></label>
+      <button class="btn btn-primary btn-sm" data-pdoc-verify-go="${pdv.dataset.pdocVerify}" style="margin-top:4px;">Record the check</button>
+      <button class="adm-btn-sm vr-cancel" style="margin-left:6px;">Cancel</button>`;
+    pdv.parentNode.insertBefore(bx, pdv.nextSibling);
+    bx.querySelector('.vr-note').focus();
+    return;
+  }
+  const pdvg = e.target.closest('[data-pdoc-verify-go]');
+  if(pdvg){
+    const bx = pdvg.closest('.vr-box');
+    pdvg.disabled = true;
+    try{
+      await API.call('/admin/participant-documents/' + pdvg.dataset.pdocVerifyGo + '/verify', {method:'POST', body:{
+        method: bx.querySelector('.vr-method').value,
+        note: bx.querySelector('.vr-note').value.trim()
+      }});
+      toast('Checked — it is on the evidence log with how you checked it. ✓');
+      renderAdminPage();
+    }catch(err){ toast(err.message); pdvg.disabled = false; }
+    return;
+  }
+  const pdd = e.target.closest('[data-pdoc-del]');
+  if(pdd){
+    try{ await API.call('/admin/participant-documents/' + pdd.dataset.pdocDel + '/delete', {method:'POST'}); toast('Removed from their file.'); renderAdminPage(); }
+    catch(err){ toast(err.message); }
     return;
   }
   const dd2 = e.target.closest('[data-doc-del]');
@@ -7534,6 +7748,43 @@ function auditPackHtml(d){
   </div>`;
 }
 
+/* "I have it, it just isn't in Drive."
+
+   Every form below the live line was a gap the system had no way to close,
+   because closing it meant a person saying so and nothing was listening. This
+   is the listening part. It records two different things on purpose: what the
+   document covers, and when someone said they had it. Those are never the same
+   claim, and showing them side by side is what makes a late filing read as a
+   late filing rather than as a tidy row. */
+function formRecordHtml(f){
+  const r = f.record;
+  if(r && r.held){
+    const covers = (r.covers_from || r.covers_to)
+      ? `covering ${r.covers_from ? fmtAU(r.covers_from) : 'unstated'} to ${r.covers_to ? fmtAU(r.covers_to) : 'unstated'}` : '';
+    return `<p class="fr-rec"><b>Held.</b> ${esc(covers)}${covers ? ' · ' : ''}recorded ${fmtAU(String(r.recorded_at).slice(0,10))} by ${esc(r.recorded_by || 'an admin')}${r.location ? ` · kept at ${esc(r.location)}` : ''}${r.note ? `<br><span class="muted-sm">${esc(r.note)}</span>` : ''}
+      <button class="adm-btn-sm" data-fr-edit="${esc(f.key)}">Change</button>
+      <button class="adm-btn-sm" data-fr-undo="${esc(f.key)}">Withdraw</button></p>
+      ${formRecordFormHtml(f, true)}`;
+  }
+  return `<p class="fr-rec open"><button class="adm-btn-sm" data-fr-edit="${esc(f.key)}">I have this one</button></p>
+    ${formRecordFormHtml(f, false)}`;
+}
+
+function formRecordFormHtml(f, held){
+  const r = f.record || {};
+  return `<div class="fr-form" id="frf-${esc(f.key)}" hidden>
+    <p class="muted-sm" style="margin:0 0 8px;">Two different dates, and they are not interchangeable. The period is what the <i>document</i> says. The recorded date is today, taken from the server — there is no way to set it, so this can never claim you filed something earlier than you did.</p>
+    <label>Period the records cover — from<input type="date" data-frf="covers_from" value="${esc(r.covers_from || '')}"></label>
+    <label>to<input type="date" data-frf="covers_to" value="${esc(r.covers_to || '')}"></label>
+    <label>Where it is kept<input type="text" data-frf="location" maxlength="200" placeholder="Filing cabinet, Drive folder, participant's home file…" value="${esc(r.location || '')}"></label>
+    <label>Anything worth saying about it<textarea data-frf="note" maxlength="600" rows="2" placeholder="e.g. paper originals held at the participant's home, photographed and filed 29/07/2026">${esc(r.note || '')}</textarea></label>
+    <div class="fr-form-actions">
+      <button class="btn btn-primary adm-btn-sm" data-fr-save="${esc(f.key)}">Record it</button>
+      <button class="adm-btn-sm" data-fr-cancel="${esc(f.key)}">Cancel</button>
+    </div>
+  </div>`;
+}
+
 function formsBoardHtml(d){
   const c = d.counts;
   const tiles = `<div class="adm-tiles">
@@ -7542,6 +7793,7 @@ function formsBoardHtml(d){
     <div class="adm-tile"><b class="adm-live">${c.live}</b><span>BookIt watches these</span></div>
     <div class="adm-tile"><b style="color:#8a6d00;">${c.drive}</b><span>In Drive — nothing watches them</span></div>
     <div class="adm-tile"><b style="${c.missing ? 'color:#D94F32;' : ''}">${c.missing}</b><span>Don't exist yet</span></div>
+    <div class="adm-tile"><b style="${c.recorded ? 'color:#1C7C43;' : ''}">${c.recorded}</b><span>Recorded as held</span></div>
     <div class="adm-tile"><b style="${c.gaps ? 'color:#D94F32;' : ''}">${c.gaps}</b><span>Live gaps right now</span></div>
   </div>`;
   const filter = `<div class="fr-filter" id="frFilter">
@@ -7550,6 +7802,7 @@ function formsBoardHtml(d){
     <button data-fr="drive" aria-pressed="false">Nothing watching it (${c.drive})</button>
     <button data-fr="live" aria-pressed="false">BookIt tracks it (${c.live})</button>
     <button data-fr="gaps" aria-pressed="false">Has a gap now (${d.forms.filter(f => f.state && f.state.gaps.length).length})</button>
+    <button data-fr="unrecorded" aria-pressed="false">Nobody has said we hold it (${c.unrecorded})</button>
   </div>`;
   const trackLabel = { live: 'BookIt tracks it', drive: 'File in Drive', missing: 'Not built yet' };
   const secs = d.scopes.map(sc => {
@@ -7560,10 +7813,11 @@ function formsBoardHtml(d){
     return `<h3 class="fr-sec">${esc(sc.label)}${per} <span class="muted-sm">(${list.length})</span></h3>
     <div class="adm-table-wrap"><table class="adm-table">
       <thead><tr><th>Form</th><th>Tracked</th><th>How often</th><th>Who signs</th><th>Template</th><th>What requires it</th></tr></thead><tbody>
-      ${list.map(f => `<tr data-fr-row data-fr-track="${f.track}" data-fr-gap="${f.state && f.state.gaps.length ? 1 : 0}">
+      ${list.map(f => `<tr data-fr-row data-fr-track="${f.track}" data-fr-gap="${f.state && f.state.gaps.length ? 1 : 0}" data-fr-rec="${f.record && f.record.held ? 1 : 0}">
         <td><b>${esc(f.name)}</b>${f.note ? `<br><span class="muted-sm">${esc(f.note)}</span>` : ''}
           ${f.state ? `<br><span class="muted-sm">${f.state.ok}/${f.state.of} ${esc(f.state.unit)} ✓${f.state.expired ? ` · <b style="color:#D94F32;">${f.state.expired} expired</b>` : ''}</span>` : ''}
-          ${f.state && f.state.gaps.length ? `<p class="fr-gaps">Missing: ${esc(f.state.gaps.slice(0, 8).join(', '))}${f.state.gaps.length > 8 ? ` +${f.state.gaps.length - 8} more` : ''}</p>` : ''}</td>
+          ${f.state && f.state.gaps.length ? `<p class="fr-gaps">Missing: ${esc(f.state.gaps.slice(0, 8).join(', '))}${f.state.gaps.length > 8 ? ` +${f.state.gaps.length - 8} more` : ''}</p>` : ''}
+          ${f.track === 'live' ? '' : formRecordHtml(f)}</td>
         <td><span class="fr-track ${f.track}">${esc(trackLabel[f.track] || f.track)}</span></td>
         <td>${esc(f.cadence)}</td>
         <td>${esc(f.signed)}</td>
@@ -7582,6 +7836,7 @@ document.addEventListener('click', e => {
     $$('[data-fr-row]').forEach(r => {
       r.hidden = want === 'all' ? false
         : want === 'gaps' ? r.dataset.frGap !== '1'
+        : want === 'unrecorded' ? (r.dataset.frTrack === 'live' || r.dataset.frRec === '1')
         : r.dataset.frTrack !== want;
     });
     /* a section whose every row is filtered out should go too, otherwise the
@@ -7591,6 +7846,30 @@ document.addEventListener('click', e => {
       const any = tbl && tbl.querySelectorAll('[data-fr-row]:not([hidden])').length;
       h.hidden = !any; if(tbl) tbl.hidden = !any;
     });
+    return;
+  }
+  const fe = e.target.closest('[data-fr-edit]');
+  if(fe){ const box = $(`#frf-${fe.dataset.frEdit}`); if(box) box.hidden = !box.hidden; return; }
+  const fc = e.target.closest('[data-fr-cancel]');
+  if(fc){ const box = $(`#frf-${fc.dataset.frCancel}`); if(box) box.hidden = true; return; }
+  const fu = e.target.closest('[data-fr-undo]');
+  if(fu){
+    fu.disabled = true;
+    API.call(`/admin/forms/record/${fu.dataset.frUndo}`, { method: 'DELETE' })
+      .then(() => { toast('Withdrawn.'); renderAdminPage(); })
+      .catch(err => { fu.disabled = false; toast(err.message); });
+    return;
+  }
+  const fs = e.target.closest('[data-fr-save]');
+  if(fs){
+    const key = fs.dataset.frSave, box = $(`#frf-${key}`);
+    const val = n => { const el = box.querySelector(`[data-frf="${n}"]`); return el ? el.value.trim() : ''; };
+    fs.disabled = true; fs.textContent = 'Recording…';
+    API.call('/admin/forms/record', { method: 'POST', body: {
+      key, held: true, covers_from: val('covers_from'), covers_to: val('covers_to'),
+      location: val('location'), note: val('note') } })
+      .then(() => { toast('Recorded — it is in the audit pack from now on.'); renderAdminPage(); })
+      .catch(err => { fs.disabled = false; fs.textContent = 'Record it'; toast(err.message); });
     return;
   }
   const cp = e.target.closest('[data-cp-part]');
