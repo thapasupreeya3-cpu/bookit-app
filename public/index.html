@@ -1355,6 +1355,59 @@ html.js-fx .service-card:hover,html.js-fx .worker-card:hover{
 html[data-motion="reduce"] .rv,html[data-motion="reduce"] .rv.rv-in{opacity:1!important;transform:none!important;}
 @media (prefers-reduced-motion:reduce){.rv,.rv.rv-in{opacity:1!important;transform:none!important;}}
 @media print{.rv,.rv.rv-in{opacity:1!important;transform:none!important;transition:none!important;}body::after{display:none;}}
+
+/* ---------- settings hub (#/account) ---------- */
+.set-layout{display:grid;grid-template-columns:246px minmax(0,1fr);gap:38px;align-items:start;}
+.set-nav{
+  position:sticky;top:96px;background:rgba(255,255,255,.72);border:1px solid var(--line);
+  border-radius:18px;padding:14px 10px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:thin;
+}
+.set-nav .sn-head{font-size:.72rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft);margin:2px 8px 8px;}
+.set-nav ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px;}
+.sn-link{
+  display:block;width:100%;text-align:left;background:none;border:none;cursor:pointer;
+  font:inherit;font-size:.9rem;font-weight:600;color:var(--ink-soft);
+  padding:7px 10px 7px 26px;border-radius:10px;position:relative;transition:background .15s ease,color .15s ease;
+}
+.sn-link:hover{background:var(--teal-tint);color:var(--teal-deep);}
+.sn-link:focus-visible{outline:3px solid var(--amber);outline-offset:-2px;}
+.sn-link.on{background:var(--teal-tint);color:var(--teal-deep);font-weight:700;}
+.sn-link.on::before{
+  content:"";position:absolute;left:8px;top:50%;margin-top:-3.5px;width:14px;height:7px;border-radius:99px;
+  background:
+    radial-gradient(circle at 27% 50%, var(--teal) 0 44%, transparent 48%),
+    radial-gradient(circle at 73% 50%, var(--amber) 0 44%, transparent 48%);
+}
+.set-sec{scroll-margin-top:112px;}
+.set-sec + .set-sec{margin-top:6px;}
+.set-note{margin:0 0 12px;padding:10px 14px;background:var(--teal-tint);border:1px solid rgba(14,107,98,.2);border-radius:12px;color:var(--teal-deep)!important;font-weight:600;}
+.set-tile{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;text-decoration:none;color:var(--ink);
+  border:1.5px solid var(--line);border-radius:14px;padding:12px 16px;margin-top:10px;background:rgba(255,255,255,.6);
+  transition:border-color .2s ease, transform .2s var(--ease-out), box-shadow .2s ease;
+}
+.set-tile:hover{border-color:rgba(14,107,98,.45);transform:translateY(-1px);box-shadow:var(--shadow);}
+.set-tile:focus-visible{outline:3px solid var(--amber);outline-offset:2px;}
+.set-tile .st-txt b{display:block;font-size:.95rem;}
+.set-tile .st-txt small{color:var(--ink-soft);font-size:.83rem;line-height:1.4;display:block;}
+.set-tile .st-go{color:var(--teal);font-weight:800;font-size:1.05rem;transition:transform .2s var(--ease-spring);}
+.set-tile:hover .st-go{transform:translateX(4px);}
+@media (max-width:900px){
+  .set-layout{display:block;}
+  .set-nav{
+    position:sticky;top:58px;z-index:40;max-height:none;overflow-x:auto;overflow-y:hidden;
+    border-radius:0;border:none;border-bottom:1.5px solid var(--line);background:var(--cream);
+    padding:8px 12px;margin:0 -24px 20px;
+  }
+  .set-nav .sn-head{display:none;}
+  .set-nav ul{flex-direction:row;gap:6px;width:max-content;padding-right:18px;}
+  .sn-link{white-space:nowrap;border:1.5px solid var(--line);border-radius:999px;padding:6px 13px;font-size:.85rem;background:#fff;}
+  .sn-link.on{border-color:var(--teal);}
+  .sn-link.on::before{display:none;}
+  .set-sec{scroll-margin-top:118px;}
+}
+html.high-contrast .set-nav,html.high-contrast .set-tile{background:#fff;border-color:#000;}
+html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!important;}
 </style>
 </head>
 <body>
@@ -3499,7 +3552,7 @@ html[data-motion="reduce"] .rv,html[data-motion="reduce"] .rv.rv-in{opacity:1!im
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Account settings</nav>
       <h1>Account settings</h1>
-      <p class="lead">Which emails reach you, a copy of everything we hold about you, your password, and — for workers — whether your profile is showing and exactly why if it isn't.</p>
+      <p class="lead">Everything about your account, in one list — your details, your plan, the money, your documents, who has access, and how you sign in. If it's a setting, it's here, and it works without a phone call.</p>
     </div>
   </div>
   <section class="block">
@@ -11560,10 +11613,14 @@ async function renderAccountPage(){
     wrap.innerHTML = '<div class="info-card"><p><b>Log in first</b> — these are your settings.</p></div>';
     return;
   }
-  let nots = null, prof = null;
+  let nots = null, prof = null, sp = null, pd = null;
   try{ nots = await API.call('/me/notifications', {noFor:true}); }catch(e){}
   if(API.me.role === 'worker'){
     try{ prof = (await API.call('/me/profile', {noFor:true})).profile; }catch(e){}
+  }
+  if(API.me.role === 'participant' && !API.actingFor){
+    try{ sp = await API.call('/me/support-plan'); }catch(e){}
+    try{ pd = await API.call('/me/participant-documents'); }catch(e){}
   }
 
   /* --- notifications: built from the server's own kinds, locked ones shown
@@ -11642,8 +11699,120 @@ async function renderAccountPage(){
     </div>`;
   }
 
-  wrap.innerHTML = notCard + visCard + payCard + pwCard + dataCard;
+  /* ---- Build 19: the settings hub — every setting, one complete list.
+     The sidebar is the point: nothing about your account should need
+     hunting. Sections either edit in place or link to the purpose-built
+     page, and every existing card keeps its id so nothing else moves. */
+  const me = API.me;
+  const inputCss = 'font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;';
+
+  const detailsCard = `
+  <div class="info-card" style="margin-bottom:18px;" id="cardDetails">
+    <h3 style="margin:0 0 6px;">Your details</h3>
+    <p class="muted-sm" style="margin:0 0 10px;">${me.role === 'worker' ? 'Your name is on your public profile, so change it here and it changes there. ' : ''}We only ask for what the service needs — no date of birth, no gender question, nothing extra.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <label style="font-size:.85rem;">Name<br><input id="detName" maxlength="80" value="${esc(me.name || '')}" autocomplete="name" style="${inputCss}width:200px;"></label>
+      <label style="font-size:.85rem;">Mobile<br><input id="detPhone" maxlength="25" value="${esc(me.phone || '')}" autocomplete="tel" placeholder="04xx xxx xxx" style="${inputCss}width:150px;"></label>
+      <label style="font-size:.85rem;">Suburb<br><input id="detSuburb" maxlength="80" value="${esc(me.suburb || '')}" autocomplete="address-level2" style="${inputCss}width:170px;"></label>
+      <button type="button" class="btn btn-primary btn-sm" id="detGo">Save</button>
+    </div>
+    <p id="detErr" class="muted-sm" style="color:#A5301A;margin:8px 0 0;" hidden></p>
+    <p class="muted-sm" style="margin:10px 0 0;">Signed in as <b>${esc(me.email)}</b>. Your email is your sign-in identity and where safety notices go, so changing it is a verified step — <a href="#/contact">contact us</a> and we'll do it properly.</p>
+  </div>`;
+
+  const a11yCard = `
+  <div class="info-card" style="margin-bottom:18px;" id="cardA11y">
+    <h3 style="margin:0 0 6px;">Accessibility</h3>
+    <p class="muted-sm" style="margin:0 0 10px;">Bigger text, an easier-to-read font, less motion and high contrast — all in the panel at the very top of every page. Your choices stay on this device, so set them once per phone or computer.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-secondary btn-sm" id="a11yFromSettings">Open accessibility options</button>
+      <a class="btn btn-secondary btn-sm" href="#/easy-read">This website in Easy Read</a>
+    </div>
+  </div>`;
+
+  const tile = (hash, sec, label, desc) => `
+    <a class="set-tile" href="${hash}"${sec ? ` data-acct="go" data-hash="${hash}" data-sec="${sec}"` : ''}>
+      <span class="st-txt"><b>${label}</b><small>${desc}</small></span><span class="st-go" aria-hidden="true">→</span>
+    </a>`;
+  const note = t => `<p class="set-note muted-sm">${t}</p>`;
+
+  const S = [];
+  S.push(['set-details', 'Your details', detailsCard]);
+
+  if(me.role === 'participant' && !API.actingFor){
+    const pl = sp && sp.plan, done = sp && sp.history && sp.history.length;
+    const planLine = !sp ? 'Everything a new worker reads before their first shift with you.'
+      : done ? `Confirmed ${fmtAU(String(sp.history[0].confirmed_at).slice(0,10))}${pl && pl.review_due ? ` · next review ${fmtAU(pl.review_due)}` : ''}.`
+      : 'Started but not confirmed yet — it takes a few minutes.';
+    const six = pl ? [['use_employ','Employment'],['use_personal','Personal care'],['use_transport','Transport'],['use_daily','Daily tasks'],['use_household','Household'],['use_community','Community']].filter(([k]) => pl[k]) : [];
+    const ecLine = pl && pl.ec_name ? `${esc(pl.ec_name)}${pl.ec_relationship ? ' · ' + esc(pl.ec_relationship) : ''}${pl.ec_phone ? ' · ' + esc(pl.ec_phone) : ''}` : 'Not recorded yet — it lives in your support plan, where workers can find it when it matters.';
+    S.push(['set-emergency', 'Emergency contact', `<div class="info-card" style="margin-bottom:18px;" id="cardEmergency"><h3 style="margin:0 0 6px;">Emergency contact</h3><p class="muted-sm" style="margin:0 0 10px;">${ecLine}</p>${tile('#/support-plan', '', done || pl ? 'Update it in your support plan' : 'Add it in your support plan', 'The one field everyone forgets until the night they need it.')}</div>`]);
+    S.push(['set-plan', 'Support plan & about you', `<div class="info-card" style="margin-bottom:18px;" id="cardPlanLink"><h3 style="margin:0 0 6px;">Support plan & about you</h3><p class="muted-sm" style="margin:0 0 10px;">${planLine}</p>${tile('#/support-plan', '', 'Open your support plan', 'Your goals, how you communicate, health notes, home safety and what a great match looks like.')}</div>`]);
+    S.push(['set-supports', 'Your supports', `<div class="info-card" style="margin-bottom:18px;" id="cardSupports"><h3 style="margin:0 0 6px;">Your supports</h3>${six.length ? `<p class="muted-sm" style="margin:0 0 8px;">From your support plan:</p><p style="margin:0 0 10px;">${six.map(([,l]) => `<span class="wc-tag" style="margin:0 5px 5px 0;display:inline-block;">${l}</span>`).join('')}</p>` : '<p class="muted-sm" style="margin:0 0 10px;">The six kinds of support we’re registered for — tell us which ones are yours in your support plan.</p>'}${tile('#/support-plan', '', 'Choose or change your supports', 'The six registration groups, in your plan.')}${tile('#/specialist-supports', '', 'Specialised & high-intensity supports', 'What we can safely take on, what we check first, and what happens if you need something we don’t hold.')}</div>`]);
+    S.push(['set-billing', 'Billing & NDIS details', payCard + tile('#/bookings', 'cardBilling', 'Billing on your bookings page', 'The same details beside your bookings, statements and claims.')]);
+    S.push(['set-statements', 'Invoices & statements', `<div class="info-card" style="margin-bottom:18px;" id="cardStatements"><h3 style="margin:0 0 6px;">Invoices & statements</h3><p class="muted-sm" style="margin:0 0 10px;">Every shift, its rate and where the claim is up to — readable any time, not buried in emails.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views, downloads, and plan-review-ready summaries.')}</div>`]);
+    S.push(['set-docs', 'My documents', `<div class="info-card" style="margin-bottom:18px;" id="cardDocsLink"><h3 style="margin:0 0 6px;">My documents</h3><p class="muted-sm" style="margin:0 0 10px;">${pd && pd.held != null ? `<b>${pd.held} of ${pd.of} on file.</b> ` : ''}Your agreement, consents, plan and assessments. Nothing here is shared with workers — they only ever see the short brief from your support plan.</p>${tile('#/bookings', 'cardPdocs', 'Open my documents', 'Read anything on your file, add a photo or a copy yourself.')}</div>`]);
+    S.push(['set-access', 'People with access', `<div class="info-card" style="margin-bottom:18px;" id="cardAccessLink"><h3 style="margin:0 0 6px;">People with access</h3><p class="muted-sm" style="margin:0 0 10px;">Family, a nominee or a coordinator can help run things — with only the access you choose, a revoke button that works instantly, and a log of everything done on your behalf.</p>${tile('#/access', '', 'Manage people with access', 'Invite, limit, or remove — no phone call needed.')}</div>`]);
+  }
+
+  if(me.role === 'coordinator'){
+    S.push(['set-clients', 'My clients', `<div class="info-card" style="margin-bottom:18px;" id="cardClientsLink"><h3 style="margin:0 0 6px;">My clients</h3><p class="muted-sm" style="margin:0 0 10px;">Everyone you support, their next shifts and anything waiting on you.</p>${tile('#/clients', '', 'Open my clients', 'Act for a client from their card.')}</div>`]);
+    S.push(['set-statements', 'Invoices & statements', `<div class="info-card" style="margin-bottom:18px;" id="cardStatements"><h3 style="margin:0 0 6px;">Invoices & statements</h3><p class="muted-sm" style="margin:0 0 10px;">Statements for the people you support, ready for plan reviews.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views and downloads.')}</div>`]);
+  }
+
+  if(me.role === 'worker'){
+    S.push(['set-profile', 'Profile & photo', `<div class="info-card" style="margin-bottom:18px;" id="cardProfileLink"><h3 style="margin:0 0 6px;">Profile & photo</h3><p class="muted-sm" style="margin:0 0 10px;">Your bio, photo, services, days and interests — what participants see when they find you.</p>${tile('#/bookings', 'cardProfile', 'Edit my profile & photo', 'Everything on your public card.')}${tile('#/worker/' + me.id, '', 'See my public profile', 'Exactly as participants see it.')}</div>`]);
+    S.push(['set-visibility', 'Profile visibility', visCard]);
+    S.push(['set-creds', 'Credentials & checks', `<div class="info-card" style="margin-bottom:18px;" id="cardCredsLink"><h3 style="margin:0 0 6px;">Credentials & checks</h3><p class="muted-sm" style="margin:0 0 10px;">Your screening, training and documents, with expiry dates named — reminders start 60 days out, and nothing lapses silently.</p>${tile('#/bookings', 'cardCreds', 'Open credentials & checks', 'What’s current, what’s due, whose turn it is.')}</div>`]);
+    S.push(['set-earnings', 'Earnings & pay tier', `<div class="info-card" style="margin-bottom:18px;" id="cardEarningsLink"><h3 style="margin:0 0 6px;">Earnings & pay tier</h3><p class="muted-sm" style="margin:0 0 10px;">This period, last period, and your ladder — with the exact hours to your next rate, because a pay rise you can see coming is worth more than one that arrives silently.</p>${tile('#/earnings', '', 'Open my earnings', 'Pay lines, super, and hours to the next tier.')}</div>`]);
+    S.push(['set-training', 'Training', `<div class="info-card" style="margin-bottom:18px;" id="cardTrainingLink"><h3 style="margin:0 0 6px;">Training</h3><p class="muted-sm" style="margin:0 0 10px;">What’s required, what’s done, and what unlocks the supports you want to offer.</p>${tile('#/training', '', 'Open my training', 'Modules, sign-offs and certificates.')}</div>`]);
+  }
+
+  S.push(['set-notifs', 'Emails & notifications', notCard || `<div class="info-card" style="margin-bottom:18px;"><p class="muted-sm">Couldn’t load your email settings just now — refresh to try again.</p></div>`]);
+  S.push(['set-a11y', 'Accessibility', a11yCard]);
+  S.push(['set-privacy', 'Privacy & your data', note('Nothing about ' + (me.role === 'worker' ? 'you is public except the profile you choose to show.' : 'you is public — participants don’t have public profiles, full stop.')) + dataCard + `<div class="info-card" style="margin-bottom:18px;" id="cardPrivacyLinks">${tile('#/legal', '', 'Privacy policy & terms', 'What we hold, why, and the promises we’ve made in writing.')}</div>`]);
+  S.push(['set-password', 'Password', pwCard]);
+  S.push(['set-security', 'Sign-in & security', `<div class="info-card" style="margin-bottom:18px;" id="cardSecurityLink"><h3 style="margin:0 0 6px;">Sign-in & security</h3><p class="muted-sm" style="margin:0 0 10px;">Two-step sign-in, every device you’re signed in on with a working sign-out button, and alerts you can’t switch off — because you’d want to know.</p>${tile('#/security', '', 'Open sign-in & security', 'MFA, sessions and recovery codes.')}</div>`]);
+  if(me.admin) S.push(['set-admin', 'Admin', `<div class="info-card" style="margin-bottom:18px;" id="cardAdminLink">${tile('#/admin', '', 'Admin dashboard', 'The office view — boards, registers and the audit pack.')}</div>`]);
+  S.push(['set-help', 'Help & contact', `<div class="info-card" style="margin-bottom:18px;" id="cardHelpLink"><h3 style="margin:0 0 6px;">Help & contact</h3><p class="muted-sm" style="margin:0 0 10px;">A real person on 0488 114 368, hello@bookit.life, or the form — and if something’s gone wrong, tell us plainly and we’ll say plainly what happens next.</p>${tile('#/contact', '', 'Contact us', 'Phone, email, National Relay Service and interpreters.')}${tile('#/faq', '', 'FAQ & help', 'Answers to the common questions.')}</div>`]);
+
+  wrap.innerHTML = `
+  <div class="set-layout">
+    <nav class="set-nav" aria-label="All settings">
+      <p class="sn-head">All settings</p>
+      <ul>${S.map(([id, label]) => `<li><button type="button" class="sn-link" data-set="${id}">${label}</button></li>`).join('')}</ul>
+    </nav>
+    <div class="set-body">
+      ${S.map(([id, label, body]) => `<section class="set-sec" id="${id}" aria-label="${esc(label)}">${body}</section>`).join('')}
+    </div>
+  </div>`;
 }
+
+/* settings hub: sidebar scrollspy — one listener, guarded by page */
+addEventListener('scroll', () => {
+  if(window.__setSpyTick || !location.hash.startsWith('#/account')) return;
+  window.__setSpyTick = true;
+  requestAnimationFrame(() => {
+    window.__setSpyTick = false;
+    const links = document.querySelectorAll('#page-account .sn-link');
+    if(!links.length) return;
+    let best = null, bestTop = -1e9;
+    document.querySelectorAll('#page-account .set-sec').forEach(el => {
+      const t = el.getBoundingClientRect().top - 130;
+      if(t <= 0 && t > bestTop){ bestTop = t; best = el.id; }
+    });
+    if(!best && document.querySelectorAll('#page-account .set-sec').length) best = document.querySelectorAll('#page-account .set-sec')[0].id;
+    links.forEach(l => l.classList.toggle('on', l.dataset.set === best));
+    const nav = document.querySelector('#page-account .set-nav');
+    const onEl = document.querySelector('#page-account .sn-link.on');
+    if(nav && onEl && nav.scrollWidth > nav.clientWidth + 4){
+      const ar = onEl.getBoundingClientRect(), nr = nav.getBoundingClientRect();
+      if(ar.left < nr.left + 10 || ar.right > nr.right - 10){
+        nav.scrollLeft += (ar.left - nr.left) - nav.clientWidth / 2 + ar.width / 2;
+      }
+    }
+  });
+}, {passive:true});
 document.addEventListener('change', async e => {
   const k = e.target.closest('[data-not-kind]');
   if(!k) return;
@@ -11654,6 +11823,29 @@ document.addEventListener('change', async e => {
 });
 document.addEventListener('click', async e => {
   const id = e.target.id;
+  const sn = e.target.closest('[data-set]');
+  if(sn){
+    const el = document.getElementById(sn.dataset.set);
+    if(el){ el.scrollIntoView({block:'start'}); }
+    return;
+  }
+  if(id === 'a11yFromSettings'){
+    scrollTo({top:0, left:0});
+    const b = $('#a11yOpen');
+    if(b && b.getAttribute('aria-expanded') !== 'true') b.click();
+    return;
+  }
+  if(id === 'detGo'){
+    const errEl = $('#detErr');
+    try{
+      const r = await API.call('/me/details', {method:'POST', noFor:true, body:{ name: $('#detName').value, phone: $('#detPhone').value, suburb: $('#detSuburb').value }});
+      if(errEl) errEl.hidden = true;
+      API.me.name = r.name; API.me.phone = r.phone; API.me.suburb = r.suburb;
+      updateAuthUI();
+      toast(r.note || 'Saved.');
+    }catch(err){ if(errEl){ errEl.textContent = err.message; errEl.hidden = false; } else toast(err.message); }
+    return;
+  }
   if(id === 'pwGo'){
     const errEl = $('#pwErr');
     try{

@@ -11752,6 +11752,28 @@ setInterval(() => { try { trainingSweep(); } catch (e) { console.error('training
    password-reset email cannot be switched off, and saying so next to a
    greyed-out switch is more honest than leaving a gap where somebody assumes
    they have turned everything off and then gets an email. */
+/* ---------- Build 19: personal details, self-service ----------
+
+   Hireup makes a payment-method change a phone call and a five-day wait;
+   the settings hub's promise is that everything on it is a button. Name,
+   mobile and suburb are the participant's own facts to correct. Email is
+   deliberately NOT here: it is the sign-in identity and the address every
+   safeguarding notice goes to, so changing it belongs to a verified flow,
+   not a text field. */
+route('POST', /^\/api\/me\/details$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = body || {};
+  const name = String(b.name ?? user.name ?? '').trim();
+  const phone = String(b.phone ?? user.phone ?? '').trim();
+  const suburb = String(b.suburb ?? user.suburb ?? '').trim();
+  if (name.length < 2 || name.length > 80) return json(res, 400, { error: 'Your name needs to be 2\u201380 characters.' });
+  if (phone.length > 25) return json(res, 400, { error: 'That mobile number looks too long.' });
+  if (phone && !/^[0-9+ ()-]+$/.test(phone)) return json(res, 400, { error: 'Mobile numbers can only hold digits, spaces and + ( ) -.' });
+  if (suburb.length > 80) return json(res, 400, { error: 'That suburb looks too long.' });
+  db.prepare('UPDATE users SET name = ?, phone = ?, suburb = ? WHERE id = ?').run(name, phone, suburb, user.id);
+  json(res, 200, { ok: true, name, phone, suburb, note: 'Saved.' });
+});
+
 route('GET', /^\/api\/me\/notifications$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const on = mailPrefs(user.id);
