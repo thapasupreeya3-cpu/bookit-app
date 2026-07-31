@@ -1367,6 +1367,10 @@ html[data-motion="reduce"] .rv,html[data-motion="reduce"] .rv.rv-in{opacity:1!im
 @media print{.rv,.rv.rv-in{opacity:1!important;transform:none!important;transition:none!important;}body::after{display:none;}}
 
 /* ---------- settings pages (#/account + #/account/<section>) ---------- */
+.page-hero-slim{padding:16px 0 14px;}
+.page-hero-slim::before,.page-hero-slim::after{display:none;}
+.page-hero-slim h1{font-size:1.35rem;font-family:var(--font-head);font-weight:800;letter-spacing:-.01em;}
+#page-account section.block{padding:34px 0 64px;}
 .set-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:38px;align-items:start;}
 .set-nav{
   position:sticky;top:96px;background:rgba(255,255,255,.72);border:1px solid var(--line);
@@ -3557,11 +3561,9 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
 
 <!-- ================= ACCOUNT SETTINGS ================= -->
 <section class="page" id="page-account" data-title="Settings — BookIt">
-  <div class="page-hero">
+  <div class="page-hero page-hero-slim">
     <div class="container">
-      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Settings</nav>
       <h1>Settings</h1>
-      <p class="lead">Everything about your account, in one list — your details, your plan, the money, your documents, who has access, and how you sign in. If it's a setting, it's here, and it works without a phone call.</p>
     </div>
   </div>
   <section class="block">
@@ -6196,6 +6198,7 @@ const ROUTES = {
     : `We're registered for 0107 and for all eight <b>high intensity daily personal activities</b> (0104).`}`;
 })();
 
+let ROUTE_LAST = null;
 function route(){
   let path = location.hash.replace(/^#/, '');
   const qi = path.indexOf('?');
@@ -6205,9 +6208,10 @@ function route(){
   const acctMatch = /^\/account\/[a-z-]+$/.exec(path);
   if(!ROUTES[path] && !workerMatch && !jobMatch && !acctMatch) path = '/';
   const id = workerMatch ? 'page-worker' : jobMatch ? 'page-job' : acctMatch ? 'page-account' : ROUTES[path];
-  $$('.page').forEach(p => p.classList.remove('active'));
   const page = document.getElementById(id);
-  page.classList.add('active');
+  $$('.page').forEach(p => { if(p !== page) p.classList.remove('active'); });
+  const wasActive = page.classList.contains('active');
+  if(!wasActive) page.classList.add('active');
   document.title = page.dataset.title || 'BookIt';
   // nav current state
   $$('nav.main a.nav-link').forEach(a => {
@@ -6243,7 +6247,11 @@ function route(){
   closeMobileNav();
   closeModals();
   stopSpeech();
-  window.scrollTo({top:0, behavior:'auto'});
+  /* moving between settings pages with the list on screen: stay put.
+     Everything else scrolls to the top as always. */
+  const acctToAcct = ROUTE_LAST && ROUTE_LAST.startsWith('/account') && path.startsWith('/account');
+  if(!(acctToAcct && matchMedia('(min-width:901px)').matches)) window.scrollTo({top:0, behavior:'auto'});
+  ROUTE_LAST = path;
   $('#main').focus({preventScroll:true});
 }
 window.addEventListener('hashchange', route);
