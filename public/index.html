@@ -1013,6 +1013,16 @@ html.high-contrast body::after{display:none;}
 @media (min-width:901px){.hero-grid{grid-template-columns:1.14fr .86fr;}}
 .hero-grid > *{min-width:0;}
 .nav-cta .btn{white-space:nowrap;}
+/* the base sheet hides the ghost Log in under 1020px — bring it back;
+   under 480px Get started cedes the space (it lives in the burger menu too) */
+@media (max-width:1020px){
+  .nav-cta .btn-ghost{display:inline-flex;}
+}
+@media (max-width:480px){
+  #btnGetStarted{display:none;}
+  .nav-cta{gap:6px;}
+  .nav-cta .btn-ghost{padding:8px 12px;font-size:.95rem;}
+}
 .section-head h2,.split h2{font-size:clamp(1.85rem,3.4vw,2.7rem);line-height:1.12;}
 .page-hero h1{font-size:clamp(2.2rem,4vw,3.15rem);line-height:1.08;}
 .section-head p.lead{font-size:1.08rem;}
@@ -3547,11 +3557,11 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
 </section>
 
 <!-- ================= ACCOUNT SETTINGS ================= -->
-<section class="page" id="page-account" data-title="Account settings — BookIt">
+<section class="page" id="page-account" data-title="Settings — BookIt">
   <div class="page-hero">
     <div class="container">
-      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Account settings</nav>
-      <h1>Account settings</h1>
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Settings</nav>
+      <h1>Settings</h1>
       <p class="lead">Everything about your account, in one list — your details, your plan, the money, your documents, who has access, and how you sign in. If it's a setting, it's here, and it works without a phone call.</p>
     </div>
   </div>
@@ -6297,6 +6307,7 @@ function updateAuthUI(){
 
 /* ---------- account chip + menu ---------- */
 const ACCT_ICONS = {
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h0a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h0a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v0a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
   cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
   chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   card:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/></svg>',
@@ -6322,29 +6333,17 @@ function renderAcctMenu(){
     : (m.admin ? ' · Admin' : '');
   const item = (hash, sec, icon, label, extra) =>
     `<button type="button" class="acct-item" role="menuitem" data-acct="go" data-hash="${hash}"${sec ? ` data-sec="${sec}"` : ''}><span class="mi">${ACCT_ICONS[icon]}</span><span>${label}</span>${extra || ''}</button>`;
+  /* Build 19b — the menu is the short list, the settings hub is the long
+     one. Daily doors only; everything else is one tap away behind Settings,
+     where the complete list lives. Report an incident stays here on
+     purpose: safety shortcuts don't get filed away. */
   let items = '';
   if(m.role === 'coordinator') items += item('#/clients', '', 'grid', 'My clients');
   items += item('#/bookings', '', 'cal', m.role === 'worker' ? 'Bookings & shifts' : 'My bookings');
   items += item('#/messages', '', 'chat', 'Messages',
     `<span class="acct-badge" id="acctMsgBadge" ${API.unread ? '' : 'hidden'}>${API.unread || ''}</span>`);
-  if(m.role === 'worker'){
-    items += item('#/bookings', 'cardProfile', 'user', 'My profile & photo');
-    items += item('#/worker/' + m.id, '', 'eye', 'See my public profile');
-    items += item('#/bookings', 'cardCreds', 'shield', 'Credentials & checks');
-  }
-  if(m.role === 'participant') items += item('#/bookings', 'cardBilling', 'card', 'Billing & NDIS details');
-  if(m.role === 'participant' || m.role === 'coordinator') items += item('#/statements', '', 'card', 'Invoices & statements');
-  if(m.role === 'participant') items += item('#/access', '', 'shield', 'People with access');
-  if(m.role === 'participant' || m.role === 'coordinator') items += item('#/my-jobs', '', 'grid', 'My job posts');
-  if(m.role === 'worker'){
-    items += item('#/earnings', '', 'card', 'My earnings');
-    items += item('#/training', '', 'shield', 'Training');
-    items += item('#/jobs', '', 'grid', 'Jobs board');
-    items += item('#/my-applications', '', 'cal', 'My applications');
-  }
-  items += item('#/bookings', 'cardIncident', 'flag', 'Report an incident');
-  items += item('#/security', '', 'shield', 'Security & sign-in');
-  items += item('#/account', '', 'user', 'Account settings');
+  if(m.role !== 'coordinator') items += item('#/bookings', 'cardIncident', 'flag', 'Report an incident');
+  items += item('#/account', '', 'gear', 'Settings');
   if(m.admin) items += item('#/admin', '', 'grid', 'Admin dashboard', '<span class="acct-pill">Admin</span>');
   $('#acctMenu').innerHTML = `
     <div class="acct-head">
@@ -6391,12 +6390,15 @@ $('#acctMenu').addEventListener('keydown', e => {
   items[e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length].focus();
 });
 window.addEventListener('hashchange', closeAcctMenu);
-$('#acctMenu').addEventListener('click', e => {
+/* document-level, not menu-level: the settings hub's deep-link tiles use the
+   same data-acct/data-sec contract from outside the menu */
+document.addEventListener('click', e => {
   const it = e.target.closest('[data-acct]');
   if(!it) return;
   closeAcctMenu();
   if(it.dataset.acct === 'logout'){ doLogout(); return; }
   PENDING_SECTION = it.dataset.sec || null;
+  PENDING_AT = Date.now();
   const h = it.dataset.hash;
   if(location.hash === h){ if(PENDING_SECTION) revealPendingSection(); else route(); }
   else location.hash = h;
@@ -6501,18 +6503,26 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* deep-link from the menu to a card on the bookings page */
+/* deep-link from the menu to a card on the bookings page.
+   PENDING_AT guards a race: an anchor-based deep link can trigger a render
+   whose reveal runs before the handler sets the target, or vice versa — so
+   a reveal that can't find its card yet leaves the target armed for the
+   next render's reveal, and a 10s staleness window stops an abandoned
+   target scrolling some later page. */
 let PENDING_SECTION = null;
+let PENDING_AT = 0;
 window.goEditProfile = function(){
   PENDING_SECTION = 'cardProfile';
+  PENDING_AT = Date.now();
   if(location.hash === '#/bookings') revealPendingSection();
   else location.hash = '#/bookings';
 };
 function revealPendingSection(){
   if(!PENDING_SECTION) return;
+  if(Date.now() - PENDING_AT > 10000){ PENDING_SECTION = null; return; }
   const el = document.getElementById(PENDING_SECTION);
+  if(!el) return; /* not rendered yet — stay armed for the render's own call */
   PENDING_SECTION = null;
-  if(!el) return;
   const det = el.querySelector('details'); if(det) det.open = true;
   setTimeout(() => {
     el.scrollIntoView({behavior:'smooth', block:'center'});
@@ -11752,6 +11762,7 @@ async function renderAccountPage(){
     S.push(['set-billing', 'Billing & NDIS details', payCard + tile('#/bookings', 'cardBilling', 'Billing on your bookings page', 'The same details beside your bookings, statements and claims.')]);
     S.push(['set-statements', 'Invoices & statements', `<div class="info-card" style="margin-bottom:18px;" id="cardStatements"><h3 style="margin:0 0 6px;">Invoices & statements</h3><p class="muted-sm" style="margin:0 0 10px;">Every shift, its rate and where the claim is up to — readable any time, not buried in emails.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views, downloads, and plan-review-ready summaries.')}</div>`]);
     S.push(['set-docs', 'My documents', `<div class="info-card" style="margin-bottom:18px;" id="cardDocsLink"><h3 style="margin:0 0 6px;">My documents</h3><p class="muted-sm" style="margin:0 0 10px;">${pd && pd.held != null ? `<b>${pd.held} of ${pd.of} on file.</b> ` : ''}Your agreement, consents, plan and assessments. Nothing here is shared with workers — they only ever see the short brief from your support plan.</p>${tile('#/bookings', 'cardPdocs', 'Open my documents', 'Read anything on your file, add a photo or a copy yourself.')}</div>`]);
+    S.push(['set-jobs', 'My job posts', `<div class="info-card" style="margin-bottom:18px;" id="cardJobsLink"><h3 style="margin:0 0 6px;">My job posts</h3><p class="muted-sm" style="margin:0 0 10px;">Post what you need and let interested workers come to you.</p>${tile('#/my-jobs', '', 'My job posts', 'Applicants, replies and closing a filled post.')}${tile('#/post-job', '', 'Post a new job', 'The support, the days, the suburb, what matters to you.')}</div>`]);
     S.push(['set-access', 'People with access', `<div class="info-card" style="margin-bottom:18px;" id="cardAccessLink"><h3 style="margin:0 0 6px;">People with access</h3><p class="muted-sm" style="margin:0 0 10px;">Family, a nominee or a coordinator can help run things — with only the access you choose, a revoke button that works instantly, and a log of everything done on your behalf.</p>${tile('#/access', '', 'Manage people with access', 'Invite, limit, or remove — no phone call needed.')}</div>`]);
   }
 
@@ -11765,9 +11776,11 @@ async function renderAccountPage(){
     S.push(['set-visibility', 'Profile visibility', visCard]);
     S.push(['set-creds', 'Credentials & checks', `<div class="info-card" style="margin-bottom:18px;" id="cardCredsLink"><h3 style="margin:0 0 6px;">Credentials & checks</h3><p class="muted-sm" style="margin:0 0 10px;">Your screening, training and documents, with expiry dates named — reminders start 60 days out, and nothing lapses silently.</p>${tile('#/bookings', 'cardCreds', 'Open credentials & checks', 'What’s current, what’s due, whose turn it is.')}</div>`]);
     S.push(['set-earnings', 'Earnings & pay tier', `<div class="info-card" style="margin-bottom:18px;" id="cardEarningsLink"><h3 style="margin:0 0 6px;">Earnings & pay tier</h3><p class="muted-sm" style="margin:0 0 10px;">This period, last period, and your ladder — with the exact hours to your next rate, because a pay rise you can see coming is worth more than one that arrives silently.</p>${tile('#/earnings', '', 'Open my earnings', 'Pay lines, super, and hours to the next tier.')}</div>`]);
+    S.push(['set-jobs', 'Jobs board', `<div class="info-card" style="margin-bottom:18px;" id="cardJobsLink"><h3 style="margin:0 0 6px;">Jobs board</h3><p class="muted-sm" style="margin:0 0 10px;">Participants post what they need — apply with a short note.</p>${tile('#/jobs', '', 'Browse the jobs board', 'Open posts near you.')}${tile('#/my-applications', '', 'My applications', 'Every application and where it stands.')}</div>`]);
     S.push(['set-training', 'Training', `<div class="info-card" style="margin-bottom:18px;" id="cardTrainingLink"><h3 style="margin:0 0 6px;">Training</h3><p class="muted-sm" style="margin:0 0 10px;">What’s required, what’s done, and what unlocks the supports you want to offer.</p>${tile('#/training', '', 'Open my training', 'Modules, sign-offs and certificates.')}</div>`]);
   }
 
+  if(me.role !== 'coordinator') S.push(['set-incident', 'Report an incident', `<div class="info-card" style="margin-bottom:18px;" id="cardIncidentLink"><h3 style="margin:0 0 6px;">Report an incident</h3><p class="muted-sm" style="margin:0 0 10px;">Anything that hurt someone or could have — including near misses. It goes straight to the office, and the reporting clock starts the moment it's filed.</p>${tile('#/bookings', 'cardIncident', 'Report an incident', 'Also in your account menu, always one tap away.')}</div>`]);
   S.push(['set-notifs', 'Emails & notifications', notCard || `<div class="info-card" style="margin-bottom:18px;"><p class="muted-sm">Couldn’t load your email settings just now — refresh to try again.</p></div>`]);
   S.push(['set-a11y', 'Accessibility', a11yCard]);
   S.push(['set-privacy', 'Privacy & your data', note('Nothing about ' + (me.role === 'worker' ? 'you is public except the profile you choose to show.' : 'you is public — participants don’t have public profiles, full stop.')) + dataCard + `<div class="info-card" style="margin-bottom:18px;" id="cardPrivacyLinks">${tile('#/legal', '', 'Privacy policy & terms', 'What we hold, why, and the promises we’ve made in writing.')}</div>`]);
