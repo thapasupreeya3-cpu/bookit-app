@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
 <title>BookIt — Find NDIS support workers who fit your life</title>
 <meta name="description" content="BookIt is an NDIS-registered platform for finding, booking and managing your own verified support workers — employment support, personal care, transport, daily tasks, household help and community participation.">
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 48"><circle cx="27" cy="24" r="22" fill="%230E6B62"/><circle cx="63" cy="24" r="22" fill="%23F5B841"/><path d="M45 11.35 A22 22 0 0 1 45 36.65 A22 22 0 0 1 45 11.35 Z" fill="%230A544D"/><path d="M52 25 l9 9 17 -18" stroke="%2317313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'>
@@ -12,6 +13,7 @@
 <style>
 /* ============ Design tokens ============ */
 :root{
+  color-scheme:light;
   --ink:#17313A;
   --ink-soft:#3E5A64;
   --teal:#0E6B62;
@@ -250,7 +252,14 @@ nav.main a.nav-link:focus-visible, nav.main button.nav-link:focus-visible{outlin
   position:absolute;top:calc(100% + 12px);right:0;width:296px;background:var(--card);
   border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-lg);
   overflow:hidden;z-index:220;
+  display:flex;flex-direction:column;
+  max-height:calc(100vh - 96px);max-height:calc(100dvh - 96px);
 }
+.acct-menu > .acct-head,.acct-menu > .acct-sep,.acct-menu > .acct-foot{flex:none;}
+.acct-menu > .acct-items{flex:0 1 auto;min-height:76px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;}
+.acct-menu > .acct-items::-webkit-scrollbar{width:8px;}
+.acct-menu > .acct-items::-webkit-scrollbar-thumb{background:#CBBFAE;border-radius:99px;border:2px solid var(--card);}
+.acct-menu > .acct-sep + .acct-items{flex:none;overflow:visible;min-height:0;}
 .acct-head{display:flex;gap:12px;align-items:center;padding:15px 16px;background:var(--cream);border-bottom:1px solid var(--line);}
 .wc-avatar.acct-big{width:46px;height:46px;font-size:1rem;flex:none;}
 .acct-who{display:flex;flex-direction:column;gap:2px;min-width:0;}
@@ -288,7 +297,11 @@ nav.main a.nav-link:focus-visible, nav.main button.nav-link:focus-visible{outlin
 html.high-contrast .acct-menu{border:2px solid #000;box-shadow:none;}
 html.high-contrast .acct-chip{border-color:#000;}
 @media (max-width:640px){
-  .acct-menu{position:fixed;left:12px;right:12px;top:72px;width:auto;}
+  .acct-menu{position:fixed;left:12px;right:12px;top:72px;width:auto;
+    max-height:calc(100vh - 84px);max-height:calc(100dvh - 84px);}
+  .acct-item{padding:7px 8px;font-size:.92rem;}
+  .acct-head{padding:12px 14px;}
+  .acct-menu .mi{width:29px;height:29px;}
 }
 /* gentle highlight when the account menu deep-links to a card */
 .sec-flash{animation:secFlash 1.7s ease;}
