@@ -1367,6 +1367,7 @@ html[data-motion="reduce"] .rv,html[data-motion="reduce"] .rv.rv-in{opacity:1!im
 @media print{.rv,.rv.rv-in{opacity:1!important;transform:none!important;transition:none!important;}body::after{display:none;}}
 
 /* ---------- settings pages (#/account + #/account/<section>) ---------- */
+.set-solo{max-width:720px;margin:0 auto;}
 .page-hero-slim{padding:16px 0 14px;}
 .page-hero-slim::before,.page-hero-slim::after{display:none;}
 .page-hero-slim h1{font-size:1.35rem;font-family:var(--font-head);font-weight:800;letter-spacing:-.01em;}
@@ -11635,10 +11636,10 @@ async function renderAccountPage(){
   const subRaw = (location.hash.split('/')[2] || '').replace(/[^a-z-]/g, '');
   let nots = null, prof = null, sp = null, pd = null;
   if(subRaw === 'notifications'){ try{ nots = await API.call('/me/notifications', {noFor:true}); }catch(e){} }
-  if(API.me.role === 'worker' && subRaw === 'visibility'){
+  if(API.me.role === 'worker' && subRaw === 'profile'){
     try{ prof = (await API.call('/me/profile', {noFor:true})).profile; }catch(e){}
   }
-  if(API.me.role === 'participant' && !API.actingFor && ['emergency','plan','supports'].includes(subRaw)){
+  if(API.me.role === 'participant' && !API.actingFor && subRaw === 'plan'){
     try{ sp = await API.call('/me/support-plan'); }catch(e){}
   }
   if(API.me.role === 'participant' && !API.actingFor && subRaw === 'documents'){
@@ -11771,12 +11772,23 @@ async function renderAccountPage(){
     </div>
   </div>`;
 
+  /* Profile stands alone — reached from the menu, not a settings row.
+     Workers manage their visibility here too, beside the profile it hides. */
+  const pageH1 = document.querySelector('#page-account .page-hero-slim h1');
+  if(pageH1) pageH1.textContent = subRaw === 'profile' ? 'Profile' : 'Settings';
+  document.title = (subRaw === 'profile' ? 'Profile' : 'Settings') + ' — BookIt';
+  if(subRaw === 'profile'){
+    const profileBody = identityCard + detailsCard + (me.role === 'worker'
+      ? card('cardProfileLink', 'Your public profile', `<p class="muted-sm" style="margin:0 0 10px;">Your bio, photo, services, days and interests — what participants see when they find you.</p>${tile('#/bookings', 'cardProfile', 'Edit my profile & photo', 'Everything on your public card.')}${tile('#/worker/' + me.id, '', 'See my public profile', 'Exactly as participants see it.')}`) + (visCard || '')
+      : note('Nothing about you is public — ' + (me.role === 'coordinator' ? 'coordinators' : 'participants') + " don't have public profiles, full stop."));
+    wrap.innerHTML = `<div class="set-solo">${profileBody}
+      <div class="info-card" style="margin-bottom:18px;" id="cardAllSettings">${tile('#/account', '', 'All settings', 'Everything else about your account.')}</div>
+    </div>`;
+    return;
+  }
+
   /* [slug, label, one-line description for the list, body] */
   const S = [];
-  const profileBody = identityCard + detailsCard + (me.role === 'worker'
-    ? card('cardProfileLink', 'Your public profile', `<p class="muted-sm" style="margin:0 0 10px;">Your bio, photo, services, days and interests — what participants see when they find you.</p>${tile('#/bookings', 'cardProfile', 'Edit my profile & photo', 'Everything on your public card.')}${tile('#/worker/' + me.id, '', 'See my public profile', 'Exactly as participants see it.')}`)
-    : note('Nothing about you is public — ' + (me.role === 'coordinator' ? 'coordinators' : 'participants') + " don't have public profiles, full stop."));
-  S.push(['profile', 'Profile', 'Your name, photo, mobile and suburb', profileBody]);
 
   if(me.role === 'participant' && !API.actingFor){
     const pl = sp && sp.plan, done = sp && sp.history && sp.history.length;
@@ -11785,11 +11797,8 @@ async function renderAccountPage(){
       : 'Started but not confirmed yet — it takes a few minutes.';
     const six = pl ? [['use_employ','Employment'],['use_personal','Personal care'],['use_transport','Transport'],['use_daily','Daily tasks'],['use_household','Household'],['use_community','Community']].filter(([k]) => pl[k]) : [];
     const ecLine = pl && pl.ec_name ? `${esc(pl.ec_name)}${pl.ec_relationship ? ' · ' + esc(pl.ec_relationship) : ''}${pl.ec_phone ? ' · ' + esc(pl.ec_phone) : ''}` : 'Not recorded yet — it lives in your support plan, where workers can find it when it matters.';
-    S.push(['emergency', 'Emergency contact', 'Who we call if something happens', card('cardEmergency', 'Emergency contact', `<p class="muted-sm" style="margin:0 0 10px;">${ecLine}</p>${tile('#/support-plan', '', 'Update it in your support plan', 'The one field everyone forgets until the night they need it.')}`)]);
-    S.push(['plan', 'Support plan & about you', 'Your goals, health notes and what good support looks like', card('cardPlanLink', 'Support plan & about you', `<p class="muted-sm" style="margin:0 0 10px;">${planLine}</p>${tile('#/support-plan', '', 'Open your support plan', 'Your goals, how you communicate, health notes, home safety and what a great match looks like.')}`)]);
-    S.push(['supports', 'Your supports', 'The kinds of support you use', card('cardSupports', 'Your supports', `${six.length ? `<p class="muted-sm" style="margin:0 0 8px;">From your support plan:</p><p style="margin:0 0 10px;">${six.map(([,l]) => `<span class="wc-tag" style="margin:0 5px 5px 0;display:inline-block;">${l}</span>`).join('')}</p>` : '<p class="muted-sm" style="margin:0 0 10px;">The six kinds of support we’re registered for — tell us which ones are yours in your support plan.</p>'}${tile('#/support-plan', '', 'Choose or change your supports', 'The six registration groups, in your plan.')}${tile('#/specialist-supports', '', 'Specialised & high-intensity supports', 'What we can safely take on, what we check first, and what happens if you need something we don’t hold.')}`)]);
-    S.push(['billing', 'Billing & NDIS details', 'How your plan is managed, your NDIS number', payCard + tile('#/bookings', 'cardBilling', 'Billing on your bookings page', 'The same details beside your bookings, statements and claims.')]);
-    S.push(['statements', 'Invoices & statements', 'Every shift, its rate, where the claim is up to', card('cardStatements', 'Invoices & statements', `<p class="muted-sm" style="margin:0 0 10px;">Every shift, its rate and where the claim is up to — readable any time, not buried in emails.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views, downloads, and plan-review-ready summaries.')}`)]);
+    S.push(['plan', 'Support plan & about you', 'Your goals, supports and emergency contact', card('cardPlanLink', 'Support plan & about you', `<p class="muted-sm" style="margin:0 0 10px;">${planLine}</p>${tile('#/support-plan', '', 'Open your support plan', 'Your goals, how you communicate, health notes, home safety and what a great match looks like.')}`) + card('cardSupports', 'Your supports', `${six.length ? `<p class="muted-sm" style="margin:0 0 8px;">From your support plan:</p><p style="margin:0 0 10px;">${six.map(([,l]) => `<span class="wc-tag" style="margin:0 5px 5px 0;display:inline-block;">${l}</span>`).join('')}</p>` : '<p class="muted-sm" style="margin:0 0 10px;">The six kinds of support we’re registered for — tell us which ones are yours in your support plan.</p>'}${tile('#/specialist-supports', '', 'Specialised & high-intensity supports', 'What we can safely take on, and what happens if you need something we don’t hold.')}`) + card('cardEmergency', 'Emergency contact', `<p class="muted-sm" style="margin:0 0 10px;">${ecLine}</p>${tile('#/support-plan', '', 'Update it in your support plan', 'The one field everyone forgets until the night they need it.')}`)]);
+    S.push(['billing', 'Billing & payments', 'Your plan, NDIS number, invoices & statements', payCard + card('cardStatements', 'Invoices & statements', `<p class="muted-sm" style="margin:0 0 10px;">Every shift, its rate and where the claim is up to — readable any time, not buried in emails.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views, downloads, and plan-review-ready summaries.')}${tile('#/bookings', 'cardBilling', 'Billing on your bookings page', 'The same details beside your bookings and claims.')}`)]);
     S.push(['documents', 'My documents', 'Your file — agreement, consents, plan, assessments', card('cardDocsLink', 'My documents', `<p class="muted-sm" style="margin:0 0 10px;">${pd && pd.held != null ? `<b>${pd.held} of ${pd.of} on file.</b> ` : ''}Your agreement, consents, plan and assessments. Nothing here is shared with workers — they only ever see the short brief from your support plan.</p>${tile('#/bookings', 'cardPdocs', 'Open my documents', 'Read anything on your file, add a photo or a copy yourself.')}`)]);
     S.push(['access', 'People with access', 'Family or a coordinator helping, on your terms', card('cardAccessLink', 'People with access', `<p class="muted-sm" style="margin:0 0 10px;">Family, a nominee or a coordinator can help run things — with only the access you choose, a revoke button that works instantly, and a log of everything done on your behalf.</p>${tile('#/access', '', 'Manage people with access', 'Invite, limit, or remove — no phone call needed.')}`)]);
     S.push(['jobs', 'My job posts', 'Post what you need, workers come to you', card('cardJobsLink', 'My job posts', `<p class="muted-sm" style="margin:0 0 10px;">Post what you need and let interested workers come to you.</p>${tile('#/my-jobs', '', 'My job posts', 'Applicants, replies and closing a filled post.')}${tile('#/post-job', '', 'Post a new job', 'The support, the days, the suburb, what matters to you.')}`)]);
@@ -11800,23 +11809,16 @@ async function renderAccountPage(){
   }
 
   if(me.role === 'worker'){
-    const visBody = visCard || card('cardVisibility', "Your profile's visibility", '<p class="muted-sm">Open this page again in a moment — your profile details are still loading.</p>');
-    S.push(['visibility', 'Profile visibility', 'Showing or hidden, and why', visBody]);
     S.push(['credentials', 'Credentials & checks', 'Screening, training, expiry dates', card('cardCredsLink', 'Credentials & checks', `<p class="muted-sm" style="margin:0 0 10px;">Your screening, training and documents, with expiry dates named — reminders start 60 days out, and nothing lapses silently.</p>${tile('#/bookings', 'cardCreds', 'Open credentials & checks', 'What’s current, what’s due, whose turn it is.')}`)]);
     S.push(['earnings', 'Earnings & pay tier', 'Pay lines, super, hours to the next rate', card('cardEarningsLink', 'Earnings & pay tier', `<p class="muted-sm" style="margin:0 0 10px;">This period, last period, and your ladder — with the exact hours to your next rate, because a pay rise you can see coming is worth more than one that arrives silently.</p>${tile('#/earnings', '', 'Open my earnings', 'Pay lines, super, and hours to the next tier.')}`)]);
     S.push(['training', 'Training', 'What’s required, done and due', card('cardTrainingLink', 'Training', `<p class="muted-sm" style="margin:0 0 10px;">What’s required, what’s done, and what unlocks the supports you want to offer.</p>${tile('#/training', '', 'Open my training', 'Modules, sign-offs and certificates.')}`)]);
     S.push(['jobs', 'Jobs board', 'Open posts near you, your applications', card('cardJobsLink', 'Jobs board', `<p class="muted-sm" style="margin:0 0 10px;">Participants post what they need — apply with a short note.</p>${tile('#/jobs', '', 'Browse the jobs board', 'Open posts near you.')}${tile('#/my-applications', '', 'My applications', 'Every application and where it stands.')}`)]);
   }
 
-  if(me.role !== 'coordinator'){
-    S.push(['incident', 'Report an incident', 'Straight to the office, clock started', card('cardIncidentLink', 'Report an incident', `<p class="muted-sm" style="margin:0 0 10px;">Anything that hurt someone or could have — including near misses. It goes straight to the office, and the reporting clock starts the moment it's filed.</p>${tile('#/bookings', 'cardIncident', 'Report an incident', 'Also in your account menu, always one tap away.')}`)]);
-  }
-
   S.push(['notifications', 'Emails & notifications', 'Which emails reach you', notCard || card('cardNotifsFallback', 'Emails', '<p class="muted-sm">Couldn’t load your email settings just now — refresh to try again.</p>')]);
   S.push(['accessibility', 'Accessibility', 'Text size, font, motion, contrast', a11yCard]);
   S.push(['privacy', 'Privacy & your data', 'What we hold, and a copy of it', note('Nothing about ' + (me.role === 'worker' ? 'you is public except the profile you choose to show.' : 'you is public — participants don’t have public profiles, full stop.')) + dataCard + `<div class="info-card" style="margin-bottom:18px;" id="cardPrivacyLinks">${tile('#/legal', '', 'Privacy policy & terms', 'What we hold, why, and the promises we’ve made in writing.')}</div>`]);
-  S.push(['password', 'Password', 'Change it, sign other devices out', pwCard]);
-  S.push(['security', 'Sign-in & security', 'Two-step sign-in and your devices', card('cardSecurityLink', 'Sign-in & security', `<p class="muted-sm" style="margin:0 0 10px;">Two-step sign-in, every device you’re signed in on with a working sign-out button, and alerts you can’t switch off — because you’d want to know.</p>${tile('#/security', '', 'Open sign-in & security', 'MFA, sessions and recovery codes.')}`)]);
+  S.push(['security', 'Sign-in & security', 'Password, two-step sign-in, your devices', pwCard + card('cardSecurityLink', 'Two-step sign-in & devices', `<p class="muted-sm" style="margin:0 0 10px;">Two-step sign-in, every device you’re signed in on with a working sign-out button, and alerts you can’t switch off — because you’d want to know.</p>${tile('#/security', '', 'Open sign-in & security', 'MFA, sessions and recovery codes.')}`)]);
   S.push(['help', 'Help & contact', 'A real person, plain answers', card('cardHelpLink', 'Help & contact', `<p class="muted-sm" style="margin:0 0 10px;">A real person on 0488 114 368, hello@bookit.life, or the form — and if something’s gone wrong, tell us plainly and we’ll say plainly what happens next.</p>${tile('#/contact', '', 'Contact us', 'Phone, email, National Relay Service and interpreters.')}${tile('#/faq', '', 'FAQ & help', 'Answers to the common questions.')}`)]);
 
   const cur = S.find(x => x[0] === subRaw) || null;
