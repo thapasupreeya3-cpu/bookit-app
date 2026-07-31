@@ -1366,30 +1366,29 @@ html[data-motion="reduce"] .rv,html[data-motion="reduce"] .rv.rv-in{opacity:1!im
 @media (prefers-reduced-motion:reduce){.rv,.rv.rv-in{opacity:1!important;transform:none!important;}}
 @media print{.rv,.rv.rv-in{opacity:1!important;transform:none!important;transition:none!important;}body::after{display:none;}}
 
-/* ---------- settings hub (#/account) ---------- */
-.set-layout{display:grid;grid-template-columns:246px minmax(0,1fr);gap:38px;align-items:start;}
+/* ---------- settings pages (#/account + #/account/<section>) ---------- */
+.set-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:38px;align-items:start;}
 .set-nav{
   position:sticky;top:96px;background:rgba(255,255,255,.72);border:1px solid var(--line);
-  border-radius:18px;padding:14px 10px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:thin;
+  border-radius:18px;padding:12px 10px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:thin;
 }
-.set-nav .sn-head{font-size:.72rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft);margin:2px 8px 8px;}
-.set-nav ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px;}
-.sn-link{
-  display:block;width:100%;text-align:left;background:none;border:none;cursor:pointer;
-  font:inherit;font-size:.9rem;font-weight:600;color:var(--ink-soft);
-  padding:7px 10px 7px 26px;border-radius:10px;position:relative;transition:background .15s ease,color .15s ease;
+.set-nav .sn-head{font-size:.72rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft);margin:4px 10px 8px;}
+.sr-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;text-decoration:none;color:var(--ink);
+  padding:10px 12px;border-radius:12px;transition:background .15s ease;
 }
-.sn-link:hover{background:var(--teal-tint);color:var(--teal-deep);}
-.sn-link:focus-visible{outline:3px solid var(--amber);outline-offset:-2px;}
-.sn-link.on{background:var(--teal-tint);color:var(--teal-deep);font-weight:700;}
-.sn-link.on::before{
-  content:"";position:absolute;left:8px;top:50%;margin-top:-3.5px;width:14px;height:7px;border-radius:99px;
-  background:
-    radial-gradient(circle at 27% 50%, var(--teal) 0 44%, transparent 48%),
-    radial-gradient(circle at 73% 50%, var(--amber) 0 44%, transparent 48%);
+.sr-row:hover{background:var(--teal-tint);}
+.sr-row:focus-visible{outline:3px solid var(--amber);outline-offset:-2px;}
+.sr-row .sr-txt b{display:block;font-size:.95rem;font-weight:700;}
+.sr-row .sr-txt small{color:var(--ink-soft);font-size:.8rem;line-height:1.35;display:block;}
+.sr-row .sr-go{color:var(--ink-soft);font-weight:700;font-size:1.1rem;flex:none;}
+.sr-row.on{background:var(--teal-tint);}
+.sr-row.on .sr-txt b{color:var(--teal-deep);}
+.set-back{
+  display:none;text-decoration:none;font-weight:700;color:var(--teal);
+  margin:0 0 14px;padding:8px 0;font-size:.98rem;
 }
-.set-sec{scroll-margin-top:112px;}
-.set-sec + .set-sec{margin-top:6px;}
+.set-back:focus-visible{outline:3px solid var(--amber);outline-offset:2px;}
 .set-note{margin:0 0 12px;padding:10px 14px;background:var(--teal-tint);border:1px solid rgba(14,107,98,.2);border-radius:12px;color:var(--teal-deep)!important;font-weight:600;}
 .set-tile{
   display:flex;align-items:center;justify-content:space-between;gap:14px;text-decoration:none;color:var(--ink);
@@ -1404,19 +1403,19 @@ html[data-motion="reduce"] .rv,html[data-motion="reduce"] .rv.rv-in{opacity:1!im
 .set-tile:hover .st-go{transform:translateX(4px);}
 @media (max-width:900px){
   .set-layout{display:block;}
-  .set-nav{
-    position:sticky;top:58px;z-index:40;max-height:none;overflow-x:auto;overflow-y:hidden;
-    border-radius:0;border:none;border-bottom:1.5px solid var(--line);background:var(--cream);
-    padding:8px 12px;margin:0 -24px 20px;
-  }
+  .set-nav{position:static;max-height:none;border:none;background:transparent;padding:0;border-radius:0;}
   .set-nav .sn-head{display:none;}
-  .set-nav ul{flex-direction:row;gap:6px;width:max-content;padding-right:18px;}
-  .sn-link{white-space:nowrap;border:1.5px solid var(--line);border-radius:999px;padding:6px 13px;font-size:.85rem;background:#fff;}
-  .sn-link.on{border-color:var(--teal);}
-  .sn-link.on::before{display:none;}
-  .set-sec{scroll-margin-top:118px;}
+  .sr-row{
+    background:rgba(255,255,255,.72);border:1.5px solid var(--line);border-radius:14px;margin-bottom:9px;
+    padding:13px 15px;
+  }
+  .sr-row.on{background:rgba(255,255,255,.72);}
+  .sr-row.on .sr-txt b{color:var(--ink);}
+  .set-layout.no-sub .set-body{display:none;}
+  .set-layout.has-sub .set-nav{display:none;}
+  .set-layout.has-sub .set-back{display:inline-block;}
 }
-html.high-contrast .set-nav,html.high-contrast .set-tile{background:#fff;border-color:#000;}
+html.high-contrast .set-nav,html.high-contrast .set-tile,html.high-contrast .sr-row{background:#fff;border-color:#000;}
 html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!important;}
 </style>
 </head>
@@ -3877,7 +3876,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
     .sp-cp{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
     .sp-cp input[type=text]{flex:1 1 240px;}
     .sp-cp-state{font-size:.8rem;font-weight:700;white-space:nowrap;}
-    .sp-foot{position:sticky;bottom:0;background:rgba(253,250,245,.96);backdrop-filter:blur(6px);border-top:1.5px solid #E7DFD4;padding:16px 0 18px;margin-top:26px;z-index:5;}
+    .sp-foot{background:rgba(255,255,255,.78);border:1.5px solid #E7DFD4;border-radius:18px;padding:18px 20px;margin-top:26px;}
     .sp-miss{color:#A5301A;font-size:.88rem;margin:0 0 10px;line-height:1.6;}
     .sp-decl{display:flex;gap:10px;align-items:flex-start;font-size:.92rem;line-height:1.55;margin:0 0 12px;max-width:70ch;}
     .sp-decl input{margin-top:3px;width:18px;height:18px;flex:none;}
@@ -6203,8 +6202,9 @@ function route(){
   if(qi !== -1) path = path.slice(0, qi);
   const workerMatch = /^\/worker\/(\d+)$/.exec(path);
   const jobMatch = /^\/jobs\/(\d+)$/.exec(path);
-  if(!ROUTES[path] && !workerMatch && !jobMatch) path = '/';
-  const id = workerMatch ? 'page-worker' : jobMatch ? 'page-job' : ROUTES[path];
+  const acctMatch = /^\/account\/[a-z-]+$/.exec(path);
+  if(!ROUTES[path] && !workerMatch && !jobMatch && !acctMatch) path = '/';
+  const id = workerMatch ? 'page-worker' : jobMatch ? 'page-job' : acctMatch ? 'page-account' : ROUTES[path];
   $$('.page').forEach(p => p.classList.remove('active'));
   const page = document.getElementById(id);
   page.classList.add('active');
@@ -6338,6 +6338,7 @@ function renderAcctMenu(){
      where the complete list lives. Report an incident stays here on
      purpose: safety shortcuts don't get filed away. */
   let items = '';
+  items += item('#/account/profile', '', 'user', 'Profile');
   if(m.role === 'coordinator') items += item('#/clients', '', 'grid', 'My clients');
   items += item('#/bookings', '', 'cal', m.role === 'worker' ? 'Bookings & shifts' : 'My bookings');
   items += item('#/messages', '', 'chat', 'Messages',
@@ -11623,13 +11624,16 @@ async function renderAccountPage(){
     wrap.innerHTML = '<div class="info-card"><p><b>Log in first</b> — these are your settings.</p></div>';
     return;
   }
+  const subRaw = (location.hash.split('/')[2] || '').replace(/[^a-z-]/g, '');
   let nots = null, prof = null, sp = null, pd = null;
-  try{ nots = await API.call('/me/notifications', {noFor:true}); }catch(e){}
-  if(API.me.role === 'worker'){
+  if(subRaw === 'notifications'){ try{ nots = await API.call('/me/notifications', {noFor:true}); }catch(e){} }
+  if(API.me.role === 'worker' && subRaw === 'visibility'){
     try{ prof = (await API.call('/me/profile', {noFor:true})).profile; }catch(e){}
   }
-  if(API.me.role === 'participant' && !API.actingFor){
+  if(API.me.role === 'participant' && !API.actingFor && ['emergency','plan','supports'].includes(subRaw)){
     try{ sp = await API.call('/me/support-plan'); }catch(e){}
+  }
+  if(API.me.role === 'participant' && !API.actingFor && subRaw === 'documents'){
     try{ pd = await API.call('/me/participant-documents'); }catch(e){}
   }
 
@@ -11709,11 +11713,12 @@ async function renderAccountPage(){
     </div>`;
   }
 
-  /* ---- Build 19: the settings hub — every setting, one complete list.
-     The sidebar is the point: nothing about your account should need
-     hunting. Sections either edit in place or link to the purpose-built
-     page, and every existing card keeps its id so nothing else moves. */
+  /* ---- Build 19c: settings as pages. #/account is the list; every
+     section is its own page at #/account/<slug>. A phone shows one thing
+     at a time with a back link; a desktop keeps the list beside the open
+     page. Profile leads the list, exactly like the menu. ---- */
   const me = API.me;
+  const roleLabel = me.role === 'worker' ? 'Support worker' : me.role === 'coordinator' ? 'Support coordinator' : 'Participant';
   const inputCss = 'font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;';
 
   const detailsCard = `
@@ -11745,9 +11750,25 @@ async function renderAccountPage(){
       <span class="st-txt"><b>${label}</b><small>${desc}</small></span><span class="st-go" aria-hidden="true">→</span>
     </a>`;
   const note = t => `<p class="set-note muted-sm">${t}</p>`;
+  const card = (id, h3, body) => `<div class="info-card" style="margin-bottom:18px;" id="${id}"><h3 style="margin:0 0 6px;">${h3}</h3>${body}</div>`;
 
+  const identityCard = `
+  <div class="info-card" style="margin-bottom:18px;" id="cardIdentity">
+    <div style="display:flex;gap:14px;align-items:center;">
+      <span class="wc-avatar" style="background:var(--teal);width:58px;height:58px;font-size:1.2rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="">` : acctInitials(me.name || '')}</span>
+      <div style="min-width:0;">
+        <b style="font-family:var(--font-head);font-size:1.18rem;display:block;">${esc(me.name || '')}</b>
+        <span class="muted-sm">${roleLabel}${me.admin ? ' · Admin' : ''}</span>
+      </div>
+    </div>
+  </div>`;
+
+  /* [slug, label, one-line description for the list, body] */
   const S = [];
-  S.push(['set-details', 'Your details', detailsCard]);
+  const profileBody = identityCard + detailsCard + (me.role === 'worker'
+    ? card('cardProfileLink', 'Your public profile', `<p class="muted-sm" style="margin:0 0 10px;">Your bio, photo, services, days and interests — what participants see when they find you.</p>${tile('#/bookings', 'cardProfile', 'Edit my profile & photo', 'Everything on your public card.')}${tile('#/worker/' + me.id, '', 'See my public profile', 'Exactly as participants see it.')}`)
+    : note('Nothing about you is public — ' + (me.role === 'coordinator' ? 'coordinators' : 'participants') + " don't have public profiles, full stop."));
+  S.push(['profile', 'Profile', 'Your name, photo, mobile and suburb', profileBody]);
 
   if(me.role === 'participant' && !API.actingFor){
     const pl = sp && sp.plan, done = sp && sp.history && sp.history.length;
@@ -11756,76 +11777,61 @@ async function renderAccountPage(){
       : 'Started but not confirmed yet — it takes a few minutes.';
     const six = pl ? [['use_employ','Employment'],['use_personal','Personal care'],['use_transport','Transport'],['use_daily','Daily tasks'],['use_household','Household'],['use_community','Community']].filter(([k]) => pl[k]) : [];
     const ecLine = pl && pl.ec_name ? `${esc(pl.ec_name)}${pl.ec_relationship ? ' · ' + esc(pl.ec_relationship) : ''}${pl.ec_phone ? ' · ' + esc(pl.ec_phone) : ''}` : 'Not recorded yet — it lives in your support plan, where workers can find it when it matters.';
-    S.push(['set-emergency', 'Emergency contact', `<div class="info-card" style="margin-bottom:18px;" id="cardEmergency"><h3 style="margin:0 0 6px;">Emergency contact</h3><p class="muted-sm" style="margin:0 0 10px;">${ecLine}</p>${tile('#/support-plan', '', done || pl ? 'Update it in your support plan' : 'Add it in your support plan', 'The one field everyone forgets until the night they need it.')}</div>`]);
-    S.push(['set-plan', 'Support plan & about you', `<div class="info-card" style="margin-bottom:18px;" id="cardPlanLink"><h3 style="margin:0 0 6px;">Support plan & about you</h3><p class="muted-sm" style="margin:0 0 10px;">${planLine}</p>${tile('#/support-plan', '', 'Open your support plan', 'Your goals, how you communicate, health notes, home safety and what a great match looks like.')}</div>`]);
-    S.push(['set-supports', 'Your supports', `<div class="info-card" style="margin-bottom:18px;" id="cardSupports"><h3 style="margin:0 0 6px;">Your supports</h3>${six.length ? `<p class="muted-sm" style="margin:0 0 8px;">From your support plan:</p><p style="margin:0 0 10px;">${six.map(([,l]) => `<span class="wc-tag" style="margin:0 5px 5px 0;display:inline-block;">${l}</span>`).join('')}</p>` : '<p class="muted-sm" style="margin:0 0 10px;">The six kinds of support we’re registered for — tell us which ones are yours in your support plan.</p>'}${tile('#/support-plan', '', 'Choose or change your supports', 'The six registration groups, in your plan.')}${tile('#/specialist-supports', '', 'Specialised & high-intensity supports', 'What we can safely take on, what we check first, and what happens if you need something we don’t hold.')}</div>`]);
-    S.push(['set-billing', 'Billing & NDIS details', payCard + tile('#/bookings', 'cardBilling', 'Billing on your bookings page', 'The same details beside your bookings, statements and claims.')]);
-    S.push(['set-statements', 'Invoices & statements', `<div class="info-card" style="margin-bottom:18px;" id="cardStatements"><h3 style="margin:0 0 6px;">Invoices & statements</h3><p class="muted-sm" style="margin:0 0 10px;">Every shift, its rate and where the claim is up to — readable any time, not buried in emails.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views, downloads, and plan-review-ready summaries.')}</div>`]);
-    S.push(['set-docs', 'My documents', `<div class="info-card" style="margin-bottom:18px;" id="cardDocsLink"><h3 style="margin:0 0 6px;">My documents</h3><p class="muted-sm" style="margin:0 0 10px;">${pd && pd.held != null ? `<b>${pd.held} of ${pd.of} on file.</b> ` : ''}Your agreement, consents, plan and assessments. Nothing here is shared with workers — they only ever see the short brief from your support plan.</p>${tile('#/bookings', 'cardPdocs', 'Open my documents', 'Read anything on your file, add a photo or a copy yourself.')}</div>`]);
-    S.push(['set-jobs', 'My job posts', `<div class="info-card" style="margin-bottom:18px;" id="cardJobsLink"><h3 style="margin:0 0 6px;">My job posts</h3><p class="muted-sm" style="margin:0 0 10px;">Post what you need and let interested workers come to you.</p>${tile('#/my-jobs', '', 'My job posts', 'Applicants, replies and closing a filled post.')}${tile('#/post-job', '', 'Post a new job', 'The support, the days, the suburb, what matters to you.')}</div>`]);
-    S.push(['set-access', 'People with access', `<div class="info-card" style="margin-bottom:18px;" id="cardAccessLink"><h3 style="margin:0 0 6px;">People with access</h3><p class="muted-sm" style="margin:0 0 10px;">Family, a nominee or a coordinator can help run things — with only the access you choose, a revoke button that works instantly, and a log of everything done on your behalf.</p>${tile('#/access', '', 'Manage people with access', 'Invite, limit, or remove — no phone call needed.')}</div>`]);
+    S.push(['emergency', 'Emergency contact', 'Who we call if something happens', card('cardEmergency', 'Emergency contact', `<p class="muted-sm" style="margin:0 0 10px;">${ecLine}</p>${tile('#/support-plan', '', 'Update it in your support plan', 'The one field everyone forgets until the night they need it.')}`)]);
+    S.push(['plan', 'Support plan & about you', 'Your goals, health notes and what good support looks like', card('cardPlanLink', 'Support plan & about you', `<p class="muted-sm" style="margin:0 0 10px;">${planLine}</p>${tile('#/support-plan', '', 'Open your support plan', 'Your goals, how you communicate, health notes, home safety and what a great match looks like.')}`)]);
+    S.push(['supports', 'Your supports', 'The kinds of support you use', card('cardSupports', 'Your supports', `${six.length ? `<p class="muted-sm" style="margin:0 0 8px;">From your support plan:</p><p style="margin:0 0 10px;">${six.map(([,l]) => `<span class="wc-tag" style="margin:0 5px 5px 0;display:inline-block;">${l}</span>`).join('')}</p>` : '<p class="muted-sm" style="margin:0 0 10px;">The six kinds of support we’re registered for — tell us which ones are yours in your support plan.</p>'}${tile('#/support-plan', '', 'Choose or change your supports', 'The six registration groups, in your plan.')}${tile('#/specialist-supports', '', 'Specialised & high-intensity supports', 'What we can safely take on, what we check first, and what happens if you need something we don’t hold.')}`)]);
+    S.push(['billing', 'Billing & NDIS details', 'How your plan is managed, your NDIS number', payCard + tile('#/bookings', 'cardBilling', 'Billing on your bookings page', 'The same details beside your bookings, statements and claims.')]);
+    S.push(['statements', 'Invoices & statements', 'Every shift, its rate, where the claim is up to', card('cardStatements', 'Invoices & statements', `<p class="muted-sm" style="margin:0 0 10px;">Every shift, its rate and where the claim is up to — readable any time, not buried in emails.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views, downloads, and plan-review-ready summaries.')}`)]);
+    S.push(['documents', 'My documents', 'Your file — agreement, consents, plan, assessments', card('cardDocsLink', 'My documents', `<p class="muted-sm" style="margin:0 0 10px;">${pd && pd.held != null ? `<b>${pd.held} of ${pd.of} on file.</b> ` : ''}Your agreement, consents, plan and assessments. Nothing here is shared with workers — they only ever see the short brief from your support plan.</p>${tile('#/bookings', 'cardPdocs', 'Open my documents', 'Read anything on your file, add a photo or a copy yourself.')}`)]);
+    S.push(['access', 'People with access', 'Family or a coordinator helping, on your terms', card('cardAccessLink', 'People with access', `<p class="muted-sm" style="margin:0 0 10px;">Family, a nominee or a coordinator can help run things — with only the access you choose, a revoke button that works instantly, and a log of everything done on your behalf.</p>${tile('#/access', '', 'Manage people with access', 'Invite, limit, or remove — no phone call needed.')}`)]);
+    S.push(['jobs', 'My job posts', 'Post what you need, workers come to you', card('cardJobsLink', 'My job posts', `<p class="muted-sm" style="margin:0 0 10px;">Post what you need and let interested workers come to you.</p>${tile('#/my-jobs', '', 'My job posts', 'Applicants, replies and closing a filled post.')}${tile('#/post-job', '', 'Post a new job', 'The support, the days, the suburb, what matters to you.')}`)]);
   }
 
   if(me.role === 'coordinator'){
-    S.push(['set-clients', 'My clients', `<div class="info-card" style="margin-bottom:18px;" id="cardClientsLink"><h3 style="margin:0 0 6px;">My clients</h3><p class="muted-sm" style="margin:0 0 10px;">Everyone you support, their next shifts and anything waiting on you.</p>${tile('#/clients', '', 'Open my clients', 'Act for a client from their card.')}</div>`]);
-    S.push(['set-statements', 'Invoices & statements', `<div class="info-card" style="margin-bottom:18px;" id="cardStatements"><h3 style="margin:0 0 6px;">Invoices & statements</h3><p class="muted-sm" style="margin:0 0 10px;">Statements for the people you support, ready for plan reviews.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views and downloads.')}</div>`]);
+    S.push(['statements', 'Invoices & statements', 'Statements for the people you support', card('cardStatements', 'Invoices & statements', `<p class="muted-sm" style="margin:0 0 10px;">Statements for the people you support, ready for plan reviews.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views and downloads.')}`)]);
   }
 
   if(me.role === 'worker'){
-    S.push(['set-profile', 'Profile & photo', `<div class="info-card" style="margin-bottom:18px;" id="cardProfileLink"><h3 style="margin:0 0 6px;">Profile & photo</h3><p class="muted-sm" style="margin:0 0 10px;">Your bio, photo, services, days and interests — what participants see when they find you.</p>${tile('#/bookings', 'cardProfile', 'Edit my profile & photo', 'Everything on your public card.')}${tile('#/worker/' + me.id, '', 'See my public profile', 'Exactly as participants see it.')}</div>`]);
-    S.push(['set-visibility', 'Profile visibility', visCard]);
-    S.push(['set-creds', 'Credentials & checks', `<div class="info-card" style="margin-bottom:18px;" id="cardCredsLink"><h3 style="margin:0 0 6px;">Credentials & checks</h3><p class="muted-sm" style="margin:0 0 10px;">Your screening, training and documents, with expiry dates named — reminders start 60 days out, and nothing lapses silently.</p>${tile('#/bookings', 'cardCreds', 'Open credentials & checks', 'What’s current, what’s due, whose turn it is.')}</div>`]);
-    S.push(['set-earnings', 'Earnings & pay tier', `<div class="info-card" style="margin-bottom:18px;" id="cardEarningsLink"><h3 style="margin:0 0 6px;">Earnings & pay tier</h3><p class="muted-sm" style="margin:0 0 10px;">This period, last period, and your ladder — with the exact hours to your next rate, because a pay rise you can see coming is worth more than one that arrives silently.</p>${tile('#/earnings', '', 'Open my earnings', 'Pay lines, super, and hours to the next tier.')}</div>`]);
-    S.push(['set-jobs', 'Jobs board', `<div class="info-card" style="margin-bottom:18px;" id="cardJobsLink"><h3 style="margin:0 0 6px;">Jobs board</h3><p class="muted-sm" style="margin:0 0 10px;">Participants post what they need — apply with a short note.</p>${tile('#/jobs', '', 'Browse the jobs board', 'Open posts near you.')}${tile('#/my-applications', '', 'My applications', 'Every application and where it stands.')}</div>`]);
-    S.push(['set-training', 'Training', `<div class="info-card" style="margin-bottom:18px;" id="cardTrainingLink"><h3 style="margin:0 0 6px;">Training</h3><p class="muted-sm" style="margin:0 0 10px;">What’s required, what’s done, and what unlocks the supports you want to offer.</p>${tile('#/training', '', 'Open my training', 'Modules, sign-offs and certificates.')}</div>`]);
+    const visBody = visCard || card('cardVisibility', "Your profile's visibility", '<p class="muted-sm">Open this page again in a moment — your profile details are still loading.</p>');
+    S.push(['visibility', 'Profile visibility', 'Showing or hidden, and why', visBody]);
+    S.push(['credentials', 'Credentials & checks', 'Screening, training, expiry dates', card('cardCredsLink', 'Credentials & checks', `<p class="muted-sm" style="margin:0 0 10px;">Your screening, training and documents, with expiry dates named — reminders start 60 days out, and nothing lapses silently.</p>${tile('#/bookings', 'cardCreds', 'Open credentials & checks', 'What’s current, what’s due, whose turn it is.')}`)]);
+    S.push(['earnings', 'Earnings & pay tier', 'Pay lines, super, hours to the next rate', card('cardEarningsLink', 'Earnings & pay tier', `<p class="muted-sm" style="margin:0 0 10px;">This period, last period, and your ladder — with the exact hours to your next rate, because a pay rise you can see coming is worth more than one that arrives silently.</p>${tile('#/earnings', '', 'Open my earnings', 'Pay lines, super, and hours to the next tier.')}`)]);
+    S.push(['training', 'Training', 'What’s required, done and due', card('cardTrainingLink', 'Training', `<p class="muted-sm" style="margin:0 0 10px;">What’s required, what’s done, and what unlocks the supports you want to offer.</p>${tile('#/training', '', 'Open my training', 'Modules, sign-offs and certificates.')}`)]);
+    S.push(['jobs', 'Jobs board', 'Open posts near you, your applications', card('cardJobsLink', 'Jobs board', `<p class="muted-sm" style="margin:0 0 10px;">Participants post what they need — apply with a short note.</p>${tile('#/jobs', '', 'Browse the jobs board', 'Open posts near you.')}${tile('#/my-applications', '', 'My applications', 'Every application and where it stands.')}`)]);
   }
 
-  if(me.role !== 'coordinator') S.push(['set-incident', 'Report an incident', `<div class="info-card" style="margin-bottom:18px;" id="cardIncidentLink"><h3 style="margin:0 0 6px;">Report an incident</h3><p class="muted-sm" style="margin:0 0 10px;">Anything that hurt someone or could have — including near misses. It goes straight to the office, and the reporting clock starts the moment it's filed.</p>${tile('#/bookings', 'cardIncident', 'Report an incident', 'Also in your account menu, always one tap away.')}</div>`]);
-  S.push(['set-notifs', 'Emails & notifications', notCard || `<div class="info-card" style="margin-bottom:18px;"><p class="muted-sm">Couldn’t load your email settings just now — refresh to try again.</p></div>`]);
-  S.push(['set-a11y', 'Accessibility', a11yCard]);
-  S.push(['set-privacy', 'Privacy & your data', note('Nothing about ' + (me.role === 'worker' ? 'you is public except the profile you choose to show.' : 'you is public — participants don’t have public profiles, full stop.')) + dataCard + `<div class="info-card" style="margin-bottom:18px;" id="cardPrivacyLinks">${tile('#/legal', '', 'Privacy policy & terms', 'What we hold, why, and the promises we’ve made in writing.')}</div>`]);
-  S.push(['set-password', 'Password', pwCard]);
-  S.push(['set-security', 'Sign-in & security', `<div class="info-card" style="margin-bottom:18px;" id="cardSecurityLink"><h3 style="margin:0 0 6px;">Sign-in & security</h3><p class="muted-sm" style="margin:0 0 10px;">Two-step sign-in, every device you’re signed in on with a working sign-out button, and alerts you can’t switch off — because you’d want to know.</p>${tile('#/security', '', 'Open sign-in & security', 'MFA, sessions and recovery codes.')}</div>`]);
-  if(me.admin) S.push(['set-admin', 'Admin', `<div class="info-card" style="margin-bottom:18px;" id="cardAdminLink">${tile('#/admin', '', 'Admin dashboard', 'The office view — boards, registers and the audit pack.')}</div>`]);
-  S.push(['set-help', 'Help & contact', `<div class="info-card" style="margin-bottom:18px;" id="cardHelpLink"><h3 style="margin:0 0 6px;">Help & contact</h3><p class="muted-sm" style="margin:0 0 10px;">A real person on 0488 114 368, hello@bookit.life, or the form — and if something’s gone wrong, tell us plainly and we’ll say plainly what happens next.</p>${tile('#/contact', '', 'Contact us', 'Phone, email, National Relay Service and interpreters.')}${tile('#/faq', '', 'FAQ & help', 'Answers to the common questions.')}</div>`]);
+  if(me.role !== 'coordinator'){
+    S.push(['incident', 'Report an incident', 'Straight to the office, clock started', card('cardIncidentLink', 'Report an incident', `<p class="muted-sm" style="margin:0 0 10px;">Anything that hurt someone or could have — including near misses. It goes straight to the office, and the reporting clock starts the moment it's filed.</p>${tile('#/bookings', 'cardIncident', 'Report an incident', 'Also in your account menu, always one tap away.')}`)]);
+  }
+
+  S.push(['notifications', 'Emails & notifications', 'Which emails reach you', notCard || card('cardNotifsFallback', 'Emails', '<p class="muted-sm">Couldn’t load your email settings just now — refresh to try again.</p>')]);
+  S.push(['accessibility', 'Accessibility', 'Text size, font, motion, contrast', a11yCard]);
+  S.push(['privacy', 'Privacy & your data', 'What we hold, and a copy of it', note('Nothing about ' + (me.role === 'worker' ? 'you is public except the profile you choose to show.' : 'you is public — participants don’t have public profiles, full stop.')) + dataCard + `<div class="info-card" style="margin-bottom:18px;" id="cardPrivacyLinks">${tile('#/legal', '', 'Privacy policy & terms', 'What we hold, why, and the promises we’ve made in writing.')}</div>`]);
+  S.push(['password', 'Password', 'Change it, sign other devices out', pwCard]);
+  S.push(['security', 'Sign-in & security', 'Two-step sign-in and your devices', card('cardSecurityLink', 'Sign-in & security', `<p class="muted-sm" style="margin:0 0 10px;">Two-step sign-in, every device you’re signed in on with a working sign-out button, and alerts you can’t switch off — because you’d want to know.</p>${tile('#/security', '', 'Open sign-in & security', 'MFA, sessions and recovery codes.')}`)]);
+  S.push(['help', 'Help & contact', 'A real person, plain answers', card('cardHelpLink', 'Help & contact', `<p class="muted-sm" style="margin:0 0 10px;">A real person on 0488 114 368, hello@bookit.life, or the form — and if something’s gone wrong, tell us plainly and we’ll say plainly what happens next.</p>${tile('#/contact', '', 'Contact us', 'Phone, email, National Relay Service and interpreters.')}${tile('#/faq', '', 'FAQ & help', 'Answers to the common questions.')}`)]);
+
+  const cur = S.find(x => x[0] === subRaw) || null;
+  const paneSec = cur || S[0];
+  const rowOn = paneSec[0];
+  const directRows =
+    (me.role === 'coordinator' ? `<a class="sr-row" href="#/clients"><span class="sr-txt"><b>My clients</b><small>Everyone you support, and acting for them</small></span><span class="sr-go" aria-hidden="true">›</span></a>` : '') +
+    (me.admin ? `<a class="sr-row" href="#/admin"><span class="sr-txt"><b>Admin dashboard</b><small>Boards, registers and the audit pack</small></span><span class="sr-go" aria-hidden="true">›</span></a>` : '');
+  const rows = S.map(([slug, label, desc]) =>
+    `<a class="sr-row${slug === rowOn ? ' on' : ''}" href="#/account/${slug}"${cur && slug === cur[0] ? ' aria-current="page"' : ''}><span class="sr-txt"><b>${label}</b><small>${desc}</small></span><span class="sr-go" aria-hidden="true">›</span></a>`).join('');
 
   wrap.innerHTML = `
-  <div class="set-layout">
+  <div class="set-layout ${cur ? 'has-sub' : 'no-sub'}">
     <nav class="set-nav" aria-label="All settings">
       <p class="sn-head">All settings</p>
-      <ul>${S.map(([id, label]) => `<li><button type="button" class="sn-link" data-set="${id}">${label}</button></li>`).join('')}</ul>
+      ${rows}${directRows}
     </nav>
     <div class="set-body">
-      ${S.map(([id, label, body]) => `<section class="set-sec" id="${id}" aria-label="${esc(label)}">${body}</section>`).join('')}
+      <a class="set-back" href="#/account">‹ All settings</a>
+      ${paneSec[3]}
     </div>
   </div>`;
 }
-
-/* settings hub: sidebar scrollspy — one listener, guarded by page */
-addEventListener('scroll', () => {
-  if(window.__setSpyTick || !location.hash.startsWith('#/account')) return;
-  window.__setSpyTick = true;
-  requestAnimationFrame(() => {
-    window.__setSpyTick = false;
-    const links = document.querySelectorAll('#page-account .sn-link');
-    if(!links.length) return;
-    let best = null, bestTop = -1e9;
-    document.querySelectorAll('#page-account .set-sec').forEach(el => {
-      const t = el.getBoundingClientRect().top - 130;
-      if(t <= 0 && t > bestTop){ bestTop = t; best = el.id; }
-    });
-    if(!best && document.querySelectorAll('#page-account .set-sec').length) best = document.querySelectorAll('#page-account .set-sec')[0].id;
-    links.forEach(l => l.classList.toggle('on', l.dataset.set === best));
-    const nav = document.querySelector('#page-account .set-nav');
-    const onEl = document.querySelector('#page-account .sn-link.on');
-    if(nav && onEl && nav.scrollWidth > nav.clientWidth + 4){
-      const ar = onEl.getBoundingClientRect(), nr = nav.getBoundingClientRect();
-      if(ar.left < nr.left + 10 || ar.right > nr.right - 10){
-        nav.scrollLeft += (ar.left - nr.left) - nav.clientWidth / 2 + ar.width / 2;
-      }
-    }
-  });
-}, {passive:true});
 document.addEventListener('change', async e => {
   const k = e.target.closest('[data-not-kind]');
   if(!k) return;
@@ -11836,12 +11842,6 @@ document.addEventListener('change', async e => {
 });
 document.addEventListener('click', async e => {
   const id = e.target.id;
-  const sn = e.target.closest('[data-set]');
-  if(sn){
-    const el = document.getElementById(sn.dataset.set);
-    if(el){ el.scrollIntoView({block:'start'}); }
-    return;
-  }
   if(id === 'a11yFromSettings'){
     scrollTo({top:0, left:0});
     const b = $('#a11yOpen');
@@ -12123,7 +12123,7 @@ document.addEventListener('click', async e => {
   new MutationObserver(syncFx).observe(docEl, {attributes:true, attributeFilter:['data-motion','data-fs','data-font']});
 
   /* ---- scroll reveals ---- */
-  var RV_SEL = '.section-head,.service-card,.step,.value-item,.strip-heads .sh,.testi,.ph-card,.info-card,.faq-item,.worker-card,.path-card,.tick-list li,.compare-card';
+  var RV_SEL = '.section-head,.service-card,.step,.value-item,.strip-heads .sh,.testi,.ph-card,.faq-item,.worker-card,.path-card,.tick-list li,.compare-card';
   var io = ('IntersectionObserver' in window) ? new IntersectionObserver(function(es){
     es.forEach(function(e){
       if (e.isIntersecting){ e.target.classList.add('rv-in'); io.unobserve(e.target); }
@@ -12157,9 +12157,19 @@ document.addEventListener('click', async e => {
   var hdr = document.querySelector('header.site');
   var schedS = false;
   addEventListener('scroll', function(){
-    if (schedS || !hdr) return;
+    if (schedS) return;
     schedS = true;
-    requestAnimationFrame(function(){ hdr.classList.toggle('scrolled', scrollY > 8); schedS = false; });
+    requestAnimationFrame(function(){
+      if (hdr) hdr.classList.toggle('scrolled', scrollY > 8);
+      /* catch-up sweep: IntersectionObserver can miss elements flung past
+         on a fast mobile scroll — anything at or above the viewport gets
+         revealed here so content can never be stranded invisible */
+      document.querySelectorAll('.rv:not(.rv-in)').forEach(function(el){
+        var r = el.getBoundingClientRect();
+        if (r.bottom < 60 || (r.top < innerHeight && r.bottom > 0)) el.classList.add('rv-in');
+      });
+      schedS = false;
+    });
   }, {passive:true});
   if (hdr) hdr.classList.toggle('scrolled', scrollY > 8);
 
