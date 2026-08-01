@@ -1464,6 +1464,18 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
   .burger{display:block;}
   .nav-mobile-only{display:block;}
 }
+
+/* ---------- Build 22: dense settings — the pane IS the page ---------- */
+.set-layout{grid-template-columns:224px minmax(0,1fr);gap:24px;}
+.set-nav{padding:8px 6px;top:84px;}
+.sr-row{padding:8px 12px;border-radius:10px;}
+.sr-row .sr-txt b{font-weight:600;font-size:.93rem;}
+.sr-row.on .sr-txt b{font-weight:700;}
+#page-account .set-body .info-card{padding:16px 18px;margin-bottom:12px!important;}
+#page-account .set-body .info-card h3{font-size:1.02rem;}
+#page-account .set-body{font-size:.97rem;}
+.mini-note{font-size:.85rem;color:var(--ink-soft);margin:0 0 10px;line-height:1.45;}
+.mini-rows p{margin:5px 0;font-size:.9rem;line-height:1.45;}
 </style>
 </head>
 <body>
@@ -10097,8 +10109,19 @@ function accLogWords(l){
   /* "Cara Yoon — Cara Yoon accepted…" says it twice; the bold name is enough */
   return out.startsWith(l.actor_name + ' ') ? out.slice(l.actor_name.length + 1) : out;
 }
+/* Build 22: settings panes embed the real pages. A renderer's target is
+   whichever of its two containers sits on the ACTIVE page; the other is
+   blanked so ids stay unique and handlers never find a stale hidden copy. */
+function pickWrap(pageSel, miniSel){
+  const page = $(pageSel), mini = $(miniSel);
+  const target = (mini && mini.closest('.page.active')) ? mini : page;
+  const other = target === mini ? page : mini;
+  if(other && other !== target) other.innerHTML = '';
+  return target;
+}
+
 async function renderAccessPage(){
-  const wrap = $('#accessWrap'); if(!wrap) return;
+  const wrap = pickWrap('#accessWrap', '#miniAccess'); if(!wrap) return;
   if(!(API.online && API.me)){
     wrap.innerHTML = '<div class="info-card"><p><b>Log in first</b> — this page is where you choose who may help run your account.</p></div>';
     return;
@@ -10591,7 +10614,7 @@ document.addEventListener('submit', async e => {
 
 /* ---------- my posts ---------- */
 async function renderMyJobs(){
-  const wrap = $('#myJobsWrap'); if(!wrap) return;
+  const wrap = pickWrap('#myJobsWrap', '#miniJobs'); if(!wrap) return;
   if(!(API.online && API.me)){ wrap.innerHTML = '<div class="info-card"><p><b>Log in to see your posts.</b></p></div>'; return; }
   if(vrole() !== 'participant'){
     wrap.innerHTML = '<div class="info-card"><p><b>This page is for people looking for support.</b> Workers: your side is <a href="#/my-applications">My applications</a>.</p></div>';
@@ -10622,7 +10645,7 @@ async function renderMyJobs(){
 
 /* ---------- my applications ---------- */
 async function renderMyApplications(){
-  const wrap = $('#myAppsWrap'); if(!wrap) return;
+  const wrap = pickWrap('#myAppsWrap', '#miniApps'); if(!wrap) return;
   if(!(API.online && API.me)){ wrap.innerHTML = '<div class="info-card"><p><b>Log in to see your applications.</b></p></div>'; return; }
   if(API.me.role !== 'worker'){
     wrap.innerHTML = '<div class="info-card"><p><b>This page is for workers.</b> Looking for support? <a href="#/my-jobs">Your posts live here</a>.</p></div>';
@@ -10817,7 +10840,7 @@ function stParams(){
   return 'period=' + ST.preset;
 }
 async function renderStatementsPage(){
-  const wrap = $('#stWrap'); if(!wrap) return;
+  const wrap = pickWrap('#stWrap', '#miniStatements'); if(!wrap) return;
   if(!(API.online && API.me)){
     wrap.innerHTML = '<div class="info-card"><p><b>Log in to see your statements.</b></p></div>';
     return;
@@ -11001,7 +11024,7 @@ function secChip(st){
     : '<span class="sec-chip off" id="secState">Off</span>';
 }
 async function renderSecurityPage(){
-  const wrap = $('#secWrap'); if(!wrap) return;
+  const wrap = pickWrap('#secWrap', '#miniSecurity'); if(!wrap) return;
   if(!(API.online && API.me)){
     wrap.innerHTML = '<div class="info-card"><p><b>Log in first</b> — this page is about your account.</p></div>';
     return;
@@ -11466,7 +11489,7 @@ document.addEventListener('keydown', e => {
 const EARN = { period: 0, from: '', to: '' };
 const earnMoney = n => '$' + Number(n || 0).toFixed(2);
 async function renderEarningsPage(){
-  const wrap = $('#earnWrap'); if(!wrap) return;
+  const wrap = pickWrap('#earnWrap', '#miniEarnings'); if(!wrap) return;
   if(!(API.online && API.me)){
     wrap.innerHTML = '<div class="info-card"><p><b>Log in to see your earnings.</b></p></div>';
     return;
@@ -11550,7 +11573,7 @@ document.addEventListener('click', e => {
 /* ============ Build 15 — training, and the lock it lifts ============ */
 const TRAIN = { open: null, answers: {} };
 async function renderTrainingPage(){
-  const wrap = $('#trainWrap'); if(!wrap) return;
+  const wrap = pickWrap('#trainWrap', '#miniTraining'); if(!wrap) return;
   if(!(API.online && API.me)){
     wrap.innerHTML = '<div class="info-card"><p><b>Log in to see your training.</b></p></div>';
     return;
@@ -11717,7 +11740,7 @@ async function renderAccountPage(){
     return;
   }
   const subRaw = (location.hash.split('/')[2] || '').replace(/[^a-z-]/g, '');
-  let nots = null, prof = null, sp = null, pd = null;
+  let nots = null, prof = null, sp = null;
   if(subRaw === 'notifications'){ try{ nots = await API.call('/me/notifications', {noFor:true}); }catch(e){} }
   if(API.me.role === 'worker' && subRaw === 'profile'){
     try{ prof = (await API.call('/me/profile', {noFor:true})).profile; }catch(e){}
@@ -11725,16 +11748,13 @@ async function renderAccountPage(){
   if(API.me.role === 'participant' && !API.actingFor && subRaw === 'profile'){
     try{ sp = await API.call('/me/support-plan'); }catch(e){}
   }
-  if(API.me.role === 'participant' && !API.actingFor && subRaw === 'documents'){
-    try{ pd = await API.call('/me/participant-documents'); }catch(e){}
-  }
 
   /* --- notifications: built from the server's own kinds, locked ones shown
      locked rather than hidden — a gap reads as "all off", a lock reads true */
   const notCard = nots ? `
   <div class="info-card" style="margin-bottom:18px;" id="cardNotifs">
     <h3 style="margin:0 0 6px;">Emails</h3>
-    <p class="muted-sm" style="margin:0 0 10px;">Switch off what you don't want. The greyed ones can't be switched off — a password reset or a lapsed screening check reaches you no matter what, and saying so beats a gap.</p>
+    <p class="muted-sm" style="margin:0 0 10px;">Switch off what you don't want — the greyed ones always send (password resets, lapsed checks: they exist to protect you).</p>
     ${nots.kinds.map(k => `
       <label style="display:flex;gap:10px;align-items:flex-start;margin:7px 0;cursor:${k.optional ? 'pointer' : 'not-allowed'};${k.optional ? '' : 'opacity:.55;'}">
         <input type="checkbox" data-not-kind="${esc(k.key)}" ${k.on ? 'checked' : ''} ${k.optional ? '' : 'disabled'} style="margin-top:3px;">
@@ -11792,7 +11812,7 @@ async function renderAccountPage(){
     payCard = `
     <div class="info-card" style="margin-bottom:18px;" id="cardPayer">
       <h3 style="margin:0 0 6px;">How your supports are paid</h3>
-      <p class="muted-sm" style="margin:0 0 10px;">Shifts already claimed keep the payer they were raised against. Completed-but-unclaimed shifts move to whoever is named here — if any are waiting, we count them and name the money before anything changes.</p>
+      <p class="muted-sm" style="margin:0 0 10px;">Claimed shifts keep their payer; unclaimed ones move with this setting — we name the money before anything changes.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <label style="font-size:.85rem;">Managed<br><select id="payPlan" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;">
           ${fundOpts.map(([v, l]) => `<option value="${v}" ${API.me.plan === v ? 'selected' : ''}>${l}</option>`).join('')}
@@ -11830,7 +11850,7 @@ async function renderAccountPage(){
   const a11yCard = `
   <div class="info-card" style="margin-bottom:18px;" id="cardA11y">
     <h3 style="margin:0 0 6px;">Accessibility</h3>
-    <p class="muted-sm" style="margin:0 0 10px;">Bigger text, an easier-to-read font, less motion and high contrast — all behind the Accessibility button at the top of every page. Your choices stay on this device, so set them once per phone or computer.</p>
+    <p class="muted-sm" style="margin:0 0 10px;">Bigger text, an easier-to-read font, less motion, high contrast — all behind the Accessibility button in the header. Choices stay on this device.</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <button type="button" class="btn btn-secondary btn-sm" id="a11yFromSettings">Open accessibility options</button>
       <a class="btn btn-secondary btn-sm" href="#/easy-read">This website in Easy Read</a>
@@ -11896,36 +11916,36 @@ async function renderAccountPage(){
   const S = [];
 
   if(me.role === 'participant' && !API.actingFor){
-    S.push(['billing', 'Billing & payments', 'Your plan, NDIS number, invoices & statements', payCard + card('cardStatements', 'Invoices & statements', `<p class="muted-sm" style="margin:0 0 10px;">Every shift, its rate and where the claim is up to — readable any time, not buried in emails.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views, downloads, and plan-review-ready summaries.')}${tile('#/bookings', 'cardBilling', 'Billing on your bookings page', 'The same details beside your bookings and claims.')}`)]);
-    S.push(['documents', 'My documents', 'Your file — agreement, consents, plan, assessments', card('cardDocsLink', 'My documents', `<p class="muted-sm" style="margin:0 0 10px;">${pd && pd.held != null ? `<b>${pd.held} of ${pd.of} on file.</b> ` : ''}Your agreement, consents, plan and assessments. Nothing here is shared with workers — they only ever see the short brief from your support plan.</p>${tile('#/bookings', 'cardPdocs', 'Open my documents', 'Read anything on your file, add a photo or a copy yourself.')}`)]);
-    S.push(['access', 'People with access', 'Family or a coordinator helping, on your terms', card('cardAccessLink', 'People with access', `<p class="muted-sm" style="margin:0 0 10px;">Family, a nominee or a coordinator can help run things — with only the access you choose, a revoke button that works instantly, and a log of everything done on your behalf.</p>${tile('#/access', '', 'Manage people with access', 'Invite, limit, or remove — no phone call needed.')}`)]);
-    S.push(['jobs', 'My job posts', 'Post what you need, workers come to you', card('cardJobsLink', 'My job posts', `<p class="muted-sm" style="margin:0 0 10px;">Post what you need and let interested workers come to you.</p>${tile('#/my-jobs', '', 'My job posts', 'Applicants, replies and closing a filled post.')}${tile('#/post-job', '', 'Post a new job', 'The support, the days, the suburb, what matters to you.')}`)]);
+    S.push(['billing', 'Billing & payments', 'Plan, NDIS number, invoices & statements', payCard + '<div id="miniStatements"><p class="muted-sm">Loading…</p></div>']);
+    S.push(['documents', 'My documents', 'Your file', '<div id="miniPdocs"><p class="muted-sm">Loading…</p></div>']);
+    S.push(['access', 'People with access', 'Family or a coordinator helping', '<div id="miniAccess"><p class="muted-sm">Loading…</p></div>']);
+    S.push(['jobs', 'My job posts', 'Post what you need', '<div id="miniJobs"><p class="muted-sm">Loading…</p></div>']);
   }
 
   if(me.role === 'coordinator'){
-    S.push(['statements', 'Invoices & statements', 'Statements for the people you support', card('cardStatements', 'Invoices & statements', `<p class="muted-sm" style="margin:0 0 10px;">Statements for the people you support, ready for plan reviews.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views and downloads.')}`)]);
+    S.push(['statements', 'Invoices & statements', 'Statements for the people you support', '<div id="miniStatements"><p class="muted-sm">Loading…</p></div>']);
   }
 
   if(me.role === 'worker'){
-    S.push(['credentials', 'Credentials & checks', 'Screening, training, expiry dates', card('cardCredsLink', 'Credentials & checks', `<p class="muted-sm" style="margin:0 0 10px;">Your screening, training and documents, with expiry dates named — reminders start 60 days out, and nothing lapses silently.</p>${tile('#/bookings', 'cardCreds', 'Open credentials & checks', 'What’s current, what’s due, whose turn it is.')}`)]);
-    S.push(['earnings', 'Earnings & pay tier', 'Pay lines, super, hours to the next rate', card('cardEarningsLink', 'Earnings & pay tier', `<p class="muted-sm" style="margin:0 0 10px;">This period, last period, and your ladder — with the exact hours to your next rate, because a pay rise you can see coming is worth more than one that arrives silently.</p>${tile('#/earnings', '', 'Open my earnings', 'Pay lines, super, and hours to the next tier.')}`)]);
-    S.push(['training', 'Training', 'What’s required, done and due', card('cardTrainingLink', 'Training', `<p class="muted-sm" style="margin:0 0 10px;">What’s required, what’s done, and what unlocks the supports you want to offer.</p>${tile('#/training', '', 'Open my training', 'Modules, sign-offs and certificates.')}`)]);
-    S.push(['jobs', 'Jobs board', 'Open posts near you, your applications', card('cardJobsLink', 'Jobs board', `<p class="muted-sm" style="margin:0 0 10px;">Participants post what they need — apply with a short note.</p>${tile('#/jobs', '', 'Browse the jobs board', 'Open posts near you.')}${tile('#/my-applications', '', 'My applications', 'Every application and where it stands.')}`)]);
+    S.push(['credentials', 'Credentials & checks', 'Screening, training, expiry dates', '<div id="miniCreds"><p class="muted-sm">Loading…</p></div>']);
+    S.push(['earnings', 'Earnings & pay tier', 'Pay lines, super, next rate', '<div id="miniEarnings"><p class="muted-sm">Loading…</p></div>']);
+    S.push(['training', 'Training', 'Required, done, due', '<div id="miniTraining"><p class="muted-sm">Loading…</p></div>']);
+    S.push(['jobs', 'Jobs board', 'Open posts, your applications', '<p class="mini-note" style="margin:0 0 10px;"><a href="#/jobs"><b>Browse the jobs board →</b></a> — participants post what they need; apply with a short note.</p><div id="miniApps"><p class="muted-sm">Loading…</p></div>']);
   }
 
   S.push(['notifications', 'Emails & notifications', 'Which emails reach you', notCard || card('cardNotifsFallback', 'Emails', '<p class="muted-sm">Couldn’t load your email settings just now — refresh to try again.</p>')]);
   S.push(['accessibility', 'Accessibility', 'Text size, font, motion, contrast', a11yCard]);
-  S.push(['security', 'Sign-in & security', 'Password, two-step sign-in, your devices', pwCard + card('cardSecurityLink', 'Two-step sign-in & devices', `<p class="muted-sm" style="margin:0 0 10px;">Two-step sign-in, every device you’re signed in on with a working sign-out button, and alerts you can’t switch off — because you’d want to know.</p>${tile('#/security', '', 'Open sign-in & security', 'MFA, sessions and recovery codes.')}`)]);
-  S.push(['help', 'Help & contact', 'A real person, plain answers', card('cardHelpLink', 'Help & contact', `<p class="muted-sm" style="margin:0 0 10px;">A real person on 0488 114 368, hello@bookit.life, or the form — and if something’s gone wrong, tell us plainly and we’ll say plainly what happens next.</p>${tile('#/contact', '', 'Contact us', 'Phone, email, National Relay Service and interpreters.')}${tile('#/faq', '', 'FAQ & help', 'Answers to the common questions.')}`)]);
+  S.push(['security', 'Sign-in & security', 'Password, two-step, devices', pwCard + '<div id="miniSecurity"><p class="muted-sm">Loading…</p></div>']);
+  S.push(['help', 'Help & contact', 'A real person, plain answers', card('cardHelpLink', 'Help & contact', `<p style="margin:0 0 6px;font-size:1.05rem;"><b>0488 114 368</b> · <a href="mailto:hello@bookit.life">hello@bookit.life</a></p><p class="mini-note" style="margin:0 0 8px;"><b>In an emergency, always call 000 first.</b> National Relay Service and interpreters (TIS 131 450) welcome.</p><p style="margin:0;font-size:.9rem;"><a href="#/contact"><b>Send us a message →</b></a> &nbsp;·&nbsp; <a href="#/faq"><b>FAQ &amp; help →</b></a></p>`)]);
 
   const cur = S.find(x => x[0] === subRaw) || null;
   const paneSec = cur || S[0];
   const rowOn = paneSec[0];
   const directRows =
-    (me.role === 'coordinator' ? `<a class="sr-row" href="#/clients"><span class="sr-txt"><b>My clients</b><small>Everyone you support, and acting for them</small></span><span class="sr-go" aria-hidden="true">›</span></a>` : '') +
-    (me.admin ? `<a class="sr-row" href="#/admin"><span class="sr-txt"><b>Admin dashboard</b><small>Boards, registers and the audit pack</small></span><span class="sr-go" aria-hidden="true">›</span></a>` : '');
-  const rows = S.map(([slug, label, desc]) =>
-    `<a class="sr-row${slug === rowOn ? ' on' : ''}" href="#/account/${slug}"${cur && slug === cur[0] ? ' aria-current="page"' : ''}><span class="sr-txt"><b>${label}</b><small>${desc}</small></span><span class="sr-go" aria-hidden="true">›</span></a>`).join('');
+    (me.role === 'coordinator' ? `<a class="sr-row" href="#/clients"><span class="sr-txt"><b>My clients</b></span><span class="sr-go" aria-hidden="true">›</span></a>` : '') +
+    (me.admin ? `<a class="sr-row" href="#/admin"><span class="sr-txt"><b>Admin dashboard</b></span><span class="sr-go" aria-hidden="true">›</span></a>` : '');
+  const rows = S.map(([slug, label]) =>
+    `<a class="sr-row${slug === rowOn ? ' on' : ''}" href="#/account/${slug}"${cur && slug === cur[0] ? ' aria-current="page"' : ''}><span class="sr-txt"><b>${label}</b></span><span class="sr-go" aria-hidden="true">›</span></a>`).join('');
 
   wrap.innerHTML = `
   <div class="set-layout ${cur ? 'has-sub' : 'no-sub'}">
@@ -11938,7 +11958,71 @@ async function renderAccountPage(){
       ${paneSec[3]}
     </div>
   </div>`;
+
+  /* Build 22: the pane IS the page — no redirects, the real thing renders
+     right here (pickWrap points each renderer at the mini container). */
+  if(rowOn === 'billing' || rowOn === 'statements') renderStatementsPage();
+  else if(rowOn === 'documents') renderPdocsMini();
+  else if(rowOn === 'access') renderAccessPage();
+  else if(rowOn === 'jobs'){ if(me.role === 'worker') renderMyApplications(); else renderMyJobs(); }
+  else if(rowOn === 'security') renderSecurityPage();
+  else if(rowOn === 'earnings') renderEarningsPage();
+  else if(rowOn === 'training') renderTrainingPage();
+  else if(rowOn === 'credentials') renderCredsMini();
 }
+/* Build 22 — the documents mini: the participant's file, dense, with a
+   one-line add. Same endpoints as the bookings card; its own ids. */
+async function renderPdocsMini(){
+  const wrap = $('#miniPdocs'); if(!wrap || !wrap.closest('.page.active')) return;
+  let pf = null, pTypes = [];
+  try{ pf = await API.call('/me/participant-documents'); }
+  catch(e){ wrap.innerHTML = `<div class="info-card"><p>${esc(e.message)}</p></div>`; return; }
+  try{ pTypes = (await API.call('/participant-doc-catalog')).types || []; }catch(e){}
+  const rows = (pf.documents || []).map(d => `
+    <p><b>${esc(d.type_label || '')}</b>${d.doc_date ? ' · ' + fmtAU(d.doc_date) : ''}${d.expiry_date ? ' · expires ' + fmtAU(d.expiry_date) : ''}${d.has_file
+      ? ` · <a href="/api/participant-documents/${d.id}/file" target="_blank">view</a>`
+      : ' · <span class="muted-sm">recorded, no file</span>'}${!d.verified_at ? ` · <button type="button" class="adm-btn-sm" data-mpd-del="${d.id}">remove</button>` : ''}${d.review === 'rejected' && d.review_note ? `<br><span style="color:#A5301A;font-size:.82rem;"><b>Why:</b> ${esc(d.review_note)} — add another copy and it takes this one's place.</span>` : ''}</p>`).join('');
+  const missing = (pf.outstanding || []);
+  const reqs = (pf.requests || []);
+  wrap.innerHTML = `
+  <div class="info-card" style="margin-bottom:12px;" id="cardDocsMini">
+    <h3 style="margin:0 0 6px;">My documents</h3>
+    <p class="mini-note">${pf.held != null ? `<b>${pf.held} of ${pf.of} on file.</b> ` : ''}Only you and the office see these — workers never do.</p>
+    ${reqs.length ? `<p class="mini-note" style="color:#8a6d00;"><b>The office has asked for:</b> ${reqs.map(r => esc(r.label)).join(', ')} — add it below and the ask closes itself.</p>` : ''}
+    <div class="mini-rows">${rows || '<p class="muted-sm">Nothing on file yet.</p>'}</div>
+    ${missing.length ? `<p class="mini-note" style="margin:10px 0 0;"><b>Not on file yet:</b> ${missing.map(x => esc(x.label || x)).join(' · ')}</p>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;">
+      <label style="font-size:.82rem;">Add a document<br><select id="mpdType" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;max-width:220px;">${pTypes.map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}</select></label>
+      <label style="font-size:.82rem;">File (photo or PDF ≤ 4 MB)<br><input id="mpdFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.82rem;margin-top:4px;max-width:220px;"></label>
+      <button type="button" class="btn btn-primary btn-sm" id="mpdAdd">Add</button>
+    </div>
+    <p class="mini-note" style="margin:8px 0 0;">Need to set a date or a label? <a href="#/bookings" data-acct="go" data-hash="#/bookings" data-sec="cardPdocs">The full page has every field →</a></p>
+  </div>`;
+}
+
+/* the worker's credentials mini — what's on file and its state, dense */
+async function renderCredsMini(){
+  const wrap = $('#miniCreds'); if(!wrap || !wrap.closest('.page.active')) return;
+  let d;
+  try{ d = await API.call('/me/documents', {noFor:true}); }
+  catch(e){ wrap.innerHTML = `<div class="info-card"><p>${esc(e.message)}</p></div>`; return; }
+  const docs = d.documents || [];
+  const chip = x => x.status === 'valid' ? '<span class="sec-chip on">current</span>'
+    : x.status === 'expiring' ? '<span class="acc-chip invited">expiring soon</span>'
+    : x.status === 'expired' ? '<span class="acc-chip revoked">EXPIRED</span>' : '';
+  const rows = docs.map(x => `
+    <p><b>${esc(x.type_label || x.doc_type || '')}</b>${x.expiry_date ? ' · expires ' + fmtAU(x.expiry_date) : ''} ${chip(x)}${x.review_label ? ` · <span class="muted-sm">${esc(x.review_label)}</span>` : ''}</p>`).join('');
+  const reqs = (d.requests || []);
+  wrap.innerHTML = `
+  <div class="info-card" style="margin-bottom:12px;" id="cardCredsMini">
+    <h3 style="margin:0 0 6px;">Credentials & checks</h3>
+    <p class="mini-note">Reminders start 60 days before anything expires — nothing lapses silently.</p>
+    ${reqs.length ? `<p class="mini-note" style="color:#8a6d00;"><b>The office has asked for:</b> ${reqs.map(r => esc(r.label)).join(', ')}.</p>` : ''}
+    <div class="mini-rows">${rows || '<p class="muted-sm">Nothing on file yet — your screening check and photo are the two that unlock approval.</p>'}</div>
+    <a class="set-tile" style="margin-top:12px;" href="#/bookings" data-acct="go" data-hash="#/bookings" data-sec="cardCreds"><span class="st-txt"><b>Add or replace files</b><small>Uploads live on your bookings page.</small></span><span class="st-go" aria-hidden="true">→</span></a>
+  </div>`;
+}
+
 document.addEventListener('change', async e => {
   const k = e.target.closest('[data-not-kind]');
   if(!k) return;
@@ -11973,6 +12057,27 @@ document.addEventListener('click', async e => {
       toast('Photo removed.');
       renderAccountPage();
     }catch(err){ toast(err.message); }
+    return;
+  }
+  if(id === 'mpdAdd'){
+    e.target.disabled = true;
+    try{
+      const file = await fileToB64Shrunk($('#mpdFile'), 1600, 0.85);
+      if(!file){ toast('Choose a file first.'); e.target.disabled = false; return; }
+      if(file.mime === 'application/pdf' && file.data.length > 5_400_000){
+        toast('That PDF is over the 4 MB limit — a photo of the document is fine.');
+        e.target.disabled = false; return;
+      }
+      await API.call('/me/participant-documents', {method:'POST', body:{ form_key: $('#mpdType').value, label: '', doc_date: '', expiry_date: '', file }});
+      toast('Added to your file. 👍');
+      renderPdocsMini();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  const mpdDel = e.target.closest('[data-mpd-del]');
+  if(mpdDel){
+    try{ await API.call('/me/participant-documents/' + mpdDel.dataset.mpdDel + '/delete', {method:'POST'}); toast('Removed.'); renderPdocsMini(); }
+    catch(err){ toast(err.message); }
     return;
   }
   if(id === 'detGo'){
