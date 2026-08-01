@@ -132,11 +132,6 @@ section.block{padding:76px 0;}
   padding:12px 20px;z-index:200;border-radius:0 0 12px 0;font-weight:600;
 }
 .skip-link:focus{left:0;}
-.a11y-bar{
-  background:var(--ink);color:#fff;font-size:.85rem;
-}
-.a11y-bar .container{display:flex;justify-content:space-between;align-items:center;padding-top:7px;padding-bottom:7px;gap:12px;flex-wrap:wrap;}
-.a11y-bar span{opacity:.85;}
 .a11y-open{
   display:inline-flex;align-items:center;gap:8px;
   background:var(--amber);border:1px solid var(--amber);color:var(--ink);
@@ -1422,23 +1417,123 @@ html[data-motion="reduce"] .rv,html[data-motion="reduce"] .rv.rv-in{opacity:1!im
 }
 html.high-contrast .set-nav,html.high-contrast .set-tile,html.high-contrast .sr-row{background:#fff;border-color:#000;}
 html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!important;}
+
+/* ---------- Build 21: one slim header ----------
+   The accessibility strip is gone; its button sits in the main row and the
+   panel opens from the sticky header itself, wherever you are on the page.
+   Sized in tiers so the row FITS — a header that wraps or overlaps is worse
+   than the strip it replaced. */
+.nav-wrap{padding:8px 24px;gap:12px;max-width:1400px;}
+.logo{flex:none;}
+.nav-cta{flex:none;}
+nav.main{min-width:0;}
+nav.main a.nav-link, nav.main button.nav-link{white-space:nowrap;}
+@media (min-width:1021px){
+  nav.main a.nav-link, nav.main button.nav-link{padding:8px 8px;font-size:.9rem;}
+}
+@media (min-width:1021px) and (max-width:1300px){
+  nav.main a.nav-link, nav.main button.nav-link{font-size:.88rem;padding:8px 7px;}
+  .logo{font-size:1.5rem;}
+  .nav-wrap{padding-left:18px;padding-right:18px;}
+}
+@media (min-width:1021px) and (max-width:1240px){
+  nav.main a.nav-link, nav.main button.nav-link{font-size:.84rem;padding:7px 5px;}
+  .logo{font-size:1.42rem;}
+  .nav-cta{gap:6px;}
+  #btnGetStarted{padding:9px 14px;}
+}
+.a11y-open{padding:5px 13px;flex:none;position:relative;}
+.a11y-open .a11y-lbl{white-space:nowrap;}
+@media (max-width:1400px){
+  .a11y-open{padding:8px;border-radius:50%;}
+  .a11y-open .a11y-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
+  .a11y-open svg{width:17px;height:17px;}
+}
+header.site .a11y-panel{border-top:1.5px solid var(--line);}
+.a11y-panel.open{max-height:min(80dvh, 640px);overflow:auto;}
+.a11y-panel .container{padding-top:18px;padding-bottom:18px;}
+@media (min-width:1021px) and (max-width:1140px){
+  header.site{backdrop-filter:none;background:var(--cream);}
+  header.site.scrolled{background:var(--cream);}
+  nav.main{display:none;position:fixed;inset:0;top:0;background:var(--cream);z-index:150;padding:80px 26px 26px;overflow:auto;}
+  nav.main.open{display:block;}
+  nav.main > ul{flex-direction:column;align-items:stretch;gap:4px;}
+  nav.main a.nav-link, nav.main button.nav-link{font-size:1.15rem;padding:13px 14px;}
+  .dropdown-menu{position:static;box-shadow:none;border:none;background:var(--teal-tint);margin-top:4px;}
+  .nav-close{display:flex!important;position:absolute;top:18px;right:20px;}
+  .burger{display:block;}
+  .nav-mobile-only{display:block;}
+}
 </style>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
 
-<!-- Accessibility quick bar -->
-<div class="a11y-bar">
-  <div class="container">
-    <span>An accessible platform for every body.</span>
-    <button class="a11y-open" id="a11yOpen" aria-expanded="false" aria-controls="a11yPanel">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm9 5.5c.3 1-.4 1.5-1.2 1.7L15 10.4v2.3l2.4 7.2c.3.8-.1 1.6-.9 1.9-.8.3-1.6-.1-1.9-.9L12.4 15h-.8l-2.2 5.9c-.3.8-1.1 1.2-1.9.9-.8-.3-1.2-1.1-.9-1.9L9 12.7v-2.3L4.2 9.2C3.4 9 2.7 8.5 3 7.5c.2-.8 1-1.2 1.8-1L10 7.7h4l5.2-1.2c.8-.2 1.6.2 1.8 1z"/></svg>
-      Accessibility options
-    </button>
-  </div>
-</div>
+<!-- ============ HEADER ============ -->
+<header class="site">
+  <div class="nav-wrap">
+    <a href="#/" class="logo" aria-label="BookIt — home">b<svg class="oo" viewBox="0 0 90 48" aria-hidden="true"><circle class="o1" cx="27" cy="24" r="22" fill="#0E6B62"/><circle class="o2" cx="63" cy="24" r="22" fill="#F5B841"/><path class="lens" d="M45 11.35 A22 22 0 0 1 45 36.65 A22 22 0 0 1 45 11.35 Z" fill="#0A544D"/><path class="tick" d="M52 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>kit</a>
 
-<!-- Accessibility panel -->
+    <nav class="main" id="mainNav" aria-label="Main navigation">
+      <button class="nav-close" id="navClose" aria-label="Close menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <ul>
+        <li class="dropdown" id="ddServices">
+          <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddServicesBtn">Support services <span class="caret">▾</span></button>
+          <div class="dropdown-menu" role="menu" aria-label="Support services">
+            <a href="#/services" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span><span><b>All support services</b><small>Six NDIS registration groups, one team</small></span></a>
+            <a href="#/services/employment" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></span><span><b>Employment support</b><small>Find & keep a job — 0102</small></span></a>
+            <a href="#/services/personal-care" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.6-9.5-9A5.5 5.5 0 0112 6.7 5.5 5.5 0 0121.5 12c-2.5 4.4-9.5 9-9.5 9z"/></svg></span><span><b>Personal care</b><small>Daily personal activities — 0107</small></span></a>
+            <a href="#/services/transport" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6 17l1.2-5.5A2 2 0 019.15 10h5.7a2 2 0 011.95 1.5L18 17M7 20a1.5 1.5 0 100-3M17 20a1.5 1.5 0 100-3"/></svg></span><span><b>Travel & transport</b><small>Get where you're going — 0108</small></span></a>
+            <a href="#/services/daily-tasks" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v9a1 1 0 001 1h12a1 1 0 001-1v-9"/></svg></span><span><b>Daily tasks & shared living</b><small>Life skills at home — 0115/0138</small></span></a>
+            <a href="#/services/household" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M9 21v-6h6v6"/></svg></span><span><b>Household tasks</b><small>Cleaning, laundry, meals — 0120</small></span></a>
+            <a href="#/services/community" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14.5 14.5c2.6.4 4.5 2.7 4.5 5.5"/></svg></span><span><b>Community participation</b><small>Social & recreation — 0125</small></span></a>
+          </div>
+        </li>
+        <li><a class="nav-link" href="#/how-it-works">How it works</a></li>
+        <li><a class="nav-link" href="#/pricing">Pricing</a></li>
+        <li><a class="nav-link" href="#/find-workers">Find workers</a></li>
+        <li><a class="nav-link" href="#/bookings" id="navBookings" hidden>Bookings</a></li>
+        <li><a class="nav-link" href="#/support-plan" id="navPlan" hidden>Support plan</a></li>
+        <li><a class="nav-link" href="#/admin" id="navAdmin" hidden>Admin</a></li>
+        <li id="navForWorkersLi"><a class="nav-link" href="#/support-workers">For support workers</a></li>
+        <li class="dropdown" id="ddAbout">
+          <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddAboutBtn">About <span class="caret">▾</span></button>
+          <div class="dropdown-menu" role="menu" aria-label="About">
+            <a href="#/about" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg></span><span><b>About us</b><small>Our story and values</small></span></a>
+            <a href="#/safety" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg></span><span><b>Safety & quality</b><small>Checks, insurance, standards</small></span></a>
+            <a href="#/faq" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 114.1 1.9c-.8.7-1.6 1.2-1.6 2.6M12 17h.01"/></svg></span><span><b>FAQ & help</b><small>Answers to common questions</small></span></a>
+            <a href="#/easy-read" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V4H6.5A2.5 2.5 0 004 6.5v13z"/><path d="M9 8.5h7M9 11.5h4"/></svg></span><span><b>Easy Read</b><small>This website in Easy Read</small></span></a>
+          </div>
+        </li>
+        <li class="nav-mobile-only" id="navGetStartedLi"><a class="nav-link" href="#/get-started" style="color:var(--teal);font-weight:800;">Get started free →</a></li>
+      </ul>
+    </nav>
+
+    <div class="nav-cta">
+      <button class="a11y-open" id="a11yOpen" aria-expanded="false" aria-controls="a11yPanel" aria-label="Accessibility options" title="Accessibility options">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm9 5.5c.3 1-.4 1.5-1.2 1.7L15 10.4v2.3l2.4 7.2c.3.8-.1 1.6-.9 1.9-.8.3-1.6-.1-1.9-.9L12.4 15h-.8l-2.2 5.9c-.3.8-1.1 1.2-1.9.9-.8-.3-1.2-1.1-.9-1.9L9 12.7v-2.3L4.2 9.2C3.4 9 2.7 8.5 3 7.5c.2-.8 1-1.2 1.8-1L10 7.7h4l5.2-1.2c.8-.2 1.6.2 1.8 1z"/></svg>
+        <span class="a11y-lbl">Accessibility</span>
+      </button>
+      <button class="msg-btn" id="btnMessages" aria-label="Messages">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <span class="msg-badge" id="msgBadge" hidden></span>
+      </button>
+      <button class="btn btn-ghost" id="btnLogin">Log in</button>
+      <a href="#/get-started" class="btn btn-primary btn-sm" id="btnGetStarted">Get started</a>
+      <div class="acct" id="acctWrap" hidden>
+        <button class="acct-chip" id="acctBtn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
+          <span class="acct-avatar" id="acctAvatar"></span>
+          <svg class="acct-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="acct-menu" id="acctMenu" role="menu" aria-label="Account" hidden></div>
+      </div>
+      <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
 <section class="a11y-panel" id="a11yPanel" aria-label="Accessibility options">
   <div class="container">
     <h2 id="a11yTitle" tabindex="-1">
@@ -1483,68 +1578,6 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
     </div>
   </div>
 </section>
-
-<!-- ============ HEADER ============ -->
-<header class="site">
-  <div class="nav-wrap">
-    <a href="#/" class="logo" aria-label="BookIt — home">b<svg class="oo" viewBox="0 0 90 48" aria-hidden="true"><circle class="o1" cx="27" cy="24" r="22" fill="#0E6B62"/><circle class="o2" cx="63" cy="24" r="22" fill="#F5B841"/><path class="lens" d="M45 11.35 A22 22 0 0 1 45 36.65 A22 22 0 0 1 45 11.35 Z" fill="#0A544D"/><path class="tick" d="M52 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>kit</a>
-
-    <nav class="main" id="mainNav" aria-label="Main navigation">
-      <button class="nav-close" id="navClose" aria-label="Close menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-      <ul>
-        <li class="dropdown" id="ddServices">
-          <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddServicesBtn">Support services <span class="caret">▾</span></button>
-          <div class="dropdown-menu" role="menu" aria-label="Support services">
-            <a href="#/services" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span><span><b>All support services</b><small>Six NDIS registration groups, one team</small></span></a>
-            <a href="#/services/employment" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></span><span><b>Employment support</b><small>Find & keep a job — 0102</small></span></a>
-            <a href="#/services/personal-care" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.6-9.5-9A5.5 5.5 0 0112 6.7 5.5 5.5 0 0121.5 12c-2.5 4.4-9.5 9-9.5 9z"/></svg></span><span><b>Personal care</b><small>Daily personal activities — 0107</small></span></a>
-            <a href="#/services/transport" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6 17l1.2-5.5A2 2 0 019.15 10h5.7a2 2 0 011.95 1.5L18 17M7 20a1.5 1.5 0 100-3M17 20a1.5 1.5 0 100-3"/></svg></span><span><b>Travel & transport</b><small>Get where you're going — 0108</small></span></a>
-            <a href="#/services/daily-tasks" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v9a1 1 0 001 1h12a1 1 0 001-1v-9"/></svg></span><span><b>Daily tasks & shared living</b><small>Life skills at home — 0115/0138</small></span></a>
-            <a href="#/services/household" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M9 21v-6h6v6"/></svg></span><span><b>Household tasks</b><small>Cleaning, laundry, meals — 0120</small></span></a>
-            <a href="#/services/community" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14.5 14.5c2.6.4 4.5 2.7 4.5 5.5"/></svg></span><span><b>Community participation</b><small>Social & recreation — 0125</small></span></a>
-          </div>
-        </li>
-        <li><a class="nav-link" href="#/how-it-works">How it works</a></li>
-        <li><a class="nav-link" href="#/pricing">Pricing</a></li>
-        <li><a class="nav-link" href="#/find-workers">Find workers</a></li>
-        <li><a class="nav-link" href="#/bookings" id="navBookings" hidden>Bookings</a></li>
-        <li><a class="nav-link" href="#/support-plan" id="navPlan" hidden>Support plan</a></li>
-        <li><a class="nav-link" href="#/admin" id="navAdmin" hidden>Admin</a></li>
-        <li><a class="nav-link" href="#/support-workers">For support workers</a></li>
-        <li class="dropdown" id="ddAbout">
-          <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddAboutBtn">About <span class="caret">▾</span></button>
-          <div class="dropdown-menu" role="menu" aria-label="About">
-            <a href="#/about" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg></span><span><b>About us</b><small>Our story and values</small></span></a>
-            <a href="#/safety" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg></span><span><b>Safety & quality</b><small>Checks, insurance, standards</small></span></a>
-            <a href="#/faq" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 114.1 1.9c-.8.7-1.6 1.2-1.6 2.6M12 17h.01"/></svg></span><span><b>FAQ & help</b><small>Answers to common questions</small></span></a>
-            <a href="#/easy-read" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V4H6.5A2.5 2.5 0 004 6.5v13z"/><path d="M9 8.5h7M9 11.5h4"/></svg></span><span><b>Easy Read</b><small>This website in Easy Read</small></span></a>
-          </div>
-        </li>
-        <li class="nav-mobile-only" id="navGetStartedLi"><a class="nav-link" href="#/get-started" style="color:var(--teal);font-weight:800;">Get started free →</a></li>
-      </ul>
-    </nav>
-
-    <div class="nav-cta">
-      <button class="msg-btn" id="btnMessages" aria-label="Messages">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        <span class="msg-badge" id="msgBadge" hidden></span>
-      </button>
-      <button class="btn btn-ghost" id="btnLogin">Log in</button>
-      <a href="#/get-started" class="btn btn-primary btn-sm" id="btnGetStarted">Get started</a>
-      <div class="acct" id="acctWrap" hidden>
-        <button class="acct-chip" id="acctBtn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
-          <span class="acct-avatar" id="acctAvatar"></span>
-          <svg class="acct-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
-        <div class="acct-menu" id="acctMenu" role="menu" aria-label="Account" hidden></div>
-      </div>
-      <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      </button>
-    </div>
-  </div>
 </header>
 
 <main id="main" tabindex="-1">
@@ -1582,8 +1615,8 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
         </form>
         <div class="trust-chips" aria-label="Key facts">
           <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Every worker employed & insured</span>
-          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> NDIS price guide rates — no gap fees</span>
-          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Works with every plan type</span>
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Priced at NDIS price limits — never above</span>
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Self-, plan- and NDIA-managed welcome</span>
         </div>
       </div>
       <div class="hero-art" aria-hidden="true">
@@ -1625,7 +1658,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
       </div>
       <div class="value-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        <div><b>Real human help</b><small>A local support team you can call — plus 24/7 incident support when it matters.</small></div>
+        <div><b>Real human help</b><small>A local support team you can call — plus an urgent incident line when it matters. In an emergency, always 000 first.</small></div>
       </div>
     </div>
   </div>
@@ -1680,7 +1713,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
         <h2 id="prHead">One honest rate. Nothing hidden.</h2>
         <p class="lead mt-1">Most platforms bury their numbers. We publish everything — what you pay (the standard NDIS rate), what your worker takes home, and exactly where the rest goes.</p>
         <ul class="tick-list">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>Priced at the NDIS price limits</b> — never above them, so support is 100% claimable from your plan with no gap fees, however it's managed.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>Priced at the NDIS price limits</b> — never above them, and we never ask for a top-up. A booking can be paid from NDIS funding where the support is in your plan and meets the claiming requirements.</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>Workers keep more</b> — 72.5% of every hour goes to your worker on day one, including super, rising to 76.5% as they stay.</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>$0 to join, no subscriptions</b> — you only ever pay for support you book.</span></li>
         </ul>
@@ -1907,7 +1940,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
             <li>Same-worker continuity — build a small, regular team</li>
             <li>Detailed care preferences saved to your profile</li>
             <li>Manual-handling trained workers where needed</li>
-            <li>24/7 incident support line</li>
+            <li>Urgent incident support line</li>
           </ul>
         </div>
       </aside>
@@ -2227,7 +2260,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
             <li>Workers' compensation and public liability insurance</li>
             <li>Worker screening, verification and training records</li>
             <li>Invoicing, claiming and payment chasing</li>
-            <li>Incident management and 24/7 escalation</li>
+            <li>Incident management with urgent escalation</li>
             <li>Finding cover when your regular worker is away</li>
           </ul>
         </div>
@@ -2259,10 +2292,11 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
       <h1>Simple, honest pricing</h1>
       <p class="lead">No joining fees. No subscriptions. No surprises. We bill at the standard NDIS price limits — never above them — with your worker's share published right beside every rate.</p>
       <div class="price-hero-cards">
-        <div class="ph-card"><span class="tag">You pay</span><div class="big">$73.58<sup>/hr</sup></div><p>Weekday daytime — the 2026–27 NDIS price limit, all six services</p></div>
+        <div class="ph-card"><span class="tag">You pay</span><div class="big">$73.58<sup>/hr</sup></div><p>Typical standard weekday daytime support-worker rate — the 2026–27 NDIS price limit</p></div>
         <div class="ph-card"><span class="tag">Your worker earns</span><div class="big">$53.35<sup>/hr</sup></div><p>Including 12% super — 72.5% of your rate on day one, rising to 76.5%. Never below the SCHADS Award.</p></div>
-        <div class="ph-card"><span class="tag">Gap fees</span><div class="big">$0</div><p>Never billed above your plan's price limits — fully claimable, every plan type</p></div>
+        <div class="ph-card"><span class="tag">Gap fees</span><div class="big">$0</div><p>Never billed above the NDIS price limits — so we never ask you for a top-up</p></div>
       </div>
+      <p class="muted-sm" style="margin-top:14px;max-width:62em;">Different support items, times, intensity levels and locations have different rates — employment support and household tasks have their own limits, shown below. Your exact agreed price is shown before you book. BookIt supports self-managed, plan-managed and NDIA-managed participants; a booking can be paid from NDIS funding where the support is included in your plan and meets the applicable claiming requirements.</p>
     </div>
   </div>
 
@@ -2271,7 +2305,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
       <h2 class="mb-2">Hourly rates (2+ hour shifts)</h2>
       <div class="table-wrap">
         <table id="ratesTable">
-          <caption>Standard support rates — all six services · billed at the NDIS Pricing Arrangements 2026–27 price limits (from 1 July 2026)</caption>
+          <caption>Standard support rates · billed at the NDIS Pricing Arrangements 2026–27 price limits (from 1 July 2026) — employment support and household tasks carry their own limits, below</caption>
           <thead>
             <tr>
               <th scope="col">When</th>
@@ -2283,7 +2317,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
           <tbody><!-- filled by JS --></tbody>
         </table>
       </div>
-      <p class="tbl-note">A 2-hour booking minimum applies, in line with SCHADS minimum-engagement rules — the exact price is always shown before you confirm. Sleepovers are billed at the NDIS night-time sleepover rate of <b>$311.79 per night</b> (includes up to 2 hours of active support; extra active hours at the applicable hourly rate). House-cleaning-only bookings are billed at <b>$60.10/hr</b> — the dedicated Household Tasks price limit. Employment support (0102) is billed at its own flat NDIS limit of <b>$83.87/hr</b>, whatever the day or time. Remote and very remote loadings follow the NDIS Pricing Arrangements. Support services are GST-free.</p>
+      <p class="tbl-note">A 2-hour booking minimum applies, in line with SCHADS minimum-engagement rules — the exact price is always shown before you confirm. Sleepovers are billed at the NDIS night-time sleepover rate of <b>$311.79 per night</b> (includes up to 2 hours of active support; extra active hours at the applicable hourly rate). House-cleaning-only bookings are billed at <b>$60.10/hr</b> — the dedicated Household Tasks price limit. Employment support (0102) is billed at its own flat NDIS limit of <b>$83.87/hr</b>, whatever the day or time. Remote and very remote loadings follow the NDIS Pricing Arrangements. Eligible NDIS supports may be GST-free when the ATO requirements are met — any applicable GST is shown before booking.</p>
       <div class="info-card" style="margin-top:18px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
         <p style="margin:0;"><b>What will your shift actually cost?</b> Pick the support, day and time — see the price, the claim line and the cancellation window before you book anything.</p>
         <a class="btn btn-primary" href="#/calculator">Try the calculator</a>
@@ -2319,8 +2353,9 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
       <div>
         <div class="info-card">
           <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg> Cancellations, plainly</h3>
+          <p class="muted-sm" style="margin:0 0 10px;">Cancellation charges, where permitted, depend on the support item and current NDIS requirements. The rule applying to your booking is shown before confirmation and in your service agreement.</p>
           <ul>
-            <li><b>More than 2 clear business days' notice:</b> free, always.</li>
+            <li><b>Plenty of notice:</b> free — the exact window for your support item is shown before you confirm.</li>
             <li><b>Short notice:</b> the shift may be charged, in line with the NDIS Pricing Arrangements — and your worker is still paid.</li>
             <li><b>We cancel on you?</b> Never charged, and we'll help find cover fast.</li>
           </ul>
@@ -2332,7 +2367,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
             <li>Verification, screening and training of workers</li>
             <li>Automatic invoicing and NDIS claiming</li>
             <li>Our support team, 7 days</li>
-            <li>24/7 incident line</li>
+            <li>Urgent incident line</li>
           </ul>
         </div>
       </div>
@@ -2548,7 +2583,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
         <h2>From application to first shift</h2>
       </div>
       <div class="steps">
-        <div class="step"><div class="num">1</div><h3>Apply online</h3><p>15 minutes: your experience, interests, availability and the services you want to offer. Upload documents as you go — we verify them within 72 hours.</p></div>
+        <div class="step"><div class="num">1</div><h3>Apply online</h3><p>15 minutes: your experience, interests, availability and the services you want to offer. Upload documents as you go — we verify each one and tell you the moment it's confirmed.</p></div>
         <div class="step"><div class="num">2</div><h3>Interview & orientation</h3><p>A friendly video interview, reference checks, then paid online orientation covering safeguarding, boundaries and great support practice.</p></div>
         <div class="step"><div class="num">3</div><h3>Go live & get booked</h3><p>Your profile goes live to clients nearby. Apply for posted jobs, accept meet-and-greets, and build your regular roster.</p></div>
       </div>
@@ -2580,7 +2615,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
         <div class="service-card" style="cursor:default;">
           <div class="service-icon ic-coral"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></div>
           <h3>Employees, fully insured</h3>
-          <p>Workers are our employees on every shift — covered by workers' compensation, public liability and professional indemnity insurance. No gaps, no grey areas, no risk sitting with you.</p>
+          <p>Workers are employed by us, and we manage payroll, superannuation, insurance, screening and workplace responsibilities — covered by workers' compensation, public liability and professional indemnity insurance on every shift.</p>
         </div>
         <div class="service-card" style="cursor:default;">
           <div class="service-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9A5 5 0 0018 9h-1.3A8 8 0 104 16.2"/><path d="M12 12v9M8 17l4 4 4-4"/></svg></div>
@@ -2589,8 +2624,8 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
         </div>
         <div class="service-card" style="cursor:default;">
           <div class="service-icon ic-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg></div>
-          <h3>24/7 incident support</h3>
-          <p>A real person answers, any hour. Incidents are logged, managed and reported in line with the NDIS Commission's rules — and we stay with you until it's resolved.</p>
+          <h3>Incident support</h3>
+          <p><b>If someone is in immediate danger or needs urgent medical help, call 000 first</b> — our incident line is not an emergency service. Incidents are logged, managed and reported in line with the NDIS Commission's rules, and we follow every one through to resolution.</p>
         </div>
         <div class="service-card" style="cursor:default;">
           <div class="service-icon ic-coral"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
@@ -2600,7 +2635,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
         <div class="service-card" style="cursor:default;">
           <div class="service-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
           <h3>Your privacy, protected</h3>
-          <p>Data encrypted and stored in Australia. You control what's visible on your profile, and we never sell your information. Fully compliant with the Privacy Act and NDIS Practice Standards.</p>
+          <p>Data encrypted and hosted in Australia. You control what's visible on your profile, and we never sell your information. Our <a href="#/legal">privacy policy</a> sets out how we work to the Privacy Act and the NDIS Practice Standards.</p>
         </div>
       </div>
 
@@ -2664,7 +2699,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
       <h2 style="margin-top:34px;">What happens if you need one</h2>
       <div class="vf-steps">
         <div class="vf-step"><div class="n">1</div><div><b>You tell us</b><p>There's a question about it on the sign-up form, and the same list stays on your account page so you can change it whenever your needs change. Most people tick nothing on it.</p></div></div>
-        <div class="vf-step"><div class="n">2</div><div><b>We call you — before anything is booked</b><p>Within one business day. Not after a worker has already been rostered and is standing in your bathroom being asked to do something they can't.</p></div></div>
+        <div class="vf-step"><div class="n">2</div><div><b>We call you — before anything is booked</b><p>Usually within one business day. Not after a worker has already been rostered and is standing in your bathroom being asked to do something they can't.</p></div></div>
         <div class="vf-step"><div class="n">3</div><div><b>We introduce you to a provider registered for it</b><p>You engage them directly, so your agreement is with the people actually delivering that support and your plan is charged by them for it. We don't take a margin on the introduction.</p></div></div>
         <div class="vf-step"><div class="n">4</div><div><b>We keep the rest of your week</b><p>Personal care, daily tasks, household, community, transport, employment — all of it carries on with us, rostered around their visits rather than clashing with them. One roster, two providers, coordinated by us.</p></div></div>
         <div class="vf-step"><div class="n">5</div><div><b>It goes on our register</b><p>Every request for a support we don't hold is recorded the moment it's made, with the date and what we did about it. That register is part of what our auditor looks at. It's also how we know whether we should be registering for a support ourselves.</p></div></div>
@@ -2816,19 +2851,22 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Contact</nav>
       <h1>Talk to a human</h1>
-      <p class="lead">Seven days a week, 8am–8pm AEST — plus a 24/7 line for anything urgent during a shift.</p>
+      <p class="lead">Seven days a week — plus an urgent line for anything that happens during a shift. In an emergency, always call 000 first.</p>
     </div>
   </div>
   <section class="block">
     <div class="container grid-2">
       <div class="form-card" style="max-width:none;">
         <h2>Send us a message</h2>
-        <p class="muted-sm">We reply within one business day.</p>
+        <p class="muted-sm">We aim to reply within one business day.</p>
         <form id="contactForm" class="form-grid">
-          <div class="field"><label for="cName">Your name</label><input id="cName" type="text" required autocomplete="name"></div>
-          <div class="field"><label for="cEmail">Email</label><input id="cEmail" type="email" required autocomplete="email"></div>
+          <div class="field"><label for="cName">Your name <span class="muted-sm" id="cNameOpt" hidden>(optional)</span></label><input id="cName" type="text" required autocomplete="name"></div>
+          <div class="field"><label for="cEmail">Email <span class="muted-sm" id="cEmailOpt" hidden>(optional)</span></label><input id="cEmail" type="email" required autocomplete="email"></div>
           <div class="field full"><label for="cTopic">What's it about?</label>
             <select id="cTopic"><option>Finding support</option><option>Becoming a support worker</option><option>Pricing & plans</option><option>Feedback or complaint</option><option>Something else</option></select>
+          </div>
+          <div class="info-card full" id="cAnonNote" hidden style="background:var(--teal-tint);border-color:rgba(14,107,98,.3);">
+            <p class="muted-sm" style="margin:0;"><b>Complaints can be anonymous</b> — leave name and email blank if you prefer. An advocate, family member or friend is welcome to write for you, and complaining never affects your access to support. You can also go straight to the NDIS Quality and Safeguards Commission on <b>1800 035 544</b>. If you'd like a reply, leave an email or ask us to respond through your preferred person.</p>
           </div>
           <div class="field full"><label for="cMsg">Message</label><textarea id="cMsg" rows="5" required></textarea></div>
           <button class="btn btn-primary" type="submit">Send message</button>
@@ -2837,7 +2875,7 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
       <div>
         <div class="info-card">
           <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg> Call us</h3>
-          <p><b>0488 114 368</b> — support team, 7 days, 8am–8pm AEST<br><b>1300 000 001</b> — 24/7 urgent shift & incident line (placeholder)</p>
+          <p><b>0488 114 368</b> — support team, and the urgent shift &amp; incident line.<br><b>In an emergency, always call 000 first</b> — our line is not an emergency service.<br>National Relay Service and interpreters (TIS 131 450) welcome.</p>
         </div>
         <div class="info-card">
           <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg> Email</h3>
@@ -2858,18 +2896,42 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Privacy & terms</nav>
       <h1>Privacy policy & terms of use</h1>
-      <p class="lead">Plain-English placeholders for the demo — your lawyers will love replacing them.</p>
+      <p class="lead">How we handle your information and the terms we work to — in plain English. These are working drafts being finalised with legal review before launch; the plain-English promises here are the ones we hold ourselves to.</p>
     </div>
   </div>
   <section class="block">
     <div class="container">
-      <div class="info-card">
-        <h3>Privacy, in short</h3>
-        <p>We collect only what we need to deliver support safely, store it encrypted in Australia, share it only with the people delivering your support (and the NDIA where claiming requires), and never sell it. You can access, correct or delete your information at any time by contacting privacy@bookit.life.</p>
+      <div class="info-card" id="lg-privacy">
+        <h3>Privacy policy</h3>
+        <p>We collect only what we need to deliver support safely, store it encrypted and hosted in Australia, share it only with the people delivering your support (and the NDIA where claiming requires), and never sell it. Contact <b>privacy@bookit.life</b> about anything on this page.</p>
       </div>
-      <div class="info-card">
-        <h3>Terms, in short</h3>
-        <p>BookIt is a platform of Disability &amp; Mental Health Care Pty Ltd (ABN 19 658 578 575), a registered NDIS provider. BookIt connects participants with employed support workers. Bookings are made through the platform; rates are published on the Pricing page; cancellation terms follow the NDIS Pricing Arrangements. Be kind, be honest, follow the NDIS Code of Conduct, and we'll all get along famously. Full legal terms would live here on a production site.</p>
+      <div class="info-card" id="lg-terms">
+        <h3>Website &amp; platform terms</h3>
+        <p>BookIt is a platform of Disability &amp; Mental Health Care Pty Ltd (ABN 19 658 578 575), a registered NDIS provider. BookIt connects participants with employed support workers. Bookings are made through the platform; rates are published on the Pricing page; cancellation terms follow the NDIS Pricing Arrangements and your service agreement. Everyone on the platform follows the NDIS Code of Conduct.</p>
+      </div>
+      <div class="info-card" id="lg-agreement">
+        <h3>Participant service agreement</h3>
+        <p>Before support starts you receive a written service agreement: the supports you've chosen, the agreed prices (never above the NDIS price limits), the cancellation window for each support item, and how to change or end the agreement. Nothing is charged outside what it sets out.</p>
+      </div>
+      <div class="info-card" id="lg-cancellation">
+        <h3>Cancellation policy</h3>
+        <p>Cancellation charges, where permitted, depend on the support item and current NDIS requirements. The rule applying to your booking is shown before confirmation and in your service agreement. If we cancel on you, you are never charged.</p>
+      </div>
+      <div class="info-card" id="lg-complaints">
+        <h3>Feedback &amp; complaints</h3>
+        <p>Complaints are welcome in the app, by phone, by email, through an advocate or family member, or anonymously — and they never affect your access to support. You can also go directly to the NDIS Quality and Safeguards Commission on <b>1800 035 544</b> at any time.</p>
+      </div>
+      <div class="info-card" id="lg-worker">
+        <h3>Worker terms &amp; employment</h3>
+        <p>Support workers are employees of Disability &amp; Mental Health Care Pty Ltd — paid under the SCHADS Award with superannuation, covered by workers' compensation and insurance, screened before their profile goes live, and supported with training that stays current.</p>
+      </div>
+      <div class="info-card" id="lg-data">
+        <h3>Data access, correction, retention &amp; deletion</h3>
+        <p>You may request access to or correction of your information at any time — and a full copy is a button on your own account, not a request form. We consider deletion requests subject to our legal and record-retention obligations: some service, financial, incident and employment records must be kept for set periods by law.</p>
+      </div>
+      <div class="info-card" id="lg-accessibility">
+        <h3>Accessibility statement</h3>
+        <p>Every page carries the accessibility panel — larger text, an easier-to-read font, reduced motion and high contrast — plus an Easy Read version of the service, National Relay Service and interpreter access, and forms that work with a keyboard and a screen reader. We're not finished: if something on this site is hard for you to use, tell us and we'll fix it — hello@bookit.life or 0488 114 368.</p>
       </div>
     </div>
   </section>
@@ -2954,10 +3016,14 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
             <div class="choice-row" id="pHiPills"></div>
             <div class="info-card" id="pHiNote" hidden style="margin-top:14px;border-color:#0E6B62;background:#EEF6F4;">
               <h3 style="margin:0 0 6px;">That's a specialist support &mdash; keep going</h3>
-              <p style="margin:0;" id="pHiNoteBody">We arrange those rather than deliver them ourselves. Finish signing up: our team calls you within one business day, before anything is booked, and introduces you to a provider registered for that support who you engage directly. Everything else on your plan carries on with us, rostered around them. <a href="#/specialist-supports">How specialist supports work &rarr;</a></p>
+              <p style="margin:0;" id="pHiNoteBody">We arrange those rather than deliver them ourselves. Finish signing up: our team calls you — usually within one business day, and always before anything is booked — and introduces you to a provider registered for that support who you engage directly. Everything else on your plan carries on with us, rostered around them. <a href="#/specialist-supports">How specialist supports work &rarr;</a></p>
               <p class="muted-sm" style="margin:8px 0 0;">Why: these eight sit in registration group <b>0104</b> (high intensity daily personal activities). Disability &amp; Mental Health Care is registered for <b>0107</b> personal activities and not for 0104, and under the Registration Rules a provider must not deliver a support its certificate doesn't carry.</p>
             </div>
           </div>
+          <label class="field full" style="flex-direction:row;gap:10px;align-items:flex-start;font-weight:400;">
+            <input type="checkbox" id="pTerms" required style="width:18px;height:18px;margin-top:3px;flex:none;">
+            <span class="muted-sm">I have read and accept the <a href="#/legal" target="_blank">terms and privacy policy</a>.</span>
+          </label>
           <button type="submit" class="btn btn-primary btn-lg full" style="grid-column:1/-1;">Create my free profile</button>
           <p class="form-note full" style="grid-column:1/-1;">By continuing you agree to our <a href="#/legal">terms and privacy policy</a>. No payment details required.</p>
         </form>
@@ -2994,6 +3060,10 @@ html.high-contrast .set-note{background:#fff;border:2px solid #000;color:#000!im
             </div>
           </div>
           <div class="field full"><label for="wAbout">Tell us a little about you <span class="hint">(experience, interests — 2–3 sentences is perfect)</span></label><textarea id="wAbout" rows="4"></textarea></div>
+          <label class="field full" style="flex-direction:row;gap:10px;align-items:flex-start;font-weight:400;">
+            <input type="checkbox" id="wTerms" required style="width:18px;height:18px;margin-top:3px;flex:none;">
+            <span class="muted-sm">I have read and accept the <a href="#/legal" target="_blank">terms and privacy policy</a>, including the worker terms.</span>
+          </label>
           <button type="submit" class="btn btn-coral btn-lg" style="grid-column:1/-1;">Submit application</button>
           <p class="form-note" style="grid-column:1/-1;">By continuing you agree to our <a href="#/legal">terms and privacy policy</a>.</p>
         </form>
@@ -4329,17 +4399,20 @@ const FAQS = [
   {q:'Who runs BookIt?', a:'BookIt is built and operated by <b>Disability &amp; Mental Health Care Pty Ltd</b> (ABN 19 658 578 575), an NSW-based registered NDIS provider — NDIS registration <b>4-LO5XNY0</b>, registered to deliver supports throughout Australia (current registration period to January 2029). Registration means we\'re audited against the NDIS Practice Standards, covered by the NDIS Code of Conduct, and accountable to the NDIS Quality and Safeguards Commission.'},
   {q:'Who can use BookIt?', a:'Anyone with an NDIS plan — whether it\'s <b>self-managed, plan-managed or NDIA-managed</b>. Because we\'re a registered provider, all three plan types can book with us. Families, nominees and support coordinators can manage an account on a participant\'s behalf. You can also book privately without NDIS funding.', home:true},
   {q:'What supports can I book?', a:'We focus on six NDIS registration groups: employment support (0102), personal care (0107), travel & transport (0108), daily tasks & shared living (0115/0138), household tasks (0120) and community participation (0125). See <a href="#/services">Support services</a> for what each covers.', home:true},
-  {q:'How much does it cost?', a:'Joining is free — you only pay for booked support. We bill at the standard NDIS price limits: <b>$73.58/hr</b> weekday daytime (2026–27), with evening, weekend and public-holiday bookings at the applicable NDIS rate — never above them, so there are no gap fees whichever way your plan is managed. Full details on the <a href="#/pricing">Pricing page</a>.', home:true},
+  {q:'How much does it cost?', a:'Joining is free — you only pay for booked support. We bill at the standard NDIS price limits: <b>$73.58/hr</b> weekday daytime (2026–27), with evening, weekend and public-holiday bookings at the applicable NDIS rate — never above the limits, and we never ask you for a top-up. A booking can be paid from NDIS funding where the support is included in your plan and meets the claiming requirements. Full details on the <a href="#/pricing">Pricing page</a>.', home:true},
   {q:'How does messaging work?', a:'Once you\'ve found a worker you like, message them directly on the platform — ask questions, share what great support looks like for you, and arrange a free meet and greet before booking anything. Conversations stay on-platform so there\'s a record if anything ever needs sorting out, and our team can step in if something doesn\'t feel right. Try the demo via the chat icon in the menu.'},
   {q:'How are workers checked?', a:'Every worker completes an NDIS Worker Screening Check, 100 points of ID, work-rights verification, the NDIS Worker Orientation Module, First Aid and CPR, plus a video interview and reference checks with our team. Workers who drive also hold a police check and appropriate car insurance, and anyone supporting under-18s holds a Working With Children Check. See <a href="#/safety">Safety & quality</a>.'},
   {q:'Are workers employees or contractors?', a:'Employees — always. That means we handle super, tax, workers\' compensation and public liability insurance, and every shift is covered. You get the flexibility of choosing your own team without the risks of engaging contractors.'},
-  {q:'What if I need to cancel a booking?', a:'Life happens. Cancel free of charge with more than 2 clear business days\' notice. Short-notice cancellations may be charged in line with the NDIS Pricing Arrangements, and your worker still gets paid for the shift.'},
+  {q:'What if I need to cancel a booking?', a:'Life happens. Cancellation rules depend on the support item and the current NDIS Pricing Arrangements — the exact window for your booking is shown before you confirm and in your service agreement. With plenty of notice a cancellation is free; short-notice cancellations may be charged, and your worker still gets paid for the shift.'},
   {q:'Can my worker drive me in their car?', a:'Yes. Workers providing transport hold a police check, a valid licence and appropriate insurance. A per-kilometre vehicle allowance applies, which can be claimed from your plan where funded (0108 Assist-Travel/Transport).'},
   {q:'What can\'t I book on BookIt?', a:'We\'re registered for personal care at <b>standard intensity</b> (registration group 0107), not for <b>high intensity daily personal activities</b> (0104) — so complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections and complex wound management are <b>specialist supports</b>: we arrange them rather than deliver them. We don\'t provide nursing either. Tell us and we\'ll introduce you to a provider registered for it who you engage directly, then roster the rest of your plan around them — <a href="#/specialist-supports">how that works</a>. We <b>are</b> registered for Supported Independent Living (Registration Group 138) — SIL is arranged as a package rather than booked shift-by-shift, so <a href="#/contact">talk to us</a> about SIL and shared-living arrangements and we\'ll set it up properly.', home:true},
   {q:'Where is BookIt available?', a:'We\'re Australia-wide, with the deepest worker pools in greater Sydney, Melbourne and Brisbane. Enter your suburb on <a href="#/find-workers">Find workers</a> to see who\'s nearby.'},
   {q:'How do workers get paid?', a:'Automatically, fortnightly, straight from your approved shift hours — including super and penalty rates. Workers see their full pay breakdown for every shift before they accept it.'},
-  {q:'Is my information safe?', a:'Yes. We follow the Privacy Act and NDIS Practice Standards. Your data is encrypted, stored in Australia, never sold, and you control what appears on your profile.'}
+  {q:'Is my information safe?', a:'Your data is encrypted, hosted in Australia, never sold, and you control what appears on your profile. Our <a href="#/legal">privacy policy</a> sets out how we work to the Privacy Act and the NDIS Practice Standards.'}
 ];
+
+/* the terms version people accept at sign-up — bump when the legal pages change */
+const TERMS_VERSION = '2026-07-31';
 
 /* ============ Rates ============ */
 /* Starting (Bronze) and top-of-ladder (Platinum) worker rates against the
@@ -4450,7 +4523,7 @@ const a11yPanel = $('#a11yPanel'), a11yOpen = $('#a11yOpen');
 function setA11yPanel(open){
   a11yPanel.classList.toggle('open', open);
   a11yOpen.setAttribute('aria-expanded', open);
-  if(open) $('#a11yTitle').focus();
+  if(open) $('#a11yTitle').focus({preventScroll:true}); /* the panel rides the sticky header — it is already in view, and the page must not move (Bee: no jumps) */
 }
 a11yOpen.addEventListener('click', () => setA11yPanel(!a11yPanel.classList.contains('open')));
 $('#a11yClose').addEventListener('click', () => { setA11yPanel(false); a11yOpen.focus(); });
@@ -5305,7 +5378,7 @@ async function renderWorkerPage(id){
         <ul class="wp-trust">
           <li>${WP_TICK}Employed &amp; insured — never a contractor</li>
           <li>${WP_TICK}Screening &amp; credentials tracked automatically</li>
-          <li>${WP_TICK}Support team 7 days + 24/7 incident line</li>
+          <li>${WP_TICK}Support team 7 days + urgent incident line</li>
         </ul>
       </div>
     </aside>
@@ -5381,10 +5454,10 @@ $('#participantForm').addEventListener('submit', async e => {
       const plan = (document.querySelector('input[name="pPlan"]:checked') || {}).value || '';
       const pw = $('#pPassword').value;
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
-      const d = await API.call('/register', {method:'POST', body:{role:'participant', name:$('#pName').value, email:$('#pEmail').value, password:pw, phone:$('#pPhone').value, suburb:$('#pPostcode').value, plan, services, hi_flags, ndis_number:$('#pNdis').value.trim(), pm_email:$('#pPmEmail').value.trim()}});
+      const d = await API.call('/register', {method:'POST', body:{role:'participant', name:$('#pName').value, email:$('#pEmail').value, password:pw, phone:$('#pPhone').value, suburb:$('#pPostcode').value, plan, services, hi_flags, ndis_number:$('#pNdis').value.trim(), pm_email:$('#pPmEmail').value.trim(), terms_version: TERMS_VERSION}});
       API.me = d.user; updateAuthUI();
       gsSuccess(`Welcome aboard, ${d.user.name.split(' ')[0]}! 🎉`, hi_flags.some(k => !hiHeld(k))
-        ? 'Your account is live and you\'re logged in. You told us about a specialist support — one we aren\'t registered to deliver — so our team will call you within one business day, before anything is booked. We\'ll introduce you to a provider who is registered for it and you engage them directly, and we roster everything else on your plan around them. In the meantime, have a browse.'
+        ? 'Your account is live and you\'re logged in. You told us about a specialist support — one we aren\'t registered to deliver — so our team will call you — usually within one business day, and always before anything is booked. We\'ll introduce you to a provider who is registered for it and you engage them directly, and we roster everything else on your plan around them. In the meantime, have a browse.'
         : 'Your account is live and you\'re logged in. We\'ve emailed you a link to confirm your address. Browse workers, say hello in Messages, and request your first booking whenever you\'re ready.');
       $('#gsDemoNote').textContent = 'Log back in any time with your email and password.';
     }catch(err){ toast(err.message); }
@@ -5400,7 +5473,7 @@ $('#workerForm').addEventListener('submit', async e => {
       const services = $$('input[name="wSvc"]:checked').map(c => c.value);
       const pw = $('#wPassword').value;
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
-      const d = await API.call('/register', {method:'POST', body:{role:'worker', name:$('#wName').value, email:$('#wEmail').value, password:pw, phone:$('#wPhone').value, suburb:$('#wPostcode').value, services, bio:$('#wAbout').value}});
+      const d = await API.call('/register', {method:'POST', body:{role:'worker', name:$('#wName').value, email:$('#wEmail').value, password:pw, phone:$('#wPhone').value, suburb:$('#wPostcode').value, services, bio:$('#wAbout').value, terms_version: TERMS_VERSION}});
       API.me = d.user; updateAuthUI(); loadWorkersLive();
       gsSuccess(`Application received, ${d.user.name.split(' ')[0]}! 🙌`, 'Your worker account is created and we\'ve emailed you a link to confirm your address. Two things unlock approval: add your profile photo and your NDIS Worker Screening Check on your Bookings page. Your profile stays hidden until our team verifies them — we\'ll email you the moment you\'re live.');
       $('#gsDemoNote').textContent = 'Log back in any time with your email and password.';
@@ -5408,10 +5481,18 @@ $('#workerForm').addEventListener('submit', async e => {
     return;
   }
   const name = $('#wName').value.split(' ')[0] || 'there';
-  gsSuccess(`Application received, ${name}! 🙌`, 'Next steps in the live platform: upload your documents for verification (24–72 hours), book your video interview, then complete paid orientation. Most workers go live within two weeks.');
+  gsSuccess(`Application received, ${name}! 🙌`, 'Next steps in the live platform: upload your documents for verification, book your video interview, then complete paid orientation. We tell you the moment each document is confirmed.');
 });
 
 /* ============ Contact form ============ */
+$('#cTopic').addEventListener('change', () => {
+  const isComplaint = /complaint/i.test($('#cTopic').value);
+  $('#cName').required = !isComplaint;
+  $('#cEmail').required = !isComplaint;
+  $('#cNameOpt').hidden = !isComplaint;
+  $('#cEmailOpt').hidden = !isComplaint;
+  $('#cAnonNote').hidden = !isComplaint;
+});
 $('#contactForm').addEventListener('submit', async e => {
   e.preventDefault();
   if(window.API && API.online){
@@ -6291,6 +6372,8 @@ function updateAuthUI(){
   $('#btnGetStarted').hidden = authed;
   const gsl = $('#navGetStartedLi');
   if(gsl) gsl.hidden = authed;
+  const fw = $('#navForWorkersLi');
+  if(fw) fw.hidden = authed; /* marketing page — signed-in people have the app */
   $('#acctWrap').hidden = !authed;
   if(authed) renderAcctChip(); else closeAcctMenu();
   const nb = $('#navBookings');
@@ -6979,7 +7062,7 @@ async function renderBookingsPage(){
   const incidentCard = `
     <div class="info-card" id="cardIncident" style="margin-bottom:18px;">
       <details><summary style="cursor:pointer;color:#D94F32;font-weight:700;">⚠ Report an incident</summary>
-        <p class="muted-sm" style="margin:8px 0;">Report anything that happened (or nearly happened) during a shift — it goes straight to the incident register and management is alerted immediately for serious matters.</p>
+        <p class="muted-sm" style="margin:8px 0;"><b>If someone is in immediate danger or needs urgent medical help, call 000 first.</b> Then report anything that happened (or nearly happened) during a shift here — it goes straight to the incident register and management is alerted immediately for serious matters.</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
           <label style="font-size:.85rem;">What kind<br><select id="incCat" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;">
             <option value="near-miss">Near miss</option><option value="serious-injury">Serious injury</option><option value="abuse-neglect">Abuse or neglect</option><option value="unlawful-contact">Unlawful sexual/physical contact</option><option value="sexual-misconduct">Sexual misconduct / grooming</option><option value="restrictive-practice">Unauthorised restrictive practice</option><option value="death">Death</option><option value="other">Other</option>
@@ -7124,7 +7207,7 @@ function spTierPreview(v){
   const relies = v.main_source === true, harm = v.health_safety === true, alone = v.backup_24h === false;
   if(v.main_source === undefined || v.health_safety === undefined || v.backup_24h === undefined)
     return { tier: 0, label: 'Not answered yet', why: 'Answer the three questions above and we will show you exactly what happens if a shift falls over.' };
-  if(relies && harm && alone) return { tier: 1, label: 'Critical — 24/7', why: 'If a worker pulls out, our office is rung the same minute the search starts, rather than after it fails. Your shift also sorts to the top of the cover board.' };
+  if(relies && harm && alone) return { tier: 1, label: 'Critical — highest priority', why: 'If a worker pulls out, our office is rung the same minute the search starts, rather than after it fails. Your shift also sorts to the top of the cover board.' };
   if(relies && (harm || alone)) return { tier: 2, label: 'High', why: 'Your shifts sort above everyone else’s on the cover board, and the search runs wider before anybody gives up.' };
   return { tier: 3, label: 'Standard', why: 'The automatic search covers your shifts. It fills most of them without anybody having to ring around.' };
 }
@@ -11639,7 +11722,7 @@ async function renderAccountPage(){
   if(API.me.role === 'worker' && subRaw === 'profile'){
     try{ prof = (await API.call('/me/profile', {noFor:true})).profile; }catch(e){}
   }
-  if(API.me.role === 'participant' && !API.actingFor && subRaw === 'plan'){
+  if(API.me.role === 'participant' && !API.actingFor && subRaw === 'profile'){
     try{ sp = await API.call('/me/support-plan'); }catch(e){}
   }
   if(API.me.role === 'participant' && !API.actingFor && subRaw === 'documents'){
@@ -11747,7 +11830,7 @@ async function renderAccountPage(){
   const a11yCard = `
   <div class="info-card" style="margin-bottom:18px;" id="cardA11y">
     <h3 style="margin:0 0 6px;">Accessibility</h3>
-    <p class="muted-sm" style="margin:0 0 10px;">Bigger text, an easier-to-read font, less motion and high contrast — all in the panel at the very top of every page. Your choices stay on this device, so set them once per phone or computer.</p>
+    <p class="muted-sm" style="margin:0 0 10px;">Bigger text, an easier-to-read font, less motion and high contrast — all behind the Accessibility button at the top of every page. Your choices stay on this device, so set them once per phone or computer.</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <button type="button" class="btn btn-secondary btn-sm" id="a11yFromSettings">Open accessibility options</button>
       <a class="btn btn-secondary btn-sm" href="#/easy-read">This website in Easy Read</a>
@@ -11761,13 +11844,21 @@ async function renderAccountPage(){
   const note = t => `<p class="set-note muted-sm">${t}</p>`;
   const card = (id, h3, body) => `<div class="info-card" style="margin-bottom:18px;" id="${id}"><h3 style="margin:0 0 6px;">${h3}</h3>${body}</div>`;
 
+  const canPhoto = me.role !== 'worker';
   const identityCard = `
   <div class="info-card" style="margin-bottom:18px;" id="cardIdentity">
-    <div style="display:flex;gap:14px;align-items:center;">
-      <span class="wc-avatar" style="background:var(--teal);width:58px;height:58px;font-size:1.2rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="">` : acctInitials(me.name || '')}</span>
-      <div style="min-width:0;">
-        <b style="font-family:var(--font-head);font-size:1.18rem;display:block;">${esc(me.name || '')}</b>
-        <span class="muted-sm">${roleLabel}${me.admin ? ' · Admin' : ''}</span>
+    <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;">
+      <span class="wc-avatar" id="profAvatar" style="background:var(--teal);width:96px;height:96px;font-size:1.9rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="Your photo">` : acctInitials(me.name || '')}</span>
+      <div style="min-width:0;flex:1 1 240px;">
+        <b style="font-family:var(--font-head);font-size:1.35rem;display:block;">${esc(me.name || '')}</b>
+        <span class="muted-sm">${roleLabel}${me.admin ? ' · Admin' : ''}${me.suburb ? ' · ' + esc(me.suburb) : ''}</span>
+        ${canPhoto ? `
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;">
+          <input id="profPhotoFile" type="file" accept=".jpg,.jpeg,.png" hidden>
+          <button type="button" class="btn btn-secondary btn-sm" id="profPhotoPick">${me.photo ? 'Change photo' : 'Add a photo'}</button>
+          ${me.photo ? '<button type="button" class="btn btn-ghost btn-sm" id="profPhotoRemove">Remove photo</button>' : ''}
+        </div>
+        <p class="muted-sm" style="margin:9px 0 0;">Your photo is never public — only the people you book or message ever see it, so workers know who's opening the door.</p>` : ''}
       </div>
     </div>
   </div>`;
@@ -11778,9 +11869,23 @@ async function renderAccountPage(){
   if(pageH1) pageH1.textContent = subRaw === 'profile' ? 'Profile' : 'Settings';
   document.title = (subRaw === 'profile' ? 'Profile' : 'Settings') + ' — BookIt';
   if(subRaw === 'profile'){
-    const profileBody = identityCard + detailsCard + (me.role === 'worker'
+    /* Build 21 — everything about *you* lives here, Hireup-style: photo up
+       top, then your details, emergency contact, support plan, supports and
+       your data. Settings keeps the machinery. */
+    let aboutCards = '';
+    if(me.role === 'participant' && !API.actingFor){
+    const pl = sp && sp.plan, done = sp && sp.history && sp.history.length;
+    const planLine = !sp ? 'Everything a new worker reads before their first shift with you.'
+      : done ? `Confirmed ${fmtAU(String(sp.history[0].confirmed_at).slice(0,10))}${pl && pl.review_due ? ` · next review ${fmtAU(pl.review_due)}` : ''}.`
+      : 'Started but not confirmed yet — it takes a few minutes.';
+    const six = pl ? [['use_employ','Employment'],['use_personal','Personal care'],['use_transport','Transport'],['use_daily','Daily tasks'],['use_household','Household'],['use_community','Community']].filter(([k]) => pl[k]) : [];
+    const ecLine = pl && pl.ec_name ? `${esc(pl.ec_name)}${pl.ec_relationship ? ' · ' + esc(pl.ec_relationship) : ''}${pl.ec_phone ? ' · ' + esc(pl.ec_phone) : ''}` : 'Not recorded yet — it lives in your support plan, where workers can find it when it matters.';
+      aboutCards = card('cardEmergency', 'Emergency contact', `<p class="muted-sm" style="margin:0 0 10px;">${ecLine}</p>${tile('#/support-plan', '', 'Update it in your support plan', 'The one field everyone forgets until the night they need it.')}`) + card('cardPlanLink', 'Support plan & about you', `<p class="muted-sm" style="margin:0 0 10px;">${planLine}</p>${tile('#/support-plan', '', 'Open your support plan', 'Your goals, how you communicate, health notes, home safety and what a great match looks like.')}`) + card('cardSupports', 'Your supports', `${six.length ? `<p class="muted-sm" style="margin:0 0 8px;">From your support plan:</p><p style="margin:0 0 10px;">${six.map(([,l]) => `<span class="wc-tag" style="margin:0 5px 5px 0;display:inline-block;">${l}</span>`).join('')}</p>` : '<p class="muted-sm" style="margin:0 0 10px;">The six kinds of support we’re registered for — tell us which ones are yours in your support plan.</p>'}${tile('#/specialist-supports', '', 'Specialised & high-intensity supports', 'What we can safely take on, and what happens if you need something we don’t hold.')}`);
+    }
+    const privacyCards = note('Nothing about ' + (me.role === 'worker' ? 'you is public except the profile you choose to show.' : 'you is public — participants don’t have public profiles, full stop.')) + dataCard + `<div class="info-card" style="margin-bottom:18px;" id="cardPrivacyLinks">${tile('#/legal', '', 'Privacy policy & terms', 'What we hold, why, and the promises we’ve made in writing.')}</div>`;
+    const profileBody = identityCard + detailsCard + aboutCards + (me.role === 'worker'
       ? card('cardProfileLink', 'Your public profile', `<p class="muted-sm" style="margin:0 0 10px;">Your bio, photo, services, days and interests — what participants see when they find you.</p>${tile('#/bookings', 'cardProfile', 'Edit my profile & photo', 'Everything on your public card.')}${tile('#/worker/' + me.id, '', 'See my public profile', 'Exactly as participants see it.')}`) + (visCard || '')
-      : note('Nothing about you is public — ' + (me.role === 'coordinator' ? 'coordinators' : 'participants') + " don't have public profiles, full stop."));
+      : '') + privacyCards;
     wrap.innerHTML = `<div class="set-solo">${profileBody}
       <div class="info-card" style="margin-bottom:18px;" id="cardAllSettings">${tile('#/account', '', 'All settings', 'Everything else about your account.')}</div>
     </div>`;
@@ -11791,13 +11896,6 @@ async function renderAccountPage(){
   const S = [];
 
   if(me.role === 'participant' && !API.actingFor){
-    const pl = sp && sp.plan, done = sp && sp.history && sp.history.length;
-    const planLine = !sp ? 'Everything a new worker reads before their first shift with you.'
-      : done ? `Confirmed ${fmtAU(String(sp.history[0].confirmed_at).slice(0,10))}${pl && pl.review_due ? ` · next review ${fmtAU(pl.review_due)}` : ''}.`
-      : 'Started but not confirmed yet — it takes a few minutes.';
-    const six = pl ? [['use_employ','Employment'],['use_personal','Personal care'],['use_transport','Transport'],['use_daily','Daily tasks'],['use_household','Household'],['use_community','Community']].filter(([k]) => pl[k]) : [];
-    const ecLine = pl && pl.ec_name ? `${esc(pl.ec_name)}${pl.ec_relationship ? ' · ' + esc(pl.ec_relationship) : ''}${pl.ec_phone ? ' · ' + esc(pl.ec_phone) : ''}` : 'Not recorded yet — it lives in your support plan, where workers can find it when it matters.';
-    S.push(['plan', 'Support plan & about you', 'Your goals, supports and emergency contact', card('cardPlanLink', 'Support plan & about you', `<p class="muted-sm" style="margin:0 0 10px;">${planLine}</p>${tile('#/support-plan', '', 'Open your support plan', 'Your goals, how you communicate, health notes, home safety and what a great match looks like.')}`) + card('cardSupports', 'Your supports', `${six.length ? `<p class="muted-sm" style="margin:0 0 8px;">From your support plan:</p><p style="margin:0 0 10px;">${six.map(([,l]) => `<span class="wc-tag" style="margin:0 5px 5px 0;display:inline-block;">${l}</span>`).join('')}</p>` : '<p class="muted-sm" style="margin:0 0 10px;">The six kinds of support we’re registered for — tell us which ones are yours in your support plan.</p>'}${tile('#/specialist-supports', '', 'Specialised & high-intensity supports', 'What we can safely take on, and what happens if you need something we don’t hold.')}`) + card('cardEmergency', 'Emergency contact', `<p class="muted-sm" style="margin:0 0 10px;">${ecLine}</p>${tile('#/support-plan', '', 'Update it in your support plan', 'The one field everyone forgets until the night they need it.')}`)]);
     S.push(['billing', 'Billing & payments', 'Your plan, NDIS number, invoices & statements', payCard + card('cardStatements', 'Invoices & statements', `<p class="muted-sm" style="margin:0 0 10px;">Every shift, its rate and where the claim is up to — readable any time, not buried in emails.</p>${tile('#/statements', '', 'Open invoices & statements', 'Date-range views, downloads, and plan-review-ready summaries.')}${tile('#/bookings', 'cardBilling', 'Billing on your bookings page', 'The same details beside your bookings and claims.')}`)]);
     S.push(['documents', 'My documents', 'Your file — agreement, consents, plan, assessments', card('cardDocsLink', 'My documents', `<p class="muted-sm" style="margin:0 0 10px;">${pd && pd.held != null ? `<b>${pd.held} of ${pd.of} on file.</b> ` : ''}Your agreement, consents, plan and assessments. Nothing here is shared with workers — they only ever see the short brief from your support plan.</p>${tile('#/bookings', 'cardPdocs', 'Open my documents', 'Read anything on your file, add a photo or a copy yourself.')}`)]);
     S.push(['access', 'People with access', 'Family or a coordinator helping, on your terms', card('cardAccessLink', 'People with access', `<p class="muted-sm" style="margin:0 0 10px;">Family, a nominee or a coordinator can help run things — with only the access you choose, a revoke button that works instantly, and a log of everything done on your behalf.</p>${tile('#/access', '', 'Manage people with access', 'Invite, limit, or remove — no phone call needed.')}`)]);
@@ -11817,7 +11915,6 @@ async function renderAccountPage(){
 
   S.push(['notifications', 'Emails & notifications', 'Which emails reach you', notCard || card('cardNotifsFallback', 'Emails', '<p class="muted-sm">Couldn’t load your email settings just now — refresh to try again.</p>')]);
   S.push(['accessibility', 'Accessibility', 'Text size, font, motion, contrast', a11yCard]);
-  S.push(['privacy', 'Privacy & your data', 'What we hold, and a copy of it', note('Nothing about ' + (me.role === 'worker' ? 'you is public except the profile you choose to show.' : 'you is public — participants don’t have public profiles, full stop.')) + dataCard + `<div class="info-card" style="margin-bottom:18px;" id="cardPrivacyLinks">${tile('#/legal', '', 'Privacy policy & terms', 'What we hold, why, and the promises we’ve made in writing.')}</div>`]);
   S.push(['security', 'Sign-in & security', 'Password, two-step sign-in, your devices', pwCard + card('cardSecurityLink', 'Two-step sign-in & devices', `<p class="muted-sm" style="margin:0 0 10px;">Two-step sign-in, every device you’re signed in on with a working sign-out button, and alerts you can’t switch off — because you’d want to know.</p>${tile('#/security', '', 'Open sign-in & security', 'MFA, sessions and recovery codes.')}`)]);
   S.push(['help', 'Help & contact', 'A real person, plain answers', card('cardHelpLink', 'Help & contact', `<p class="muted-sm" style="margin:0 0 10px;">A real person on 0488 114 368, hello@bookit.life, or the form — and if something’s gone wrong, tell us plainly and we’ll say plainly what happens next.</p>${tile('#/contact', '', 'Contact us', 'Phone, email, National Relay Service and interpreters.')}${tile('#/faq', '', 'FAQ & help', 'Answers to the common questions.')}`)]);
 
@@ -11850,12 +11947,32 @@ document.addEventListener('change', async e => {
     toast(r.note || 'Saved.');
   }catch(err){ toast(err.message); k.checked = !k.checked; }
 });
+document.addEventListener('change', async e => {
+  if(!(e.target && e.target.id === 'profPhotoFile')) return;
+  try{
+    const file = await fileToB64Shrunk(e.target, 1280, 0.85);
+    if(!file){ toast('Choose a photo first.'); return; }
+    const r = await API.call('/me/photo', {method:'POST', noFor:true, body:{file}});
+    if(API.me){ API.me.photo = r.photo; renderAcctChip(); }
+    toast('Photo saved. 📸');
+    renderAccountPage();
+  }catch(err){ toast(err.message); }
+});
 document.addEventListener('click', async e => {
   const id = e.target.id;
   if(id === 'a11yFromSettings'){
-    scrollTo({top:0, left:0});
     const b = $('#a11yOpen');
     if(b && b.getAttribute('aria-expanded') !== 'true') b.click();
+    return;
+  }
+  if(id === 'profPhotoPick'){ const f = $('#profPhotoFile'); if(f) f.click(); return; }
+  if(id === 'profPhotoRemove'){
+    try{
+      await API.call('/me/photo', {method:'POST', noFor:true, body:{remove:true}});
+      if(API.me){ API.me.photo = null; renderAcctChip(); }
+      toast('Photo removed.');
+      renderAccountPage();
+    }catch(err){ toast(err.message); }
     return;
   }
   if(id === 'detGo'){

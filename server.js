@@ -103,6 +103,18 @@ for (const col of ['completed_at TEXT', 'rate_category TEXT', 'unit_price REAL',
 for (const col of ['ndis_number TEXT DEFAULT \'\'', 'pm_email TEXT DEFAULT \'\'']) {
   try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
 }
+/* consent build: which terms version was accepted at sign-up, and when.
+   Stored verbatim from the form; empty for accounts made before the box
+   existed or created directly through the API. */
+for (const col of ["terms_version TEXT DEFAULT ''", "terms_at TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+}
+/* migration (profile-page build): a photo for everyone. Worker photos stay on
+   worker_profiles (they gate approval); these columns hold everyone else's —
+   shown only to signed-in people they deal with, never the open web. */
+for (const col of ["photo TEXT DEFAULT ''", "photo_at TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+}
 for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_no TEXT', 'support_item TEXT', 'claimed_at TEXT', 'paid_at TEXT', 'sleepover INTEGER DEFAULT 0']) {
   try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
 }
@@ -1432,14 +1444,17 @@ function stampLegacyCutoff(uid) {
 /* the user object handed to routes and returned by /api/me — includes the worker's
    photo url + live (visible) flag so the front-end account menu can show them */
 function sessionUser(uid) {
-  const u = db.prepare('SELECT id, role, name, email, suburb, plan, verified, ndis_number, pm_email, hi_flags, hi_at, hi_referred_at FROM users WHERE id = ?').get(Number(uid));
+  const u = db.prepare('SELECT id, role, name, email, phone, suburb, plan, verified, created, ndis_number, pm_email, hi_flags, hi_at, hi_referred_at, photo, photo_at FROM users WHERE id = ?').get(Number(uid));
   if (!u) return null;
   u.hi_flags = safeJson(u.hi_flags, []);
   if (u.role === 'worker') {
     const p = db.prepare('SELECT photo, photo_at, visible FROM worker_profiles WHERE user_id = ?').get(u.id);
     u.photo = p && p.photo ? `/photos/${u.id}?v=${encodeURIComponent(p.photo_at || '')}` : null;
     u.live = p && p.visible ? 1 : 0;
+  } else {
+    u.photo = u.photo ? `/photos/${u.id}?v=${encodeURIComponent(u.photo_at || '')}` : null;
   }
+  delete u.photo_at;
   return withAdmin(u);
 }
 function readSession(cookieHeader) {
@@ -1478,8 +1493,12 @@ function json(res, status, data, headers = {}) {
 function setSessionHeaders(uid, req, ip) {
   const sid = newSid();
   try { registerSession(uid, sid, ip || '', (req && req.headers && req.headers['user-agent']) || ''); } catch {}
-  return { 'Set-Cookie': `bk_session=${makeSession(uid, sid)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_DAYS * 86400}` };
+  return { 'Set-Cookie': `bk_session=${makeSession(uid, sid)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_DAYS * 86400}${COOKIE_SECURE}` };
 }
+/* behind Caddy every real request is HTTPS; the Secure attribute keeps the
+   cookie off any accidental plain-HTTP hop. Local dev (no APP_URL, plain
+   http) stays workable because the flag only turns on for https APP_URLs. */
+const COOKIE_SECURE = String(process.env.APP_URL || '').startsWith('https') ? '; Secure' : '';
 const CLEAR_COOKIE = { 'Set-Cookie': 'bk_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0' };
 
 /* ---------- private preview gate ----------
@@ -2845,9 +2864,10 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
   const pmEmail = EMAIL_RE.test(clean(body.pm_email, 120)) ? clean(body.pm_email, 120).toLowerCase() : '';
   const services = Array.isArray(body.services) ? body.services.filter(s => SERVICES.includes(s)).slice(0, 6) : [];
   const hiFlags = role === 'participant' ? hiFrom(body) : [];
-  const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, ndis_number, pm_email, svc_interest, hi_flags, hi_at, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+  const termsV = clean(body.terms_version, 20);
+  const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, ndis_number, pm_email, svc_interest, hi_flags, hi_at, terms_version, terms_at, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), clean(body.plan, 30), ndisNum, pmEmail,
-         JSON.stringify(services), JSON.stringify(hiFlags), hiFlags.length ? now() : '', now());
+         JSON.stringify(services), JSON.stringify(hiFlags), hiFlags.length ? now() : '', termsV, termsV ? now() : '', now());
   const uid = Number(r.lastInsertRowid);
   if (hiFlags.length) { recordScope(uid, hiFlags, 'signup'); hiAlert(req, { id: uid, name, email, suburb }, hiFlags, 'at signup'); }
   if (role === 'worker') {
@@ -4019,19 +4039,37 @@ const PHOTO_MIMES = { 'image/jpeg': '.jpg', 'image/png': '.png' };
 function photoUrl(row) { return row && row.photo ? `/photos/${row.user_id ?? row.id}?v=${encodeURIComponent(row.photo_at || '')}` : null; }
 
 route('POST', /^\/api\/me\/photo$/, (req, res, m, user, body, ip) => {
-  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  if (!user) return json(res, 401, { error: 'Please log in.' });
   if (limited(ip, 'photo', 20)) return json(res, 429, { error: 'Too many uploads — try again later.' });
+  const isWorker = user.role === 'worker';
+  /* participants and coordinators can take theirs down any time; a worker's
+     photo is part of the public profile participants chose them by, so
+     replace-only — removing it would un-meet an approval requirement */
+  if (body && body.remove) {
+    if (isWorker) return json(res, 400, { error: 'Your photo is part of your public profile — upload a new one to change it.' });
+    const prev = db.prepare('SELECT photo FROM users WHERE id = ?').get(user.id);
+    db.prepare("UPDATE users SET photo = '', photo_at = '' WHERE id = ?").run(user.id);
+    if (prev && prev.photo) { try { fs.unlinkSync(prev.photo); } catch {} }
+    return json(res, 200, { ok: true, photo: null });
+  }
   if (!body.file || !body.file.data) return json(res, 400, { error: 'Choose a photo first.' });
   const mime = String(body.file.mime || '');
   if (!PHOTO_MIMES[mime]) return json(res, 400, { error: 'Photos must be JPG or PNG.' });
   let buf;
   try { buf = Buffer.from(String(body.file.data).replace(/^data:[^,]*,/, ''), 'base64'); } catch { return json(res, 400, { error: 'Could not read that photo.' }); }
   if (!buf.length || buf.length > 3 * 1024 * 1024) return json(res, 400, { error: 'Photos can be up to 3 MB.' });
-  const prev = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(user.id);
-  const fp = path.join(PHOTOS_DIR, `w${user.id}-${Date.now()}${PHOTO_MIMES[mime]}`);
-  fs.writeFileSync(fp, buf);
-  db.prepare('UPDATE worker_profiles SET photo = ?, photo_at = ? WHERE user_id = ?').run(fp, now(), user.id);
-  if (prev && prev.photo) { try { fs.unlinkSync(prev.photo); } catch {} }
+  const fp = path.join(PHOTOS_DIR, `${isWorker ? 'w' : 'u'}${user.id}-${Date.now()}${PHOTO_MIMES[mime]}`);
+  if (isWorker) {
+    const prev = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(user.id);
+    fs.writeFileSync(fp, buf);
+    db.prepare('UPDATE worker_profiles SET photo = ?, photo_at = ? WHERE user_id = ?').run(fp, now(), user.id);
+    if (prev && prev.photo) { try { fs.unlinkSync(prev.photo); } catch {} }
+  } else {
+    const prev = db.prepare('SELECT photo FROM users WHERE id = ?').get(user.id);
+    fs.writeFileSync(fp, buf);
+    db.prepare('UPDATE users SET photo = ?, photo_at = ? WHERE id = ?').run(fp, now(), user.id);
+    if (prev && prev.photo) { try { fs.unlinkSync(prev.photo); } catch {} }
+  }
   json(res, 200, { ok: true, photo: `/photos/${user.id}?v=${Date.now()}` });
 });
 
@@ -12324,6 +12362,37 @@ const server = http.createServer((req, res) => {
   const pathname = url.pathname;
   const ip = req.socket.remoteAddress || 'unknown';
 
+  /* ----- baseline security headers, every response ----- */
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  if (String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  if (pathname === '/' || pathname.endsWith('.html')) {
+    /* the app is one file of inline script by design, so 'unsafe-inline'
+       stays — the value here is pinning every OTHER origin shut */
+    res.setHeader('Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  }
+
+  /* ----- cross-site writes are refused when the browser names a foreign
+     origin. Same-origin fetches pass; requests without an Origin header
+     (curl, tests, old clients) are unaffected — this is a tripwire for
+     CSRF, layered on the SameSite cookie, not a wall. Stripe's webhook is
+     exempt: it is HMAC-verified and legitimately cross-origin. ----- */
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && pathname.startsWith('/api/') && pathname !== '/api/stripe/webhook') {
+    const origin = String(req.headers.origin || '');
+    if (origin) {
+      try {
+        const oHost = new URL(origin).host;
+        const rHost = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+        if (oHost && rHost && oHost !== rHost) return json(res, 403, { error: 'Cross-site request refused.' });
+      } catch { /* malformed Origin — let the route's own auth decide */ }
+    }
+  }
+
   /* ----- force HTTPS when behind a proxy (Railway etc.) ----- */
   const xfProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
   if (xfProto === 'http') {
@@ -12371,11 +12440,19 @@ const server = http.createServer((req, res) => {
   /* worker profile photos (behind the preview gate like every page) */
   const photoMatch = pathname.match(/^\/photos\/(\d+)$/);
   if (photoMatch && req.method === 'GET') {
-    const row = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(Number(photoMatch[1]));
+    const uid = Number(photoMatch[1]);
+    let row = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(uid);
+    let priv = false;
+    if (!row || !row.photo) {
+      /* not a worker's public photo — a participant's or coordinator's, which
+         only signed-in people ever see, and which never caches shared */
+      priv = true;
+      row = readSession(req.headers.cookie) ? db.prepare("SELECT photo FROM users WHERE id = ? AND photo != ''").get(uid) : null;
+    }
     if (!row || !row.photo || !fs.existsSync(row.photo)) { res.writeHead(404); return res.end(); }
     res.writeHead(200, {
       'Content-Type': row.photo.endsWith('.png') ? 'image/png' : 'image/jpeg',
-      'Cache-Control': 'public, max-age=86400'
+      'Cache-Control': priv ? 'private, max-age=3600' : 'public, max-age=86400'
     });
     return fs.createReadStream(row.photo).pipe(res);
   }
