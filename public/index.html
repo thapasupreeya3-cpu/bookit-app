@@ -12569,19 +12569,23 @@ document.addEventListener('click', async e => {
   }
 })();
 
-/* ═══════════ Build 24: the walkers ═══════════
-   Small line-art duos cross the bottom of the screen — a carer walking with
-   a wheelchair user, a long-cane user with their guide dog, crutches, a
-   walking frame — leaving footprints and wheel tracks that fade like they
-   would on wet sand. Decorative: off under reduced motion / high contrast
-   (CSS hides, this loop also stops), idle when the stage is empty. */
+/* ═══════════ Build 24/25: the walkers ═══════════
+   Life across the whole page, in the site's own illustration voice: filled
+   two-tone characters — a carer beside a wheelchair user with a balloon, a
+   kite flown from a chair, a guide dog in harness, forearm crutches, a
+   walking frame, a running blade — crossing at three depths (near, mid,
+   far), birds up high, tracks fading like prints on wet sand. Decorative:
+   off under reduced motion / high contrast / print, aria-hidden, untouchable,
+   and the loop fully idles when the stage is empty. */
 (() => {
   var cv = document.getElementById('bgWalkers');
   if(!cv || !cv.getContext) return;
   var ctx = cv.getContext('2d');
-  var W = 0, H = 0, raf = 0, timer = 0, lastT = 0;
-  var walker = null, marks = [], tracks = [];
-  var TTL = 16000, INK = '18,43,51', TEAL = '14,107,98';
+  var W = 0, H = 0, raf = 0, lastT = 0, uid = 0;
+  var walkers = [], birds = null, marks = [], tracks = {};
+  var tNear = 0, tDeep = 0, tBirds = 0;
+  var TTL = 16000;
+  var INK = '18,43,51', TEAL = '14,107,98', AMBER = '245,184,65';
 
   function size(){
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -12599,14 +12603,14 @@ document.addEventListener('click', async e => {
       || de.classList.contains('high-contrast')
       || (matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
+  function edgeA(x){ return Math.max(0, Math.min(1, Math.min(x + 70, W + 70 - x) / 150)); }
 
-  /* ---------- marks ---------- */
+  /* ---------- fading marks ---------- */
   function foot(x, y, side, dir){ marks.push({ k:'foot', x:x, y:y, s:side, d:dir, t:performance.now() }); }
   function paw(x, y){ marks.push({ k:'paw', x:x, y:y, t:performance.now() }); }
   function tap(x, y){ marks.push({ k:'tap', x:x, y:y, t:performance.now() }); }
   function track(id, x, y){
-    var tr = tracks[id];
-    if(!tr){ tr = tracks[id] = { pts: [] }; }
+    var tr = tracks[id] || (tracks[id] = { pts: [] });
     var last = tr.pts[tr.pts.length - 1];
     if(!last || Math.abs(x - last.x) >= 7) tr.pts.push({ x:x, y:y, t:performance.now() });
   }
@@ -12657,242 +12661,410 @@ document.addEventListener('click', async e => {
     return true;
   }
 
-  /* ---------- figure pieces (all drawn facing +x at ground y=0) ---------- */
-  function person(ph, h, lean){
-    var hip = -h * 0.46, sh = -h * 0.80, hd = -h * 0.93;
+  /* ---------- soft-body drawing kit (filled capsules, not sticks) ---------- */
+  function capsule(x1, y1, x2, y2, r1, r2){
+    var a = Math.atan2(y2 - y1, x2 - x1);
+    ctx.beginPath();
+    ctx.arc(x1, y1, r1, a + 1.5708, a - 1.5708);
+    ctx.arc(x2, y2, r2 == null ? r1 * 0.72 : r2, a - 1.5708, a + 1.5708);
+    ctx.closePath(); ctx.fill();
+  }
+  function dot(x, y, r){ ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+  function ring(x, y, r, lw){ ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); }
+  function col(c, a){ return 'rgba(' + c + ',' + a.toFixed(3) + ')'; }
+
+  /* a walking companion — soft body, amber beanie, optional tote bag */
+  function personF(h, ph, A, tote){
+    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845, lean = h * 0.05;
     var s1 = Math.sin(ph), s2 = Math.sin(ph + Math.PI);
-    ctx.beginPath();
-    ctx.moveTo(0, hip); ctx.quadraticCurveTo(s1 * 3, -h * 0.2, s1 * 7.5, 0);
-    ctx.moveTo(0, hip); ctx.quadraticCurveTo(s2 * 3, -h * 0.2, s2 * 7.5, 0);
-    ctx.moveTo(0, hip); ctx.lineTo(lean, sh);
-    ctx.moveTo(lean, sh + 2.5);
-    ctx.quadraticCurveTo(lean + s2 * 4, sh + h * 0.16, lean + s2 * 7, sh + h * 0.30);
-    ctx.stroke();
-    ctx.beginPath(); ctx.arc(lean + 0.6, hd, h * 0.085, 0, 7); ctx.stroke();
-  }
-  function wheelchair(roll, h){
-    var R = h * 0.31, r = h * 0.085, wy = -R;
-    ctx.beginPath();
-    ctx.arc(0, wy, R, 0, 7);
-    ctx.moveTo(R * 0.78, wy); ctx.arc(0, wy, R * 0.78, 0, 7);
-    for(var i = 0; i < 3; i++){
-      var a = roll + i * 2.094;
-      ctx.moveTo(0, wy); ctx.lineTo(Math.cos(a) * R * 0.72, wy + Math.sin(a) * R * 0.72);
+    ctx.fillStyle = col(INK, A);
+    capsule(0, hipY, s1 * h * 0.165, -h * 0.015, h * 0.052, h * 0.040);
+    capsule(0, hipY, s2 * h * 0.165, -h * 0.015, h * 0.052, h * 0.040);
+    capsule(0, hipY + h * 0.02, lean, shY, h * 0.112, h * 0.096);
+    dot(lean * 1.15, hdY, h * 0.100);
+    capsule(lean, shY + h * 0.035, lean + s2 * h * 0.14, -h * 0.40, h * 0.040, h * 0.032);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.arc(lean * 1.15, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
+    if(tote){
+      ctx.fillStyle = col(TEAL, A * 0.9);
+      ctx.beginPath();
+      var bx = lean + s2 * h * 0.14, by = -h * 0.385;
+      ctx.moveTo(bx - h * 0.055, by); ctx.lineTo(bx + h * 0.055, by);
+      ctx.lineTo(bx + h * 0.045, by + h * 0.115); ctx.lineTo(bx - h * 0.045, by + h * 0.115);
+      ctx.closePath(); ctx.fill();
     }
-    var fx = R * 1.12, fy = -r;
-    ctx.moveTo(fx + r, fy); ctx.arc(fx, fy, r, 0, 7);
-    var seatY = wy - R * 0.52;
-    ctx.moveTo(-R * 0.18, seatY); ctx.lineTo(R * 0.72, seatY);
-    ctx.moveTo(-R * 0.18, seatY); ctx.lineTo(-R * 0.30, seatY - R * 0.72);
-    ctx.moveTo(R * 0.72, seatY); ctx.lineTo(R * 1.02, -h * 0.075); ctx.lineTo(R * 1.22, -h * 0.075);
-    ctx.stroke();
-    /* the person in the chair */
-    var hipX = R * 0.06, shX = -R * 0.16, shY = seatY - R * 0.78, hdY = shY - R * 0.30;
-    ctx.beginPath();
-    ctx.moveTo(hipX, seatY); ctx.lineTo(shX, shY);
-    ctx.moveTo(hipX, seatY); ctx.lineTo(R * 0.62, seatY - 1);
-    ctx.lineTo(R * 0.95, -h * 0.09);
-    var ha = roll * 0.9;
-    var handX = Math.cos(0.9 + Math.sin(ha) * 0.5) * R * 0.78;
-    var handY = wy + Math.sin(0.9 + Math.sin(ha) * 0.5) * R * 0.78;
-    ctx.moveTo(shX, shY); ctx.quadraticCurveTo(R * 0.28, shY + R * 0.34, handX, handY);
-    ctx.stroke();
-    ctx.beginPath(); ctx.arc(shX - 1, hdY, h * 0.082, 0, 7); ctx.stroke();
   }
-  function dog(ph, h){
-    var bh = h * 0.34, bl = h * 0.42;
+
+  /* wheelchair + rider: teal chair, amber hub (the oo), soft rider */
+  function chairF(h, roll, A){
+    var R = h * 0.295, wy = -R;
+    ctx.strokeStyle = col(TEAL, A);
+    ring(0, wy, R, 2.3);
+    ctx.strokeStyle = col(INK, A * 0.9); ctx.lineWidth = 1.2;
+    for(var i = 0; i < 3; i++){
+      var an = roll + i * 2.094;
+      ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(Math.cos(an) * R * 0.8, wy + Math.sin(an) * R * 0.8); ctx.stroke();
+    }
+    ctx.fillStyle = col(AMBER, A); dot(0, wy, h * 0.045);
+    ctx.strokeStyle = col(TEAL, A);
+    ring(R * 1.14, -h * 0.065, h * 0.062, 2.0);
+    ctx.lineWidth = 2.3;
+    var seatY = wy - R * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(-R * 0.22, seatY); ctx.lineTo(R * 0.72, seatY);
+    ctx.moveTo(-R * 0.22, seatY); ctx.lineTo(-R * 0.34, seatY - R * 0.80);
+    ctx.moveTo(R * 0.72, seatY); ctx.lineTo(R * 1.03, -h * 0.075); ctx.lineTo(R * 1.26, -h * 0.075);
+    ctx.stroke();
+    /* rider */
+    var hipX = R * 0.06, shX = -R * 0.14, shY2 = seatY - h * 0.235, hdY = shY2 - h * 0.115;
+    ctx.fillStyle = col(INK, A);
+    capsule(hipX, seatY - h * 0.01, R * 0.60, seatY - h * 0.02, h * 0.055, h * 0.048);
+    capsule(R * 0.60, seatY - h * 0.02, R * 0.94, -h * 0.085, h * 0.045, h * 0.036);
+    capsule(hipX, seatY - h * 0.02, shX, shY2, h * 0.100, h * 0.088);
+    dot(shX - h * 0.008, hdY, h * 0.095);
+    var ha = 0.9 + Math.sin(roll * 0.9) * 0.5;
+    capsule(shX, shY2 + h * 0.03, Math.cos(ha) * R * 0.8, wy + Math.sin(ha) * R * 0.8, h * 0.038, h * 0.030);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.arc(shX - h * 0.008, hdY - h * 0.010, h * 0.095, Math.PI, 0); ctx.closePath(); ctx.fill();
+  }
+
+  /* guide dog in working harness, trotting proud */
+  function dogF(h, ph, A, wag){
+    var bh = h * 0.30, bl = h * 0.40;
     var s1 = Math.sin(ph * 1.35), s2 = Math.sin(ph * 1.35 + Math.PI);
+    ctx.fillStyle = col(INK, A);
+    capsule(-bl * 0.42, -bh * 0.95, -bl * 0.42 + s1 * 3.2, -1, h * 0.035, h * 0.026);
+    capsule(-bl * 0.30, -bh * 0.92, -bl * 0.30 + s2 * 3.2, -1, h * 0.035, h * 0.026);
+    capsule(bl * 0.30, -bh * 0.92, bl * 0.30 + s2 * 3.6, -1, h * 0.036, h * 0.027);
+    capsule(bl * 0.42, -bh * 0.95, bl * 0.42 + s1 * 3.6, -1, h * 0.036, h * 0.027);
     ctx.beginPath();
-    ctx.moveTo(-bl * 0.5, -bh); ctx.quadraticCurveTo(0, -bh * 1.22, bl * 0.5, -bh * 1.02);
-    ctx.moveTo(-bl * 0.42, -bh * 0.94); ctx.quadraticCurveTo(0, -bh * 0.72, bl * 0.44, -bh * 0.86);
-    ctx.moveTo(-bl * 0.44, -bh * 0.96); ctx.lineTo(-bl * 0.44 + s1 * 3, 0);
-    ctx.moveTo(-bl * 0.36, -bh * 0.94); ctx.lineTo(-bl * 0.36 + s2 * 3, 0);
-    ctx.moveTo(bl * 0.36, -bh * 0.92); ctx.lineTo(bl * 0.36 + s2 * 3.4, 0);
-    ctx.moveTo(bl * 0.46, -bh * 0.94); ctx.lineTo(bl * 0.46 + s1 * 3.4, 0);
-    ctx.moveTo(-bl * 0.5, -bh) ; ctx.quadraticCurveTo(-bl * 0.66, -bh * 1.3, -bl * 0.6, -bh * 1.5);
-    ctx.moveTo(bl * 0.5, -bh * 1.02); ctx.lineTo(bl * 0.68, -bh * 1.28);
-    ctx.stroke();
-    ctx.beginPath(); ctx.arc(bl * 0.72, -bh * 1.34, h * 0.055, 0, 7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(bl * 0.70, -bh * 1.44); ctx.lineTo(bl * 0.62, -bh * 1.56); ctx.stroke();
+    ctx.ellipse(0, -bh * 1.06, bl * 0.52, bh * 0.34, -0.06, 0, 7);
+    ctx.fill();
+    dot(bl * 0.62, -bh * 1.38, h * 0.062);
+    capsule(bl * 0.66, -bh * 1.33, bl * 0.80, -bh * 1.22, h * 0.030, h * 0.020);
+    ctx.beginPath();
+    ctx.moveTo(bl * 0.585, -bh * 1.50); ctx.lineTo(bl * 0.545, -bh * 1.66); ctx.lineTo(bl * 0.66, -bh * 1.545);
+    ctx.closePath(); ctx.fill();
+    capsule(-bl * 0.50, -bh * 1.08, -bl * 0.66, -bh * (1.30 + Math.sin(wag) * 0.10), h * 0.026, h * 0.014);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.ellipse(bl * 0.50, -bh * 1.24, h * 0.026, h * 0.048, -0.5, 0, 7); ctx.fill();
+    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.ellipse(0, -bh * 1.06, bl * 0.30, bh * 0.36, 0, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
   }
-  function frameKit(h){
-    var fh = h * 0.52, r = 2.6;
+
+  /* long-cane traveller — the dog is the guide here */
+  function caneF(h, ph, A){
+    personF(h, ph, A, false);
+    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.7;
+    var sway = Math.sin(ph) * h * 0.10;
     ctx.beginPath();
-    ctx.moveTo(h * 0.26, -fh); ctx.lineTo(h * 0.26, -r);
-    ctx.moveTo(h * 0.44, -fh); ctx.lineTo(h * 0.44, -r);
-    ctx.moveTo(h * 0.22, -fh); ctx.lineTo(h * 0.48, -fh);
-    ctx.moveTo(h * 0.26, -fh * 0.55); ctx.lineTo(h * 0.44, -fh * 0.55);
-    ctx.moveTo(h * 0.26 + r, -r); ctx.arc(h * 0.26, -r, r, 0, 7);
-    ctx.moveTo(h * 0.44 + r, -r); ctx.arc(h * 0.44, -r, r, 0, 7);
+    ctx.moveTo(h * 0.10, -h * 0.42);
+    ctx.lineTo(h * 0.30 + sway, -h * 0.01);
     ctx.stroke();
   }
 
-  /* ---------- scenes ----------
-     Each returns { v: px/s, span, tick(dt, now) } and draws itself; x is the
-     scene anchor in world coords, dir flips left/right. */
-  function mk(base){
-    var sc = base;
-    sc.x = sc.dir > 0 ? -90 : W + 90;
-    sc.ph = 0; sc.step = 1;
-    return sc;
+  /* forearm crutches, one strong leg, gentle bounce */
+  function crutchF(h, ph, A, bob){
+    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845;
+    var s1 = Math.sin(ph);
+    ctx.fillStyle = col(INK, A);
+    capsule(0, hipY, s1 * h * 0.14, -h * 0.015 + bob, h * 0.052, h * 0.040);
+    capsule(0, hipY, -h * 0.075, -h * 0.24, h * 0.048, h * 0.036);
+    capsule(0, hipY + h * 0.02, h * 0.035, shY, h * 0.112, h * 0.096);
+    dot(h * 0.045, hdY, h * 0.100);
+    capsule(h * 0.035, shY + h * 0.035, h * 0.145 + s1 * h * 0.03, -h * 0.42, h * 0.040, h * 0.032);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.arc(h * 0.045, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.9;
+    var c1 = s1 * h * 0.09, c2 = -s1 * h * 0.06;
+    ctx.beginPath();
+    ctx.moveTo(h * 0.14 + c1, -h * 0.46); ctx.lineTo(h * 0.185 + c1 * 1.6, bob);
+    ctx.moveTo(-h * 0.045 + c2, -h * 0.46); ctx.lineTo(-h * 0.03 + c2 * 1.6, bob);
+    ctx.stroke();
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(h * 0.14 + c1, -h * 0.455, h * 0.030, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-h * 0.045 + c2, -h * 0.455, h * 0.030, 0, 7); ctx.stroke();
   }
-  function stepStamp(sc, footX, gy){
-    var sgn = Math.sin(sc.ph) >= 0 ? 1 : -1;
-    if(sgn !== sc.step){
-      sc.step = sgn;
-      foot(footX + sc.dir * sgn * 4, gy + 1.5, sgn, sc.dir);
-      return true;
-    }
-    return false;
+
+  /* four-wheel walker frame, unhurried */
+  function frameF(h, ph, A){
+    var s1 = Math.sin(ph) * 0.5, s2 = Math.sin(ph + Math.PI) * 0.5;
+    var hipY = -h * 0.42, shY = -h * 0.66, hdY = -h * 0.80;
+    ctx.fillStyle = col(INK, A);
+    capsule(0, hipY, s1 * h * 0.11, -h * 0.015, h * 0.050, h * 0.038);
+    capsule(0, hipY, s2 * h * 0.11, -h * 0.015, h * 0.050, h * 0.038);
+    capsule(0, hipY + h * 0.02, h * 0.075, shY, h * 0.108, h * 0.092);
+    dot(h * 0.09, hdY, h * 0.096);
+    capsule(h * 0.075, shY + h * 0.03, h * 0.27, -h * 0.505, h * 0.038, h * 0.030);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.arc(h * 0.09, hdY - h * 0.010, h * 0.096, Math.PI, 0); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 2.1;
+    var fh = h * 0.50;
+    ctx.beginPath();
+    ctx.moveTo(h * 0.26, -fh); ctx.lineTo(h * 0.245, -h * 0.055);
+    ctx.moveTo(h * 0.44, -fh); ctx.lineTo(h * 0.455, -h * 0.055);
+    ctx.moveTo(h * 0.225, -fh); ctx.lineTo(h * 0.475, -fh);
+    ctx.moveTo(h * 0.25, -fh * 0.56); ctx.lineTo(h * 0.45, -fh * 0.56);
+    ctx.stroke();
+    ctx.fillStyle = col(AMBER, A);
+    dot(h * 0.245, -h * 0.038, h * 0.038); dot(h * 0.455, -h * 0.038, h * 0.038);
   }
-  function drawAt(x, y, dir, alpha, fn){
-    ctx.save(); ctx.translate(x, y); ctx.scale(dir, 1);
-    ctx.strokeStyle = 'rgba(' + INK + ',' + alpha + ')';
-    ctx.lineWidth = 1.5;
-    fn();
+
+  /* running-blade walker — celebration, not apology */
+  function bladeF(h, ph, A){
+    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845, lean = h * 0.06;
+    var s1 = Math.sin(ph), s2 = Math.sin(ph + Math.PI);
+    ctx.fillStyle = col(INK, A);
+    capsule(0, hipY, s1 * h * 0.17, -h * 0.015, h * 0.052, h * 0.040);
+    capsule(0, hipY, s2 * h * 0.10, -h * 0.22, h * 0.050, h * 0.040);
+    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(s2 * h * 0.10, -h * 0.22);
+    ctx.quadraticCurveTo(s2 * h * 0.17 + h * 0.02, -h * 0.10, s2 * h * 0.19 + h * 0.058, -h * 0.005);
+    ctx.stroke();
+    ctx.fillStyle = col(INK, A);
+    capsule(0, hipY + h * 0.02, lean, shY, h * 0.112, h * 0.096);
+    dot(lean * 1.15, hdY, h * 0.100);
+    capsule(lean, shY + h * 0.035, lean + s2 * h * 0.15, -h * 0.40, h * 0.040, h * 0.032);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.arc(lean * 1.15, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
+  }
+
+  function balloonF(hx, hy, h, A, t, seed){
+    var bob = Math.sin(t * 0.0012 + seed) * 4, sway = Math.sin(t * 0.0009 + seed) * 6;
+    var bx = hx + sway * 0.4, by = hy - h * 0.72 + bob;
+    ctx.strokeStyle = col(TEAL, A * 0.85); ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo(hx + sway * 0.25, (hy + by) / 2, bx, by + h * 0.135); ctx.stroke();
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.ellipse(bx, by, h * 0.105, h * 0.13, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(bx - h * 0.02, by + h * 0.132); ctx.lineTo(bx + h * 0.02, by + h * 0.132); ctx.lineTo(bx, by + h * 0.165); ctx.closePath(); ctx.fill();
+  }
+
+  function kiteF(hx, hy, gy, h, A, t, seed, dir){
+    var sway = Math.sin(t * 0.0008 + seed) * 16, lift = Math.sin(t * 0.0011 + seed * 2) * 10;
+    var kx = hx + dir * (h * 1.7 + sway), ky = Math.max(86, gy - H * 0.40 + lift);
+    ctx.strokeStyle = col(TEAL, A * 0.8); ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo((hx + kx) / 2 + dir * 24, (hy + ky) / 2 + 26, kx, ky + 12); ctx.stroke();
+    ctx.save(); ctx.translate(kx, ky); ctx.rotate(dir * (0.18 + sway * 0.006));
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(9, 0); ctx.lineTo(0, 12); ctx.lineTo(-9, 0); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col(INK, A * 0.7); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(0, 12); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.stroke();
+    ctx.strokeStyle = col(TEAL, A * 0.8);
+    ctx.beginPath(); ctx.moveTo(0, 12); ctx.quadraticCurveTo(-dir * 6, 20, -dir * 3, 27); ctx.stroke();
+    ctx.fillStyle = col(TEAL, A * 0.9);
+    dot(-dir * 1, 18, 1.8); dot(-dir * 4, 24, 1.8);
     ctx.restore();
   }
-  function sceneWheelDuo(dir, gy){
-    return mk({ dir: dir, v: 42, span: 260, tick: function(dt, now){
-      var sc = this; sc.x += dir * sc.v * dt; sc.ph = sc.x / 8.6;
-      var roll = dir * sc.x / 14;
-      track(0, sc.x, gy + 0.6);
-      track(1, sc.x + dir * 15, gy + 0.6);
-      stepStamp(sc, sc.x - dir * 30, gy);
-      drawAt(sc.x, gy, dir, 0.13, function(){ wheelchair(roll, 48); });
-      drawAt(sc.x - dir * 30, gy, dir, 0.13, function(){ person(sc.ph, 46, 1.6); });
-    }});
+
+  /* the pause beat: two little dots overhead — the oo, saying hello */
+  function bubbleF(x, y, h, A, k){
+    var a = A * Math.sin(Math.min(1, k) * Math.PI);
+    if(a <= 0.004) return;
+    ctx.fillStyle = col(TEAL, a); dot(x - h * 0.055, y, h * 0.042);
+    ctx.fillStyle = col(AMBER, a); dot(x + h * 0.055, y, h * 0.042);
   }
-  function sceneSolo(dir, gy){
-    return mk({ dir: dir, v: 60, span: 140, tick: function(dt, now){
-      var sc = this; sc.x += dir * sc.v * dt;
-      var roll = dir * sc.x / 14;
-      track(0, sc.x, gy + 0.6);
-      track(1, sc.x + dir * 15, gy + 0.6);
-      drawAt(sc.x, gy, dir, 0.13, function(){ wheelchair(roll, 48); });
-    }});
+
+  /* ---------- the six scenes ---------- */
+  function drawScene(w, gyf, now){
+    var A = w.alpha * edgeA(w.x);
+    if(A <= 0.004) return;
+    var h = w.h, dir = w.dir, ph = w.ph;
+    function at(ox, fn){
+      ctx.save(); ctx.translate(w.x + dir * ox, gyf); ctx.scale(dir, 1); fn(); ctx.restore();
+    }
+    if(w.scene === 0 || w.scene === 1){
+      at(0, function(){ chairF(h, w.roll, A); });
+      at(-h * 0.62, function(){ personF(h, ph, A, w.scene === 0); });
+      if(w.scene === 0 && w.balloon) balloonF(w.x + dir * h * 0.1, gyf - h * 0.52, h, A, now, w.seed);
+      if(w.scene === 1) kiteF(w.x + dir * h * 0.05, gyf - h * 0.50, w.gy, h, A, now, w.seed, dir);
+    } else if(w.scene === 2){
+      at(0, function(){ caneF(h, ph, A); });
+      at(h * 0.92, function(){ dogF(h, ph, A, w.state === 'pause' ? now * 0.02 : ph * 0.8); });
+      ctx.strokeStyle = col(TEAL, A * 0.9); ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(w.x + dir * h * 0.13, gyf - h * 0.40);
+      ctx.quadraticCurveTo(w.x + dir * h * 0.55, gyf - h * 0.50, w.x + dir * h * 0.86, gyf - h * 0.335);
+      ctx.stroke();
+    } else if(w.scene === 3){
+      at(0, function(){ crutchF(h, ph, A, Math.abs(Math.sin(ph)) * 1.5); });
+      at(-h * 0.60, function(){ personF(h, ph, A, false); });
+    } else if(w.scene === 4){
+      at(0, function(){ frameF(h, ph, A); });
+      at(-h * 0.58, function(){ personF(h, ph * 0.9, A, true); });
+    } else {
+      at(0, function(){ bladeF(h, ph, A); });
+      at(-h * 0.56, function(){ personF(h, ph + 0.6, A, false); });
+    }
+    if(w.state === 'pause' || w.bubbleK > 0){
+      bubbleF(w.x - dir * h * 0.28, gyf - h * 1.06, h, A, w.bubbleK);
+    }
   }
-  function sceneDog(dir, gy){
-    return mk({ dir: dir, v: 46, span: 240, tick: function(dt, now){
-      var sc = this; sc.x += dir * sc.v * dt; sc.ph = sc.x / 8.2;
-      if(stepStamp(sc, sc.x, gy)){
-        var dx = sc.x + dir * 40 + dir * (Math.sin(sc.ph) * 3);
-        paw(dx - 2, gy + 1); paw(dx + 3, gy + 0.4);
+
+  function stampScene(w, gyf){
+    if(!w.stamps) return;
+    var dir = w.dir;
+    if(w.scene === 0 || w.scene === 1){
+      track(w.id + 'a', w.x, gyf + 0.6);
+      track(w.id + 'b', w.x + dir * w.h * 0.34, gyf + 0.6);
+      stepStamp(w, w.x - dir * w.h * 0.62, gyf);
+    } else if(w.scene === 2){
+      if(stepStamp(w, w.x, gyf)){
+        paw(w.x + dir * w.h * 0.86, gyf + 1); paw(w.x + dir * w.h * 0.96, gyf + 0.3);
       }
-      if(Math.cos(sc.ph) > 0.995) tap(sc.x + dir * 16, gy + 1);
-      drawAt(sc.x, gy, dir, 0.13, function(){
-        person(sc.ph, 46, 1.6);
-        var ca = Math.sin(sc.ph) * 0.22;
-        ctx.beginPath();
-        ctx.moveTo(6, -46 * 0.52);
-        ctx.lineTo(16 + Math.sin(ca) * 10, 0);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(5, -46 * 0.55);
-        ctx.quadraticCurveTo(22, -46 * 0.62, 40 - 46 * 0.42 * 0.5, -46 * 0.34 * 1.3);
-        ctx.stroke();
-      });
-      drawAt(sc.x + dir * 40, gy, dir, 0.13, function(){ dog(sc.ph, 46); });
-    }});
-  }
-  function sceneCrutches(dir, gy){
-    return mk({ dir: dir, v: 34, span: 250, tick: function(dt, now){
-      var sc = this; sc.x += dir * sc.v * dt; sc.ph = sc.x / 9;
-      var sgn = Math.sin(sc.ph) >= 0 ? 1 : -1;
-      if(sgn !== sc.step){
-        sc.step = sgn;
-        if(sgn > 0){ tap(sc.x + dir * 8, gy + 1); tap(sc.x - dir * 2, gy + 1.6); }
-        else foot(sc.x + dir * 3, gy + 1.5, 1, sc.dir);
+      if(Math.cos(w.ph) > 0.995) tap(w.x + dir * w.h * 0.30, gyf + 1);
+    } else if(w.scene === 3){
+      var sgn = Math.sin(w.ph) >= 0 ? 1 : -1;
+      if(sgn !== w.step){
+        w.step = sgn;
+        if(sgn > 0){ tap(w.x + dir * w.h * 0.185, gyf + 1); tap(w.x - dir * w.h * 0.03, gyf + 1.4); }
+        else foot(w.x + dir * 3, gyf + 1.5, 1, dir);
       }
-      stepStamp(sc, sc.x - dir * 26, gy);
-      var bob = Math.abs(Math.sin(sc.ph)) * 1.6;
-      drawAt(sc.x, gy - bob, dir, 0.13, function(){
-        var h = 46, hip = -h * 0.46, sh = -h * 0.8, s1 = Math.sin(sc.ph);
-        ctx.beginPath();
-        ctx.moveTo(0, hip); ctx.quadraticCurveTo(s1 * 3, -h * 0.2, s1 * 6, bob);
-        ctx.moveTo(0, hip); ctx.quadraticCurveTo(-2, -h * 0.26, -4, -h * 0.14);
-        ctx.moveTo(0, hip); ctx.lineTo(1.5, sh);
-        ctx.moveTo(1.5, sh + 3); ctx.lineTo(6 + s1 * 2, sh + h * 0.22);
-        ctx.moveTo(6 + s1 * 2, sh + h * 0.28); ctx.lineTo(8 + s1 * 4, bob);
-        ctx.moveTo(1.5, sh + 3); ctx.lineTo(-3 + s1 * 2, sh + h * 0.22);
-        ctx.moveTo(-3 + s1 * 2, sh + h * 0.28); ctx.lineTo(-2 + s1 * 4, bob);
-        ctx.stroke();
-        ctx.beginPath(); ctx.arc(2, -h * 0.93, h * 0.085, 0, 7); ctx.stroke();
-      });
-      drawAt(sc.x - dir * 26, gy, dir, 0.13, function(){ person(sc.ph, 46, 1.6); });
-    }});
+      stepStamp2(w, w.x - dir * w.h * 0.60, gyf);
+    } else if(w.scene === 4){
+      track(w.id + 'a', w.x + dir * w.h * 0.245, gyf + 0.6);
+      track(w.id + 'b', w.x + dir * w.h * 0.455, gyf + 0.6);
+      stepStamp(w, w.x - dir * w.h * 0.58, gyf);
+    } else {
+      if(stepStamp(w, w.x, gyf)) tap(w.x + dir * w.h * 0.10, gyf + 1);
+      stepStamp2(w, w.x - dir * w.h * 0.56, gyf);
+    }
   }
-  function sceneFrame(dir, gy){
-    return mk({ dir: dir, v: 26, span: 240, tick: function(dt, now){
-      var sc = this; sc.x += dir * sc.v * dt; sc.ph = sc.x / 6.4;
-      track(0, sc.x + dir * 12, gy + 0.6);
-      track(1, sc.x + dir * 20, gy + 0.6);
-      stepStamp(sc, sc.x, gy);
-      stepStamp2(sc, sc.x - dir * 26, gy);
-      drawAt(sc.x, gy, dir, 0.13, function(){
-        var h = 44, ph2 = sc.ph;
-        frameKit(h);
-        var hip = -h * 0.44, sh = -h * 0.76, s1 = Math.sin(ph2) * 0.55, s2 = Math.sin(ph2 + Math.PI) * 0.55;
-        ctx.beginPath();
-        ctx.moveTo(0, hip); ctx.quadraticCurveTo(s1 * 3, -h * 0.18, s1 * 6, 0);
-        ctx.moveTo(0, hip); ctx.quadraticCurveTo(s2 * 3, -h * 0.18, s2 * 6, 0);
-        ctx.moveTo(0, hip); ctx.lineTo(3.4, sh);
-        ctx.moveTo(3.4, sh + 2); ctx.quadraticCurveTo(h * 0.18, sh + h * 0.14, h * 0.30, -h * 0.52);
-        ctx.stroke();
-        ctx.beginPath(); ctx.arc(4.4, -h * 0.88, h * 0.082, 0, 7); ctx.stroke();
-      });
-      drawAt(sc.x - dir * 26, gy, dir, 0.13, function(){ person(sc.ph * 0.9, 46, 1.6); });
-    }});
+  function stepStamp(w, footX, gy){
+    var sgn = Math.sin(w.ph) >= 0 ? 1 : -1;
+    if(sgn !== w.step){ w.step = sgn; foot(footX + w.dir * sgn * 4, gy + 1.5, sgn, w.dir); return true; }
+    return false;
   }
-  function stepStamp2(sc, footX, gy){
-    var sgn = Math.sin(sc.ph + 1.2) >= 0 ? 1 : -1;
-    if(sgn !== sc.step2){ sc.step2 = sgn; foot(footX + sc.dir * sgn * 4, gy + 1.5, sgn, sc.dir); }
+  function stepStamp2(w, footX, gy){
+    var sgn = Math.sin(w.ph + 1.2) >= 0 ? 1 : -1;
+    if(sgn !== w.step2){ w.step2 = sgn; foot(footX + w.dir * sgn * 4, gy + 1.5, sgn, w.dir); }
+  }
+
+  /* ---------- walkers ---------- */
+  function mkWalker(scene, dir, gy, band){
+    var near = band === 'near';
+    var h = near ? 52 + Math.random() * 14 : band === 'mid' ? 28 + Math.random() * 8 : 15 + Math.random() * 5;
+    return {
+      id: 'w' + (++uid), scene: scene, dir: dir, gy: gy, band: band,
+      h: h, v: (near ? 34 : band === 'mid' ? 21 : 13) + Math.random() * (near ? 16 : 6),
+      alpha: near ? 0.16 : band === 'mid' ? 0.10 : 0.075,
+      x: dir > 0 ? -110 : W + 110, ph: 0, roll: 0, seed: Math.random() * 9,
+      step: 1, step2: 1, stamps: near,
+      state: 'walk', pauseT: 0, pausedOnce: Math.random() < 0.45, bubbleK: 0,
+      balloon: Math.random() < 0.6
+    };
+  }
+  function updateWalker(w, dt, now){
+    if(w.state === 'walk'){
+      w.x += w.dir * w.v * dt;
+      w.ph = w.x / (w.h * 0.165);
+      w.roll = w.dir * w.x / (w.h * 0.28);
+      if(!w.pausedOnce && w.band === 'near' && w.x > W * 0.34 && w.x < W * 0.58 && Math.random() < dt * 0.5){
+        w.state = 'pause'; w.pauseT = 1.7; w.pausedOnce = true;
+      }
+    } else {
+      w.pauseT -= dt;
+      w.ph *= Math.pow(0.02, dt);
+      w.bubbleK = Math.min(1, (1.7 - w.pauseT) / 1.7);
+      if(w.pauseT <= 0){ w.state = 'walk'; }
+    }
+    if(w.state === 'walk' && w.bubbleK > 0) w.bubbleK = Math.max(0, w.bubbleK - dt * 1.4);
+    var gyf = w.gy + Math.sin(w.x * 0.0045 + w.seed) * (w.band === 'near' ? 5 : 2);
+    if(w.state === 'walk') stampScene(w, gyf);
+    drawScene(w, gyf, now);
+    return !((w.dir > 0 && w.x > W + 300) || (w.dir < 0 && w.x < -300));
+  }
+
+  /* ---------- birds ---------- */
+  function mkBirds(){
+    var dir = Math.random() < 0.5 ? 1 : -1;
+    var n = 3 + (Math.random() * 3 | 0), offs = [];
+    for(var i = 0; i < n; i++) offs.push([i * 26 + Math.random() * 12, Math.sin(i * 1.7) * 14 + Math.random() * 8, Math.random() * 6]);
+    return { dir: dir, x: dir > 0 ? -80 : W + 80, y: 96 + Math.random() * H * 0.22, v: 26 + Math.random() * 8, offs: offs };
+  }
+  function updateBirds(dt, now){
+    if(!birds) return;
+    birds.x += birds.dir * birds.v * dt;
+    var A = 0.09 * edgeA(birds.x);
+    if(A > 0.004){
+      ctx.strokeStyle = col(INK, A); ctx.lineWidth = 1.3;
+      for(var i = 0; i < birds.offs.length; i++){
+        var o = birds.offs[i];
+        var bx = birds.x - birds.dir * o[0], by = birds.y + o[1] + Math.sin(now * 0.001 + o[2]) * 3;
+        var fl = 2.2 + Math.sin(now * 0.014 + o[2] * 2) * 2.0;
+        ctx.beginPath();
+        ctx.moveTo(bx - 4.6, by);
+        ctx.quadraticCurveTo(bx - 2.2, by - fl, bx, by);
+        ctx.quadraticCurveTo(bx + 2.2, by - fl, bx + 4.6, by);
+        ctx.stroke();
+      }
+    }
+    if((birds.dir > 0 && birds.x > W + 180) || (birds.dir < 0 && birds.x < -180)) birds = null;
   }
 
   /* ---------- loop ---------- */
   function tick(now){
     raf = 0;
-    if(off()){ marks = []; tracks = []; walker = null; ctx.clearRect(0, 0, W, H); return; }
+    if(off()){ walkers = []; birds = null; marks = []; tracks = {}; ctx.clearRect(0, 0, W, H); return; }
     var dt = Math.min(0.05, (now - (lastT || now)) / 1000);
     lastT = now;
     prune(now);
     ctx.clearRect(0, 0, W, H);
     drawTracks(now);
     drawMarks(now);
-    if(walker){
-      walker.tick(dt, now);
-      if((walker.dir > 0 && walker.x > W + walker.span) || (walker.dir < 0 && walker.x < -walker.span)) walker = null;
-    }
-    if(walker || !empty()) raf = requestAnimationFrame(tick);
+    walkers = walkers.filter(function(w){ return updateWalker(w, dt, now); });
+    updateBirds(dt, now);
+    if(walkers.length || birds || !empty()) raf = requestAnimationFrame(tick);
   }
   function ensure(){ if(!raf){ lastT = 0; raf = requestAnimationFrame(tick); } }
 
-  var SCENES = [sceneWheelDuo, sceneDog, sceneCrutches, sceneFrame, sceneSolo];
-  function spawn(forceIdx){
-    clearTimeout(timer);
-    timer = setTimeout(spawn, 26000 + Math.random() * 22000);
-    if(document.hidden || off() || walker) return;
-    var dir = Math.random() < 0.5 ? 1 : -1;
-    var gy = H - 34 - Math.random() * 44; /* hug the viewport foot — text rarely lives there */
-    var idx = typeof forceIdx === 'number' ? forceIdx : (Math.random() * SCENES.length) | 0;
-    walker = SCENES[idx](dir, gy);
+  function pick(deep){
+    var pool = deep ? [0, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5];
+    return pool[(Math.random() * pool.length) | 0];
+  }
+  function spawnNear(){
+    clearTimeout(tNear); tNear = setTimeout(spawnNear, 26000 + Math.random() * 18000);
+    if(document.hidden || off()) return;
+    if(walkers.some(function(w){ return w.band === 'near'; })) return;
+    walkers.push(mkWalker(pick(false), Math.random() < 0.5 ? 1 : -1, H - 44 - Math.random() * 62, 'near'));
     ensure();
+  }
+  function spawnDeep(){
+    clearTimeout(tDeep); tDeep = setTimeout(spawnDeep, 36000 + Math.random() * 26000);
+    if(document.hidden || off()) return;
+    var band = Math.random() < 0.55 ? 'mid' : 'far';
+    if(walkers.some(function(w){ return w.band === band; })) return;
+    var gy = band === 'mid' ? H * (0.58 + Math.random() * 0.12) : H * (0.30 + Math.random() * 0.10);
+    walkers.push(mkWalker(pick(true), Math.random() < 0.5 ? 1 : -1, gy, band));
+    ensure();
+  }
+  function spawnBirds(){
+    clearTimeout(tBirds); tBirds = setTimeout(spawnBirds, 55000 + Math.random() * 50000);
+    if(document.hidden || off() || birds) return;
+    birds = mkBirds(); ensure();
   }
   document.addEventListener('visibilitychange', function(){
     if(document.hidden){ if(raf){ cancelAnimationFrame(raf); raf = 0; } }
-    else if(walker || !empty()) ensure();
+    else if(walkers.length || birds || !empty()) ensure();
   });
-  /* deterministic hook for the test drives */
-  window.__bgWalk = function(i, dir, gy){
-    walker = null; clearTimeout(timer);
-    timer = setTimeout(spawn, 40000);
-    walker = SCENES[i % SCENES.length](dir || 1, gy || (H - 100));
-    ensure();
-  };
-  window.__bgWalkState = function(){ return { active: !!walker, marks: marks.length, raf: !!raf }; };
-  window.__bgWalkStop = function(){ walker = null; clearTimeout(timer); timer = setTimeout(spawn, 300000); };
 
-  timer = setTimeout(spawn, 5000);
+  /* deterministic hooks for the drives */
+  window.__bgWalk = function(i, dir, gy){
+    clearTimeout(tNear); tNear = setTimeout(spawnNear, 60000);
+    var w = mkWalker((i || 0) % 6, dir || 1, gy || (H - 90), 'near');
+    w.balloon = true; w.pausedOnce = true;
+    walkers = [w]; ensure();
+  };
+  window.__bgWalkState = function(){ return { active: walkers.length > 0, marks: marks.length, raf: !!raf }; };
+  window.__bgWalkStop = function(){
+    walkers = []; birds = null;
+    clearTimeout(tNear); clearTimeout(tDeep); clearTimeout(tBirds);
+    tNear = setTimeout(spawnNear, 300000);
+  };
+
+  tNear = setTimeout(spawnNear, 4500);
+  tDeep = setTimeout(spawnDeep, 11000);
+  tBirds = setTimeout(spawnBirds, 24000);
 })();
 </script>
 </body>
