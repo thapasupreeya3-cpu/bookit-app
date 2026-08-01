@@ -1507,9 +1507,23 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
   /* a small preview means two workers, not four */
   #homeWorkers > *:nth-child(n+3){display:none;}
 }
+
+/* ---------- Build 24: the walkers ----------
+   A quiet life at the bottom of every page: carers and the people they
+   support crossing the screen, tracks fading behind them. The section
+   surfaces are opaque, so this floats with the decorative doodle layer —
+   above the paper, below every menu/header/modal (z50 < 60+) — at
+   watermark alpha, untouchable, and OFF for reduced motion, high contrast
+   and print. */
+#bgWalkers{position:fixed;inset:0;width:100%;height:100%;z-index:50;pointer-events:none;}
+html[data-motion="reduce"] #bgWalkers,
+html.high-contrast #bgWalkers{display:none;}
+@media (prefers-reduced-motion: reduce){#bgWalkers{display:none;}}
+@media print{#bgWalkers{display:none;}}
 </style>
 </head>
 <body>
+<canvas id="bgWalkers" aria-hidden="true"></canvas>
 <a class="skip-link" href="#main">Skip to main content</a>
 
 <!-- ============ HEADER ============ -->
@@ -6784,6 +6798,12 @@ async function renderThreadOnline(convo){
   $('#attClip').hidden = false;
   $('#msgScopeWrap').hidden = false;
   if(window.ATT && ATT.jump){ jumpFinish(); }
+  else if(window.ATT && ATT.flashMid && Date.now() < ATT.flashUntil){
+    /* the poll re-renders this thread with innerHTML, which wipes a flash
+       mid-animation — put it back for the rest of its window */
+    const fl = document.querySelector(`#threadBody .bubble[data-mid="${ATT.flashMid}"]`);
+    if(fl) fl.classList.add('flash');
+  }
   if(atBottom) $('#threadBody').scrollTop = $('#threadBody').scrollHeight;
 }
 async function openConvoOnline(cid, focus){
@@ -11527,16 +11547,25 @@ function renderMsgResults(d){
     </button>`).join('');
 }
 function jumpFinish(){
+  /* Same race as the settings deep-links (PENDING_SECTION): a poll-driven
+     re-render of the PREVIOUS thread can land between arming the jump and
+     the right thread painting. Consuming the jump on a miss loses it — so
+     a miss keeps it armed for the next render, with a staleness window so
+     an abandoned jump can't flash some far-future visit. */
+  if(Date.now() - (ATT.jumpAt || 0) > 10000){ ATT.jump = 0; return; }
   const mid = ATT.jump;
-  ATT.jump = 0;
   const el = document.querySelector(`#threadBody .bubble[data-mid="${mid}"]`);
   if(!el) return;
+  ATT.jump = 0;
+  ATT.flashMid = mid;
+  ATT.flashUntil = Date.now() + 1900;
   el.scrollIntoView({ block: 'center' });
   el.classList.add('flash');
   setTimeout(() => el.classList.remove('flash'), 1900);
 }
 async function jumpToMessage(convoId, mid){
   ATT.jump = mid;
+  ATT.jumpAt = Date.now();
   /* arriving somewhere clears the search — the list behind it is current again */
   $('#msgSearch').value = '';
   msgSearchNow();
@@ -12538,6 +12567,332 @@ document.addEventListener('click', async e => {
       if (c) attachTilt(c);
     }, {passive:true});
   }
+})();
+
+/* ═══════════ Build 24: the walkers ═══════════
+   Small line-art duos cross the bottom of the screen — a carer walking with
+   a wheelchair user, a long-cane user with their guide dog, crutches, a
+   walking frame — leaving footprints and wheel tracks that fade like they
+   would on wet sand. Decorative: off under reduced motion / high contrast
+   (CSS hides, this loop also stops), idle when the stage is empty. */
+(() => {
+  var cv = document.getElementById('bgWalkers');
+  if(!cv || !cv.getContext) return;
+  var ctx = cv.getContext('2d');
+  var W = 0, H = 0, raf = 0, timer = 0, lastT = 0;
+  var walker = null, marks = [], tracks = [];
+  var TTL = 16000, INK = '18,43,51', TEAL = '14,107,98';
+
+  function size(){
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  }
+  addEventListener('resize', size); size();
+
+  function off(){
+    var de = document.documentElement;
+    return !de.classList.contains('js-fx')
+      || de.getAttribute('data-motion') === 'reduce'
+      || de.classList.contains('high-contrast')
+      || (matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  /* ---------- marks ---------- */
+  function foot(x, y, side, dir){ marks.push({ k:'foot', x:x, y:y, s:side, d:dir, t:performance.now() }); }
+  function paw(x, y){ marks.push({ k:'paw', x:x, y:y, t:performance.now() }); }
+  function tap(x, y){ marks.push({ k:'tap', x:x, y:y, t:performance.now() }); }
+  function track(id, x, y){
+    var tr = tracks[id];
+    if(!tr){ tr = tracks[id] = { pts: [] }; }
+    var last = tr.pts[tr.pts.length - 1];
+    if(!last || Math.abs(x - last.x) >= 7) tr.pts.push({ x:x, y:y, t:performance.now() });
+  }
+  function drawMarks(now){
+    for(var i = 0; i < marks.length; i++){
+      var m = marks[i], a = 1 - (now - m.t) / TTL;
+      if(a <= 0) continue;
+      if(m.k === 'foot'){
+        ctx.fillStyle = 'rgba(' + INK + ',' + (0.115 * a).toFixed(3) + ')';
+        ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.s * 0.14 * m.d);
+        ctx.beginPath(); ctx.ellipse(0, m.s * 1.6, 3.1, 1.6, 0, 0, 7); ctx.fill(); ctx.restore();
+      } else if(m.k === 'paw'){
+        ctx.fillStyle = 'rgba(' + INK + ',' + (0.11 * a).toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, 1.0, 0, 7);
+        ctx.arc(m.x - 2, m.y - 1.6, 0.7, 0, 7);
+        ctx.arc(m.x + 0.4, m.y - 2.1, 0.7, 0, 7);
+        ctx.arc(m.x + 2.2, m.y - 1.2, 0.7, 0, 7);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = 'rgba(' + TEAL + ',' + (0.13 * a).toFixed(3) + ')';
+        ctx.beginPath(); ctx.arc(m.x, m.y, 1.3, 0, 7); ctx.fill();
+      }
+    }
+  }
+  function drawTracks(now){
+    for(var id in tracks){
+      var pts = tracks[id].pts;
+      for(var i = 1; i < pts.length; i++){
+        var a = 1 - (now - pts[i].t) / TTL;
+        if(a <= 0) continue;
+        ctx.strokeStyle = 'rgba(' + TEAL + ',' + (0.10 * a).toFixed(3) + ')';
+        ctx.lineWidth = 1.1;
+        ctx.beginPath(); ctx.moveTo(pts[i-1].x, pts[i-1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
+      }
+    }
+  }
+  function prune(now){
+    marks = marks.filter(function(m){ return now - m.t < TTL; });
+    for(var id in tracks){
+      tracks[id].pts = tracks[id].pts.filter(function(p){ return now - p.t < TTL; });
+      if(!tracks[id].pts.length) delete tracks[id];
+    }
+  }
+  function empty(){
+    if(marks.length) return false;
+    for(var id in tracks) return false;
+    return true;
+  }
+
+  /* ---------- figure pieces (all drawn facing +x at ground y=0) ---------- */
+  function person(ph, h, lean){
+    var hip = -h * 0.46, sh = -h * 0.80, hd = -h * 0.93;
+    var s1 = Math.sin(ph), s2 = Math.sin(ph + Math.PI);
+    ctx.beginPath();
+    ctx.moveTo(0, hip); ctx.quadraticCurveTo(s1 * 3, -h * 0.2, s1 * 7.5, 0);
+    ctx.moveTo(0, hip); ctx.quadraticCurveTo(s2 * 3, -h * 0.2, s2 * 7.5, 0);
+    ctx.moveTo(0, hip); ctx.lineTo(lean, sh);
+    ctx.moveTo(lean, sh + 2.5);
+    ctx.quadraticCurveTo(lean + s2 * 4, sh + h * 0.16, lean + s2 * 7, sh + h * 0.30);
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(lean + 0.6, hd, h * 0.085, 0, 7); ctx.stroke();
+  }
+  function wheelchair(roll, h){
+    var R = h * 0.31, r = h * 0.085, wy = -R;
+    ctx.beginPath();
+    ctx.arc(0, wy, R, 0, 7);
+    ctx.moveTo(R * 0.78, wy); ctx.arc(0, wy, R * 0.78, 0, 7);
+    for(var i = 0; i < 3; i++){
+      var a = roll + i * 2.094;
+      ctx.moveTo(0, wy); ctx.lineTo(Math.cos(a) * R * 0.72, wy + Math.sin(a) * R * 0.72);
+    }
+    var fx = R * 1.12, fy = -r;
+    ctx.moveTo(fx + r, fy); ctx.arc(fx, fy, r, 0, 7);
+    var seatY = wy - R * 0.52;
+    ctx.moveTo(-R * 0.18, seatY); ctx.lineTo(R * 0.72, seatY);
+    ctx.moveTo(-R * 0.18, seatY); ctx.lineTo(-R * 0.30, seatY - R * 0.72);
+    ctx.moveTo(R * 0.72, seatY); ctx.lineTo(R * 1.02, -h * 0.075); ctx.lineTo(R * 1.22, -h * 0.075);
+    ctx.stroke();
+    /* the person in the chair */
+    var hipX = R * 0.06, shX = -R * 0.16, shY = seatY - R * 0.78, hdY = shY - R * 0.30;
+    ctx.beginPath();
+    ctx.moveTo(hipX, seatY); ctx.lineTo(shX, shY);
+    ctx.moveTo(hipX, seatY); ctx.lineTo(R * 0.62, seatY - 1);
+    ctx.lineTo(R * 0.95, -h * 0.09);
+    var ha = roll * 0.9;
+    var handX = Math.cos(0.9 + Math.sin(ha) * 0.5) * R * 0.78;
+    var handY = wy + Math.sin(0.9 + Math.sin(ha) * 0.5) * R * 0.78;
+    ctx.moveTo(shX, shY); ctx.quadraticCurveTo(R * 0.28, shY + R * 0.34, handX, handY);
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(shX - 1, hdY, h * 0.082, 0, 7); ctx.stroke();
+  }
+  function dog(ph, h){
+    var bh = h * 0.34, bl = h * 0.42;
+    var s1 = Math.sin(ph * 1.35), s2 = Math.sin(ph * 1.35 + Math.PI);
+    ctx.beginPath();
+    ctx.moveTo(-bl * 0.5, -bh); ctx.quadraticCurveTo(0, -bh * 1.22, bl * 0.5, -bh * 1.02);
+    ctx.moveTo(-bl * 0.42, -bh * 0.94); ctx.quadraticCurveTo(0, -bh * 0.72, bl * 0.44, -bh * 0.86);
+    ctx.moveTo(-bl * 0.44, -bh * 0.96); ctx.lineTo(-bl * 0.44 + s1 * 3, 0);
+    ctx.moveTo(-bl * 0.36, -bh * 0.94); ctx.lineTo(-bl * 0.36 + s2 * 3, 0);
+    ctx.moveTo(bl * 0.36, -bh * 0.92); ctx.lineTo(bl * 0.36 + s2 * 3.4, 0);
+    ctx.moveTo(bl * 0.46, -bh * 0.94); ctx.lineTo(bl * 0.46 + s1 * 3.4, 0);
+    ctx.moveTo(-bl * 0.5, -bh) ; ctx.quadraticCurveTo(-bl * 0.66, -bh * 1.3, -bl * 0.6, -bh * 1.5);
+    ctx.moveTo(bl * 0.5, -bh * 1.02); ctx.lineTo(bl * 0.68, -bh * 1.28);
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(bl * 0.72, -bh * 1.34, h * 0.055, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bl * 0.70, -bh * 1.44); ctx.lineTo(bl * 0.62, -bh * 1.56); ctx.stroke();
+  }
+  function frameKit(h){
+    var fh = h * 0.52, r = 2.6;
+    ctx.beginPath();
+    ctx.moveTo(h * 0.26, -fh); ctx.lineTo(h * 0.26, -r);
+    ctx.moveTo(h * 0.44, -fh); ctx.lineTo(h * 0.44, -r);
+    ctx.moveTo(h * 0.22, -fh); ctx.lineTo(h * 0.48, -fh);
+    ctx.moveTo(h * 0.26, -fh * 0.55); ctx.lineTo(h * 0.44, -fh * 0.55);
+    ctx.moveTo(h * 0.26 + r, -r); ctx.arc(h * 0.26, -r, r, 0, 7);
+    ctx.moveTo(h * 0.44 + r, -r); ctx.arc(h * 0.44, -r, r, 0, 7);
+    ctx.stroke();
+  }
+
+  /* ---------- scenes ----------
+     Each returns { v: px/s, span, tick(dt, now) } and draws itself; x is the
+     scene anchor in world coords, dir flips left/right. */
+  function mk(base){
+    var sc = base;
+    sc.x = sc.dir > 0 ? -90 : W + 90;
+    sc.ph = 0; sc.step = 1;
+    return sc;
+  }
+  function stepStamp(sc, footX, gy){
+    var sgn = Math.sin(sc.ph) >= 0 ? 1 : -1;
+    if(sgn !== sc.step){
+      sc.step = sgn;
+      foot(footX + sc.dir * sgn * 4, gy + 1.5, sgn, sc.dir);
+      return true;
+    }
+    return false;
+  }
+  function drawAt(x, y, dir, alpha, fn){
+    ctx.save(); ctx.translate(x, y); ctx.scale(dir, 1);
+    ctx.strokeStyle = 'rgba(' + INK + ',' + alpha + ')';
+    ctx.lineWidth = 1.5;
+    fn();
+    ctx.restore();
+  }
+  function sceneWheelDuo(dir, gy){
+    return mk({ dir: dir, v: 42, span: 260, tick: function(dt, now){
+      var sc = this; sc.x += dir * sc.v * dt; sc.ph = sc.x / 8.6;
+      var roll = dir * sc.x / 14;
+      track(0, sc.x, gy + 0.6);
+      track(1, sc.x + dir * 15, gy + 0.6);
+      stepStamp(sc, sc.x - dir * 30, gy);
+      drawAt(sc.x, gy, dir, 0.13, function(){ wheelchair(roll, 48); });
+      drawAt(sc.x - dir * 30, gy, dir, 0.13, function(){ person(sc.ph, 46, 1.6); });
+    }});
+  }
+  function sceneSolo(dir, gy){
+    return mk({ dir: dir, v: 60, span: 140, tick: function(dt, now){
+      var sc = this; sc.x += dir * sc.v * dt;
+      var roll = dir * sc.x / 14;
+      track(0, sc.x, gy + 0.6);
+      track(1, sc.x + dir * 15, gy + 0.6);
+      drawAt(sc.x, gy, dir, 0.13, function(){ wheelchair(roll, 48); });
+    }});
+  }
+  function sceneDog(dir, gy){
+    return mk({ dir: dir, v: 46, span: 240, tick: function(dt, now){
+      var sc = this; sc.x += dir * sc.v * dt; sc.ph = sc.x / 8.2;
+      if(stepStamp(sc, sc.x, gy)){
+        var dx = sc.x + dir * 40 + dir * (Math.sin(sc.ph) * 3);
+        paw(dx - 2, gy + 1); paw(dx + 3, gy + 0.4);
+      }
+      if(Math.cos(sc.ph) > 0.995) tap(sc.x + dir * 16, gy + 1);
+      drawAt(sc.x, gy, dir, 0.13, function(){
+        person(sc.ph, 46, 1.6);
+        var ca = Math.sin(sc.ph) * 0.22;
+        ctx.beginPath();
+        ctx.moveTo(6, -46 * 0.52);
+        ctx.lineTo(16 + Math.sin(ca) * 10, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(5, -46 * 0.55);
+        ctx.quadraticCurveTo(22, -46 * 0.62, 40 - 46 * 0.42 * 0.5, -46 * 0.34 * 1.3);
+        ctx.stroke();
+      });
+      drawAt(sc.x + dir * 40, gy, dir, 0.13, function(){ dog(sc.ph, 46); });
+    }});
+  }
+  function sceneCrutches(dir, gy){
+    return mk({ dir: dir, v: 34, span: 250, tick: function(dt, now){
+      var sc = this; sc.x += dir * sc.v * dt; sc.ph = sc.x / 9;
+      var sgn = Math.sin(sc.ph) >= 0 ? 1 : -1;
+      if(sgn !== sc.step){
+        sc.step = sgn;
+        if(sgn > 0){ tap(sc.x + dir * 8, gy + 1); tap(sc.x - dir * 2, gy + 1.6); }
+        else foot(sc.x + dir * 3, gy + 1.5, 1, sc.dir);
+      }
+      stepStamp(sc, sc.x - dir * 26, gy);
+      var bob = Math.abs(Math.sin(sc.ph)) * 1.6;
+      drawAt(sc.x, gy - bob, dir, 0.13, function(){
+        var h = 46, hip = -h * 0.46, sh = -h * 0.8, s1 = Math.sin(sc.ph);
+        ctx.beginPath();
+        ctx.moveTo(0, hip); ctx.quadraticCurveTo(s1 * 3, -h * 0.2, s1 * 6, bob);
+        ctx.moveTo(0, hip); ctx.quadraticCurveTo(-2, -h * 0.26, -4, -h * 0.14);
+        ctx.moveTo(0, hip); ctx.lineTo(1.5, sh);
+        ctx.moveTo(1.5, sh + 3); ctx.lineTo(6 + s1 * 2, sh + h * 0.22);
+        ctx.moveTo(6 + s1 * 2, sh + h * 0.28); ctx.lineTo(8 + s1 * 4, bob);
+        ctx.moveTo(1.5, sh + 3); ctx.lineTo(-3 + s1 * 2, sh + h * 0.22);
+        ctx.moveTo(-3 + s1 * 2, sh + h * 0.28); ctx.lineTo(-2 + s1 * 4, bob);
+        ctx.stroke();
+        ctx.beginPath(); ctx.arc(2, -h * 0.93, h * 0.085, 0, 7); ctx.stroke();
+      });
+      drawAt(sc.x - dir * 26, gy, dir, 0.13, function(){ person(sc.ph, 46, 1.6); });
+    }});
+  }
+  function sceneFrame(dir, gy){
+    return mk({ dir: dir, v: 26, span: 240, tick: function(dt, now){
+      var sc = this; sc.x += dir * sc.v * dt; sc.ph = sc.x / 6.4;
+      track(0, sc.x + dir * 12, gy + 0.6);
+      track(1, sc.x + dir * 20, gy + 0.6);
+      stepStamp(sc, sc.x, gy);
+      stepStamp2(sc, sc.x - dir * 26, gy);
+      drawAt(sc.x, gy, dir, 0.13, function(){
+        var h = 44, ph2 = sc.ph;
+        frameKit(h);
+        var hip = -h * 0.44, sh = -h * 0.76, s1 = Math.sin(ph2) * 0.55, s2 = Math.sin(ph2 + Math.PI) * 0.55;
+        ctx.beginPath();
+        ctx.moveTo(0, hip); ctx.quadraticCurveTo(s1 * 3, -h * 0.18, s1 * 6, 0);
+        ctx.moveTo(0, hip); ctx.quadraticCurveTo(s2 * 3, -h * 0.18, s2 * 6, 0);
+        ctx.moveTo(0, hip); ctx.lineTo(3.4, sh);
+        ctx.moveTo(3.4, sh + 2); ctx.quadraticCurveTo(h * 0.18, sh + h * 0.14, h * 0.30, -h * 0.52);
+        ctx.stroke();
+        ctx.beginPath(); ctx.arc(4.4, -h * 0.88, h * 0.082, 0, 7); ctx.stroke();
+      });
+      drawAt(sc.x - dir * 26, gy, dir, 0.13, function(){ person(sc.ph * 0.9, 46, 1.6); });
+    }});
+  }
+  function stepStamp2(sc, footX, gy){
+    var sgn = Math.sin(sc.ph + 1.2) >= 0 ? 1 : -1;
+    if(sgn !== sc.step2){ sc.step2 = sgn; foot(footX + sc.dir * sgn * 4, gy + 1.5, sgn, sc.dir); }
+  }
+
+  /* ---------- loop ---------- */
+  function tick(now){
+    raf = 0;
+    if(off()){ marks = []; tracks = []; walker = null; ctx.clearRect(0, 0, W, H); return; }
+    var dt = Math.min(0.05, (now - (lastT || now)) / 1000);
+    lastT = now;
+    prune(now);
+    ctx.clearRect(0, 0, W, H);
+    drawTracks(now);
+    drawMarks(now);
+    if(walker){
+      walker.tick(dt, now);
+      if((walker.dir > 0 && walker.x > W + walker.span) || (walker.dir < 0 && walker.x < -walker.span)) walker = null;
+    }
+    if(walker || !empty()) raf = requestAnimationFrame(tick);
+  }
+  function ensure(){ if(!raf){ lastT = 0; raf = requestAnimationFrame(tick); } }
+
+  var SCENES = [sceneWheelDuo, sceneDog, sceneCrutches, sceneFrame, sceneSolo];
+  function spawn(forceIdx){
+    clearTimeout(timer);
+    timer = setTimeout(spawn, 26000 + Math.random() * 22000);
+    if(document.hidden || off() || walker) return;
+    var dir = Math.random() < 0.5 ? 1 : -1;
+    var gy = H - 34 - Math.random() * 44; /* hug the viewport foot — text rarely lives there */
+    var idx = typeof forceIdx === 'number' ? forceIdx : (Math.random() * SCENES.length) | 0;
+    walker = SCENES[idx](dir, gy);
+    ensure();
+  }
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden){ if(raf){ cancelAnimationFrame(raf); raf = 0; } }
+    else if(walker || !empty()) ensure();
+  });
+  /* deterministic hook for the test drives */
+  window.__bgWalk = function(i, dir, gy){
+    walker = null; clearTimeout(timer);
+    timer = setTimeout(spawn, 40000);
+    walker = SCENES[i % SCENES.length](dir || 1, gy || (H - 100));
+    ensure();
+  };
+  window.__bgWalkState = function(){ return { active: !!walker, marks: marks.length, raf: !!raf }; };
+  window.__bgWalkStop = function(){ walker = null; clearTimeout(timer); timer = setTimeout(spawn, 300000); };
+
+  timer = setTimeout(spawn, 5000);
 })();
 </script>
 </body>
