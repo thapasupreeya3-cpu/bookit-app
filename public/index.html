@@ -1711,7 +1711,7 @@ html.high-contrast #bgWalkers{display:none;}
       </div>
       <div class="value-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-        <div><b>Transparent pricing</b><small>We bill at the standard NDIS rates — never above them — and you see exactly what your worker earns.</small></div>
+        <div><b>Transparent pricing</b><small>We charge no more than the NDIA's published national maximum prices — and you see exactly what your worker earns.</small></div>
       </div>
       <div class="value-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -1989,7 +1989,7 @@ html.high-contrast #bgWalkers{display:none;}
           <h3>💡 How it's funded</h3>
           <p>Delivered under registration group <b>0107 — Assistance with Daily Personal Activities</b>, from your <b>Core</b> budget (Assistance with Daily Life).</p>
           <div class="code-line">Weekday daytime: $73.58/hr — the NDIA's published national maximum price (2026–27)</div>
-          <div class="code-line">Evening $81.07 · Sat $103.54 · Sun $133.50 — per the NDIS price guide</div>
+          <div class="code-line">Evening $81.07 · Sat $103.54 · Sun $133.50 — the applicable published maximum prices</div>
         </div>
         <div class="info-card mt-2">
           <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg> Extra safeguards</h3>
@@ -2231,7 +2231,7 @@ html.high-contrast #bgWalkers{display:none;}
           <h3>💡 How it's funded</h3>
           <p>Delivered under registration group <b>0125 — Participation in Community, Social and Civic Activities</b>, usually from your <b>Core</b> budget (Assistance with Social, Economic and Community Participation).</p>
           <div class="code-line">Weekday daytime: $73.58/hr — the NDIA's published national maximum price (2026–27)</div>
-          <div class="code-line">Weekend & evening activities billed at the applicable NDIS rate</div>
+          <div class="code-line">Weekend & evening activities billed at the applicable published maximum price</div>
         </div>
         <div class="info-card mt-2">
           <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> The workers you'll meet</h3>
@@ -2362,7 +2362,7 @@ html.high-contrast #bgWalkers{display:none;}
       <h2 class="mb-2">Hourly rates (2+ hour shifts)</h2>
       <div class="table-wrap">
         <table id="ratesTable">
-          <caption>Standard support rates · billed at the NDIA's published maximum prices (NDIS Pricing Arrangements 2026–27, from 1 July 2026) — employment support and household tasks carry their own limits, below</caption>
+          <caption>Standard support rates · billed at the NDIA's published maximum prices (NDIS Pricing Arrangements 2026–27, from 1 July 2026) — Employment Assistance and dedicated household-cleaning items use their own published maximum prices, below</caption>
           <thead>
             <tr>
               <th scope="col">When</th>
@@ -2648,7 +2648,7 @@ html.high-contrast #bgWalkers{display:none;}
         <div class="step"><div class="num">3</div><h3>Go live & get booked</h3><p>Your profile goes live to clients nearby. Apply for posted jobs, accept meet-and-greets, and build your regular roster.</p></div>
       </div>
       <div class="center mt-4">
-        <a href="#/get-started" class="btn btn-coral btn-lg">Start your application</a>
+        <a href="#/get-started?type=worker" class="btn btn-coral btn-lg">Start your application</a>
       </div>
     </div>
   </section>
@@ -3764,6 +3764,7 @@ html.high-contrast #bgWalkers{display:none;}
             For your safety, keep chats and bookings on BookIt. Never share bank details or passwords.
             </div>
             <div class="thread-body" id="threadBody" aria-live="polite"></div>
+            <p id="threadReadOnly" hidden style="margin:0;padding:12px 16px;background:#FDF4EC;border-top:1.5px solid #E8C9A8;color:#7a4a12;font-size:.92rem;">This worker is currently unavailable on BookIt, so this conversation is <b>read-only</b> for now. You can still read everything here. <a href="#/contact">Contact BookIt</a> if you need help arranging another worker.</p>
             <form class="composer" id="composer">
               <label for="composerInput" class="sr-only" style="position:absolute;left:-9999px;">Type a message</label>
               <div class="att-staged" id="attStaged" hidden>
@@ -5539,7 +5540,7 @@ $('#participantForm').addEventListener('submit', async e => {
       const plan = (document.querySelector('input[name="pPlan"]:checked') || {}).value || '';
       const pw = $('#pPassword').value;
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
-      const d = await API.call('/register', {method:'POST', body:{role:'participant', name:$('#pName').value, email:$('#pEmail').value, password:pw, phone:$('#pPhone').value, suburb:$('#pPostcode').value, plan, services, hi_flags, ndis_number:$('#pNdis').value.trim(), pm_email:$('#pPmEmail').value.trim(), terms_version: TERMS_VERSION}});
+      const d = await API.call('/register', {method:'POST', body:{role:'participant', name:$('#pName').value, email:$('#pEmail').value, password:pw, phone:$('#pPhone').value, suburb:$('#pPostcode').value, plan, services, hi_flags, ndis_number:$('#pNdis').value.trim(), pm_email:$('#pPmEmail').value.trim(), terms_accepted: $('#pTerms').checked, terms_version: TERMS_VERSION}});
       API.me = d.user; updateAuthUI();
       gsSuccess(`Welcome aboard, ${d.user.name.split(' ')[0]}! 🎉`, hi_flags.some(k => !hiHeld(k))
         ? 'Your account is live and you\'re logged in. You told us about a specialist support — one we aren\'t registered to deliver — so our team will call you — usually within one business day, and always before anything is booked. We\'ll introduce you to a provider who is registered for it and you engage them directly, and we roster everything else on your plan around them. In the meantime, have a browse.'
@@ -5558,7 +5559,7 @@ $('#workerForm').addEventListener('submit', async e => {
       const services = $$('input[name="wSvc"]:checked').map(c => c.value);
       const pw = $('#wPassword').value;
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
-      const d = await API.call('/register', {method:'POST', body:{role:'worker', name:$('#wName').value, email:$('#wEmail').value, password:pw, phone:$('#wPhone').value, suburb:$('#wPostcode').value, services, bio:$('#wAbout').value, terms_version: TERMS_VERSION}});
+      const d = await API.call('/register', {method:'POST', body:{role:'worker', name:$('#wName').value, email:$('#wEmail').value, password:pw, phone:$('#wPhone').value, suburb:$('#wPostcode').value, services, bio:$('#wAbout').value, terms_accepted: $('#wTerms').checked, terms_version: TERMS_VERSION}});
       API.me = d.user; updateAuthUI(); loadWorkersLive();
       gsSuccess(`Application received, ${d.user.name.split(' ')[0]}! 🙌`, 'Your worker account is created and we\'ve emailed you a link to confirm your address. Two things unlock approval: add your profile photo and your NDIS Worker Screening Check on your Bookings page. Your profile stays hidden until our team verifies them — we\'ll email you the moment you\'re live.');
       $('#gsDemoNote').textContent = 'Log back in any time with your email and password.';
@@ -6795,8 +6796,13 @@ async function renderThreadOnline(convo){
     d.messages.map(x => `<div class="bubble ${x.mine ? 'me' : 'them'}" data-mid="${x.id}">${esc(x.body || '')}${msgAttHtml(x.attachment)}<time>${fmtStamp(x.created)}</time></div>`).join('');
   /* the clip appears once a live thread is open — the picker explains any
      empty state itself, so the button never has to guess */
-  $('#attClip').hidden = false;
-  $('#msgScopeWrap').hidden = false;
+  const ro = d.worker_active === false;
+  const roNote = document.getElementById('threadReadOnly');
+  const composerEl = document.getElementById('composer');
+  if(roNote) roNote.hidden = !ro;
+  if(composerEl) composerEl.hidden = ro;
+  $('#attClip').hidden = ro;
+  $('#msgScopeWrap').hidden = ro;
   if(window.ATT && ATT.jump){ jumpFinish(); }
   else if(window.ATT && ATT.flashMid && Date.now() < ATT.flashUntil){
     /* the poll re-renders this thread with innerHTML, which wipes a flash
@@ -10376,6 +10382,10 @@ async function renderInvitePage(){
         <label>Your name<input type="text" id="invName" required maxlength="80"></label>
         <label>Email<input type="email" id="invEmail" required maxlength="120" value="${esc(d.email)}"></label>
         <label class="full">Choose a password<input type="password" id="invPw" required minlength="8" autocomplete="new-password"></label>
+        <label class="full" style="flex-direction:row;gap:10px;align-items:flex-start;font-weight:400;">
+          <input type="checkbox" id="invTerms" required style="width:18px;height:18px;margin-top:3px;flex:none;">
+          <span class="muted-sm">I have read and accept the <a href="#/legal" target="_blank">terms and privacy policy</a>, including my responsibilities when acting on a participant's behalf.</span>
+        </label>
         <div class="full"><button type="submit" class="btn btn-primary">Create account & accept</button></div>
       </form>
       <p class="muted-sm" style="margin:12px 0 0;">The invitation was sent to <b>${esc(d.email)}</b> — the account has to use that address.</p>
@@ -10401,7 +10411,8 @@ document.addEventListener('submit', async e => {
   try{
     await API.call('/register', {method:'POST', noFor:true, body:{
       role: 'coordinator', name: $('#invName').value, email: $('#invEmail').value,
-      password: $('#invPw').value, invite_token: inviteToken()
+      password: $('#invPw').value, invite_token: inviteToken(),
+      terms_accepted: $('#invTerms').checked, terms_version: TERMS_VERSION
     }});
     await API.call('/login', {method:'POST', noFor:true, body:{ email: $('#invEmail').value, password: $('#invPw').value }});
     const me = await API.call('/me', {noFor:true});

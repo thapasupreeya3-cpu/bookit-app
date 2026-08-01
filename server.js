@@ -115,6 +115,19 @@ for (const col of ["terms_version TEXT DEFAULT ''", "terms_at TEXT DEFAULT ''"])
 for (const col of ["photo TEXT DEFAULT ''", "photo_at TEXT DEFAULT ''"]) {
   try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
 }
+/* migration (admin-provisioning build): administrator is a stored fact on
+   the account row, set only through provisioning paths that are logged —
+   never inferred live from an email list (review round 3, finding 1). */
+for (const col of ['is_admin INTEGER DEFAULT 0']) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+}
+/* migration (consent-enforcement build): separate evidence that a
+   participant consented to health/disability information handling at
+   sign-up. Final consent structure is the lawyer's call; the evidence
+   columns exist so nothing is lost in the meantime. */
+for (const col of ["health_consent_version TEXT DEFAULT ''", "health_consent_at TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+}
 for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_no TEXT', 'support_item TEXT', 'claimed_at TEXT', 'paid_at TEXT', 'sleepover INTEGER DEFAULT 0']) {
   try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
 }
@@ -1444,7 +1457,7 @@ function stampLegacyCutoff(uid) {
 /* the user object handed to routes and returned by /api/me — includes the worker's
    photo url + live (visible) flag so the front-end account menu can show them */
 function sessionUser(uid) {
-  const u = db.prepare('SELECT id, role, name, email, phone, suburb, plan, verified, created, ndis_number, pm_email, hi_flags, hi_at, hi_referred_at, photo, photo_at FROM users WHERE id = ?').get(Number(uid));
+  const u = db.prepare('SELECT id, role, name, email, phone, suburb, plan, verified, created, ndis_number, pm_email, hi_flags, hi_at, hi_referred_at, photo, photo_at, is_admin FROM users WHERE id = ?').get(Number(uid));
   if (!u) return null;
   u.hi_flags = safeJson(u.hi_flags, []);
   if (u.role === 'worker') {
@@ -1649,7 +1662,18 @@ function handleStripeWebhook(req, res, raw) {
    ADMIN_EMAILS = comma-separated list of account emails that get the admin
    dashboard (approve workers, see users/bookings/messages). */
 const ADMIN_EMAILS = String(process.env.ADMIN_EMAILS || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
-function withAdmin(u) { if (u) u.admin = ADMIN_EMAILS.includes(String(u.email || '').toLowerCase()) ? 1 : 0; return u; }
+/* KEEP IN SYNC with TERMS_VERSION in public/index.html — bump BOTH when the
+   legal sections change. Registration refuses any other value. */
+const CURRENT_TERMS_VERSION = '2026-07-31';
+function withAdmin(u) {
+  /* Review round 3, finding 1: matching an email at request time meant
+     whoever REGISTERED the address first became admin. Now the flag lives
+     on the row and only provisioning paths set it. On HTTPS (production)
+     an admin session must also have two-step sign-in enrolled — a password
+     alone never opens the admin board there. */
+  if (u) u.admin = (u.is_admin === 1 && (!COOKIE_SECURE || mfaOn(u.id))) ? 1 : 0;
+  return u;
+}
 function requireAdmin(user, res) { if (!user || !user.admin) { json(res, 403, { error: 'Admin only.' }); return false; } return true; }
 
 const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -2860,16 +2884,34 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
      thing an attacker is using. */
   const weak = weakPassword(password, email, name);
   if (weak) return json(res, 400, { error: weak });
+  /* Consent is a server rule, not a browser suggestion (review round 3,
+     finding 3). The client must have accepted the CURRENT version; the
+     server stores ITS version string and ITS clock, never client input. */
+  if (body.terms_accepted !== true || clean(body.terms_version, 20) !== CURRENT_TERMS_VERSION)
+    return json(res, 400, { error: 'Please accept the current terms and privacy policy. If you already ticked the box, refresh the page to load the latest documents and try again.' });
   if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) return json(res, 409, { error: 'That email already has an account — try logging in.' });
+  /* The preclaim door (review round 3, finding 1): an ADMIN_EMAILS address
+     can never be claimed through public registration. ADMIN_BOOTSTRAP=first
+     exists for dev/test harnesses and first-run setup: it lets the FIRST
+     admin claim through while no admin exists yet, and logs the grant. */
+  const adminBoot = ADMIN_EMAILS.includes(email)
+    && process.env.ADMIN_BOOTSTRAP === 'first'
+    && !db.prepare('SELECT id FROM users WHERE is_admin = 1').get();
+  if (ADMIN_EMAILS.includes(email) && !adminBoot)
+    return json(res, 403, { error: 'This email address is reserved. If it is yours, contact the office — administrator accounts are set up directly, not through public registration.' });
   const ndisNum = /^\d{9}$/.test(clean(body.ndis_number, 12)) ? clean(body.ndis_number, 12) : '';
   const pmEmail = EMAIL_RE.test(clean(body.pm_email, 120)) ? clean(body.pm_email, 120).toLowerCase() : '';
   const services = Array.isArray(body.services) ? body.services.filter(s => SERVICES.includes(s)).slice(0, 6) : [];
   const hiFlags = role === 'participant' ? hiFrom(body) : [];
-  const termsV = clean(body.terms_version, 20);
-  const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, ndis_number, pm_email, svc_interest, hi_flags, hi_at, terms_version, terms_at, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+  const termsV = CURRENT_TERMS_VERSION; /* server truth, never client input */
+  const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, ndis_number, pm_email, svc_interest, hi_flags, hi_at, terms_version, terms_at, is_admin, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), clean(body.plan, 30), ndisNum, pmEmail,
-         JSON.stringify(services), JSON.stringify(hiFlags), hiFlags.length ? now() : '', termsV, termsV ? now() : '', now());
+         JSON.stringify(services), JSON.stringify(hiFlags), hiFlags.length ? now() : '', termsV, now(), adminBoot ? 1 : 0, now());
   const uid = Number(r.lastInsertRowid);
+  if (role === 'participant')
+    db.prepare('UPDATE users SET health_consent_version = ?, health_consent_at = ? WHERE id = ?').run(CURRENT_TERMS_VERSION, now(), uid);
+  if (adminBoot) logCompliance({ worker_id: null, worker_name: name, kind: 'admin-grant', result: 'granted',
+    detail: `First-admin bootstrap (ADMIN_BOOTSTRAP=first): ${email} registered while no administrator existed.`, source: 'admin provisioning' });
   if (hiFlags.length) { recordScope(uid, hiFlags, 'signup'); hiAlert(req, { id: uid, name, email, suburb }, hiFlags, 'at signup'); }
   if (role === 'worker') {
     /* vetting: new workers start hidden (visible = 0) until an admin approves them */
@@ -3098,6 +3140,12 @@ route('POST', /^\/api\/email-test$/, async (req, res, m, user, body, ip) => {
 /* ---------- admin: dashboard + worker vetting ---------- */
 route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
+  try {
+    const lastUse = db.prepare("SELECT checked_at FROM compliance_log WHERE kind = 'admin-access' AND checked_by = ? ORDER BY id DESC LIMIT 1").get(user.name);
+    if (!lastUse || (Date.now() - Date.parse(lastUse.checked_at)) > 12 * 3600 * 1000)
+      logCompliance({ worker_id: null, worker_name: '', kind: 'admin-access', result: 'opened',
+        detail: 'Admin dashboard opened.', source: 'admin provisioning', checked_by: user.name });
+  } catch {}
   const counts = {
     participants: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'participant'").get().n,
     workers: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'worker'").get().n,
@@ -3232,7 +3280,8 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/hide$/, (req, res, m, user) => {
   db.prepare('UPDATE worker_profiles SET visible = 0 WHERE user_id = ?').run(uid);
   logCompliance({ worker_id: uid, worker_name: w.name, kind: 'platform-access', result: 'withdrawn',
     detail: 'Profile hidden by an administrator.', checked_by: user.name });
-  json(res, 200, { ok: true });
+  const held = holdFutureShifts(uid, w.name, 'hidden by an administrator', req);
+  json(res, 200, { ok: true, shifts_held: held });
 });
 
 /* ---------- admin: invoicing ---------- */
@@ -3758,6 +3807,39 @@ function logCompliance(o) {
          o.source || '', o.ref || '', o.doc_id || null, o.checked_at || now(), o.checked_by || 'System');
 }
 
+/* ---------- administrator provisioning (review round 3, finding 1) ----------
+   Out-of-band paths only. Boot reconciles ADMIN_EMAILS onto EXISTING
+   VERIFIED accounts (an unverified claim never gets the flag); the CLI
+   grants or revokes explicitly; both are logged. Public registration of a
+   listed address is refused in the register route. */
+for (const em of ADMIN_EMAILS) {
+  try {
+    const au = db.prepare('SELECT id, name, verified, is_admin FROM users WHERE email = ?').get(em);
+    if (au && au.verified === 1 && au.is_admin !== 1) {
+      db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(au.id);
+      logCompliance({ worker_id: null, worker_name: au.name, kind: 'admin-grant', result: 'granted',
+        detail: `Boot reconcile: ${em} is listed in ADMIN_EMAILS and the account has a verified email.`, source: 'admin provisioning' });
+      console.log(`Admin granted (boot reconcile): ${em}`);
+    } else if (au && au.verified !== 1 && au.is_admin !== 1) {
+      console.warn(`ADMIN_EMAILS address ${em} exists but is UNVERIFIED — admin NOT granted. Verify the email and restart, or run: node server.js grant-admin ${em}`);
+    }
+  } catch (e) { console.error('Admin reconcile failed for ' + em + ':', e.message); }
+}
+
+/* node server.js grant-admin you@example.com  |  revoke-admin you@example.com */
+if (process.argv[2] === 'grant-admin' || process.argv[2] === 'revoke-admin') {
+  const grant = process.argv[2] === 'grant-admin';
+  const em = String(process.argv[3] || '').toLowerCase().trim();
+  const au = em && db.prepare('SELECT id, name, verified FROM users WHERE email = ?').get(em);
+  if (!au) { console.error('No account found for "' + em + '" — the person creates their account first, then you grant.'); process.exit(1); }
+  if (grant && au.verified !== 1) { console.error('That account has not verified its email address — verify first, then grant.'); process.exit(1); }
+  db.prepare('UPDATE users SET is_admin = ? WHERE id = ?').run(grant ? 1 : 0, au.id);
+  logCompliance({ worker_id: null, worker_name: au.name, kind: grant ? 'admin-grant' : 'admin-revoke', result: grant ? 'granted' : 'revoked',
+    detail: (grant ? 'Granted' : 'Revoked') + ' via the server CLI for ' + em + '.', source: 'admin provisioning (CLI)' });
+  console.log((grant ? 'Admin granted: ' : 'Admin revoked: ') + em);
+  process.exit(0);
+}
+
 /* The single source of truth on whether a worker may be on the platform.
    Everything else — the approve route, the sweep, the booking and message
    endpoints, the cover cascade, the admin board — asks this one function, so
@@ -3875,6 +3957,33 @@ function platformEligible(workerId, email) {
    gate carries the flag, so lifting a suspension restores them automatically.
    A worker an admin hid by hand does not carry it, and no sweep will ever
    undo that decision. Returns a description of what changed, or null. */
+/* Review round 3 policy: involuntary withdrawal never silently cancels a
+   participant's support and never waits for manual discovery. Future shifts
+   enter the cover cascade (openCover already: preserves the slot, notifies
+   the participant, waves the care web, charges nothing); a shift already
+   underway TODAY is escalated to the office by email instead of touched. */
+function holdFutureShifts(workerId, workerName, why, req) {
+  const today = new Date().toISOString().slice(0, 10);
+  const fut = db.prepare(`SELECT id, date, start, series_id FROM bookings
+    WHERE worker_id = ? AND date >= ? AND status IN ('requested','accepted')`).all(workerId, today);
+  if (!fut.length) return 0;
+  const series = new Set();
+  let held = 0;
+  for (const b of fut) {
+    try { if (openCover(b.id, workerId, 'Worker unavailable: ' + why, req)) held++; } catch {}
+    if (b.series_id) series.add(b.series_id);
+  }
+  logCompliance({ worker_id: workerId, worker_name: workerName, kind: 'platform-access', result: 'shifts-held',
+    detail: `${held} future shift(s) moved to the cover cascade after withdrawal (${why}). Participants keep their slots and are never charged.` +
+      (series.size ? ` ${series.size} recurring series flagged for office review — a permanent move to a new worker needs the participant's say-so.` : ''),
+    source: 'safety hold' });
+  if (MAIL_FROM && fut.some(b => b.date === today))
+    sendMail(MAIL_FROM, 'A withdrawn worker has a shift TODAY — BookIt', 'Check today\'s shift now',
+      `<p><b>${escHtml(workerName)}</b> was withdrawn and has ${fut.filter(b => b.date === today).length} shift(s) dated today. If one is already underway, handle it directly — cover has been requested, but a shift in progress needs a person.</p>`,
+      'Open the cover board', `${(req ? baseUrl(req) : (APP_URL || 'https://bookit.life'))}/#/admin`).catch(() => {});
+  return held;
+}
+
 function reconcileVisibility(workerId, why, req) {
   const w = db.prepare(`SELECT u.id, u.name, u.email, p.visible, p.auto_hidden
     FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'`).get(workerId);
@@ -3892,7 +4001,8 @@ function reconcileVisibility(workerId, why, req) {
     if (MAIL_FROM) sendMail(MAIL_FROM, `Worker withdrawn from the platform: ${w.name} — BookIt`, 'Platform access withdrawn',
       `<p><b>${escHtml(w.name)}</b> was withdrawn from Find Workers.</p><ul>${st.blocks.map(b => `<li>${escHtml(b)}</li>`).join('')}</ul>`,
       'Open the 0137 board', `${base}/#/admin`).catch(() => {});
-    return { worker: w.name, hidden: true, blocks: st.blocks };
+    const held = holdFutureShifts(workerId, w.name, st.blocks.join(' '), req);
+    return { worker: w.name, hidden: true, blocks: st.blocks, shifts_held: held };
   }
 
   if (st.ok && !w.visible && w.auto_hidden) {
@@ -4869,6 +4979,8 @@ route('GET', /^\/api\/conversations\/(\d+)\/messages$/, (req, res, m, user) => {
      this. Per-reader receipts would need their own table and nothing asks. */
   db.prepare('UPDATE messages SET read_at = ? WHERE convo_id = ? AND sender_id NOT IN (?, ?) AND read_at IS NULL').run(now(), convo.id, user.id, convo.as_id);
   const msgs = db.prepare('SELECT id, sender_id, body, created, doc_kind, doc_id, doc_name FROM messages WHERE convo_id = ? ORDER BY id ASC LIMIT 500').all(convo.id);
+  const thrW = db.prepare("SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(convo.worker_id);
+  const workerActive = !!(thrW && thrW.visible && platformEligible(convo.worker_id, thrW.email));
   /* Anyone who is neither of the two named parties is a delegate writing on
      one of their behalves, and is named. A message that arrives unattributed
      reads as though the participant typed it, which for an instruction about
@@ -4879,7 +4991,7 @@ route('GET', /^\/api\/conversations\/(\d+)\/messages$/, (req, res, m, user) => {
     const u = db.prepare('SELECT name, role FROM users WHERE id = ?').get(x.sender_id);
     if (u) third.set(x.sender_id, { name: u.name, role: u.role === 'coordinator' ? 'support coordinator' : u.role });
   }
-  json(res, 200, { messages: msgs.map(x => ({
+  json(res, 200, { worker_active: workerActive, messages: msgs.map(x => ({
     id: x.id, mine: x.sender_id === user.id || x.sender_id === convo.as_id, body: x.body, created: x.created,
     author: third.get(x.sender_id) || null,
     /* resolved on every read, deliberately. If a certificate expired last
@@ -4892,6 +5004,16 @@ route('POST', /^\/api\/conversations\/(\d+)\/messages$/, (req, res, m, user, bod
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const convo = memberOf(user, Number(m[1]));
   if (!convo) return json(res, 404, { error: 'Conversation not found.' });
+  /* Review round 3, finding 2: the gate on NEW conversations meant nothing
+     while an OLD one stayed writable. Every message re-asks the same single
+     eligibility question the create route asks — history remains readable,
+     writing stops for both sides the moment the worker is withdrawn. */
+  const thrW = db.prepare("SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(convo.worker_id);
+  if (!thrW || !thrW.visible || !platformEligible(convo.worker_id, thrW.email)) {
+    return json(res, 409, { read_only: true, error: user.id === convo.worker_id
+      ? "Your profile isn't active on BookIt right now, so messaging is paused. The office can help you get back on."
+      : 'This worker is currently unavailable on BookIt, so this conversation is read-only for now. Contact BookIt if you need help arranging another worker.' });
+  }
   const text = clean(body.body, 2000);
   /* An attachment can travel on its own. Forcing a covering sentence just
      makes people type "here" — the file is the message. */
@@ -5186,7 +5308,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     const kmBlock = kmLine ? `<p><b>${kmLine.km} km</b> ${escHtml(kmLine.from)} &rarr; ${escHtml(kmLine.to)} at $${kmLine.rate.toFixed(2)}/km = <b>$${kmLine.total.toFixed(2)}</b>.</p>` : '';
     if (pu2 && inv) notify(pu2.id, 'timesheets', pu2.email, 'Timesheet to approve — BookIt',
       `One timesheet to look at, ${firstName(pu2.name)}`,
-      `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${inv.qty === 1 && inv.category === 'sleepover' ? '1 night (flat)' : `${b.hours} hours ×`} $${inv.unit_price.toFixed(2)}</b> (${inv.label} — 2026–27 NDIS price limit) = <b>$${inv.total.toFixed(2)}</b>.</p>${kmBlock}<p><b>${firstName(user.name)} has written a shift note</b> about how it went — you can read it on your bookings page.</p><p><b>You have until ${prettyDate(deadline.toISOString().slice(0, 10))} to approve it or ask a question.</b> After that it is approved automatically so ${firstName(user.name)} is paid on time. Approving is not the same as saying the shift was perfect — you can raise a concern at any point, before or after.</p>`,
+      `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${inv.qty === 1 && inv.category === 'sleepover' ? '1 night (flat)' : `${b.hours} hours ×`} $${inv.unit_price.toFixed(2)}</b> (${inv.label} — the NDIA's published national maximum price, 2026–27) = <b>$${inv.total.toFixed(2)}</b>.</p>${kmBlock}<p><b>${firstName(user.name)} has written a shift note</b> about how it went — you can read it on your bookings page.</p><p><b>You have until ${prettyDate(deadline.toISOString().slice(0, 10))} to approve it or ask a question.</b> After that it is approved automatically so ${firstName(user.name)} is paid on time. Approving is not the same as saying the shift was perfect — you can raise a concern at any point, before or after.</p>`,
       'Approve the timesheet', `${baseUrl(req)}/#/bookings`).catch(() => {});
     return json(res, 200, { ok: true, invoice: inv, km: kmLine, approval_state: 'pending', approve_by: deadline.toISOString().slice(0, 10) });
   }
@@ -8408,7 +8530,7 @@ function sendCoverOffer(req, cv, b, tier, cand, rank) {
     sendMail(a.email, `Cover request — ${svc}, ${prettyDate(b.date)} — BookIt`,
       `A shift we'd like your help with`,
       `<p>We have a confirmed <b>${escHtml(svc)}</b> shift we can't staff from our own team, and under our partner agreement <b>${escHtml(a.agreement_ref)}</b> we're offering it to you first.</p>
-       <p><b>When:</b> ${when}<br><b>Where:</b> ${escHtml(pt.suburb || 'see booking')}<br><b>Support type:</b> ${escHtml(svc)} (${escHtml(REG_GROUPS[b.service] || '')})<br><b>We pay you:</b> ${payable.toFixed(2)} (${Math.round((a.share || 0.85) * 100)}% of the NDIS price limit for this line)</p>
+       <p><b>When:</b> ${when}<br><b>Where:</b> ${escHtml(pt.suburb || 'see booking')}<br><b>Support type:</b> ${escHtml(svc)} (${escHtml(REG_GROUPS[b.service] || '')})<br><b>We pay you:</b> ${payable.toFixed(2)} (${Math.round((a.share || 0.85) * 100)}% of the published maximum price for this line)</p>
        <p>Disability &amp; Mental Health Care Pty Ltd remains the registered provider of record for this support and keeps the participant's service agreement, the claim and the incident-reporting duty. Your worker delivers under our agreement — please confirm their NDIS Worker Screening Check number when you accept.</p>
        <p>This offer is open for <b>${cv.window_minutes} minutes</b>, then it moves on.</p>`,
       'Accept this shift', coverLink(req, offerId, 'allied')).catch(() => {});
@@ -10498,7 +10620,7 @@ route('GET', /^\/api\/statements$/, (req, res, m, user) => {
     totals: { ...sum, grand: round2(sum.supports + sum.travel), shifts: rows.length },
     service_labels: SERVICE_LABELS,
     acting_for: pers.id === user.id ? null : { id: pers.id, name: pers.name },
-    note: 'These figures are the NDIS price limits that applied on the day of each shift. Where your plan is managed by a plan manager or the agency, this statement is a record for you \u2014 the claim itself is lodged separately.'
+    note: 'These figures are the NDIA\u2019s published maximum prices that applied on the day of each shift. Where your plan is managed by a plan manager or the agency, this statement is a record for you \u2014 the claim itself is lodged separately.'
   });
 });
 
@@ -12365,6 +12487,24 @@ function serveStatic(req, res, pathname) {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
+  /* Review round 3, finding 4: the JSON helper already sent no-store, but
+     CSVs, exports and inline files write their own heads. Set it ONCE at
+     the boundary so no future route can forget it; routes may still add
+     content type and filename. */
+  if (pathname.startsWith('/api/')) {
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  /* Review round 3, finding 4: the JSON helper already sent no-store, but
+     CSVs, exports and inline files write their own heads. Set it ONCE at
+     the boundary so no future route can forget it; routes may still add
+     content type and filename. */
+  if (pathname.startsWith('/api/')) {
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
   const ip = req.socket.remoteAddress || 'unknown';
 
   /* ----- baseline security headers, every response ----- */
@@ -12424,7 +12564,7 @@ const server = http.createServer((req, res) => {
         if (a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b))) {
           res.writeHead(302, {
             'Location': '/',
-            'Set-Cookie': `bk_gate=${sign('gate-ok:' + SITE_PASSWORD)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${30 * 86400}`
+            'Set-Cookie': `bk_gate=${sign('gate-ok:' + SITE_PASSWORD)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${30 * 86400}${COOKIE_SECURE}`
           });
           return res.end();
         }
