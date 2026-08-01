@@ -1484,6 +1484,7 @@ function json(res, status, data, headers = {}) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff',
     ...(SITE_PASSWORD ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}),
     ...headers
@@ -8153,20 +8154,24 @@ route('POST', /^\/api\/admin\/sil\/generate$/, (req, res, m, user, body) => {
 
 route('POST', /^\/api\/contact$/, (req, res, m, user, body, ip) => {
   if (limited(ip, 'contact', 20)) return json(res, 429, { error: 'Too many messages — try again later.' });
-  db.prepare('INSERT INTO contact_messages (name, email, topic, body, created) VALUES (?,?,?,?,?)')
-    .run(clean(body.name, 80), clean(body.email, 120), clean(body.topic, 80), clean(body.body, 2000), now());
-  /* complaints land straight in the complaints register too */
+  const mid = db.prepare('INSERT INTO contact_messages (name, email, topic, body, created) VALUES (?,?,?,?,?)')
+    .run(clean(body.name, 80), clean(body.email, 120), clean(body.topic, 80), clean(body.body, 2000), now()).lastInsertRowid;
+  /* complaints land straight in the complaints register too — and the
+     reference we hand back is the register row, so an anonymous complainant
+     can still quote a number that finds their complaint */
+  let ref = 'M-' + mid;
   if (/complaint/i.test(String(body.topic || ''))) {
-    db.prepare('INSERT INTO complaints (source_name, source_email, channel, summary, details, created) VALUES (?,?,?,?,?,?)')
-      .run(clean(body.name, 80), clean(body.email, 120), 'site', clean(body.body, 2000).slice(0, 200) || 'Complaint via contact form', clean(body.body, 4000), now());
+    const cid = db.prepare('INSERT INTO complaints (source_name, source_email, channel, summary, details, created) VALUES (?,?,?,?,?,?)')
+      .run(clean(body.name, 80), clean(body.email, 120), 'site', clean(body.body, 2000).slice(0, 200) || 'Complaint via contact form', clean(body.body, 4000), now()).lastInsertRowid;
+    ref = 'C-' + cid;
   }
   /* forward a copy to the BookIt inbox so nothing sits unseen in the database */
   const fromEmail = clean(body.email, 120);
   if (MAIL_FROM) sendMail(MAIL_FROM, `Contact form — ${clean(body.topic, 80) || 'General'}`,
     'New message from the contact form',
-    `<p><b>From:</b> ${escHtml(clean(body.name, 80)) || 'Anonymous'} &lt;${escHtml(fromEmail) || 'no email given'}&gt;<br><b>Topic:</b> ${escHtml(clean(body.topic, 80)) || 'General'}</p><p style="white-space:pre-wrap;">${escHtml(clean(body.body, 2000))}</p>`,
+    `<p><b>Ref:</b> ${ref}<br><b>From:</b> ${escHtml(clean(body.name, 80)) || 'Anonymous'} &lt;${escHtml(fromEmail) || 'no email given'}&gt;<br><b>Topic:</b> ${escHtml(clean(body.topic, 80)) || 'General'}</p><p style="white-space:pre-wrap;">${escHtml(clean(body.body, 2000))}</p>`,
     null, null, EMAIL_RE.test(fromEmail) ? fromEmail : undefined).catch(() => {});
-  json(res, 200, { ok: true });
+  json(res, 200, { ok: true, ref });
 });
 
 

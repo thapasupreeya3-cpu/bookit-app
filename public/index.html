@@ -749,7 +749,7 @@ td b{font-variant-numeric:tabular-nums;}
 footer.site{background:var(--ink);color:#cfdde2;margin-top:0;}
 .foot-grid{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:34px;padding:64px 0 40px;}
 @media (max-width:1000px){.foot-grid{grid-template-columns:1fr 1fr;}}
-@media (max-width:600px){.foot-grid{grid-template-columns:1fr;}}
+@media (max-width:600px){.foot-grid{grid-template-columns:1fr 1fr;gap:22px;}.foot-brand{grid-column:1/-1;}}
 .foot-brand .logo{color:#fff;font-size:1.35rem;margin-bottom:14px;}
 .foot-brand p{color:#9fb6bd;font-size:.88rem;max-width:26em;}
 footer.site h4{color:#fff;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px;font-family:var(--font-head);}
@@ -1476,6 +1476,37 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
 #page-account .set-body{font-size:.97rem;}
 .mini-note{font-size:.85rem;color:var(--ink-soft);margin:0 0 10px;line-height:1.45;}
 .mini-rows p{margin:5px 0;font-size:.9rem;line-height:1.45;}
+
+/* ---------- Build 23: mobile journey ---------- */
+/* find-workers: desktop unchanged (the drawer wrapper dissolves) */
+.fb-more{display:contents;}
+#filterMoreBtn{display:none;}
+@media (max-width:900px){
+  .filter-bar .fb-q{order:-2;width:100%;}
+  .filter-bar .fb-q input{width:100%;}
+  .filter-bar .fb-svc{order:-1;}
+  .fb-more{display:none;}
+  #page-find-workers.fw-more-open .fb-more{display:block;width:100%;padding:10px 0 2px;border-top:1.5px dashed var(--line);margin-top:6px;}
+  #page-find-workers.fw-more-open .fb-more > div{margin:6px 0;}
+  #filterMoreBtn{display:inline-block;}
+  #page-find-workers .fint-row{display:none;}
+  #page-find-workers.fw-more-open .fint-row{display:flex;}
+}
+/* homepage: tighter on small screens — the detail lives on the service pages */
+@media (max-width:640px){
+  section.block{padding:44px 0;}
+  #page-home .services-grid{grid-template-columns:1fr 1fr;gap:10px;}
+  #page-home .service-card{padding:14px 12px;}
+  #page-home .service-card p{display:none;}
+  #page-home .service-card .code{display:none;}
+  #page-home .testi-grid .testi:nth-child(n+2){display:none;}
+  #page-home .hero{padding-top:18px;}
+  /* decoration cedes the screen: the illustration and marquee are desktop joy */
+  #page-home .hero-art{display:none;}
+  #page-home .oo-marquee{display:none;}
+  /* a small preview means two workers, not four */
+  #homeWorkers > *:nth-child(n+3){display:none;}
+}
 </style>
 </head>
 <body>
@@ -1617,8 +1648,8 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
         <h1>Support workers who fit <span class="u rotator" id="heroRotate" aria-hidden="true" data-words="your life|your mornings|your work week|your community|your routine"><span class="rot-word">your life</span></span><span class="sr-only">your life</span>, not the other way around.</h1>
         <p class="lead">Find, book and manage your own team of verified support workers — for work, home, daily living and getting out into your community. You choose who, when and how. We handle the rest.</p>
         <div class="hero-ctas">
-          <a href="#/get-started" class="btn btn-primary btn-lg">Find support</a>
-          <a href="#/support-workers" class="btn btn-secondary btn-lg">Become a support worker</a>
+          <a href="#/find-workers" class="btn btn-primary btn-lg">Browse support workers</a>
+          <a href="#/get-started" class="btn btn-secondary btn-lg">Create a free account</a>
         </div>
         <form class="hero-search" id="heroSearch" role="search" aria-label="Search support workers by suburb or postcode">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -1627,7 +1658,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
         </form>
         <div class="trust-chips" aria-label="Key facts">
           <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Every worker employed & insured</span>
-          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Priced at NDIS price limits — never above</span>
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Never above the NDIA's published maximum prices</span>
           <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Self-, plan- and NDIA-managed welcome</span>
         </div>
       </div>
@@ -1722,10 +1753,10 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
     <div class="container split">
       <div>
         <span class="kicker">Fair & transparent</span>
-        <h2 id="prHead">One honest rate. Nothing hidden.</h2>
-        <p class="lead mt-1">Most platforms bury their numbers. We publish everything — what you pay (the standard NDIS rate), what your worker takes home, and exactly where the rest goes.</p>
+        <h2 id="prHead">Every rate, clearly shown. Nothing hidden.</h2>
+        <p class="lead mt-1">Most platforms bury their numbers. We publish everything — what you pay, your worker's total pay including super, and exactly where the rest goes.</p>
         <ul class="tick-list">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>Priced at the NDIS price limits</b> — never above them, and we never ask for a top-up. A booking can be paid from NDIS funding where the support is in your plan and meets the claiming requirements.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>Never above the NDIA's published maximum prices</b> — and we never ask for a top-up. A booking can be paid from NDIS funding where the support is in your plan and meets the claiming requirements.</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>Workers keep more</b> — 72.5% of every hour goes to your worker on day one, including super, rising to 76.5% as they stay.</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>$0 to join, no subscriptions</b> — you only ever pay for support you book.</span></li>
         </ul>
@@ -1734,7 +1765,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
       <div class="compare-card" role="table" aria-label="Weekday daytime rate comparison">
         <div class="cc-head">Weekday daytime · per hour</div>
         <div class="cc-body">
-          <div class="compare-row"><span>You pay <small>(the 2026–27 NDIS price limit)</small></span><b style="font-size:1.5rem;color:var(--teal);">$73.58</b></div>
+          <div class="compare-row"><span>You pay <small>(the NDIA's published national maximum, 2026–27)</small></span><b style="font-size:1.5rem;color:var(--teal);">$73.58</b></div>
           <div class="compare-row"><span>Your worker earns <small>(incl. super)</small></span><b id="ccEarns">$53.35 &ndash; $56.29</b></div>
           <div class="compare-row"><span>Worker's share with us</span><b class="good" id="ccShare">72.5% &ndash; 76.5%</b></div>
           <div class="compare-row"><span>Typical agency worker share</span><b>55–60%</b></div>
@@ -1797,7 +1828,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
         </div>
         <div class="btns">
           <a href="#/support-workers" class="btn btn-primary btn-lg">See pay & perks</a>
-          <a href="#/get-started" class="btn btn-secondary btn-lg">Apply now</a>
+          <a href="#/get-started?type=worker" class="btn btn-secondary btn-lg">Apply now</a>
         </div>
       </div>
     </div>
@@ -1848,8 +1879,8 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
       <h1>Support to find a job — and keep loving it</h1>
       <p class="lead">Meaningful work changes everything. Our workers back you through every step: exploring what you want to do, landing the role, and building the skills and routines to thrive in it.</p>
       <div class="hero-ctas mt-3">
-        <a href="#/get-started" class="btn btn-primary">Find employment support</a>
-        <a href="#/find-workers" class="btn btn-secondary">Browse workers</a>
+        <a href="#/find-workers?service=employment" class="btn btn-primary">Browse employment workers</a>
+        <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
       <div class="ill-scene" data-ill="employment" aria-hidden="true"></div>
@@ -1880,9 +1911,9 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
       <aside>
         <div class="fund-box">
           <h3>💡 How it's funded</h3>
-          <p>Delivered under registration group <b>0102 — Assistance to Access and Maintain Employment</b>, usually from your <b>Capacity Building</b> (Finding & Keeping a Job) or Core budget as "supports in employment".</p>
-          <div class="code-line">Weekday rate: $73.58/hr — the 2026–27 NDIS price limit</div>
-          <div class="code-line">Evenings, weekends & public holidays billed at the applicable NDIS rate</div>
+          <p>Delivered under registration group <b>0102 — Assistance to Access and Maintain Employment</b>, usually from your <b>Capacity Building</b> (Finding &amp; Keeping a Job) budget. Your exact support item and agreed price are confirmed before support begins.</p>
+          <div class="code-line">$83.87/hr — the NDIA's published national maximum price for Employment Assistance (2026–27)</div>
+          <div class="code-line">One flat price — this support has no separate evening, weekend or public-holiday rates</div>
         </div>
         <div class="info-card mt-2">
           <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> The workers you'll meet</h3>
@@ -1909,8 +1940,8 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
       <h1>Personal care, on your terms</h1>
       <p class="lead">The most personal support deserves the most trust. Choose workers you're comfortable with, brief them your way, and keep the same familiar faces — morning, evening or overnight.</p>
       <div class="hero-ctas mt-3">
-        <a href="#/get-started" class="btn btn-primary">Find personal care</a>
-        <a href="#/find-workers" class="btn btn-secondary">Browse workers</a>
+        <a href="#/find-workers?service=personal-care" class="btn btn-primary">Browse personal-care workers</a>
+        <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
       <div class="ill-scene" data-ill="personal-care" aria-hidden="true"></div>
@@ -1943,7 +1974,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
         <div class="fund-box">
           <h3>💡 How it's funded</h3>
           <p>Delivered under registration group <b>0107 — Assistance with Daily Personal Activities</b>, from your <b>Core</b> budget (Assistance with Daily Life).</p>
-          <div class="code-line">Weekday daytime: $73.58/hr — the 2026–27 NDIS price limit</div>
+          <div class="code-line">Weekday daytime: $73.58/hr — the NDIA's published national maximum price (2026–27)</div>
           <div class="code-line">Evening $81.07 · Sat $103.54 · Sun $133.50 — per the NDIS price guide</div>
         </div>
         <div class="info-card mt-2">
@@ -1971,8 +2002,8 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
       <h1>Wherever you're going, we'll get you there</h1>
       <p class="lead">Appointments, work, uni, the shops, the game. Ride with a checked and insured worker — or learn to make the trip independently, with support that fades as your confidence grows.</p>
       <div class="hero-ctas mt-3">
-        <a href="#/get-started" class="btn btn-primary">Find transport support</a>
-        <a href="#/find-workers" class="btn btn-secondary">Browse workers who drive</a>
+        <a href="#/find-workers?service=transport" class="btn btn-primary">Browse transport workers</a>
+        <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
       <div class="ill-scene" data-ill="transport" aria-hidden="true"></div>
@@ -2004,7 +2035,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
         <div class="fund-box">
           <h3>💡 How it's funded</h3>
           <p>Delivered under registration group <b>0108 — Assistance with Travel/Transport arrangements</b>, typically from your <b>Core</b> budget. Worker time is billed at our standard rates; a per-kilometre vehicle allowance applies when your worker drives.</p>
-          <div class="code-line">Worker time: $73.58/hr weekday — the NDIS price limit</div>
+          <div class="code-line">Worker time: $73.58/hr weekday — the NDIA's published national maximum (2026–27)</div>
           <div class="code-line">Vehicle allowance: $1.00/km (activity-based transport)</div>
         </div>
         <div class="info-card mt-2">
@@ -2031,8 +2062,8 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
       <h1>Everyday skills for a more independent life</h1>
       <p class="lead">Whether you live on your own, with family or in a shared home, our workers help you build the daily living skills that add up to real independence — at your pace, in your space.</p>
       <div class="hero-ctas mt-3">
-        <a href="#/get-started" class="btn btn-primary">Find daily living support</a>
-        <a href="#/find-workers" class="btn btn-secondary">Browse workers</a>
+        <a href="#/find-workers?service=daily-tasks" class="btn btn-primary">Browse daily-living workers</a>
+        <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
       <div class="ill-scene" data-ill="daily-tasks" aria-hidden="true"></div>
@@ -2064,7 +2095,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
         <div class="fund-box">
           <h3>💡 How it's funded</h3>
           <p>Delivered under registration groups <b>0115 — Assistance with Daily Life Tasks in a Group or Shared Living Arrangement</b> and <b>0138 — Supported Independent Living</b> (added to our registration from 1 July 2026), from your <b>Core</b> budget (Assistance with Daily Life).</p>
-          <div class="code-line">Weekday daytime: $73.58/hr — the 2026–27 NDIS price limit</div>
+          <div class="code-line">Weekday daytime: $73.58/hr — the NDIA's published national maximum price (2026–27)</div>
           <div class="code-line">Evening, weekend & overnight rates all below limits</div>
         </div>
         <div class="info-card mt-2">
@@ -2092,8 +2123,8 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
       <h1>A home that works for you</h1>
       <p class="lead">When the housework piles up, everything feels harder. Get reliable help with cleaning, laundry and meals from workers who do it properly — and do it your way.</p>
       <div class="hero-ctas mt-3">
-        <a href="#/get-started" class="btn btn-primary">Find household help</a>
-        <a href="#/find-workers" class="btn btn-secondary">Browse workers</a>
+        <a href="#/find-workers?service=household" class="btn btn-primary">Browse household workers</a>
+        <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
       <div class="ill-scene" data-ill="household" aria-hidden="true"></div>
@@ -2125,7 +2156,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
         <div class="fund-box">
           <h3>💡 How it's funded</h3>
           <p>Delivered under registration group <b>0120 — Household Tasks</b>, from your <b>Core</b> budget. Where your plan uses the dedicated house-cleaning line item, we bill at or below its limit.</p>
-          <div class="code-line">House cleaning & household activities: $60.10/hr — the Household Tasks price limit</div>
+          <div class="code-line">House cleaning & household activities: $60.10/hr — the NDIA's published maximum for Household Tasks</div>
           <div class="code-line">Combined support shifts bill at standard rates — see Pricing</div>
         </div>
         <div class="info-card mt-2">
@@ -2152,8 +2183,8 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
       <h1>Your community, wide open</h1>
       <p class="lead">Sport, music, mates, faith, volunteering, a swim at the local pool — whatever connection looks like for you, our workers help you get out there and make it a regular thing.</p>
       <div class="hero-ctas mt-3">
-        <a href="#/get-started" class="btn btn-primary">Find community support</a>
-        <a href="#/find-workers" class="btn btn-secondary">Browse workers</a>
+        <a href="#/find-workers?service=community" class="btn btn-primary">Browse community workers</a>
+        <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
       <div class="ill-scene" data-ill="community" aria-hidden="true"></div>
@@ -2185,7 +2216,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
         <div class="fund-box">
           <h3>💡 How it's funded</h3>
           <p>Delivered under registration group <b>0125 — Participation in Community, Social and Civic Activities</b>, usually from your <b>Core</b> budget (Assistance with Social, Economic and Community Participation).</p>
-          <div class="code-line">Weekday daytime: $73.58/hr — the 2026–27 NDIS price limit</div>
+          <div class="code-line">Weekday daytime: $73.58/hr — the NDIA's published national maximum price (2026–27)</div>
           <div class="code-line">Weekend & evening activities billed at the applicable NDIS rate</div>
         </div>
         <div class="info-card mt-2">
@@ -2302,11 +2333,11 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Pricing</nav>
       <h1>Simple, honest pricing</h1>
-      <p class="lead">No joining fees. No subscriptions. No surprises. We bill at the standard NDIS price limits — never above them — with your worker's share published right beside every rate.</p>
+      <p class="lead">No joining fees. No subscriptions. No surprises. We bill at the NDIA's published maximum prices — never above them — with your worker's share published right beside every rate.</p>
       <div class="price-hero-cards">
-        <div class="ph-card"><span class="tag">You pay</span><div class="big">$73.58<sup>/hr</sup></div><p>Typical standard weekday daytime support-worker rate — the 2026–27 NDIS price limit</p></div>
+        <div class="ph-card"><span class="tag">You pay</span><div class="big">$73.58<sup>/hr</sup></div><p>Typical standard weekday daytime support-worker rate — the NDIA's published national maximum price (2026–27)</p></div>
         <div class="ph-card"><span class="tag">Your worker earns</span><div class="big">$53.35<sup>/hr</sup></div><p>Including 12% super — 72.5% of your rate on day one, rising to 76.5%. Never below the SCHADS Award.</p></div>
-        <div class="ph-card"><span class="tag">Gap fees</span><div class="big">$0</div><p>Never billed above the NDIS price limits — so we never ask you for a top-up</p></div>
+        <div class="ph-card"><span class="tag">Gap fees</span><div class="big">$0</div><p>Never billed above the published maximum prices — so we never ask you for a top-up</p></div>
       </div>
       <p class="muted-sm" style="margin-top:14px;max-width:62em;">Different support items, times, intensity levels and locations have different rates — employment support and household tasks have their own limits, shown below. Your exact agreed price is shown before you book. BookIt supports self-managed, plan-managed and NDIA-managed participants; a booking can be paid from NDIS funding where the support is included in your plan and meets the applicable claiming requirements.</p>
     </div>
@@ -2317,11 +2348,11 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
       <h2 class="mb-2">Hourly rates (2+ hour shifts)</h2>
       <div class="table-wrap">
         <table id="ratesTable">
-          <caption>Standard support rates · billed at the NDIS Pricing Arrangements 2026–27 price limits (from 1 July 2026) — employment support and household tasks carry their own limits, below</caption>
+          <caption>Standard support rates · billed at the NDIA's published maximum prices (NDIS Pricing Arrangements 2026–27, from 1 July 2026) — employment support and household tasks carry their own limits, below</caption>
           <thead>
             <tr>
               <th scope="col">When</th>
-              <th scope="col">You pay <small>= NDIS price limit</small></th>
+              <th scope="col">You pay <small>= published maximum</small></th>
               <th scope="col">Worker earns <small>incl. super</small></th>
               <th scope="col">Worker's share</th>
             </tr>
@@ -2329,7 +2360,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
           <tbody><!-- filled by JS --></tbody>
         </table>
       </div>
-      <p class="tbl-note">A 2-hour booking minimum applies, in line with SCHADS minimum-engagement rules — the exact price is always shown before you confirm. Sleepovers are billed at the NDIS night-time sleepover rate of <b>$311.79 per night</b> (includes up to 2 hours of active support; extra active hours at the applicable hourly rate). House-cleaning-only bookings are billed at <b>$60.10/hr</b> — the dedicated Household Tasks price limit. Employment support (0102) is billed at its own flat NDIS limit of <b>$83.87/hr</b>, whatever the day or time. Remote and very remote loadings follow the NDIS Pricing Arrangements. Eligible NDIS supports may be GST-free when the ATO requirements are met — any applicable GST is shown before booking.</p>
+      <p class="tbl-note">A 2-hour booking minimum applies, in line with SCHADS minimum-engagement rules — the exact price is always shown before you confirm. Sleepovers are billed at the NDIS night-time sleepover rate of <b>$311.79 per night</b> (includes up to 2 hours of active support; extra active hours at the applicable hourly rate). House-cleaning-only bookings are billed at <b>$60.10/hr</b> — the NDIA's dedicated published maximum for Household Tasks. Employment support (0102) is billed at its own flat published national maximum of <b>$83.87/hr</b>, whatever the day or time. Remote and very remote loadings follow the NDIS Pricing Arrangements. Eligible NDIS supports may be GST-free when the ATO requirements are met — any applicable GST is shown before booking.</p>
       <div class="info-card" style="margin-top:18px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
         <p style="margin:0;"><b>What will your shift actually cost?</b> Pick the support, day and time — see the price, the claim line and the cancellation window before you book anything.</p>
         <a class="btn btn-primary" href="#/calculator">Try the calculator</a>
@@ -2408,7 +2439,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
   <section class="block">
     <div class="container">
       <div class="filter-bar" role="search" aria-label="Filter support workers">
-        <div>
+        <div class="fb-svc">
           <label for="filterService">Service&nbsp;</label>
           <select id="filterService" data-ff="service">
             <option value="">All services</option>
@@ -2430,6 +2461,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
             <option value="6">Sundays</option>
           </select>
         </div>
+        <div class="fb-more" id="filterMore">
         <div>
           <label for="filterLang">Language&nbsp;</label>
           <select id="filterLang" data-ff="lang"><option value="">Any language</option></select>
@@ -2459,10 +2491,12 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
             <option value="new">Newest</option>
           </select>
         </div>
-        <div>
-          <label for="filterSearch">Search&nbsp;</label>
-          <input type="search" id="filterSearch" data-ff="q" placeholder="Name or suburb…">
         </div>
+        <div class="fb-q">
+          <label for="filterSearch">Search&nbsp;</label>
+          <input type="search" id="filterSearch" data-ff="q" placeholder="Suburb, postcode or name…">
+        </div>
+        <button type="button" id="filterMoreBtn" class="filter-clear" aria-expanded="false" aria-controls="filterMore">More filters</button>
         <button type="button" id="filterClear" class="filter-clear" hidden>Clear all ✕</button>
         <span class="filter-count" id="filterCount" aria-live="polite"></span>
       </div>
@@ -2494,7 +2528,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
       <h1>Support work that supports you back</h1>
       <p class="lead">Be employed — not a gig contractor. Choose your clients and hours, get paid above award with super and full insurance, and build real relationships doing work that matters.</p>
       <div class="hero-ctas mt-3">
-        <a href="#/get-started" class="btn btn-coral btn-lg">Apply now — it's free</a>
+        <a href="#/get-started?type=worker" class="btn btn-coral btn-lg">Apply now — it's free</a>
         <a href="#/how-it-works" class="btn btn-secondary btn-lg">How the platform works</a>
       </div>
     </div>
@@ -2517,7 +2551,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
           <tbody><!-- filled by JS --></tbody>
         </table>
       </div>
-      <p class="tbl-note">Rates sit above the SCHADS Award for comparable classifications. Sleepovers pay a flat allowance per night plus active-hour rates. A per-kilometre vehicle allowance applies when you drive clients during shifts. The two columns above are the bottom and the top of the pay ladder &mdash; here's how you move between them.</p>
+      <p class="tbl-note">Rates sit above the SCHADS Award for comparable classifications, and include the 12% superannuation guarantee — on weekdays the starting $53.35/hr is $47.63/hr cash plus $5.72 super. <b>Sleepovers:</b> you receive the SCHADS sleepover allowance, plus at least four hours of rostered work or pay immediately before or after the sleepover; any work performed during the sleepover is paid at the applicable overtime rate, with a minimum payment of one hour. (What the participant is billed — the NDIS per-night sleepover rate — is a separate calculation.) A per-kilometre vehicle allowance applies when you drive clients during shifts. The two columns above are the bottom and the top of the pay ladder &mdash; here's how you move between them.</p>
     </div>
   </section>
 
@@ -2547,14 +2581,14 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
         </div>
         <div class="pl-rule">
           <h4>The Award is a floor under all of it</h4>
-          <p>On a few supports the NDIS price limit is low enough that a percentage of it would fall under the SCHADS minimum for your classification. When that happens we pay the Award, not the share &mdash; and your payslip says which one you got.</p>
+          <p>On a few supports the published maximum price is low enough that a percentage of it would fall under the SCHADS minimum for your classification. When that happens we pay the Award, not the share &mdash; and your payslip says which one you got.</p>
         </div>
         <div class="pl-rule">
           <h4>Super, penalties and cover on top</h4>
           <p>Superannuation at 12% is included in every figure on this page. Evening, night, weekend and public holiday penalty rates are on top of your share, as is the per-kilometre allowance when you drive.</p>
         </div>
       </div>
-      <div class="mt-3"><a href="#/get-started" class="btn btn-coral btn-lg">Apply now &mdash; it's free</a></div>
+      <div class="mt-3"><a href="#/get-started?type=worker" class="btn btn-coral btn-lg">Apply now &mdash; it's free</a></div>
     </div>
   </section>
 
@@ -2647,7 +2681,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
         <div class="service-card" style="cursor:default;">
           <div class="service-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
           <h3>Your privacy, protected</h3>
-          <p>Data encrypted and hosted in Australia. You control what's visible on your profile, and we never sell your information. Our <a href="#/legal">privacy policy</a> sets out how we work to the Privacy Act and the NDIS Practice Standards.</p>
+          <p>Data encrypted in transit, with primary hosting in Australia (AWS Sydney) — and before launch we are verifying that every supporting system (backups, email, monitoring) meets the same bar. You control what's visible on your profile, and we never sell your information. Our <a href="#/legal">privacy policy</a> sets out how we work to the Privacy Act and the NDIS Practice Standards.</p>
         </div>
       </div>
 
@@ -2915,7 +2949,19 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
     <div class="container">
       <div class="info-card" id="lg-privacy">
         <h3>Privacy policy</h3>
-        <p>We collect only what we need to deliver support safely, store it encrypted and hosted in Australia, share it only with the people delivering your support (and the NDIA where claiming requires), and never sell it. Contact <b>privacy@bookit.life</b> about anything on this page.</p>
+        <p class="muted-sm">In plain language, structured to the Australian Privacy Principles — the formal wording is being settled with our legal reviewer before launch.</p>
+        <p><b>Who we are.</b> BookIt is operated by Disability &amp; Mental Health Care Pty Ltd (ABN 19 658 578 575), a registered NDIS provider. Privacy contact: <b>privacy@bookit.life</b> or 0488 114 368.</p>
+        <p><b>What we collect.</b> Account details (name, email, phone, suburb); NDIS details you choose to give (NDIS number, how your plan is managed, plan-manager contact); your support plan and the supports you're seeking — which can include health and disability information; documents you or the office add to your file; booking, message, payment and statement records; and for workers, credentials, screening checks, qualifications and payroll details. Security logs are kept to protect accounts.</p>
+        <p><b>How we collect and hold it.</b> Directly from you through forms and bookings, from your authorised representative, or from workers and staff recording the support they deliver. It is held on servers in Australia (primary hosting: AWS Sydney) with access restricted by role — workers never see your file, only the short brief from your support plan.</p>
+        <p><b>Why we use it.</b> To create and run your account, match and roster workers safely, deliver and record supports, process NDIS or private payments, meet our obligations as a registered provider (worker screening, incidents, complaints), and improve the service.</p>
+        <p><b>Who we share it with.</b> The workers you book (the short brief only); your authorised representative, nominee or plan manager; the NDIA where claiming requires; the NDIS Commission and other bodies where the law requires; and the service providers that operate BookIt (hosting, email, payments). We never sell personal information.</p>
+        <p><b>Overseas disclosure.</b> We aim to keep all personal information in Australia and are verifying every supporting system (backups, email, monitoring) before launch. If any provider holds data overseas, this policy will name the countries before that happens.</p>
+        <p><b>Access, correction and deletion.</b> Download everything we hold about you any time from your Profile ("A copy of your data"). Ask us to correct anything at privacy@bookit.life. You can ask us to delete your account; some records must be kept for the periods NDIS rules and other laws set, and we'll tell you which ones and for how long.</p>
+        <p><b>Complaints.</b> Contact privacy@bookit.life first. If you're not satisfied, you can complain to the Office of the Australian Information Commissioner (oaic.gov.au).</p>
+      </div>
+      <div class="info-card" id="lg-collection">
+        <h3>Collection notice</h3>
+        <p>Disability &amp; Mental Health Care Pty Ltd collects the information in our sign-up and booking forms to create your BookIt account, assess the supports you are seeking, safely match and roster workers, manage bookings and process NDIS or private payments. Name, email and password are required to create an account — without them we can't open one; everything else is optional at sign-up and can be added later. Health and disability information you choose to share (for example in your support plan or the high-intensity support questions) is collected with your consent and used only to plan and deliver safe support. Information may be shared with workers you choose, your authorised representative or plan manager, the NDIA where claiming requires, and the service providers that operate BookIt. The Privacy policy above covers access, correction and complaints.</p>
       </div>
       <div class="info-card" id="lg-terms">
         <h3>Website &amp; platform terms</h3>
@@ -2923,7 +2969,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
       </div>
       <div class="info-card" id="lg-agreement">
         <h3>Participant service agreement</h3>
-        <p>Before support starts you receive a written service agreement: the supports you've chosen, the agreed prices (never above the NDIS price limits), the cancellation window for each support item, and how to change or end the agreement. Nothing is charged outside what it sets out.</p>
+        <p>Before support starts you receive a written service agreement: the supports you've chosen, the agreed prices (never above the NDIA's published maximum prices), the cancellation window for each support item, and how to change or end the agreement. Nothing is charged outside what it sets out.</p>
       </div>
       <div class="info-card" id="lg-cancellation">
         <h3>Cancellation policy</h3>
@@ -3034,8 +3080,9 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
           </div>
           <label class="field full" style="flex-direction:row;gap:10px;align-items:flex-start;font-weight:400;">
             <input type="checkbox" id="pTerms" required style="width:18px;height:18px;margin-top:3px;flex:none;">
-            <span class="muted-sm">I have read and accept the <a href="#/legal" target="_blank">terms and privacy policy</a>.</span>
+            <span class="muted-sm">I have read and accept the <a href="#/legal" target="_blank">terms and privacy policy</a>, including the collection of health and disability information I choose to share, used only to plan and deliver safe support.</span>
           </label>
+          <p class="form-note full" style="grid-column:1/-1;margin:0;">Disability &amp; Mental Health Care Pty Ltd collects this information to create your BookIt account, assess the supports you're seeking, safely match and roster workers, manage bookings and process NDIS or private payments. Some information may be shared with workers you choose, your authorised representative or plan manager, and the NDIA where claiming requires. <a href="#/legal" target="_blank">Collection notice &amp; privacy policy</a>.</p>
           <button type="submit" class="btn btn-primary btn-lg full" style="grid-column:1/-1;">Create my free profile</button>
           <p class="form-note full" style="grid-column:1/-1;">By continuing you agree to our <a href="#/legal">terms and privacy policy</a>. No payment details required.</p>
         </form>
@@ -3076,6 +3123,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
             <input type="checkbox" id="wTerms" required style="width:18px;height:18px;margin-top:3px;flex:none;">
             <span class="muted-sm">I have read and accept the <a href="#/legal" target="_blank">terms and privacy policy</a>, including the worker terms.</span>
           </label>
+          <p class="form-note" style="grid-column:1/-1;margin:0;">Disability &amp; Mental Health Care Pty Ltd collects this information to assess your application, verify your credentials and screening checks, employ and roster you, and process your pay. Screening and credential information is checked with the issuing bodies. <a href="#/legal" target="_blank">Collection notice &amp; privacy policy</a>.</p>
           <button type="submit" class="btn btn-coral btn-lg" style="grid-column:1/-1;">Submit application</button>
           <p class="form-note" style="grid-column:1/-1;">By continuing you agree to our <a href="#/legal">terms and privacy policy</a>.</p>
         </form>
@@ -3534,7 +3582,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / For plan managers</nav>
       <h1>For plan managers</h1>
-      <p class="lead">Everything you need from a provider, without ringing anyone: the exact support item on every line, statements that open in your software, and never a dollar above the price limits.</p>
+      <p class="lead">Everything you need from a provider, without ringing anyone: the exact support item on every line, statements that open in your software, and never a dollar above the published maximums.</p>
     </div>
   </div>
   <section class="block">
@@ -3546,7 +3594,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
         </div>
         <div class="info-card">
           <h3 style="margin:0 0 8px;">Statements your software opens</h3>
-          <p>Participants (or you, with their say-so) can pull a CSV for any period — month, financial year, or custom dates — with a TOTAL row that sums in place and a Delivered column that answers audits. GST-free NDIS supports (s38-38), billed at the 2026–27 price limits, never above.</p>
+          <p>Participants (or you, with their say-so) can pull a CSV for any period — month, financial year, or custom dates — with a TOTAL row that sums in place and a Delivered column that answers audits. GST-free NDIS supports (s38-38), billed at the NDIA's 2026–27 published maximums, never above.</p>
         </div>
         <div class="info-card">
           <h3 style="margin:0 0 8px;">Access with their say-so, not a PDF chase</h3>
@@ -3637,7 +3685,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
           <p>Registered Australia-wide, and honest about depth: outside the three cities, choice is thinner today. <a href="#/find-workers">Search your suburb</a> to see who's near you now, or <a href="#/post-job">post a job</a> — a post reaches workers a search can't.</p>
         </div>
       </div>
-      <p class="tbl-note" style="margin-top:18px;">Remote and very remote loadings follow the NDIS Pricing Arrangements. Wherever you are, the price limits, the checks and the record-keeping are identical.</p>
+      <p class="tbl-note" style="margin-top:18px;">Remote and very remote loadings follow the NDIS Pricing Arrangements. Wherever you are, the published maximum prices, the checks and the record-keeping are identical.</p>
     </div>
   </section>
 </section>
@@ -4157,7 +4205,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
           <li><a href="#/support-workers">Why work with us</a></li>
           <li><a href="#/support-workers">Pay rates</a></li>
           <li><a href="#/support-workers">Requirements</a></li>
-          <li><a href="#/get-started">Apply now</a></li>
+          <li><a href="#/get-started?type=worker">Apply now</a></li>
         </ul>
       </nav>
       <nav aria-label="Footer — company">
@@ -4222,7 +4270,7 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
     <h2 id="bkTitle">Request a booking</h2>
     <p class="muted-sm">with <b id="bkWorkerName"></b> — they'll accept or suggest another time. Nothing is charged until after the shift.</p>
     <form class="form-grid" id="bookingForm">
-      <div class="field"><label for="bkService">Support type</label><select id="bkService" required></select></div>
+      <div class="field"><label for="bkService">Support type</label><select id="bkService" required></select><p class="muted-sm" id="bkRateLine" style="margin:6px 0 0;"></p></div>
       <div class="field"><label for="bkDate">Date</label><input id="bkDate" type="date" required></div>
       <div class="field"><label for="bkStart">Start time</label><input id="bkStart" type="time" value="09:00" required></div>
       <div class="field"><label for="bkHours">Hours</label>
@@ -4411,16 +4459,16 @@ const FAQS = [
   {q:'Who runs BookIt?', a:'BookIt is built and operated by <b>Disability &amp; Mental Health Care Pty Ltd</b> (ABN 19 658 578 575), an NSW-based registered NDIS provider — NDIS registration <b>4-LO5XNY0</b>, registered to deliver supports throughout Australia (current registration period to January 2029). Registration means we\'re audited against the NDIS Practice Standards, covered by the NDIS Code of Conduct, and accountable to the NDIS Quality and Safeguards Commission.'},
   {q:'Who can use BookIt?', a:'Anyone with an NDIS plan — whether it\'s <b>self-managed, plan-managed or NDIA-managed</b>. Because we\'re a registered provider, all three plan types can book with us. Families, nominees and support coordinators can manage an account on a participant\'s behalf. You can also book privately without NDIS funding.', home:true},
   {q:'What supports can I book?', a:'We focus on six NDIS registration groups: employment support (0102), personal care (0107), travel & transport (0108), daily tasks & shared living (0115/0138), household tasks (0120) and community participation (0125). See <a href="#/services">Support services</a> for what each covers.', home:true},
-  {q:'How much does it cost?', a:'Joining is free — you only pay for booked support. We bill at the standard NDIS price limits: <b>$73.58/hr</b> weekday daytime (2026–27), with evening, weekend and public-holiday bookings at the applicable NDIS rate — never above the limits, and we never ask you for a top-up. A booking can be paid from NDIS funding where the support is included in your plan and meets the claiming requirements. Full details on the <a href="#/pricing">Pricing page</a>.', home:true},
+  {q:'How much does it cost?', a:'Joining is free — you only pay for booked support. We bill at the NDIA\'s published maximum prices: <b>$73.58/hr</b> weekday daytime (2026–27), with evening, weekend and public-holiday bookings at the applicable published rate — never above the maximums, and we never ask you for a top-up. A booking can be paid from NDIS funding where the support is included in your plan and meets the claiming requirements. Full details on the <a href="#/pricing">Pricing page</a>.', home:true},
   {q:'How does messaging work?', a:'Once you\'ve found a worker you like, message them directly on the platform — ask questions, share what great support looks like for you, and arrange a free meet and greet before booking anything. Conversations stay on-platform so there\'s a record if anything ever needs sorting out, and our team can step in if something doesn\'t feel right. Try the demo via the chat icon in the menu.'},
   {q:'How are workers checked?', a:'Every worker completes an NDIS Worker Screening Check, 100 points of ID, work-rights verification, the NDIS Worker Orientation Module, First Aid and CPR, plus a video interview and reference checks with our team. Workers who drive also hold a police check and appropriate car insurance, and anyone supporting under-18s holds a Working With Children Check. See <a href="#/safety">Safety & quality</a>.'},
   {q:'Are workers employees or contractors?', a:'Employees — always. That means we handle super, tax, workers\' compensation and public liability insurance, and every shift is covered. You get the flexibility of choosing your own team without the risks of engaging contractors.'},
   {q:'What if I need to cancel a booking?', a:'Life happens. Cancellation rules depend on the support item and the current NDIS Pricing Arrangements — the exact window for your booking is shown before you confirm and in your service agreement. With plenty of notice a cancellation is free; short-notice cancellations may be charged, and your worker still gets paid for the shift.'},
   {q:'Can my worker drive me in their car?', a:'Yes. Workers providing transport hold a police check, a valid licence and appropriate insurance. A per-kilometre vehicle allowance applies, which can be claimed from your plan where funded (0108 Assist-Travel/Transport).'},
-  {q:'What can\'t I book on BookIt?', a:'We\'re registered for personal care at <b>standard intensity</b> (registration group 0107), not for <b>high intensity daily personal activities</b> (0104) — so complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections and complex wound management are <b>specialist supports</b>: we arrange them rather than deliver them. We don\'t provide nursing either. Tell us and we\'ll introduce you to a provider registered for it who you engage directly, then roster the rest of your plan around them — <a href="#/specialist-supports">how that works</a>. We <b>are</b> registered for Supported Independent Living (Registration Group 138) — SIL is arranged as a package rather than booked shift-by-shift, so <a href="#/contact">talk to us</a> about SIL and shared-living arrangements and we\'ll set it up properly.', home:true},
+  {q:'What can\'t I book on BookIt?', a:'We\'re registered for personal care at <b>standard intensity</b> (registration group 0107), not for <b>high intensity daily personal activities</b> (0104) — so complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections and complex wound management are <b>specialist supports</b>: we arrange them rather than deliver them. We don\'t provide nursing either. Tell us and we\'ll introduce you to a provider registered for it who you engage directly, then roster the rest of your plan around them — <a href="#/specialist-supports">how that works</a>. We <b>are</b> registered for Supported Independent Living (Registration Group 138) — SIL is arranged as a package rather than booked shift-by-shift, so <a href="#/contact">talk to us</a> about SIL and shared-living arrangements and we\'ll set it up properly.'},
   {q:'Where is BookIt available?', a:'We\'re Australia-wide, with the deepest worker pools in greater Sydney, Melbourne and Brisbane. Enter your suburb on <a href="#/find-workers">Find workers</a> to see who\'s nearby.'},
   {q:'How do workers get paid?', a:'Automatically, fortnightly, straight from your approved shift hours — including super and penalty rates. Workers see their full pay breakdown for every shift before they accept it.'},
-  {q:'Is my information safe?', a:'Your data is encrypted, hosted in Australia, never sold, and you control what appears on your profile. Our <a href="#/legal">privacy policy</a> sets out how we work to the Privacy Act and the NDIS Practice Standards.'}
+  {q:'Is my information safe?', a:'Your data is encrypted in transit and held on Australian servers (AWS Sydney); before launch we are verifying every supporting system — backups, email, monitoring — meets the same bar. It is never sold, and you control what appears on your profile. Our <a href="#/legal">privacy policy</a> sets out how we work to the Privacy Act and the NDIS Practice Standards.'}
 ];
 
 /* the terms version people accept at sign-up — bump when the legal pages change */
@@ -5174,6 +5222,11 @@ function renderWorkerGrid(){
     ? list.map(workerCard).join('')
     : '<p style="grid-column:1/-1;text-align:center;padding:40px 0;">No matches with those filters. <button type="button" class="filter-clear" id="filterClear2" style="display:inline;">Clear them all</button> — or <a href="#/post-job">post a job</a> and let workers come to you.</p>';
   $('#filterCount').textContent = list.length + ' worker' + (list.length === 1 ? '' : 's') + ' shown';
+  const mb = $('#filterMoreBtn');
+  if(mb){
+    const applied = (f.lang ? 1 : 0) + (f.gender ? 1 : 0) + (f.rating ? 1 : 0) + (f.ints.length ? 1 : 0);
+    mb.textContent = applied ? `More filters (${applied})` : 'More filters';
+  }
   demoNote('findWorkersDemo', list, DEMO_NOTE_FIND);
 }
 function clearFindFilters(){
@@ -5192,6 +5245,12 @@ document.addEventListener('click', e => {
     return;
   }
   if(e.target.id === 'filterClear' || e.target.id === 'filterClear2') clearFindFilters();
+  if(e.target.id === 'filterMoreBtn'){
+    const pg = document.getElementById('page-find-workers');
+    const open = pg.classList.toggle('fw-more-open');
+    e.target.setAttribute('aria-expanded', open);
+    renderWorkerGrid(); /* refresh the (n) label */
+  }
 });
 renderWorkerGrid();
 
@@ -5373,7 +5432,7 @@ async function renderWorkerPage(id){
     </div>
     <aside class="wp-aside">
       <div class="wp-card">
-        <div class="wp-rate"><b>$73.58</b><span class="muted-sm"> /hr weekday daytime</span><br><small class="muted-sm">The 2026–27 NDIS price limit — same fair price for every worker. <a href="#/pricing">All rates →</a></small></div>
+        <div class="wp-rate"><b>From $73.58</b><span class="muted-sm"> /hr</span><br><small class="muted-sm">The price depends on the support, day and time — pick a support when you book and the exact price shows before you confirm. Employment support is a flat $83.87/hr; household tasks $60.10/hr. <a href="#/pricing">All rates →</a></small></div>
         ${own ? `
         <div class="wp-actions">
           <div class="wp-trustbox" style="margin:0;">This is your profile exactly as participants see it. Nice work${w.photo ? '' : ' — add a photo to really bring it to life'}!</div>
@@ -5509,9 +5568,9 @@ $('#contactForm').addEventListener('submit', async e => {
   e.preventDefault();
   if(window.API && API.online){
     try{
-      await API.call('/contact', {method:'POST', body:{name:$('#cName').value, email:$('#cEmail').value, topic:$('#cTopic').value, body:$('#cMsg').value}});
+      const r = await API.call('/contact', {method:'POST', body:{name:$('#cName').value, email:$('#cEmail').value, topic:$('#cTopic').value, body:$('#cMsg').value}});
       e.target.reset();
-      toast('Message sent! We\'ll reply within one business day.');
+      toast('Message sent — your reference is ' + (r.ref || 'noted') + '. We aim to reply within one business day.');
     }catch(err){ toast(err.message); }
     return;
   }
@@ -6314,7 +6373,11 @@ function route(){
     else a.removeAttribute('aria-current');
   });
   // reset get-started to chooser each visit
-  if(id === 'page-get-started') showPath(null);
+  if(id === 'page-get-started'){
+    const qi = location.hash.indexOf('?');
+    const t = new URLSearchParams(qi === -1 ? '' : location.hash.slice(qi + 1)).get('type');
+    showPath(t === 'worker' || t === 'participant' ? t : null);
+  }
   if(id === 'page-messages') renderMessagesPage();
   if(id === 'page-bookings' && window.renderBookingsPage) renderBookingsPage();
   if(id === 'page-support-plan' && window.renderSupportPlanPage) renderSupportPlanPage();
@@ -6775,6 +6838,7 @@ function openBookingModal(w){
   bookingWorker = w;
   $('#bkWorkerName').textContent = w.name;
   $('#bkService').innerHTML = (w.services || []).map(s => `<option value="${s}">${SVC_NAME[s] || s}</option>`).join('');
+  if(window.syncBkRateLine) syncBkRateLine();
   const today = new Date();
   const tomorrow = new Date(Date.now() + 864e5);
   $('#bkDate').min = today.toISOString().slice(0, 10);
@@ -6782,7 +6846,16 @@ function openBookingModal(w){
   syncSleepoverOption();
   openModal('#bookingModal');
 }
-$('#bkService').addEventListener('change', syncSleepoverOption);
+function syncBkRateLine(){
+  const el = $('#bkRateLine'); if(!el) return;
+  const v = $('#bkService').value;
+  el.textContent = v === 'employment'
+    ? 'Employment support: $83.87/hr — one flat published maximum, any day or time.'
+    : v === 'household'
+    ? 'Household tasks: $60.10/hr — its own published maximum.'
+    : 'Weekday daytime $73.58/hr; evenings, weekends and public holidays at the applicable published rate — the exact price shows before you confirm.';
+}
+$('#bkService').addEventListener('change', () => { syncSleepoverOption(); syncBkRateLine(); });
 const SERIES_MAX_UI = 26;
 $('#bkRepeatCount').innerHTML = Array.from({length: SERIES_MAX_UI - 1}, (_, i) =>
   `<option value="${i + 2}" ${i + 2 === 8 ? 'selected' : ''}>${i + 2} shifts</option>`).join('');
@@ -11991,12 +12064,14 @@ async function renderPdocsMini(){
     ${reqs.length ? `<p class="mini-note" style="color:#8a6d00;"><b>The office has asked for:</b> ${reqs.map(r => esc(r.label)).join(', ')} — add it below and the ask closes itself.</p>` : ''}
     <div class="mini-rows">${rows || '<p class="muted-sm">Nothing on file yet.</p>'}</div>
     ${missing.length ? `<p class="mini-note" style="margin:10px 0 0;"><b>Not on file yet:</b> ${missing.map(x => esc(x.label || x)).join(' · ')}</p>` : ''}
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;">
-      <label style="font-size:.82rem;">Add a document<br><select id="mpdType" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;max-width:220px;">${pTypes.map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}</select></label>
-      <label style="font-size:.82rem;">File (photo or PDF ≤ 4 MB)<br><input id="mpdFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.82rem;margin-top:4px;max-width:220px;"></label>
+    <div style="display:flex;gap:8px 10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;">
+      <label style="font-size:.82rem;">Add a document<br><select id="mpdType" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;max-width:210px;">${pTypes.map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}</select></label>
+      <label style="font-size:.82rem;">Name it <span class="muted-sm">(if "Other")</span><br><input id="mpdLabel" maxlength="90" placeholder="e.g. OT seating report" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;width:170px;"></label>
+      <label style="font-size:.82rem;">Dated<br><input id="mpdDate" type="date" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;"></label>
+      <label style="font-size:.82rem;">Expires <span class="muted-sm">(if it does)</span><br><input id="mpdExpiry" type="date" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;"></label>
+      <label style="font-size:.82rem;">File (photo or PDF ≤ 4 MB)<br><input id="mpdFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.82rem;margin-top:4px;max-width:210px;"></label>
       <button type="button" class="btn btn-primary btn-sm" id="mpdAdd">Add</button>
     </div>
-    <p class="mini-note" style="margin:8px 0 0;">Need to set a date or a label? <a href="#/bookings" data-acct="go" data-hash="#/bookings" data-sec="cardPdocs">The full page has every field →</a></p>
   </div>`;
 }
 
@@ -12068,7 +12143,7 @@ document.addEventListener('click', async e => {
         toast('That PDF is over the 4 MB limit — a photo of the document is fine.');
         e.target.disabled = false; return;
       }
-      await API.call('/me/participant-documents', {method:'POST', body:{ form_key: $('#mpdType').value, label: '', doc_date: '', expiry_date: '', file }});
+      await API.call('/me/participant-documents', {method:'POST', body:{ form_key: $('#mpdType').value, label: $('#mpdLabel').value.trim(), doc_date: $('#mpdDate').value, expiry_date: $('#mpdExpiry').value, file }});
       toast('Added to your file. 👍');
       renderPdocsMini();
     }catch(err){ toast(err.message); e.target.disabled = false; }
