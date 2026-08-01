@@ -1,0 +1,12549 @@
+/* ============================================================
+   BookIt — backend server (zero dependencies)
+   Node 22+ (uses built-in node:sqlite). Run:  node server.js
+   Env: PORT (default 3000) · SECRET (session key; auto-generated
+        to .secret if unset) · AUTO_REPLY=off to disable the demo
+        auto-acknowledgement bot · DB_PATH (default ./bookit.db)
+   ============================================================ */
+'use strict';
+const http = require('node:http');
+const https = require('node:https');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const tls = require('node:tls');
+const zlib = require('node:zlib');
+const { DatabaseSync } = require('node:sqlite');
+
+const PORT = Number(process.env.PORT || 3000);
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'bookit.db');
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const AUTO_REPLY = (process.env.AUTO_REPLY || 'on') !== 'off';
+const SESSION_DAYS = 30;
+
+/* ---------- secret ---------- */
+const SECRET_FILE = path.join(__dirname, '.secret');
+const SECRET = process.env.SECRET || (() => {
+  try { return fs.readFileSync(SECRET_FILE, 'utf8').trim(); }
+  catch { const s = crypto.randomBytes(32).toString('hex'); fs.writeFileSync(SECRET_FILE, s, { mode: 0o600 }); return s; }
+})();
+
+/* ---------- database ---------- */
+const db = new DatabaseSync(DB_PATH);
+db.exec(`
+  PRAGMA journal_mode = WAL;
+  PRAGMA foreign_keys = ON;
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    role TEXT NOT NULL CHECK (role IN ('participant','worker','coordinator')),
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    pass TEXT NOT NULL,
+    suburb TEXT DEFAULT '',
+    phone TEXT DEFAULT '',
+    plan TEXT DEFAULT '',
+    created TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS worker_profiles (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+    bio TEXT DEFAULT '',
+    services TEXT DEFAULT '[]',
+    langs TEXT DEFAULT 'English',
+    exp TEXT DEFAULT 'New to BookIt',
+    color TEXT DEFAULT '#0E6B62',
+    rating REAL DEFAULT 0,
+    shifts INTEGER DEFAULT 0,
+    checks TEXT DEFAULT '["NDIS Worker Screening (in progress)"]',
+    days TEXT DEFAULT '[1,1,1,1,1,0,0]',
+    visible INTEGER DEFAULT 1
+  );
+  CREATE TABLE IF NOT EXISTS conversations (
+    id INTEGER PRIMARY KEY,
+    participant_id INTEGER NOT NULL REFERENCES users(id),
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    created TEXT NOT NULL,
+    UNIQUE (participant_id, worker_id)
+  );
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY,
+    convo_id INTEGER NOT NULL REFERENCES conversations(id),
+    sender_id INTEGER NOT NULL REFERENCES users(id),
+    body TEXT NOT NULL,
+    created TEXT NOT NULL,
+    read_at TEXT
+  );
+  CREATE TABLE IF NOT EXISTS bookings (
+    id INTEGER PRIMARY KEY,
+    participant_id INTEGER NOT NULL REFERENCES users(id),
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    service TEXT NOT NULL,
+    date TEXT NOT NULL,
+    start TEXT NOT NULL,
+    hours REAL NOT NULL,
+    notes TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'requested'
+      CHECK (status IN ('requested','accepted','declined','cancelled','completed')),
+    created TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS contact_messages (
+    id INTEGER PRIMARY KEY,
+    name TEXT, email TEXT, topic TEXT, body TEXT, created TEXT NOT NULL
+  );
+`);
+
+/* migration (email build): verification flag on users */
+try { db.exec('ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0'); } catch {}
+db.exec("UPDATE users SET verified = 1 WHERE email LIKE '%@demo.bookit.life' AND verified = 0");
+
+/* migration (invoicing build): completion + invoice fields on bookings */
+for (const col of ['completed_at TEXT', 'rate_category TEXT', 'unit_price REAL', 'worker_share REAL', 'total REAL']) {
+  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+}
+/* migration (payments build): billing details + claim tracking */
+for (const col of ['ndis_number TEXT DEFAULT \'\'', 'pm_email TEXT DEFAULT \'\'']) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+}
+/* consent build: which terms version was accepted at sign-up, and when.
+   Stored verbatim from the form; empty for accounts made before the box
+   existed or created directly through the API. */
+for (const col of ["terms_version TEXT DEFAULT ''", "terms_at TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+}
+/* migration (profile-page build): a photo for everyone. Worker photos stay on
+   worker_profiles (they gate approval); these columns hold everyone else's —
+   shown only to signed-in people they deal with, never the open web. */
+for (const col of ["photo TEXT DEFAULT ''", "photo_at TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+}
+for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_no TEXT', 'support_item TEXT', 'claimed_at TEXT', 'paid_at TEXT', 'sleepover INTEGER DEFAULT 0']) {
+  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+}
+/* migration (profiles build): worker profile photos */
+for (const col of ['photo TEXT DEFAULT \'\'', 'photo_at TEXT DEFAULT \'\'',
+  /* Build 2: the two facts participants actually filter on that we never
+     held. Gender is a whitelist because it is a filter key, not a biography;
+     the bio is where nuance lives. Interests are free tags, capped. */
+  'gender TEXT DEFAULT \'\'', 'interests TEXT DEFAULT \'[]\'']) {
+  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+}
+/* migration (stripe build): card-payment link per invoiced booking */
+for (const col of ['stripe_session TEXT', 'pay_url TEXT']) {
+  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+}
+/* migration (scope build): what a participant asked for, what they told us about high-intensity
+   supports, and how we handled it. Kept on users so it travels with the account, not the booking. */
+for (const col of ["svc_interest TEXT DEFAULT '[]'", "hi_flags TEXT DEFAULT '[]'", "hi_at TEXT DEFAULT ''", "hi_referred_at TEXT DEFAULT ''", "hi_note TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+}
+/* scope build v34: the out-of-scope register. One row per participant per support they asked
+   for that we are not registered to deliver — opened automatically the moment it is declared,
+   and closable only by recording who they were introduced to. The old hi_note column held one
+   free-text line per person; this holds a dated row per support, which is what an auditor asks
+   for when they ask what happens when someone requests a support you don't hold. */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS scope_requests (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    support TEXT NOT NULL,
+    channel TEXT NOT NULL DEFAULT 'signup',
+    declared_at TEXT NOT NULL,
+    outcome TEXT NOT NULL DEFAULT 'open'
+      CHECK (outcome IN ('open','referred','withdrawn','in-scope')),
+    referred_to TEXT DEFAULT '',
+    note TEXT DEFAULT '',
+    closed_by TEXT DEFAULT '',
+    closed_at TEXT DEFAULT ''
+  );
+  CREATE INDEX IF NOT EXISTS idx_scope_open ON scope_requests (outcome, user_id);
+`);
+
+/* compliance build: credentials + incident + complaint registers */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS worker_docs (
+    id INTEGER PRIMARY KEY,
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    doc_type TEXT NOT NULL,
+    label TEXT DEFAULT '',
+    check_number TEXT DEFAULT '',
+    expiry_date TEXT DEFAULT '',
+    file_name TEXT DEFAULT '',
+    file_mime TEXT DEFAULT '',
+    file_path TEXT DEFAULT '',
+    uploaded_at TEXT NOT NULL,
+    verified_at TEXT,
+    verified_by TEXT DEFAULT '',
+    warned_stage TEXT DEFAULT ''
+  );
+  CREATE TABLE IF NOT EXISTS incidents (
+    id INTEGER PRIMARY KEY,
+    created_by INTEGER,
+    created_by_name TEXT DEFAULT '',
+    participant_name TEXT DEFAULT '',
+    worker_name TEXT DEFAULT '',
+    occurred_at TEXT NOT NULL,
+    location TEXT DEFAULT '',
+    category TEXT NOT NULL,
+    reportable INTEGER DEFAULT 0,
+    description TEXT NOT NULL,
+    immediate_action TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'open',
+    notify_due TEXT,
+    commission_notified_at TEXT,
+    lessons TEXT DEFAULT '',
+    closed_at TEXT,
+    created TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS complaints (
+    id INTEGER PRIMARY KEY,
+    source_name TEXT DEFAULT '',
+    source_email TEXT DEFAULT '',
+    channel TEXT DEFAULT 'site',
+    summary TEXT NOT NULL,
+    details TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'open',
+    acknowledged_at TEXT,
+    resolved_at TEXT,
+    outcome TEXT DEFAULT '',
+    created TEXT NOT NULL
+  );
+`);
+/* reviews build: post-shift ratings + written reviews (one per completed booking) */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS reviews (
+    id INTEGER PRIMARY KEY,
+    booking_id INTEGER NOT NULL UNIQUE REFERENCES bookings(id),
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    participant_id INTEGER NOT NULL REFERENCES users(id),
+    rating INTEGER NOT NULL,
+    comment TEXT DEFAULT '',
+    published INTEGER DEFAULT 1,
+    created TEXT NOT NULL
+  );
+`);
+/* shift notes build: the record that a support was actually delivered.
+   Append-only on purpose. A worker who needs to correct a note adds an addendum
+   (addendum = 1) — nothing is ever edited or deleted, because a progress note
+   that can be quietly rewritten afterwards is not evidence of anything. */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS shift_notes (
+    id INTEGER PRIMARY KEY,
+    booking_id INTEGER NOT NULL REFERENCES bookings(id),
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    participant_id INTEGER NOT NULL REFERENCES users(id),
+    body TEXT NOT NULL,
+    scope_flag INTEGER DEFAULT 0,
+    scope_detail TEXT DEFAULT '',
+    addendum INTEGER DEFAULT 0,
+    reviewed_at TEXT,
+    reviewed_by TEXT DEFAULT '',
+    review_note TEXT DEFAULT '',
+    created TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_shift_notes_booking ON shift_notes(booking_id);
+  CREATE INDEX IF NOT EXISTS idx_shift_notes_participant ON shift_notes(participant_id);
+`);
+/* support plans: what a worker needs to know before they walk in, and what the
+   office needs to know if nobody turns up.
+
+   Versioned rather than updated, for the same reason shift notes are append-only.
+   A support plan is the document an auditor reads after an incident, and the
+   question they ask is not "what does it say" but "what did it say on the day".
+   Every confirmed submission writes a new row; `current` marks the live one.
+   A draft is edited in place until it is confirmed, so half-finished answers
+   never become a version of record. */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS support_plans (
+    id INTEGER PRIMARY KEY,
+    participant_id INTEGER NOT NULL REFERENCES users(id),
+    version INTEGER NOT NULL DEFAULT 1,
+    current INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','confirmed')),
+
+    /* reliance — the five answers that decide what happens when a shift falls over */
+    main_source INTEGER DEFAULT 0,
+    health_safety INTEGER DEFAULT 0,
+    impact_detail TEXT DEFAULT '',
+    backup_24h INTEGER DEFAULT 0,
+    backup_detail TEXT DEFAULT '',
+    preventative_health INTEGER DEFAULT 0,
+
+    /* the six supports DMHC is registered to deliver, and only those six */
+    use_employ INTEGER DEFAULT 0,
+    employ_detail TEXT DEFAULT '',
+    use_personal INTEGER DEFAULT 0,
+    personal_detail TEXT DEFAULT '',
+    use_transport INTEGER DEFAULT 0,
+    transport_detail TEXT DEFAULT '',
+    use_daily INTEGER DEFAULT 0,
+    daily_detail TEXT DEFAULT '',
+    use_household INTEGER DEFAULT 0,
+    household_detail TEXT DEFAULT '',
+    use_community INTEGER DEFAULT 0,
+    community_detail TEXT DEFAULT '',
+
+    /* about you */
+    goals TEXT DEFAULT '',
+    communication TEXT DEFAULT '',
+    health_supports TEXT DEFAULT '',
+    cognition TEXT DEFAULT '',
+    mental_health TEXT DEFAULT '',
+    mobility TEXT DEFAULT '',
+    other_info TEXT DEFAULT '',
+
+    /* safety */
+    home_safety TEXT DEFAULT '',
+    disaster_8h INTEGER DEFAULT 0,
+    community_safety TEXT DEFAULT '',
+
+    /* care plans named by the participant — [{name, on_file}] */
+    care_plans TEXT DEFAULT '[]',
+
+    /* emergency contact */
+    ec_name TEXT DEFAULT '',
+    ec_relationship TEXT DEFAULT '',
+    ec_phone TEXT DEFAULT '',
+    ec_email TEXT DEFAULT '',
+
+    confirmed_at TEXT DEFAULT '',
+    confirmed_by TEXT DEFAULT '',
+    created TEXT NOT NULL,
+    updated TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_support_plans_person ON support_plans (participant_id, current);
+`);
+/* v38 — the plan moved off borrowed abstract categories onto the six supports
+   DMHC is actually registered to deliver. Existing databases pick the columns
+   up here; a plan written before v38 simply has them empty, which reads as
+   "not answered yet" rather than "does not use that support". */
+for (const [col, type] of [
+  ['use_employ', 'INTEGER DEFAULT 0'], ['employ_detail', "TEXT DEFAULT ''"],
+  ['use_personal', 'INTEGER DEFAULT 0'], ['personal_detail', "TEXT DEFAULT ''"],
+  ['use_transport', 'INTEGER DEFAULT 0'], ['transport_detail', "TEXT DEFAULT ''"],
+  ['use_daily', 'INTEGER DEFAULT 0'], ['daily_detail', "TEXT DEFAULT ''"],
+  ['use_household', 'INTEGER DEFAULT 0'], ['household_detail', "TEXT DEFAULT ''"],
+  ['use_community', 'INTEGER DEFAULT 0'], ['community_detail', "TEXT DEFAULT ''"]
+]) { try { db.exec(`ALTER TABLE support_plans ADD COLUMN ${col} ${type}`); } catch { } }
+/* SIL rosters build: shared-living houses with weekly repeating shift slots */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sil_houses (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    address TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS sil_slots (
+    id INTEGER PRIMARY KEY,
+    house_id INTEGER NOT NULL REFERENCES sil_houses(id),
+    day INTEGER NOT NULL,
+    start TEXT NOT NULL,
+    hours REAL NOT NULL,
+    service TEXT NOT NULL DEFAULT 'daily-tasks',
+    sleepover INTEGER DEFAULT 0,
+    worker_id INTEGER,
+    participant_id INTEGER,
+    created TEXT NOT NULL
+  );
+`);
+try { db.exec('ALTER TABLE bookings ADD COLUMN sil_slot_id INTEGER'); } catch {}
+
+/* ============================================================================
+   COVER — nobody gets left without a shift
+   ----------------------------------------------------------------------------
+   The problem this solves, stated plainly: when a support worker pulls out of a
+   confirmed shift, every platform in this market hands the problem back to the
+   participant. Hireup says so in writing — "Hireup does not provide 'back up'
+   workers for coverage if a shift is cancelled by a Support Worker" — and tells
+   clients to go build "relationships with service providers who can assist with
+   'on call support'" themselves. Mable's own sample agreement says "It is your
+   responsibility to find alternative support options if I am unavailable."
+
+   The NDIS price rules make the asymmetry worse: when a PARTICIPANT cancels late
+   the provider can claim up to 100% of the fee. When a WORKER cancels there is no
+   claim, no compensation and no obligation on anyone. The participant absorbs the
+   whole loss.
+
+   Cover inverts that. A worker pulling out does not cancel the booking — it opens
+   a cover request against a booking that stays confirmed, and the system works
+   down four tiers until somebody is standing at the door:
+
+     1  CARE WEB   the participant's own nominated people, in the order they chose
+     2  STANDBY    workers paid a SCHADS on-call allowance to be reachable that day
+     3  POOL       every matched, screened, available worker in the area
+     4  ALLIED     partner NDIS providers who take the shift as a subcontract
+
+   The office is emailed when cover reaches tier 4 or runs out — not when a worker
+   pulls out. That is the whole economic point: being reachable stops being a
+   person's job and becomes the system's job.
+   ============================================================================ */
+db.exec(`
+  /* --- the participant's own web of carers, in their own priority order --- */
+  CREATE TABLE IF NOT EXISTS care_web (
+    id INTEGER PRIMARY KEY,
+    participant_id INTEGER NOT NULL REFERENCES users(id),
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    rank INTEGER NOT NULL DEFAULT 1,
+    role TEXT NOT NULL DEFAULT 'backup' CHECK (role IN ('regular','backup','emergency')),
+    auto_offer INTEGER NOT NULL DEFAULT 1,
+    note TEXT DEFAULT '',
+    added_at TEXT NOT NULL,
+    UNIQUE (participant_id, worker_id)
+  );
+
+  /* --- locked-in backups: a paid on-call period, NOT a rostered shift ---
+     SCHADS cl.26 pays an on-call allowance per 24-hour period for being
+     "available for recall to duty". That is the lawful, cheap mechanism.
+     Rostering a standby SHIFT instead would trip cl.25.5(f): cancel it inside
+     7 days and you must pay it or find make-up work. An allowance carries no
+     such exposure — you pay for availability, and the shift is only paid if the
+     person is actually called on, in which case the participant's plan pays for
+     it anyway. A casual accepts each period separately, so nothing here obliges
+     anyone to work: they opt in, period by period, and get paid for saying yes. */
+  CREATE TABLE IF NOT EXISTS standby (
+    id INTEGER PRIMARY KEY,
+    worker_id INTEGER NOT NULL REFERENCES users(id),
+    date TEXT NOT NULL,
+    band TEXT NOT NULL CHECK (band IN ('weekday','other')),
+    allowance REAL NOT NULL,
+    services TEXT DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'offered'
+      CHECK (status IN ('offered','accepted','declined','released')),
+    offered_at TEXT NOT NULL,
+    responded_at TEXT,
+    called_at TEXT,
+    booking_id INTEGER,
+    UNIQUE (worker_id, date)
+  );
+
+  /* --- tier 4: other registered providers who will take a shift we can't fill.
+     The Commission's position on contractors is unambiguous — the registered
+     provider stays accountable. So this table holds the evidence that makes that
+     accountability real: their registration number, the groups they're registered
+     for, their agreement reference and their insurance expiry. No agreement on
+     file, no referrals sent. --- */
+  CREATE TABLE IF NOT EXISTS allied_providers (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    abn TEXT DEFAULT '',
+    ndis_reg TEXT DEFAULT '',
+    contact_name TEXT DEFAULT '',
+    email TEXT NOT NULL,
+    phone TEXT DEFAULT '',
+    reg_groups TEXT DEFAULT '[]',
+    suburbs TEXT DEFAULT '[]',
+    share REAL NOT NULL DEFAULT 0.85,
+    agreement_ref TEXT DEFAULT '',
+    agreement_date TEXT DEFAULT '',
+    insurance_expiry TEXT DEFAULT '',
+    reciprocal INTEGER NOT NULL DEFAULT 1,
+    active INTEGER NOT NULL DEFAULT 1,
+    created TEXT NOT NULL
+  );
+
+  /* --- one cover request per wobble. The booking itself is never cancelled. --- */
+  CREATE TABLE IF NOT EXISTS cover (
+    id INTEGER PRIMARY KEY,
+    booking_id INTEGER NOT NULL REFERENCES bookings(id),
+    from_worker_id INTEGER,
+    reason TEXT DEFAULT '',
+    opened_at TEXT NOT NULL,
+    lead_minutes INTEGER NOT NULL DEFAULT 0,
+    window_minutes INTEGER NOT NULL DEFAULT 45,
+    parallel INTEGER NOT NULL DEFAULT 0,
+    tier TEXT NOT NULL DEFAULT 'web',
+    status TEXT NOT NULL DEFAULT 'open'
+      CHECK (status IN ('open','filled','referred','failed','stood-down')),
+    filled_worker_id INTEGER,
+    allied_id INTEGER,
+    allied_share REAL,
+    filled_at TEXT,
+    closed_at TEXT,
+    office_alerted_at TEXT,
+    human_minutes REAL NOT NULL DEFAULT 0,
+    outcome_note TEXT DEFAULT ''
+  );
+
+  /* --- every offer sent, every answer, every expiry. This is the audit trail
+     that shows a participant was never simply abandoned. --- */
+  CREATE TABLE IF NOT EXISTS cover_offers (
+    id INTEGER PRIMARY KEY,
+    cover_id INTEGER NOT NULL REFERENCES cover(id),
+    tier TEXT NOT NULL CHECK (tier IN ('web','standby','pool','allied')),
+    worker_id INTEGER,
+    allied_id INTEGER,
+    rank INTEGER NOT NULL DEFAULT 1,
+    sent_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    response TEXT,
+    responded_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_cover_open ON cover (status);
+  CREATE INDEX IF NOT EXISTS idx_cover_offers ON cover_offers (cover_id, response);
+  CREATE INDEX IF NOT EXISTS idx_standby_date ON standby (date, status);
+`);
+/* the booking keeps its own status ('accepted' stays 'accepted') — cover state
+   rides alongside it, because a participant whose worker pulled out still has a
+   confirmed booking. That is the promise. */
+for (const col of ['cover_state TEXT DEFAULT \'\'', 'original_worker_id INTEGER', 'delivered_by_allied INTEGER', 'swap_count INTEGER NOT NULL DEFAULT 0']) {
+  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+}
+
+/* --- who is willing to be on standby at all, and how often. A worker opts in
+   once; the roster then fills itself without anybody ringing around. --- */
+for (const col of ['standby_optin INTEGER NOT NULL DEFAULT 0', 'standby_max INTEGER NOT NULL DEFAULT 2', "standby_services TEXT DEFAULT '[]'"]) {
+  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+}
+
+/* --- 0137 NDIS Digital Platform Service.
+   From 1 January 2027 two conditions of registration attach to any provider on
+   the 0137 registration group:
+
+     • worker screening check requirements ensuring that only persons who hold
+       a worker screening clearance may use the platform; and
+     • requirements to check and display certain information about persons
+       providing supports on the platform, such as whether a banning order
+       against a person is in force.
+
+   Read them carefully. The first is a *gate on platform access*, not a filing
+   obligation — an uncleared worker must not be able to use BookIt at all, so
+   the state has to be a thing the code can refuse on, not a PDF in a folder.
+   The second is *check AND display*, and it is worded at the level of the
+   individual worker, so each profile has to carry its own answer.
+
+   Hence these columns. screening_status is deliberately separate from the
+   screening document's expiry date: a clearance can be suspended or revoked
+   by the NSW screening unit on a Tuesday while the card still says 2029, and
+   an expiry-driven system would never notice. banning_checked_at is the date
+   we last looked a worker up on the Commission's banning orders register;
+   banning_result is what we found. platform_block is the manual override an
+   admin can pull at any moment without waiting for a sweep. --- */
+for (const col of [
+  "screening_status TEXT NOT NULL DEFAULT 'unknown'",   /* unknown | cleared | pending | suspended | revoked | excluded */
+  "screening_status_at TEXT DEFAULT ''",
+  "screening_status_by TEXT DEFAULT ''",
+  "screening_source TEXT DEFAULT ''",                   /* where the answer came from — NDISWC portal, letter, etc. */
+  "screening_ref TEXT DEFAULT ''",
+  "banning_checked_at TEXT DEFAULT ''",
+  "banning_result TEXT NOT NULL DEFAULT 'unchecked'",   /* unchecked | clear | banned */
+  "banning_checked_by TEXT DEFAULT ''",
+  "banning_source TEXT DEFAULT ''",
+  "banning_note TEXT DEFAULT ''",
+  /* s13D(6) names three banning-order registers, not one. (a) is an order
+     under the NDIS Act; (b) is an order within the meaning of the Aged Care
+     Act 2024; (c) is an order under the Aged Care Quality and Safety
+     Commission Act 2018 as it stood before that Act commenced. They are three
+     separate pieces of information about the same person, so they get three
+     separate answers and three separate dates — an auditor who asks to see
+     the aged care check must not be handed the NDIS one. */
+  "banning_aged_result TEXT NOT NULL DEFAULT 'unchecked'",
+  "banning_aged_at TEXT DEFAULT ''",
+  "banning_aged_source TEXT DEFAULT ''",
+  "banning_acqsc_result TEXT NOT NULL DEFAULT 'unchecked'",
+  "banning_acqsc_at TEXT DEFAULT ''",
+  "banning_acqsc_source TEXT DEFAULT ''",
+  "platform_block INTEGER NOT NULL DEFAULT 0",
+  "platform_block_reason TEXT DEFAULT ''",
+  "auto_hidden INTEGER NOT NULL DEFAULT 0",  /* hidden by the 0137 gate, not by a person — so it can be safely restored */
+  /* --- 17. hidden by the worker, which is a third thing again.
+     There are now three reasons a profile can be invisible and they must
+     never be confused, because each one is undone by a different person:
+     awaiting approval (the office lifts it), auto_hidden (the sweep lifts it
+     when the credential comes back), self_paused (only the worker lifts it).
+     Before this column, a worker on holiday would have shown up in the
+     office's "new workers to approve" queue, and approving them would have
+     put them straight back into search. --- */
+  "self_paused INTEGER NOT NULL DEFAULT 0",
+  "paused_at TEXT DEFAULT ''",
+  "pause_note TEXT DEFAULT ''"
+]) {
+  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+}
+
+/* --- how a document was verified, not merely that somebody ticked it.
+   An auditor's question is never "is it verified" — it is "how did you
+   satisfy yourself, and what would you show me". --- */
+for (const col of ["verify_method TEXT DEFAULT ''", "verify_ref TEXT DEFAULT ''", "verify_note TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE worker_docs ADD COLUMN ${col}`); } catch {}
+}
+
+/* --- why the office was rung, not merely that it was. "Needs you" on the
+   board is a bell without a reason attached; the person picking it up at 6am
+   wants to know in one line whether this is "nobody was free" or "this person
+   has nobody else inside 24 hours", because those two calls are made in a
+   different order and in a different tone of voice. --- */
+try { db.exec("ALTER TABLE cover ADD COLUMN office_alert_why TEXT DEFAULT ''"); } catch {}
+
+/* --- the evidence trail itself: append-only, never edited, never deleted.
+   Every screening decision, every banning-order check, every document
+   verification and every automatic block lands here with who, when and from
+   what source. This table is the answer to "show me your records". --- */
+db.exec(`CREATE TABLE IF NOT EXISTS compliance_log (
+  id INTEGER PRIMARY KEY,
+  worker_id INTEGER REFERENCES users(id),
+  worker_name TEXT DEFAULT '',
+  kind TEXT NOT NULL,
+  result TEXT DEFAULT '',
+  detail TEXT DEFAULT '',
+  source TEXT DEFAULT '',
+  ref TEXT DEFAULT '',
+  doc_id INTEGER,
+  checked_at TEXT NOT NULL,
+  checked_by TEXT DEFAULT ''
+);`);
+db.exec('CREATE INDEX IF NOT EXISTS idx_complog_worker ON compliance_log (worker_id, id)');
+
+/* --- "I have it, it just isn't in Drive." ------------------------------
+   51 of the 72 forms are files in a folder. Until now BookIt had no way to
+   hear that one of them exists: a form it does not track was reported as a
+   gap, and stayed a gap in the audit pack no matter how many times the
+   office said "we've got that one". That is the wrong default. Not in
+   Drive is not the same as does not exist, and a register that cannot tell
+   the difference will hand an auditor a confession that isn't true.
+
+   Two dates, and the difference between them is the entire safeguard:
+
+     covers_from / covers_to  — what the DOCUMENT says. Supplied by whoever
+                                files it, because it is a fact about the
+                                paper, not a claim about when anyone looked.
+     recorded_at              — when someone actually recorded it. Taken
+                                from the server clock and never accepted
+                                from the request body.
+
+   So the register can say "records covering 26/11/2025 to 30/06/2026,
+   located and filed 29/07/2026" — which discloses the late filing instead
+   of hiding it, and is the opposite of a backfill. There is deliberately
+   no way to set recorded_at. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS form_records (
+  form_key TEXT PRIMARY KEY,
+  held INTEGER NOT NULL DEFAULT 1,
+  covers_from TEXT DEFAULT '',
+  covers_to TEXT DEFAULT '',
+  location TEXT DEFAULT '',
+  note TEXT DEFAULT '',
+  recorded_by TEXT DEFAULT '',
+  recorded_at TEXT NOT NULL
+);`);
+
+/* --- the participant's side of the same filing cabinet.
+   Worker documents have lived in BookIt since the compliance build. The
+   participant's never did: the service agreement, the risk assessment, the
+   consents and the copy of the NDIS plan were in a Drive folder, and BookIt
+   only ever held a note saying so. That made "where is this person's file"
+   a question with two answers, and an auditor asking it got the wrong one.
+   One row per document, keyed to the form in the register it satisfies, so
+   the register and the folder cannot drift: if the register says the Risk
+   Assessment is held, this is where the file is. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS participant_docs (
+  id INTEGER PRIMARY KEY,
+  participant_id INTEGER NOT NULL REFERENCES users(id),
+  form_key TEXT NOT NULL DEFAULT 'p-other',
+  label TEXT DEFAULT '',
+  doc_date TEXT DEFAULT '',
+  expiry_date TEXT DEFAULT '',
+  file_name TEXT DEFAULT '',
+  file_mime TEXT DEFAULT '',
+  file_path TEXT DEFAULT '',
+  note TEXT DEFAULT '',
+  uploaded_at TEXT NOT NULL,
+  uploaded_by TEXT DEFAULT '',
+  verified_at TEXT,
+  verified_by TEXT DEFAULT '',
+  verify_method TEXT DEFAULT '',
+  verify_note TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_pdocs_person ON participant_docs (participant_id, form_key);`);
+
+/* --- a tiny key/value store so award figures aren't welded into the source.
+   SCHADS rates move every 1 July; an admin should be able to change one number
+   in a form rather than wait for a deploy. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT '',
+  updated TEXT NOT NULL DEFAULT ''
+);`);
+function setting(key, fallback = '') {
+  const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  return r ? r.value : fallback;
+}
+function setSetting(key, value) {
+  db.prepare(`INSERT INTO settings (key, value, updated) VALUES (?,?,?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated = excluded.updated`)
+    .run(key, String(value ?? ''), new Date().toISOString());
+}
+
+
+/* …and allow the 'completed' status. SQLite can't edit a CHECK constraint,
+   so databases created before invoicing get their bookings table rebuilt once. */
+const bkDef = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'").get();
+if (bkDef && !bkDef.sql.includes("'completed'")) {
+  db.exec(`
+    BEGIN;
+    CREATE TABLE bookings_new (
+      id INTEGER PRIMARY KEY,
+      participant_id INTEGER NOT NULL REFERENCES users(id),
+      worker_id INTEGER NOT NULL REFERENCES users(id),
+      service TEXT NOT NULL,
+      date TEXT NOT NULL,
+      start TEXT NOT NULL,
+      hours REAL NOT NULL,
+      notes TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'requested'
+        CHECK (status IN ('requested','accepted','declined','cancelled','completed')),
+      created TEXT NOT NULL,
+      completed_at TEXT, rate_category TEXT, unit_price REAL, worker_share REAL, total REAL
+    );
+    INSERT INTO bookings_new (id, participant_id, worker_id, service, date, start, hours, notes, status, created, completed_at, rate_category, unit_price, worker_share, total)
+      SELECT id, participant_id, worker_id, service, date, start, hours, notes, status, created, completed_at, rate_category, unit_price, worker_share, total FROM bookings;
+    DROP TABLE bookings;
+    ALTER TABLE bookings_new RENAME TO bookings;
+    COMMIT;
+  `);
+  console.log('Migrated bookings table to allow completed status.');
+}
+
+/* ======================================================================
+   v38 — the eighteen builds.
+   One migration block, run once, additive wherever SQLite allows it.
+   Everything below is guarded: a database that already has the column or
+   the table takes no action, so this file is safe to redeploy.
+   ====================================================================== */
+
+/* --- 1. a third role.
+   Until now an account was a participant or a worker, and the CHECK
+   constraint said so. A support coordinator is neither: they act for
+   someone else, they hold no plan of their own, and they must never
+   inherit a participant's screens by being filed as one. SQLite cannot
+   edit a CHECK, so the users table is rebuilt once — foreign keys off for
+   the duration, because twenty-one tables point at users(id) and the drop
+   would otherwise cascade. Columns are read from the live table rather
+   than listed here, so this survives every ALTER above it. --- */
+const usrDef = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").get();
+if (usrDef && !usrDef.sql.includes("'coordinator'")) {
+  const cols = db.prepare('PRAGMA table_info(users)').all().map(c => c.name);
+  const list = cols.map(c => `"${c}"`).join(', ');
+  const newSql = usrDef.sql
+    .replace("CHECK (role IN ('participant','worker'))", "CHECK (role IN ('participant','worker','coordinator'))")
+    .replace(/CREATE TABLE\s+["'`]?users["'`]?/, 'CREATE TABLE users_new');
+  if (newSql.includes("'coordinator'") && newSql.includes('users_new')) {
+    db.exec('PRAGMA foreign_keys = OFF;');
+    try {
+      db.exec(`BEGIN;
+        ${newSql};
+        INSERT INTO users_new (${list}) SELECT ${list} FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_new RENAME TO users;
+        COMMIT;`);
+      console.log('Migrated users table to allow the coordinator role.');
+    } catch (e) {
+      try { db.exec('ROLLBACK;'); } catch {}
+      console.log('users role migration skipped: ' + e.message);
+    }
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
+}
+
+/* --- 1b. who may act for whom.
+   A link is a grant, not a relationship: it names the participant, the
+   coordinator, what they may do, who invited whom, and — the part that
+   matters at audit — when it was revoked and by whom. Nothing is ever
+   deleted; a revoked link keeps its dates. Scopes are a JSON array so a
+   participant can hand over bookings without handing over messages. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS account_links (
+  id INTEGER PRIMARY KEY,
+  participant_id INTEGER NOT NULL REFERENCES users(id),
+  coordinator_id INTEGER REFERENCES users(id),
+  invite_email TEXT DEFAULT '',
+  invite_token TEXT DEFAULT '',
+  org TEXT DEFAULT '',
+  relationship TEXT DEFAULT 'support-coordinator',
+  scopes TEXT NOT NULL DEFAULT '["bookings","workers","plan"]',
+  status TEXT NOT NULL DEFAULT 'invited',
+  invited_by INTEGER,
+  invited_at TEXT NOT NULL,
+  accepted_at TEXT,
+  revoked_at TEXT,
+  revoked_by TEXT DEFAULT '',
+  note TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_links_person ON account_links (participant_id, status);
+CREATE INDEX IF NOT EXISTS idx_links_coord ON account_links (coordinator_id, status);
+
+/* --- 1c. every action taken on someone else's account.
+   compliance_log records what the office did. This records what a
+   delegate did, in the participant's own words when they read it back:
+   "Priya booked Suzana for Tuesday, on your behalf, at 2:14pm." --- */
+CREATE TABLE IF NOT EXISTS delegate_log (
+  id INTEGER PRIMARY KEY,
+  participant_id INTEGER NOT NULL,
+  actor_id INTEGER NOT NULL,
+  actor_name TEXT DEFAULT '',
+  action TEXT NOT NULL,
+  detail TEXT DEFAULT '',
+  ref TEXT DEFAULT '',
+  at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_delegate_person ON delegate_log (participant_id, id);`);
+
+/* --- 4. the job board.
+   Hireup lets a participant describe the job and wait. Three things
+   theirs cannot do and this can: say how many hours a week the job is,
+   set a date after which it closes itself, and edit or withdraw a post
+   without ringing anyone. other_qualities stays free text on purpose —
+   the things that actually decide a match ("likes dogs", "doesn't mind
+   the drive to Menai") do not fit in a checkbox. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS jobs (
+  id INTEGER PRIMARY KEY,
+  participant_id INTEGER NOT NULL REFERENCES users(id),
+  posted_by INTEGER,
+  title TEXT NOT NULL,
+  services TEXT NOT NULL DEFAULT '[]',
+  suburb TEXT DEFAULT '',
+  postcode TEXT DEFAULT '',
+  days TEXT NOT NULL DEFAULT '[0,0,0,0,0,0,0]',
+  time_of_day TEXT DEFAULT '',
+  hours_week REAL DEFAULT 0,
+  start_date TEXT DEFAULT '',
+  ongoing INTEGER DEFAULT 1,
+  description TEXT DEFAULT '',
+  other_qualities TEXT DEFAULT '',
+  gender_pref TEXT DEFAULT '',
+  langs TEXT DEFAULT '',
+  requirements TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'open',
+  expires_at TEXT DEFAULT '',
+  closed_at TEXT,
+  closed_reason TEXT DEFAULT '',
+  views INTEGER DEFAULT 0,
+  created TEXT NOT NULL,
+  updated TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_open ON jobs (status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_person ON jobs (participant_id, status);
+
+CREATE TABLE IF NOT EXISTS job_applications (
+  id INTEGER PRIMARY KEY,
+  job_id INTEGER NOT NULL REFERENCES jobs(id),
+  worker_id INTEGER NOT NULL REFERENCES users(id),
+  message TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'applied',
+  created TEXT NOT NULL,
+  updated TEXT DEFAULT '',
+  UNIQUE (job_id, worker_id)
+);
+CREATE INDEX IF NOT EXISTS idx_japps_job ON job_applications (job_id, status);
+CREATE INDEX IF NOT EXISTS idx_japps_worker ON job_applications (worker_id, status);`);
+
+/* --- 5. a booking that repeats.
+   The series is the rule; the bookings are the facts. Editing a single
+   occurrence never unpicks the rule, and cancelling the rule never
+   deletes a shift that has already happened. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS booking_series (
+  id INTEGER PRIMARY KEY,
+  participant_id INTEGER NOT NULL REFERENCES users(id),
+  worker_id INTEGER NOT NULL REFERENCES users(id),
+  service TEXT NOT NULL,
+  start TEXT NOT NULL,
+  hours REAL NOT NULL,
+  notes TEXT DEFAULT '',
+  freq TEXT NOT NULL DEFAULT 'weekly',
+  dow INTEGER NOT NULL,
+  first_date TEXT NOT NULL,
+  until_date TEXT DEFAULT '',
+  occurrences INTEGER DEFAULT 0,
+  created_by INTEGER,
+  created TEXT NOT NULL,
+  ended_at TEXT,
+  ended_by TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_series_person ON booking_series (participant_id, ended_at);`);
+
+/* --- 5b/7/8/13: additive columns on bookings.
+   series_id / series_index — which rule made this shift, and where in it.
+   detached          — this occurrence was edited on its own; series edits
+                       must leave it alone from then on.
+   approval_state    — the state between "the worker says it's done" and
+                       "we claimed for it". Deliberately a new column
+                       rather than a new status value, so every existing
+                       query on status = 'completed' keeps working and the
+                       note-welded-to-money gate is untouched.
+   km / km_from / km_to — 0108 Assist-Travel/Transport is a registration
+                       group and there was no way to record a kilometre.
+   short_notice      — a cancellation inside the published window. --- */
+for (const col of [
+  'series_id INTEGER', 'series_index INTEGER', 'detached INTEGER DEFAULT 0',
+  "approval_state TEXT DEFAULT ''", 'approved_at TEXT', 'approved_by INTEGER',
+  "approval_source TEXT DEFAULT ''", 'nudged_at TEXT', 'query_at TEXT',
+  /* When the CURRENT approval window opened. Usually the moment the shift was
+     completed, but a query stops the clock and the worker's answer starts a
+     fresh one — and the alternative, moving completed_at, would have the
+     record claim the shift finished on a day it did not. */
+  'approval_from TEXT',
+  "query_note TEXT DEFAULT ''", 'query_by INTEGER',
+  'km REAL DEFAULT 0', "km_from TEXT DEFAULT ''", "km_to TEXT DEFAULT ''",
+  'km_rate REAL DEFAULT 0', 'km_total REAL DEFAULT 0',
+  'cancelled_at TEXT', "cancelled_by TEXT DEFAULT ''", "cancel_reason TEXT DEFAULT ''",
+  "cancel_code TEXT DEFAULT ''",
+  'short_notice INTEGER DEFAULT 0', 'notice_hours REAL'
+]) { try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {} }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_bookings_series ON bookings (series_id)'); } catch {}
+try { db.exec("CREATE INDEX IF NOT EXISTS idx_bookings_approval ON bookings (approval_state, completed_at)"); } catch {}
+
+/* Bookings completed before this build have no approval state and must not
+   suddenly appear on somebody's to-approve list. They are stamped approved
+   at their completion time, sourced 'legacy', which is the truth. */
+try {
+  db.prepare(`UPDATE bookings SET approval_state = 'approved', approved_at = completed_at,
+    approval_source = 'legacy' WHERE status = 'completed' AND (approval_state IS NULL OR approval_state = '')`).run();
+} catch {}
+/* Anything already waiting when this column arrived has been waiting since it
+   was completed, which is the truth and also the answer that does not hand
+   anybody a surprise seven-day extension on the day of the deploy. */
+try {
+  db.prepare("UPDATE bookings SET approval_from = completed_at WHERE approval_from IS NULL AND completed_at IS NOT NULL").run();
+} catch {}
+
+/* --- 8b. the worker's vehicle, recorded once instead of per shift. --- */
+for (const col of [
+  'km_default REAL DEFAULT 0', "vehicle TEXT DEFAULT ''", "vehicle_rego TEXT DEFAULT ''",
+  "vehicle_insured_to TEXT DEFAULT ''", 'drives INTEGER DEFAULT 0',
+  'paused INTEGER DEFAULT 0', "paused_at TEXT DEFAULT ''", "paused_reason TEXT DEFAULT ''"
+]) { try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {} }
+
+/* --- 9. multi-factor, and a list of where you are signed in.
+   The secret is stored base32 and is never returned to the browser after
+   the enrolment screen. Recovery codes are stored hashed, one row each,
+   so a used code can be marked used instead of the set being reissued. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS mfa (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  secret TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 0,
+  created TEXT NOT NULL,
+  confirmed_at TEXT,
+  last_used_step INTEGER DEFAULT 0,
+  disabled_at TEXT
+);
+CREATE TABLE IF NOT EXISTS mfa_recovery (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  code_hash TEXT NOT NULL,
+  created TEXT NOT NULL,
+  used_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_mfarec_user ON mfa_recovery (user_id, used_at);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  sid TEXT NOT NULL UNIQUE,
+  created TEXT NOT NULL,
+  last_seen TEXT NOT NULL,
+  ip TEXT DEFAULT '',
+  ua TEXT DEFAULT '',
+  revoked_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id, revoked_at);`);
+
+/* --- 10. Team and Saved, which were always the same list.
+   Saved lived in the browser's localStorage, so it vanished when someone
+   changed laptop and could never be shown to the office. Team lived
+   nowhere at all. One table, one relation flag, one private note. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS participant_workers (
+  id INTEGER PRIMARY KEY,
+  participant_id INTEGER NOT NULL REFERENCES users(id),
+  worker_id INTEGER NOT NULL REFERENCES users(id),
+  relation TEXT NOT NULL DEFAULT 'saved',
+  note TEXT DEFAULT '',
+  added TEXT NOT NULL,
+  added_by INTEGER,
+  updated TEXT DEFAULT '',
+  UNIQUE (participant_id, worker_id)
+);
+CREATE INDEX IF NOT EXISTS idx_pw_person ON participant_workers (participant_id, relation);`);
+
+/* --- 11. the worker has read the current support plan.
+   A tick against a version, not against a plan. Publishing a new version
+   re-arms the tick for the whole team, which is the only way a plan
+   change reaches the people delivering the support. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS plan_acks (
+  id INTEGER PRIMARY KEY,
+  plan_id INTEGER NOT NULL,
+  participant_id INTEGER NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  worker_id INTEGER NOT NULL REFERENCES users(id),
+  acked_at TEXT NOT NULL,
+  ip TEXT DEFAULT '',
+  UNIQUE (plan_id, worker_id)
+);
+CREATE INDEX IF NOT EXISTS idx_acks_person ON plan_acks (participant_id, worker_id);`);
+
+/* --- 11b. when the plan is next due to be looked at.
+   A support plan with no review date is a plan that is never reviewed. The
+   default is twelve months from the day it was confirmed, which is the
+   NDIS Practice Standards expectation, and it is editable because some
+   people need it sooner. An expired plan blocks NEW bookings and never
+   touches a booking already in the diary. --- */
+for (const col of ["review_due TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE support_plans ADD COLUMN ${col}`); } catch {}
+}
+try {
+  db.prepare(`UPDATE support_plans SET review_due = date(substr(COALESCE(NULLIF(confirmed_at,''), created),1,10), '+12 months')
+    WHERE status = 'confirmed' AND (review_due IS NULL OR review_due = '')`).run();
+} catch {}
+
+/* --- 12. an attachment that is a document we already hold.
+   No new storage, no second copy, no file that escaped verification: a
+   message points at a row in worker_docs or participant_docs and inherits
+   whatever verification state that row has. --- */
+for (const col of ["doc_kind TEXT DEFAULT ''", 'doc_id INTEGER', "doc_name TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE messages ADD COLUMN ${col}`); } catch {}
+}
+
+/* --- 15. training that locks the roster if it is ignored.
+   The forms register already names w-hi-competency as an evidence gap in
+   writing. A module that ends in a dated certificate written into
+   worker_docs closes it with a record, not a promise. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS modules (
+  id INTEGER PRIMARY KEY,
+  key TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  summary TEXT DEFAULT '',
+  body TEXT DEFAULT '',
+  minutes INTEGER DEFAULT 10,
+  quiz TEXT NOT NULL DEFAULT '[]',
+  pass_mark INTEGER DEFAULT 80,
+  required INTEGER DEFAULT 1,
+  services TEXT NOT NULL DEFAULT '[]',
+  renew_months INTEGER DEFAULT 12,
+  doc_type TEXT DEFAULT '',
+  sort INTEGER DEFAULT 0,
+  active INTEGER DEFAULT 1,
+  created TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS module_completions (
+  id INTEGER PRIMARY KEY,
+  module_id INTEGER NOT NULL REFERENCES modules(id),
+  module_key TEXT NOT NULL,
+  worker_id INTEGER NOT NULL REFERENCES users(id),
+  score INTEGER DEFAULT 0,
+  passed INTEGER DEFAULT 0,
+  attempts INTEGER DEFAULT 1,
+  completed_at TEXT NOT NULL,
+  expires_at TEXT DEFAULT '',
+  doc_id INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_modcomp_worker ON module_completions (worker_id, module_key);`);
+for (const col of ["training_due TEXT DEFAULT ''", "training_lock TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+}
+
+/* --- 17. thirty-two emails, none of them optional until now. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS notification_prefs (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  prefs TEXT NOT NULL DEFAULT '{}',
+  updated TEXT NOT NULL
+);`);
+
+/* --- 18. a request for a document is not a document.
+
+   This is a separate table and not a review_state='requested' row on the two
+   doc tables, because three readers written years apart all treat any row as
+   an assertion that the thing exists: onboardingSummary() counts DISTINCT
+   doc_type, screeningState() maps rows through docStatus() and would score a
+   request as 'no-expiry' (which passes the gate), and participantFile()
+   builds its outstanding list by subtracting every row it can see. Asking
+   somebody for their worker screening check would have let them onto the
+   platform. One table keeps that impossible instead of merely unlikely.
+
+   scope is 'worker' or 'participant' rather than two tables, because every
+   query here is "what have we asked this person for" and the answer should
+   not depend on which half of the file they live in. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS doc_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  scope TEXT NOT NULL CHECK (scope IN ('worker','participant')),
+  person_id INTEGER NOT NULL REFERENCES users(id),
+  doc_key TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  due_date TEXT NOT NULL DEFAULT '',
+  requested_at TEXT NOT NULL,
+  requested_by TEXT NOT NULL,
+  fulfilled_at TEXT NOT NULL DEFAULT '',
+  fulfilled_doc_id INTEGER,
+  cancelled_at TEXT NOT NULL DEFAULT '',
+  cancelled_by TEXT NOT NULL DEFAULT ''
+);`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_doc_requests_person ON doc_requests (scope, person_id)'); } catch {}
+
+/* --- 18. the same expiry clock over the participant's file.
+   worker_docs has had warned_stage since the compliance build;
+   participant_docs never did, so a service agreement could expire in
+   silence. --- */
+for (const col of ["warned_stage TEXT DEFAULT ''", "review_state TEXT DEFAULT ''", "review_note TEXT DEFAULT ''", "requested_at TEXT DEFAULT ''", "requested_by TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE participant_docs ADD COLUMN ${col}`); } catch {}
+}
+for (const col of ["review_state TEXT DEFAULT ''", "review_note TEXT DEFAULT ''", "requested_at TEXT DEFAULT ''", "requested_by TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE worker_docs ADD COLUMN ${col}`); } catch {}
+}
+/* Anything already verified is Approved; anything filed and not yet looked
+   at is Submitted. Naming the state it is already in is not a backfill. */
+try {
+  db.prepare("UPDATE worker_docs SET review_state = CASE WHEN verified_at IS NOT NULL AND verified_at != '' THEN 'approved' ELSE 'submitted' END WHERE review_state = '' OR review_state IS NULL").run();
+  db.prepare("UPDATE participant_docs SET review_state = CASE WHEN verified_at IS NOT NULL AND verified_at != '' THEN 'approved' ELSE 'submitted' END WHERE review_state = '' OR review_state IS NULL").run();
+} catch {}
+/* The old ladder's tightest rung was '7'; the new one's is '14'. A document
+   already carrying '7' has had the most urgent warning that existed, so this
+   renames that fact rather than inventing one — and without it every document
+   currently inside a week would be warned all over again on the next sweep,
+   for a reason no reader of the email could possibly work out. Documents
+   sitting between 8 and 14 days keep their '30' and correctly get the new
+   14-day warning, because for them the rung is genuinely new. */
+try { db.prepare("UPDATE worker_docs SET warned_stage = '14' WHERE warned_stage = '7'").run(); } catch {}
+
+/* ---------- helpers ---------- */
+const now = () => new Date().toISOString();
+const SERVICES = ['employment','personal-care','transport','daily-tasks','household','community'];
+/* ---------- the certificate, as data ----------
+   Everything the site says about what we can and can't deliver is derived from the two tables
+   below. Nothing is hardcoded into a sentence. That matters twice over: s13D(6)(d) of the
+   Registration Rules makes credentials *displayed on a platform* a thing the Commission checks,
+   so a claim on a page has to be traceable to the certificate; and when a support is added to
+   the certificate later, one boolean changes here and every page, email and form follows.
+   CERT_GROUPS is the current DMHC certificate (NDIS 4-LO5XNY0, to 21 January 2029). 0138 was
+   added by notice of variation effective 1 July 2026. It is the certificate as published, so it
+   sits alongside the older REG_GROUPS map (service -> code, used for claiming) rather than
+   replacing it — that one answers "which line do I bill", this one answers "what may we do". */
+const CERT_GROUPS = [
+  { code: '0102', name: 'Assist Access/Maintain Employment',   service: 'employment'   },
+  { code: '0107', name: 'Assist — Personal Activities',        service: 'personal-care'},
+  { code: '0108', name: 'Assist — Travel/Transport',           service: 'transport'    },
+  { code: '0115', name: 'Daily Tasks / Shared Living',         service: 'daily-tasks'  },
+  { code: '0120', name: 'Household Tasks',                     service: 'household'    },
+  { code: '0125', name: 'Participate in Community',            service: 'community'    },
+  { code: '0138', name: 'Supported Independent Living',        service: 'daily-tasks'  }
+];
+
+/* The eight supports in NDIS Practice Standards Supplementary Module 1 — High Intensity Daily
+   Personal Activities, registration group 0104, each mapped to its clause in Schedule 2 of the
+   Provider Registration and Practice Standards Rules 2018.
+   `held` is the load-bearing field. Section 13C of those Rules grants 0104 support by support:
+   a provider "must not provide a support mentioned in Schedule 2 if the support is not set out
+   in the provider's certificate of registration". So this is not one yes/no — it is eight, and
+   a provider can hold any subset. DMHC currently holds none of them, which is why every entry
+   reads false; adding one under s13C is a two-field edit here (held: true, since: 'YYYY-MM-DD')
+   and the whole site tells the truth again on the next restart.
+   Note the catheter wording: emptying a leg bag and hygiene around an established catheter is
+   ordinary personal care under 0107. Only inserting, changing or irrigating one is Module 1 —
+   the label has to say so, or every participant with a catheter ticks a box they shouldn't. */
+const HI_SUPPORTS = [
+  { key: 'bowel',      clause: 'Sch 2 cl 3',  label: 'Complex bowel care',                                            held: false, since: '' },
+  { key: 'enteral',    clause: 'Sch 2 cl 4',  label: 'PEG or tube (enteral) feeding',                                 held: false, since: '' },
+  { key: 'dysphagia',  clause: 'Sch 2 cl 4A', label: 'Dysphagia — help managing swallowing difficulties',             held: false, since: '' },
+  { key: 'ventilator', clause: 'Sch 2 cl 7',  label: 'Ventilator support',                                            held: false, since: '' },
+  { key: 'trach',      clause: 'Sch 2 cl 5',  label: 'Tracheostomy management',                                       held: false, since: '' },
+  { key: 'catheter',   clause: 'Sch 2 cl 6',  label: 'Urinary catheter management — inserting, changing or irrigating',held: false, since: '' },
+  { key: 'injections', clause: 'Sch 2 cl 8',  label: 'Subcutaneous injections',                                       held: false, since: '' },
+  { key: 'wounds',     clause: 'Sch 2 cl 9',  label: 'Complex wound management',                                      held: false, since: '' }
+];
+const HI_KEYS = HI_SUPPORTS.map(x => x.key);
+const hiSupport = k => HI_SUPPORTS.find(x => x.key === k) || null;
+const hiLabel = k => (hiSupport(k) || {}).label || k;
+const hiHeld = k => Boolean((hiSupport(k) || {}).held);
+const hiUnheld = ks => (ks || []).filter(k => !hiHeld(k));
+const holds0104 = () => HI_SUPPORTS.some(x => x.held);
+const hiFrom = body => (Array.isArray(body && body.hi_flags) ? [...new Set(body.hi_flags)] : []).filter(k => HI_KEYS.includes(k));
+
+/* Adding one support to the certificate. s13C grants Schedule 2 supports one at a time, and the
+   whole point of holding the certificate as data is that the day one is added this is a single
+   config line rather than an edit to nine pages:  CERT_SCH2="catheter:2027-03-14"
+   The date is not optional. It is the date the support appeared on the certificate of
+   registration, it is what an auditor asks for, and requiring it is what stops this being set
+   casually. Never set it for a support that is not printed on the certificate. */
+for (const pair of String(process.env.CERT_SCH2 || '').split(',').map(x => x.trim()).filter(Boolean)) {
+  const [key, since] = pair.split(':').map(x => (x || '').trim());
+  const sup = hiSupport(key);
+  if (!sup) { console.error(`CERT_SCH2: '${key}' is not a Schedule 2 support — ignored`); continue; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(since || '')) { console.error(`CERT_SCH2: '${key}' needs the date it went on the certificate (YYYY-MM-DD) — ignored`); continue; }
+  sup.held = true; sup.since = since;
+  console.log(`CERT: Schedule 2 ${sup.clause} — ${sup.label} — held since ${since}`);
+}
+
+/* The provider we introduce people to for the supports we don't hold. Environment-driven so it
+   can be filled in without a deploy — and deliberately gated on BOTH a name and the date the
+   collaboration agreement was signed. An unsigned arrangement is not a referral pathway, it is
+   an intention, and the site will not name a partner it cannot evidence. Until both are set the
+   site says we will introduce you, without putting a name to it. */
+const SCOPE_PARTNER = {
+  name:         process.env.SCOPE_PARTNER_NAME || '',
+  ndis:         process.env.SCOPE_PARTNER_NDIS || '',
+  phone:        process.env.SCOPE_PARTNER_PHONE || '',
+  agreement_at: process.env.SCOPE_PARTNER_AGREEMENT_AT || ''
+};
+const partnerNamed = () => Boolean(SCOPE_PARTNER.name && SCOPE_PARTNER.agreement_at);
+const publicPartner = () => partnerNamed() ? { name: SCOPE_PARTNER.name, ndis: SCOPE_PARTNER.ndis, phone: SCOPE_PARTNER.phone } : null;
+const scopeView = () => ({
+  supports: HI_SUPPORTS,           /* the eight of Module 1, each with its clause and whether we hold it */
+  groups: CERT_GROUPS,
+  holds_0104: holds0104(),
+  partner: publicPartner()
+});
+const safeJson = (v, fallback) => { try { const x = JSON.parse(v); return Array.isArray(x) ? x : fallback; } catch { return fallback; } };
+/* The published rate table. Derived from the ladder rather than hardcoded, so
+   the number on the marketing page can never drift away from the number that
+   lands in a worker's account. "from" is Bronze — what a worker earns on day
+   one. "to" is Platinum. Both are floored by the award, which is the whole
+   reason household tasks reads differently from the rest of the table. */
+const RATE_ROWS = [
+  { label: 'Weekday daytime', category: 'weekday-day' },
+  { label: 'Weekday evening', category: 'weekday-evening' },
+  { label: 'Weekday night',   category: 'weekday-night' },
+  { label: 'Saturday',        category: 'saturday' },
+  { label: 'Sunday',          category: 'sunday' },
+  { label: 'Public holiday',  category: 'public-holiday' },
+  { label: 'Household tasks', category: 'household' },
+  { label: 'Employment support', category: 'employment' }
+];
+function publicRates() {
+  const shares = tierShares(), sup = superRate();
+  return RATE_ROWS.map(row => {
+    const r = INVOICE_RATES[row.category];
+    const floor = awardFloorFor(2, row.category); /* Level 2 — the common casual classification */
+    const at = pct => {
+      const ladder = round2(r.price * pct / 100);
+      return { rate: Math.max(ladder, floor.rate), floored: floor.rate > ladder };
+    };
+    const from = at(shares.bronze), to = at(shares.platinum);
+    return {
+      label: row.label, category: row.category, you: r.price,
+      worker: from.rate, worker_top: to.rate,
+      base: round2(from.rate / (1 + sup / 100)), base_top: round2(to.rate / (1 + sup / 100)),
+      pct_from: shares.bronze, pct_to: shares.platinum,
+      award_floored: from.floored, note: from.floored ? 'Lifted to the SCHADS minimum — the price limit on this item sits below the award.' : ''
+    };
+  });
+}
+
+/* ---------- invoicing (NDIS Pricing Arrangements 2026–27 price limits) ----------
+   A completed shift gets a rate category. The category is auto-suggested from
+   the booking's date/time (public holidays can't be auto-detected — admins can
+   override any line from the dashboard before exporting). */
+const INVOICE_RATES = {
+  'weekday-day':     { label: 'Weekday daytime', price: 73.58,  worker: 53.25 },
+  'weekday-evening': { label: 'Weekday evening', price: 81.07,  worker: 58.70 },
+  'weekday-night':   { label: 'Weekday night',   price: 82.57,  worker: 59.80 },
+  'saturday':        { label: 'Saturday',        price: 103.54, worker: 74.95 },
+  'sunday':          { label: 'Sunday',          price: 133.50, worker: 96.65 },
+  'public-holiday':  { label: 'Public holiday',  price: 163.46, worker: 118.35 },
+  'household':       { label: 'Household tasks (cleaning)', price: 60.10, worker: 43.50 },
+  /* 0102 Employment Assistance (10_016_0102_5_3) is a flat rate — no day-type variants */
+  'employment':      { label: 'Employment support (flat)', price: 83.87, worker: 60.70 },
+  /* inactive night: flat per-night price, not hourly */
+  'sleepover':       { label: 'Night-time sleepover (inactive)', price: 311.79, worker: 225.65, perNight: true }
+};
+const REG_GROUPS = { 'employment': '0102', 'personal-care': '0107', 'transport': '0108', 'daily-tasks': '0115/0138', 'household': '0120', 'community': '0125' };
+function suggestCategory(b) {
+  if (b.sleepover) return 'sleepover';
+  if (b.service === 'household') return 'household';
+  if (b.service === 'employment') return 'employment';
+  const dow = new Date(b.date + 'T00:00:00').getDay();
+  if (dow === 6) return 'saturday';
+  if (dow === 0) return 'sunday';
+  const [h, min] = String(b.start).split(':').map(Number);
+  const endH = h + (min || 0) / 60 + Number(b.hours);
+  let cat = 'weekday-day';
+  if (h < 6) cat = 'weekday-night';
+  else if (h >= 20 || endH > 20) cat = 'weekday-evening';
+  /* the 0125 set has no night item — night community/transport shifts claim the evening item */
+  if (cat === 'weekday-night' && (b.service === 'community' || b.service === 'transport')) cat = 'weekday-evening';
+  return cat;
+}
+/* Verified verbatim against the official NDIS Pricing Schedule 2026-27 v1.2
+   (Schedule 1 pp.5-15, Schedule 3 Table 13 p.25), supplied by the provider:
+   - 0107 self-care: 01_002 night · 01_010 SLEEPOVER (Each $311.79) · 01_011 day
+     · 01_012 PH · 01_013 Sat · 01_014 Sun · 01_015 evening
+   - 0115 SIL: 01_801..806 day/eve/night/Sat/Sun/PH · 01_832 sleepover
+     (0138 mirror set 01_8xx_0138_1_1 exists for SIL-group claims)
+   - 0125 community: 04_104 day · 04_103 evening · 04_105 Sat · 04_106 Sun
+     · 04_102 PH — NO night or sleepover items (night coerced to evening)
+   - 0120: 01_020_0120_1_1 House Cleaning $60.10/h (01_019 yard $59.01 exists)
+   - 0102: 10_016_0102_5_3 Employment Assistance — FLAT $83.87/h, all days
+   - transport (0108): no hourly labour items exist; labour is claimed under the
+     0125 set + Activity Based Transport 04_590_0125_6_1 for km — confirm with
+     each plan manager (hence the confirm flag). */
+const SUPPORT_ITEMS = {
+  'personal-care': { 'weekday-day': '01_011_0107_1_1', 'weekday-evening': '01_015_0107_1_1', 'weekday-night': '01_002_0107_1_1', 'saturday': '01_013_0107_1_1', 'sunday': '01_014_0107_1_1', 'public-holiday': '01_012_0107_1_1', 'sleepover': '01_010_0107_1_1' },
+  'daily-tasks': { 'weekday-day': '01_801_0115_1_1', 'weekday-evening': '01_802_0115_1_1', 'weekday-night': '01_803_0115_1_1', 'saturday': '01_804_0115_1_1', 'sunday': '01_805_0115_1_1', 'public-holiday': '01_806_0115_1_1', 'sleepover': '01_832_0115_1_1' },
+  'community': { 'weekday-day': '04_104_0125_6_1', 'weekday-evening': '04_103_0125_6_1', 'saturday': '04_105_0125_6_1', 'sunday': '04_106_0125_6_1', 'public-holiday': '04_102_0125_6_1' },
+  'household': { '*': '01_020_0120_1_1' },
+  'employment': { '*': '10_016_0102_5_3' },
+  'transport': { 'weekday-day': '04_104_0125_6_1', 'weekday-evening': '04_103_0125_6_1', 'saturday': '04_105_0125_6_1', 'sunday': '04_106_0125_6_1', 'public-holiday': '04_102_0125_6_1' }
+};
+const ITEM_CONFIRM = { 'transport': true };
+function supportItemFor(service, category) {
+  const m = SUPPORT_ITEMS[service] || {};
+  return m[category] || m['*'] || '';
+}
+const NDIS_REG_NO = process.env.NDIS_REG_NO || '4-LO5XNY0';
+const COMPANY_ABN = '19658578575';
+const BANK_DETAILS = process.env.BANK_DETAILS || '';
+
+/* ---------- tiny PDF invoice generator (zero-dependency) ---------- */
+function pdfEsc(s) { return String(s ?? '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)'); }
+function makeInvoicePdf(inv) {
+  /* inv: { invoice_no, date, bill_to: [lines], lines: [{date, service, item, hours, rate, amount}], total, self } */
+  const ops = [];
+  const T = (x, y, size, font, text, color) => {
+    if (color) ops.push(color); else ops.push('0.09 0.19 0.23 rg');
+    ops.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${pdfEsc(text)}) Tj ET`);
+  };
+  const TEAL = '0.055 0.42 0.384 rg', SOFT = '0.35 0.44 0.48 rg';
+  T(40, 795, 24, 'FB', 'BookIt', TEAL);
+  T(40, 780, 8.5, 'F', 'Disability & Mental Health Care Pty Ltd · ABN 19 658 578 575', SOFT);
+  T(40, 769, 8.5, 'F', `Registered NDIS Provider ${NDIS_REG_NO} · hello@bookit.life · 0488 114 368 · bookit.life`, SOFT);
+  T(400, 795, 15, 'FB', 'TAX INVOICE');
+  T(400, 781, 8.5, 'F', 'GST-free NDIS supports (s38-38 GST Act)', SOFT);
+  T(400, 766, 10, 'FB', `Invoice ${inv.invoice_no}`);
+  T(400, 753, 9.5, 'F', `Date: ${inv.date}`);
+  T(40, 730, 9, 'FB', 'Bill to:');
+  let y = 718;
+  for (const line of inv.bill_to) { T(40, y, 9.5, 'F', line); y -= 12; }
+  y = Math.min(y - 14, 660);
+  const cols = { date: 40, svc: 105, item: 300, hrs: 400, rate: 445, amt: 505 };
+  T(cols.date, y, 8.5, 'FB', 'Date'); T(cols.svc, y, 8.5, 'FB', 'Support'); T(cols.item, y, 8.5, 'FB', 'Support item no.');
+  T(cols.hrs, y, 8.5, 'FB', 'Hours'); T(cols.rate, y, 8.5, 'FB', 'Rate'); T(cols.amt, y, 8.5, 'FB', 'Amount');
+  y -= 5; ops.push('0.9 0.87 0.83 RG 0.7 w', `40 ${y} m 555 ${y} l S`); y -= 13;
+  for (const l of inv.lines) {
+    T(cols.date, y, 9, 'F', l.date);
+    T(cols.svc, y, 9, 'F', String(l.service).slice(0, 34));
+    T(cols.item, y, 9, 'F', l.item || '—');
+    T(cols.hrs, y, 9, 'F', String(l.hours));
+    T(cols.rate, y, 9, 'F', `$${l.rate.toFixed(2)}`);
+    T(cols.amt, y, 9, 'F', `$${l.amount.toFixed(2)}`);
+    y -= 15;
+    if (y < 150) { T(40, y, 9, 'F', `… ${inv.lines.length} lines total — remainder on statement.`); break; }
+  }
+  y -= 4; ops.push('0.9 0.87 0.83 RG 0.7 w', `40 ${y} m 555 ${y} l S`); y -= 16;
+  T(400, y, 11, 'FB', 'Total due:'); T(cols.amt, y, 11, 'FB', `$${inv.total.toFixed(2)}`);
+  y -= 26;
+  T(40, y, 9.5, 'FB', 'Payment'); y -= 13;
+  if (inv.self) {
+    T(40, y, 9, 'F', BANK_DETAILS ? `Please pay within 14 days by bank transfer: ${BANK_DETAILS}` : 'Please pay within 14 days — payment details provided separately.'); y -= 12;
+    T(40, y, 9, 'F', `Reference: ${inv.invoice_no}. You can claim this amount back through the myplace participant portal.`, undefined);
+  } else {
+    T(40, y, 9, 'F', 'Please pay from plan funds within 14 days.' + (BANK_DETAILS ? ` Bank transfer: ${BANK_DETAILS}` : ' Payment details provided separately.')); y -= 12;
+    T(40, y, 9, 'F', `Reference: ${inv.invoice_no}. Prices align with the NDIS Pricing Arrangements and Price Limits 2026-27.`);
+  }
+  T(40, 60, 8, 'F', 'Questions about this invoice? hello@bookit.life · 0488 114 368. Thank you for choosing BookIt.', SOFT);
+  const content = ops.join('\n');
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F 5 0 R /FB 6 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>'
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = [];
+  objects.forEach((body, i) => {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xrefPos = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.forEach(o => { pdf += `${String(o).padStart(10, '0')} 00000 n \n`; });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
+  return Buffer.from(pdf, 'latin1');
+}
+
+/* The claim side and the pay side of one shift.
+
+   The claim is fixed: the NDIS price limit, which is the same for everybody.
+   The pay is not: it is the worker's tier share of that limit, lifted to the
+   SCHADS minimum for their classification if the share falls short. Both get
+   frozen onto the booking row at completion, because a worker who moves up a
+   tier next month must not silently reprice already-completed shifts, and an
+   audit two years from now has to be able to see what was actually paid and
+   why. workerPay() is the only function allowed to answer "what is this hour
+   worth" — see THE AWARDS LADDER further down. */
+function applyInvoice(id, category) {
+  const r = INVOICE_RATES[category];
+  const b = db.prepare('SELECT hours, worker_id FROM bookings WHERE id = ?').get(id);
+  if (!r || !b) return null;
+  const qty = r.perNight ? 1 : b.hours; /* sleepovers are one flat per-night price */
+  const total = Math.round(r.price * qty * 100) / 100;
+
+  const pay = workerPay(b.worker_id, category, b.hours)
+    /* fallback only if the profile row is missing entirely — never leave pay unset */
+    || { tier: 'bronze', share_pct: null, rate: r.worker, amount: Math.round(r.worker * qty * 100) / 100, floored: false, why: '' };
+
+  db.prepare(`UPDATE bookings SET rate_category = ?, unit_price = ?, worker_share = ?, total = ?,
+      tier_at_shift = ?, share_pct = ?, award_floored = ? WHERE id = ?`)
+    .run(category, r.price, pay.amount, total, pay.tier, pay.share_pct, pay.floored ? 1 : 0, id);
+
+  /* uneconomic and uplift_withheld ride along on the completion response for the
+     same reason award_floored does: the shift is the moment the decision is made,
+     and an audit two years from now needs the flag next to the shift, not
+     reconstructed from settings that may have moved since. */
+  return { category, label: r.label, unit_price: r.price, qty, total, worker_share: pay.amount,
+    tier: pay.tier, share_pct: pay.share_pct, worker_rate: pay.rate, award_floored: !!pay.floored,
+    uplift_withheld: !!pay.uplift_withheld, uneconomic: !!pay.uneconomic, pay_note: pay.why };
+}
+
+function hashPassword(pw) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(pw, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+function verifyPassword(pw, stored) {
+  const [salt, hash] = String(stored).split(':');
+  if (!salt || !hash) return false;
+  const test = crypto.scryptSync(pw, salt, 64);
+  const real = Buffer.from(hash, 'hex');
+  return test.length === real.length && crypto.timingSafeEqual(test, real);
+}
+function sign(value) {
+  return crypto.createHmac('sha256', SECRET).update(value).digest('hex');
+}
+/* The cookie carries a session id now, not just a user id. The signature
+   still does the authenticating - there is no database read to decide
+   whether a cookie is genuine, so the hot path stays the same speed - but
+   the id gives every sign-in a row that can be struck out. Without it,
+   "sign out on that other laptop" is a button that cannot do anything.
+
+   Cookies issued before this change have three parts instead of four and
+   are still honoured, because a deploy that signs out every worker
+   mid-shift is a deploy nobody forgives. They cannot be revoked one by
+   one, so revoke-everything writes a cutoff instead: see legacyCutoff. */
+function newSid() { return crypto.randomBytes(16).toString('hex'); }
+function makeSession(uid, sid) {
+  const exp = Date.now() + SESSION_DAYS * 864e5;
+  if (!sid) { const base = `${uid}.${exp}`; return `${base}.${sign(base)}`; }
+  const base = `${uid}.${sid}.${exp}`;
+  return `${base}.${sign(base)}`;
+}
+/* A legacy cookie has no id, so it cannot be listed or struck out one at a
+   time. What it does carry is its expiry, and expiry is issue time plus a
+   fixed thirty days, so issue time is recoverable. Sign-out-everywhere
+   stamps a cutoff and any legacy cookie minted before it stops working.
+   Thirty days after this ships there are no legacy cookies left and this
+   function is dead weight that costs one indexed lookup. */
+function legacyCutoff(uid) {
+  try {
+    const r = db.prepare("SELECT last_seen FROM sessions WHERE sid = ?").get(`legacy-cutoff-${uid}`);
+    return r ? Date.parse(r.last_seen) || 0 : 0;
+  } catch { return 0; }
+}
+function stampLegacyCutoff(uid) {
+  const sid = `legacy-cutoff-${uid}`;
+  try {
+    const r = db.prepare('SELECT id FROM sessions WHERE sid = ?').get(sid);
+    if (r) db.prepare('UPDATE sessions SET last_seen = ? WHERE id = ?').run(now(), r.id);
+    else db.prepare("INSERT INTO sessions (user_id, sid, created, last_seen, ip, ua, revoked_at) VALUES (?,?,?,?,'','',?)")
+      .run(Number(uid), sid, now(), now(), now());
+  } catch {}
+}
+/* the user object handed to routes and returned by /api/me — includes the worker's
+   photo url + live (visible) flag so the front-end account menu can show them */
+function sessionUser(uid) {
+  const u = db.prepare('SELECT id, role, name, email, phone, suburb, plan, verified, created, ndis_number, pm_email, hi_flags, hi_at, hi_referred_at, photo, photo_at FROM users WHERE id = ?').get(Number(uid));
+  if (!u) return null;
+  u.hi_flags = safeJson(u.hi_flags, []);
+  if (u.role === 'worker') {
+    const p = db.prepare('SELECT photo, photo_at, visible FROM worker_profiles WHERE user_id = ?').get(u.id);
+    u.photo = p && p.photo ? `/photos/${u.id}?v=${encodeURIComponent(p.photo_at || '')}` : null;
+    u.live = p && p.visible ? 1 : 0;
+  } else {
+    u.photo = u.photo ? `/photos/${u.id}?v=${encodeURIComponent(u.photo_at || '')}` : null;
+  }
+  delete u.photo_at;
+  return withAdmin(u);
+}
+function readSession(cookieHeader) {
+  const m = /(?:^|;\s*)bk_session=([^;]+)/.exec(cookieHeader || '');
+  if (!m) return null;
+  const parts = m[1].split('.');
+  if (parts.length !== 3 && parts.length !== 4) return null;
+  const four = parts.length === 4;
+  const uid = parts[0], sid = four ? parts[1] : '', exp = four ? parts[2] : parts[1], sig = four ? parts[3] : parts[2];
+  if (!/^\d+$/.test(uid) || !/^\d+$/.test(exp)) return null;
+  if (four && !/^[0-9a-f]{32}$/.test(sid)) return null;
+  const base = four ? `${uid}.${sid}.${exp}` : `${uid}.${exp}`;
+  const expected = sign(base);
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  if (Number(exp) < Date.now()) return null;
+  if (four) { if (sessionRevoked(sid)) return null; }
+  else {
+    const cut = legacyCutoff(uid);
+    if (cut && (Number(exp) - SESSION_DAYS * 864e5) < cut) return null;
+  }
+  const u = sessionUser(uid);
+  if (u && four) { u.sid = sid; touchSession(sid); }
+  return u;
+}
+function json(res, status, data, headers = {}) {
+  const body = JSON.stringify(data);
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    ...(SITE_PASSWORD ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}),
+    ...headers
+  });
+  res.end(body);
+}
+function setSessionHeaders(uid, req, ip) {
+  const sid = newSid();
+  try { registerSession(uid, sid, ip || '', (req && req.headers && req.headers['user-agent']) || ''); } catch {}
+  return { 'Set-Cookie': `bk_session=${makeSession(uid, sid)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_DAYS * 86400}${COOKIE_SECURE}` };
+}
+/* behind Caddy every real request is HTTPS; the Secure attribute keeps the
+   cookie off any accidental plain-HTTP hop. Local dev (no APP_URL, plain
+   http) stays workable because the flag only turns on for https APP_URLs. */
+const COOKIE_SECURE = String(process.env.APP_URL || '').startsWith('https') ? '; Secure' : '';
+const CLEAR_COOKIE = { 'Set-Cookie': 'bk_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0' };
+
+/* ---------- private preview gate ----------
+   Set SITE_PASSWORD to lock the whole site (pages + API) behind a
+   password screen while you build. Delete the variable to go public. */
+const SITE_PASSWORD = process.env.SITE_PASSWORD || '';
+function gateValid(cookieHeader) {
+  if (!SITE_PASSWORD) return true;
+  const m = /(?:^|;\s*)bk_gate=([^;]+)/.exec(cookieHeader || '');
+  if (!m) return false;
+  const expected = sign('gate-ok:' + SITE_PASSWORD);
+  return m[1].length === expected.length && crypto.timingSafeEqual(Buffer.from(m[1]), Buffer.from(expected));
+}
+function gatePage(wrong) {
+  return `<!DOCTYPE html><html lang="en-AU"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex, nofollow"><title>BookIt — private preview</title>
+<style>body{font-family:system-ui,sans-serif;background:#FAF6F0;color:#17313A;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;}
+.card{background:#fff;border:1px solid #E7DFD4;border-radius:20px;box-shadow:0 18px 50px rgba(23,49,58,.14);padding:40px;max-width:400px;width:100%;text-align:center;}
+.logo{font-weight:800;font-size:1.6rem;display:flex;align-items:center;justify-content:center;gap:2px;margin-bottom:14px;}
+.logo svg{height:.68em;width:auto;margin-top:.1em;}
+h1{font-size:1.15rem;margin:0 0 8px;}
+p{color:#3E5A64;font-size:.92rem;margin:0 0 22px;}
+input{width:100%;padding:13px 16px;border:1.5px solid #E7DFD4;border-radius:11px;font-size:1rem;margin-bottom:12px;box-sizing:border-box;}
+input:focus{outline:3px solid #F5B841;border-color:#0E6B62;}
+button{width:100%;background:#0E6B62;color:#fff;border:none;border-radius:999px;padding:13px;font-size:1rem;font-weight:600;cursor:pointer;}
+button:hover{background:#0A544D;}
+.err{color:#a8250b;font-size:.88rem;margin:0 0 12px;font-weight:600;}</style></head>
+<body><div class="card">
+<div class="logo">b<svg viewBox="0 0 94 48" aria-hidden="true"><circle cx="23" cy="24" r="22" fill="#0E6B62"/><circle cx="69" cy="24" r="22" fill="#F5B841"/><path d="M57 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>kit</div>
+<h1>Private preview</h1>
+<p>BookIt isn't open to the public just yet. Enter the access password to look around.</p>
+${wrong ? '<p class="err">That password did not match — try again.</p>' : ''}
+<form method="POST" action="/gate"><input type="password" name="pw" placeholder="Access password" autofocus required><button type="submit">Enter</button></form>
+</div></body></html>`;
+}
+
+/* ---------- email (zero-dependency SMTP over TLS) ----------
+   Sends through your Zoho mailbox. Set:
+     SMTP_USER = hello@bookit.life
+     SMTP_PASS = that mailbox's password (or a Zoho app password if MFA is on)
+   Optional: SMTP_HOST (default smtppro.zoho.com.au — Zoho AU, paid org),
+     SMTP_PORT (465 SSL), MAIL_FROM (defaults to SMTP_USER — must be the
+     account address or one of its aliases), APP_URL (absolute link base
+     for emails, e.g. https://demo.bookit.life).
+   Without SMTP_USER+SMTP_PASS email is OFF: everything else works and
+   would-be emails are logged to the console instead. Demo accounts
+   (@demo.bookit.life) are never emailed. */
+const SMTP_HOST = process.env.SMTP_HOST || 'smtppro.zoho.com.au';
+const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER || 'hello@bookit.life';
+const APP_URL = (process.env.APP_URL || '').replace(/\/+$/, '');
+/* Resend HTTPS API (api.resend.com) — needed on hosts that block outbound
+   SMTP (Railway Free/Trial/Hobby all do). Set RESEND_API_KEY to use it;
+   it wins over SMTP when both are configured. */
+const RESEND_KEY = process.env.RESEND_API_KEY || '';
+const RESEND_BASE = (process.env.RESEND_BASE || 'https://api.resend.com').replace(/\/+$/, '');
+const EMAIL_ON = Boolean(RESEND_KEY || (SMTP_USER && SMTP_PASS));
+
+/* ---------- Stripe (card payments for self-managed invoices) ----------
+   Set STRIPE_SECRET_KEY (sk_live_… from dashboard.stripe.com → Developers → API keys)
+   and the feature switches on: self-managed invoices get a hosted "pay by card" link.
+   Set STRIPE_WEBHOOK_SECRET (whsec_… — add a webhook in the Stripe dashboard pointing
+   at https://bookit.life/api/stripe/webhook for the checkout.session.completed event)
+   and paid shifts mark themselves paid the moment the card goes through.
+   No keys set = feature dormant, invoices show bank transfer only. */
+const STRIPE_KEY = process.env.STRIPE_SECRET_KEY || '';
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
+const STRIPE_API_URL = (process.env.STRIPE_API_URL || 'https://api.stripe.com').replace(/\/+$/, ''); /* overridable for tests */
+function stripeRequest(pathName, params) {
+  return new Promise((resolve, reject) => {
+    const form = new URLSearchParams();
+    const add = (k, v) => { if (v !== undefined && v !== null) form.append(k, String(v)); };
+    for (const [k, v] of Object.entries(params)) add(k, v);
+    const body = form.toString();
+    const u = new URL(STRIPE_API_URL + pathName);
+    const mod = u.protocol === 'http:' ? http : https;
+    const req2 = mod.request({
+      hostname: u.hostname, port: u.port || (u.protocol === 'http:' ? 80 : 443), path: u.pathname,
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${STRIPE_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, r => {
+      let data = '';
+      r.on('data', c => { data += c; });
+      r.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (r.statusCode >= 400 || parsed.error) return reject(new Error((parsed.error && parsed.error.message) || `Stripe error ${r.statusCode}`));
+          resolve(parsed);
+        } catch { reject(new Error('Stripe returned an unreadable response.')); }
+      });
+    });
+    req2.on('error', reject);
+    req2.setTimeout(15000, () => req2.destroy(new Error('Stripe request timed out.')));
+    req2.end(body);
+  });
+}
+function verifyStripeSig(raw, header) {
+  if (!STRIPE_WEBHOOK_SECRET) return false;
+  let t = '';
+  const v1s = [];
+  for (const kv of String(header || '').split(',')) {
+    const i = kv.indexOf('=');
+    if (i === -1) continue;
+    const k = kv.slice(0, i).trim(), v = kv.slice(i + 1).trim();
+    if (k === 't') t = v;
+    else if (k === 'v1') v1s.push(v);
+  }
+  if (!t || !v1s.length) return false;
+  if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false; /* 5-minute replay window */
+  const expected = crypto.createHmac('sha256', STRIPE_WEBHOOK_SECRET).update(`${t}.${raw}`).digest('hex');
+  return v1s.some(v => {
+    try { return v.length === expected.length && crypto.timingSafeEqual(Buffer.from(v), Buffer.from(expected)); }
+    catch { return false; }
+  });
+}
+function handleStripeWebhook(req, res, raw) {
+  if (!verifyStripeSig(raw, req.headers['stripe-signature'])) {
+    return json(res, 400, { error: 'Bad signature.' });
+  }
+  let event = {};
+  try { event = JSON.parse(raw); } catch { return json(res, 400, { error: 'Bad payload.' }); }
+  if (event.type === 'checkout.session.completed') {
+    const s = event.data && event.data.object ? event.data.object : {};
+    const invNo = s.metadata && s.metadata.invoice_no;
+    if (invNo) {
+      const rows = db.prepare("SELECT id, total FROM bookings WHERE invoice_no = ? AND claim_status != 'paid'").all(invNo);
+      if (rows.length) {
+        db.prepare("UPDATE bookings SET claim_status = 'paid', paid_at = ? WHERE invoice_no = ? AND claim_status != 'paid'").run(now(), invNo);
+        const total = rows.reduce((n, r) => n + (r.total || 0), 0);
+        console.log(`[stripe] card payment received — invoice ${invNo}, ${rows.length} shift(s), $${total.toFixed(2)}`);
+        if (MAIL_FROM) sendMail(MAIL_FROM, `Card payment received — ${invNo}`,
+          `💳 $${total.toFixed(2)} paid by card`,
+          `<p>Invoice <b>${escHtml(invNo)}</b> has been paid by card through Stripe — <b>$${total.toFixed(2)}</b> across ${rows.length} shift${rows.length > 1 ? 's' : ''}. The shifts are marked paid automatically.</p>`,
+          'Open claims', `${APP_URL || 'https://bookit.life'}/#/admin`).catch(() => {});
+      }
+    }
+  }
+  json(res, 200, { received: true });
+}
+
+/* ---------- admins ----------
+   ADMIN_EMAILS = comma-separated list of account emails that get the admin
+   dashboard (approve workers, see users/bookings/messages). */
+const ADMIN_EMAILS = String(process.env.ADMIN_EMAILS || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+function withAdmin(u) { if (u) u.admin = ADMIN_EMAILS.includes(String(u.email || '').toLowerCase()) ? 1 : 0; return u; }
+function requireAdmin(user, res) { if (!user || !user.admin) { json(res, 403, { error: 'Admin only.' }); return false; } return true; }
+
+const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const firstName = n => escHtml(String(n || '').split(' ')[0] || 'there');
+const SERVICE_LABELS = { 'employment': 'Employment support', 'personal-care': 'Personal care', 'transport': 'Travel & transport', 'daily-tasks': 'Daily tasks & shared living', 'household': 'Household tasks', 'community': 'Community participation' };
+const prettyDate = d => { try { return new Date(d + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); } catch { return d; } };
+
+function b64wrap(str) { return Buffer.from(str, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n'); }
+
+function smtpSend(to, subject, html, text, replyTo, attachments) {
+  return new Promise((resolve, reject) => {
+    const boundary = 'bk' + crypto.randomBytes(12).toString('hex');
+    const msgId = `<${crypto.randomBytes(12).toString('hex')}@bookit.life>`;
+    const altPart =
+      `--${boundary}\r\n` +
+      `Content-Type: text/plain; charset=utf-8\r\n` +
+      `Content-Transfer-Encoding: base64\r\n\r\n` +
+      `${b64wrap(text)}\r\n` +
+      `--${boundary}\r\n` +
+      `Content-Type: text/html; charset=utf-8\r\n` +
+      `Content-Transfer-Encoding: base64\r\n\r\n` +
+      `${b64wrap(html)}\r\n` +
+      `--${boundary}--\r\n`;
+    let topType = `multipart/alternative; boundary="${boundary}"`;
+    let bodyPart = altPart;
+    if (attachments && attachments.length) {
+      const mix = 'mix' + crypto.randomBytes(10).toString('hex');
+      topType = `multipart/mixed; boundary="${mix}"`;
+      bodyPart =
+        `--${mix}\r\n` +
+        `Content-Type: multipart/alternative; boundary="${boundary}"\r\n\r\n` +
+        altPart +
+        attachments.map(a =>
+          `--${mix}\r\n` +
+          `Content-Type: ${a.mime || 'application/octet-stream'}; name="${a.filename}"\r\n` +
+          `Content-Disposition: attachment; filename="${a.filename}"\r\n` +
+          `Content-Transfer-Encoding: base64\r\n\r\n` +
+          `${a.buffer.toString('base64').replace(/(.{76})/g, '$1\r\n')}\r\n`).join('') +
+        `--${mix}--\r\n`;
+    }
+    const data =
+      `From: =?UTF-8?B?${Buffer.from('BookIt', 'utf8').toString('base64')}?= <${MAIL_FROM}>\r\n` +
+      `To: <${to}>\r\n` +
+      (replyTo ? `Reply-To: <${replyTo}>\r\n` : '') +
+      `Subject: =?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=\r\n` +
+      `Date: ${new Date().toUTCString()}\r\n` +
+      `Message-ID: ${msgId}\r\n` +
+      `MIME-Version: 1.0\r\n` +
+      `Content-Type: ${topType}\r\n` +
+      `\r\n` +
+      bodyPart;
+    const steps = [
+      { expect: 220, send: () => 'EHLO bookit.life\r\n' },
+      { expect: 250, send: () => 'AUTH LOGIN\r\n' },
+      { expect: 334, send: () => Buffer.from(SMTP_USER, 'utf8').toString('base64') + '\r\n' },
+      { expect: 334, send: () => Buffer.from(SMTP_PASS, 'utf8').toString('base64') + '\r\n' },
+      { expect: 235, send: () => `MAIL FROM:<${MAIL_FROM}>\r\n` },
+      { expect: 250, send: () => `RCPT TO:<${to}>\r\n` },
+      { expect: 250, send: () => 'DATA\r\n' },
+      { expect: 354, send: () => data + '.\r\n' },
+      { expect: 250, send: () => 'QUIT\r\n', done: true }
+    ];
+    let i = 0, buf = '', finished = false;
+    const sock = tls.connect({ host: SMTP_HOST, port: SMTP_PORT, servername: SMTP_HOST });
+    const fail = err => { if (finished) return; finished = true; clearTimeout(timer); try { sock.destroy(); } catch {} reject(err); };
+    const timer = setTimeout(() => fail(new Error(`SMTP timeout talking to ${SMTP_HOST}:${SMTP_PORT}`)), 25000);
+    sock.on('error', fail);
+    sock.on('data', chunk => {
+      buf += chunk.toString('utf8');
+      let nl;
+      while ((nl = buf.indexOf('\r\n')) !== -1) {
+        const line = buf.slice(0, nl); buf = buf.slice(nl + 2);
+        if (finished) return;
+        if (/^\d{3}-/.test(line)) continue; /* multiline reply — keep reading */
+        const step = steps[i];
+        if (!step) continue;
+        const code = Number(line.slice(0, 3));
+        if (code !== step.expect) return fail(new Error(`${SMTP_HOST} said: ${line.trim() || '(empty reply)'}`));
+        i++;
+        sock.write(step.send());
+        if (step.done) { finished = true; clearTimeout(timer); sock.end(); resolve(true); }
+      }
+    });
+  });
+}
+
+async function resendSend(to, subject, html, text, replyTo, attachments) {
+  const res = await fetch(`${RESEND_BASE}/emails`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: `BookIt <${MAIL_FROM}>`, to: [to], subject, html, text,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+      ...(attachments && attachments.length ? { attachments: attachments.map(a => ({ filename: a.filename, content: a.buffer.toString('base64') })) } : {})
+    }),
+    signal: AbortSignal.timeout(20000)
+  });
+  if (!res.ok) {
+    let msg = `Resend API ${res.status}`;
+    try { const j = await res.json(); if (j && j.message) msg += `: ${j.message}`; } catch {}
+    throw new Error(msg);
+  }
+  return true;
+}
+
+function emailHtml(heading, bodyHtml, ctaText, ctaUrl) {
+  const btn = (ctaText && ctaUrl) ? `
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px auto 8px;"><tr><td style="background:#0E6B62;border-radius:999px;">
+<a href="${ctaUrl}" style="display:inline-block;padding:13px 30px;color:#ffffff;font-weight:700;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:15px;">${ctaText}</a>
+</td></tr></table>
+<p style="font-size:12px;color:#7d8f96;text-align:center;margin:0;">Button not working? Paste this into your browser:<br>
+<a href="${ctaUrl}" style="color:#0E6B62;word-break:break-all;">${ctaUrl}</a></p>` : '';
+  return `<!DOCTYPE html>
+<html lang="en-AU"><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#FAF6F0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF6F0;padding:28px 12px;"><tr><td align="center">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #E7DFD4;border-radius:18px;">
+<tr><td style="padding:30px 34px 24px;font-family:Arial,Helvetica,sans-serif;color:#17313A;">
+<div style="font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:20px;">b<span style="color:#0E6B62;">o</span><span style="color:#F5B841;">o</span>kit <span style="color:#0E6B62;">&#10003;</span></div>
+<h1 style="font-size:20px;margin:0 0 14px;">${heading}</h1>
+<div style="font-size:15px;line-height:1.65;color:#3E5A64;">${bodyHtml}</div>
+${btn}
+</td></tr>
+<tr><td style="padding:18px 34px 26px;border-top:1px solid #F0EAE0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#7d8f96;line-height:1.6;">
+BookIt &middot; operated by Disability &amp; Mental Health Care Pty Ltd<br>
+ABN 19 658 578 575 &middot; Registered NDIS Provider 4-LO5XNY0<br>
+You&#39;re receiving this because of activity on your BookIt account.
+</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
+function sendMail(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo, attachments) {
+  const dest = String(to || '').trim().toLowerCase();
+  if (!dest || dest.endsWith('@demo.bookit.life')) return Promise.resolve('skipped-demo');
+  const html = emailHtml(heading, bodyHtml, ctaText, ctaUrl);
+  const text = bodyHtml.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>\s*<p[^>]*>/gi, '\n\n').replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&middot;/g, '·').trim()
+    + (ctaUrl ? `\n\n${ctaText}: ${ctaUrl}` : '')
+    + '\n\n— BookIt · Disability & Mental Health Care Pty Ltd · ABN 19 658 578 575';
+  if (!EMAIL_ON) { console.log(`[email off] '${subject}' → ${dest}${ctaUrl ? ' · link: ' + ctaUrl : ''}${attachments && attachments.length ? ' · attachments: ' + attachments.map(a => a.filename).join(',') : ''}`); return Promise.resolve('skipped-off'); }
+  const transport = RESEND_KEY ? resendSend : smtpSend;
+  return transport(dest, subject, html, text, replyTo, attachments).then(
+    ok => { console.log(`[email] sent '${subject}' → ${dest}`); return ok; },
+    err => { console.error(`[email] FAILED '${subject}' → ${dest}: ${err.message}`); throw err; }
+  );
+}
+
+function baseUrl(req) {
+  if (APP_URL) return APP_URL;
+  const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`).split(',')[0].trim();
+  return `${proto}://${host}`;
+}
+
+/* signed, expiring email tokens (verify / reset) */
+function makeEmailToken(kind, uid, ttlMs, extra = '') {
+  const exp = Date.now() + ttlMs;
+  const base = `${kind}.${uid}.${exp}`;
+  return `${base}.${sign(`${base}.${extra}`)}`;
+}
+function readEmailToken(kind, token, extraFor) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 4 || parts[0] !== kind) return null;
+  const [k, uid, exp, sig] = parts;
+  if (!/^\d+$/.test(uid) || !/^\d+$/.test(exp)) return null;
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(uid));
+  if (!u) return null;
+  const extra = extraFor ? extraFor(u) : '';
+  const expected = sign(`${k}.${uid}.${exp}.${extra}`);
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  if (Number(exp) < Date.now()) return null;
+  return u;
+}
+function sendVerifyEmail(req, u) {
+  const url2 = `${baseUrl(req)}/verify-email?token=${makeEmailToken('v', u.id, 7 * 864e5)}`;
+  return sendMail(u.email, 'Confirm your email — BookIt',
+    `Welcome to BookIt, ${firstName(u.name)}!`,
+    `<p>Your account is live. One quick thing — press the button below so we know this address is really yours. That's what keeps password resets and booking updates flowing to the right inbox.</p><p>The link works for 7 days.</p>`,
+    'Confirm my email', url2);
+}
+
+function clean(v, max = 300) { return String(v ?? '').trim().slice(0, max); }
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/* naive rate limiter for auth endpoints */
+const hits = new Map();
+function limited(ip, key, max = 25, windowMs = 10 * 60e3) {
+  const k = `${ip}:${key}`;
+  const rec = hits.get(k) || { n: 0, reset: Date.now() + windowMs };
+  if (Date.now() > rec.reset) { rec.n = 0; rec.reset = Date.now() + windowMs; }
+  rec.n++;
+  hits.set(k, rec);
+  return rec.n > max;
+}
+
+/* ---------- seed ---------- */
+function seed() {
+  if (process.env.SEED_DEMO === 'off') return; /* set after launch so a fresh DB never re-seeds demo data */
+  const count = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
+  if (count > 0) return;
+  const demoWorkers = [
+    { name: 'Sarah M.', email: 'sarah@demo.bookit.life', suburb: 'Parramatta NSW', color: '#0E6B62', exp: '6 yrs experience', langs: 'English, Auslan (basic)', services: ['community','personal-care','transport'], days: [1,1,1,0,1,0,0], bio: 'Former youth worker who loves footy, board games and getting out and about. Patient, punctual and big on routines that stick.', shifts: 112, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Police check (transport)'] },
+    { name: 'Daniel O.', email: 'daniel@demo.bookit.life', suburb: 'Blacktown NSW', color: '#D94F32', exp: '4 yrs experience', langs: 'English, Samoan', services: ['employment','community','daily-tasks'], days: [1,1,0,1,1,1,0], bio: 'Supports several clients in open employment. Great with interview nerves, workplace routines and building confidence on the job.', shifts: 87, rating: 4.8, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
+    { name: 'Priya S.', email: 'priya@demo.bookit.life', suburb: 'Liverpool NSW', color: '#7A4FBF', exp: '8 yrs experience', langs: 'English, Hindi, Tamil', services: ['personal-care','household','daily-tasks'], days: [1,0,1,1,1,0,1], bio: 'Gentle, thorough and endlessly cheerful. Loves cooking with clients — her butter chicken lesson is legendary.', shifts: 203, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Cert III Individual Support'] },
+    { name: 'Tom H.', email: 'tom@demo.bookit.life', suburb: 'Penrith NSW', color: '#1C7C43', exp: '3 yrs experience', langs: 'English', services: ['transport','community','household'], days: [0,1,1,1,0,1,1], bio: 'Drives a big, comfy wagon and knows every accessible café in the west. Happy to help with errands, gym runs and game day.', shifts: 64, rating: 4.9, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR','Comprehensive car insurance'] },
+    { name: 'Amara W.', email: 'amara@demo.bookit.life', suburb: 'Bankstown NSW', color: '#B0468A', exp: '5 yrs experience', langs: 'English, Arabic', services: ['personal-care','daily-tasks','community'], days: [1,1,1,1,1,0,0], bio: 'Specialises in morning routines and building independence at home. Calm, respectful and a great listener.', shifts: 145, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Manual handling training'] },
+    { name: 'Liam C.', email: 'liam@demo.bookit.life', suburb: 'Chatswood NSW', color: '#3E5A64', exp: '2 yrs experience', langs: 'English, Mandarin', services: ['employment','transport','community'], days: [1,0,1,0,1,1,1], bio: 'Uni student and part-time barista. Brilliant with tech, public transport training and finding free things to do on weekends.', shifts: 41, rating: 4.7, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
+    { name: 'Grace N.', email: 'grace@demo.bookit.life', suburb: 'Newtown NSW', color: '#C2542B', exp: '7 yrs experience', langs: 'English, Vietnamese', services: ['household','daily-tasks','personal-care'], days: [1,1,0,1,1,1,0], bio: 'Runs a tight ship: sparkling kitchens, folded laundry and meal-prepped fridges. Also a certified plant whisperer.', shifts: 178, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR'] },
+    { name: 'Noah B.', email: 'noah@demo.bookit.life', suburb: 'Campbelltown NSW', color: '#0A544D', exp: '5 yrs experience', langs: 'English', services: ['community','employment','daily-tasks'], days: [0,1,1,1,1,0,1], bio: 'Ex-tradie who now supports young blokes into apprenticeships. Practical, straight-up and great on a worksite or at pub trivia.', shifts: 96, rating: 4.8, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','White Card'] },
+    { name: 'Isabella R.', email: 'isabella@demo.bookit.life', suburb: 'Hornsby NSW', color: '#6B8E23', exp: '4 yrs experience', langs: 'English, Spanish', services: ['personal-care','community','household'], days: [1,1,1,0,0,1,1], bio: 'Warm, energetic and music-obsessed. Supports clients to gigs, choir and everything in between.', shifts: 88, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR'] },
+    { name: 'Zoe T.', email: 'zoe@demo.bookit.life', suburb: 'Ryde NSW', color: '#8a6d00', exp: '9 yrs experience', langs: 'English, Auslan (fluent)', services: ['daily-tasks','personal-care','employment'], days: [1,1,1,1,1,1,0], bio: 'Fluent in Auslan with a decade in disability support. Loves teaching cooking, budgeting and travel skills that last a lifetime.', shifts: 260, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Cert IV Disability'] },
+    { name: 'Kai M.', email: 'kai@demo.bookit.life', suburb: 'Brisbane QLD', color: '#2F6690', exp: '3 yrs experience', langs: 'English, Te Reo Māori', services: ['community','transport','household'], days: [0,1,1,1,1,1,0], bio: 'Surf-mad and endlessly upbeat. Supports beach days, park runs and community groups across Brisbane.', shifts: 55, rating: 4.8, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR'] },
+    { name: 'Elena V.', email: 'elena@demo.bookit.life', suburb: 'Melbourne VIC', color: '#5D3FD3', exp: '6 yrs experience', langs: 'English, Greek', services: ['personal-care','daily-tasks','community'], days: [1,1,0,1,1,0,1], bio: 'Melbourne through and through: markets, galleries and the best souvlaki. Experienced with complex routines and hoists.', shifts: 132, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (VIC)','First Aid & CPR','Manual handling training'] }
+  ];
+  const DEMO_IDENT = {
+    'sarah@demo.bookit.life':    ['female', ['Footy', 'Board games', 'Getting outdoors']],
+    'daniel@demo.bookit.life':   ['male', ['Rugby league', 'Cooking', 'Music']],
+    'priya@demo.bookit.life':    ['female', ['Cooking', 'Gardening', 'Cricket']],
+    'tom@demo.bookit.life':      ['male', ['Fishing', 'Road trips', 'Gaming']],
+    'amara@demo.bookit.life':    ['female', ['Art', 'Baking', 'Swimming']],
+    'liam@demo.bookit.life':     ['male', ['Basketball', 'Tech & gaming', 'Languages']],
+    'grace@demo.bookit.life':    ['female', ['Gardening', 'Op-shopping', 'Cooking']],
+    'noah@demo.bookit.life':     ['male', ['Surfing', 'Fitness', 'Volunteering']],
+    'isabella@demo.bookit.life': ['female', ['Dance', 'Movies', 'Animals']],
+    'zoe@demo.bookit.life':      ['female', ['Auslan community', 'Theatre', 'Bushwalking']],
+    'kai@demo.bookit.life':      ['non-binary', ['Music', 'Kapa haka', 'Photography']],
+    'elena@demo.bookit.life':    ['female', ['Cooking', 'History', 'Chess']]
+  };
+  const insUser = db.prepare('INSERT INTO users (role, name, email, pass, suburb, created) VALUES (?,?,?,?,?,?)');
+  const insProf = db.prepare('INSERT INTO worker_profiles (user_id, bio, services, langs, exp, color, rating, shifts, checks, days) VALUES (?,?,?,?,?,?,?,?,?,?)');
+  const demoPass = hashPassword('demo1234');
+  /* Demo profiles carry real document rows rather than the free-text `checks`
+     list they used to, so the demo actually demonstrates the machinery: every
+     shield on a demo profile traces to a verified document, exactly as it will
+     for a real worker. The verification note says "demo data" in as many words
+     — a demonstration should never look like evidence. */
+  const CRED_KEY = { 'NDIS Worker Screening': 'ndis-screening', 'WWCC (NSW)': 'wwcc', 'WWCC (VIC)': 'wwcc',
+    'First Aid & CPR': 'first-aid', 'NDIS Orientation Module': 'ndis-orientation', 'Police check (transport)': 'police-check',
+    'Cert III Individual Support': 'cert3-support', 'Cert IV Disability': 'cert4-disability',
+    'Manual handling training': 'manual-handling', 'White Card': 'qualification',
+    'Comprehensive car insurance': 'other' };
+  const insDoc = db.prepare(`INSERT INTO worker_docs (worker_id, doc_type, label, expiry_date, uploaded_at,
+    verified_at, verified_by, verify_method, verify_note) VALUES (?,?,?,?,?,?,?,?,?)`);
+  const inThreeYears = (() => { const d = new Date(); d.setFullYear(d.getFullYear() + 3); return d.toISOString().slice(0, 10); })();
+  for (const w of demoWorkers) {
+    const r = insUser.run('worker', w.name, w.email, demoPass, w.suburb, now());
+    const uid = Number(r.lastInsertRowid);
+    insProf.run(uid, w.bio, JSON.stringify(w.services), w.langs, w.exp, w.color, w.rating, w.shifts, JSON.stringify(w.checks), JSON.stringify(w.days));
+    for (const label of w.checks) {
+      insDoc.run(uid, CRED_KEY[label] || 'other', label, inThreeYears, now(), now(), 'BookIt (demo seed)',
+        'sighted-original', 'Demo data — this is a fictional profile, not a real credential.');
+    }
+    db.prepare(`UPDATE worker_profiles SET screening_status = 'cleared', screening_status_at = ?, screening_status_by = 'BookIt (demo seed)',
+      screening_source = 'Demo data — not a real clearance', banning_result = 'clear', banning_checked_at = ?,
+      banning_aged_result = 'clear', banning_aged_at = ?, banning_aged_source = 'Demo data — register not actually checked',
+      banning_acqsc_result = 'clear', banning_acqsc_at = ?, banning_acqsc_source = 'Demo data — register not actually checked',
+      banning_checked_by = 'BookIt (demo seed)', banning_source = 'Demo data — register not actually checked' WHERE user_id = ?`)
+      .run(now(), now(), now(), now(), uid);
+  }
+  for (const [em, [g, ints]] of Object.entries(DEMO_IDENT)) {
+    db.prepare(`UPDATE worker_profiles SET gender = ?, interests = ?
+      WHERE user_id = (SELECT id FROM users WHERE email = ?)`).run(g, JSON.stringify(ints), em);
+  }
+  insUser.run('participant', 'Demo Participant', 'demo@demo.bookit.life', demoPass, 'Wyong NSW', now());
+  db.exec("UPDATE users SET verified = 1 WHERE email LIKE '%@demo.bookit.life'");
+  console.log('Seeded 12 demo workers (…@demo.bookit.life / demo1234) and demo@demo.bookit.life / demo1234');
+}
+seed();
+
+/* ---------- data access ---------- */
+/* Note what is NOT here any more: the `checks` column. It was seeded free text
+   — "NDIS Worker Screening (in progress)" — that nothing ever updated from the
+   documents actually on file, and the front end drew a verification shield
+   beside every line of it. That is exactly the claim 0137's display condition
+   is about, so it is gone. What a participant now sees is derived, every time,
+   from documents a human has verified. If nobody has checked it, it does not
+   appear. */
+function publicWorker(row) {
+  const v = publicVerification(row.user_id, row.email);
+  return {
+    id: row.user_id, name: row.name, suburb: row.suburb, color: row.color,
+    exp: row.exp, langs: row.langs, bio: row.bio,
+    gender: row.gender || '', interests: safeJson(row.interests, []),
+    services: JSON.parse(row.services),
+    checks: v.checks, screening: v.screening, banning: v.banning, registers: v.registers, demo: v.demo,
+    days: JSON.parse(row.days), rating: row.rating, shifts: row.shifts,
+    photo: row.photo ? `/photos/${row.user_id}?v=${encodeURIComponent(row.photo_at || '')}` : null
+  };
+}
+/* live review aggregates override the seeded rating/shift numbers once real reviews exist */
+function reviewAgg(workerId) {
+  return db.prepare('SELECT COUNT(*) AS n, AVG(rating) AS avg FROM reviews WHERE worker_id = ? AND published = 1').get(workerId);
+}
+function withReviewAgg(w) {
+  const agg = reviewAgg(w.id);
+  if (agg.n) { w.rating = Math.round(agg.avg * 10) / 10; w.shifts = agg.n; }
+  return w;
+}
+/* `asId` is the side of the thread being read: the reader's own id normally,
+   the participant's id when a coordinator is reading for them. Derived from
+   the conversation row rather than from a role string, because "the other
+   person" is a fact about the row and role was only ever a proxy for it. */
+function convoForUser(user, convoRow, asId) {
+  const meId = asId || user.id;
+  const otherId = meId === convoRow.participant_id ? convoRow.worker_id : convoRow.participant_id;
+  /* Ours if I wrote it, or if the person I am acting for wrote it. The old
+     test was sender_id === user.id, which drew a participant's own words in
+     the worker's colours the moment their coordinator opened the thread. */
+  const ours = sid => sid === user.id || sid === meId;
+  const other = db.prepare("SELECT u.id, u.name, u.suburb, COALESCE(p.color, '#0E6B62') AS color FROM users u LEFT JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(otherId);
+  const last = db.prepare('SELECT body, sender_id, created, doc_name FROM messages WHERE convo_id = ? ORDER BY id DESC LIMIT 1').get(convoRow.id);
+  const unread = db.prepare('SELECT COUNT(*) AS n FROM messages WHERE convo_id = ? AND sender_id NOT IN (?, ?) AND read_at IS NULL').get(convoRow.id, user.id, meId).n;
+  return {
+    id: convoRow.id,
+    other: { id: other.id, name: other.name, suburb: other.suburb, color: other.color },
+    /* a file sent with no covering note would show as a blank row in the
+       inbox, which reads as a bug rather than as a document */
+    last: last ? { body: last.body || (last.doc_name ? `\u{1F4CE} ${last.doc_name}` : ''), mine: ours(last.sender_id), created: last.created } : null,
+    unread
+  };
+}
+function memberOf(user, convoId) {
+  const c = db.prepare('SELECT * FROM conversations WHERE id = ?').get(convoId);
+  if (!c) return null;
+  if (c.participant_id === user.id || c.worker_id === user.id) { c.as_id = user.id; return c; }
+  /* A coordinator holding `messages` stands on the participant's side of the
+     thread. as_id says whose side that is; it is never used as the author of
+     anything, only as the answer to "who is the other person here". */
+  if (user.role === 'coordinator' && linkAllows(user.id, c.participant_id, 'messages')) {
+    c.as_id = c.participant_id;
+    return c;
+  }
+  return null;
+}
+
+/* ======================================================================
+   v38 helpers
+   ====================================================================== */
+
+/* --- 8. the kilometre.
+   0108 Assist-Travel/Transport is one of the six registration groups and
+   until now there was no field anywhere in BookIt that could hold a
+   kilometre. The NDIS price limit for provider travel — transporting a
+   participant in the worker's own car — is $1.00/km for ordinary vehicles
+   under the 2026-27 arrangements; BookIt pays the ATO cents-per-kilometre
+   rate to the worker, which is the higher of the two and the reason a
+   worker will actually agree to drive. Both are settings, not constants
+   in the source, because both move on 1 July. --- */
+const KM_RATE_CHARGE = () => Number(setting('km_rate_charge', '1.00')) || 1.00;
+const KM_RATE_PAY    = () => Number(setting('km_rate_pay', '0.88')) || 0.88;
+const KM_MAX_SHIFT   = 150;
+/* Commuting is not billable and never has been. Stating it here, in the
+   code that does the sum, is the only place it cannot be forgotten. */
+const KM_RULE = 'Kilometres are the distance travelled with the participant during the shift, or on an errand for them. The trip from home to the shift and back again is a commute — it is not claimable and must not be entered.';
+
+function kmLines(b) {
+  const km = Number(b.km || 0);
+  if (!(km > 0)) return null;
+  const charge = Math.round(km * (b.km_rate || KM_RATE_CHARGE()) * 100) / 100;
+  return { km, rate: b.km_rate || KM_RATE_CHARGE(), total: charge, from: b.km_from || '', to: b.km_to || '' };
+}
+function applyKm(bookingId, km, from, to) {
+  const n = Math.round(Math.max(0, Math.min(KM_MAX_SHIFT, Number(km) || 0)) * 10) / 10;
+  const rate = KM_RATE_CHARGE();
+  const total = Math.round(n * rate * 100) / 100;
+  db.prepare('UPDATE bookings SET km = ?, km_from = ?, km_to = ?, km_rate = ?, km_total = ? WHERE id = ?')
+    .run(n, clean(from, 80), clean(to, 80), rate, total, bookingId);
+  return { km: n, rate, total };
+}
+
+/* --- 7. the approval clock.
+   Hireup publishes no deadline at all, so a worker's pay depends on a
+   participant remembering. One published number, in one place, used by the
+   email, the screen and the sweep, so all three can never disagree. --- */
+const APPROVAL_NUDGE_DAYS = 3;
+const APPROVAL_DEEM_DAYS  = 7;
+/* One answer to "when did this window open", so the screen, the email and
+   the sweep cannot disagree about it. Falls back through completed_at to the
+   shift date for anything written before the column existed. */
+const approvalFrom = b => Date.parse(b.approval_from || b.completed_at || b.date);
+const APPROVAL_RULE = `You have ${APPROVAL_DEEM_DAYS} days from the end of a shift to approve the timesheet or ask a question about it. After ${APPROVAL_DEEM_DAYS} days it is approved automatically so the worker is paid on time. Approving is not the same as agreeing the shift was perfect — you can raise a concern at any time, before or after.`;
+
+/* --- 13. the cancellation window.
+   The NDIS short-notice rule is 7 clear days for personal care and
+   community access, 2 clear business days for everything else. BookIt
+   charges nothing for a cancellation outside the window, and the full
+   shift inside it — which is the published NDIS position, and the reason
+   a worker can afford to hold a Tuesday morning open. --- */
+const CANCEL_HOURS = { 'personal-care': 168, 'community': 168, 'daily-tasks': 168, 'employment': 48, 'household': 48, 'transport': 48 };
+/* The NDIA's bulk payment file has two columns for a cancellation and rejects
+   the row if either is missing: ClaimType CANC, and one of four reason codes.
+   The codes are worded "no show due to…" because the template does not
+   distinguish a cancellation from a no-show, so a short-notice cancellation
+   for health reasons is claimed NSDH.
+
+   The participant picks one of four plain-English options when they cancel.
+   Anything they skip is NSDO — "other" — which is always true and never
+   overstates what we were actually told. Guessing a health reason to make a
+   line look tidier would be a false claim.
+
+   Codes confirmed against two independent NDIS practice-management vendors'
+   published tables, July 2026. Re-check against the NDIA's own Bulk Payment
+   Request guide before each claim cycle: this is the one field in the file
+   that cannot be verified from inside the product. */
+const CANCEL_CODES = {
+  NSDH: 'Not well enough on the day',
+  NSDF: 'Something came up at home',
+  NSDT: 'Transport fell through',
+  NSDO: 'Another reason'
+};
+const cancelCode = v => (CANCEL_CODES[String(v || '').toUpperCase()] ? String(v).toUpperCase() : 'NSDO');
+function noticeHours(b) {
+  try {
+    const startAt = new Date(`${b.date}T${b.start}:00`);
+    return Math.round(((startAt.getTime() - Date.now()) / 36e5) * 10) / 10;
+  } catch { return null; }
+}
+function shortNotice(b) {
+  const h = noticeHours(b);
+  if (h === null) return { short: false, hours: null, window: null };
+  const w = CANCEL_HOURS[b.service] || 48;
+  return { short: h < w, hours: h, window: w };
+}
+
+/* --- 13. what counts as money, in one place. ---
+   A delivered shift is money. So is a shift the participant cancelled inside
+   the published notice window, because that is the entire point of publishing
+   a window: the worker is paid in full, the participant is charged in full,
+   and the claim goes to the NDIA flagged as a cancellation.
+
+   applyInvoice() has always written the price onto those rows. Nothing read
+   them. Every downstream question asked `status = 'completed'`, so the charge
+   existed in the database and nowhere a human could see it. Three different
+   people were wronged by one missing predicate: the participant was charged
+   for something absent from their statement, the provider paid a worker and
+   never claimed it back, and the worker was told in writing "you are paid in
+   full" and left off the payroll run.
+
+   A provider stand-down never sets short_notice — only the two participant-side
+   cancel branches do — so "when we cancel, nobody pays" falls out of this
+   predicate for free, with no special case anywhere.
+
+   Where this must NOT be used: rollingHours (a tier is earned by working, not
+   by being cancelled on), the approval sweep (a cancellation has no timesheet
+   to approve), the admin `completed` count (it counts delivered shifts), and
+   every "have we worked together" test. --- */
+const billable = (a = 'b') =>
+  `(${a}.status = 'completed' OR (${a}.status = 'cancelled' AND COALESCE(${a}.short_notice, 0) = 1))`;
+
+/* --- 1. acting for somebody else.
+   A participant acts for themselves. A coordinator acts for whichever of
+   their clients the request names, and only where the link is active and
+   the scope was granted. Everything else is a 403 — there is no partial
+   answer and no silent fall-back to the coordinator's own account. --- */
+const LINK_SCOPES = ['bookings', 'workers', 'plan', 'messages', 'documents', 'invoices'];
+const SCOPE_LABELS = {
+  bookings: 'Book and manage shifts',
+  workers: 'See and change the support team',
+  plan: 'Read and update the support plan',
+  messages: 'Read and send messages',
+  documents: 'See and upload documents',
+  invoices: 'See invoices and statements'
+};
+function activeLink(coordId, participantId) {
+  return db.prepare("SELECT * FROM account_links WHERE coordinator_id = ? AND participant_id = ? AND status = 'active'")
+    .get(Number(coordId), Number(participantId)) || null;
+}
+function linkScopes(l) { return safeJson(l && l.scopes, []); }
+/* "may this coordinator do <scope> for this participant" in one call, so no
+   route has to remember the argument order of activeLink. */
+function linkAllows(coordId, participantId, scope) {
+  const l = activeLink(coordId, participantId);
+  return !!(l && linkScopes(l).includes(scope));
+}
+function forHeader(req) {
+  const h = req.headers['x-bookit-for'];
+  if (h) return Number(h) || 0;
+  try { return Number(new URL(req.url, 'http://x').searchParams.get('for')) || 0; } catch { return 0; }
+}
+/* Returns the participant this request is about, or null if the caller may
+   not act for them. `self` tells a route whether to say "you" or "Bernard". */
+function actFor(req, user, scope) {
+  if (!user) return null;
+  if (user.role === 'participant') {
+    return { id: user.id, name: user.name, email: user.email, self: true, actor: user, link: null };
+  }
+  if (user.role !== 'coordinator') return null;
+  const pid = forHeader(req);
+  if (!pid) return null;
+  const l = activeLink(user.id, pid);
+  if (!l) return null;
+  if (scope && !linkScopes(l).includes(scope)) return null;
+  const p = db.prepare('SELECT id, name, email, suburb, plan, ndis_number, pm_email, hi_flags FROM users WHERE id = ?').get(pid);
+  if (!p) return null;
+  p.hi_flags = safeJson(p.hi_flags, []);
+  return Object.assign(p, { self: false, actor: user, link: l });
+}
+/* Every action a delegate takes, written where the participant can read it
+   back in plain words. Self-actions are not logged — a person doing their
+   own booking is not an event. */
+function logDelegate(pers, action, detail, ref) {
+  if (!pers || pers.self || !pers.actor) return;
+  db.prepare('INSERT INTO delegate_log (participant_id, actor_id, actor_name, action, detail, ref, at) VALUES (?,?,?,?,?,?,?)')
+    .run(pers.id, pers.actor.id, pers.actor.name, action, detail || '', String(ref || ''), now());
+}
+/* logDelegate deliberately says nothing when the participant is acting as
+   themselves &mdash; a diary full of "Bee booked a shift" is noise. The access
+   page is the opposite case: "you gave Jo access on 3 March" is exactly what
+   somebody needs to see, so grants and revocations go through this one. */
+function logAccess(participantId, actor, action, detail, ref) {
+  db.prepare('INSERT INTO delegate_log (participant_id, actor_id, actor_name, action, detail, ref, at) VALUES (?,?,?,?,?,?,?)')
+    .run(Number(participantId), actor ? actor.id : 0, actor ? actor.name : 'System', action, detail || '', String(ref || ''), now());
+}
+/* The other direction. The client list answers "whose accounts do I hold";
+   a reminder needs "who can press approve on THIS one", which is a different
+   question and the reason approvals used to sit for a week with a participant
+   and a coordinator each assuming the other had it. */
+function coordsFor(participantId, scope) {
+  return db.prepare(`SELECT l.scopes, u.id, u.name, u.email
+    FROM account_links l JOIN users u ON u.id = l.coordinator_id
+    WHERE l.participant_id = ? AND l.status = 'active'`).all(Number(participantId))
+    .filter(r => !scope || safeJson(r.scopes, []).includes(scope));
+}
+function coordClients(coordId) {
+  return db.prepare(`SELECT l.*, u.name, u.suburb, u.email
+    FROM account_links l JOIN users u ON u.id = l.participant_id
+    WHERE l.coordinator_id = ? AND l.status = 'active' ORDER BY u.name`).all(Number(coordId))
+    .map(r => Object.assign(r, { scopes: safeJson(r.scopes, []) }));
+}
+
+/* --- 17. thirty-two emails, none of them optional until now.
+   Some genuinely cannot be: a password reset, an expiring screening
+   clearance, a safeguarding alert. Saying which is which in one table is
+   more honest than an unsubscribe link that quietly does nothing. --- */
+const MAIL_KINDS = {
+  bookings:   { label: 'Booking requests, confirmations and cancellations', optional: true },
+  timesheets: { label: 'Timesheet approvals and reminders', optional: true },
+  messages:   { label: 'Someone sent you a message', optional: true },
+  cover:      { label: 'Cover offers and standby shifts', optional: true },
+  jobs:       { label: 'New jobs near you, and applications to your job', optional: true },
+  rewards:    { label: 'Reward tier movement', optional: true },
+  news:       { label: 'Product news from BookIt', optional: true },
+  security:   { label: 'Sign-in, password and account security', optional: false },
+  compliance: { label: 'Documents, screening and safeguarding', optional: false }
+};
+function mailPrefs(userId) {
+  const r = db.prepare('SELECT prefs FROM notification_prefs WHERE user_id = ?').get(Number(userId));
+  let p = {};
+  try { p = r ? JSON.parse(r.prefs) : {}; } catch { p = {}; }
+  const out = {};
+  for (const k of Object.keys(MAIL_KINDS)) out[k] = MAIL_KINDS[k].optional ? p[k] !== false : true;
+  return out;
+}
+function setMailPrefs(userId, patch) {
+  const cur = mailPrefs(userId);
+  for (const k of Object.keys(MAIL_KINDS)) {
+    if (MAIL_KINDS[k].optional && k in patch) cur[k] = !!patch[k];
+  }
+  db.prepare(`INSERT INTO notification_prefs (user_id, prefs, updated) VALUES (?,?,?)
+    ON CONFLICT(user_id) DO UPDATE SET prefs = excluded.prefs, updated = excluded.updated`)
+    .run(Number(userId), JSON.stringify(cur), now());
+  return cur;
+}
+/* sendMail with an opt-out check in front of it. Anything mandatory, or
+   anything with no kind at all, goes out exactly as before. */
+function notify(userId, kind, to, subject, heading, html, ctaText, ctaUrl, replyTo, attachments) {
+  const k = MAIL_KINDS[kind];
+  if (k && k.optional && userId && !mailPrefs(userId)[kind]) {
+    console.log(`[email] suppressed '${subject}' → user ${userId} (opted out of ${kind})`);
+    return Promise.resolve('opted-out');
+  }
+  return sendMail(to, subject, heading, html, ctaText, ctaUrl, replyTo, attachments);
+}
+
+/* ==========================================================================
+   A QR CODE, WITH NOTHING INSTALLED.
+   Two-factor authentication that asks somebody to hand-type
+   JBSWY3DPEHPK3PXP into a phone is two-factor authentication almost nobody
+   switches on. The barcode is the feature. Every library that draws one is
+   an npm dependency, and this server deliberately has none, so it is drawn
+   here: byte mode, error correction M, versions 1 to 10, all eight masks
+   scored the way the standard says to score them. An otpauth:// URI is
+   about 110 characters, which fits inside version 6.
+   ========================================================================== */
+
+/* [total codewords, EC codewords per block, group-1 blocks, group-1 data,
+    group-2 blocks, group-2 data] at error-correction level M. */
+const QR_M = {
+  1: [26, 10, 1, 16, 0, 0], 2: [44, 16, 1, 28, 0, 0], 3: [70, 26, 1, 44, 0, 0],
+  4: [100, 18, 2, 32, 0, 0], 5: [134, 24, 2, 43, 0, 0], 6: [172, 16, 4, 27, 0, 0],
+  7: [196, 18, 4, 31, 0, 0], 8: [242, 22, 2, 38, 2, 39], 9: [292, 22, 3, 36, 2, 37],
+  10: [346, 26, 4, 43, 1, 44]
+};
+const QR_ALIGN = {
+  1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30],
+  6: [6, 34], 7: [6, 22, 38], 8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50]
+};
+
+/* GF(256) log tables, primitive polynomial 0x11d — built once at boot. */
+const QR_EXP = new Uint8Array(512), QR_LOG = new Uint8Array(256);
+(function () {
+  let x = 1;
+  for (let i = 0; i < 255; i++) { QR_EXP[i] = x; QR_LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; }
+  for (let i = 255; i < 512; i++) QR_EXP[i] = QR_EXP[i - 255];
+})();
+const qrMul = (a, b) => (a === 0 || b === 0) ? 0 : QR_EXP[QR_LOG[a] + QR_LOG[b]];
+
+function qrGenPoly(n) {
+  let g = [1];
+  for (let i = 0; i < n; i++) {
+    const next = new Array(g.length + 1).fill(0);
+    for (let j = 0; j < g.length; j++) {
+      next[j] ^= qrMul(g[j], 1);
+      next[j + 1] ^= qrMul(g[j], QR_EXP[i]);
+    }
+    g = next;
+  }
+  return g;
+}
+function qrEcc(data, n) {
+  const g = qrGenPoly(n);
+  const rem = new Array(data.length + n).fill(0);
+  for (let i = 0; i < data.length; i++) rem[i] = data[i];
+  for (let i = 0; i < data.length; i++) {
+    const c = rem[i];
+    if (!c) continue;
+    for (let j = 0; j < g.length; j++) rem[i + j] ^= qrMul(g[j], c);
+  }
+  return rem.slice(data.length);
+}
+
+/* BCH(15,5) for the format string and BCH(18,6) for the version string.
+   The remainder is shifted a bit at a time and reduced whenever it overflows
+   the generator's degree, which is the same long division as qrEcc above but
+   over GF(2) rather than GF(256). */
+function qrBch(v, poly, bits) {
+  let rem = v;
+  const overflow = 1 << (bits - 1);
+  for (let i = 0; i < bits; i++) rem = (rem << 1) ^ (((rem & overflow) ? 1 : 0) * poly);
+  return (v << bits) | (rem & ((1 << bits) - 1));
+}
+const qrFormatBits = mask => qrBch((0b00 << 3) | mask, 0x537, 10) ^ 0x5412;   /* 00 = EC level M */
+const qrVersionBits = version => qrBch(version, 0x1f25, 12);
+
+function qrEncode(text, forceMask) {
+  const bytes = Buffer.from(String(text), 'utf8');
+  let version = 0;
+  for (let v = 1; v <= 10; v++) {
+    const [, ec, g1, d1, g2, d2] = QR_M[v];
+    const dataCw = g1 * d1 + g2 * d2;
+    const countBits = v < 10 ? 8 : 16;
+    if (4 + countBits + bytes.length * 8 <= dataCw * 8) { version = v; break; }
+    void ec;
+  }
+  if (!version) throw new Error('Too much data for a version-10 QR code.');
+  const [, ecPer, g1, d1, g2, d2] = QR_M[version];
+  const dataCw = g1 * d1 + g2 * d2;
+  const countBits = version < 10 ? 8 : 16;
+
+  /* bit stream */
+  const bits = [];
+  const push = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1); };
+  push(0b0100, 4);
+  push(bytes.length, countBits);
+  for (const b of bytes) push(b, 8);
+  const capacity = dataCw * 8;
+  for (let i = 0; i < 4 && bits.length < capacity; i++) bits.push(0);
+  while (bits.length % 8) bits.push(0);
+  const pad = [0xec, 0x11];
+  let pi = 0;
+  while (bits.length < capacity) { push(pad[pi++ % 2], 8); }
+
+  const cw = [];
+  for (let i = 0; i < bits.length; i += 8) {
+    let b = 0;
+    for (let j = 0; j < 8; j++) b = (b << 1) | bits[i + j];
+    cw.push(b);
+  }
+
+  /* split into blocks, compute EC, interleave */
+  const blocks = [], eccs = [];
+  let at = 0;
+  for (let i = 0; i < g1; i++) { blocks.push(cw.slice(at, at + d1)); at += d1; }
+  for (let i = 0; i < g2; i++) { blocks.push(cw.slice(at, at + d2)); at += d2; }
+  for (const b of blocks) eccs.push(qrEcc(b, ecPer));
+  const out = [];
+  const maxData = Math.max(d1, d2 || 0);
+  for (let i = 0; i < maxData; i++) for (const b of blocks) if (i < b.length) out.push(b[i]);
+  for (let i = 0; i < ecPer; i++) for (const e of eccs) out.push(e[i]);
+
+  
+  /* --- module grid --- */
+  const size = 17 + version * 4;
+  const grid = Array.from({ length: size }, () => new Int8Array(size).fill(-1));   /* -1 = free */
+  const set = (r, c, v) => { if (r >= 0 && c >= 0 && r < size && c < size) grid[r][c] = v; };
+
+  const finder = (r0, c0) => {
+    for (let r = -1; r <= 7; r++) for (let c = -1; c <= 7; c++) {
+      const rr = r0 + r, cc = c0 + c;
+      if (rr < 0 || cc < 0 || rr >= size || cc >= size) continue;
+      const on = (r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
+                 (c >= 0 && c <= 6 && (r === 0 || r === 6)) ||
+                 (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+      set(rr, cc, on ? 1 : 0);
+    }
+  };
+  finder(0, 0); finder(0, size - 7); finder(size - 7, 0);
+
+  for (let i = 8; i < size - 8; i++) { set(6, i, i % 2 === 0 ? 1 : 0); set(i, 6, i % 2 === 0 ? 1 : 0); }
+
+  for (const r of QR_ALIGN[version]) for (const c of QR_ALIGN[version]) {
+    if ((r === 6 && c === 6) || (r === 6 && c === size - 7) || (r === size - 7 && c === 6)) continue;
+    for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+      const on = Math.max(Math.abs(dr), Math.abs(dc)) !== 1;
+      set(r + dr, c + dc, on ? 1 : 0);
+    }
+  }
+
+  set(size - 8, 8, 1);   /* the dark module */
+
+  /* reserve format + version areas so data placement skips them */
+  for (let i = 0; i <= 8; i++) { if (grid[8][i] === -1) set(8, i, 0); if (grid[i][8] === -1) set(i, 8, 0); }
+  for (let i = 0; i < 8; i++) { if (grid[8][size - 1 - i] === -1) set(8, size - 1 - i, 0); if (grid[size - 1 - i][8] === -1) set(size - 1 - i, 8, 0); }
+  const reserved = grid.map(row => Array.from(row, v => v !== -1));
+  if (version >= 7) {
+    for (let i = 0; i < 18; i++) {
+      const r = Math.floor(i / 3), c = i % 3;
+      reserved[size - 11 + c][r] = true; reserved[r][size - 11 + c] = true;
+      set(size - 11 + c, r, 0); set(r, size - 11 + c, 0);
+    }
+  }
+
+  /* data placement: two-module columns, right to left, zig-zagging */
+  let bi = 0, upward = true;
+  const dataBits = [];
+  for (const b of out) for (let i = 7; i >= 0; i--) dataBits.push((b >> i) & 1);
+  for (let col = size - 1; col > 0; col -= 2) {
+    if (col === 6) col--;                       /* the vertical timing line is not a data column */
+    for (let n = 0; n < size; n++) {
+      const row = upward ? size - 1 - n : n;
+      for (const c of [col, col - 1]) {
+        if (reserved[row][c]) continue;
+        grid[row][c] = bi < dataBits.length ? dataBits[bi] : 0;
+        bi++;
+      }
+    }
+    upward = !upward;
+  }
+
+  const MASKS = [
+    (r, c) => (r + c) % 2 === 0,
+    (r) => r % 2 === 0,
+    (r, c) => c % 3 === 0,
+    (r, c) => (r + c) % 3 === 0,
+    (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+    (r, c) => ((r * c) % 2) + ((r * c) % 3) === 0,
+    (r, c) => (((r * c) % 2) + ((r * c) % 3)) % 2 === 0,
+    (r, c) => (((r + c) % 2) + ((r * c) % 3)) % 2 === 0
+  ];
+
+  function withMask(maskNo) {
+    const g = grid.map((row, r) => Array.from(row, (v, c) => reserved[r][c] ? v : (MASKS[maskNo](r, c) ? v ^ 1 : v)));
+    /* format information, written twice: once around the top-left finder and
+       once split between the other two, so a damaged corner is survivable */
+    const fmt = qrFormatBits(maskNo);
+    for (let i = 0; i < 15; i++) {
+      const bit = (fmt >> i) & 1;
+      if (i <= 5) g[i][8] = bit;
+      else if (i === 6) g[7][8] = bit;
+      else if (i === 7) g[8][8] = bit;
+      else if (i === 8) g[8][7] = bit;
+      else g[8][14 - i] = bit;
+      if (i < 8) g[8][size - 1 - i] = bit;
+      else g[size - 15 + i][8] = bit;
+    }
+    g[size - 8][8] = 1;
+    if (version >= 7) {
+      const ver = qrVersionBits(version);
+      for (let i = 0; i < 18; i++) {
+        const bit = (ver >> i) & 1;
+        const r = Math.floor(i / 3), c = i % 3;
+        g[size - 11 + c][r] = bit;
+        g[r][size - 11 + c] = bit;
+      }
+    }
+    return g;
+  }
+
+  /* the four penalty rules, so the chosen mask is the one the standard would choose */
+  function penalty(g) {
+    let p = 0, dark = 0;
+    const runScan = (get) => {
+      for (let a = 0; a < size; a++) {
+        let run = 1;
+        for (let b = 1; b < size; b++) {
+          if (get(a, b) === get(a, b - 1)) run++;
+          else { if (run >= 5) p += 3 + (run - 5); run = 1; }
+        }
+        if (run >= 5) p += 3 + (run - 5);
+      }
+    };
+    runScan((r, c) => g[r][c]);
+    runScan((c, r) => g[r][c]);
+    for (let r = 0; r < size - 1; r++) for (let c = 0; c < size - 1; c++) {
+      const v = g[r][c];
+      if (v === g[r][c + 1] && v === g[r + 1][c] && v === g[r + 1][c + 1]) p += 3;
+    }
+    const A = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0], B = [0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1];
+    const lineHas = (get, a, start) => {
+      let hitA = true, hitB = true;
+      for (let k = 0; k < 11; k++) {
+        const v = get(a, start + k);
+        if (v !== A[k]) hitA = false;
+        if (v !== B[k]) hitB = false;
+      }
+      return (hitA ? 1 : 0) + (hitB ? 1 : 0);
+    };
+    for (let a = 0; a < size; a++) for (let s = 0; s + 11 <= size; s++) {
+      p += 40 * lineHas((x, y) => g[x][y], a, s);
+      p += 40 * lineHas((x, y) => g[y][x], a, s);
+    }
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) if (g[r][c]) dark++;
+    const pct = (dark * 100) / (size * size);
+    p += 10 * Math.floor(Math.abs(pct - 50) / 5);
+    return p;
+  }
+
+  if (forceMask != null) return withMask(forceMask);
+  let best = null, bestP = Infinity;
+  for (let mkNo = 0; mkNo < 8; mkNo++) {
+    const g = withMask(mkNo);
+    const pen = penalty(g);
+    if (pen < bestP) { bestP = pen; best = g; }
+  }
+  return best;
+}
+
+/* one <path>, one <rect>: about 3 KB, scales to any size, prints */
+function qrSvg(text, box = 8, quiet = 4) {
+  const g = qrEncode(text);
+  const n = g.length, dim = (n + quiet * 2) * box;
+  let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (g[r][c]) d += `M${(c + quiet) * box} ${(r + quiet) * box}h${box}v${box}h-${box}z`;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${dim}" height="${dim}" viewBox="0 0 ${dim} ${dim}" shape-rendering="crispEdges" role="img" aria-label="Set-up barcode for your authenticator app"><rect width="${dim}" height="${dim}" fill="#fff"/><path d="${d}" fill="#111"/></svg>`;
+}
+
+/* --- 9. TOTP, by hand.
+   RFC 6238 over RFC 4226, thirty lines, no dependency. The secret is
+   twenty random bytes in base32; the code is six digits on a thirty second
+   step; one step of drift either side is accepted, and the step that was
+   used is remembered so the same code cannot be replayed. --- */
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function b32encode(buf) {
+  let bits = 0, value = 0, out = '';
+  for (const byte of buf) {
+    value = (value << 8) | byte; bits += 8;
+    while (bits >= 5) { out += B32[(value >>> (bits - 5)) & 31]; bits -= 5; }
+  }
+  if (bits > 0) out += B32[(value << (5 - bits)) & 31];
+  return out;
+}
+function b32decode(str) {
+  let bits = 0, value = 0; const out = [];
+  for (const c of String(str).toUpperCase().replace(/[^A-Z2-7]/g, '')) {
+    value = (value << 5) | B32.indexOf(c); bits += 5;
+    if (bits >= 8) { out.push((value >>> (bits - 8)) & 255); bits -= 8; }
+  }
+  return Buffer.from(out);
+}
+function hotp(secretBuf, counter) {
+  const buf = Buffer.alloc(8);
+  buf.writeUInt32BE(Math.floor(counter / 4294967296), 0);
+  buf.writeUInt32BE(counter >>> 0, 4);
+  const h = crypto.createHmac('sha1', secretBuf).update(buf).digest();
+  const off = h[h.length - 1] & 15;
+  const bin = ((h[off] & 127) << 24) | (h[off + 1] << 16) | (h[off + 2] << 8) | h[off + 3];
+  return String(bin % 1e6).padStart(6, '0');
+}
+function totpCheck(secret, code, lastStep) {
+  const clean6 = String(code || '').replace(/\D/g, '');
+  if (clean6.length !== 6) return null;
+  const buf = b32decode(secret);
+  const step = Math.floor(Date.now() / 30000);
+  for (let d = -1; d <= 1; d++) {
+    const st = step + d;
+    if (lastStep && st <= lastStep) continue;
+    const want = hotp(buf, st);
+    if (want.length === clean6.length && crypto.timingSafeEqual(Buffer.from(want), Buffer.from(clean6))) return st;
+  }
+  return null;
+}
+function newRecoveryCodes(userId) {
+  db.prepare('DELETE FROM mfa_recovery WHERE user_id = ?').run(Number(userId));
+  const codes = [];
+  for (let i = 0; i < 10; i++) {
+    const c = crypto.randomBytes(5).toString('hex').toUpperCase().replace(/(.{5})/, '$1-');
+    codes.push(c);
+    db.prepare('INSERT INTO mfa_recovery (user_id, code_hash, created) VALUES (?,?,?)')
+      .run(Number(userId), sign(c), now());
+  }
+  return codes;
+}
+function useRecoveryCode(userId, code) {
+  const h = sign(String(code || '').trim().toUpperCase());
+  const row = db.prepare('SELECT id FROM mfa_recovery WHERE user_id = ? AND code_hash = ? AND used_at IS NULL').get(Number(userId), h);
+  if (!row) return false;
+  db.prepare('UPDATE mfa_recovery SET used_at = ? WHERE id = ?').run(now(), row.id);
+  return true;
+}
+function mfaOn(userId) {
+  const r = db.prepare('SELECT enabled FROM mfa WHERE user_id = ?').get(Number(userId));
+  return !!(r && r.enabled);
+}
+
+/* --- 9b. sessions, so "sign out everywhere" means something.
+   The cookie is still a signed value, not a database lookup on every
+   request — that stays fast. What changes is that every sign-in registers
+   a row, and a revoked row is checked before the cookie is trusted. --- */
+function registerSession(uid, sid, ip, ua) {
+  db.prepare('INSERT INTO sessions (user_id, sid, created, last_seen, ip, ua) VALUES (?,?,?,?,?,?)')
+    .run(Number(uid), sid, now(), now(), clean(ip, 60), clean(ua, 250));
+}
+function sessionRevoked(sid) {
+  const r = db.prepare('SELECT revoked_at FROM sessions WHERE sid = ?').get(sid);
+  return !!(r && r.revoked_at);
+}
+/* "Last active" is useful to five minutes, not to the second, and writing a
+   row on every single request to a SQLite file would make every page load
+   wait behind a write lock. The WHERE clause does the throttling, so the
+   common case is an UPDATE that matches nothing and returns immediately. */
+function touchSession(sid) {
+  try {
+    db.prepare('UPDATE sessions SET last_seen = ? WHERE sid = ? AND revoked_at IS NULL AND last_seen < ?')
+      .run(now(), sid, new Date(Date.now() - 5 * 60e3).toISOString());
+  } catch {}
+}
+function deviceName(ua) {
+  const u = String(ua || '');
+  const os = /iPhone|iPad/.test(u) ? 'iPhone or iPad' : /Android/.test(u) ? 'Android' : /Mac OS X/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : /Linux/.test(u) ? 'Linux' : 'Unknown device';
+  const br = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : /Firefox\//.test(u) ? 'Firefox' : 'a browser';
+  return `${br} on ${os}`;
+}
+
+/* --- 17b. a password that is already on a breach list.
+   No third-party API call, because that would send a hash of a customer's
+   password to somebody else's server. A short local corpus of the passwords
+   that actually turn up in credential-stuffing runs, plus the obvious
+   site-specific ones, catches the great majority at no privacy cost. --- */
+const WEAK_PASSWORDS = new Set(['password','password1','password12','password123','password1234','123456','1234567','12345678','123456789','1234567890','qwerty','qwerty123','abc123','111111','123123','iloveyou','admin','admin123','welcome','welcome1','monkey','dragon','letmein','football','baseball','sunshine','princess','superman','trustno1','passw0rd','p@ssword','p@ssw0rd','1q2w3e4r','zaq12wsx','qazwsx','654321','000000','555555','666666','777777','888888','999999','abcd1234','a1b2c3d4','changeme','secret','master','shadow','ashley','michael','jennifer','jordan','hunter','harley','ranger','buster','soccer','hockey','killer','george','andrew','charlie','thomas','robert','daniel','starwars','freedom','whatever','maggie','pepper','summer','matrix','access','flower','banana','cheese','chocolate','computer','internet','samsung','google','facebook','bookit','bookit123','bookitlife','ndis','ndis1234','disability','support','supportwork','australia','sydney','melbourne','brisbane']);
+function weakPassword(pw, email, name) {
+  const p = String(pw || '').toLowerCase();
+  if (WEAK_PASSWORDS.has(p)) return 'That password appears on published breach lists. Please pick another one.';
+  if (/^(.)\1+$/.test(p)) return 'That password is the same character repeated. Please pick another one.';
+  if (/^(0123456789|9876543210|abcdefgh|qwertyui)/.test(p)) return 'That password is a keyboard or number run. Please pick another one.';
+  const local = String(email || '').split('@')[0].toLowerCase();
+  if (local.length >= 4 && p.includes(local)) return 'Please pick a password that does not contain your email address.';
+  const first = String(name || '').split(' ')[0].toLowerCase();
+  if (first.length >= 4 && p.includes(first)) return 'Please pick a password that does not contain your name.';
+  return '';
+}
+
+/* --- 10. the team, saved and blocked, as one list. --- */
+function relationOf(pid, wid) {
+  const r = db.prepare('SELECT relation FROM participant_workers WHERE participant_id = ? AND worker_id = ?').get(Number(pid), Number(wid));
+  return r ? r.relation : '';
+}
+function setRelation(pid, wid, relation, note, byId) {
+  if (!relation) {
+    db.prepare('DELETE FROM participant_workers WHERE participant_id = ? AND worker_id = ?').run(Number(pid), Number(wid));
+    return '';
+  }
+  db.prepare(`INSERT INTO participant_workers (participant_id, worker_id, relation, note, added, added_by, updated)
+    VALUES (?,?,?,?,?,?,?)
+    ON CONFLICT(participant_id, worker_id) DO UPDATE SET relation = excluded.relation,
+      note = CASE WHEN excluded.note != '' THEN excluded.note ELSE participant_workers.note END,
+      updated = excluded.updated`)
+    .run(Number(pid), Number(wid), relation, clean(note, 400), now(), byId || null, now());
+  return relation;
+}
+function blockedPair(pid, wid) { return relationOf(pid, wid) === 'blocked'; }
+
+/* --- 11. has this worker read the current version of the plan? --- */
+function currentPlan(pid) {
+  return db.prepare("SELECT * FROM support_plans WHERE participant_id = ? AND status = 'confirmed' ORDER BY version DESC LIMIT 1").get(Number(pid)) || null;
+}
+function planAck(pid, wid) {
+  const plan = currentPlan(pid);
+  if (!plan) return { required: false, plan: null, acked: true, reason: 'no-plan' };
+  const a = db.prepare('SELECT acked_at FROM plan_acks WHERE plan_id = ? AND worker_id = ?').get(plan.id, Number(wid));
+  const exp = plan.review_due || '';
+  const expired = exp ? exp < new Date().toISOString().slice(0, 10) : false;
+  return {
+    required: true, plan_id: plan.id, version: plan.version || 1,
+    updated: plan.updated || plan.created || '', expires: exp, expired,
+    acked: !!a, acked_at: a ? a.acked_at : null
+  };
+}
+
+/* --- 15. training, and the escalating lock.
+   Soft at seven days overdue: a banner and no new bookings offered.
+   Hard at fourteen: the worker cannot accept anything until it is done.
+   Existing bookings are never touched — pulling a worker off a shift
+   somebody is relying on tomorrow is not a safety improvement. --- */
+const TRAIN_SOFT_DAYS = 7;
+const TRAIN_HARD_DAYS = 14;
+function moduleState(workerId) {
+  const mods = db.prepare('SELECT * FROM modules WHERE active = 1 ORDER BY sort, id').all();
+  /* isoLocal, not toISOString. At 9am in Sydney the ISO form still says
+     yesterday, and the certificate this is compared against is written with
+     isoLocal - mixing the two makes a document read as expired a day early. */
+  const today = isoLocal(new Date());
+  /* When a module has never been sat, the clock has to start somewhere, and
+     both of the obvious answers are wrong.
+
+     Start it at today and it is never overdue, because today is not before
+     today - so the lock can never engage for the one person it exists for,
+     the worker who has not started. That is what this used to do.
+
+     Start it at the worker's join date alone and, the morning this ships,
+     every worker on the platform is retrospectively a fortnight overdue and
+     hard-locked for a module that did not exist last week.
+
+     So: the later of the two. A worker who joins tomorrow gets the full window
+     from joining. A module added next year gives everybody the full window
+     from the day it appeared. Nobody is locked out under a rule made after
+     they had a chance to meet it. */
+  const joined = db.prepare('SELECT created FROM users WHERE id = ?').get(Number(workerId));
+  const joinedOn = joined && joined.created ? String(joined.created).slice(0, 10) : today;
+  const out = [];
+  for (const m of mods) {
+    const c = db.prepare('SELECT * FROM module_completions WHERE worker_id = ? AND module_key = ? AND passed = 1 ORDER BY id DESC LIMIT 1')
+      .get(Number(workerId), m.key);
+    const appeared = m.created ? String(m.created).slice(0, 10) : today;
+    const startedFrom = joinedOn > appeared ? joinedOn : appeared;
+    const due = c && c.expires_at ? c.expires_at : (c ? '' : startedFrom);
+    const overdueDays = due && due < today ? Math.floor((Date.parse(today) - Date.parse(due)) / 864e5) : 0;
+    out.push({
+      key: m.key, title: m.title, summary: m.summary, minutes: m.minutes, required: !!m.required,
+      questions: safeJson(m.quiz, []).length, pass_mark: m.pass_mark,
+      done: !!c, score: c ? c.score : null, completed_at: c ? c.completed_at : '',
+      expires_at: due, overdue_days: overdueDays, due_since: c ? '' : startedFrom
+    });
+  }
+  const worstRequired = out.filter(m => m.required).reduce((a, m) => Math.max(a, m.overdue_days), 0);
+  const lock = worstRequired >= TRAIN_HARD_DAYS ? 'hard' : worstRequired >= TRAIN_SOFT_DAYS ? 'soft' : '';
+  return { modules: out, lock, overdue_days: worstRequired, soft_days: TRAIN_SOFT_DAYS, hard_days: TRAIN_HARD_DAYS,
+    outstanding: out.filter(m => m.required && (!m.done || m.overdue_days > 0)).map(m => m.title) };
+}
+
+/* ---------- routes ---------- */
+const routes = [];
+function route(method, pattern, handler) { routes.push({ method, pattern, handler }); }
+
+route('GET', /^\/api\/health$/, (req, res) => json(res, 200, { ok: true, time: now() }));
+
+route('GET', /^\/api\/me$/, (req, res, m, user) => json(res, 200, {
+  user,
+  demo: Boolean(db.prepare("SELECT id FROM users WHERE email LIKE '%@demo.bookit.life' LIMIT 1").get())
+}));
+
+/* ---------- the out-of-scope register ----------
+   A flag is a policy. A gate is evidence. These four functions are the gate: declaring a support
+   we don't hold opens a dated row automatically, taking it back closes it as withdrawn, adding
+   the support to the certificate closes it as in-scope, and a human closing it has to name who
+   the participant was introduced to. Nothing here can be satisfied by an intention. */
+function openScope(uid, support) {
+  return db.prepare("SELECT * FROM scope_requests WHERE user_id = ? AND support = ? AND outcome = 'open'").get(Number(uid), support) || null;
+}
+function recordScope(uid, flags, channel) {
+  const opened = [];
+  for (const k of hiUnheld(flags || [])) {
+    if (openScope(uid, k)) continue;
+    db.prepare('INSERT INTO scope_requests (user_id, support, channel, declared_at) VALUES (?,?,?,?)').run(Number(uid), k, channel, now());
+    opened.push(k);
+  }
+  if (opened.length) console.log(`SCOPE REGISTER opened ${opened.join(', ')} for user ${uid} via ${channel}`);
+  return opened;
+}
+function withdrawScope(uid, flags, by) {
+  const keep = new Set(flags || []);
+  const rows = db.prepare("SELECT id, support FROM scope_requests WHERE user_id = ? AND outcome = 'open'").all(Number(uid));
+  let closed = 0;
+  for (const r of rows) {
+    if (keep.has(r.support)) continue;
+    db.prepare("UPDATE scope_requests SET outcome = 'withdrawn', closed_by = ?, closed_at = ?, note = ? WHERE id = ?")
+      .run(by, now(), 'Removed from the participant\'s own declaration.', r.id);
+    closed++;
+  }
+  return closed;
+}
+/* Run at boot. If a support has been added to the certificate since these rows were opened, they
+   are no longer refusals — close them as in-scope. The row keeps its original declared_at, so the
+   register still shows the date the answer changed rather than pretending it never said no. */
+function reconcileScope() {
+  let n = 0;
+  for (const sup of HI_SUPPORTS) {
+    if (!sup.held) continue;
+    const r = db.prepare("UPDATE scope_requests SET outcome = 'in-scope', closed_at = ?, note = ? WHERE support = ? AND outcome = 'open'")
+      .run(now(), `Added to the certificate${sup.since ? ' on ' + sup.since : ''} — now delivered in scope.`, sup.key);
+    n += r.changes;
+  }
+  if (n) console.log(`SCOPE REGISTER ${n} row(s) closed as in-scope — certificate now covers them`);
+  return n;
+}
+try { reconcileScope(); } catch (e) { console.error('reconcileScope failed', e && e.message); }
+
+/* What a worker needs to know before they walk in, derived live rather than stored: any support
+   this participant has on the register that we still don't hold. If it later goes on the
+   certificate the warning disappears by itself, because it was never a sentence, only a query. */
+function scopeWarning(uid) {
+  const rows = db.prepare("SELECT support FROM scope_requests WHERE user_id = ? AND outcome = 'open'").all(Number(uid));
+  const keys = hiUnheld(rows.map(r => r.support));
+  return keys.length ? { keys, labels: keys.map(hiLabel) } : null;
+}
+
+/* Someone has told us they need a support we are not registered to deliver. Nobody should find
+   that out from a roster — mail the office the moment it is said. The register row is already
+   open by the time this sends; the mail exists so a human rings before a shift is booked. */
+function hiAlert(req, who, flags, when) {
+  if (!MAIL_FROM) return;
+  const out = hiUnheld(flags);
+  if (!out.length) return;
+  const partner = publicPartner();
+  sendMail(MAIL_FROM, 'Specialist support requested — BookIt',
+    'Someone has asked for a support outside our registration',
+    `<p><b>${escHtml(who.name)}</b> (${escHtml(who.email)}${who.suburb ? ', ' + escHtml(who.suburb) : ''}) told us ${escHtml(when)} that they need:</p>
+     <ul>${out.map(k => `<li>${escHtml(hiLabel(k))} <span style="color:#7A6E5F;">(${escHtml((hiSupport(k) || {}).clause || '')})</span></li>`).join('')}</ul>
+     <p>These sit inside NDIS Practice Standards Supplementary Module 1 — high intensity daily personal activities, registration group <b>0104</b>. Disability &amp; Mental Health Care does not hold them, so under s13C of the Registration Rules BookIt must not deliver them.</p>
+     <p><b>Call them before any shift is booked.</b> Everything else on their plan we can still support, and coordinate around whoever does the clinical part. ${partner
+       ? `Introduce them to <b>${escHtml(partner.name)}</b>${partner.ndis ? ` (NDIS ${escHtml(partner.ndis)})` : ''}${partner.phone ? `, ${escHtml(partner.phone)}` : ''}, who they engage directly.`
+       : 'Introduce them to a provider registered for 0104, who they engage directly.'}</p>
+     <p>The register row is already open. Recording who they were introduced to is what closes it.</p>`,
+    'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
+}
+
+/* ---------- shift notes ----------
+   A note is written at the end of the shift, by the person who did it, and it is
+   what an auditor samples to see that the support happened as agreed. Keeping the
+   bar low is deliberate: a note nobody can face writing is a note nobody writes. */
+const NOTE_MIN = 20, NOTE_MAX = 4000, SCOPE_MIN = 10;
+function noteProblem(note) {
+  if (!note) return 'Please write a shift note before you mark the shift completed — it\'s the record that the support happened.';
+  if (note.length < NOTE_MIN) return `A few more words, please — what you did together and how it went (at least ${NOTE_MIN} characters).`;
+  return '';
+}
+function scopeProblem(scope, detail) {
+  if (!scope) return '';
+  if (detail.length < SCOPE_MIN) return 'Tell us what you were asked to do — a sentence is plenty.';
+  return '';
+}
+/* A worker flagging an out-of-scope request is the early warning the front-door
+   screening question can't give us: it catches needs that appear after sign-up. */
+function scopeAlert(req, bk, workerName, partName, detail) {
+  if (!MAIL_FROM) return;
+  sendMail(MAIL_FROM, 'Out-of-scope request flagged on a shift — BookIt',
+    'A worker was asked to do something outside their scope',
+    `<p><b>${escHtml(workerName)}</b> has flagged their <b>${SERVICE_LABELS[bk.service] || escHtml(bk.service)}</b> shift with <b>${escHtml(partName)}</b> on <b>${prettyDate(bk.date)}</b>.</p>
+     <p><b>What they were asked to do:</b></p>
+     <blockquote style="margin:0;padding:8px 14px;border-left:3px solid #D94F32;background:#FDF6EC;">${escHtml(detail)}</blockquote>
+     <p><b>Call the worker today.</b> If what was asked sits inside high intensity daily personal activities (registration group <b>0104</b>) then BookIt doesn't deliver it — introduce the participant to a provider registered for 0104 and record that against their account.</p>
+     <p>If it actually happened rather than only being asked for, it belongs in the incident register too.</p>`,
+    'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
+}
+
+/* the canonical Module 1 list, so the sign-up form and the account page can never drift from it */
+route('GET', /^\/api\/high-intensity$/, (req, res) => json(res, 200, scopeView()));
+/* the whole registration position in one place — every claim the site makes about what we can
+   deliver reads from this, so no page can outrun the certificate */
+route('GET', /^\/api\/scope$/, (req, res) => json(res, 200, scopeView()));
+
+route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
+  if (limited(ip, 'register', 15)) return json(res, 429, { error: 'Too many attempts — try again later.' });
+  const role = body.role === 'worker' ? 'worker'
+    : body.role === 'coordinator' ? 'coordinator'
+    : 'participant';
+  const name = clean(body.name, 80);
+  const email = clean(body.email, 120).toLowerCase();
+  const password = String(body.password || '');
+  const suburb = clean(body.suburb, 80);
+  if (!name || name.length < 2) return json(res, 400, { error: 'Please enter your name.' });
+  if (!EMAIL_RE.test(email)) return json(res, 400, { error: 'Please enter a valid email address.' });
+  /* A coordinator account is minted by an invitation and by nothing else.
+     Anyone may declare themselves a participant or a worker &mdash; both start
+     with nothing and a worker starts invisible besides. "Coordinator" is
+     different: the word is its own social proof, and an account carrying it
+     with no client attached has nothing to do except look official in an
+     email. So the same three conditions the accept route enforces are
+     checked here, one step earlier, so that the account can exist in order
+     to satisfy them. */
+  let invite = null;
+  if (role === 'coordinator') {
+    const token = clean(body.invite_token, 64);
+    invite = /^[a-f0-9]{16,64}$/.test(token)
+      ? db.prepare("SELECT * FROM account_links WHERE invite_token = ? AND status = 'invited'").get(token)
+      : null;
+    if (!invite) return json(res, 400, { error: 'Coordinator accounts are made from an invitation. Ask the person you support to invite you from People with access, then open the link in that email.' });
+    if (String(invite.invite_email || '').toLowerCase() !== email)
+      return json(res, 403, { error: 'This invitation was sent to a different email address. Register with that address, or ask them to send a fresh invitation to this one.' });
+  }
+  if (password.length < 8) return json(res, 400, { error: 'Password needs at least 8 characters.' });
+  /* Eight characters was never the test. "password" is eight characters and
+     is the first guess in every credential-stuffing run there has ever been.
+     Checked here rather than in the browser, because the browser is not the
+     thing an attacker is using. */
+  const weak = weakPassword(password, email, name);
+  if (weak) return json(res, 400, { error: weak });
+  if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) return json(res, 409, { error: 'That email already has an account — try logging in.' });
+  const ndisNum = /^\d{9}$/.test(clean(body.ndis_number, 12)) ? clean(body.ndis_number, 12) : '';
+  const pmEmail = EMAIL_RE.test(clean(body.pm_email, 120)) ? clean(body.pm_email, 120).toLowerCase() : '';
+  const services = Array.isArray(body.services) ? body.services.filter(s => SERVICES.includes(s)).slice(0, 6) : [];
+  const hiFlags = role === 'participant' ? hiFrom(body) : [];
+  const termsV = clean(body.terms_version, 20);
+  const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, ndis_number, pm_email, svc_interest, hi_flags, hi_at, terms_version, terms_at, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), clean(body.plan, 30), ndisNum, pmEmail,
+         JSON.stringify(services), JSON.stringify(hiFlags), hiFlags.length ? now() : '', termsV, termsV ? now() : '', now());
+  const uid = Number(r.lastInsertRowid);
+  if (hiFlags.length) { recordScope(uid, hiFlags, 'signup'); hiAlert(req, { id: uid, name, email, suburb }, hiFlags, 'at signup'); }
+  if (role === 'worker') {
+    /* vetting: new workers start hidden (visible = 0) until an admin approves them */
+    db.prepare('INSERT INTO worker_profiles (user_id, bio, services, visible) VALUES (?,?,?,0)')
+      .run(uid, clean(body.bio, 600), JSON.stringify(services));
+    if (MAIL_FROM) sendMail(MAIL_FROM, 'New worker application — BookIt',
+      'A new support worker has applied',
+      `<p><b>${escHtml(name)}</b> (${escHtml(suburb) || 'no suburb given'}) has registered as a worker and is waiting for approval.</p><p><b>Email:</b> ${escHtml(email)}<br><b>Services:</b> ${services.map(s => SERVICE_LABELS[s] || s).join(', ') || '—'}</p><p>Their profile stays hidden from Find Workers until you approve it.</p>`,
+      'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
+  }
+  /* Written on the PARTICIPANT'S access log, not only the new account's.
+     This is the moment an email address they typed became a real login, and
+     if they typed it wrong the person who now holds that login is a stranger.
+     Waiting for the accept to say so would leave the mistake invisible for
+     exactly as long as the stranger cared to think about it. */
+  if (invite) logAccess(invite.participant_id, null, 'account-created',
+    `${name} created a coordinator account against the invitation sent to ${email}`, `link:${invite.id}`);
+  const me = sessionUser(uid);
+  sendVerifyEmail(req, me).catch(() => {});
+  /* The token goes back so the browser can walk straight into the accept
+     call. Registering is not accepting: accepting is where the scopes are
+     shown, the participant is emailed and the record is written, and none of
+     that may happen because somebody filled in a password form. */
+  json(res, 200, invite ? { user: me, invite_token: invite.invite_token } : { user: me },
+    setSessionHeaders(uid, req, ip));
+});
+
+route('POST', /^\/api\/login$/, (req, res, m, user, body, ip) => {
+  if (limited(ip, 'login', 25)) return json(res, 429, { error: 'Too many attempts — try again later.' });
+  const email = clean(body.email, 120).toLowerCase();
+  const row = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  if (!row || !verifyPassword(String(body.password || ''), row.pass)) {
+    return json(res, 401, { error: 'Email or password doesn\'t match.' });
+  }
+  /* Password right, second factor still owing. No cookie is set here. What
+     comes back is a five-minute token that says "this password was correct"
+     and nothing else - it is bound to the password hash, so a password
+     change mid-flight kills it, and it cannot be turned into a session
+     without the code. */
+  if (mfaOn(row.id)) {
+    return json(res, 200, { mfa: true, name: firstName(row.name),
+      challenge: makeEmailToken('m', row.id, 5 * 60e3, String(row.pass).slice(0, 16)) });
+  }
+  newDeviceAlert(req, row, ip);
+  json(res, 200, { user: sessionUser(row.id) }, setSessionHeaders(row.id, req, ip));
+});
+
+route('POST', /^\/api\/login\/mfa$/, (req, res, m, user, body, ip) => {
+  if (limited(ip, 'mfa', 12)) return json(res, 429, { error: 'Too many attempts \u2014 try again in a few minutes.' });
+  const row = readEmailToken('m', body.challenge, x => String(x.pass).slice(0, 16));
+  if (!row) return json(res, 401, { error: 'That sign-in took too long \u2014 enter your email and password again.' });
+  const rec = db.prepare('SELECT secret, enabled, last_used_step FROM mfa WHERE user_id = ?').get(row.id);
+  if (!rec || !rec.enabled) return json(res, 200, { user: sessionUser(row.id) }, setSessionHeaders(row.id, req, ip));
+
+  const typed = String(body.code || '').trim();
+  let usedRecovery = false;
+
+  if (/^\d{6}$/.test(typed.replace(/\s/g, ''))) {
+    const step = totpCheck(rec.secret, typed, rec.last_used_step);
+    if (step === null) return json(res, 401, { error: 'That code isn\u2019t right, or it has just expired. Wait for the next one and try again.' });
+    /* the step that worked is recorded, so the same six digits shown on the
+       same phone in the same thirty seconds cannot be replayed by someone
+       reading over a shoulder */
+    db.prepare('UPDATE mfa SET last_used_step = ? WHERE user_id = ?').run(step, row.id);
+  } else if (useRecoveryCode(row.id, typed)) {
+    usedRecovery = true;
+  } else {
+    return json(res, 401, { error: 'That code isn\u2019t right. Enter the six digits from your app, or one of your recovery codes.' });
+  }
+
+  if (usedRecovery) {
+    const left = db.prepare('SELECT COUNT(*) n FROM mfa_recovery WHERE user_id = ? AND used_at IS NULL').get(row.id).n;
+    securityMail(req, row, 'A recovery code was used on your account',
+      `<p>Someone signed in to your BookIt account using a recovery code rather than your authenticator app, from ${escHtml(deviceName(req.headers['user-agent']))}.</p>
+       <p>You have <b>${left}</b> recovery ${left === 1 ? 'code' : 'codes'} left. If this was you and you have lost your phone, set up your authenticator app again from Account \u203a Security. If it wasn\u2019t you, change your password now \u2014 that signs out every device.</p>`);
+  }
+  newDeviceAlert(req, row, ip);
+  json(res, 200, { user: sessionUser(row.id), recovery_used: usedRecovery }, setSessionHeaders(row.id, req, ip));
+});
+
+route('POST', /^\/api\/logout$/, (req, res, m, user) => {
+  if (user && user.sid) { try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE sid = ?').run(now(), user.sid); } catch {} }
+  json(res, 200, { ok: true }, CLEAR_COOKIE);
+});
+
+/* participant billing details (funding lane, NDIS number, plan manager) */
+/* --- 17. how you pay, changed by you.
+   Two things this route has to get right that the old one did not.
+
+   First, an invoice already raised is already addressed. The claims run
+   stamps invoice_no, claim_ref, support_item and pay_url onto the booking at
+   the moment it runs, so a claimed shift keeps the payer it was raised
+   against no matter what happens here. That is worth stating, because it is
+   the question a plan manager asks.
+
+   Second, and less obvious: completed shifts that have NOT been claimed yet
+   will go to whoever is named here when the next run happens. Switching from
+   plan-managed to self-managed on a Tuesday can therefore move a fortnight of
+   already-worked shifts from a plan manager's inbox to a participant's own
+   credit card. That is sometimes exactly what somebody wants and sometimes a
+   nasty surprise, so the route counts them, names the money, and refuses to
+   proceed until it is confirmed. Nobody finds out from an invoice. --- */
+route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'participant') return json(res, 403, { error: 'Only participants have billing details.' });
+  const plan = ['self', 'plan', 'ndia', 'none'].includes(body.plan) ? body.plan : '';
+  const nd = clean(body.ndis_number, 12).replace(/\s+/g, '');
+  if (nd && !/^\d{9}$/.test(nd)) return json(res, 400, { error: 'An NDIS number is 9 digits (e.g. 430123456).' });
+  const pm = clean(body.pm_email, 120).toLowerCase();
+  if (pm && !EMAIL_RE.test(pm)) return json(res, 400, { error: 'That plan manager email doesn\'t look right.' });
+  const nextPlan = plan || user.plan;
+  if (nextPlan === 'plan' && !pm) return json(res, 400, { error: 'Plan-managed accounts need your plan manager\'s email address, or invoices have nowhere to go.' });
+  if (nextPlan === 'ndia' && !/^\d{9}$/.test(nd)) return json(res, 400, { error: 'Agency-managed accounts need your 9-digit NDIS number, or BookIt can\'t claim.' });
+
+  const was = db.prepare('SELECT plan, ndis_number, pm_email FROM users WHERE id = ?').get(user.id) || {};
+  const changedPayer = (was.plan || '') !== nextPlan || (was.pm_email || '') !== pm;
+  const pending = db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS amt FROM bookings
+    WHERE participant_id = ? AND ${billable('bookings')} AND COALESCE(claim_status, '') = ''`).get(user.id);
+  if (changedPayer && pending.n > 0 && body.confirm !== true) {
+    const dest = nextPlan === 'self' ? 'you, directly' : (nextPlan === 'plan' ? (pm || 'your plan manager') : 'the NDIA');
+    return json(res, 409, {
+      error: `You have ${pending.n} shift${pending.n === 1 ? '' : 's'} worth $${pending.amt.toFixed(2)} ${pending.n === 1 ? "that hasn't" : "that haven't"} been invoiced yet. Changing this now means ${pending.n === 1 ? 'it goes' : 'they go'} to ${dest} instead. Confirm to go ahead — anything already invoiced is not affected.`,
+      needs_confirm: true, moving: pending.n, amount: Math.round(pending.amt * 100) / 100,
+      from: was.plan || '', to: nextPlan, to_label: dest
+    });
+  }
+
+  db.prepare('UPDATE users SET plan = ?, ndis_number = ?, pm_email = ? WHERE id = ?').run(nextPlan, nd, pm, user.id);
+  if (changedPayer) {
+    /* Who pays is the single most disputed fact in NDIS billing. It gets a
+       dated line in the participant's own access log, written by the person
+       who made the change, so "I never asked for that" has an answer. */
+    logAccess(user.id, user, 'funding-changed',
+      `Funding changed from ${was.plan || '(not set)'} to ${nextPlan}${pm ? ` — invoices to ${pm}` : ''}. ${pending.n} uninvoiced completed shift${pending.n === 1 ? '' : 's'} affected.`, nextPlan);
+    if (MAIL_FROM) sendMail(MAIL_FROM, `Funding type changed: ${user.name} — BookIt`, 'A participant changed how they pay',
+      `<p><b>${escHtml(user.name)}</b> changed their funding from <b>${escHtml(was.plan || 'not set')}</b> to <b>${escHtml(nextPlan)}</b>${pm ? ` and named <b>${escHtml(pm)}</b> as plan manager` : ''}.</p>
+       <p>${pending.n} completed shift${pending.n === 1 ? '' : 's'} ($${pending.amt.toFixed(2)}) had not been invoiced and will now be billed the new way. Anything already claimed is unchanged.</p>`,
+      'Open claims', `${baseUrl(req)}/#/admin`).catch(() => {});
+  }
+  const me = sessionUser(user.id);
+  json(res, 200, { user: me, changed: changedPayer, moved: changedPayer ? pending.n : 0 });
+});
+
+/* a participant's own declaration — they can add to it or correct it whenever they like.
+   Changing what was declared reopens the flag, because the last conversation was about
+   something else; re-saving the same answer leaves the recorded referral alone. */
+route('POST', /^\/api\/me\/high-intensity$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'participant') return json(res, 403, { error: 'Only participants have a support-needs declaration.' });
+  const flags = hiFrom(body);
+  const row = db.prepare('SELECT hi_flags, hi_referred_at FROM users WHERE id = ?').get(user.id) || {};
+  const before = safeJson(row.hi_flags, []);
+  const changed = before.slice().sort().join(',') !== flags.slice().sort().join(',');
+  if (!changed) return json(res, 200, { user: sessionUser(user.id), unchanged: true });
+  db.prepare('UPDATE users SET hi_flags = ?, hi_at = ?, hi_referred_at = ?, hi_note = ? WHERE id = ?')
+    .run(JSON.stringify(flags), flags.length ? now() : '', '', '', user.id);
+  withdrawScope(user.id, flags, user.email);
+  recordScope(user.id, flags, 'account page');
+  const added = flags.filter(k => !before.includes(k));
+  if (added.length) hiAlert(req, user, flags, 'from their account page');
+  json(res, 200, { user: sessionUser(user.id), flagged: hiUnheld(flags).length > 0 });
+});
+
+/* ---------- email flows: forgot / reset / verify ---------- */
+route('POST', /^\/api\/forgot$/, (req, res, m, user, body, ip) => {
+  if (limited(ip, 'forgot', 8)) return json(res, 429, { error: 'Too many attempts — try again later.' });
+  const email = clean(body.email, 120).toLowerCase();
+  const row = EMAIL_RE.test(email) ? db.prepare('SELECT * FROM users WHERE email = ?').get(email) : null;
+  if (row) {
+    const token = makeEmailToken('r', row.id, 45 * 60e3, String(row.pass).slice(0, 16));
+    const url2 = `${baseUrl(req)}/#/reset?token=${token}`;
+    sendMail(row.email, 'Reset your BookIt password',
+      `Hi ${firstName(row.name)},`,
+      `<p>Someone (hopefully you) asked to reset the password on your BookIt account. Press the button to choose a new one — the link works for 45 minutes.</p><p>If this wasn't you, ignore this email and nothing changes.</p>`,
+      'Choose a new password', url2).catch(() => {});
+  }
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/reset$/, (req, res, m, user, body, ip) => {
+  if (limited(ip, 'reset', 10)) return json(res, 429, { error: 'Too many attempts — try again later.' });
+  const password = String(body.password || '');
+  if (password.length < 8) return json(res, 400, { error: 'Password needs at least 8 characters.' });
+  const u = readEmailToken('r', body.token, x => String(x.pass).slice(0, 16));
+  if (!u) return json(res, 400, { error: 'That reset link is invalid or has expired — request a fresh one from the log in screen.' });
+  /* The token is checked first on purpose: telling somebody their password is
+     weak, before establishing they are allowed to set one at all, is a way of
+     confirming an email address exists to whoever is holding a stolen link. */
+  const weakR = weakPassword(password, u.email, u.name);
+  if (weakR) return json(res, 400, { error: weakR });
+  /* clicking an emailed link also proves the address works */
+  db.prepare('UPDATE users SET pass = ?, verified = 1 WHERE id = ?').run(hashPassword(password), u.id);
+  /* a password reset is the one moment where every other session must go.
+     If the reset happened because somebody else had the password, leaving
+     their laptop signed in makes the reset theatre. */
+  try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now(), u.id); } catch {}
+  stampLegacyCutoff(u.id);
+  const me = sessionUser(u.id);
+  json(res, 200, { user: me }, setSessionHeaders(u.id, req, ip));
+});
+
+route('POST', /^\/api\/resend-verification$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (limited(ip, 'resend', 6)) return json(res, 429, { error: 'Too many attempts — try again later.' });
+  if (user.verified) return json(res, 200, { ok: true, already: true });
+  sendVerifyEmail(req, user).catch(() => {});
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/email-test$/, async (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (limited(ip, 'emailtest', 6)) return json(res, 429, { error: 'Too many attempts — try again later.' });
+  if (!EMAIL_ON) return json(res, 200, { ok: false, error: 'Email is not configured yet — set SMTP_USER and SMTP_PASS.' });
+  if (user.email.endsWith('@demo.bookit.life')) return json(res, 400, { error: 'Demo accounts never receive email — log in with a real account to test.' });
+  try {
+    await sendMail(user.email, 'BookIt email test',
+      `It works, ${firstName(user.name)}!`,
+      `<p>This test email was sent by your BookIt server through <b>${RESEND_KEY ? 'the Resend API' : escHtml(SMTP_HOST)}</b>. Welcome emails, password resets and booking updates are all go.</p>`,
+      'Open BookIt', baseUrl(req));
+    json(res, 200, { ok: true, sent_to: user.email, via: RESEND_KEY ? 'resend-api' : `${SMTP_HOST}:${SMTP_PORT}` });
+  } catch (e) {
+    json(res, 502, { ok: false, error: e.message });
+  }
+});
+
+/* ---------- admin: dashboard + worker vetting ---------- */
+route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const counts = {
+    participants: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'participant'").get().n,
+    workers: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'worker'").get().n,
+    /* "pending" means waiting on us. A worker who paused themselves is
+       waiting on nobody, so counting them here would put a number on the
+       dashboard that no amount of work can bring down. */
+    pending: db.prepare('SELECT COUNT(*) AS n FROM worker_profiles WHERE visible = 0 AND COALESCE(self_paused, 0) = 0').get().n,
+    paused: db.prepare('SELECT COUNT(*) AS n FROM worker_profiles WHERE COALESCE(self_paused, 0) = 1').get().n,
+    bookings: db.prepare('SELECT COUNT(*) AS n FROM bookings').get().n,
+    messages: db.prepare('SELECT COUNT(*) AS n FROM messages').get().n,
+    contacts: db.prepare('SELECT COUNT(*) AS n FROM contact_messages').get().n,
+    completed: db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE status = 'completed'").get().n,
+    /* `completed` above counts shifts that happened. `billed` counts money owed,
+       which includes a shift cancelled inside the notice window. They are
+       different questions and must not share a predicate. */
+    billed: Math.round(db.prepare(`SELECT COALESCE(SUM(total), 0) AS s FROM bookings WHERE ${billable('bookings')}`).get().s * 100) / 100,
+    open_incidents: db.prepare("SELECT COUNT(*) AS n FROM incidents WHERE status != 'closed'").get().n,
+    urgent_incidents: db.prepare("SELECT COUNT(*) AS n FROM incidents WHERE reportable = 1 AND commission_notified_at IS NULL AND status != 'closed'").get().n,
+    open_complaints: db.prepare("SELECT COUNT(*) AS n FROM complaints WHERE status != 'resolved'").get().n,
+    hi_open: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'participant' AND COALESCE(hi_flags,'[]') NOT IN ('[]','') AND COALESCE(hi_referred_at,'') = ''").get().n,
+    scope_open: db.prepare("SELECT COUNT(*) AS n FROM scope_requests WHERE outcome = 'open'").get().n,
+    scope_total: db.prepare('SELECT COUNT(*) AS n FROM scope_requests').get().n,
+    notes_flagged: db.prepare('SELECT COUNT(*) AS n FROM shift_notes WHERE scope_flag = 1 AND reviewed_at IS NULL').get().n,
+    notes_total: db.prepare("SELECT COUNT(*) AS n FROM shift_notes WHERE COALESCE(kind,'note') = 'note'").get().n
+  };
+  const launch = {
+    gate: Boolean(SITE_PASSWORD),
+    demo_accounts: db.prepare("SELECT COUNT(*) AS n FROM users WHERE email LIKE '%@demo.bookit.life'").get().n
+  };
+  const pending = db.prepare(`SELECT p.user_id, p.bio, p.services, p.photo, p.photo_at, u.name, u.email, u.suburb, u.phone, u.verified, u.created
+    FROM worker_profiles p JOIN users u ON u.id = p.user_id
+    WHERE p.visible = 0 AND COALESCE(p.self_paused, 0) = 0 ORDER BY u.created DESC`).all()
+    .map(w => ({ ...w, photo: w.photo ? `/photos/${w.user_id}?v=${encodeURIComponent(w.photo_at || '')}` : null, services: JSON.parse(w.services || '[]') }));
+  /* Shown separately, and never with an Approve button. The office should be
+     able to see who is away — a participant will ring and ask — without being
+     invited to override a decision that was not theirs to make. */
+  const paused = db.prepare(`SELECT p.user_id, p.paused_at, p.pause_note, u.name, u.email, u.suburb, u.phone
+    FROM worker_profiles p JOIN users u ON u.id = p.user_id
+    WHERE COALESCE(p.self_paused, 0) = 1 ORDER BY p.paused_at DESC`).all();
+  const users = db.prepare('SELECT u.id, u.role, u.name, u.email, u.suburb, u.verified, u.created, p.visible FROM users u LEFT JOIN worker_profiles p ON p.user_id = u.id ORDER BY u.id DESC LIMIT 100').all();
+  const bookings = db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.status, b.created,
+    up.name AS participant_name, uw.name AS worker_name FROM bookings b
+    JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id ORDER BY b.id DESC LIMIT 50`).all();
+  const contacts = db.prepare('SELECT id, name, email, topic, body, created FROM contact_messages ORDER BY id DESC LIMIT 50').all();
+  /* open ones first — an unanswered declaration is the one that can put a worker somewhere they shouldn't be */
+  const highIntensity = db.prepare(`SELECT id, name, email, phone, suburb, plan, created, svc_interest, hi_flags, hi_at, hi_referred_at, hi_note
+    FROM users WHERE role = 'participant' AND (COALESCE(hi_flags,'[]') NOT IN ('[]','') OR COALESCE(hi_note,'') <> '')
+    ORDER BY (COALESCE(hi_referred_at,'') = '') DESC, id DESC`).all()
+    .map(r => {
+      const flags = safeJson(r.hi_flags, []);
+      return { ...r, hi_flags: flags, hi_labels: flags.map(hiLabel), svc_interest: safeJson(r.svc_interest, []) };
+    });
+  const scopeRegister = db.prepare(`SELECT r.*, u.name, u.email, u.phone FROM scope_requests r
+    JOIN users u ON u.id = r.user_id ORDER BY (r.outcome = 'open') DESC, r.id DESC LIMIT 100`).all()
+    .map(r => ({ ...r, label: hiLabel(r.support), clause: (hiSupport(r.support) || {}).clause || '' }));
+  json(res, 200, { counts, pending, paused, users, bookings, contacts, launch, high_intensity: highIntensity, scope_register: scopeRegister, scope: scopeView() });
+});
+
+/* launch sweep — permanently removes every demo account and everything they touched.
+   Run it once, just before going live; deleting SITE_PASSWORD is then the only step left. */
+route('POST', /^\/api\/admin\/launch-sweep$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  if (clean(body.confirm, 20) !== 'LAUNCH') return json(res, 400, { error: 'Type LAUNCH to confirm — this permanently removes all demo accounts and their data.' });
+  const demoIds = db.prepare("SELECT id FROM users WHERE email LIKE '%@demo.bookit.life'").all().map(r => r.id);
+  if (!demoIds.length) return json(res, 200, { ok: true, removed: 0, note: 'Already clean — no demo accounts left.' });
+  const ph = demoIds.map(() => '?').join(',');
+  const swept = sweepPeople(demoIds);
+  const u = db.prepare(`DELETE FROM users WHERE id IN (${ph})`).run(...demoIds);
+  const orphans = sweepOrphans();
+  const left = db.prepare('PRAGMA foreign_key_check').all().length;
+  console.log(`LAUNCH SWEEP by ${user.email}: removed ${u.changes} demo accounts, ${swept.total} related rows across ${Object.keys(swept.tables).length} tables, ${orphans} orphaned rows.`);
+  json(res, 200, {
+    ok: true,
+    removed: Number(u.changes),
+    bookings: swept.tables.bookings || 0,
+    conversations: swept.tables.conversations || 0,
+    related: swept.total,
+    orphans,
+    tables: swept.tables,
+    /* If this is ever anything but zero, say so on the screen rather than in
+       a log nobody reads. It means a row survived pointing at a person who
+       no longer exists, which is exactly the finding an auditor writes up. */
+    dangling: left,
+    note: left ? 'Some rows still reference a deleted account — tell support before going live.' : ''
+  });
+});
+
+route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const uid = Number(m[1]);
+  const w = db.prepare("SELECT u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  /* Two different kinds of requirement, and the difference matters.
+
+     The 0137 conditions are conditions of registration. They are not house
+     rules we can wave through when someone is short-staffed on a Friday, so
+     `override` does not reach them — an admin who ticks "approve anyway" gets
+     the same refusal. Everything else (a missing profile photo) is ours, and
+     stays overridable exactly as before. */
+  if (!isDemoWorker(w.email)) {
+    const st = platformStatus(uid);
+    if (!st.ok) {
+      return json(res, 400, {
+        blocked_0137: true,
+        blocks: st.blocks,
+        error: `This worker can't be approved yet — it would breach BookIt's conditions of registration for 0137 NDIS Digital Platform Service. ${st.blocks.join(' ')} These can't be overridden.`
+      });
+    }
+    if (!body.override) {
+      const missing = [];
+      const prof = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(uid);
+      if (!prof || !prof.photo) missing.push('a profile photo');
+      if (missing.length) {
+        return json(res, 400, { needs_override: true, error: `Still needed before approval: ${missing.join(' and ')}. Ask the worker to add ${missing.length > 1 ? 'them' : 'it'} from their Bookings page — or tick "approve anyway" to override.` });
+      }
+    }
+  }
+  db.prepare('UPDATE worker_profiles SET visible = 1 WHERE user_id = ?').run(uid);
+  logCompliance({ worker_id: uid, worker_name: w.name, kind: 'platform-access', result: 'granted',
+    detail: 'Profile approved and made visible — 0137 conditions met at time of approval.', checked_by: user.name });
+  sendMail(w.email, 'Your BookIt profile is live', `Great news, ${firstName(w.name)} 🎉`,
+    `<p>Your checks are in order and your profile has been approved — you're now visible in <b>Find Workers</b> across BookIt.</p><p>Participants can message you and request bookings from today. Keep your availability up to date, reply promptly, and welcome aboard!</p>`,
+    'Open BookIt', `${baseUrl(req)}/#/find-workers`).catch(() => {});
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/workers\/(\d+)\/hide$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const uid = Number(m[1]);
+  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  db.prepare('UPDATE worker_profiles SET visible = 0 WHERE user_id = ?').run(uid);
+  logCompliance({ worker_id: uid, worker_name: w.name, kind: 'platform-access', result: 'withdrawn',
+    detail: 'Profile hidden by an administrator.', checked_by: user.name });
+  json(res, 200, { ok: true });
+});
+
+/* ---------- admin: invoicing ---------- */
+function invoiceRows() {
+  return db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.rate_category, b.unit_price, b.worker_share, b.total, b.completed_at,
+      b.status, b.short_notice, b.notice_hours, b.cancel_reason,
+      up.name AS participant_name, up.email AS participant_email, uw.name AS worker_name
+    FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id
+    WHERE ${billable('b')} ORDER BY b.date DESC, b.id DESC`).all();
+}
+/* The register itself — every row, newest open first, with the participant against it. This is
+   the page you turn to an auditor: dated, per support, with a named referral on every closed row. */
+function scopeRegisterRows() {
+  return db.prepare(`SELECT r.*, u.name, u.email, u.phone, u.suburb FROM scope_requests r
+    JOIN users u ON u.id = r.user_id ORDER BY (r.outcome = 'open') DESC, r.id DESC`).all()
+    .map(r => ({ ...r, label: hiLabel(r.support), clause: (hiSupport(r.support) || {}).clause || '' }));
+}
+route('GET', /^\/api\/admin\/scope-register$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { rows: scopeRegisterRows(), supports: HI_SUPPORTS, partner: publicPartner() });
+});
+route('GET', /^\/api\/admin\/scope-register\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  const lines = [['Entry', 'Participant', 'Email', 'Phone', 'Suburb', 'Support requested', 'Schedule 2 clause', 'Declared via', 'Declared', 'Outcome', 'Introduced to', 'Note', 'Closed by', 'Closed'].map(q).join(',')];
+  for (const r of scopeRegisterRows()) {
+    const day = t => t ? dmy(String(t).slice(0, 10)) : ''; /* dmy() wants a bare date, and these are full timestamps */
+    lines.push([r.id, r.name, r.email, r.phone, r.suburb, r.label, r.clause, r.channel, day(r.declared_at), r.outcome, r.referred_to, r.note, r.closed_by, day(r.closed_at)].map(q).join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="scope-register-${now().slice(0, 10)}.csv"`
+  });
+  res.end('\ufeff' + lines.join('\r\n'));
+});
+
+/* Closing a row. 'referred' is the only outcome that means we did our job, and it will not save
+   without a name in it — "introduced them to someone" is not a record, "introduced them to
+   <provider> on <date>" is. Everything else is honest bookkeeping, not a way around that. */
+route('POST', /^\/api\/admin\/scope-requests\/(\d+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const row = db.prepare('SELECT * FROM scope_requests WHERE id = ?').get(Number(m[1]));
+  if (!row) return json(res, 404, { error: 'Register entry not found.' });
+  if (row.outcome !== 'open') return json(res, 400, { error: 'That entry is already closed.' });
+  const outcome = clean(body.outcome, 20);
+  if (!['referred', 'withdrawn'].includes(outcome)) return json(res, 400, { error: 'Choose whether they were introduced to another provider, or took the request back.' });
+  const note = clean(body.note, 500);
+  const referredTo = clean(body.referred_to, 160);
+  if (outcome === 'referred' && !referredTo) return json(res, 400, { error: 'Name the provider you introduced them to — an unnamed referral is not a record.' });
+  if (outcome === 'withdrawn' && !note) return json(res, 400, { error: 'Say why it came off — "ticked in error, confirmed by phone 21/07" is enough.' });
+  db.prepare('UPDATE scope_requests SET outcome = ?, referred_to = ?, note = ?, closed_by = ?, closed_at = ? WHERE id = ?')
+    .run(outcome, referredTo, note, user.email, now(), row.id);
+  if (outcome === 'withdrawn') {
+    const left = safeJson((db.prepare('SELECT hi_flags FROM users WHERE id = ?').get(row.user_id) || {}).hi_flags, []).filter(k => k !== row.support);
+    db.prepare('UPDATE users SET hi_flags = ? WHERE id = ?').run(JSON.stringify(left), row.user_id);
+  }
+  const stillOpen = db.prepare("SELECT COUNT(*) AS n FROM scope_requests WHERE user_id = ? AND outcome = 'open'").get(row.user_id).n;
+  if (!stillOpen) db.prepare('UPDATE users SET hi_referred_at = ? WHERE id = ?').run(now(), row.user_id);
+  console.log(`SCOPE REGISTER #${row.id} closed as ${outcome} by ${user.email}`);
+  json(res, 200, { ok: true, outcome, still_open: stillOpen });
+});
+
+/* Record what was actually discussed with someone who declared a high-intensity support.
+   The note IS the record — an auditor asking "what did you do when someone asked for a support
+   you're not registered for?" gets a dated line with a name against it. */
+route('POST', /^\/api\/admin\/participants\/(\d+)\/high-intensity$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const id = Number(m[1]);
+  const p = db.prepare("SELECT id, name FROM users WHERE id = ? AND role = 'participant'").get(id);
+  if (!p) return json(res, 404, { error: 'Participant not found.' });
+  const note = clean(body.note, 500);
+  if (body.clear) {
+    if (!note) return json(res, 400, { error: 'Say why it is being cleared — "ticked in error, confirmed by phone 21/07" is enough.' });
+    db.prepare("UPDATE users SET hi_flags = '[]', hi_at = '', hi_referred_at = ?, hi_note = ? WHERE id = ?").run(now(), note, id);
+    console.log(`HIGH-INTENSITY flag cleared by ${user.email} for participant ${id}`);
+    return json(res, 200, { ok: true, cleared: true });
+  }
+  if (!note) return json(res, 400, { error: 'Write a line about what was discussed and who they were introduced to — that line is the record.' });
+  db.prepare('UPDATE users SET hi_referred_at = ?, hi_note = ? WHERE id = ?').run(now(), note, id);
+  console.log(`HIGH-INTENSITY referral recorded by ${user.email} for participant ${id}`);
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/admin\/invoices$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = invoiceRows();
+  const sum = rows.reduce((a, r) => { a.total += r.total || 0; a.worker += r.worker_share || 0; return a; }, { total: 0, worker: 0 });
+  json(res, 200, {
+    invoices: rows,
+    totals: { billed: Math.round(sum.total * 100) / 100, worker_share: Math.round(sum.worker * 100) / 100 },
+    categories: Object.entries(INVOICE_RATES).map(([key, r]) => ({ key, label: r.label, price: r.price }))
+  });
+});
+route('POST', /^\/api\/admin\/invoices\/(\d+)\/category$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const b = db.prepare(`SELECT id FROM bookings WHERE id = ? AND ${billable('bookings')}`).get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'No such billable shift.' });
+  const inv = applyInvoice(b.id, clean(body.category, 30));
+  if (!inv) return json(res, 400, { error: 'Unknown rate category.' });
+  json(res, 200, { ok: true, invoice: inv });
+});
+route('GET', /^\/api\/admin\/invoices\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['Shift ID', 'Date', 'Start', 'Hours', 'Service', 'Registration group', 'Participant', 'Participant email', 'Worker', 'Rate category', 'Unit price ($/h)', 'Total billed ($)', 'Worker share incl. super ($)', 'Completed at'].map(q).join(',')];
+  for (const r of invoiceRows()) {
+    lines.push([r.id, r.date, r.start, r.hours, SERVICE_LABELS[r.service] || r.service, REG_GROUPS[r.service] || '', r.participant_name, r.participant_email, r.worker_name,
+      (INVOICE_RATES[r.rate_category] || {}).label || r.rate_category, (r.unit_price ?? 0).toFixed(2), (r.total ?? 0).toFixed(2), (r.worker_share ?? 0).toFixed(2), r.completed_at].map(q).join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-invoices-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* ---------- admin: claims & payments (the money engine) ---------- */
+const dmy = iso => String(iso || '').split('-').reverse().join('/');
+function claimRows(where) {
+  return db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.rate_category, b.unit_price, b.total,
+      b.claim_status, b.claim_ref, b.invoice_no, b.support_item, b.claimed_at, b.paid_at, b.pay_url,
+      b.status, b.short_notice, b.notice_hours, b.cancel_code, b.cancel_reason,
+      up.id AS pid, up.name AS participant_name, up.email AS participant_email, up.plan AS funding, up.ndis_number, up.pm_email,
+      uw.name AS worker_name
+    FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id
+    WHERE ${billable('b')} ${where || ''} ORDER BY b.date ASC, b.id ASC`).all();
+}
+function effectiveItem(r) { return r.support_item || supportItemFor(r.service, r.rate_category) || ''; }
+function lineFlags(r) {
+  const flags = [];
+  if (!['ndia', 'plan', 'self'].includes(r.funding)) flags.push('no funding type on the participant profile');
+  if (r.funding === 'ndia' && !/^\d{9}$/.test(r.ndis_number || '')) flags.push('NDIS number missing');
+  if (r.funding === 'plan' && !r.pm_email) flags.push('plan manager email missing');
+  if (!effectiveItem(r)) flags.push('support item number needed');
+  else if (ITEM_CONFIRM[r.service] && !r.support_item) flags.push('confirm the prefilled support item');
+  return flags;
+}
+
+route('GET', /^\/api\/admin\/claims$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  /* `cancelled` and the notice hours ride on every row so an administrator
+     approving a claim run can see at a glance which lines are shifts that
+     happened and which are shifts that were called off inside the window. They
+     are claimed differently and an auditor will ask. */
+  const rows = claimRows().map(r => ({
+    ...r, item: effectiveItem(r), flags: r.claim_status ? [] : lineFlags(r),
+    cancelled: r.status === 'cancelled',
+    cancel_code: r.cancel_code || (r.status === 'cancelled' ? 'NSDO' : ''),
+    cancel_label: r.status === 'cancelled' ? (CANCEL_CODES[r.cancel_code || 'NSDO'] || CANCEL_CODES.NSDO) : ''
+  }));
+  const unclaimed = rows.filter(r => !r.claim_status);
+  const claimed = rows.filter(r => r.claim_status === 'claimed');
+  const paid = rows.filter(r => r.claim_status === 'paid');
+  const sum = a => Math.round(a.reduce((n, r) => n + (r.total || 0), 0) * 100) / 100;
+  json(res, 200, {
+    unclaimed, claimed, paid,
+    totals: { unclaimed: sum(unclaimed), claimed: sum(claimed), paid: sum(paid) },
+    reg_no: NDIS_REG_NO
+  });
+});
+
+route('POST', /^\/api\/admin\/claims\/(\d+)\/item$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const item = clean(body.support_item, 20);
+  if (item && !/^\d{2}_\d{3}_\d{4}_\d_\d$/.test(item)) return json(res, 400, { error: 'Support item numbers look like 01_011_0107_1_1.' });
+  const r = db.prepare(`SELECT id FROM bookings WHERE id = ? AND ${billable('bookings')}`).get(Number(m[1]));
+  if (!r) return json(res, 404, { error: 'No such billable shift.' });
+  db.prepare('UPDATE bookings SET support_item = ? WHERE id = ?').run(item, r.id);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = claimRows("AND (b.claim_status IS NULL OR b.claim_status = '')");
+  const needs = [], ndiaClaimed = [], invoiceGroups = new Map();
+  for (const r of rows) {
+    const flags = lineFlags(r).filter(f => !f.startsWith('confirm'));
+    if (flags.length) { needs.push({ id: r.id, date: r.date, participant: r.participant_name, flags }); continue; }
+    const item = effectiveItem(r);
+    if (r.funding === 'ndia') {
+      db.prepare("UPDATE bookings SET claim_status = 'claimed', claim_ref = ?, support_item = ?, claimed_at = ? WHERE id = ?")
+        .run(`BK${r.id}`, item, now(), r.id);
+      ndiaClaimed.push(r.id);
+    } else {
+      const key = `${r.pid}:${r.funding}`;
+      if (!invoiceGroups.has(key)) invoiceGroups.set(key, []);
+      invoiceGroups.get(key).push({ ...r, item });
+    }
+  }
+  const invoices = [];
+  for (const group of invoiceGroups.values()) {
+    const first = group[0];
+    let invNo = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${first.pid}`;
+    let n = 1;
+    while (db.prepare('SELECT 1 FROM bookings WHERE invoice_no = ?').get(n === 1 ? invNo : `${invNo}-${n}`)) n++;
+    if (n > 1) invNo = `${invNo}-${n}`;
+    const total = Math.round(group.reduce((s, r) => s + (r.total || 0), 0) * 100) / 100;
+    for (const r of group) {
+      db.prepare("UPDATE bookings SET claim_status = 'claimed', claim_ref = ?, support_item = ?, invoice_no = ?, claimed_at = ? WHERE id = ?")
+        .run(`BK${r.id}`, r.item, invNo, now(), r.id);
+    }
+    const self = first.funding === 'self';
+    const dest = self ? first.participant_email : first.pm_email;
+    /* self-managed + Stripe configured → hosted card-payment link for the whole invoice */
+    let payUrl = '';
+    if (self && STRIPE_KEY) {
+      try {
+        const session = await stripeRequest('/v1/checkout/sessions', {
+          mode: 'payment',
+          'line_items[0][quantity]': 1,
+          'line_items[0][price_data][currency]': 'aud',
+          'line_items[0][price_data][unit_amount]': Math.round(total * 100),
+          'line_items[0][price_data][product_data][name]': `BookIt invoice ${invNo} — NDIS supports for ${first.participant_name}`,
+          'metadata[invoice_no]': invNo,
+          customer_email: dest,
+          success_url: `${APP_URL || baseUrl(req)}/#/pay-success`,
+          cancel_url: `${APP_URL || baseUrl(req)}/#/bookings`
+        });
+        payUrl = session.url || '';
+        if (payUrl) db.prepare('UPDATE bookings SET stripe_session = ?, pay_url = ? WHERE invoice_no = ?').run(session.id || '', payUrl, invNo);
+      } catch (e) { console.error(`[stripe] session failed for ${invNo}: ${e.message}`); }
+    }
+    const pdf = makeInvoicePdf({
+      invoice_no: invNo,
+      date: dmy(new Date().toISOString().slice(0, 10)),
+      self,
+      bill_to: self
+        ? [first.participant_name, first.participant_email, first.ndis_number ? `NDIS number: ${first.ndis_number}` : '']
+        : [`Plan manager for ${first.participant_name}`, dest, first.ndis_number ? `NDIS number: ${first.ndis_number}` : ''],
+      lines: group.map(r => ({
+        date: dmy(r.date),
+        service: (SERVICE_LABELS[r.service] || r.service)
+          + (r.rate_category === 'sleepover' ? ' — sleepover (per night)' : '')
+          + (r.status === 'cancelled' ? ' — cancelled at short notice' : ''),
+        item: r.item,
+        hours: (INVOICE_RATES[r.rate_category] || {}).perNight ? 1 : r.hours,
+        rate: r.unit_price || 0, amount: r.total || 0
+      })),
+      total
+    });
+    let emailed = false;
+    try {
+      await sendMail(dest, `Invoice ${invNo} — BookIt supports for ${first.participant_name}`,
+        `Invoice ${invNo}`,
+        `<p>Please find attached invoice <b>${invNo}</b> for NDIS supports delivered to <b>${escHtml(first.participant_name)}</b> — total <b>$${total.toFixed(2)}</b> (GST-free). Payment within 14 days, thank you.</p>${payUrl ? '<p>Fastest way: press the button below to <b>pay by card</b> — the invoice marks itself paid instantly. Bank transfer details are on the attached PDF if you prefer.</p>' : ''}<p>Prices align with the NDIS Pricing Arrangements and Price Limits 2026–27. Questions? Just reply to this email.</p>`,
+        payUrl ? '💳 Pay by card' : null, payUrl || null, MAIL_FROM, [{ filename: `${invNo}.pdf`, mime: 'application/pdf', buffer: pdf }]);
+      emailed = EMAIL_ON;
+    } catch (e) { console.error(`[claims] invoice email failed for ${invNo}: ${e.message}`); }
+    invoices.push({ invoice_no: invNo, to: dest, funding: first.funding, lines: group.length, total, emailed });
+  }
+  json(res, 200, { ok: true, ndia_claimed: ndiaClaimed.length, invoices, needs_attention: needs });
+});
+
+route('GET', /^\/api\/admin\/claims\/pace\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = claimRows("AND up.plan = 'ndia' AND b.claim_status = 'claimed'");
+  const header = ['RegistrationNumber', 'NDISNumber', 'SupportsDeliveredFrom', 'SupportsDeliveredTo', 'SupportNumber', 'ClaimReference', 'Quantity', 'Hours', 'UnitPrice', 'GSTCode', 'ClaimType', 'CancellationReason', 'ABN', 'InKindFundingProgram', 'ClaimReason', 'RequestedAmount'];
+  const lines = [header.join(',')];
+  for (const r of rows) {
+    const qty = (INVOICE_RATES[r.rate_category] || {}).perNight ? 1 : r.hours; /* sleepovers claim 1 Each */
+    /* ClaimType and CancellationReason were hard-coded empty here, which meant
+       that once a short-notice cancellation reached this file it would have
+       been claimed as a support that was delivered. That is a false claim in a
+       payment-integrity review, and it is the participant's plan that pays for
+       it. A cancellation is claimed as CANC with the reason we were given. */
+    const canc = r.status === 'cancelled';
+    lines.push([q(NDIS_REG_NO), q(r.ndis_number), q(dmy(r.date)), q(dmy(r.date)), q(effectiveItem(r)), q(r.claim_ref || `BK${r.id}`),
+      qty, '', (r.unit_price || 0).toFixed(2), 'P2', q(canc ? 'CANC' : ''), q(canc ? (r.cancel_code || 'NSDO') : ''),
+      q(COMPANY_ABN), '', '', (r.total || 0).toFixed(2)].join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-pace-claims-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end(lines.join('\r\n'));
+});
+
+route('POST', /^\/api\/admin\/claims\/(\d+)\/paid$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const r = db.prepare(`SELECT id, claim_status FROM bookings WHERE id = ? AND ${billable('bookings')}`).get(Number(m[1]));
+  if (!r || !r.claim_status) return json(res, 404, { error: 'No such claimed shift.' });
+  if (body.paid === false) db.prepare("UPDATE bookings SET claim_status = 'claimed', paid_at = NULL WHERE id = ?").run(r.id);
+  else db.prepare("UPDATE bookings SET claim_status = 'paid', paid_at = ? WHERE id = ?").run(now(), r.id);
+  json(res, 200, { ok: true });
+});
+
+/* ---------- compliance: worker credentials ---------- */
+const DOCS_DIR = process.env.DOCS_DIR || path.join(path.dirname(path.resolve(DB_PATH)), 'bookit-docs');
+try { fs.mkdirSync(DOCS_DIR, { recursive: true }); } catch {}
+const PHOTOS_DIR = process.env.PHOTOS_DIR || path.join(path.dirname(path.resolve(DB_PATH)), 'bookit-photos');
+try { fs.mkdirSync(PHOTOS_DIR, { recursive: true }); } catch {}
+/* ---------- the Australian document catalogue ----------
+   Everything a worker hands over during onboarding, structured the way providers
+   actually check it: identity (100 points) first, then right to work, the formal
+   checks, training, and qualifications. Keys are stable — the original four
+   (ndis-screening, wwcc, first-aid, other) are unchanged so existing rows keep
+   working. expiry: 'required' | 'optional' | 'none' drives validation + UI.
+   points/primary implement the standard 100-point ID check; rtw marks documents
+   that evidence the right to work in Australia. */
+const DOC_CATEGORIES = [
+  { key: 'identity',      label: 'Identity — 100 points of ID' },
+  { key: 'right-to-work', label: 'Right to work in Australia' },
+  { key: 'checks',        label: 'Checks & clearances' },
+  { key: 'training',      label: 'Training certificates' },
+  { key: 'qualification', label: 'Qualifications & resume' },
+  { key: 'other',         label: 'Anything else' }
+];
+const DOC_CATALOG = [
+  /* identity — primary documents (70 points) */
+  { key: 'passport-au', label: 'Australian Passport', category: 'identity', points: 70, primary: true, rtw: true, expiry: 'optional', numberLabel: 'Passport number', aliases: ['passport'], help: 'Current, or expired less than 2 years ago and not cancelled.' },
+  { key: 'passport-foreign', label: 'Foreign Passport', category: 'identity', points: 70, primary: true, expiry: 'optional', numberLabel: 'Passport number', aliases: ['overseas passport', 'international passport'], help: 'Pair it with your visa under Right to work.' },
+  { key: 'birth-cert', label: 'Australian Birth Certificate', category: 'identity', points: 70, primary: true, rtw: true, expiry: 'none', numberLabel: 'Registration number', aliases: ['birth certificate'] },
+  { key: 'citizenship-cert', label: 'Australian Citizenship Certificate', category: 'identity', points: 70, primary: true, rtw: true, expiry: 'none', numberLabel: 'Certificate number', aliases: ['citizenship certificate', 'citizenship'] },
+  /* identity — secondary with photo and signature (40 points) */
+  { key: 'driver-licence', label: 'Australian Driver Licence', category: 'identity', points: 40, expiry: 'optional', numberLabel: 'Licence number', aliases: ['drivers licence', 'drivers license', 'driver license', 'licence'], help: 'Also needed for any transport shifts.' },
+  { key: 'proof-of-age', label: 'Photo / Proof of Age Card', category: 'identity', points: 40, expiry: 'optional', numberLabel: 'Card number', aliases: ['photo card', 'proof of age card'] },
+  /* identity — secondary documents (25 points) */
+  { key: 'medicare', label: 'Medicare Card', category: 'identity', points: 25, expiry: 'optional', numberLabel: 'Card number', aliases: ['medicare'] },
+  { key: 'bank-card', label: 'Bank or Credit Card', category: 'identity', points: 25, expiry: 'none', numberLabel: null, aliases: ['bank card', 'debit card', 'credit card'], help: 'A photo showing your name — cover the long card number.' },
+  { key: 'utility-bill', label: 'Utility Bill / Rates Notice', category: 'identity', points: 25, expiry: 'none', numberLabel: null, aliases: ['electricity bill', 'gas bill', 'rates notice', 'phone bill'], help: 'Less than 12 months old, showing your name and current address.' },
+  /* right to work */
+  { key: 'visa', label: 'Visa Grant Notice / VEVO Check', category: 'right-to-work', rtw: true, expiry: 'optional', numberLabel: 'Visa grant number', aliases: ['vevo', 'visa grant', 'work visa', 'work rights'], help: 'Non-citizens: current visa with work rights, together with your passport.' },
+  /* checks & clearances */
+  { key: 'ndis-screening', label: 'NDIS Worker Screening Check', category: 'checks', expiry: 'required', numberLabel: 'Check number', aliases: ['screening', 'worker screening', 'ndiswc', 'ndis check'], help: 'Required before your profile can go live — apply through your state screening unit.' },
+  { key: 'wwcc', label: 'Working with Children Check', category: 'checks', expiry: 'required', numberLabel: 'WWCC number', aliases: ['working with childrens check', 'wwc', 'blue card', 'wwvp', 'ochre card'], help: 'Needed to support participants under 18. State-based (Blue Card in QLD, Ochre Card in NT).' },
+  /* Kept so existing uploads still have a home and nothing 404s, but no longer
+     a form the register asks for: the NDIS Worker Screening Check already
+     contains a nationally coordinated criminal history check. */
+  { key: 'police-check', label: 'National Police Check', category: 'checks', expiry: 'optional', numberLabel: 'Reference number', aliases: ['police check', 'afp check', 'criminal history check', 'national police certificate'], help: 'Optional — your NDIS Worker Screening Check already includes a national criminal history check. Only upload this if a host organisation has asked for one separately.' },
+  /* training certificates */
+  { key: 'ndis-orientation', label: 'NDIS Worker Orientation Module', category: 'training', expiry: 'none', numberLabel: 'Certificate ID', aliases: ['quality safety and you', 'orientation module', 'worker orientation'], help: 'The free 90-minute Commission module "Quality, Safety and You".', link: 'https://training.ndiscommission.gov.au/' },
+  { key: 'infection-control', label: 'Infection Prevention & Control Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['infection free', 'infection control', 'covid training', 'supporting people to stay infection free'], help: 'e.g. "Supporting People to Stay Infection Free".', link: 'https://teamdsc.com.au/learning/supporting-people-to-stay-infection-free' },
+  { key: 'first-aid', label: 'First Aid / CPR', category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['cpr', 'hltaid011', 'hltaid009', 'first aid certificate'], help: 'Required for direct support work. First aid renews every 3 years, CPR yearly.' },
+  { key: 'medication-training', label: 'Medication Administration Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['medication management', 'meds training', 'supporting people to take their medication'], help: 'Required if you assist participants with medication.', link: 'https://teamdsc.com.au/learning/supporting-people-to-take-their-medication' },
+  { key: 'manual-handling', label: 'Manual Handling Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['moving and handling', 'hoist training', 'safe lifting'] },
+  /* A certificate says somebody attended. This says somebody was watched doing
+     the task and was safe doing it, which is the thing the High Intensity
+     module actually asks for and the thing no worker folder currently holds.
+     Without a slot here the blank form would end its own instructions with
+     "upload it under —" and point at nothing. */
+  { key: 'hi-competency', label: 'High-intensity skills competency sign-off', category: 'training', expiry: 'optional', numberLabel: null, aliases: ['competency', 'competency sign off', 'skills assessment', 'observation', 'supervisor sign off'], help: 'Signed by the person who watched you do the task. Annual. Print the blank from the forms page if your assessor needs one.' },
+  /* qualifications & resume */
+  { key: 'cert3-support', label: 'Certificate III in Individual Support', category: 'qualification', expiry: 'none', numberLabel: 'Certificate number', aliases: ['cert 3', 'cert iii', 'chc33015', 'chc33021', 'individual support'] },
+  { key: 'cert4-disability', label: 'Certificate IV in Disability Support', category: 'qualification', expiry: 'none', numberLabel: 'Certificate number', aliases: ['cert 4', 'cert iv', 'chc43121', 'disability support'] },
+  { key: 'qualification', label: 'Other Qualification / Certificate', category: 'qualification', expiry: 'optional', numberLabel: 'Certificate number', needsLabel: true, aliases: ['diploma', 'degree', 'bachelor', 'certificate', 'qualification'] },
+  { key: 'resume', label: 'Resume / CV', category: 'qualification', expiry: 'none', numberLabel: null, aliases: ['cv', 'curriculum vitae', 'resume'] },
+  /* anything else */
+  { key: 'other', label: 'Other document', category: 'other', expiry: 'optional', numberLabel: 'Reference number', aliases: [] }
+];
+const DOC_MAP = Object.fromEntries(DOC_CATALOG.map(d => [d.key, d]));
+const DOC_TYPES = Object.fromEntries(DOC_CATALOG.map(d => [d.key, d.label])); /* legacy label map — used by emails/sweep */
+const DOC_MIMES = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png' };
+
+/* the onboarding scorecard: 100-point ID tally, right to work, and the key items */
+function onboardingSummary(workerId) {
+  const have = new Set(db.prepare("SELECT DISTINCT doc_type FROM worker_docs WHERE worker_id = ? AND COALESCE(review_state, '') <> 'rejected'").all(workerId).map(d => d.doc_type));
+  let points = 0, primary = false, rtw = false;
+  for (const key of have) {
+    const c = DOC_MAP[key];
+    if (!c) continue;
+    if (c.points) points += c.points;
+    if (c.points && c.primary) primary = true;
+    if (c.rtw) rtw = true;
+  }
+  return {
+    id_points: points, has_primary: primary, id_ok: primary && points >= 100,
+    right_to_work: rtw,
+    screening: screeningState(workerId),
+    first_aid: have.has('first-aid'),
+    orientation: have.has('ndis-orientation'),
+    infection_control: have.has('infection-control'),
+    resume: have.has('resume')
+  };
+}
+
+/* --- 18. how much notice a person gets before a document lapses.
+
+   Three rungs, not two. The old ladder was 30 days and then 7, and neither
+   number is any use to the person holding the document: an NDIS worker
+   screening clearance takes weeks to come back and cannot be lodged more than
+   90 days early, so somebody told at 30 days is already behind and somebody
+   told at 7 has no move left except to stop working. Sixty days is the first
+   day they can actually act. Fourteen is the last day acting still works.
+
+   Descending on purpose, and read from the bottom by docStage(), so a
+   document reports the closest rung it has reached rather than the first one
+   it passed. Adding a rung is adding a number to this array — nothing else in
+   the file knows how many there are. --- */
+const WARN_LADDER = [60, 30, 14];
+
+function docStatus(d) {
+  if (!d.expiry_date) return 'no-expiry';
+  const today = new Date().toISOString().slice(0, 10);
+  if (d.expiry_date < today) return 'expired';
+  const days = Math.round((new Date(d.expiry_date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
+  /* The band has to be at least as wide as the top rung, or the 60-day
+     warning could never fire: docStage() only ever looks at documents this
+     function has already called 'expiring'. Tying the two together means the
+     product also stops contradicting its own email — a worker told on Monday
+     that their check is expiring should not open BookIt on Tuesday and read
+     "valid". That happens twice and they stop reading the emails, which costs
+     far more than a slightly earlier amber badge. Every consumer of this
+     function treats 'expiring' as still-current, so widening it changes what
+     people are told and nothing about what they are allowed to do. */
+  return days <= WARN_LADDER[0] ? 'expiring' : 'valid';
+}
+function docDays(d) {
+  if (!d.expiry_date) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  return Math.round((new Date(d.expiry_date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
+}
+/* Which rung this document has reached, or '' for one that has not reached
+   any. Shared by the worker sweep and the participant sweep, because two
+   copies of a warning schedule is how one of them ends up being the schedule
+   nobody maintains. */
+function docStage(d) {
+  const st = docStatus(d);
+  if (st === 'expired') return 'expired';
+  if (st !== 'expiring') return '';
+  const days = docDays(d);
+  for (let i = WARN_LADDER.length - 1; i >= 0; i--) if (days <= WARN_LADDER[i]) return String(WARN_LADDER[i]);
+  return '';
+}
+/* --- 18. what has happened to this document, in four words.
+
+   Before this there were two states and neither was said out loud: a document
+   either had a verified_at or it didn't. That collapsed "we asked you for
+   this", "you sent it and nobody has looked yet" and "we looked and said no"
+   into a single blank, and left rejection with nowhere to live except the
+   delete button — which destroys the evidence that anything was ever offered
+   and tells the person nothing about why.
+
+   'requested' never appears on a document row; a request lives in
+   doc_requests precisely so that it can't. It is named here anyway because
+   the request and the document are shown to the same person in the same list
+   and should speak the same four words. --- */
+const REVIEW_STATES = {
+  requested: { label: 'Requested', hint: 'We\'ve asked for this — it isn\'t on file yet.' },
+  submitted: { label: 'Submitted', hint: 'On file, waiting to be checked.' },
+  approved:  { label: 'Approved',  hint: 'Checked and accepted.' },
+  rejected:  { label: 'Rejected',  hint: 'We couldn\'t accept this one — the reason is below.' }
+};
+/* Unclassified rows read as the state they are already in rather than as an
+   error, so an install that predates the column behaves today exactly as it
+   did yesterday. The migration leaves none behind; this is the belt. */
+function reviewState(d) {
+  const r = String(d.review_state || '');
+  return REVIEW_STATES[r] ? r : (d.verified_at ? 'approved' : 'submitted');
+}
+/* A rejected document is not evidence of anything. Every test of the form
+   "does this person have X" has to skip them, or rejecting an illegible
+   screening check would turn a badge red and change nothing about who can
+   take bookings. Note it excludes 'rejected' specifically rather than
+   requiring 'approved': a document nobody has checked yet has always counted
+   as held, and that is a separate argument from this one. */
+const notRejected = d => reviewState(d) !== 'rejected';
+
+function screeningState(workerId) {
+  const docs = db.prepare("SELECT * FROM worker_docs WHERE worker_id = ? AND doc_type = 'ndis-screening'").all(workerId)
+    .filter(notRejected);
+  if (!docs.length) return 'none';
+  const st = docs.map(docStatus);
+  if (st.includes('valid')) return 'valid';
+  if (st.includes('expiring')) return 'expiring';
+  if (st.includes('no-expiry')) return 'no-expiry';
+  return 'expired';
+}
+function docOut(d) {
+  const cat = DOC_MAP[d.doc_type] || {};
+  const rv = reviewState(d);
+  return { ...d, file_path: undefined, status: docStatus(d), days: docDays(d), stage: docStage(d),
+    review: rv, review_label: REVIEW_STATES[rv].label, review_hint: REVIEW_STATES[rv].hint,
+    type_label: d.label || cat.label || d.doc_type, category: cat.category || 'other', has_file: Boolean(d.file_path) };
+}
+
+/* ============================================================================
+   0137 — NDIS Digital Platform Service: conditions of registration
+   ==========================================================================*/
+
+/* How often we re-check the banning orders register, and how long a worker
+   keeps working after that check falls due. The window is a setting because
+   the Commission may put a number on it; the grace period exists so a check
+   nobody got to on a Friday warns the team rather than pulling the entire
+   roster offline over a weekend. After the grace period it does block. */
+/* The three registers s13D(6)(a)-(c) requires be checked and displayed, in
+   the order the Rules list them. `rc`/`ac`/`sc` are the result, checked-at and
+   source columns on worker_profiles; the NDIS trio keeps its original column
+   names so no data has to move. */
+const BAN_REGISTERS = [
+  { key: 'ndis', short: 'NDIS', rc: 'banning_result', ac: 'banning_checked_at', sc: 'banning_source',
+    label: 'NDIS Commission banning orders register',
+    where: 'the NDIS Quality and Safeguards Commission banning orders register' },
+  { key: 'aged', short: 'Aged Care Act 2024', rc: 'banning_aged_result', ac: 'banning_aged_at', sc: 'banning_aged_source',
+    label: 'Aged care banning orders register (Aged Care Act 2024)',
+    where: 'the aged care banning orders register, for orders under the Aged Care Act 2024' },
+  { key: 'acqsc', short: 'ACQSC Act', rc: 'banning_acqsc_result', ac: 'banning_acqsc_at', sc: 'banning_acqsc_source',
+    label: 'Aged care banning orders made before the Aged Care Act 2024 (ACQSC Act)',
+    where: 'the aged care banning orders register, for orders made under the Aged Care Quality and Safety Commission Act 2018 before the Aged Care Act 2024 commenced' }
+];
+const BAN_BY_KEY = Object.fromEntries(BAN_REGISTERS.map(r => [r.key, r]));
+const BAN_COLS = BAN_REGISTERS.flatMap(r => [r.rc, r.ac, r.sc]);
+
+function banningWindowDays() { return Math.max(1, Number(setting('banning_recheck_days', '90')) || 90); }
+function banningGraceDays()  { return Math.max(0, Number(setting('banning_grace_days', '30')) || 0); }
+
+function daysSince(iso) {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (isNaN(t)) return null;
+  return Math.floor((Date.now() - t) / 864e5);
+}
+
+function isDemoWorker(email) { return Boolean(email) && email.endsWith('@demo.bookit.life'); }
+
+/* Write to the evidence trail. Append only — nothing in the codebase updates
+   or deletes a row of this table, and that is the point of it. */
+function logCompliance(o) {
+  db.prepare(`INSERT INTO compliance_log
+    (worker_id, worker_name, kind, result, detail, source, ref, doc_id, checked_at, checked_by)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`)
+    .run(o.worker_id || null, o.worker_name || '', o.kind, o.result || '', o.detail || '',
+         o.source || '', o.ref || '', o.doc_id || null, o.checked_at || now(), o.checked_by || 'System');
+}
+
+/* The single source of truth on whether a worker may be on the platform.
+   Everything else — the approve route, the sweep, the booking and message
+   endpoints, the cover cascade, the admin board — asks this one function, so
+   there is exactly one definition of "eligible" to keep right.
+
+   Returns { ok, blocks[], warnings[], screening{}, banning{} }. `blocks` are
+   hard: any one of them means the worker must not be visible and must not be
+   bookable. `warnings` are things that will become blocks if left. */
+function platformStatus(workerId) {
+  const w = db.prepare(`SELECT u.id, u.name, u.email, p.screening_status, p.screening_status_at,
+      p.screening_source, p.screening_ref, p.banning_checked_by, p.banning_note,
+      ${BAN_COLS.map(c => 'p.' + c).join(', ')},
+      p.platform_block, p.platform_block_reason, p.visible
+    FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?`).get(workerId);
+  if (!w) return { ok: false, blocks: ['No worker profile.'], warnings: [], screening: {}, banning: {}, registers: [] };
+
+  const blocks = [], warnings = [];
+
+  /* ---- condition (a): only a person holding a worker screening clearance
+     may use the platform. Two separate things must both hold: a screening
+     document that is on file, current and verified by a human; and a
+     clearance status that the screening unit has not withdrawn. Either one
+     alone is not enough — a valid-looking card proves nothing if the
+     clearance behind it was suspended last week. ---- */
+  const sdocs = db.prepare("SELECT * FROM worker_docs WHERE worker_id = ? AND doc_type = 'ndis-screening'").all(workerId);
+  const current = sdocs.filter(d => { const s = docStatus(d); return s === 'valid' || s === 'expiring' || s === 'no-expiry'; });
+  const verified = current.filter(d => d.verified_at);
+  const best = verified[0] || current[0] || sdocs[0] || null;
+
+  if (!sdocs.length) blocks.push('No NDIS worker screening check on file.');
+  else if (!current.length) blocks.push('NDIS worker screening check has expired.');
+  else if (!verified.length) blocks.push('NDIS worker screening check is on file but has not been verified by our team.');
+  else if (best && docStatus(best) === 'expiring') warnings.push(`Screening check expires in ${docDays(best)} days.`);
+
+  const st = w.screening_status || 'unknown';
+  if (st === 'suspended') blocks.push('NDIS worker screening clearance is suspended.');
+  else if (st === 'revoked') blocks.push('NDIS worker screening clearance has been revoked.');
+  else if (st === 'excluded') blocks.push('An NDIS worker screening exclusion is in force.');
+  else if (st === 'pending') blocks.push('NDIS worker screening clearance is still pending — an application is not a clearance.');
+  else if (st === 'unknown') blocks.push('NDIS worker screening clearance status has never been confirmed against the screening unit.');
+
+  /* ---- condition (b): check whether a banning order is in force, and
+     display what we found. A check that was done once at induction is not a
+     check; the register changes. So an unchecked worker is blocked outright,
+     and a stale check warns, then blocks once the grace period runs out.
+     Three registers, each answered and dated on its own: a clear NDIS result
+     says nothing about an aged care order, and s13D(6) asks for all three. -- */
+  const win = banningWindowDays(), grace = banningGraceDays();
+  const registers = BAN_REGISTERS.map(r => {
+    const result = w[r.rc] || 'unchecked';
+    const at = w[r.ac] || '';
+    const age = daysSince(at);
+    return { key: r.key, short: r.short, label: r.label, where: r.where, result,
+             checked_at: at, age_days: age, window_days: win, source: w[r.sc] || '' };
+  });
+  for (const r of registers) {
+    const name = r.key === 'ndis' ? 'NDIS banning orders register' : r.label;
+    if (r.result === 'banned') blocks.push(`A banning order is in force against this worker — ${r.short}.`);
+    else if (r.result !== 'clear' || r.age_days === null) blocks.push(`The ${name} has never been checked for this worker.`);
+    else if (r.age_days > win + grace) blocks.push(`${name} last checked ${r.age_days} days ago — past the ${win}-day window and the ${grace}-day grace period.`);
+    else if (r.age_days > win) warnings.push(`${name} is due for re-check — last checked ${r.age_days} days ago.`);
+    else if (r.age_days > win - 14) warnings.push(`${name} re-check due in ${win - r.age_days} days.`);
+  }
+  const bage = registers[0].age_days;
+
+  /* ---- an admin's manual stop, which needs no sweep and no reason to wait ---- */
+  if (w.platform_block) blocks.push(w.platform_block_reason || 'Blocked from the platform by an administrator.');
+
+  return {
+    ok: blocks.length === 0,
+    blocks, warnings,
+    worker: { id: w.id, name: w.name, email: w.email, visible: w.visible },
+    screening: {
+      status: st, status_at: w.screening_status_at || '', source: w.screening_source || '',
+      ref: w.screening_ref || '', doc_state: screeningState(workerId),
+      expiry: best ? (best.expiry_date || '') : '', verified: Boolean(verified.length)
+    },
+    /* `banning` stays the NDIS register on its own, because everything built
+       before the aged care limbs existed reads it. `registers` is the full
+       s13D(6)(a)-(c) set, and `registers_ok` is the one-line answer. */
+    banning: {
+      result: w.banning_result || 'unchecked', checked_at: w.banning_checked_at || '',
+      age_days: bage, window_days: win, source: w.banning_source || '', note: w.banning_note || ''
+    },
+    registers,
+    registers_ok: registers.every(r => r.result === 'clear' && r.age_days !== null && r.age_days <= win),
+    /* returned as its own flag rather than left to be read out of the blocks
+       list — the reason is free text an admin typed, so pattern-matching it
+       would break the moment somebody words it differently. */
+    block: { on: Boolean(w.platform_block), reason: w.platform_block_reason || '' }
+  };
+}
+
+/* The same question, asked cheaply at a gate. Demo workers are exempt from
+   enforcement throughout the codebase — they carry no real clearance and are
+   never real people — but they are *shown* honestly on the compliance board
+   as demo data rather than quietly counted as compliant. */
+function platformEligible(workerId, email) {
+  if (email === undefined) {
+    const u = db.prepare('SELECT email FROM users WHERE id = ?').get(workerId);
+    email = u ? u.email : '';
+  }
+  if (isDemoWorker(email)) return true;
+  return platformStatus(workerId).ok;
+}
+
+/* Make `visible` tell the truth, right now.
+
+   BookIt already had a single flag every access path consults — nineteen
+   queries say `p.visible = 1`. Rather than teach nineteen queries about 0137,
+   the flag is kept honest at source: a worker who fails a condition cannot be
+   visible, and the moment the condition is met again they come back.
+
+   `auto_hidden` is what makes the second half safe. A worker hidden by this
+   gate carries the flag, so lifting a suspension restores them automatically.
+   A worker an admin hid by hand does not carry it, and no sweep will ever
+   undo that decision. Returns a description of what changed, or null. */
+function reconcileVisibility(workerId, why, req) {
+  const w = db.prepare(`SELECT u.id, u.name, u.email, p.visible, p.auto_hidden
+    FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'`).get(workerId);
+  if (!w || isDemoWorker(w.email)) return null;
+  const st = platformStatus(workerId);
+  const base = req ? baseUrl(req) : (APP_URL || 'https://bookit.life');
+
+  if (!st.ok && w.visible) {
+    db.prepare('UPDATE worker_profiles SET visible = 0, auto_hidden = 1 WHERE user_id = ?').run(workerId);
+    logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'auto-withdrawn',
+      detail: `${why}. Platform access withdrawn automatically: ${st.blocks.join(' ')}`, source: '0137 conditions of registration' });
+    sendMail(w.email, 'Your BookIt profile is paused — BookIt', `Your profile is paused, ${firstName(w.name)}`,
+      `<p>Your profile has been hidden and new bookings are paused, because of the checks BookIt has to keep current for every worker on the platform:</p><ul>${st.blocks.map(b => `<li>${escHtml(b)}</li>`).join('')}</ul><p>This is a requirement of BookIt's registration, not a judgement about you. As soon as it's sorted your profile switches back on automatically.</p>`,
+      'Update my credentials', `${base}/#/bookings`).catch(() => {});
+    if (MAIL_FROM) sendMail(MAIL_FROM, `Worker withdrawn from the platform: ${w.name} — BookIt`, 'Platform access withdrawn',
+      `<p><b>${escHtml(w.name)}</b> was withdrawn from Find Workers.</p><ul>${st.blocks.map(b => `<li>${escHtml(b)}</li>`).join('')}</ul>`,
+      'Open the 0137 board', `${base}/#/admin`).catch(() => {});
+    return { worker: w.name, hidden: true, blocks: st.blocks };
+  }
+
+  if (st.ok && !w.visible && w.auto_hidden) {
+    db.prepare('UPDATE worker_profiles SET visible = 1, auto_hidden = 0 WHERE user_id = ?').run(workerId);
+    logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'restored',
+      detail: `${why}. All 0137 conditions met again — profile restored automatically.`, source: '0137 conditions of registration' });
+    sendMail(w.email, 'Your BookIt profile is live again', `You're back on, ${firstName(w.name)}`,
+      '<p>Your checks are current again, so your profile is visible in <b>Find Workers</b> and participants can book you from now.</p>',
+      'Open BookIt', `${base}/#/find-workers`).catch(() => {});
+    return { worker: w.name, restored: true };
+  }
+
+  if (st.ok && w.visible && w.auto_hidden) db.prepare('UPDATE worker_profiles SET auto_hidden = 0 WHERE user_id = ?').run(workerId);
+  return null;
+}
+
+/* Everything that goes on a public profile about how a worker was checked.
+   Deliberately narrow: status and month-level dates only. A participant needs
+   to know the check was done and is current; nobody outside the office needs
+   the worker's clearance number, exact dates, or documents. */
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function monthYear(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return `${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
+function publicVerification(workerId, email) {
+  const demo = isDemoWorker(email);
+  const s = platformStatus(workerId);
+  const today = new Date().toISOString().slice(0, 10);
+  const PUBLIC_CATS = ['checks', 'training', 'qualification'];
+
+  /* Only documents a human has actually verified appear here. This is the
+     whole point of the change: a shield must never sit beside a claim we
+     have not checked ourselves. */
+  const checks = db.prepare('SELECT doc_type, label, expiry_date, verified_at FROM worker_docs WHERE worker_id = ? ORDER BY id').all(workerId)
+    .filter(d => {
+      const c = DOC_MAP[d.doc_type];
+      return c && PUBLIC_CATS.includes(c.category) && d.doc_type !== 'resume'
+        && d.verified_at && (!d.expiry_date || d.expiry_date >= today);
+    })
+    .map(d => ({
+      label: d.label || DOC_TYPES[d.doc_type] || d.doc_type,
+      /* Demo credentials are seeded with a verified_at so the office screens
+         have something to show, but nobody checked them, so the payload must
+         not say anybody did. The front end already draws demo profiles in
+         amber — this makes the same statement one layer down, where it can't
+         be lost by a page that forgets to look at `demo`. A tick is a claim
+         wherever it is made. */
+      verified: !demo,
+      demo,
+      valid_to: monthYear(d.expiry_date)
+    }));
+
+  return {
+    checks,
+    screening: {
+      /* Not `true` for a demo profile, and not `false` either — the honest
+         answer is "there is nothing here to be cleared", so the flag stays
+         down and `demo` says why. Anything that ticks on `cleared` alone then
+         fails safe rather than certifying a person who doesn't exist. */
+      cleared: demo ? false : (s.screening.status === 'cleared' && s.screening.verified),
+      demo,
+      label: demo ? 'NDIS Worker Screening Check — demo profile, not checked'
+                  : (s.screening.status === 'cleared' && s.screening.verified ? 'NDIS Worker Screening Check — cleared' : 'NDIS Worker Screening Check — not confirmed'),
+      valid_to: demo ? '' : monthYear(s.screening.expiry),
+      confirmed_on: demo ? '' : monthYear(s.screening.status_at)
+    },
+    banning: {
+      clear: demo ? false : s.banning.result === 'clear',
+      demo,
+      label: demo ? 'Banning orders register — demo profile, not checked'
+                  : (s.banning.result === 'clear' ? 'No banning order in force'
+                     : s.banning.result === 'banned' ? 'A banning order is in force' : 'Banning orders register not yet checked'),
+      checked_on: demo ? '' : monthYear(s.banning.checked_at)
+    },
+    /* One entry per register named in s13D(6)(a)-(c). The condition is check
+       AND display, worker by worker, so all three answers go to the profile
+       rather than being collapsed into a single tick. */
+    registers: (s.registers || []).map(r => ({
+      key: r.key, short: r.short, label: r.label,
+      clear: demo ? false : r.result === 'clear',
+      demo,
+      heading: r.key === 'ndis' ? 'NDIS banning orders register'
+             : r.key === 'aged' ? 'Aged care banning orders — Aged Care Act 2024'
+             : 'Aged care banning orders — earlier ACQSC Act orders',
+      finding: demo ? 'Demonstration profile — the register was not actually checked.'
+             : r.result === 'clear' ? `We checked ${r.where}${monthYear(r.checked_at) ? ' in ' + monthYear(r.checked_at) : ''} — no order in force.`
+             : r.result === 'banned' ? 'An order is in force. This worker cannot take bookings.'
+             : 'Not yet checked — this worker can\'t take bookings.',
+      checked_on: demo ? '' : monthYear(r.checked_at)
+    })),
+    demo
+  };
+}
+
+/* the document catalogue — powers the typeahead on the worker's documents card */
+route('GET', /^\/api\/doc-catalog$/, (req, res) => json(res, 200, { categories: DOC_CATEGORIES, types: DOC_CATALOG }));
+
+route('GET', /^\/api\/me\/documents$/, (req, res, m, user) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  json(res, 200, {
+    documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(user.id).map(docOut),
+    requests: openRequests('worker', user.id),
+    summary: onboardingSummary(user.id)
+  });
+});
+
+route('POST', /^\/api\/me\/documents$/, (req, res, m, user, body, ip) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  if (limited(ip, 'docs', 30)) return json(res, 429, { error: 'Too many uploads — try again later.' });
+  const cat = DOC_MAP[clean(body.doc_type, 40)];
+  if (!cat) return json(res, 400, { error: 'Pick a document type.' });
+  const docType = cat.key;
+  const expiry = clean(body.expiry_date, 10);
+  if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return json(res, 400, { error: 'Expiry date looks wrong.' });
+  if (cat.expiry === 'required' && !expiry) return json(res, 400, { error: `Please enter the expiry date for your ${cat.label} — it drives the automatic checks.` });
+  if (cat.needsLabel && !clean(body.label, 80)) return json(res, 400, { error: 'Give the qualification a name — e.g. "Diploma of Nursing".' });
+  let fileName = '', fileMime = '', filePath = '';
+  if (body.file && body.file.data) {
+    fileMime = String(body.file.mime || '');
+    if (!DOC_MIMES[fileMime]) return json(res, 400, { error: 'Files must be PDF, JPG or PNG.' });
+    let buf;
+    try { buf = Buffer.from(String(body.file.data).replace(/^data:[^,]*,/, ''), 'base64'); } catch { return json(res, 400, { error: 'Could not read that file.' }); }
+    if (!buf.length || buf.length > 4 * 1024 * 1024) return json(res, 400, { error: 'Files can be up to 4 MB.' });
+    fileName = clean(body.file.name, 80).replace(/[^A-Za-z0-9. _-]/g, '') || ('document' + DOC_MIMES[fileMime]);
+    filePath = path.join(DOCS_DIR, `w${user.id}-${Date.now()}${DOC_MIMES[fileMime]}`);
+    fs.writeFileSync(filePath, buf);
+  }
+  const r = db.prepare(`INSERT INTO worker_docs (worker_id, doc_type, label, check_number, expiry_date, file_name, file_mime, file_path, uploaded_at, review_state)
+    VALUES (?,?,?,?,?,?,?,?,?,'submitted')`)
+    .run(user.id, docType, clean(body.label, 80), clean(body.check_number, 40), expiry, fileName, fileMime, filePath, now());
+  /* If this is what we asked for, the asking is over. Closing the request
+     from the upload rather than from a button means it closes every time. */
+  const answered = fulfilRequest('worker', user.id, docType, Number(r.lastInsertRowid));
+  if (MAIL_FROM) sendMail(MAIL_FROM, 'Credential uploaded — BookIt', 'A worker updated their credentials',
+    `<p><b>${escHtml(user.name)}</b> added a <b>${DOC_TYPES[docType]}</b>${expiry ? ` (expires ${escHtml(expiry)})` : ''}${clean(body.check_number, 40) ? ` — number ${escHtml(clean(body.check_number, 40))}` : ''}.</p>${answered ? `<p>This answers the request raised on ${dmy(answered.requested_at.slice(0, 10))}${answered.note ? ` — "${escHtml(answered.note)}"` : ''}.</p>` : ''}<p>Verify it against the NDIS Worker Screening Database, then press Verify in the Credentials section.</p>`,
+    'Open credentials', `${baseUrl(req)}/#/admin`).catch(() => {});
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid), review: 'submitted', answered_request: Boolean(answered) });
+});
+
+/* profile photo — a requirement before a worker can be approved */
+const PHOTO_MIMES = { 'image/jpeg': '.jpg', 'image/png': '.png' };
+function photoUrl(row) { return row && row.photo ? `/photos/${row.user_id ?? row.id}?v=${encodeURIComponent(row.photo_at || '')}` : null; }
+
+route('POST', /^\/api\/me\/photo$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (limited(ip, 'photo', 20)) return json(res, 429, { error: 'Too many uploads — try again later.' });
+  const isWorker = user.role === 'worker';
+  /* participants and coordinators can take theirs down any time; a worker's
+     photo is part of the public profile participants chose them by, so
+     replace-only — removing it would un-meet an approval requirement */
+  if (body && body.remove) {
+    if (isWorker) return json(res, 400, { error: 'Your photo is part of your public profile — upload a new one to change it.' });
+    const prev = db.prepare('SELECT photo FROM users WHERE id = ?').get(user.id);
+    db.prepare("UPDATE users SET photo = '', photo_at = '' WHERE id = ?").run(user.id);
+    if (prev && prev.photo) { try { fs.unlinkSync(prev.photo); } catch {} }
+    return json(res, 200, { ok: true, photo: null });
+  }
+  if (!body.file || !body.file.data) return json(res, 400, { error: 'Choose a photo first.' });
+  const mime = String(body.file.mime || '');
+  if (!PHOTO_MIMES[mime]) return json(res, 400, { error: 'Photos must be JPG or PNG.' });
+  let buf;
+  try { buf = Buffer.from(String(body.file.data).replace(/^data:[^,]*,/, ''), 'base64'); } catch { return json(res, 400, { error: 'Could not read that photo.' }); }
+  if (!buf.length || buf.length > 3 * 1024 * 1024) return json(res, 400, { error: 'Photos can be up to 3 MB.' });
+  const fp = path.join(PHOTOS_DIR, `${isWorker ? 'w' : 'u'}${user.id}-${Date.now()}${PHOTO_MIMES[mime]}`);
+  if (isWorker) {
+    const prev = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(user.id);
+    fs.writeFileSync(fp, buf);
+    db.prepare('UPDATE worker_profiles SET photo = ?, photo_at = ? WHERE user_id = ?').run(fp, now(), user.id);
+    if (prev && prev.photo) { try { fs.unlinkSync(prev.photo); } catch {} }
+  } else {
+    const prev = db.prepare('SELECT photo FROM users WHERE id = ?').get(user.id);
+    fs.writeFileSync(fp, buf);
+    db.prepare('UPDATE users SET photo = ?, photo_at = ? WHERE id = ?').run(fp, now(), user.id);
+    if (prev && prev.photo) { try { fs.unlinkSync(prev.photo); } catch {} }
+  }
+  json(res, 200, { ok: true, photo: `/photos/${user.id}?v=${Date.now()}` });
+});
+
+route('GET', /^\/api\/me\/profile$/, (req, res, m, user) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const p = db.prepare(`SELECT bio, services, visible, photo, photo_at, days, langs, exp,
+    gender, interests, self_paused, paused_at, pause_note, auto_hidden, platform_block FROM worker_profiles WHERE user_id = ?`).get(user.id) || {};
+  json(res, 200, { profile: {
+    bio: p.bio || '', services: JSON.parse(p.services || '[]'), visible: p.visible,
+    photo: p.photo ? `/photos/${user.id}?v=${encodeURIComponent(p.photo_at || '')}` : null,
+    days: JSON.parse(p.days || '[1,1,1,1,1,0,0]'), langs: p.langs || 'English', exp: p.exp || 'New to BookIt',
+    gender: p.gender || '', interests: safeJson(p.interests, []),
+    /* Three different invisibilities, named. A screen that only knows
+       `visible` can only say "you are hidden", which leaves the worker
+       guessing which of three quite different things to do about it. */
+    self_paused: !!p.self_paused, paused_at: p.paused_at || '', pause_note: p.pause_note || '',
+    hidden_reason: p.visible ? '' : (p.self_paused ? 'self'
+      : (p.platform_block ? 'blocked' : (p.auto_hidden ? 'checks' : 'approval')))
+  } });
+});
+
+route('POST', /^\/api\/me\/profile$/, (req, res, m, user, body) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const sets = ['bio = ?'];
+  const vals = [clean(body.bio, 600)];
+  if (Array.isArray(body.days) && body.days.length === 7) { sets.push('days = ?'); vals.push(JSON.stringify(body.days.map(x => (x ? 1 : 0)))); }
+  if (body.langs !== undefined) { sets.push('langs = ?'); vals.push(clean(body.langs, 120) || 'English'); }
+  if (body.exp !== undefined) { sets.push('exp = ?'); vals.push(clean(body.exp, 40) || 'New to BookIt'); }
+  /* a filter key, so a whitelist: anything else quietly stores as unsaid
+     rather than letting the search index fill with free text */
+  if (body.gender !== undefined) {
+    const g = ['female', 'male', 'non-binary'].includes(String(body.gender)) ? String(body.gender) : '';
+    sets.push('gender = ?'); vals.push(g);
+  }
+  if (body.interests !== undefined) {
+    const raw = Array.isArray(body.interests) ? body.interests : String(body.interests || '').split(',');
+    const tags = [...new Set(raw.map(t => clean(t, 24)).filter(Boolean))].slice(0, 8);
+    sets.push('interests = ?'); vals.push(JSON.stringify(tags));
+  }
+  db.prepare(`UPDATE worker_profiles SET ${sets.join(', ')} WHERE user_id = ?`).run(...vals, user.id);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/me\/documents\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const d = db.prepare('SELECT * FROM worker_docs WHERE id = ? AND worker_id = ?').get(Number(m[1]), user.id);
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  if (d.verified_at) return json(res, 400, { error: 'That one\'s been verified — ask the BookIt team to update it.' });
+  if (d.file_path) { try { fs.unlinkSync(d.file_path); } catch {} }
+  db.prepare('DELETE FROM worker_docs WHERE id = ?').run(d.id);
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/documents\/(\d+)\/file$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const d = db.prepare('SELECT * FROM worker_docs WHERE id = ?').get(Number(m[1]));
+  if (!d || !d.file_path) return json(res, 404, { error: 'No file.' });
+  if (!(user.admin || user.id === d.worker_id)) return json(res, 403, { error: 'Not yours.' });
+  if (!fs.existsSync(d.file_path)) return json(res, 404, { error: 'File missing from disk.' });
+  res.writeHead(200, { 'Content-Type': d.file_mime || 'application/octet-stream', 'Content-Disposition': `inline; filename="${d.file_name || 'document'}"` });
+  fs.createReadStream(d.file_path).pipe(res);
+});
+
+route('GET', /^\/api\/admin\/credentials$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const workers = db.prepare(`SELECT u.id, u.name, u.email, u.verified, p.visible, p.photo, p.photo_at FROM users u
+    JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' ORDER BY u.name`).all()
+    .map(w => ({
+      ...w,
+      photo: w.photo ? `/photos/${w.id}?v=${encodeURIComponent(w.photo_at || '')}` : null,
+      demo: isDemoWorker(w.email),
+      screening: screeningState(w.id),
+      platform: platformStatus(w.id),
+      summary: onboardingSummary(w.id),
+      documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(w.id).map(docOut)
+    }));
+  json(res, 200, { workers });
+});
+
+route('POST', /^\/api\/admin\/documents\/(\d+)\/verify$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const d = db.prepare(`SELECT wd.*, u.name AS worker_name FROM worker_docs wd
+    JOIN users u ON u.id = wd.worker_id WHERE wd.id = ?`).get(Number(m[1]));
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  body = body || {};
+  /* "Verified" on its own is a tick, and a tick is not evidence. What an
+     auditor asks is how you satisfied yourself — did you sight the original,
+     check the number against the issuing register, or take it on a copy — and
+     what reference you can point at. So the method is recorded, defaults to
+     the honest answer ("sighted the document"), and lands in the log. */
+  const METHODS = {
+    'sighted-original': 'Sighted the original document',
+    'sighted-copy': 'Sighted a copy of the document',
+    'issuer-register': 'Checked against the issuing register',
+    'issuer-confirmed': 'Confirmed directly with the issuer',
+    'other': 'Other — see note'
+  };
+  const method = METHODS[body.method] ? body.method : 'sighted-copy';
+  const ref = clean(body.ref, 120);
+  const note = clean(body.note, 400);
+  db.prepare(`UPDATE worker_docs SET verified_at = ?, verified_by = ?, verify_method = ?, verify_ref = ?,
+    verify_note = ?, review_state = 'approved', review_note = '' WHERE id = ?`)
+    .run(now(), user.name, method, ref, note, d.id);
+  logCompliance({ worker_id: d.worker_id, worker_name: d.worker_name, kind: 'document-verified', result: 'verified',
+    detail: `${d.label || DOC_TYPES[d.doc_type] || d.doc_type} — ${METHODS[method]}${d.expiry_date ? `, expires ${d.expiry_date}` : ''}${note ? `. ${note}` : ''}`,
+    source: METHODS[method], ref, doc_id: d.id, checked_by: user.name });
+  /* A newly verified screening check can be the last thing standing between a
+     worker and the platform, so re-test straight away rather than waiting up
+     to twelve hours for the sweep. */
+  reconcileVisibility(d.worker_id, 'Document verified');
+  json(res, 200, { ok: true, method, methods: METHODS, review: 'approved' });
+});
+
+/* --- 18. the other answer.
+
+   Before this the only way to refuse a document was to delete it: the record
+   that it was ever offered went with it, and the worker was left looking at
+   an empty slot with nothing to act on. Rejecting keeps the row, names the
+   state, and says why — the reason is mandatory, because a rejection with no
+   reason is a dead end for the one person who can do anything about it.
+
+   Three things follow from it, and all three have to be in here rather than
+   in whoever presses the button. The verification is unwound, so an approved
+   document that turns out to be the wrong person's cannot keep its tick.
+   Visibility is re-tested straight away, because the document being rejected
+   may be the only thing holding this worker on the platform and waiting up to
+   twelve hours for the sweep is twelve hours of bookings. And the replacement
+   is requested in the same breath. --- */
+route('POST', /^\/api\/admin\/documents\/(\d+)\/reject$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const d = db.prepare(`SELECT wd.*, u.name AS worker_name, u.email AS worker_email FROM worker_docs wd
+    JOIN users u ON u.id = wd.worker_id WHERE wd.id = ?`).get(Number(m[1]));
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  const reason = clean((body || {}).reason, 400);
+  if (!reason) return json(res, 400, { error: 'Say why you can\'t accept it — the worker can only fix what they can see.' });
+  db.prepare(`UPDATE worker_docs SET review_state = 'rejected', review_note = ?,
+    verified_at = NULL, verified_by = '', verify_method = '', verify_ref = '', verify_note = '' WHERE id = ?`)
+    .run(reason, d.id);
+  const what = d.label || DOC_TYPES[d.doc_type] || d.doc_type;
+  logCompliance({ worker_id: d.worker_id, worker_name: d.worker_name, kind: 'document-rejected', result: 'rejected',
+    detail: `${what} — not accepted. ${reason}`, source: 'admin', doc_id: d.id, checked_by: user.name });
+  /* Same thought, same act. */
+  raiseRequest('worker', d.worker_id, d.doc_type, reason, user.name, clean((body || {}).due_date, 10));
+  const changed = reconcileVisibility(d.worker_id, 'Document rejected', req);
+  notify(d.worker_id, 'compliance', d.worker_email,
+    `We need another copy of your ${DOC_TYPES[d.doc_type] || 'document'} — BookIt`,
+    `Hello ${firstName(d.worker_name)}`,
+    `<p>We couldn't accept the <b>${escHtml(what)}</b> you sent us.</p>
+     <p><b>Why:</b> ${escHtml(reason)}</p>
+     <p>Upload a new copy whenever you're ready and we'll check it again${changed ? '. Your profile is hidden from participants until we can' : ''}.</p>`,
+    'Upload a new copy', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  json(res, 200, { ok: true, review: 'rejected', reason, visibility: changed || null });
+});
+
+/* ---------- 0137: recording the two conditions ---------- */
+
+/* Condition (a) — the clearance itself, as distinct from the card on file.
+   An admin looks the worker up on the NDIS Worker Check portal and records
+   what the screening unit says today. */
+route('POST', /^\/api\/admin\/workers\/(\d+)\/screening$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const uid = Number(m[1]);
+  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  const OK = ['cleared', 'pending', 'suspended', 'revoked', 'excluded', 'unknown'];
+  const status = OK.includes(String(body.status)) ? String(body.status) : null;
+  if (!status) return json(res, 400, { error: `Status must be one of: ${OK.join(', ')}.` });
+  const source = clean(body.source, 160) || 'NDIS Worker Check portal';
+  const ref = clean(body.ref, 120);
+  db.prepare(`UPDATE worker_profiles SET screening_status = ?, screening_status_at = ?, screening_status_by = ?,
+    screening_source = ?, screening_ref = ? WHERE user_id = ?`).run(status, now(), user.name, source, ref, uid);
+  logCompliance({ worker_id: uid, worker_name: w.name, kind: 'screening-status', result: status,
+    detail: `Worker screening clearance recorded as "${status}".${clean(body.note, 400) ? ' ' + clean(body.note, 400) : ''}`,
+    source, ref, checked_by: user.name });
+  const out = reconcileVisibility(uid, 'Screening status recorded');
+  json(res, 200, { ok: true, platform: platformStatus(uid), changed: out });
+});
+
+/* Condition (b) — the banning orders registers. Somebody has to look, on a
+   cycle, and write down what they saw. Three registers are named in the Rules,
+   so the route takes three answers: `result` is the NDIS register (the field
+   name predates the others and is left alone), `aged_result` is the Aged Care
+   Act 2024 limb and `acqsc_result` the pre-2024 ACQSC Act limb. `all` is the
+   shorthand for one sitting in which all three were looked at and all three
+   said the same thing — which is the ordinary case, but it has to be asked for
+   rather than assumed, because recording a check nobody did is the one thing
+   this whole system exists to prevent. Anything left out is left untouched. */
+route('POST', /^\/api\/admin\/workers\/(\d+)\/banning$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const uid = Number(m[1]);
+  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  const OK = ['clear', 'banned', 'unchecked'];
+  const val = v => (OK.includes(String(v)) ? String(v) : null);
+  const all = val(body.all);
+  const given = {
+    ndis: val(body.result) || all,
+    aged: val(body.aged_result) || all,
+    acqsc: val(body.acqsc_result) || all
+  };
+  if (!given.ndis && !given.aged && !given.acqsc) {
+    return json(res, 400, { error: `Give a result for at least one register — one of: ${OK.join(', ')}.` });
+  }
+  const note = clean(body.note, 400);
+  const stamp = now();
+  const done = [];
+  for (const r of BAN_REGISTERS) {
+    const result = given[r.key];
+    if (!result) continue;
+    const source = clean(body[r.key === 'ndis' ? 'source' : r.key + '_source'], 160) || r.label;
+    db.prepare(`UPDATE worker_profiles SET ${r.rc} = ?, ${r.ac} = ?, ${r.sc} = ?,
+      banning_checked_by = ?, banning_note = ? WHERE user_id = ?`)
+      .run(result, result === 'unchecked' ? '' : stamp, source, user.name, note, uid);
+    logCompliance({ worker_id: uid, worker_name: w.name, kind: 'banning-check', result,
+      detail: result === 'clear' ? `Checked ${r.where} — no banning order in force.`
+        : result === 'banned' ? `A banning order is in force against this worker — ${r.short}.${note ? ' ' + note : ''}`
+        : `Banning-order check cleared back to unchecked — ${r.short}.`,
+      source, checked_by: user.name });
+    done.push(r.key);
+  }
+  const out = reconcileVisibility(uid, 'Banning-order check recorded');
+  json(res, 200, { ok: true, checked: done, platform: platformStatus(uid), changed: out });
+});
+
+/* The manual stop. An admin who hears something at 9pm should not have to
+   compose a status change to get somebody off the platform. */
+route('POST', /^\/api\/admin\/workers\/(\d+)\/platform-block$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const uid = Number(m[1]);
+  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(uid);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  const on = body.block ? 1 : 0;
+  const reason = clean(body.reason, 300) || (on ? 'Blocked from the platform by an administrator.' : '');
+  db.prepare('UPDATE worker_profiles SET platform_block = ?, platform_block_reason = ? WHERE user_id = ?').run(on, reason, uid);
+  logCompliance({ worker_id: uid, worker_name: w.name, kind: 'platform-block', result: on ? 'blocked' : 'lifted',
+    detail: on ? reason : 'Platform block lifted.', checked_by: user.name });
+  const out = reconcileVisibility(uid, on ? 'Platform block applied' : 'Platform block lifted');
+  json(res, 200, { ok: true, platform: platformStatus(uid), changed: out });
+});
+
+route('POST', /^\/api\/admin\/documents\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const d = db.prepare('SELECT * FROM worker_docs WHERE id = ?').get(Number(m[1]));
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  if (d.file_path) { try { fs.unlinkSync(d.file_path); } catch {} }
+  db.prepare('DELETE FROM worker_docs WHERE id = ?').run(d.id);
+  json(res, 200, { ok: true });
+});
+
+/* the automatic checker: warns ahead of expiry and hides workers whose
+   screening has lapsed. Runs on boot, twice a day, and on demand. */
+function credentialSweep(req) {
+  const actions = [];
+  const base = req ? baseUrl(req) : APP_URL || 'https://bookit.life';
+  const workers = db.prepare(`SELECT u.id, u.name, u.email, p.visible FROM users u
+    JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker'`).all();
+  for (const w of workers) {
+    if (w.email.endsWith('@demo.bookit.life')) continue;
+    const docs = db.prepare('SELECT * FROM worker_docs WHERE worker_id = ?').all(w.id);
+    for (const d of docs) {
+      const st = docStatus(d), days = docDays(d), stage = docStage(d);
+      if (stage && d.warned_stage !== stage) {
+        db.prepare('UPDATE worker_docs SET warned_stage = ? WHERE id = ?').run(stage, d.id);
+        const what = `${DOC_TYPES[d.doc_type] || d.doc_type}${d.check_number ? ` (${d.check_number})` : ''}`;
+        const when = st === 'expired' ? 'has EXPIRED' : `expires in ${days} day${days === 1 ? '' : 's'} (${d.expiry_date})`;
+        sendMail(w.email, `Your ${DOC_TYPES[d.doc_type] || 'credential'} ${st === 'expired' ? 'has expired' : 'is expiring'} — BookIt`,
+          `Heads up, ${firstName(w.name)}`,
+          `<p>Your <b>${escHtml(what)}</b> ${escHtml(when)}.</p><p>${st === 'expired' ? 'You can\'t deliver supports until a current check is on file — please renew it and upload the new details today.' : 'Renewals can be lodged up to 90 days early — please update your credentials in BookIt as soon as you have the new document.'}</p>`,
+          'Update my credentials', `${base}/#/bookings`).catch(() => {});
+        if (MAIL_FROM) sendMail(MAIL_FROM, `Credential ${st === 'expired' ? 'EXPIRED' : 'expiring'}: ${w.name} — BookIt`,
+          `${w.name} — ${DOC_TYPES[d.doc_type] || d.doc_type}`,
+          `<p><b>${escHtml(w.name)}</b>'s <b>${escHtml(what)}</b> ${escHtml(when)}.</p>`,
+          'Open credentials', `${base}/#/admin`).catch(() => {});
+        actions.push({ worker: w.name, doc: d.doc_type, stage });
+      }
+    }
+    /* ---- 0137 condition (b): the banning-orders re-check falls due on a
+       cycle, so chase it before it starts pulling people off the roster.
+       Nagging the office twice is much cheaper than a worker disappearing
+       from Find Workers on a Monday morning. ---- */
+    const st = platformStatus(w.id);
+    const age = st.banning.age_days;
+    if (st.banning.result === 'clear' && age !== null && age > st.banning.window_days - 14 && MAIL_FROM) {
+      const overdue = age > st.banning.window_days;
+      const stage = overdue ? `ban-overdue-${Math.floor(age / 7)}` : 'ban-due';
+      if (setting(`banwarn:${w.id}`, '') !== stage) {
+        setSetting(`banwarn:${w.id}`, stage);
+        sendMail(MAIL_FROM, `Banning-order re-check ${overdue ? 'OVERDUE' : 'due'}: ${w.name} — BookIt`,
+          `${w.name} — banning orders register`,
+          `<p>The banning orders register was last checked for <b>${escHtml(w.name)}</b> ${age} days ago. The re-check window is ${st.banning.window_days} days${overdue ? `, and after a further ${banningGraceDays()}-day grace period their profile will be withdrawn automatically` : ''}.</p>`,
+          'Open the 0137 board', `${base}/#/admin`).catch(() => {});
+        actions.push({ worker: w.name, banning_recheck: overdue ? 'overdue' : 'due', days: age });
+      }
+    }
+
+    /* ---- and the gate itself. This replaces the old screening-expiry-only
+       auto-hide: it now covers every 0137 condition, and it restores a worker
+       the moment the problem is fixed rather than waiting for someone to
+       remember to re-approve them. ---- */
+    const changed = reconcileVisibility(w.id, 'Scheduled credential sweep', req);
+    if (changed) actions.push(changed);
+  }
+
+  /* ---- 18. the participant's half of the same filing cabinet.
+
+     worker_docs has been swept since the compliance build. participant_docs
+     never has, so a service agreement, a privacy consent or an NDIS plan
+     could reach its expiry date with nobody told. That is not a hypothetical:
+     the plan on file expired on 24/06/2026 and supports carried on being
+     delivered against it. One missing loop.
+
+     Same ladder, same warned_stage column, same one-email-per-rung rule. What
+     differs is who is being written to. A participant is not staff, so the
+     email says what the date means for them and what to do next, in those
+     words. It also goes to any support coordinator holding the documents
+     scope, because the coordinator is very often the person who will actually
+     chase it — and a reminder that reaches nobody who can act is just a log
+     entry with a stamp on it.
+
+     PDOC_MAP is declared further down the file. That is fine and deliberate:
+     this function is never called during module evaluation, only at +30s, on
+     the interval, and on demand from the admin route. ---- */
+  const parts = db.prepare("SELECT id, name, email FROM users WHERE role = 'participant'").all();
+  for (const p of parts) {
+    if (String(p.email || '').endsWith('@demo.bookit.life')) continue;
+    for (const d of db.prepare('SELECT * FROM participant_docs WHERE participant_id = ?').all(p.id)) {
+      const stage = docStage(d), days = docDays(d);
+      if (!stage || d.warned_stage === stage) continue;
+      db.prepare('UPDATE participant_docs SET warned_stage = ? WHERE id = ?').run(stage, d.id);
+      const what = d.label || (PDOC_MAP[d.form_key] || {}).label || d.form_key;
+      const gone = stage === 'expired';
+      const when = gone ? `expired on ${dmy(d.expiry_date)}`
+        : `expires in ${days} day${days === 1 ? '' : 's'} — ${dmy(d.expiry_date)}`;
+      /* An expired NDIS plan is not paperwork. Supports delivered against it
+         cannot be claimed, and the participant is the only person who can
+         start the reassessment, so it gets the sentence that says so rather
+         than the polite general one. */
+      const next = d.form_key === 'p-ndis-plan'
+        ? (gone
+            ? 'Supports can\'t be claimed against an expired plan, so this one matters. Please contact your planner or LAC about your reassessment, and send us the new plan the moment you have it — your bookings and your workers stay exactly as they are in the meantime.'
+            : 'Reassessments are usually arranged a few weeks ahead. Upload the new plan when it arrives and everything carries straight over — same workers, same bookings, nothing to set up again.')
+        : (gone
+            ? 'Send us an up-to-date copy whenever you can and we\'ll put it on your file. Nothing changes about your supports in the meantime.'
+            : 'Nothing to do today — this is just so the date doesn\'t catch you by surprise.');
+      notify(p.id, 'compliance', p.email,
+        `Your ${what} ${gone ? 'has expired' : 'is expiring'} — BookIt`,
+        `Hello ${firstName(p.name)}`,
+        `<p>Your <b>${escHtml(what)}</b> ${escHtml(when)}.</p><p>${next}</p>`,
+        'Open my documents', `${base}/#/bookings`).catch(() => {});
+      for (const c of coordsFor(p.id, 'documents')) {
+        notify(c.id, 'compliance', c.email,
+          `${p.name}: ${what} ${gone ? 'has expired' : 'is expiring'} — BookIt`,
+          `${p.name} — ${what}`,
+          `<p><b>${escHtml(p.name)}</b>'s <b>${escHtml(what)}</b> ${escHtml(when)}.</p>
+           <p>You are getting this because you hold access to their documents.</p>`,
+          'Open their documents', `${base}/#/bookings`).catch(() => {});
+      }
+      if (MAIL_FROM) sendMail(MAIL_FROM,
+        `Participant document ${gone ? 'EXPIRED' : 'expiring'}: ${p.name} — BookIt`,
+        `${p.name} — ${what}`,
+        `<p><b>${escHtml(p.name)}</b>'s <b>${escHtml(what)}</b> ${escHtml(when)}.</p>`,
+        'Open the participant files', `${base}/#/admin`).catch(() => {});
+      actions.push({ participant: p.name, doc: d.form_key, stage });
+    }
+  }
+  return actions;
+}
+route('POST', /^\/api\/admin\/credentials\/sweep$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { ok: true, actions: credentialSweep(req) });
+});
+
+/* ---------- 0137: the compliance board ----------
+   Every worker against every condition, in one view, with the evidence behind
+   each answer. This is the screen you open when the Commission asks how you
+   satisfy your conditions of registration, and it is the screen the office
+   works from on a Monday morning. Same data both times. */
+function board0137() {
+  const rows = db.prepare(`SELECT u.id, u.name, u.email, p.visible, p.auto_hidden, p.screening_status,
+      p.screening_status_at, p.screening_status_by, p.screening_source, p.screening_ref,
+      p.banning_checked_by, ${BAN_COLS.map(c => 'p.' + c).join(', ')},
+      p.platform_block, p.platform_block_reason
+    FROM users u JOIN worker_profiles p ON p.user_id = u.id
+    WHERE u.role = 'worker' ORDER BY u.name`).all();
+
+  const today = new Date().toISOString().slice(0, 10);
+  const workers = rows.map(w => {
+    const st = platformStatus(w.id);
+    const sdoc = db.prepare(`SELECT id, expiry_date, verified_at, verified_by, verify_method, verify_ref, check_number
+      FROM worker_docs WHERE worker_id = ? AND doc_type = 'ndis-screening'
+      ORDER BY (expiry_date >= '${today}') DESC, expiry_date DESC LIMIT 1`).get(w.id) || null;
+    const pv = publicVerification(w.id, w.email);
+    return {
+      id: w.id, name: w.name, demo: isDemoWorker(w.email), visible: w.visible, auto_hidden: w.auto_hidden,
+      /* the four things the conditions actually require, one column each */
+      c_screening_held: Boolean(sdoc && sdoc.verified_at && (!sdoc.expiry_date || sdoc.expiry_date >= today)),
+      c_screening_status: st.screening.status,
+      /* the column on the board is now "all three registers", because one
+         clear answer out of three is not the condition being met */
+      c_banning_checked: st.registers_ok,
+      c_banning_result: st.registers.some(r => r.result === 'banned') ? 'banned'
+        : st.registers.every(r => r.result === 'clear') ? 'clear' : 'unchecked',
+      c_registers: st.registers.map(r => ({ key: r.key, short: r.short, result: r.result,
+        checked_at: r.checked_at, age_days: r.age_days })),
+      c_evidence: Boolean(sdoc && sdoc.verify_method),
+      c_displayed: pv.checks.length > 0 || pv.screening.cleared,
+      screening_doc: sdoc ? { expiry: sdoc.expiry_date || '', verified_at: sdoc.verified_at || '', verified_by: sdoc.verified_by || '', method: sdoc.verify_method || '', ref: sdoc.verify_ref || '' } : null,
+      platform: st
+    };
+  });
+
+  const live = workers.filter(w => !w.demo);
+  return {
+    workers,
+    conditions: [
+      { key: 'a', title: 'Only cleared workers may use the platform',
+        detail: 'A verified, current NDIS worker screening check on file, and a clearance the screening unit has not withdrawn.',
+        met: live.filter(w => w.c_screening_held && w.c_screening_status === 'cleared').length, of: live.length },
+      { key: 'b', title: 'Banning orders checked',
+        detail: `Checked against the Commission's banning orders register within the last ${banningWindowDays()} days.`,
+        met: live.filter(w => w.c_banning_checked).length, of: live.length },
+      { key: 'c', title: 'Verification evidence recorded',
+        detail: 'How each check was verified, by whom and against what source — not merely that somebody ticked it.',
+        met: live.filter(w => w.c_evidence).length, of: live.length },
+      { key: 'd', title: 'Information displayed on the profile',
+        detail: 'What we checked, and what we found, shown on the worker\'s public profile.',
+        met: live.filter(w => w.c_displayed).length, of: live.length }
+    ],
+    settings: { banning_recheck_days: banningWindowDays(), banning_grace_days: banningGraceDays() },
+    blocked: workers.filter(w => !w.demo && !w.platform.ok).length,
+    live_count: live.length
+  };
+}
+
+route('GET', /^\/api\/admin\/compliance\/0137$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, board0137());
+});
+
+route('POST', /^\/api\/admin\/compliance\/0137\/settings$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  if (body.banning_recheck_days !== undefined) setSetting('banning_recheck_days', Math.max(1, Number(body.banning_recheck_days) || 90));
+  if (body.banning_grace_days !== undefined) setSetting('banning_grace_days', Math.max(0, Number(body.banning_grace_days) || 0));
+  json(res, 200, { ok: true, settings: { banning_recheck_days: banningWindowDays(), banning_grace_days: banningGraceDays() } });
+});
+
+/* The evidence trail, newest first — filterable to one worker. */
+route('GET', /^\/api\/admin\/compliance\/log$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = new URL(req.url, 'http://x').searchParams;
+  const wid = Number(q.get('worker') || 0);
+  const rows = wid
+    ? db.prepare('SELECT * FROM compliance_log WHERE worker_id = ? ORDER BY id DESC LIMIT 500').all(wid)
+    : db.prepare('SELECT * FROM compliance_log ORDER BY id DESC LIMIT 500').all();
+  json(res, 200, { entries: rows });
+});
+
+/* The same thing an auditor can take away. Two files: the board as it stands,
+   and the full log behind it. */
+route('GET', /^\/api\/admin\/compliance\/0137\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const b = board0137();
+  const lines = [['Worker', 'On the platform', 'Screening check held & verified', 'Screening clearance status',
+    'Screening expiry', 'Verified by', 'How verified',
+    'NDIS banning register', 'NDIS last checked', 'Days since',
+    'Aged Care Act 2024 banning orders', 'Aged Care Act 2024 last checked',
+    'ACQSC Act banning orders', 'ACQSC Act last checked',
+    'All three registers current', 'Shown on profile', 'Blocks', 'Demo profile'].map(q).join(',')];
+  const reg = (w, k) => (w.c_registers || []).find(r => r.key === k) || {};
+  const dt = v => (v ? String(v).slice(0, 10) : '');
+  for (const w of b.workers) {
+    const rn = reg(w, 'ndis'), ra = reg(w, 'aged'), rc = reg(w, 'acqsc');
+    lines.push([w.name, w.visible ? 'Yes' : 'No', w.c_screening_held ? 'Yes' : 'No', w.c_screening_status,
+      w.screening_doc ? w.screening_doc.expiry : '', w.screening_doc ? w.screening_doc.verified_by : '',
+      w.screening_doc ? w.screening_doc.method : '',
+      rn.result || 'unchecked', dt(rn.checked_at), rn.age_days === null || rn.age_days === undefined ? '' : rn.age_days,
+      ra.result || 'unchecked', dt(ra.checked_at),
+      rc.result || 'unchecked', dt(rc.checked_at),
+      w.c_banning_checked ? 'Yes' : 'No',
+      w.c_displayed ? 'Yes' : 'No', w.platform.blocks.join(' | '), w.demo ? 'Yes' : 'No'].map(q).join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-0137-conditions-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+route('GET', /^\/api\/admin\/compliance\/log\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = db.prepare('SELECT * FROM compliance_log ORDER BY id ASC').all();
+  const lines = [['Entry', 'When', 'Worker', 'What was checked', 'Result', 'Detail', 'Source', 'Reference', 'Recorded by'].map(q).join(',')];
+  for (const r of rows) {
+    lines.push([r.id, r.checked_at, r.worker_name, r.kind, r.result, r.detail, r.source, r.ref, r.checked_by].map(q).join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-0137-evidence-log-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* Re-test everybody. Useful after a settings change, and it is what the
+   "Recheck all" button on the board calls. */
+route('POST', /^\/api\/admin\/compliance\/0137\/reconcile$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const ids = db.prepare("SELECT u.id FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker'").all();
+  const changed = ids.map(r => reconcileVisibility(r.id, 'Manual recheck from the 0137 board', req)).filter(Boolean);
+  json(res, 200, { ok: true, changed });
+});
+setTimeout(() => { try { credentialSweep(); } catch (e) { console.error('sweep:', e.message); } }, 30_000);
+setInterval(() => { try { credentialSweep(); } catch (e) { console.error('sweep:', e.message); } }, 12 * 3600e3);
+
+/* ---------- compliance: incident register ---------- */
+const REPORTABLE_24H = ['death', 'serious-injury', 'abuse-neglect', 'unlawful-contact', 'sexual-misconduct'];
+const INCIDENT_CATS = {
+  'death': 'Death of a person with disability', 'serious-injury': 'Serious injury', 'abuse-neglect': 'Abuse or neglect',
+  'unlawful-contact': 'Unlawful sexual or physical contact', 'sexual-misconduct': 'Sexual misconduct or grooming',
+  'restrictive-practice': 'Unauthorised restrictive practice', 'near-miss': 'Near miss', 'other': 'Other incident'
+};
+function addBusinessDays(fromIso, n) {
+  const d = new Date(fromIso);
+  let added = 0;
+  while (added < n) { d.setDate(d.getDate() + 1); const w = d.getDay(); if (w !== 0 && w !== 6) added++; }
+  return d.toISOString();
+}
+function incidentOut(i) {
+  let hoursLeft = null;
+  if (i.notify_due && !i.commission_notified_at) hoursLeft = Math.round((new Date(i.notify_due) - Date.now()) / 36e5);
+  return { ...i, category_label: INCIDENT_CATS[i.category] || i.category, hours_left: hoursLeft };
+}
+
+route('POST', /^\/api\/incidents$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (limited(ip, 'incidents', 30)) return json(res, 429, { error: 'Slow down a moment.' });
+  const category = INCIDENT_CATS[body.category] ? body.category : 'other';
+  const description = clean(body.description, 4000);
+  if (!description) return json(res, 400, { error: 'Describe what happened.' });
+  const reportable = REPORTABLE_24H.includes(category) || category === 'restrictive-practice' ? 1 : 0;
+  const created = now();
+  const due = REPORTABLE_24H.includes(category) ? new Date(Date.now() + 24 * 3600e3).toISOString()
+    : category === 'restrictive-practice' ? addBusinessDays(created, 5) : null;
+  const r = db.prepare(`INSERT INTO incidents (created_by, created_by_name, participant_name, worker_name, occurred_at, location, category, reportable, description, immediate_action, notify_due, created)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(user.id, user.name, clean(body.participant_name, 80), clean(body.worker_name, 80),
+      clean(body.occurred_at, 25) || created, clean(body.location, 120), category, reportable,
+      description, clean(body.immediate_action, 2000), due, created);
+  if (reportable && MAIL_FROM) sendMail(MAIL_FROM, `⚠ REPORTABLE INCIDENT logged — BookIt`,
+    'Reportable incident — the clock is running',
+    `<p><b>${escHtml(INCIDENT_CATS[category])}</b> logged by ${escHtml(user.name)}.</p><p><b>Notify the NDIS Commission ${REPORTABLE_24H.includes(category) ? 'within 24 HOURS' : 'within 5 business days'}</b> via the Commission portal, then record it in the incident register. Full written report within 14 days.</p><p>${escHtml(description.slice(0, 300))}</p>`,
+    'Open the incident register', `${baseUrl(req)}/#/admin`).catch(() => {});
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid), reportable, notify_due: due });
+});
+
+route('GET', /^\/api\/admin\/incidents$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { incidents: db.prepare('SELECT * FROM incidents ORDER BY id DESC LIMIT 500').all().map(incidentOut), categories: INCIDENT_CATS });
+});
+
+route('POST', /^\/api\/admin\/incidents\/(\d+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const i = db.prepare('SELECT * FROM incidents WHERE id = ?').get(Number(m[1]));
+  if (!i) return json(res, 404, { error: 'No such incident.' });
+  if (body.action === 'notified') db.prepare('UPDATE incidents SET commission_notified_at = ?, status = ? WHERE id = ?').run(now(), 'investigating', i.id);
+  else if (body.action === 'investigating') db.prepare('UPDATE incidents SET status = ? WHERE id = ?').run('investigating', i.id);
+  else if (body.action === 'close') db.prepare('UPDATE incidents SET status = ?, closed_at = ?, lessons = ? WHERE id = ?').run('closed', now(), clean(body.lessons, 2000), i.id);
+  else return json(res, 400, { error: 'Unknown action.' });
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/admin\/incidents\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['ID', 'Created', 'Occurred', 'Category', 'Reportable', 'Participant', 'Worker', 'Location', 'Description', 'Immediate action', 'Notify due', 'Commission notified', 'Status', 'Lessons', 'Closed'].map(q).join(',')];
+  for (const i of db.prepare('SELECT * FROM incidents ORDER BY id').all()) {
+    lines.push([i.id, i.created, i.occurred_at, INCIDENT_CATS[i.category] || i.category, i.reportable ? 'YES' : 'no', i.participant_name, i.worker_name, i.location, i.description, i.immediate_action, i.notify_due || '', i.commission_notified_at || '', i.status, i.lessons, i.closed_at || ''].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-incident-register.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* ---------- compliance: complaints register ---------- */
+route('POST', /^\/api\/admin\/complaints$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const summary = clean(body.summary, 200);
+  if (!summary) return json(res, 400, { error: 'Give the complaint a one-line summary.' });
+  const r = db.prepare('INSERT INTO complaints (source_name, source_email, channel, summary, details, created) VALUES (?,?,?,?,?,?)')
+    .run(clean(body.source_name, 80), clean(body.source_email, 120), ['site', 'email', 'phone', 'in-person', 'other'].includes(body.channel) ? body.channel : 'other', summary, clean(body.details, 4000), now());
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
+});
+
+route('GET', /^\/api\/admin\/complaints$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { complaints: db.prepare('SELECT * FROM complaints ORDER BY id DESC LIMIT 500').all() });
+});
+
+route('POST', /^\/api\/admin\/complaints\/(\d+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const c = db.prepare('SELECT * FROM complaints WHERE id = ?').get(Number(m[1]));
+  if (!c) return json(res, 404, { error: 'No such complaint.' });
+  if (body.action === 'acknowledge') db.prepare('UPDATE complaints SET acknowledged_at = ?, status = ? WHERE id = ?').run(now(), 'resolving', c.id);
+  else if (body.action === 'resolve') db.prepare('UPDATE complaints SET resolved_at = ?, status = ?, outcome = ? WHERE id = ?').run(now(), 'resolved', clean(body.outcome, 2000), c.id);
+  else if (body.action === 'reopen') db.prepare('UPDATE complaints SET status = ?, resolved_at = NULL WHERE id = ?').run('open', c.id);
+  else return json(res, 400, { error: 'Unknown action.' });
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/admin\/complaints\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['ID', 'Received', 'From', 'Email', 'Channel', 'Summary', 'Details', 'Acknowledged', 'Resolved', 'Outcome', 'Status'].map(q).join(',')];
+  for (const c of db.prepare('SELECT * FROM complaints ORDER BY id').all()) {
+    lines.push([c.id, c.created, c.source_name, c.source_email, c.channel, c.summary, c.details, c.acknowledged_at || '', c.resolved_at || '', c.outcome, c.status].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-complaints-register.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = db.prepare(`SELECT b.date, b.start, b.hours, b.service, b.rate_category, b.worker_share, b.claim_status,
+      b.status, b.notice_hours,
+      uw.name AS worker_name, uw.email AS worker_email
+    FROM bookings b JOIN users uw ON uw.id = b.worker_id
+    WHERE ${billable('b')} ORDER BY uw.name, b.date`).all();
+  const lines = [['Worker', 'Worker email', 'Date', 'Start', 'Hours', 'Service', 'Pay type', 'Rate category', 'Worker share incl. super ($)', 'Claim status'].map(q).join(',')];
+  for (const r of rows) {
+    /* The pay type column is what the bookkeeper reads. A short-notice
+       cancellation is paid at the same rate as the shift and must appear on the
+       run — but it is not a shift that was worked, and calling it one would
+       misstate hours worked in a payroll audit. */
+    lines.push([q(r.worker_name), q(r.worker_email), q(r.date), q(r.start), r.hours, q(SERVICE_LABELS[r.service] || r.service),
+      q(r.status === 'cancelled' ? 'Short-notice cancellation' : 'Shift'),
+      q((INVOICE_RATES[r.rate_category] || {}).label || r.rate_category), (r.worker_share || 0).toFixed(2), q(r.claim_status || 'unclaimed')].join(','));
+  }
+  /* SCHADS cl.26 on-call allowance. This is payable whether or not the worker was
+     ever called — that is what buys the availability, and it is the entire marginal
+     cost of the standby tier. It is NOT claimable against a participant's plan, so
+     it is flagged 'not claimable' rather than left to look like an unclaimed shift. */
+  const sb = db.prepare(`SELECT s.date, s.band, s.allowance, s.called_at, u.name, u.email
+    FROM standby s JOIN users u ON u.id = s.worker_id
+    WHERE s.status = 'accepted' ORDER BY u.name, s.date`).all();
+  for (const r of sb) {
+    lines.push([q(r.name), q(r.email), q(r.date), q(''), '', q('On-call standby'), q('Allowance'),
+      q(`SCHADS cl.26 on-call — ${r.band === 'weekday' ? 'Mon–Fri' : 'weekend/public holiday'}${r.called_at ? ', called on' : ''}`),
+      (r.allowance || 0).toFixed(2), q('not claimable')].join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-payroll-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+route('GET', /^\/api\/workers$/, (req, res) => {
+  const rows = db.prepare(`
+    SELECT p.*, u.name, u.suburb, u.email FROM worker_profiles p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.visible = 1 ORDER BY p.shifts DESC`).all()
+    /* belt and braces. `visible` is held at 0 for anyone who fails the 0137
+       conditions, at approval and again on every sweep — but the search page
+       is the front door, so it re-asks rather than trusting the flag. */
+    .filter(r => platformEligible(r.user_id, r.email));
+  json(res, 200, { workers: rows.map(r => withReviewAgg(publicWorker(r))) });
+});
+
+/* one worker's full public profile — powers the #/worker/:id page.
+   Credential info is label + month-level expiry only: never numbers, dates or files. */
+route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m) => {
+  const row = db.prepare(`
+    SELECT p.*, u.name, u.suburb, u.created, u.email FROM worker_profiles p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.user_id = ? AND p.visible = 1`).get(Number(m[1]));
+  if (!row) return json(res, 404, { error: 'That profile isn\'t available right now.' });
+  if (!platformEligible(row.user_id, row.email)) return json(res, 404, { error: 'That profile isn\'t available right now.' });
+  const w = withReviewAgg(publicWorker(row));
+  w.reviews = db.prepare(`SELECT r.rating, r.comment, r.created, u.name FROM reviews r
+    JOIN users u ON u.id = r.participant_id
+    WHERE r.worker_id = ? AND r.published = 1 ORDER BY r.id DESC LIMIT 12`).all(w.id)
+    .map(r => ({
+      rating: r.rating, comment: r.comment, when: String(r.created).slice(0, 10),
+      author: `${r.name.split(' ')[0]} ${(r.name.split(' ')[1] || '').slice(0, 1)}${r.name.split(' ')[1] ? '.' : ''}`.trim()
+    }));
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const joined = new Date(row.created);
+  w.member_since = isNaN(joined) ? '' : `${MONTHS[joined.getMonth()]} ${joined.getFullYear()}`;
+  w.completed = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE worker_id = ? AND status = 'completed'").get(w.id).n;
+  /* One derivation, used by both the search card and this profile page, so the
+     two can never drift apart: publicVerification() above already filtered to
+     public-safe categories (checks, training, qualifications — never identity
+     documents, visas or resumes), unexpired, and verified by a human. */
+  w.docs = w.checks;
+  json(res, 200, { worker: w });
+});
+
+route('GET', /^\/api\/rates$/, (req, res) => {
+  const shares = tierShares(), bands = tierBands();
+  json(res, 200, {
+    rates: publicRates(), super: superRate(),
+    ladder: TIERS.map(t => ({ ...t, share: shares[t.key], band: t.key === 'bronze' ? 0 : bands[t.key] })),
+    /* Build 3 — everything the public calculator derives, in the one payload
+       the pricing tables already fetch. The calculator ships no seeded
+       fallback: a guess about which item somebody's Tuesday evening claims
+       against is worse than an honest blank, so if this payload never
+       arrives the page says so and offers a person instead. */
+    calc: {
+      min_hours: 2,
+      min_hours_note: 'Every shift is a minimum of 2 hours \u2014 the SCHADS award minimum engagement, and the shortest time a worker can fairly be asked to hold for you.',
+      bands: [
+        { key: 'weekday-day', label: 'Weekday daytime', wording: 'Monday to Friday, starting 6am or later and finished by 8pm.' },
+        { key: 'weekday-evening', label: 'Weekday evening', wording: 'Monday to Friday, starting 8pm or later \u2014 or any weekday shift that runs past 8pm.' },
+        { key: 'weekday-night', label: 'Weekday night', wording: 'Monday to Friday, starting before 6am.' },
+        { key: 'saturday', label: 'Saturday', wording: 'Any shift on a Saturday.' },
+        { key: 'sunday', label: 'Sunday', wording: 'Any shift on a Sunday.' },
+        { key: 'public-holiday', label: 'Public holiday', wording: 'Any shift on a declared public holiday.' },
+        { key: 'household', label: 'Household tasks', wording: 'One flat price, whatever the day or hour.' },
+        { key: 'employment', label: 'Employment support', wording: 'One flat price, whatever the day or hour.' },
+        { key: 'sleepover', label: 'Night-time sleepover (inactive)', wording: 'Your worker sleeps over and helps if something comes up in the night.' }
+      ],
+      rules: {
+        evening_from: 20, night_before: 6,
+        /* the 0125 set has no night item, so night community/transport claims the evening item */
+        no_night: ['community', 'transport'],
+        flat: { household: 'household', employment: 'employment' },
+        sleepover_services: ['personal-care', 'daily-tasks']
+      },
+      prices: Object.fromEntries(Object.entries(INVOICE_RATES).map(([k, v]) =>
+        [k, { label: v.label, price: v.price, per_night: !!v.perNight }])),
+      claims: SERVICES.map(sv => ({
+        service: sv, label: SERVICE_LABELS[sv], group: REG_GROUPS[sv],
+        codes: SUPPORT_ITEMS[sv], confirm: !!ITEM_CONFIRM[sv]
+      })),
+      cancel: Object.entries(CANCEL_HOURS).map(([service, hours]) => ({
+        service, label: SERVICE_LABELS[service], hours,
+        notice: hours % 24 === 0 ? `${hours / 24} clear day${hours / 24 === 1 ? '' : 's'}` : `${hours} hours`
+      }))
+    }
+  });
+});
+
+route('GET', /^\/api\/conversations$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  /* Same route for a coordinator, and only for the client the request names —
+     the pattern every other delegated read already follows. */
+  const pers = user.role === 'coordinator' ? actFor(req, user, 'messages') : null;
+  if (user.role === 'coordinator' && !pers) return json(res, 403, { error: 'Choose a client first, or ask them to give you access to messages.' });
+  const meId = pers ? pers.id : user.id;
+  const rows = db.prepare(`
+    SELECT c.* FROM conversations c
+    LEFT JOIN messages msg ON msg.convo_id = c.id
+    WHERE c.participant_id = ? OR c.worker_id = ?
+    GROUP BY c.id ORDER BY MAX(COALESCE(msg.id, 0)) DESC`).all(meId, meId);
+  json(res, 200, { conversations: rows.map(r => convoForUser(user, r, meId)), acting_for: pers && !pers.self ? pers.name : null });
+});
+
+route('POST', /^\/api\/conversations$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  let participantId, workerId;
+  const asPers = user.role === 'coordinator' ? actFor(req, user, 'messages') : null;
+  if (user.role === 'coordinator' && !asPers) return json(res, 403, { error: 'Choose a client first, or ask them to give you access to messages.' });
+  if (user.role === 'participant' || asPers) {
+    workerId = Number(body.worker_id);
+    participantId = asPers ? asPers.id : user.id;
+    const w = db.prepare("SELECT u.id, u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(workerId);
+    if (!w) return json(res, 404, { error: 'Worker not found.' });
+    /* 0137: an uncleared worker must not be able to use the platform, and a
+       message thread is using the platform. The `visible` flag is already
+       held at 0 for them — this re-asks anyway, because a gate that depends
+       on a flag being correct is only as good as the last sweep. */
+    if (!w.visible || !platformEligible(workerId, w.email)) return json(res, 400, { error: 'That worker isn\'t taking messages yet.' });
+  } else {
+    participantId = Number(body.participant_id);
+    workerId = user.id;
+    const p = db.prepare("SELECT id FROM users WHERE id = ? AND role = 'participant'").get(participantId);
+    if (!p) return json(res, 404, { error: 'Participant not found.' });
+  }
+  let convo = db.prepare('SELECT * FROM conversations WHERE participant_id = ? AND worker_id = ?').get(participantId, workerId);
+  if (!convo) {
+    const r = db.prepare('INSERT INTO conversations (participant_id, worker_id, created) VALUES (?,?,?)').run(participantId, workerId, now());
+    convo = db.prepare('SELECT * FROM conversations WHERE id = ?').get(Number(r.lastInsertRowid));
+  }
+  if (asPers) logDelegate(asPers, 'message', `started a conversation with ${db.prepare('SELECT name FROM users WHERE id = ?').get(workerId)?.name || 'a worker'}`, `convo:${convo.id}`);
+  json(res, 200, { conversation: convoForUser(user, convo, participantId) });
+});
+
+route('GET', /^\/api\/conversations\/(\d+)\/messages$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const convo = memberOf(user, Number(m[1]));
+  if (!convo) return json(res, 404, { error: 'Conversation not found.' });
+  /* read_at is one column for two people on the same side. A coordinator
+     opening the thread therefore marks it read for the participant as well,
+     which is the honest reading of one flag: somebody on your side has seen
+     this. Per-reader receipts would need their own table and nothing asks. */
+  db.prepare('UPDATE messages SET read_at = ? WHERE convo_id = ? AND sender_id NOT IN (?, ?) AND read_at IS NULL').run(now(), convo.id, user.id, convo.as_id);
+  const msgs = db.prepare('SELECT id, sender_id, body, created, doc_kind, doc_id, doc_name FROM messages WHERE convo_id = ? ORDER BY id ASC LIMIT 500').all(convo.id);
+  /* Anyone who is neither of the two named parties is a delegate writing on
+     one of their behalves, and is named. A message that arrives unattributed
+     reads as though the participant typed it, which for an instruction about
+     somebody's care is not a cosmetic difference. */
+  const third = new Map();
+  for (const x of msgs) {
+    if (x.sender_id === convo.participant_id || x.sender_id === convo.worker_id || third.has(x.sender_id)) continue;
+    const u = db.prepare('SELECT name, role FROM users WHERE id = ?').get(x.sender_id);
+    if (u) third.set(x.sender_id, { name: u.name, role: u.role === 'coordinator' ? 'support coordinator' : u.role });
+  }
+  json(res, 200, { messages: msgs.map(x => ({
+    id: x.id, mine: x.sender_id === user.id || x.sender_id === convo.as_id, body: x.body, created: x.created,
+    author: third.get(x.sender_id) || null,
+    /* resolved on every read, deliberately. If a certificate expired last
+       week, the message that shared it in March says so today. */
+    attachment: messageAttachment(x)
+  })) });
+});
+
+route('POST', /^\/api\/conversations\/(\d+)\/messages$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const convo = memberOf(user, Number(m[1]));
+  if (!convo) return json(res, 404, { error: 'Conversation not found.' });
+  const text = clean(body.body, 2000);
+  /* An attachment can travel on its own. Forcing a covering sentence just
+     makes people type "here" — the file is the message. */
+  let att = null;
+  if (body.doc_kind || body.doc_id) {
+    /* Writing is `messages`; the file behind the paperclip is `documents`.
+       A coordinator given only the first can type but cannot send somebody's
+       plan to a worker, which is the distinction the participant thought
+       they were drawing when they ticked one box and not the other. */
+    const onBehalf = convo.as_id !== user.id && linkAllows(user.id, convo.participant_id, 'documents') ? convo.as_id : 0;
+    if (convo.as_id !== user.id && !onBehalf) return json(res, 403, { error: 'You have access to messages but not to documents on this account, so you can write but not attach.' });
+    att = attachableDoc(user, String(body.doc_kind || ''), Number(body.doc_id), onBehalf);
+    if (!att) return json(res, 400, { error: 'That document isn\'t one of yours, so it can\'t be attached.' });
+    if (!att.has_file) return json(res, 400, { error: 'That record has no file attached to it yet.' });
+  }
+  if (!text && !att) return json(res, 400, { error: 'Message can\'t be empty.' });
+  const r = att
+    ? db.prepare('INSERT INTO messages (convo_id, sender_id, body, created, doc_kind, doc_id, doc_name) VALUES (?,?,?,?,?,?,?)')
+        .run(convo.id, user.id, text, now(), att.kind, att.id, att.name)
+    : db.prepare('INSERT INTO messages (convo_id, sender_id, body, created) VALUES (?,?,?,?)').run(convo.id, user.id, text, now());
+  if (convo.as_id !== user.id) logDelegate({ id: convo.participant_id, self: false, actor: user },
+    'message', att ? `sent a message with ${att.name} attached` : 'sent a message to the worker', `convo:${convo.id}`);
+  /* demo auto-acknowledgement from seeded workers, once per conversation */
+  if (AUTO_REPLY && user.role === 'participant') {
+    const worker = db.prepare('SELECT u.id, u.name, u.email FROM users u WHERE u.id = ?').get(convo.worker_id);
+    const priorFromWorker = db.prepare('SELECT COUNT(*) AS n FROM messages WHERE convo_id = ? AND sender_id = ?').get(convo.id, convo.worker_id).n;
+    if (worker && worker.email.endsWith('@demo.bookit.life') && priorFromWorker === 0) {
+      setTimeout(() => {
+        try {
+          db.prepare('INSERT INTO messages (convo_id, sender_id, body, created) VALUES (?,?,?,?)')
+            .run(convo.id, worker.id, `Thanks for your message! This is an automatic acknowledgement so you know it arrived — ${worker.name.split(' ')[0]} will reply here as soon as they can. (Demo auto-reply)`, now());
+        } catch {}
+      }, 4000);
+    }
+  }
+  json(res, 200, { id: Number(r.lastInsertRowid), ok: true, attachment: att ? messageAttachment({ doc_kind: att.kind, doc_id: att.id, doc_name: att.name, id: Number(r.lastInsertRowid) }) : null });
+});
+
+route('GET', /^\/api\/bookings$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  /* A coordinator sees a client's diary through exactly the same route, and
+     only for the client the request names. Everyone else sees their own. */
+  const pers = user.role === 'worker' ? null : actFor(req, user, 'bookings');
+  if (user.role === 'coordinator' && !pers) return json(res, 403, { error: 'Choose a client first, or ask them to give you access to bookings.' });
+  const whoId = pers ? pers.id : user.id;
+  const col = user.role === 'worker' ? 'worker_id' : 'participant_id';
+  const otherCol = user.role === 'worker' ? 'participant_id' : 'worker_id';
+  const rows = db.prepare(`SELECT b.*, u.name AS other_name,
+      COALESCE(p.color, '#0E6B62') AS other_color,
+      (SELECT COUNT(*) FROM reviews r WHERE r.booking_id = b.id) AS reviewed,
+      (SELECT COUNT(*) FROM shift_notes n WHERE n.booking_id = b.id AND COALESCE(n.kind,'note') = 'note') AS note_count
+    FROM bookings b
+    JOIN users u ON u.id = b.${otherCol}
+    LEFT JOIN worker_profiles p ON p.user_id = u.id
+    WHERE b.${col} = ? ORDER BY b.date DESC, b.id DESC LIMIT 400`).all(whoId);
+  /* The approval clock, computed rather than stored, so it is right the
+     moment it is read instead of the last time a sweep ran. */
+  for (const b of rows) {
+    if (b.status === 'completed' && b.approval_state === 'pending') {
+      /* approval_from, not completed_at: after a query is answered the window
+         restarts, and a screen counting from the original completion would
+         show a deadline the sweep does not agree with. */
+      const done = approvalFrom(b);
+      const days = Math.floor((Date.now() - done) / 864e5);
+      b.approve_days_left = Math.max(0, APPROVAL_DEEM_DAYS - days);
+      b.approve_deadline = new Date(done + APPROVAL_DEEM_DAYS * 864e5).toISOString().slice(0, 10);
+      b.approve_restarted = !!(b.query_at && b.approval_from && b.approval_from > b.query_at);
+    }
+    /* A queried timesheet has no countdown because the clock is stopped. Say
+       so, rather than leaving a blank where a number was — a missing deadline
+       reads as "expired" to anybody who has been watching one. */
+    if (b.status === 'completed' && b.approval_state === 'queried') b.approval_paused = true;
+    if (b.km > 0) b.km_line = kmLines(b);
+  }
+  json(res, 200, {
+    bookings: rows,
+    acting_for: pers && !pers.self ? { id: pers.id, name: pers.name } : null,
+    approval_rule: APPROVAL_RULE,
+    approval_days: APPROVAL_DEEM_DAYS,
+    km_rule: KM_RULE
+  });
+});
+
+/* --- 5. one rule, many shifts.
+   Weekly and fortnightly, up to twenty-six ahead, generated at the moment
+   the rule is made so every occurrence is a real booking the worker can
+   see, accept and be paid for — not a promise the diary renders on the
+   fly. A single occurrence can then be moved, shortened or cancelled
+   without unpicking the rule, because the rule and the shift are separate
+   rows. --- */
+const SERIES_MAX = 26;
+function seriesDates(firstDate, freq, until, count) {
+  const step = freq === 'fortnightly' ? 14 : 7;
+  const out = [];
+  let d = new Date(`${firstDate}T00:00:00`);
+  const stop = until ? new Date(`${until}T00:00:00`) : null;
+  const max = Math.min(SERIES_MAX, count > 0 ? count : SERIES_MAX);
+  while (out.length < max) {
+    if (stop && d > stop) break;
+    out.push(d.toISOString().slice(0, 10));
+    d = new Date(d.getTime() + step * 864e5);
+  }
+  return out;
+}
+
+route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pers = actFor(req, user, 'bookings');
+  if (!pers) return json(res, 403, { error: user && user.role === 'coordinator'
+    ? 'You don\'t have permission to book for that person.'
+    : 'Only participants can request bookings.' });
+  const workerId = Number(body.worker_id);
+  const w = db.prepare("SELECT u.id, u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(workerId);
+  if (!w) return json(res, 404, { error: 'Worker not found.' });
+  if (!w.visible || !platformEligible(workerId, w.email)) return json(res, 400, { error: 'That worker isn\'t taking bookings yet.' });
+  /* 10. a participant-level block is absolute and needs no explanation. */
+  if (blockedPair(pers.id, workerId)) return json(res, 400, { error: 'That worker has been blocked from this account. Remove the block on the Team page if that was a mistake.' });
+  const service = clean(body.service, 30);
+  if (!SERVICES.includes(service)) return json(res, 400, { error: 'Please choose a service.' });
+  const date = clean(body.date, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: 'Please choose a date.' });
+  const start = clean(body.start, 5);
+  if (!/^\d{2}:\d{2}$/.test(start)) return json(res, 400, { error: 'Please choose a start time.' });
+  const hours = Number(body.hours);
+  if (!(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
+  const sleepover = body.sleepover && ['personal-care', 'daily-tasks'].includes(service) ? 1 : 0;
+  const notes = clean(body.notes, 600);
+
+  /* 11. an expired support plan stops the NEXT booking, never the ones
+     already in the diary. Somebody relying on Tuesday morning does not lose
+     it because a review date passed on Monday. */
+  const plan = currentPlan(pers.id);
+  if (plan && plan.review_due && plan.review_due < new Date().toISOString().slice(0, 10)) {
+    return json(res, 400, { error: `${pers.self ? 'Your' : pers.name + '\u2019s'} support plan was due for review on ${dmy(plan.review_due)}. New bookings resume as soon as it is updated \u2014 existing shifts are unaffected.`, plan_review_due: plan.review_due });
+  }
+
+  const repeat = ['weekly', 'fortnightly'].includes(clean(body.repeat, 20)) ? clean(body.repeat, 20) : '';
+  const until = /^\d{4}-\d{2}-\d{2}$/.test(clean(body.repeat_until, 10)) ? clean(body.repeat_until, 10) : '';
+  const count = Math.max(0, Math.min(SERIES_MAX, Number(body.repeat_count) || 0));
+  if (repeat && !until && !count) return json(res, 400, { error: 'Tell us when the repeating booking should stop \u2014 either an end date or a number of shifts.' });
+
+  const dates = repeat ? seriesDates(date, repeat, until, count) : [date];
+  if (!dates.length) return json(res, 400, { error: 'That end date is before the first shift.' });
+
+  let seriesId = null;
+  if (repeat) {
+    const sr = db.prepare(`INSERT INTO booking_series (participant_id, worker_id, service, start, hours, notes, freq, dow, first_date, until_date, occurrences, created_by, created)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(pers.id, workerId, service, start, hours, notes, repeat,
+           new Date(`${date}T00:00:00`).getDay(), date, until, dates.length, user.id, now());
+    seriesId = Number(sr.lastInsertRowid);
+  }
+
+  const km = Number(body.km) || 0;
+  const ids = [];
+  dates.forEach((d, idx) => {
+    const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+      .run(pers.id, workerId, service, d, start, hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now());
+    const id = Number(r.lastInsertRowid);
+    if (km > 0) applyKm(id, km, clean(body.km_from, 80), clean(body.km_to, 80));
+    ids.push(id);
+  });
+
+  logDelegate(pers, 'Booked a shift', `${SERVICE_LABELS[service] || service} with worker #${workerId} on ${dmy(dates[0])}${repeat ? ` (${repeat}, ${dates.length} shifts)` : ''}`, ids[0]);
+
+  /* The gate at the point it matters. If this participant has told us they need a support we
+     don't hold, the worker is told before the shift instead of finding out mid-task. It is not
+     a reason to block the booking — everything else on the plan is still ours to deliver — but
+     nobody should be improvising an answer in someone's bathroom. Derived, not stored: put the
+     support on the certificate and this stops appearing on its own. */
+  const warn = ['personal-care', 'daily-tasks'].includes(service) ? scopeWarning(pers.id) : null;
+  const scopeBlock = warn ? `<p style="background:#FFF6E5;border-left:3px solid #8A6D00;padding:10px 14px;margin:16px 0;">
+      <b>Before you accept — one thing about this booking.</b> ${escHtml(pers.name)} has told us they need help with
+      ${warn.labels.map(l => escHtml(l)).join(', ')}. That is a high intensity daily personal activity and DMHC is not
+      registered to deliver it, so it is not part of this shift and you must not do it. If you are asked on the day,
+      say you're not able to and write a shift note — the office is already arranging that support with another provider.</p>` : '';
+  const onBehalf = pers.self ? '' : `<p style="color:#5B6B68;font-size:14px;">Requested by <b>${escHtml(user.name)}</b>, ${escHtml(pers.name)}&rsquo;s support coordinator.</p>`;
+  const repeatBlock = repeat ? `<p><b>This is a repeating booking</b> \u2014 ${dates.length} shifts, ${repeat}, from ${prettyDate(dates[0])} to ${prettyDate(dates[dates.length - 1])}. Accepting the first one does not accept the rest; each shift is yours to accept or decline.</p>` : '';
+  const wu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(workerId);
+  if (wu) notify(wu.id, 'bookings', wu.email, 'New booking request — BookIt',
+    `New booking request, ${firstName(wu.name)}!`,
+    `<p><b>${escHtml(pers.name)}</b> has requested <b>${SERVICE_LABELS[service] || service}</b> on <b>${prettyDate(date)}</b> starting <b>${escHtml(start)}</b> (${hours} hours).</p>${onBehalf}${repeatBlock}${scopeBlock}<p>Accept or decline from your bookings page — they'll see your answer straight away.</p>`,
+    'View the request', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  json(res, 200, { id: ids[0], ids, series_id: seriesId, count: ids.length, ok: true, scope_warning: warn });
+});
+
+route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'Booking not found.' });
+  const status = clean(body.status, 20);
+  /* Who is speaking for the participant side of this booking? Themselves,
+     or a coordinator holding an active bookings scope on their account. */
+  const pers = user.role === 'worker' ? null : actFor(req, user, 'bookings');
+  const isParticipantSide = !!(pers && pers.id === b.participant_id);
+  const workerActions = ['accepted', 'declined'];
+
+  if (user.role === 'worker' && b.worker_id === user.id && workerActions.includes(status) && b.status === 'requested') {
+    /* 15. a hard training lock stops a worker taking on anything new. It
+       never touches a shift already accepted — pulling someone off
+       tomorrow's roster is not a safety improvement, it is a gap. */
+    if (status === 'accepted') {
+      const t = moduleState(user.id);
+      if (t.lock === 'hard') return json(res, 400, { error: `Your training is ${t.overdue_days} days overdue (${t.outstanding.join(', ')}). Finish it on the Training page and you can accept shifts again straight away — your existing bookings are unaffected.`, training_lock: 'hard' });
+      /* 11. the plan acknowledgement gate. A worker cannot accept a shift
+         for someone whose current support plan they have not read. */
+      const ack = planAck(b.participant_id, user.id);
+      if (ack.required && !ack.acked && !body.plan_ack) {
+        return json(res, 400, { error: 'Please read the current support plan and tick to confirm before you accept this shift.', plan_ack_required: true, plan_id: ack.plan_id, version: ack.version });
+      }
+      if (ack.required && !ack.acked && body.plan_ack) {
+        try {
+          db.prepare('INSERT INTO plan_acks (plan_id, participant_id, version, worker_id, acked_at, ip) VALUES (?,?,?,?,?,?)')
+            .run(ack.plan_id, b.participant_id, ack.version, user.id, now(), '');
+        } catch {}
+      }
+    }
+    db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status, b.id);
+    const pu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.participant_id);
+    if (pu) notify(pu.id, 'bookings', pu.email, `Booking ${status} — BookIt`,
+      status === 'accepted' ? 'Your booking is confirmed 🎉' : 'About your booking request',
+      `<p><b>${escHtml(user.name)}</b> has <b>${status}</b> your booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>` +
+      (status === 'accepted'
+        ? `<p>You can message ${firstName(user.name)} any time to sort the details before the day.</p>`
+        : '<p>No stress — every worker on Find Workers is ready to hear from you, and Meet &amp; Greets are always free.</p>'),
+      'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+    return json(res, 200, { ok: true });
+  }
+
+  /* --- 13. cancelling, and what it costs.
+     Outside the published window: nothing. Inside it: the shift is charged
+     in full and the worker is paid in full, which is the NDIS short-notice
+     position and the only reason a worker can afford to hold the slot. The
+     window is published on the page, quoted in the email, and computed
+     here from the same table. --- */
+  if (isParticipantSide && status === 'cancelled' && ['requested', 'accepted'].includes(b.status)) {
+    const sn = shortNotice(b);
+    const charge = sn.short && b.status === 'accepted';
+    /* The reason code is captured at the moment of cancelling, from four
+       plain-English options, because it has to travel all the way to the NDIA
+       bulk-upload file — and nobody can reconstruct it a fortnight later. */
+    const code = cancelCode(body.reason_code);
+    db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = ?,
+        cancel_code = ?, short_notice = ?, notice_hours = ? WHERE id = ?`)
+      .run(now(), pers.self ? 'participant' : `coordinator:${user.name}`, clean(body.reason, 300), code, charge ? 1 : 0, sn.hours, b.id);
+    let inv = null;
+    if (charge) inv = applyInvoice(b.id, suggestCategory(b));
+    logDelegate(pers, 'Cancelled a shift', `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}${charge ? ' (short notice — charged)' : ''}`, b.id);
+    const wu2 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
+    if (wu2) notify(wu2.id, 'bookings', wu2.email, 'Booking cancelled — BookIt',
+      `A booking was cancelled, ${firstName(wu2.name)}`,
+      `<p><b>${escHtml(pers.name)}</b> has cancelled the booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>` +
+      (charge
+        ? `<p><b>This was inside the ${sn.window / 24 >= 1 ? Math.round(sn.window / 24) + '-day' : sn.window + '-hour'} notice window</b> (${sn.hours} hours&rsquo; notice), so the shift is charged in full and <b>you are paid in full</b>. You do not need to do anything.</p>`
+        : `<p>That was ${sn.hours === null ? 'outside' : Math.round(sn.hours / 24) + ' days'} ahead — outside the notice window — so there is no charge and no payment. Your calendar for that time is free again.</p>`),
+      'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+    return json(res, 200, { ok: true, short_notice: charge, notice_hours: sn.hours, window_hours: sn.window,
+      cancel_code: code, cancel_label: CANCEL_CODES[code], invoice: inv });
+  }
+
+  /* worker marks an accepted shift as completed (on/after the shift date) → invoice line is born.
+     The shift note is written here rather than "some time later", and the shift can't be
+     completed without one — which means it can't be invoiced or claimed without one either.
+     Welding the note to the money is the only version of this that doesn't need chasing. */
+  if (user.role === 'worker' && b.worker_id === user.id && status === 'completed' && b.status === 'accepted') {
+    const today = new Date().toISOString().slice(0, 10);
+    if (b.date > today) return json(res, 400, { error: 'You can mark a shift completed on the day of the shift or after — this one hasn\'t happened yet.' });
+    const note = clean(body.note, NOTE_MAX);
+    const noteBad = noteProblem(note);
+    if (noteBad) return json(res, 400, { error: noteBad });
+    const scope = body.scope ? 1 : 0;
+    const scopeDetail = clean(body.scope_detail, NOTE_MAX);
+    const scopeBad = scopeProblem(scope, scopeDetail);
+    if (scopeBad) return json(res, 400, { error: scopeBad });
+    /* 8. kilometres, entered by the person who drove them, on the screen
+       where the shift is closed off. Commute is excluded in writing. */
+    let kmLine = null;
+    const kmIn = Number(body.km) || 0;
+    if (kmIn > 0) {
+      if (kmIn > KM_MAX_SHIFT) return json(res, 400, { error: `${KM_MAX_SHIFT} km is the most that can go on one shift. If it really was further, ring the office and we'll record it by hand.` });
+      if (!clean(body.km_from, 80) || !clean(body.km_to, 80)) return json(res, 400, { error: 'Please say where the trip started and where it finished.' });
+      kmLine = applyKm(b.id, kmIn, body.km_from, body.km_to);
+    }
+    const inv = applyInvoice(b.id, suggestCategory(b));
+    /* 7. the state between "done" and "claimed". */
+    db.prepare("UPDATE bookings SET status = 'completed', completed_at = ?, approval_state = 'pending', approval_from = ? WHERE id = ?").run(now(), now(), b.id);
+    db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,0,?)')
+      .run(b.id, user.id, b.participant_id, note, scope, scopeDetail, now());
+    const pu2 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.participant_id);
+    if (scope) scopeAlert(req, b, user.name, pu2 ? pu2.name : `participant #${b.participant_id}`, scopeDetail);
+    const deadline = new Date(Date.now() + APPROVAL_DEEM_DAYS * 864e5);
+    const kmBlock = kmLine ? `<p><b>${kmLine.km} km</b> ${escHtml(kmLine.from)} &rarr; ${escHtml(kmLine.to)} at $${kmLine.rate.toFixed(2)}/km = <b>$${kmLine.total.toFixed(2)}</b>.</p>` : '';
+    if (pu2 && inv) notify(pu2.id, 'timesheets', pu2.email, 'Timesheet to approve — BookIt',
+      `One timesheet to look at, ${firstName(pu2.name)}`,
+      `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${inv.qty === 1 && inv.category === 'sleepover' ? '1 night (flat)' : `${b.hours} hours ×`} $${inv.unit_price.toFixed(2)}</b> (${inv.label} — 2026–27 NDIS price limit) = <b>$${inv.total.toFixed(2)}</b>.</p>${kmBlock}<p><b>${firstName(user.name)} has written a shift note</b> about how it went — you can read it on your bookings page.</p><p><b>You have until ${prettyDate(deadline.toISOString().slice(0, 10))} to approve it or ask a question.</b> After that it is approved automatically so ${firstName(user.name)} is paid on time. Approving is not the same as saying the shift was perfect — you can raise a concern at any point, before or after.</p>`,
+      'Approve the timesheet', `${baseUrl(req)}/#/bookings`).catch(() => {});
+    return json(res, 200, { ok: true, invoice: inv, km: kmLine, approval_state: 'pending', approve_by: deadline.toISOString().slice(0, 10) });
+  }
+
+  /* --- 7b. approve, or ask a question.
+     "Request a change" reopens the note and keeps both versions: the
+     original stays exactly as written and the worker's answer arrives as
+     an addendum, which is the same append-only rule the whole evidence
+     trail runs on. --- */
+  if (isParticipantSide && ['approved', 'queried'].includes(status) && b.status === 'completed') {
+    if (b.approval_state === 'approved') return json(res, 400, { error: 'That timesheet is already approved.' });
+    if (status === 'approved') {
+      db.prepare("UPDATE bookings SET approval_state = 'approved', approved_at = ?, approved_by = ?, approval_source = ? WHERE id = ?")
+        .run(now(), user.id, pers.self ? 'participant' : 'coordinator', b.id);
+      logDelegate(pers, 'Approved a timesheet', `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}`, b.id);
+      const wu3 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
+      if (wu3) notify(wu3.id, 'timesheets', wu3.email, 'Timesheet approved — BookIt',
+        `Approved, ${firstName(wu3.name)}`,
+        `<p><b>${escHtml(pers.name)}</b> has approved your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>.</p><p>It goes into the next pay run.</p>`,
+        'See my earnings', `${baseUrl(req)}/#/earnings`).catch(() => {});
+      return json(res, 200, { ok: true, approval_state: 'approved' });
+    }
+    const q = clean(body.query_note, NOTE_MAX);
+    if (q.length < 10) return json(res, 400, { error: 'Tell us what doesn\'t look right, in a sentence or two, so it can be sorted quickly.' });
+    db.prepare("UPDATE bookings SET approval_state = 'queried', query_at = ?, query_note = ?, query_by = ? WHERE id = ?")
+      .run(now(), q, user.id, b.id);
+    /* the bookings column still holds the open question because that is what
+       the clock reads; the shift note holds the copy that survives the next
+       one — asking twice used to overwrite the first question entirely */
+    db.prepare(`INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, kind, author_id, created)
+      VALUES (?,?,?,?,0,'',0,'question',?,?)`).run(b.id, b.worker_id, b.participant_id, q, user.id, now());
+    logDelegate(pers, 'Queried a timesheet', `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}: ${q.slice(0, 120)}`, b.id);
+    const wu4 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
+    if (wu4) notify(wu4.id, 'timesheets', wu4.email, 'A question about your timesheet — BookIt',
+      `A question about ${prettyDate(b.date)}`,
+      `<p><b>${escHtml(pers.name)}</b> has asked about your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>:</p><blockquote style="border-left:3px solid #0E6B62;padding-left:14px;margin:16px 0;color:#2B3A38;">${escHtml(q)}</blockquote><p>Answer it by adding to the shift note. Your original note stays exactly as you wrote it — your answer is added underneath, so both are on the record.</p>`,
+      'Answer on my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+    if (ADMIN_EMAILS.length) sendMail(ADMIN_EMAILS[0], 'Timesheet queried — BookIt', 'A timesheet has been queried',
+      `<p><b>${escHtml(pers.name)}</b> queried booking #${b.id} (${escHtml(b.service)}, ${prettyDate(b.date)}, ${escHtml(wu4 ? wu4.name : '')}).</p><blockquote>${escHtml(q)}</blockquote>`,
+      'Open the invoice board', `${baseUrl(req)}/#/admin`).catch(() => {});
+    return json(res, 200, { ok: true, approval_state: 'queried' });
+  }
+
+  json(res, 403, { error: 'That change isn\'t allowed.' });
+});
+
+/* --- 5b. editing a series.
+   The matrix is deliberately narrow: a series edit may change the start
+   time, the length, the worker and the note. It may not change the
+   service (that is a different support and a different price) and it may
+   not change the day of the week (that is a new rule, not an edit).
+   Anything already accepted keeps its acceptance; anything completed is
+   never touched. --- */
+const SERIES_LOCK_HOURS = 12;
+route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const sr = db.prepare('SELECT * FROM booking_series WHERE id = ?').get(Number(m[1]));
+  if (!sr) return json(res, 404, { error: 'That repeating booking no longer exists.' });
+  const pers = actFor(req, user, 'bookings');
+  if (!pers || pers.id !== sr.participant_id) return json(res, 403, { error: 'That isn\'t your booking.' });
+
+  const patch = {};
+  if (body.start && /^\d{2}:\d{2}$/.test(clean(body.start, 5))) patch.start = clean(body.start, 5);
+  if (body.hours !== undefined) {
+    const h = Number(body.hours);
+    if (!(h >= 2 && h <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
+    patch.hours = h;
+  }
+  if (body.notes !== undefined) patch.notes = clean(body.notes, 600);
+  if (body.worker_id) {
+    const nw = db.prepare("SELECT u.id, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(Number(body.worker_id));
+    if (!nw || !nw.visible) return json(res, 400, { error: 'That worker isn\'t taking bookings.' });
+    if (blockedPair(pers.id, nw.id)) return json(res, 400, { error: 'That worker is blocked on this account.' });
+    patch.worker_id = nw.id;
+  }
+  if (!Object.keys(patch).length) return json(res, 400, { error: 'Nothing to change.' });
+
+  const sets = Object.keys(patch).map(k => `${k} = ?`).join(', ');
+  const vals = Object.values(patch);
+  db.prepare(`UPDATE booking_series SET ${sets} WHERE id = ?`).run(...vals, sr.id);
+
+  /* Every future occurrence that has not been detached and starts more
+     than twelve hours from now. A shift tonight is not moved out from
+     under the worker who has already planned their evening around it. */
+  const cutoff = new Date(Date.now() + SERIES_LOCK_HOURS * 36e5);
+  const rows = db.prepare(`SELECT * FROM bookings WHERE series_id = ? AND detached = 0
+    AND status IN ('requested','accepted') ORDER BY date`).all(sr.id);
+  const changed = [], locked = [];
+  for (const b of rows) {
+    let startAt; try { startAt = new Date(`${b.date}T${b.start}:00`); } catch { startAt = null; }
+    if (startAt && startAt < cutoff) { locked.push(b.id); continue; }
+    db.prepare(`UPDATE bookings SET ${sets} WHERE id = ?`).run(...vals, b.id);
+    changed.push(b.id);
+  }
+  logDelegate(pers, 'Changed a repeating booking', `${Object.keys(patch).join(', ')} on ${changed.length} shifts`, sr.id);
+  json(res, 200, { ok: true, changed: changed.length, locked: locked.length, lock_hours: SERIES_LOCK_HOURS });
+});
+
+/* Moving one occurrence detaches it, and it stays detached: a later series
+   edit will not silently drag it back. */
+route('PATCH', /^\/api\/bookings\/(\d+)\/occurrence$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'Booking not found.' });
+  const pers = actFor(req, user, 'bookings');
+  if (!pers || pers.id !== b.participant_id) return json(res, 403, { error: 'That isn\'t your booking.' });
+  if (!['requested', 'accepted'].includes(b.status)) return json(res, 400, { error: 'That shift has already been completed or cancelled.' });
+  const date = clean(body.date, 10);
+  const start = clean(body.start, 5) || b.start;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: 'Please choose a date.' });
+  if (!/^\d{2}:\d{2}$/.test(start)) return json(res, 400, { error: 'Please choose a start time.' });
+  if (date < new Date().toISOString().slice(0, 10)) return json(res, 400, { error: 'That date is in the past.' });
+  const hours = body.hours === undefined ? b.hours : Number(body.hours);
+  if (!(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
+  db.prepare("UPDATE bookings SET date = ?, start = ?, hours = ?, detached = 1, status = 'requested' WHERE id = ?")
+    .run(date, start, hours, b.id);
+  logDelegate(pers, 'Moved one shift', `${SERVICE_LABELS[b.service] || b.service} from ${dmy(b.date)} to ${dmy(date)}`, b.id);
+  const wu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
+  if (wu) notify(wu.id, 'bookings', wu.email, 'A shift has moved — BookIt',
+    `One shift has moved, ${firstName(wu.name)}`,
+    `<p><b>${escHtml(pers.name)}</b> has moved the <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift from <b>${prettyDate(b.date)}</b> to <b>${prettyDate(date)}</b> at <b>${escHtml(start)}</b> (${hours} hours).</p><p>The rest of the repeating booking is unchanged. Please accept or decline the new time.</p>`,
+    'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  json(res, 200, { ok: true, detached: true });
+});
+
+/* Ending a series stops the future and keeps the past. */
+route('POST', /^\/api\/series\/(\d+)\/end$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const sr = db.prepare('SELECT * FROM booking_series WHERE id = ?').get(Number(m[1]));
+  if (!sr) return json(res, 404, { error: 'That repeating booking no longer exists.' });
+  const pers = actFor(req, user, 'bookings');
+  if (!pers || pers.id !== sr.participant_id) return json(res, 403, { error: 'That isn\'t your booking.' });
+  const today = new Date().toISOString().slice(0, 10);
+  /* detached = 0: a shift that was moved out of the rule is its own one-off
+     now — the page says so in as many words — and ending the rule it left
+     must not reach back and cancel it. */
+  const future = db.prepare("SELECT * FROM bookings WHERE series_id = ? AND detached = 0 AND date >= ? AND status IN ('requested','accepted')").all(sr.id, today);
+  let charged = 0;
+  for (const b of future) {
+    const sn = shortNotice(b);
+    const charge = sn.short && b.status === 'accepted';
+    /* Ending a series asks for no reason per shift, so every charged shift is
+       coded NSDO — "other". True, and it does not put words in anybody's mouth. */
+    db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = ?,
+      cancel_code = 'NSDO', short_notice = ?, notice_hours = ? WHERE id = ?`)
+      .run(now(), pers.self ? 'participant' : `coordinator:${user.name}`, 'Repeating booking ended', charge ? 1 : 0, sn.hours, b.id);
+    if (charge) { applyInvoice(b.id, suggestCategory(b)); charged++; }
+  }
+  db.prepare('UPDATE booking_series SET ended_at = ?, ended_by = ? WHERE id = ?').run(now(), user.name, sr.id);
+  logDelegate(pers, 'Ended a repeating booking', `${future.length} future shifts cancelled`, sr.id);
+  json(res, 200, { ok: true, cancelled: future.length, charged });
+});
+
+route('GET', /^\/api\/series$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pers = actFor(req, user, 'bookings');
+  if (!pers) return json(res, 403, { error: 'Not available on this account.' });
+  const rows = db.prepare(`SELECT s.*, u.name AS worker_name FROM booking_series s
+    JOIN users u ON u.id = s.worker_id WHERE s.participant_id = ? ORDER BY s.ended_at IS NOT NULL, s.id DESC`).all(pers.id);
+  for (const r of rows) {
+    /* detached = 0: a shift that left the rule is its own booking now, and
+       counting it here made an ended rule read "1 still to come". */
+    r.remaining = db.prepare("SELECT COUNT(*) n FROM bookings WHERE series_id = ? AND detached = 0 AND date >= date('now') AND status IN ('requested','accepted')").get(r.id).n;
+    r.done = db.prepare("SELECT COUNT(*) n FROM bookings WHERE series_id = ? AND status = 'completed'").get(r.id).n;
+  }
+  json(res, 200, { series: rows, lock_hours: SERIES_LOCK_HOURS });
+});
+
+/* ---------- shift notes: read them, add to them, never rewrite them ---------- */
+function noteRows(bookingId) {
+  return db.prepare(`SELECT n.id, n.body, n.scope_flag, n.scope_detail, n.addendum, n.created, n.reviewed_at,
+      COALESCE(n.kind,'note') AS kind, n.author_id, u.name AS worker_name, ua.name AS author_name, ua.role AS author_role
+    FROM shift_notes n JOIN users u ON u.id = n.worker_id
+    LEFT JOIN users ua ON ua.id = n.author_id
+    WHERE n.booking_id = ? ORDER BY n.id ASC`).all(bookingId);
+}
+
+/* the participant and their worker can both read the notes on their own shift.
+   Participants seeing what was written about them is the point, not a risk.
+   A coordinator who can approve a timesheet can read the notes they are
+   approving — they previously could not, which is absurd. */
+route('GET', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = db.prepare('SELECT participant_id, worker_id FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'Booking not found.' });
+  const coord = user.role === 'coordinator' && linkAllows(user.id, b.participant_id, 'bookings');
+  if (b.participant_id !== user.id && b.worker_id !== user.id && !user.admin && !coord) return json(res, 403, { error: 'That isn\'t your booking.' });
+  const rows = noteRows(Number(m[1])).map(n => {
+    /* who asked, worded per reader: the worker is told "X's support
+       coordinator" — the same words the approval panel uses on the other
+       side of the shift; everyone closer gets the real name. Saying two
+       different things about one person on one screen is how trust goes. */
+    let by = '';
+    if (n.kind === 'question') {
+      by = (user.role === 'worker' && n.author_role === 'coordinator')
+        ? 'their support coordinator' : (n.author_name || 'the participant');
+    }
+    return { ...n, author_label: by };
+  });
+  json(res, 200, { notes: rows });
+});
+
+/* an addendum, never an edit — the original note stays exactly as written */
+/* Build 7: the question lives where the answer already lives. shift_notes is
+   append-only, chronological, rendered and exported — so a query lands in it
+   as kind='question', and the record reads note → question → answer in the
+   order the three things happened, permanently. A correction with no visible
+   question is the shape of a story with a page torn out. */
+for (const col of ["kind TEXT NOT NULL DEFAULT 'note'", 'author_id INTEGER']) {
+  try { db.exec(`ALTER TABLE shift_notes ADD COLUMN ${col}`); } catch {}
+}
+
+route('POST', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 403, { error: 'Only the worker who did the shift can add to its notes.' });
+  if (limited(ip, 'note', 40)) return json(res, 429, { error: 'Slow down a moment.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ? AND worker_id = ?').get(Number(m[1]), user.id);
+  if (!b) return json(res, 404, { error: 'No such booking.' });
+  if (b.status !== 'completed') return json(res, 400, { error: 'You can add to the notes once the shift is marked completed.' });
+  const note = clean(body.note, NOTE_MAX);
+  const noteBad = noteProblem(note);
+  if (noteBad) return json(res, 400, { error: noteBad });
+  const scope = body.scope ? 1 : 0;
+  const scopeDetail = clean(body.scope_detail, NOTE_MAX);
+  const scopeBad = scopeProblem(scope, scopeDetail);
+  if (scopeBad) return json(res, 400, { error: scopeBad });
+  const r = db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,1,?)')
+    .run(b.id, user.id, b.participant_id, note, scope, scopeDetail, now());
+  if (scope) {
+    const pu = db.prepare('SELECT name FROM users WHERE id = ?').get(b.participant_id);
+    scopeAlert(req, b, user.name, pu ? pu.name : `participant #${b.participant_id}`, scopeDetail);
+  }
+
+  /* 7d. answering a query restarts the approval clock.
+     A query stops the clock — it has to, or asking a question would be a trap
+     in which the shift gets approved while you wait for the answer. But then
+     nothing restarted it, so a queried timesheet was never paid and never
+     complained: one question and that worker's money stopped for good.
+     The answer reopens it for a fresh full window. The participant gets the
+     whole published period to read the reply, and the worker stops being
+     stranded by having been asked something. nudged_at is cleared so the new
+     window earns its own reminder.
+     Only an answer to a query does this. An unprompted addendum on a pending
+     timesheet must not, or a worker could reset somebody's window at will. */
+  let restarted = null;
+  if (b.approval_state === 'queried') {
+    const from = now();
+    db.prepare("UPDATE bookings SET approval_state = 'pending', approval_from = ?, nudged_at = NULL WHERE id = ?").run(from, b.id);
+    const deadline = new Date(Date.parse(from) + APPROVAL_DEEM_DAYS * 864e5).toISOString().slice(0, 10);
+    restarted = { approval_state: 'pending', approve_by: deadline };
+    const pq = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.participant_id);
+    const recips = pq ? [pq, ...coordsFor(b.participant_id, 'bookings')] : coordsFor(b.participant_id, 'bookings');
+    for (const p of recips) {
+      notify(p.id, 'timesheets', p.email, 'Your question has been answered — BookIt',
+        `An answer about ${prettyDate(b.date)}`,
+        `<p><b>${escHtml(user.name)}</b> has answered your question about the <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>.</p>
+         <blockquote style="border-left:3px solid #0E6B62;padding-left:14px;margin:16px 0;color:#2B3A38;">${escHtml(note)}</blockquote>
+         <p>The original note is unchanged — this is added underneath it, so both are on the record.</p>
+         <p><b>You have until ${prettyDate(deadline)} to approve the timesheet or ask something else.</b> The clock stopped while your question was open and has started again from today, so you have the full ${APPROVAL_DEEM_DAYS} days to read this.</p>`,
+        'Read it and approve', `${baseUrl(req)}/#/bookings`).catch(() => {});
+    }
+    logAccess(b.participant_id, null, 'Approval clock restarted',
+      `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)} — the worker answered the query, so the ${APPROVAL_DEEM_DAYS}-day window began again`, b.id);
+  }
+  json(res, 200, Object.assign({ ok: true, id: Number(r.lastInsertRowid) }, restarted || {}));
+});
+
+/* ============================================================================
+   SUPPORT PLANS
+   ==========================================================================*/
+
+/* Every question, in one place, so the form, the validator, the worker's brief
+   and the printed plan are all generated from the same list. A question that is
+   only in the HTML is a question no other part of the system can act on. */
+const PLAN_SECTIONS = [
+  { key: 'supports', title: 'The supports you use',
+    intro: 'DMHC is registered for six things and only six. Ticking one here tells the roster which workers can be offered your shifts, and what they read before the first one. Leave the rest untouched — an empty answer means "not yet", never "does not need it".' },
+  { key: 'reliance', title: 'If a shift falls over',
+    intro: 'These five answers are the only part of this plan the roster acts on by itself. They decide how hard BookIt chases a replacement when a worker pulls out, and how early it starts. Worth a minute of thought.' },
+  { key: 'about', title: 'What a worker needs to know',
+    intro: 'Written for somebody who has never met you and is about to walk in the door. Only workers whose booking with you has already been accepted ever see this — nobody browsing the site does.' },
+  { key: 'safety', title: 'Your home and your community',
+    intro: 'The hazards and the habits a stranger would not guess. This is where a shift goes wrong or does not.' },
+  { key: 'emergency', title: 'Who we ring',
+    intro: 'One person we contact if we cannot reach you and something has happened.' }
+];
+
+/* type: 'yn' | 'text'. required: the plan cannot be confirmed without it.
+   showIf: only asked, and only required, once that answer is yes.
+   worker_brief: appears on the brief a booked worker reads before the shift.
+
+   The first section is the one that makes this BookIt's form rather than a
+   copy of somebody else's. Every other platform asks about "daily living" in
+   the abstract; DMHC holds six registration groups and delivers nothing
+   outside them, so the plan asks about those six by name. That does three
+   things a generic form cannot: the answers line up one-to-one with what gets
+   claimed, a support nobody ticked is a support nobody rosters, and a request
+   that fits none of the six is visibly out of scope on the form itself rather
+   than three weeks into a service agreement. */
+const PLAN_QUESTIONS = [
+  { key: 'use_personal', section: 'supports', type: 'yn', required: true,
+    q: 'Personal care — help with your body and your routine',
+    help: 'Showering, dressing, toileting, transfers, eating, medication prompts, and the morning and evening routine around them. NDIS calls this Assistance with Self-Care Activities (0107).' },
+  { key: 'personal_detail', section: 'supports', type: 'text', required: false, showIf: 'use_personal', worker_brief: true,
+    q: 'What does personal care look like on a good shift?', brief_title: 'Personal care',
+    help: 'The order you like things done in, the equipment involved, how much you direct and how much you want done for you. Write it the way you would say it to a new worker on day one.' },
+
+  { key: 'use_daily', section: 'supports', type: 'yn', required: true,
+    q: 'Daily tasks, or support in shared living',
+    help: 'Support to run your day — including overnight and sleepover support, and support in a shared living arrangement. NDIS calls this Assistance with Daily Life Tasks in a Group or Shared Living Arrangement (0115 and 0138).' },
+  { key: 'daily_detail', section: 'supports', type: 'text', required: false, showIf: 'use_daily', worker_brief: true,
+    q: 'What does a day of that look like?', brief_title: 'Daily tasks & shared living',
+    help: 'What happens overnight, who else is in the house, what has to be handed over between shifts, and anything that has to happen at a fixed time rather than when it suits.' },
+
+  { key: 'use_community', section: 'supports', type: 'yn', required: true,
+    q: 'Getting out — community, social and recreation',
+    help: 'Support to take part in things outside the house: sport, groups, classes, appointments, the shops, seeing people. NDIS calls this Participation in Community, Social and Recreational Activities (0125).' },
+  { key: 'community_detail', section: 'supports', type: 'text', required: false, showIf: 'use_community', worker_brief: true,
+    q: 'Where do you go, and what makes it work?', brief_title: 'Community & social',
+    help: 'The regular places and times, what you need packed, how long you can comfortably be out, and what tends to cut a day short.' },
+
+  { key: 'use_transport', section: 'supports', type: 'yn', required: true,
+    q: 'Travel and transport',
+    help: 'Being driven, or being supported to use transport yourself. NDIS calls this Assistance with Travel and Transport Arrangements (0108). Tick this and BookIt will only offer your shifts to workers whose licence, registration, CTP and comprehensive insurance are all current on the day.' },
+  { key: 'transport_detail', section: 'supports', type: 'text', required: false, showIf: 'use_transport', worker_brief: true,
+    q: 'How do you travel?', brief_title: 'Travel & transport',
+    help: 'Your own vehicle or the worker’s, whether you transfer or stay in your chair, hoist or ramp, tie-downs, how long you can sit, and anything about getting in and out that is easy to get wrong.' },
+
+  { key: 'use_household', section: 'supports', type: 'yn', required: true,
+    q: 'Household tasks',
+    help: 'Cleaning, laundry, linen, dishes, and the shopping and meal prep that go with them. NDIS calls this Household Tasks (0120). A shift that is only household tasks is rostered to a Level 1 worker — that is deliberate, it is what the price limit for this line item pays for.' },
+  { key: 'household_detail', section: 'supports', type: 'text', required: false, showIf: 'use_household', worker_brief: true,
+    q: 'What needs doing, and how do you like it done?', brief_title: 'Household tasks',
+    help: 'Which rooms, which products, what is off-limits, where things live, and anything that has to be done a particular way rather than the usual way.' },
+
+  { key: 'use_employ', section: 'supports', type: 'yn', required: true,
+    q: 'Work — finding it or keeping it',
+    help: 'Support to get to work, to stay in a job, or to take part in work-related training. NDIS calls this Assistance to Access and Maintain Employment or Higher Education (0102).' },
+  { key: 'employ_detail', section: 'supports', type: 'text', required: false, showIf: 'use_employ', worker_brief: true,
+    q: 'What does the support at work involve?', brief_title: 'Support at work',
+    help: 'Where you work, what days and hours, what the worker does while they are there, and who at your workplace they should speak to.' },
+
+  { key: 'main_source', section: 'reliance', type: 'yn', required: true,
+    q: 'Is BookIt your main source of support for daily living?',
+    help: 'Yes if BookIt covers your essential personal care, or your morning and evening routine — the support that has to happen whether or not anyone is available.' },
+  { key: 'health_safety', section: 'reliance', type: 'yn', required: true,
+    q: 'If your workers could not attend, would your health or safety be significantly affected?',
+    help: 'Meals, mobility, personal care, essential health appointments, or the activities that keep you well.' },
+  { key: 'impact_detail', section: 'reliance', type: 'text', required: false, showIf: 'health_safety',
+    q: 'Say how, and say how fast.',
+    help: 'Hours are more useful to us than days. "No transfer means no toilet after about four hours" tells the roster what to do; "it would be difficult" does not.' },
+  { key: 'backup_24h', section: 'reliance', type: 'yn', required: true,
+    q: 'If BookIt were disrupted, is there other support you could call on within 24 hours?',
+    help: 'Family, friends, or another provider you already use. This is not a test — answering no is what tells us to treat a gap in your roster as urgent.' },
+  { key: 'backup_detail', section: 'reliance', type: 'text', required: false, showIf: 'backup_24h',
+    q: 'Who, and how do we reach them?',
+    help: 'A name and a number. We only ever use it if you have told us we can.' },
+  { key: 'preventative_health', section: 'reliance', type: 'yn', required: true,
+    q: 'Do you want support keeping on top of preventative health?',
+    help: 'Vaccinations, dental, health assessments and screening. Say yes and BookIt emails you a reminder when one is due rather than letting it drift.' },
+
+  { key: 'goals', section: 'about', type: 'text', required: true,
+    q: 'What you are working towards',
+    help: 'The goals from your NDIS plan, in your words — and what the support is meant to help you do.', worker_brief: true },
+  { key: 'communication', section: 'about', type: 'text', required: true,
+    q: 'How you communicate',
+    help: 'Speech, devices, signs, boards, apps, gestures. What helps somebody understand you, and what helps you understand them. Say what a worker should do if they have not understood.', worker_brief: true },
+  { key: 'mobility', section: 'about', type: 'text', required: true,
+    q: 'How you move',
+    help: 'Walking, stairs, transfers, chairs, hoists and aids. If a transfer has a right way and a wrong way, this is where the right way goes. Name any transfer or manual handling plan below.', worker_brief: true },
+  { key: 'health_supports', section: 'about', type: 'text', required: false,
+    q: 'Health things a worker must know (optional)',
+    help: 'Seizures, anaphylaxis and allergies, blood glucose, pressure area care, autonomic dysreflexia, catheter or stoma care. Name the matching care plan below — the office ticks it off once the document is on file.', worker_brief: true },
+  { key: 'cognition', section: 'about', type: 'text', required: false,
+    q: 'Processing, memory and thinking (optional)',
+    help: 'Short and long-term memory, how much notice you need before a change, and how you like information given to you.', worker_brief: true },
+  { key: 'mental_health', section: 'about', type: 'text', required: false,
+    q: 'Mental health (optional)',
+    help: 'What helps, what does not, what a hard day looks like from the outside, and what you want a worker to do when they see one.', worker_brief: true },
+  { key: 'other_info', section: 'about', type: 'text', required: false,
+    q: 'Anything else before the first shift (optional)',
+    help: 'Triggers, phobias, pets, house rules, the thing everybody gets wrong the first time.', worker_brief: true },
+
+  { key: 'home_safety', section: 'safety', type: 'text', required: true,
+    q: 'Safety in your home',
+    help: 'Slips, trips and falls; smoking, drugs or alcohol in the home; where the exits are; manual handling; pets; and what a worker should do if something goes wrong while they are there alone with you.', worker_brief: true },
+  { key: 'community_safety', section: 'safety', type: 'text', required: true,
+    q: 'Safety when you are out',
+    help: 'Roads, crowds, places or people to avoid, what happens if you become separated, and what a worker should do in an emergency away from home.', worker_brief: true },
+  { key: 'disaster_8h', section: 'safety', type: 'yn', required: true,
+    q: 'In a flood, fire or heatwave, would you need essential support within 8 hours?',
+    help: 'Personal care, health support, transport or a way to communicate, so you can follow your emergency plan. Yes puts you on the list BookIt works down first when a disaster is declared in your area.' },
+
+  { key: 'ec_name', section: 'emergency', type: 'text', required: true, q: 'Name', short: true },
+  { key: 'ec_relationship', section: 'emergency', type: 'text', required: true, q: 'Relationship to you', short: true },
+  { key: 'ec_phone', section: 'emergency', type: 'text', required: true, q: 'Phone', short: true },
+  { key: 'ec_email', section: 'emergency', type: 'text', required: false, q: 'Email (optional)', short: true }
+];
+const PLAN_KEYS = PLAN_QUESTIONS.map(q => q.key);
+const PLAN_YN = PLAN_QUESTIONS.filter(q => q.type === 'yn').map(q => q.key);
+const PLAN_TEXT = PLAN_QUESTIONS.filter(q => q.type === 'text').map(q => q.key);
+
+/* The standing safety notice — the one instruction that applies to every home
+   regardless of what the participant writes. It is here because a worker in
+   somebody's house is DMHC's worker under WHS law, and the three things below
+   are what actually turns up in incident reports: a daisy-chained double
+   adapter, a smoke alarm with the battery out, and a worker who spent six hours
+   in a room full of cigarette smoke. Held as one constant so the form, the
+   printed plan and the worker's brief cannot drift apart. */
+const PLAN_HOME_NOTICE = 'Before your first shift, a few things about the house. Appliances and power cords should be in working order and plugged into a power board or a wall socket rather than a double adapter. Smoke alarms should be fitted and working. And there should be somewhere in the home a support worker can be without breathing cigarette smoke. If any of that is hard to arrange, tell us rather than leaving it — we would rather sort it out with you than have a worker find it on the day.';
+
+/* How long a confirmed plan stands before it has to be looked at again.
+   Twelve months matches the NDIS Practice Standards review expectation and the
+   plan cycle most participants are on. */
+const PLAN_REVIEW_MONTHS = 12;
+
+function planDue(confirmed_at) {
+  if (!confirmed_at) return '';
+  const d = new Date(confirmed_at.slice(0, 10) + 'T00:00:00');
+  d.setMonth(d.getMonth() + PLAN_REVIEW_MONTHS);
+  return d.toISOString().slice(0, 10);
+}
+
+/* THE MECHANISM.
+
+   Hireup asks these three questions and files the answers. That is where the
+   value leaks out: a form that only produces prose produces nothing an on-call
+   phone at 6am can act on. Here the same three answers resolve to one tier, and
+   the tier is what the cover board sorts by and what decides whether the office
+   is rung before the offer round or after it.
+
+   Tier 1 is the combination that means a missed shift is not a gap in a roster,
+   it is a person with nobody: BookIt is the main source of support, health or
+   safety is significantly affected, and there is no one else inside 24 hours.
+   Nothing about that requires a judgement call, so nothing about it waits for
+   one. */
+function continuityTier(p) {
+  if (!p || p.status !== 'confirmed') {
+    return { tier: 0, key: 'unknown', label: 'No confirmed plan',
+      why: 'Nobody has confirmed a support plan for this participant, so we do not know what a missed shift costs them.' };
+  }
+  const relies = !!p.main_source, harm = !!p.health_safety, alone = !p.backup_24h;
+  if (relies && harm && alone) {
+    return { tier: 1, key: 'critical', label: 'Critical — 24/7',
+      why: 'BookIt is the main source of support, health or safety is significantly affected without it, and there is no other support available within 24 hours.' };
+  }
+  if (relies && (harm || alone)) {
+    return { tier: 2, key: 'high', label: 'High',
+      why: relies && harm
+        ? 'BookIt is the main source of support and health or safety is significantly affected without it, but other support is available within 24 hours.'
+        : 'BookIt is the main source of support and there is no other support available within 24 hours, though health and safety are not significantly affected.' };
+  }
+  return { tier: 3, key: 'standard', label: 'Standard',
+    why: 'Other support is available, or BookIt is not the main source of support for daily living.' };
+}
+
+function currentPlan(participantId) {
+  return db.prepare('SELECT * FROM support_plans WHERE participant_id = ? AND current = 1').get(Number(participantId)) || null;
+}
+/* the most recent CONFIRMED plan, which is not always the current row — while a
+   review is in progress the current row is a draft. The worker's brief and the
+   continuity tier both read this one, because a half-edited draft must never
+   change what a worker is told or how urgently the office is rung. */
+function confirmedPlan(participantId) {
+  return db.prepare("SELECT * FROM support_plans WHERE participant_id = ? AND status = 'confirmed' ORDER BY version DESC LIMIT 1").get(Number(participantId)) || null;
+}
+function planOut(p) {
+  if (!p) return null;
+  const o = { ...p };
+  for (const k of PLAN_YN) o[k] = !!o[k];
+  o.care_plans = safeJson(p.care_plans, []);
+  o.review_due = planDue(p.confirmed_at);
+  o.overdue = !!(o.review_due && o.review_due < new Date().toISOString().slice(0, 10));
+  return o;
+}
+/* which required questions are still empty. Returned rather than thrown, so the
+   form can mark them and the participant can save a draft with gaps in it —
+   only confirming is gated. */
+function planMissing(body) {
+  const miss = [];
+  for (const q of PLAN_QUESTIONS) {
+    if (!q.required) continue;
+    if (q.type === 'yn') { if (body[q.key] !== true && body[q.key] !== false && body[q.key] !== 0 && body[q.key] !== 1) miss.push(q.key); }
+    else if (!clean(body[q.key], 6000)) miss.push(q.key);
+  }
+  /* the conditional follow-ups: only required once the answer above makes them
+     relevant. "Yes it would affect my health" with no description is the answer
+     that helps nobody, and "yes I use transport" with nothing about the hoist
+     is the one that hurts somebody. Driven off showIf rather than listed here,
+     so adding a question to the catalogue cannot leave its follow-up ungated. */
+  for (const q of PLAN_QUESTIONS) {
+    if (!q.showIf) continue;
+    const on = body[q.showIf] === true || body[q.showIf] === 1;
+    if (on && !clean(body[q.key], 6000)) miss.push(q.key);
+  }
+  return miss;
+}
+/* The last thing anybody said about each named document, across every version
+   of the plan. Walking oldest to newest and letting later rows win means a tick
+   made by the office on version 1 survives a version 2 the participant saved
+   without mentioning care plans at all — and an untick still wins, because it is
+   also the latest thing said. Reading only the immediately previous row loses
+   the tick the first time somebody saves a draft with the section untouched,
+   which is most of the time. */
+function carePlanHistory(participantId) {
+  const map = new Map();
+  for (const r of db.prepare('SELECT care_plans FROM support_plans WHERE participant_id = ? ORDER BY id ASC').all(participantId))
+    for (const c of safeJson(r.care_plans, [])) if (c && c.name) map.set(c.name, c);
+  return [...map.values()];
+}
+function planFieldsFrom(body, prior) {
+  const f = {};
+  for (const k of PLAN_YN) f[k] = (body[k] === true || body[k] === 1 || body[k] === 'yes') ? 1 : 0;
+  for (const k of PLAN_TEXT) f[k] = clean(body[k], 6000);
+  const plans = Array.isArray(body.care_plans) ? body.care_plans : [];
+  /* The participant names the care plan; the office says whether the document is
+     in the folder. Those are two different claims and only one of them is the
+     participant's to make, so `on_file` is never read off the request body — it
+     is carried forward by name from the plan already on record. Otherwise the
+     one field an auditor actually tests would be self-attested, and a rename in
+     the form would silently clear a tick somebody in the office had put there. */
+  const was = Array.isArray(prior) ? prior : [];
+  f.care_plans = JSON.stringify(plans.slice(0, 20).map(c => {
+    const name = clean(c && c.name, 160);
+    const before = was.find(x => x.name === name);
+    return { name, on_file: !!(before && before.on_file),
+      filed_by: before ? (before.filed_by || '') : '', filed_at: before ? (before.filed_at || '') : '' };
+  }).filter(c => c.name));
+  return f;
+}
+function planWrite(participantId, f, status, byName) {
+  const cols = [...PLAN_YN, ...PLAN_TEXT, 'care_plans'];
+  const cur = currentPlan(participantId);
+  const t = now();
+  if (cur && cur.status === 'draft') {
+    /* a draft is edited in place — it is not a version of anything yet */
+    db.prepare(`UPDATE support_plans SET ${cols.map(c => c + ' = ?').join(', ')}, status = ?, confirmed_at = ?, confirmed_by = ?, updated = ? WHERE id = ?`)
+      .run(...cols.map(c => f[c]), status, status === 'confirmed' ? t : '', status === 'confirmed' ? byName : '', t, cur.id);
+    return cur.id;
+  }
+  const version = cur ? cur.version + 1 : 1;
+  if (cur) db.prepare('UPDATE support_plans SET current = 0 WHERE id = ?').run(cur.id);
+  const r = db.prepare(`INSERT INTO support_plans (participant_id, version, current, status, ${cols.join(', ')}, confirmed_at, confirmed_by, created, updated)
+      VALUES (?,?,1,?,${cols.map(() => '?').join(',')},?,?,?,?)`)
+    .run(participantId, version, status, ...cols.map(c => f[c]), status === 'confirmed' ? t : '', status === 'confirmed' ? byName : '', t, t);
+  return Number(r.lastInsertRowid);
+}
+
+/* the four things a worker actually needs, and nothing else. A support plan
+   holds health information; a worker gets the operational slice of it, and only
+   for a participant whose booking they have already accepted. */
+function workerBrief(participantId) {
+  const p = confirmedPlan(participantId);
+  if (!p) return null;
+  const out = { confirmed_at: p.confirmed_at, version: p.version, home_notice: PLAN_HOME_NOTICE, sections: [] };
+  for (const q of PLAN_QUESTIONS) {
+    if (!q.worker_brief) continue;
+    const v = clean(p[q.key], 6000);
+    if (v) out.sections.push({ key: q.key, title: q.brief_title || q.q.replace(/ \(optional\)$/, ''), body: v });
+  }
+  out.care_plans = safeJson(p.care_plans, []);
+  out.emergency = { name: p.ec_name, relationship: p.ec_relationship, phone: p.ec_phone };
+  return out;
+}
+
+route('GET', /^\/api\/support-plan\/questions$/, (req, res) =>
+  json(res, 200, { sections: PLAN_SECTIONS, questions: PLAN_QUESTIONS, home_notice: PLAN_HOME_NOTICE, review_months: PLAN_REVIEW_MONTHS }));
+
+route('GET', /^\/api\/me\/support-plan$/, (req, res, m, user) => {
+  if (!user || user.role !== 'participant') return json(res, 403, { error: 'Participants only.' });
+  const cur = currentPlan(user.id);
+  const conf = confirmedPlan(user.id);
+  json(res, 200, {
+    plan: planOut(cur),
+    /* what they said last time, so step 1 of the review — read your previous
+       answers and check they still hold — is possible without hunting */
+    previous: cur && conf && cur.id !== conf.id ? planOut(conf) : null,
+    continuity: continuityTier(conf),
+    history: db.prepare("SELECT version, status, confirmed_at, confirmed_by FROM support_plans WHERE participant_id = ? AND status = 'confirmed' ORDER BY version DESC").all(user.id)
+  });
+});
+
+route('POST', /^\/api\/me\/support-plan$/, (req, res, m, user, body) => {
+  if (!user || user.role !== 'participant') return json(res, 403, { error: 'Participants only.' });
+  const confirm = body.confirm === true;
+  const missing = planMissing(body);
+  if (confirm) {
+    if (!body.declaration) return json(res, 400, { error: 'Tick the box to confirm this plan is up to date before submitting.', missing });
+    if (missing.length) return json(res, 400, { error: `${missing.length} question${missing.length === 1 ? '' : 's'} still needs an answer before you can submit.`, missing });
+  }
+  const id = planWrite(user.id, planFieldsFrom(body, carePlanHistory(user.id)), confirm ? 'confirmed' : 'draft', user.name);
+  const cur = db.prepare('SELECT * FROM support_plans WHERE id = ?').get(id);
+  json(res, 200, { ok: true, plan: planOut(cur), continuity: continuityTier(confirmedPlan(user.id)), missing });
+});
+
+/* the shift brief. A worker sees it only for a participant they are booked with,
+   and only for a booking that has actually been accepted — a pending request is
+   not consent to read somebody's health information. */
+route('GET', /^\/api\/support-plan\/(\d+)\/brief$/, (req, res, m, user) => {
+  if (!user) return json(res, 403, { error: 'Log in first.' });
+  const pid = Number(m[1]);
+  if (!user.admin && user.id !== pid) {
+    if (user.role !== 'worker') return json(res, 403, { error: 'Not yours to read.' });
+    /* 'requested' belongs here: the acknowledgement gate makes reading the
+       plan a precondition of accepting, so the person deciding whether to
+       say yes must be able to read it. Being requested is the participant's
+       own invitation. */
+    const linked = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE worker_id = ? AND participant_id = ? AND status IN ('requested','accepted','completed')").get(user.id, pid).n;
+    if (!linked) return json(res, 403, { error: 'You can read a support plan once this participant has requested or booked you.' });
+  }
+  const brief = workerBrief(pid);
+  if (!brief) return json(res, 404, { error: 'No confirmed support plan yet.' });
+  json(res, 200, { brief, continuity: continuityTier(confirmedPlan(pid)) });
+});
+
+/* admin: every participant, what tier they are, and what is overdue */
+route('GET', /^\/api\/admin\/support-plans$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const people = db.prepare("SELECT id, name, email, suburb FROM users WHERE role = 'participant' ORDER BY name").all();
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = people.map(u => {
+    const conf = confirmedPlan(u.id);
+    const cur = currentPlan(u.id);
+    const c = continuityTier(conf);
+    const due = planDue(conf && conf.confirmed_at);
+    return {
+      id: u.id, name: u.name, email: u.email, suburb: u.suburb,
+      has_plan: !!conf, version: conf ? conf.version : 0,
+      draft_open: !!(cur && cur.status === 'draft'),
+      confirmed_at: conf ? conf.confirmed_at : '', confirmed_by: conf ? conf.confirmed_by : '',
+      review_due: due, overdue: !!(due && due < today),
+      tier: c.tier, tier_key: c.key, tier_label: c.label, tier_why: c.why,
+      disaster_8h: !!(conf && conf.disaster_8h),
+      preventative_health: !!(conf && conf.preventative_health),
+      /* a care plan the participant has named and nobody has filed is the exact
+         shape of the finding that costs providers at audit: the support is being
+         delivered, the document that says how is not in the folder. */
+      care_plans: safeJson(conf && conf.care_plans, []),
+      plans_missing: safeJson(conf && conf.care_plans, []).filter(c2 => !c2.on_file).map(c2 => c2.name)
+    };
+  });
+  json(res, 200, {
+    participants: rows,
+    counts: {
+      none: rows.filter(r => !r.has_plan).length,
+      overdue: rows.filter(r => r.overdue).length,
+      critical: rows.filter(r => r.tier === 1).length,
+      disaster: rows.filter(r => r.disaster_8h).length,
+      plans_missing: rows.reduce((n, r) => n + r.plans_missing.length, 0)
+    },
+    review_months: PLAN_REVIEW_MONTHS
+  });
+});
+
+route('GET', /^\/api\/admin\/support-plans\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const people = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
+  const today = new Date().toISOString().slice(0, 10);
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['Participant', 'Plan on file', 'Version', 'Confirmed', 'Review due', 'Overdue', 'Continuity tier', 'Why',
+    'Disaster support within 8h', 'Preventative health', 'Care plans named', 'Care plans not on file'].map(q).join(',')];
+  for (const u of people) {
+    const p = confirmedPlan(u.id), c = continuityTier(p), due = planDue(p && p.confirmed_at);
+    const cps = safeJson(p && p.care_plans, []);
+    lines.push([u.name, p ? 'yes' : 'no', p ? p.version : '', p ? p.confirmed_at.slice(0, 10) : '', due,
+      due && due < today ? 'YES' : '', c.label, c.why,
+      p && p.disaster_8h ? 'yes' : 'no', p && p.preventative_health ? 'yes' : 'no',
+      cps.map(x => x.name).join('; '), cps.filter(x => !x.on_file).map(x => x.name).join('; ')].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-support-plans.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* admin: mark a named care plan as filed. The tick is the evidence trail — who
+   said the document exists, and when — so it is recorded with a name against it
+   rather than flipping a silent boolean. */
+route('POST', /^\/api\/admin\/support-plans\/(\d+)\/care-plan$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const p = confirmedPlan(Number(m[1]));
+  if (!p) return json(res, 404, { error: 'No confirmed support plan for that participant.' });
+  const name = clean(body.name, 160);
+  const list = safeJson(p.care_plans, []);
+  const hit = list.find(c => c.name === name);
+  if (!hit) return json(res, 404, { error: 'That care plan is not named in this support plan.' });
+  hit.on_file = body.on_file === true;
+  hit.filed_by = hit.on_file ? user.name : '';
+  hit.filed_at = hit.on_file ? now() : '';
+  db.prepare('UPDATE support_plans SET care_plans = ?, updated = ? WHERE id = ?').run(JSON.stringify(list), now(), p.id);
+  logCompliance({ kind: 'care-plan', result: hit.on_file ? 'on-file' : 'not-on-file',
+    detail: `${name} — support plan v${p.version} for participant #${p.participant_id}`,
+    source: 'admin', checked_by: user.name });
+  json(res, 200, { ok: true, care_plans: list });
+});
+
+/* ============================================================================
+   THE FORMS REGISTER — every document DMHC has to be able to produce
+   ==========================================================================*/
+
+/* The question this answers is "where are my forms", and the honest answer has
+   three parts, so the register has three parts.
+
+   `live` means BookIt holds the record itself and watches its own clock. There
+   is nothing to keep track of by hand, because the system is the register.
+
+   `drive` means the document exists as a file in Google Drive. It is real, it is
+   probably fine, and nothing on earth is watching it. Every finding at DMHC's
+   last review was in this pile: a credential held as a phone photo has no expiry
+   date as far as any system is concerned, which is how two workers ended up
+   rostered on expired screening while their certificates sat in a folder.
+
+   `missing` means it does not exist yet.
+
+   `requires` names the Practice Standards outcome or the Rules instrument, not a
+   clause number. The outcome names are stable and checkable; invented clause
+   numbers are worse than no citation, because they look authoritative. Where the
+   basis is DMHC's own audit sheet rather than my reading of the rules, it says
+   so.
+
+   `cadence`: once | annual | monthly | quarterly | per-event | expiry | on-change */
+const FORMS = [
+  /* ---------- governance: the company holds one of each ---------- */
+  { key: 'cert-registration', name: 'NDIS certificate of registration + scope', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'NDIS Commission', template: 'n/a', requires: 'NDIS Act — registration', note: 'Current certificate runs to 21/01/2029. Mid-term audit window opens 21/07/2027.' },
+  { key: 'policy-register', name: 'Policy Register', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management', note: 'Currently lists 24 documents including the five added July 2026.' },
+  { key: 'doc-list-core', name: 'Document List — Core', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Information management' },
+  { key: 'gov-review', name: 'Governing Personnel Skills and Performance Review', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
+  { key: 'coi-declaration', name: 'Conflict of Interest Declaration (governing person)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management', note: 'A nil declaration is still evidence. An empty register is not.' },
+  { key: 'mgmt-minutes', name: 'Management meeting agenda + minutes', scope: 'company', track: 'drive', cadence: 'monthly', signed: 'Chair', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
+  { key: 'staff-minutes', name: 'Staff meeting agenda + minutes', scope: 'company', track: 'drive', cadence: 'monthly', signed: 'Chair', template: 'DMHC', requires: 'Core Module — Human resource management' },
+  { key: 'internal-audit', name: 'Internal Audit Schedule + completed audits', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
+  { key: 'ci-plan', name: 'Continuous Improvement Plan', scope: 'company', track: 'drive', cadence: 'quarterly', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
+  { key: 'risk-plan', name: 'Risk Management Plan + risk register', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management' },
+  { key: 'continuity-plan', name: 'Business continuity / emergency and disaster management plan', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Continuity of supports' },
+  { key: 'insurance-pl', name: 'Certificate of currency — Public and Products Liability', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management', note: 'Held in the Business folder, renews about November. Copy into Core Documents.' },
+  { key: 'insurance-pi', name: 'Certificate of currency — Professional Indemnity', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management' },
+  { key: 'insurance-wc', name: 'Certificate of currency — Workers Compensation', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Workers compensation legislation (NSW)', note: 'The premium rate on this certificate is the number that sets the platform margin floor.' },
+  { key: 'pol-incident', name: 'Incident Management policy and procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Incident Management and Reportable Incidents) Rules 2018' },
+  { key: 'pol-complaints', name: 'Complaints Management and Resolution policy', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Complaints Management and Resolution) Rules 2018' },
+  { key: 'pol-screening', name: 'Worker Screening policy and procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018' },
+  { key: 'pol-privacy', name: 'Privacy policy + data breach response', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Privacy and dignity', note: 'Breach response 1 business day; retention 7 years / 25 years.' },
+  { key: 'pol-behaviour', name: 'Behaviour Support and Restrictive Practices policy', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Violence, abuse, neglect, exploitation and discrimination', note: 'Added and signed July 2026.' },
+  { key: 'pol-decisions', name: 'Supported Decision-Making procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Independence and informed choice', note: 'Added and signed July 2026.' },
+  { key: 'pol-living-alone', name: 'Living Alone Safeguards procedure (s73G)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'NDIS Act s73G condition on this registration', note: 'Added and signed July 2026.' },
+  { key: 'pol-transport', name: 'Transport and Vehicle Safety procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Added and signed July 2026. 0108 is on the certificate.' },
+  { key: 'pol-tenancy', name: 'Tenancy and Support Separation statement', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'SIL / SDA module as audited', note: 'Added and signed July 2026.' },
+  { key: 'sil-collab', name: 'SDA and SIL Collaboration Agreement', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Both providers', template: 'BookIt', requires: 'SIL module as audited', note: 'Drafted July 2026 — to be filed and added to the Policy Register.' },
+  { key: 'sil-info-pack', name: 'SIL Information Pack (participant-facing)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Access to supports' },
+  { key: 'contractor-agreement', name: 'Engagement model — employment or contractor agreement template', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'Unresolved with the lawyer. It decides superannuation, award coverage, workers compensation, insurance response and who carries the duty of care on shift.' },
+
+  /* ---------- registers: living lists, never a snapshot ---------- */
+  { key: 'reg-worker', name: 'Worker Register', scope: 'register', track: 'live', live: 'workers', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'BookIt holds the live version. The Drive copy is a quarterly export, not the record.' },
+  { key: 'reg-participant', name: 'Participant Register', scope: 'register', track: 'live', live: 'participants', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'Core Module — Information management' },
+  { key: 'reg-incident', name: 'Incident Register', scope: 'register', track: 'live', live: 'incidents', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Incident Management and Reportable Incidents) Rules 2018', note: 'BookIt runs the 24-hour and 5-business-day clocks itself.' },
+  { key: 'reg-complaints', name: 'Complaints and Feedback Register', scope: 'register', track: 'live', live: 'complaints', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Complaints Management and Resolution) Rules 2018' },
+  { key: 'reg-banning', name: 'Banning orders check register', scope: 'register', track: 'live', live: 'banning', cadence: 'quarterly', signed: 'System', template: 'BookIt', requires: '0137 conditions of registration', note: 'Three registers per worker, re-checked automatically.' },
+  { key: 'reg-coi', name: 'Conflict of Interest Register', scope: 'register', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
+  { key: 'reg-ci', name: 'Continuous Improvement Register', scope: 'register', track: 'drive', cadence: 'quarterly', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
+  { key: 'reg-restrictive', name: 'Restrictive Practices Register', scope: 'register', track: 'drive', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Restrictive Practices and Behaviour Support) Rules 2018', note: 'Nil is the expected state. A nil register still has to exist and be dated.' },
+  { key: 'reg-training', name: 'Training and Development Register (one per worker)', scope: 'register', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: '151 blanks across seven registers. Filling the Worker Register first turns these into transcription.' },
+  { key: 'reg-medicine', name: 'Medicine Register (per participant, per month)', scope: 'register', track: 'drive', cadence: 'monthly', signed: 'Worker on each administration', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'Register 13 in Drive covers 25/11/2025 only and every worker signature cell in it is blank; Drive holds nothing between 26/11/2025 and 30/06/2026. Records held outside Drive were identified 29/07/2026 — record them here with the period they actually cover and the date they were filed. Never fill in a blank cell after the fact: what is missing is filing, and a file note discloses that. What was never written cannot be written now.' },
+
+  /* ---------- one per worker ---------- */
+  { key: 'w-agreement', name: 'Signed engagement agreement', scope: 'worker', track: 'drive', cadence: 'once', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
+  { key: 'w-position', name: 'Position description acknowledgement', scope: 'worker', track: 'drive', cadence: 'once', signed: 'Worker', template: 'DMHC', requires: 'Core Module — Human resource management' },
+  { key: 'w-declaration', name: 'Worker Declaration (policies read and understood)', scope: 'worker', track: 'drive', cadence: 'on-change', signed: 'Worker', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'Re-signed whenever the policy list changes. The five July 2026 policies were missing from the list workers had signed.' },
+  { key: 'w-induction', name: 'Worker Induction Checklist', scope: 'worker', track: 'drive', cadence: 'once', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
+  { key: 'w-id', name: '100 points of identification', scope: 'worker', track: 'live', live: 'doc:id-points', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
+  { key: 'w-rtw', name: 'Right to work — visa grant / VEVO check', scope: 'worker', track: 'live', live: 'doc:visa', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Migration Act — work rights', note: 'Condition 8105 caps a subclass 500 holder at 48 hours a fortnight. That is a rostering constraint, not just a file.' },
+  { key: 'w-screening', name: 'NDIS Worker Screening Check', scope: 'worker', track: 'live', live: 'doc:ndis-screening', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018', note: 'Blocks bookings on an expired or unverified check. This IS the criminal history check — the NDIS check is a nationally coordinated police check plus a risk assessment, so a separate National Police Certificate is not a second requirement and is not tracked as one. Workers who uploaded one anyway keep it on file.' },
+  { key: 'w-wwcc', name: 'Working with Children Check', scope: 'worker', track: 'live', live: 'doc:wwcc', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'State child protection legislation' },
+  { key: 'w-orientation', name: 'NDIS Worker Orientation Module certificate', scope: 'worker', track: 'live', live: 'doc:ndis-orientation', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
+  { key: 'w-firstaid', name: 'First Aid and CPR certificate', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'CPR renews yearly, first aid every three years. The yearly one is what lapses.' },
+  { key: 'w-infection', name: 'Infection prevention and control training', scope: 'worker', track: 'live', live: 'doc:infection-control', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment' },
+  { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Nobody has one on file, for a participant needing daily transfers. Largest uncovered risk to both sides.' },
+  { key: 'w-medication', name: 'Medication administration training', scope: 'worker', track: 'live', live: 'doc:medication-training', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Management of medication' },
+  { key: 'w-hi-competency', name: 'High-intensity skills competency sign-off (catheter, stoma, AD)', scope: 'worker', track: 'missing', cadence: 'annual', signed: 'Clinician or supervisor', template: 'none', requires: 'High Intensity Daily Personal Activities module', note: 'The training has been delivered. No certificate or competency sign-off is in any worker folder. The gap is evidence, not care.' },
+  { key: 'w-qualification', name: 'Qualification certificates', scope: 'worker', track: 'live', live: 'doc:qualification', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
+  { key: 'w-licence', name: 'Driver licence + vehicle registration, CTP and comprehensive insurance', scope: 'worker', track: 'live', live: 'doc:driver-licence', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Needed by anyone rostered on 0108 transport. Nobody has a licence recorded.' },
+  { key: 'w-supervision', name: 'Supervision and performance review record', scope: 'worker', track: 'drive', cadence: 'annual', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
+
+  /* ---------- one per participant ---------- */
+  { key: 'p-intake', name: 'Intake / referral form', scope: 'participant', track: 'drive', cadence: 'once', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Access to supports' },
+  { key: 'p-agreement', name: 'Service Agreement', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Service agreements with participants', note: 'On file at 2025–26 limits, which have ceased. New figures must be agreed in writing before invoicing at them.' },
+  { key: 'p-schedule', name: 'Schedule of Supports', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Service agreements with participants' },
+  { key: 'p-support-plan', name: 'Support Plan', scope: 'participant', track: 'live', live: 'support_plan', cadence: 'annual', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Support planning', note: 'BookIt holds this now. The participant confirms it themselves and the review clock runs from their confirmation.' },
+  { key: 'p-risk', name: 'Risk Assessment', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management' },
+  { key: 'p-emergency', name: 'Participant Emergency and Disaster Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Continuity of supports', note: 'The support plan asks whether essential safety support is needed within 8 hours of a disaster. That answer belongs in this plan.' },
+  { key: 'p-consent-privacy', name: 'Privacy and information-sharing consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
+  { key: 'p-consent-media', name: 'Photo and media consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
+  { key: 'p-advocate', name: 'Advocate / nominee / decision-maker form', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Independence and informed choice' },
+  { key: 'p-money', name: 'Money and Property Declaration', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Participant money and property' },
+  { key: 'p-medication', name: 'Medication Plan and Administration Form + consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + prescriber', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'The Drive copy is on file but entirely blank per-medication. If a completed copy is held elsewhere, record it here with the date it was filed rather than completing the blank one.' },
+  { key: 'p-mealtime', name: 'Mealtime Management Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'DMHC', requires: 'Recorded as met on DMHC\'s 2025 Core Module audit sheet', note: 'The two 2025 audit sheets contradict each other — one ticks it as met, the participant file records it was declined. Both cannot be true.' },
+  { key: 'p-care-plans', name: 'Clinical care plans named in the support plan', scope: 'participant', track: 'live', live: 'care_plans', cadence: 'on-change', signed: 'Clinician', template: 'none', requires: 'Core Module — Support planning', note: 'The support plan asks the participant to name every care plan they have. Any name with no document behind it shows up here.' },
+  { key: 'p-ndis-plan', name: 'Copy of the current NDIS plan + plan dates', scope: 'participant', track: 'drive', cadence: 'expiry', signed: 'NDIA', template: 'none', requires: 'Core Module — Service agreements with participants', note: 'The plan on file expired 24/06/2026 while supports continued.' },
+  { key: 'p-notes', name: 'Progress notes / shift notes', scope: 'participant', track: 'live', live: 'shift_notes', cadence: 'per-event', signed: 'Worker', template: 'BookIt', requires: 'Core Module — Responsive support provision', note: 'Append-only in BookIt. A note that can be quietly rewritten is not evidence of anything.' },
+  { key: 'p-satisfaction', name: 'Participant Satisfaction Survey', scope: 'participant', track: 'missing', cadence: 'annual', signed: 'Participant', template: 'none', requires: 'Core Module — Quality management', note: 'Never run. Due annually.' },
+  { key: 'p-annual-review', name: 'Annual review record', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'none', requires: 'Core Module — Support planning' },
+  { key: 'p-living-arrangement', name: 'Living Arrangement Determination (s73G)', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'NDIS Act s73G condition on this registration', note: 'Settles the contradiction between "lives with parents" in the support plan and the sole-worker clause in the agreement.' },
+  { key: 'p-exit', name: 'Exit / transition record', scope: 'participant', track: 'drive', cadence: 'per-event', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Transitions to or from the provider' }
+];
+const FORM_SCOPES = [
+  { key: 'company', label: 'The company holds one of each', per: 'once' },
+  { key: 'register', label: 'Registers — living lists, never a snapshot', per: 'ongoing' },
+  { key: 'worker', label: 'One set per worker', per: 'per worker' },
+  { key: 'participant', label: 'One set per participant', per: 'per participant' }
+];
+
+/* ---------- the participant document catalogue ----------
+   Derived from the register rather than typed out a second time. Every
+   participant-scope form that is a document somebody signs becomes a slot
+   here, in register order, so a form added above immediately has a place to
+   put the file — and a file uploaded here always answers a form an auditor
+   asks for by name. The three live-tracked forms (support plan, care plans,
+   shift notes) are deliberately absent: BookIt already holds those itself,
+   and offering an upload beside them would let a scanned copy compete with
+   the record it was copied from. */
+/* ================================================================
+   18(e). THE BLANK FORMS.
+
+   Six entries in FORMS carry template: 'none'. One of them is the NDIS plan,
+   which the NDIA writes — we are not publishing a rival to somebody else's
+   form, and the same rule keeps every template: 'DMHC' entry untouched. The
+   other five are forms DMHC must hold and has no blank for. They are below.
+
+   Two of the five are track: 'missing', and that stays true. A blank is not a
+   completed signed copy and the register must not start claiming it is. What
+   changes is the sentence auditGaps prints: not "this form does not exist"
+   but "here it is, and what is outstanding is a filled-in one".
+
+   Every clinical statement on these sheets is computed. holds0104() decides
+   what the scope banner says; hiHeld() decides what each Schedule 2 row says;
+   PDOC_CATALOG decides which documents the annual review walks; CERT_GROUPS
+   decides which supports it asks about. A printed form carrying a hardcoded
+   claim about what this provider may deliver is a regulatory misstatement with
+   a signature line underneath it, so none of them are hardcoded.
+
+   PDOC_CATALOG and PDOC_MAP are declared immediately below this block and are
+   read by the row builders and by tplReturn(). That is deliberate and safe for
+   the same reason the credential sweep may read PDOC_MAP: nothing here runs
+   during module evaluation, only when somebody asks for a page.
+   ================================================================ */
+
+const TPL_SCALE = ['Strongly agree', 'Agree', 'Not sure', 'Disagree', 'Strongly disagree'];
+
+/* a tiny field vocabulary, so a form is a list of questions rather than a
+   wall of markup. rows may be a function: it is evaluated at render time,
+   which is what lets a checklist derive from a catalogue declared later. */
+const T = {
+  h: (text, sub) => ({ k: 'h', text, sub }),
+  say: html => ({ k: 'say', html }),
+  box: (title, html, tone) => ({ k: 'box', title, html, tone }),
+  text: (label, o = {}) => ({ k: 'text', label, ...o }),
+  long: (label, lines = 3, o = {}) => ({ k: 'long', label, lines, ...o }),
+  date: (label, o = {}) => ({ k: 'date', label, ...o }),
+  yn: (label, o = {}) => ({ k: 'yn', label, ...o }),
+  scale: (intro, rows) => ({ k: 'scale', intro, rows }),
+  check: (label, rows, o = {}) => ({ k: 'check', label, rows, ...o }),
+  grid: (label, cols, rows, o = {}) => ({ k: 'grid', label, cols, rows, ...o }),
+  sig: (who, o = {}) => ({ k: 'sig', who, ...o })
+};
+
+/* ---- the derived bits ---- */
+
+/* What this provider may actually do. Read from HI_SUPPORTS, never written
+   out, so the sheets stop saying "we can't" on the day we can. */
+const hiBanner = () => holds0104()
+  ? `<b>What DMHC is registered to deliver</b>DMHC holds registration group 0104 for: ${HI_SUPPORTS.filter(x => x.held).map(x => escHtml(x.label)).join('; ')}. Any high-intensity support on this sheet that is <i>not</i> in that list still belongs on the file — it just has to be delivered by a provider who holds it, and the request goes in the out-of-scope register.`
+  : `<b>What DMHC is registered to deliver</b>DMHC does not hold registration group 0104, so no Schedule 2 high-intensity support may be delivered by a DMHC worker. Writing a plan down here does not authorise the support. If the participant needs one, it is delivered by a provider who holds that group, and the request is recorded in the out-of-scope register so the decision is on the record rather than in somebody's memory.`;
+
+const hiRows = () => HI_SUPPORTS.map(x => ({
+  label: `${x.label} — ${x.clause}`,
+  note: hiHeld(x.key)
+    ? `DMHC holds this support${x.since ? `, since ${dmy(x.since)}` : ''}. A worker signed off below may deliver it.`
+    : 'DMHC does not hold this support. A DMHC worker must not do it, whoever has signed what.'
+}));
+
+/* the annual review walks the actual file rather than a list typed once */
+const fileRows = () => PDOC_CATALOG.filter(c => c.key !== 'p-other').map(c => ({
+  label: c.label,
+  note: c.cadence === 'expiry' ? 'Has a hard expiry date — write it in.'
+    : c.cadence === 'annual' ? 'Reviewed yearly.'
+      : c.cadence === 'on-change' ? 'Redone whenever the thing it describes changes.' : `Cadence: ${c.cadence}.`
+}));
+
+const svcRows = () => CERT_GROUPS.map(g => `${g.code} — ${g.name}`);
+
+/* ---- the five forms ---- */
+
+const CLINICAL_TEMPLATES = [
+
+  /* ---------------------------------------------------------------- */
+  {
+    key: 'p-satisfaction', name: 'Participant Satisfaction Survey', for: 'participant',
+    version: '1.0', issued: '2026-07-30', anon: true,
+    who: 'You — or anyone you choose to help you fill it in',
+    when: 'Once a year, and any other time you want to tell us something',
+    intro: 'This is how we find out whether the supports are actually working for you, rather than assuming they are. You can put your name on it or not. Nothing you write here will change your supports or your workers unless you ask us to change them.',
+    fields: [
+      T.box('You do not have to answer all of it',
+        'Skip anything you would rather not answer. Leaving your name off is fine — an unsigned survey still counts and still gets read. If you would rather say all this out loud, call 0488 114 368 and we will write it down for you.'),
+
+      T.h('About you', 'All optional.'),
+      T.text('Your name, if you want to give it', { half: true }),
+      T.date('Date you filled this in', { half: true }),
+      T.text('Who helped you fill it in, and how they know you', { half: true }),
+      T.text('How long you have been with DMHC', { half: true }),
+
+      T.h('How are we doing?'),
+      T.scale('Tick the box that comes closest. The small grey line under each statement is the part of the NDIS Practice Standards it belongs to — it is there so you can see we are not marking our own homework.', [
+        { q: 'I choose who supports me, and when they come.', tag: 'Rights — choice and control' },
+        { q: 'The people who support me treat me with respect.', tag: 'Rights — person-centred supports' },
+        { q: 'My private information is kept private.', tag: 'Rights — privacy and dignity' },
+        { q: 'My workers respect my home and the people in it.', tag: 'Rights — privacy and dignity' },
+        { q: 'I feel safe with the workers who come.', tag: 'Provision — safe support delivery' },
+        { q: 'My supports happen when they are supposed to.', tag: 'Provision — responsive support' },
+        { q: 'When something has to change, I am told early enough to do something about it.', tag: 'Provision — responsive support' },
+        { q: 'My workers know how to do the things I need them to do.', tag: 'Environment — human resource management' },
+        { q: 'My support plan says what I actually want, not what somebody assumed.', tag: 'Provision — support planning' },
+        { q: 'I know how to complain, and who to complain to.', tag: 'Rights — feedback and complaints' }
+      ]),
+      T.check('Have you ever raised a complaint or a concern with DMHC?', [
+        'No, I have not raised anything',
+        'Yes, and it was sorted out',
+        'Yes, and it was partly sorted out',
+        'Yes, and nothing happened'
+      ]),
+      T.scale('', [{ q: 'I would recommend DMHC to another participant.', tag: '' }]),
+
+      T.h('In your own words'),
+      T.long('What is working well? What should we keep doing?', 3),
+      T.long('What should we change?', 3),
+      T.long('Has anything happened that made you feel unsafe, uncomfortable, or not listened to?', 3,
+        { help: 'You can write this here, or tell somebody outside DMHC — see the box at the bottom of this page. Both are fine, and you do not have to tell us first.' }),
+      T.long('Anything else at all.', 2),
+
+      T.h('Would you like us to get back to you?'),
+      T.yn('I would like someone to contact me about what I have written here.',
+        { detail: true, then: 'If yes, how would you like to be contacted, and is there a time that suits?' }),
+
+      T.box('You do not have to come to us first',
+        `<p>If something has gone wrong and you would rather not raise it with DMHC, you do not have to. All of these are free and independent of us.</p>
+         <p><b>NDIS Quality and Safeguards Commission</b> — 1800 035 544 (free from landlines), or ndiscommission.gov.au. They take complaints about any registered provider, including this one.</p>
+         <p><b>An advocate</b> — someone independent who speaks up with you or for you, free of charge. Find one at disabilityadvocacyfinder.dss.gov.au or call 1800 643 787.</p>
+         <p><b>If English is not your first language</b> — call TIS National on 131 450 and ask them to call any of the numbers above for you.</p>
+         <p>If you or someone else is in immediate danger, call 000.</p>`, 'note'),
+
+      T.h('Office use only', 'Left blank by the participant.'),
+      T.text('Date received', { half: true }),
+      T.text('Received by', { half: true }),
+      T.text('Entered in the Continuous Improvement Register on', { half: true }),
+      T.text('By', { half: true }),
+      T.long('Actions arising, and where each one is tracked', 2)
+    ]
+  },
+
+  /* ---------------------------------------------------------------- */
+  {
+    key: 'p-annual-review', name: 'Annual review record', for: 'participant',
+    version: '1.0', issued: '2026-07-30',
+    who: 'The participant, with DMHC. Anyone the participant wants there is welcome.',
+    when: 'Once a year, and sooner if the plan changes, the supports change, or something happens',
+    intro: 'A yearly sit-down that produces a record. The point is not the meeting — it is that the goals still match what the person wants, that the file is current, and that anything agreed has a name and a date against it.',
+    fields: [
+      T.h('Who was there'),
+      T.grid('', ['Name', 'Role or relationship', 'In person, by phone, or did not attend'], 5),
+      T.text('Who supported the participant to take part, and how', { help: 'Interpreter, advocate, family member, communication device — write what was actually used, not what was offered.' }),
+      T.date('Date of this review', { half: true }),
+      T.date('Date of the last review', { half: true }),
+
+      T.h('The plan'),
+      T.date('NDIS plan start', { half: true }),
+      T.date('NDIS plan end', { half: true }),
+      T.check('How the plan is managed', ['Self-managed', 'Plan-managed', 'NDIA-managed', 'A mix — write it in below']),
+      T.text('Plan manager or nominee, and contact', { half: true }),
+      T.text('Support coordinator, and contact', { half: true }),
+
+      T.h('Goals', 'In the participant\'s own words. If the words in the plan are not their words, write both.'),
+      T.grid('', ['The goal', 'What has actually happened this year', 'Is this still what you want?'], 4),
+
+      T.h('The supports'),
+      T.grid('One row per support DMHC is registered to deliver. Leave a row blank if it does not apply.',
+        ['Support', 'Hours a week now', 'Is this the right amount?', 'What should change'], svcRows),
+      T.yn('Is there any support being delivered that is not written in the support plan?',
+        { detail: true, then: 'If yes: name it, and either add it to the plan or stop delivering it. A support with no plan behind it is the finding, not the hours.' }),
+
+      T.h('The workers'),
+      T.long('What is working about the current team?', 2),
+      T.long('What should change?', 2),
+      T.text('Anyone you would like more of'),
+      T.text('Anyone you would prefer we did not roster', { help: 'You do not have to give a reason, and you will not be asked for one.' }),
+
+      T.h('Safety, health and risk'),
+      T.yn('Has anything happened this year that we did not know about at the time?', { detail: true }),
+      T.yn('Have your health needs or your support needs changed?', { detail: true }),
+      T.yn('Has anything about your home changed — who lives there, the layout, the equipment?', { detail: true, then: 'If yes, the Living Arrangement Determination needs redoing. It is on the same forms page as this one.' }),
+      T.yn('Do you spend time alone between supports?', { detail: true, then: 'If yes, say how long and what is in place — a phone within reach, a check-in, an alarm.' }),
+      T.yn('Is there anything in your current risk assessment that is now out of date?', { detail: true }),
+
+      T.h('The file', 'Walk it while you are here. Tick what is on file and current; write a date beside anything that needs renewing.'),
+      T.check('', fileRows,
+        { help: 'This list is generated from the document catalogue, so it is the same list the system checks against and the same one that appears in the audit pack. If something is not on it, it is not required — and if something here has no date, that is the action.' }),
+
+      T.h('What we agreed'),
+      T.grid('', ['What is going to happen', 'Who is doing it', 'By when'], 5),
+      T.date('Next review due', { half: true }),
+      T.text('Anything that would bring that date forward', { half: true }),
+
+      T.sig('Participant', { role: 'Or the person legally able to sign for them — write which, and on what authority.' }),
+      T.sig('DMHC')
+    ]
+  },
+
+  /* ---------------------------------------------------------------- */
+  {
+    key: 'p-living-arrangement', name: 'Living Arrangement Determination (s73G)', for: 'participant',
+    version: '1.0', issued: '2026-07-30',
+    who: 'DMHC determines it. The participant acknowledges it.',
+    when: 'At the start of service, and again whenever who lives at the address changes',
+    intro: 'This settles three things on the record: who lives at the address, whether DMHC or anyone connected to DMHC has an interest in the property, and how much time the participant spends alone. It exists because a condition of registration under s73G of the NDIS Act turns on the living arrangement — and because a support plan that says one thing while a service agreement says another cannot both be right, and an auditor will find the pair.',
+    fields: [
+      T.h('The address'),
+      T.long('Address', 2),
+      T.date('Date of this determination', { half: true }),
+      T.text('Determined by', { half: true }),
+
+      T.h('Who lives here'),
+      T.grid('Everyone who sleeps at the address, including part of the week.',
+        ['Name', 'Relationship to the participant', 'Lives here overnight? (Y/N)', 'Engaged or paid by DMHC in any capacity? (Y/N)'], 5),
+      T.box('If any answer in the last column is Yes',
+        'A conflict of interest exists and has to be recorded in the conflict of interest register and managed in writing <i>before</i> that person delivers or supervises support. It does not automatically stop the support. What it stops is the support being unrecorded — which is the version that becomes a finding.', 'warn'),
+
+      T.h('The property'),
+      T.yn('Is the property owned, leased, or controlled by DMHC, or by anyone connected to DMHC?', {
+        detail: true,
+        then: 'If yes, the tenancy and the support must be separable: the participant\'s right to live here cannot depend on continuing to accept support from DMHC. Write below where that separation is documented and who holds the tenancy agreement.'
+      }),
+      T.yn('Is Specialist Disability Accommodation (SDA) claimed for this address?', { detail: true, then: 'If yes: by whom, and under which SDA enrolment.' }),
+      T.yn('Does anyone other than the participant hold a key, code or fob to the residence?', { detail: true, then: 'If yes: who, why, and who agreed to it.' }),
+      T.yn('Has the participant agreed in writing to workers entering when they are not there?', { na: true, detail: true }),
+
+      T.h('Time alone'),
+      T.say('This is asked because a support that quietly assumes somebody else is home is a different support from one that does not — and the difference only shows up on the day nobody is home.'),
+      T.grid('Times the participant is regularly alone.', ['Day', 'From', 'To', 'What is in place during that time'], 5),
+      T.yn('Is the participant ever alone overnight?', { detail: true }),
+      T.yn('Is there a way to call for help that works from every room they use, including the bathroom?', { detail: true }),
+      T.yn('Is there an agreed check-in if a worker does not arrive?', { detail: true, then: 'If yes: who is called, after how long, and by whom.' }),
+
+      T.h('The supports delivered here'),
+      T.yn('Is Supported Independent Living (0115 / 0138) claimed for this address?', { detail: true }),
+      T.yn('Is any support delivered by a single worker with nobody else present?', {
+        detail: true,
+        then: 'If yes, name the risk assessment that covers it and say where it is held. Sole delivery is not the problem; sole delivery with no assessment behind it is.'
+      }),
+      T.yn('Is any Schedule 2 high-intensity support delivered at this address?', { detail: true }),
+      T.box('', hiBanner, 'note'),
+
+      T.h('The determination'),
+      T.check('Tick one.', [
+        { label: 'The participant lives independently — alone, or with others who are not relied on to deliver any funded support.', note: 'Funded supports stand on their own. Nothing in the plan assumes somebody else will be there.' },
+        { label: 'The participant lives with family or others who provide informal support. Funded supports are additional to that, not a substitute for it.', note: 'Say in the reasons what the informal support actually covers, so nobody later assumes it covers more.' },
+        { label: 'The participant lives in accommodation in which DMHC or a related party has an interest.', note: 'The tenancy separation statement above applies and must be attached.' }
+      ]),
+      T.long('Reasons — what this determination is based on, and what was seen or asked', 3),
+
+      T.h('Safeguards that follow from this'),
+      T.check('Tick everything that applies, and make sure each ticked item exists somewhere other than this page.', [
+        'Risk assessment covering sole-worker delivery is current and on file',
+        'The participant has a way to contact DMHC outside business hours',
+        'Emergency contacts are current and were confirmed at this determination',
+        'Anyone at the address engaged by DMHC is entered in the conflict of interest register',
+        'The support plan and the service agreement describe the same living arrangement',
+        'Workers rostered here have been told what this determination says'
+      ]),
+
+      T.h('Review'),
+      T.long('What would bring this review forward', 2,
+        { help: 'For example: someone moves in or out, the participant starts or stops living alone overnight, DMHC or a related party acquires an interest in the property.' }),
+      T.date('Next review due'),
+
+      T.sig('Participant — acknowledgement', { role: 'Acknowledging that this is an accurate description of the living arrangement, not agreeing to any support.' }),
+      T.sig('Determined by (DMHC)')
+    ]
+  },
+
+  /* ---------------------------------------------------------------- */
+  {
+    key: 'p-care-plans', name: 'Clinical care plan record sheet', for: 'participant',
+    version: '1.0', issued: '2026-07-30',
+    who: 'The clinician who wrote the plan, with DMHC',
+    when: 'Whenever a care plan is written or revised. One sheet per plan.',
+    intro: 'The support plan asks the participant to name every clinical care plan they have. This is what goes behind each name. A name in a support plan with no document behind it is the gap this sheet closes — and it closes it by pointing at the real plan, not by replacing it.',
+    fields: [
+      T.box('', hiBanner, 'note'),
+      T.say('This sheet is a record of a plan, not the plan. The clinician\'s own document stays the source. What this adds is the part workers need on the day: what to do, what not to do, what "going wrong" looks like, and who to call.'),
+
+      T.h('The plan'),
+      T.text('Name of the care plan'),
+      T.check('What kind of plan is it?', [
+        'Mealtime management / dysphagia', 'Bowel care', 'Continence', 'Epilepsy or seizure',
+        'Respiratory or ventilation', 'Wound care', 'Positioning, transfers or manual handling',
+        'Medication', 'Diabetes', 'Autonomic dysreflexia', 'Behaviour support — read the box near the bottom of this sheet first',
+        'Something else — write it in'
+      ]),
+      T.text('If something else, what'),
+
+      T.h('Who wrote it'),
+      T.text('Name', { half: true }),
+      T.text('Profession', { half: true }),
+      T.text('AHPRA registration number — or the registering body and number, if not AHPRA',
+        { help: 'Speech pathologists and dietitians are not AHPRA-registered. Their professional body and membership number goes here instead, and that is the correct answer, not a gap.' }),
+      T.text('Organisation', { half: true }),
+      T.text('Contact — phone and email', { half: true }),
+      T.date('Date written', { half: true }),
+      T.date('Review due', { half: true }),
+
+      T.h('Where the full plan is held'),
+      T.text('Where the signed original is kept'),
+      T.yn('Has a copy been uploaded to the participant\'s file in BookIt?',
+        { then: 'If no, upload it — a plan referred to and not held is the same as no plan on the day somebody asks for it.' }),
+
+      T.h('What workers must do differently'),
+      T.say('Write this so a worker who has never met this participant could read it once and do the right thing. Avoid clinical shorthand unless you also write what it means.'),
+      T.long('What the worker does', 4),
+      T.long('What the worker must never do', 2),
+      T.long('Signs that something is wrong, and what they look like in this person', 3,
+        { help: 'Be specific to them. "Distressed" is not a sign. "Stops answering and turns their head away" is.' }),
+
+      T.h('Does this plan involve a Schedule 2 high-intensity support?'),
+      T.check('Tick anything this plan requires. The line under each one is what DMHC is registered to deliver today.', hiRows),
+
+      T.h('Training and competency'),
+      T.grid('Every worker who delivers anything on this plan.',
+        ['Worker', 'Trained on (date)', 'Competency signed off (date)', 'By whom', 'Review due'], 6),
+      T.say('A training date with no competency date beside it means somebody attended a course. It does not mean they were watched doing this, with this person. The blank competency form is at <a href="/templates/w-hi-competency"><b>/templates/w-hi-competency</b></a> — print it and take it with you.'),
+
+      T.h('Escalation'),
+      T.text('Who the worker calls first', { half: true }),
+      T.text('Number', { half: true }),
+      T.text('After hours', { half: true }),
+      T.text('Second contact if the first does not answer', { half: true }),
+      T.yn('Is an ambulance called before that call, or after it?', { detail: true, then: 'Write the actual order. A worker deciding this for the first time in the moment is the failure this line prevents.' }),
+
+      T.h('Restrictive practices — stop and check'),
+      T.box('Read this before signing',
+        `<p>If any part of this plan restricts the participant's movement, restricts their access to anything — including food, drink, their own belongings, or parts of their own home — or uses medication to influence their behaviour rather than to treat a diagnosed condition, then it is a <b>regulated restrictive practice</b>.</p>
+         <p>It cannot be delivered on the strength of this sheet. It needs a behaviour support plan written by an NDIS behaviour support practitioner, it must be authorised under the NSW authorisation process, and its use must be reported to the NDIS Commission every month.</p>
+         <p>Do not tick the box below because the plan does not use the words. Read it looking for the thing.</p>`, 'stop'),
+      T.yn('I have read this plan specifically looking for a regulated restrictive practice, and it contains none.',
+        { detail: true, then: 'If it does contain one, write which, and do not deliver it until the behaviour support plan and the authorisation are both on file.' }),
+
+      T.sig('Clinician / plan author'),
+      T.sig('Recorded by (DMHC)', { note: 'Recording this sheet is not approving the plan. It records that DMHC holds it and has told its workers what it says.' })
+    ]
+  },
+
+  /* ---------------------------------------------------------------- */
+  {
+    key: 'w-hi-competency', name: 'High-intensity skills competency sign-off', for: 'worker',
+    docKey: 'hi-competency', version: '1.0', issued: '2026-07-30',
+    who: 'An assessor who is competent in the support themselves',
+    when: 'Before the worker delivers the support unsupervised, and once a year after that',
+    intro: 'This records that a named person was watched doing a named task and was safe doing it. It is not a training certificate. A certificate says somebody attended; this says somebody can. The High Intensity module asks for the second one, and a folder full of the first is the most common way a provider fails it.',
+    fields: [
+      T.box('', hiBanner, 'note'),
+
+      T.h('Who'),
+      T.date('Date of the observation', { half: true }),
+      T.text('Assessor name', { half: true }),
+      T.text('Assessor role or profession', { half: true }),
+      T.text('Assessor registration number, if they hold one', { half: true }),
+      T.text('Assessor organisation', { half: true }),
+      T.box('Who can sign this',
+        'The assessor has to be competent in the support themselves. A supervisor who has never performed the task cannot sign that somebody else can do it — and an auditor who works out that they never have will treat every sign-off that person has given the same way.', 'warn'),
+
+      T.h('The participant'),
+      T.text('Observed with which participant, if any', { half: true }),
+      T.text('Their care plan for this support, by name', { half: true }),
+      T.yn('Did the participant agree to an assessment happening during their support?',
+        { na: true, then: 'Not applicable if the observation was simulated. If it happened during real support, this has to be a yes, asked beforehand.' }),
+
+      T.h('What was observed'),
+      T.check('Tick every support that was actually watched. The line under each one is what DMHC is registered to deliver today.', hiRows),
+      T.check('And the supports that are not Schedule 2, but still need watching before somebody does them alone.', [
+        { label: 'Manual handling and transfers, including hoist use', note: 'The single most common source of injury to both people in the room.' },
+        { label: 'Assisting with medication', note: 'Assisting is not administering. If the task has crossed into administering, say so in the comments.' },
+        { label: 'Recognising and responding to autonomic dysreflexia', note: 'Time-critical. Watch for whether they sit the person up first, before anything else.' },
+        { label: 'Seizure response and recovery position' },
+        { label: 'Emptying or attaching a urinary drainage bag', note: 'Ordinary personal care under 0107 — NOT the Schedule 2 clause 6 support. Only inserting, changing or irrigating a catheter is. Watch it, sign it, and do not file it as high-intensity.' },
+        { label: 'Something else — write it in the grid below' }
+      ]),
+
+      T.h('How it was observed'),
+      T.check('', [
+        'Direct observation during real support with the participant',
+        'Simulated — mannequin or equipment only',
+        'Return demonstration to the assessor',
+        'Verbal questioning on the steps and the risks',
+        'The worker read the participant\'s care plan with the assessor present'
+      ]),
+
+      T.h('The observation'),
+      T.say('Write what you saw. A tick with no comment is not evidence — it is a tick, and it will be read as one.'),
+      T.grid('', ['Step', 'Done safely and in the right order? (Y/N)', 'What you actually saw'], 8),
+
+      T.h('Knowledge check'),
+      T.say('Suggested questions: what would make you stop? What are the first three signs this is going wrong? Who do you call, and when? What do you do if you cannot reach them? Where is the care plan kept? What is different about this participant compared to the way you were taught it?'),
+      T.grid('', ['Question asked', 'Answer given', 'Correct? (Y/N)'], 4),
+
+      T.h('Outcome'),
+      T.check('Tick one.', [
+        { label: 'Competent — may deliver this support unsupervised.' },
+        { label: 'Competent with conditions.', note: 'Write the conditions below. A condition nobody wrote down is not a condition.' },
+        { label: 'Not yet competent — must not deliver this support unsupervised.', note: 'This is a normal outcome and not a disciplinary one. Set a date to repeat it.' }
+      ]),
+      T.long('Conditions, if any', 2),
+      T.date('If not yet competent, repeat by', { half: true }),
+      T.date('Next review due', { half: true, help: 'Annual, or sooner if the participant\'s plan changes.' }),
+
+      T.box('Do not date this form back',
+        `<p>If the observation happened before today and is only being written up now, that is fine and it happens. Put the real observation date in the observation line, put today in "recorded on" below, and write a short file note saying the record was made late and why.</p>
+         <p>A backfilled register is worse than one with a gap in it, because the gap is honest and the backfill is a false record. It is also the single thing most likely to turn a documentation finding into a serious one.</p>`, 'warn'),
+      T.date('Recorded on (today\'s date)'),
+
+      T.sig('Assessor'),
+      T.sig('Worker', { note: 'Signing means you were there and you agree this is what happened — not that you agree with the outcome. If you disagree with the outcome, write that underneath and sign anyway.' })
+    ]
+  }
+];
+
+const TPL_MAP = Object.fromEntries(CLINICAL_TEMPLATES.map(t => [t.key, t]));
+
+/* The register learns about these by being told, once, here — rather than by
+   each FORMS entry carrying a URL somebody has to remember to keep in step
+   with the catalogue above. formsRegister() spreads the whole entry, so
+   template_url reaches /api/admin/forms, the register CSV, the audit pack and
+   the nightly snapshot without any of them being touched.
+
+   The loop is also the alarm: a template whose key does not match a form is a
+   blank nobody will ever find, and it says so at boot rather than going
+   quietly missing. */
+for (const t of CLINICAL_TEMPLATES) {
+  const f = FORMS.find(x => x.key === t.key);
+  if (!f) { console.error(`TEMPLATE ORPHAN: /templates/${t.key} has no matching entry in FORMS — nothing will ever link to it.`); continue; }
+  if (f.template === 'DMHC') { console.error(`TEMPLATE CLASH: ${t.key} already has a DMHC form. Not overriding it.`); continue; }
+  f.template = 'BookIt';
+  f.template_url = `/templates/${t.key}`;
+}
+
+/* ---------- rendering ---------- */
+
+const tplRule = (pre) => `<span class="rule">${pre ? `<span class="pre">${escHtml(pre)}</span>` : ''}</span>`;
+const tplTick = (label, note) => `<div class="tick"><span class="bx"></span><span>${label}${note ? `<span class="note">${note}</span>` : ''}</span></div>`;
+const tplDate = () => `<span class="dob">${'<i></i>'.repeat(2)}<b>/</b>${'<i></i>'.repeat(2)}<b>/</b>${'<i></i>'.repeat(4)}</span>`;
+
+function tplField(f) {
+  const help = f.help ? `<p class="help">${f.help}</p>` : '';
+  /* evaluated here, not at declaration, which is the whole reason a checklist
+     can be derived from a catalogue that is declared further down the file. */
+  const R = typeof f.rows === 'function' ? f.rows() : f.rows;
+  switch (f.k) {
+    case 'h':
+      return `<h2>${escHtml(f.text)}</h2>${f.sub ? `<p class="sub">${escHtml(f.sub)}</p>` : ''}`;
+    case 'say':
+      return `<p class="say">${f.html}</p>`;
+    case 'box': {
+      const html = typeof f.html === 'function' ? f.html() : f.html;
+      return `<div class="box ${f.tone || ''}">${f.title ? `<b>${escHtml(f.title)}</b>` : ''}${html}</div>`;
+    }
+    case 'text':
+      return `<div class="fld${f.half ? ' half' : ''}"><label>${escHtml(f.label)}</label>${tplRule(f.pre)}${help}</div>`;
+    case 'long':
+      return `<div class="fld"><label>${escHtml(f.label)}</label>${help}${'<span class="rule"></span>'.repeat(Math.max(1, Number(f.lines) || 3))}</div>`;
+    case 'date':
+      return `<div class="fld${f.half ? ' half' : ''}"><label>${escHtml(f.label)}</label>${tplDate()}${help}</div>`;
+    case 'yn':
+      return `<div class="yn"><div class="q">${escHtml(f.label)}</div>
+        <div class="opts">${tplTick('Yes')}${tplTick('No')}${f.na ? tplTick('Not applicable') : ''}</div>
+        ${f.then ? `<p class="help">${f.then}</p>` : ''}
+        ${f.detail ? '<span class="rule"></span><span class="rule"></span>' : ''}</div>`;
+    case 'scale':
+      return `<div class="fld">${f.intro ? `<p class="say">${f.intro}</p>` : ''}
+        <table class="scale"><thead><tr><th></th>${TPL_SCALE.map(x => `<th>${escHtml(x)}</th>`).join('')}</tr></thead>
+        <tbody>${(R || []).map(r => {
+          const q = typeof r === 'string' ? r : r.q, tag = typeof r === 'string' ? '' : r.tag;
+          return `<tr><td class="q">${escHtml(q)}${tag ? `<span class="tag">${escHtml(tag)}</span>` : ''}</td>${TPL_SCALE.map(() => '<td class="c"></td>').join('')}</tr>`;
+        }).join('')}</tbody></table></div>`;
+    case 'check':
+      return `<div class="fld">${f.label ? `<label>${escHtml(f.label)}</label>` : ''}${help}
+        <div class="ticks">${(R || []).map(r => typeof r === 'string'
+          ? tplTick(escHtml(r))
+          : tplTick(escHtml(r.label), r.note ? escHtml(r.note) : '')).join('')}</div></div>`;
+    case 'grid': {
+      const cols = f.cols || [];
+      /* rows is either a count of blank rows or a list of row labels, and a
+         derived list arrives as the second kind — so both are handled rather
+         than the caller having to know which one a catalogue will produce. */
+      const body = Array.isArray(R)
+        ? R.map(r => `<tr><td class="lb">${escHtml(typeof r === 'string' ? r : r.label)}</td>${cols.slice(1).map(() => '<td></td>').join('')}</tr>`).join('')
+        : Array.from({ length: Math.max(1, Number(R) || 4) }, () => `<tr>${cols.map(() => '<td></td>').join('')}</tr>`).join('');
+      return `<div class="fld">${f.label ? `<label>${escHtml(f.label)}</label>` : ''}${help}
+        <table class="grid"><thead><tr>${cols.map(c => `<th>${escHtml(c)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+    }
+    case 'sig':
+      return `<div class="sig"><div><label>${escHtml(f.who)} — signature</label><span class="rule"></span></div>
+        <div><label>Name, printed</label><span class="rule"></span></div>
+        <div><label>Date</label>${tplDate()}</div>
+        ${f.role ? `<p class="help">${escHtml(f.role)}</p>` : ''}${f.note ? `<p class="help">${escHtml(f.note)}</p>` : ''}</div>`;
+    default:
+      return '';
+  }
+}
+
+/* Where a signed copy goes, worked out from the catalogues rather than typed
+   into each form — so the day a key moves in or out of PDOC_CATALOG the
+   instruction on the printed page moves with it instead of pointing at an
+   upload slot that is no longer there. */
+function tplReturn(t) {
+  if (t.for === 'worker') {
+    const c = t.docKey ? DOC_MAP[t.docKey] : null;
+    return c
+      ? `Once it is signed, upload it in BookIt under <b>Account &rsaquo; My documents &rsaquo; ${escHtml(c.label)}</b>. Your assessor keeps a copy; DMHC files this one.`
+      : `Once it is signed, upload it in BookIt under <b>Account &rsaquo; My documents &rsaquo; Other document</b> and name it &ldquo;${escHtml(t.name)}&rdquo;.`;
+  }
+  const c = PDOC_MAP[t.key];
+  return c
+    ? `Once it is filled in, upload it in BookIt under <b>My documents &rsaquo; ${escHtml(c.label)}</b>, or send it to hello@bookit.life and we will file it for you.`
+    : `Once it is filled in, send it to hello@bookit.life, or upload it in BookIt under <b>My documents &rsaquo; Other document</b> and name it &ldquo;${escHtml(t.name)}&rdquo;.`;
+}
+
+/* Who, if anyone, gets a name printed at the top.
+
+   Nothing clinical is ever pre-filled — a blank form asks questions and
+   invents nothing, and a pre-filled answer on a page somebody is about to
+   sign is a fact nobody checked. Only the header comes from the record, and
+   only for a reader entitled to it: the person themselves, an admin, or a
+   support coordinator who actually holds the documents scope. */
+function tplPerson(req, url, t) {
+  const u = readSession(req.headers.cookie);
+  if (!u) return null;
+  const wantRole = t.for === 'worker' ? 'worker' : 'participant';
+  const asked = Number(url.searchParams.get(wantRole) || 0);
+  if (!asked) return u.role === wantRole ? u : null;
+  if (u.id === asked) return u;
+  const fetchPerson = () => db.prepare('SELECT id, role, name, suburb, ndis_number FROM users WHERE id = ?').get(asked) || null;
+  if (u.admin) return fetchPerson();
+  if (wantRole === 'participant' && u.role === 'coordinator' && linkAllows(u.id, asked, 'documents')) return fetchPerson();
+  return null;
+}
+
+function tplIdentity(t, p) {
+  /* A survey that can be handed back unsigned must not have the person's name
+     printed across the top of it. Pre-filling the identity block from the
+     signed-in session would have done exactly that — the form says "you can
+     put your name on it or not" and then puts it on for them. Forms that opt
+     out here ask for the name further down, optionally, where it belongs. */
+  if (t.anon) return '';
+  const who = t.for === 'worker' ? 'Worker' : 'Participant';
+  const rows = [{ l: `${who} name`, v: p ? p.name : '' }];
+  if (t.for === 'participant') rows.push({ l: 'NDIS number', v: p ? (p.ndis_number || '') : '' });
+  rows.push({ l: 'Suburb', v: p ? (p.suburb || '') : '' });
+  return `<div class="ident">${rows.map(r => `<div class="fld half"><label>${escHtml(r.l)}</label>${tplRule(r.v)}</div>`).join('')}</div>`;
+}
+
+const TPL_CSS = `
+ :root{color-scheme:light}
+ *{box-sizing:border-box}
+ body{margin:0;background:#EFEDE8;color:#17211F;font:11.5pt/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif}
+ .sheet{background:#fff;max-width:210mm;margin:0 auto;padding:16mm 14mm 20mm}
+ .bar{background:#0E6B62;color:#fff;padding:11px 16px;display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:14px;line-height:1.4}
+ .bar a{color:#fff}
+ .bar button{background:#fff;color:#0E6B62;border:0;border-radius:8px;padding:9px 18px;font:inherit;font-weight:700;cursor:pointer}
+ .mark{font-weight:800;color:#0E6B62;letter-spacing:-.02em;font-size:15pt;margin:0}
+ .org{font-size:9pt;color:#6C7A77;margin:2px 0 16px}
+ h1{font-size:19pt;line-height:1.2;letter-spacing:-.02em;margin:0 0 8px}
+ .lede{color:#3D4B48;margin:0 0 14px}
+ .meta{border:1px solid #D8D3CA;background:#FAF9F6;border-radius:10px;padding:10px 13px;font-size:9.5pt;color:#3D4B48;margin:0 0 6px}
+ .meta div{margin:2px 0}
+ .meta b{color:#17211F}
+ h2{font-size:12.5pt;margin:22px 0 9px;padding-bottom:5px;border-bottom:2px solid #17211F;letter-spacing:-.01em}
+ .sub{margin:-5px 0 10px;font-size:9.5pt;color:#6C7A77}
+ .say{margin:0 0 11px;color:#3D4B48;font-size:10.5pt}
+ .help{margin:4px 0 0;font-size:9pt;color:#6C7A77;line-height:1.45}
+ .fld{margin:0 0 13px;break-inside:avoid}
+ .fld.half{display:inline-block;width:47%;vertical-align:top;margin-right:2%}
+ .ident{margin:14px 0 4px}
+ label{display:block;font-size:9.5pt;font-weight:600;color:#17211F;margin:0 0 3px}
+ .rule{display:block;border-bottom:1px solid #9AA5A2;height:1.7em;margin:0 0 5px;position:relative}
+ .rule .pre{position:absolute;left:2px;bottom:3px;font-weight:600;font-size:10.5pt}
+ /* nowrap is not cosmetic here: in a narrow column the fourth year box was
+    wrapping onto its own line, so a 2026 came out as 202 above a stray 6.
+    A date field that can be read two ways is the one thing a dated form
+    cannot afford. */
+ .dob{display:inline-block;white-space:nowrap}
+ .dob i{display:inline-block;width:1.5em;height:1.7em;border:1px solid #9AA5A2;border-radius:3px;margin-right:2px;vertical-align:middle}
+ .dob b{margin:0 5px 0 3px;color:#6C7A77;font-weight:600}
+ .sig .dob i{width:1.15em;margin-right:1px}
+ .sig .dob b{margin:0 3px 0 1px}
+ .ticks{margin-top:5px}
+ .tick{display:flex;gap:9px;align-items:flex-start;margin:0 0 6px;font-size:10.5pt;break-inside:avoid;line-height:1.4}
+ .tick .bx{flex:0 0 auto;width:13px;height:13px;border:1.4px solid #17211F;border-radius:3px;margin-top:4px}
+ .tick .note{display:block;font-size:8.8pt;color:#6C7A77;line-height:1.4}
+ .yn{margin:0 0 13px;break-inside:avoid}
+ .yn .q{font-size:10.5pt;margin:0 0 5px}
+ .yn .opts{display:flex;gap:26px;flex-wrap:wrap}
+ .yn .opts .tick{margin:0}
+ table{border-collapse:collapse;width:100%;font-size:9.5pt;margin-top:5px}
+ th,td{border:1px solid #B9C1BF;padding:5px 7px;text-align:left;vertical-align:top}
+ th{background:#F2F0EB;font-size:8.8pt;font-weight:700}
+ td{height:2.2em}
+ td.lb{background:#FAF9F6;font-weight:600;width:26%}
+ table.scale td.c{width:11%}
+ table.scale td.q{width:34%;font-weight:500}
+ .tag{display:block;font-size:8pt;color:#6C7A77;font-weight:400;margin-top:2px}
+ .box{border:1px solid #D8D3CA;background:#FAF9F6;border-radius:10px;padding:11px 14px;margin:0 0 15px;font-size:10pt;break-inside:avoid}
+ .box b{display:block;margin-bottom:5px}
+ .box p{margin:0 0 8px}
+ .box p:last-child{margin-bottom:0}
+ .box.warn{background:#FFF6E8;border-color:#E0B060}
+ .box.stop{background:#FDEFEA;border-color:#D9A08A}
+ .box.note{background:#EEF7F5;border-color:#A9CFC9}
+ .sig{display:flex;gap:18px;flex-wrap:wrap;margin:16px 0 20px;break-inside:avoid}
+ .sig>div{flex:1 1 30%;min-width:150px}
+ .sig .help{flex:1 1 100%}
+ .ret{border:1px dashed #9AA5A2;border-radius:10px;padding:11px 14px;margin:20px 0 0;font-size:10pt;background:#FAF9F6}
+ .foot{margin-top:16px;border-top:1px solid #D8D3CA;padding-top:8px;font-size:8.5pt;color:#6C7A77;line-height:1.5}
+ @media print{
+   @page{size:A4;margin:14mm 12mm 18mm}
+   body{background:#fff}
+   .no-print{display:none !important}
+   .sheet{max-width:none;margin:0;padding:0}
+   h2{break-after:avoid}
+   .box,.tick,.fld,.sig,.yn{break-inside:avoid}
+ }`;
+
+function templateHtml(t, person, base) {
+  const title = `${t.name} — DMHC`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>${escHtml(title)}</title><style>${TPL_CSS}</style></head><body>
+<div class="bar no-print">
+  <button type="button" onclick="window.print()">Print, or save as PDF</button>
+  <span>Blank form &middot; nothing on this page is filled in for you</span>
+  <a href="${escHtml(base)}/templates">All blank forms</a>
+</div>
+<div class="sheet">
+  <p class="mark">BookIt</p>
+  <p class="org">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; registered NDIS provider 4-LO5XNY0</p>
+  <h1>${escHtml(t.name)}</h1>
+  <p class="lede">${escHtml(t.intro)}</p>
+  <div class="meta">
+    <div><b>Who fills this in:</b> ${escHtml(t.who)}</div>
+    <div><b>When:</b> ${escHtml(t.when)}</div>
+    <div><b>Version:</b> ${escHtml(t.version)}, issued ${dmy(t.issued)}</div>
+  </div>
+  ${tplIdentity(t, person)}
+  ${t.fields.map(tplField).join('\n  ')}
+  <div class="ret"><b>When it is done.</b> ${tplReturn(t)}</div>
+  <p class="foot">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; NDIS provider 4-LO5XNY0 &middot; 0488 114 368 &middot; hello@bookit.life<br>
+  Form ${escHtml(t.key)} v${escHtml(t.version)}, issued ${dmy(t.issued)}. Printed from ${escHtml(base)}/templates/${escHtml(t.key)}.</p>
+</div></body></html>`;
+}
+
+function templateIndexHtml(base) {
+  const group = (label, forWho, note) => {
+    const list = CLINICAL_TEMPLATES.filter(t => t.for === forWho);
+    if (!list.length) return '';
+    return `<h2>${escHtml(label)}</h2><p class="sub">${escHtml(note)}</p>` + list.map(t => `
+      <div class="box">
+        <b>${escHtml(t.name)}</b>
+        <p>${escHtml(t.intro)}</p>
+        <p class="help"><b>Who fills it in:</b> ${escHtml(t.who)}<br><b>When:</b> ${escHtml(t.when)}</p>
+        <p style="margin-top:9px"><a href="${escHtml(base)}/templates/${escHtml(t.key)}">Open and print &rsaquo;</a></p>
+      </div>`).join('');
+  };
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Blank forms — DMHC</title><style>${TPL_CSS} a{color:#0E6B62}</style></head><body>
+<div class="bar no-print"><span>Blank forms &middot; print one, fill it in on paper, send it back</span>
+<a href="${escHtml(base)}/#/bookings">Open BookIt</a></div>
+<div class="sheet">
+  <p class="mark">BookIt</p>
+  <p class="org">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; registered NDIS provider 4-LO5XNY0</p>
+  <h1>Blank forms</h1>
+  <p class="lede">These are the forms DMHC is required to hold that had no blank behind them. They are printable, they are empty, and nothing on them is filled in for you. Print one, fill it in by hand, and send it back the way each form describes at the bottom of its own page.</p>
+  ${group('For participants', 'participant', 'You can ask us to fill any of these in with you instead of on your own. That is a normal request, not a special one.')}
+  ${group('For workers', 'worker', 'Take the blank with you. It is filled in by the person doing the observing, not by the worker being observed.')}
+  <p class="foot">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; NDIS provider 4-LO5XNY0 &middot; 0488 114 368 &middot; hello@bookit.life</p>
+</div></body></html>`;
+}
+
+/* the same list as JSON, so the app can link to a blank without keeping its
+   own copy of what the blanks are */
+route('GET', /^\/api\/templates$/, (req, res) => {
+  json(res, 200, {
+    templates: CLINICAL_TEMPLATES.map(t => ({
+      key: t.key, name: t.name, for: t.for, who: t.who, when: t.when,
+      intro: t.intro, version: t.version, issued: t.issued, url: `/templates/${t.key}`
+    }))
+  });
+});
+
+const PDOC_CATALOG = FORMS.filter(f => f.scope === 'participant' && f.track !== 'live').map(f => ({
+  key: f.key,
+  label: f.name,
+  cadence: f.cadence,
+  signed: f.signed || '',
+  requires: f.requires || '',
+  /* only the NDIS plan carries a hard expiry. Everything else has a review
+     cadence, which is a different thing and should not fail validation. */
+  expiry: f.cadence === 'expiry' ? 'required' : 'optional',
+  help: f.note || ''
+})).concat([{ key: 'p-other', label: 'Other document', cadence: 'per-event', signed: '', requires: '',
+  expiry: 'optional', needsLabel: true, help: 'Anything else that belongs on this person\'s file. Give it a name.' }]);
+const PDOC_MAP = Object.fromEntries(PDOC_CATALOG.map(d => [d.key, d]));
+const PDOC_METHODS = {
+  'original-sighted': 'Original sighted',
+  'signed-copy': 'Signed copy on file',
+  'issuer-confirmed': 'Confirmed with the issuer',
+  'participant-confirmed': 'Confirmed with the participant'
+};
+
+function pdocOut(d) {
+  const cat = PDOC_MAP[d.form_key] || {};
+  const rv = reviewState(d);
+  return { ...d, file_path: undefined, status: docStatus(d), days: docDays(d), stage: docStage(d),
+    review: rv, review_label: REVIEW_STATES[rv].label, review_hint: REVIEW_STATES[rv].hint,
+    type_label: d.label || cat.label || d.form_key,
+    form_name: cat.label || d.form_key,
+    requires: cat.requires || '',
+    has_file: Boolean(d.file_path) };
+}
+function participantDocs(pid) {
+  return db.prepare('SELECT * FROM participant_docs WHERE participant_id = ? ORDER BY form_key, id DESC')
+    .all(pid).map(pdocOut);
+}
+/* --- 18. what we have asked this person for and not yet been given.
+
+   Open means: not fulfilled and not cancelled. There is deliberately no
+   expiry on a request — an unanswered ask does not become less true after a
+   fortnight, it becomes more interesting, and a list that quietly forgets
+   things is worse than no list. --- */
+function openRequests(scope, personId) {
+  return db.prepare(`SELECT * FROM doc_requests
+    WHERE scope = ? AND person_id = ? AND fulfilled_at = '' AND cancelled_at = ''
+    ORDER BY requested_at ASC`).all(scope, Number(personId))
+    .map(r => Object.assign(r, {
+      review: 'requested',
+      review_label: REVIEW_STATES.requested.label,
+      review_hint: REVIEW_STATES.requested.hint,
+      label: (scope === 'worker' ? DOC_MAP : PDOC_MAP)[r.doc_key] ? (scope === 'worker' ? DOC_MAP : PDOC_MAP)[r.doc_key].label : r.doc_key,
+      waiting_days: Math.max(0, Math.round((Date.now() - new Date(r.requested_at).getTime()) / 864e5)),
+      overdue: Boolean(r.due_date) && r.due_date < new Date().toISOString().slice(0, 10)
+    }));
+}
+/* The document arriving is what closes the request — not somebody remembering
+   to tick it off, because nobody ever does. Returns the request it closed so
+   the caller can stamp the ask onto the document itself: the file then reads
+   "asked on the 3rd, received on the 9th" in the one place an auditor looks,
+   without them needing to know this table exists. */
+function fulfilRequest(scope, personId, docKey, docId) {
+  const r = db.prepare(`SELECT * FROM doc_requests
+    WHERE scope = ? AND person_id = ? AND doc_key = ? AND fulfilled_at = '' AND cancelled_at = ''
+    ORDER BY requested_at ASC LIMIT 1`).get(scope, Number(personId), String(docKey));
+  if (!r) return null;
+  db.prepare('UPDATE doc_requests SET fulfilled_at = ?, fulfilled_doc_id = ? WHERE id = ?').run(now(), Number(docId), r.id);
+  const table = scope === 'worker' ? 'worker_docs' : 'participant_docs';
+  try {
+    db.prepare(`UPDATE ${table} SET requested_at = ?, requested_by = ? WHERE id = ?`)
+      .run(r.requested_at, r.requested_by, Number(docId));
+  } catch {}
+  return r;
+}
+/* Raising the ask. Idempotent on purpose: pressing Request twice, or
+   rejecting a document that was already the answer to an open request, should
+   leave one open ask and not two, because two asks for the same thing read to
+   the person receiving them as an accusation of ignoring the first. */
+function raiseRequest(scope, personId, docKey, note, byWho, dueDate) {
+  const open = db.prepare(`SELECT * FROM doc_requests
+    WHERE scope = ? AND person_id = ? AND doc_key = ? AND fulfilled_at = '' AND cancelled_at = ''`)
+    .get(scope, Number(personId), String(docKey));
+  if (open) {
+    if (note) db.prepare('UPDATE doc_requests SET note = ?, requested_at = ?, requested_by = ? WHERE id = ?')
+      .run(note, now(), byWho, open.id);
+    return { id: open.id, again: true };
+  }
+  const r = db.prepare(`INSERT INTO doc_requests (scope, person_id, doc_key, note, due_date, requested_at, requested_by)
+    VALUES (?,?,?,?,?,?,?)`).run(scope, Number(personId), String(docKey), note || '', dueDate || '', now(), byWho);
+  return { id: Number(r.lastInsertRowid), again: false };
+}
+
+/* which participants have a file on record against each form key */
+function pdocHolders() {
+  const out = {};
+  for (const r of db.prepare("SELECT DISTINCT form_key, participant_id FROM participant_docs WHERE file_path <> ''").all()) {
+    (out[r.form_key] = out[r.form_key] || new Set()).add(r.participant_id);
+  }
+  return out;
+}
+
+/* The register as data rather than as a response. The admin route serves it,
+   the audit pack embeds it and the nightly snapshot counts it — all three from
+   this one function, so a number on the admin screen and the same number in the
+   audit zip cannot disagree. */
+function formsRegister() {
+  const today = new Date().toISOString().slice(0, 10);
+  const workers = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id ORDER BY u.name").all();
+  const participants = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
+
+  /* what BookIt can actually answer for itself. Everything not in here is a file
+     in a folder, and the register says so rather than implying coverage. */
+  function liveState(f) {
+    if (f.track !== 'live') return null;
+    if (String(f.live || '').startsWith('doc:')) {
+      const key = f.live.slice(4);
+      const of = w => key === 'id-points'
+        ? (onboardingSummary(w.id).id_ok ? { held: 1, ok: 1 } : { held: 0, ok: 0 })
+        : (() => {
+            const rows = db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? AND doc_type = ?').all(w.id, key);
+            if (!rows.length) return { held: 0, ok: 0 };
+            const good = rows.some(d => d.verified_at && (!d.expiry_date || d.expiry_date >= today));
+            const expired = rows.some(d => d.expiry_date && d.expiry_date < today);
+            return { held: 1, ok: good ? 1 : 0, expired: expired ? 1 : 0 };
+          })();
+      const st = workers.map(of);
+      return { of: workers.length, unit: 'workers',
+        held: st.filter(x => x.held).length, ok: st.filter(x => x.ok).length,
+        expired: st.filter(x => x.expired).length,
+        gaps: workers.filter((w, i) => !st[i].ok).map(w => w.name) };
+    }
+    if (f.live === 'support_plan') {
+      const ok = participants.filter(p => !!confirmedPlan(p.id));
+      return { of: participants.length, unit: 'participants', held: ok.length, ok: ok.length,
+        gaps: participants.filter(p => !confirmedPlan(p.id)).map(p => p.name) };
+    }
+    if (f.live === 'care_plans') {
+      const named = [], missing = [];
+      for (const p of participants) {
+        for (const c of safeJson((confirmedPlan(p.id) || {}).care_plans, [])) {
+          named.push(c.name);
+          if (!c.on_file) missing.push(`${p.name} — ${c.name}`);
+        }
+      }
+      return { of: named.length, unit: 'named care plans', held: named.length - missing.length,
+        ok: named.length - missing.length, gaps: missing };
+    }
+    if (f.live === 'shift_notes') {
+      const n = db.prepare("SELECT COUNT(*) AS n FROM shift_notes WHERE COALESCE(kind,'note') = 'note'").get().n;
+      return { of: n, unit: 'notes', held: n, ok: n, gaps: [] };
+    }
+    if (f.live === 'incidents') {
+      const n = db.prepare('SELECT COUNT(*) AS n FROM incidents').get().n;
+      const late = db.prepare("SELECT COUNT(*) AS n FROM incidents WHERE reportable = 1 AND commission_notified_at IS NULL").get().n;
+      return { of: n, unit: 'incidents', held: n, ok: n - late, gaps: late ? [`${late} reportable incident${late === 1 ? '' : 's'} not yet notified to the Commission`] : [] };
+    }
+    if (f.live === 'complaints') {
+      const n = db.prepare('SELECT COUNT(*) AS n FROM complaints').get().n;
+      return { of: n, unit: 'complaints', held: n, ok: n, gaps: [] };
+    }
+    if (f.live === 'banning') {
+      const n = db.prepare("SELECT COUNT(*) AS n FROM compliance_log WHERE kind LIKE 'banning%'").get().n;
+      return { of: workers.length, unit: 'workers', held: n ? workers.length : 0, ok: n ? workers.length : 0, gaps: [] };
+    }
+    if (f.live === 'workers') return { of: workers.length, unit: 'workers', held: workers.length, ok: workers.length, gaps: [] };
+    if (f.live === 'participants') return { of: participants.length, unit: 'participants', held: participants.length, ok: participants.length, gaps: [] };
+    return null;
+  }
+
+  /* Asserted, not derived — and kept in a different field for that reason.
+     `state` is something BookIt worked out from its own data and can defend.
+     `record` is something a person told it, with their name and the date they
+     said it. Both belong in the register; conflating them would let a typed
+     claim wear the authority of a computed fact. */
+  const recordOf = key => {
+    if (!key) return null;
+    const r = db.prepare('SELECT * FROM form_records WHERE form_key = ?').get(key);
+    return r ? { held: !!r.held, covers_from: r.covers_from || '', covers_to: r.covers_to || '',
+                 location: r.location || '', note: r.note || '',
+                 recorded_by: r.recorded_by || '', recorded_at: r.recorded_at } : null;
+  };
+
+  /* A participant form is evidenced two ways, and either one is enough: the
+     file itself is in BookIt, or somebody has recorded that they hold it and
+     where. Only a form with neither is an open item — and it is named per
+     participant, because "the risk assessment is missing" and "Bernard's risk
+     assessment is missing" are the same fact told at two different levels of
+     usefulness to the person who has to go and find it. */
+  const holders = pdocHolders();
+  function participantFileState(f, record) {
+    if (f.scope !== 'participant' || f.track === 'live') return null;
+    const held = holders[f.key] || new Set();
+    const recorded = !!(record && record.held);
+    const today2 = today;
+    const expired = db.prepare(`SELECT COUNT(DISTINCT participant_id) AS n FROM participant_docs
+      WHERE form_key = ? AND expiry_date <> '' AND expiry_date < ?`).get(f.key, today2).n;
+    return { of: participants.length, unit: 'participants',
+      held: held.size, ok: recorded ? participants.length : held.size,
+      files: held.size, expired, recorded,
+      gaps: recorded ? [] : participants.filter(p => !held.has(p.id)).map(p => `${p.name} — nothing on file`) };
+  }
+
+  const forms = FORMS.map(f => {
+    /* a live form answers for itself; a record on one would be a person's
+       word competing with the data, so it is not offered and not read. */
+    const record = f.track === 'live' ? null : recordOf(f.key);
+    const state = liveState(f) || participantFileState(f, record);
+    return { ...f, state, record,
+      /* the copies you actually have to produce at audit. A per-worker form is
+         one form on paper and seven documents in a folder, and the difference is
+         the whole reason the Worker Register has 82 blanks in it. */
+      copies: f.scope === 'worker' ? workers.length : f.scope === 'participant' ? participants.length : 1 };
+  });
+  const byTrack = t => forms.filter(f => f.track === t);
+  return {
+    scopes: FORM_SCOPES, forms,
+    workers: workers.length, participants: participants.length,
+    counts: {
+      total: forms.length,
+      live: byTrack('live').length,
+      drive: byTrack('drive').length,
+      missing: byTrack('missing').length,
+      /* of the forms BookIt cannot see, how many has someone actually put their
+         name to. This is the number that moves when the office says "I have
+         that one" — and the only way it moves is by someone saying so, dated. */
+      recorded: forms.filter(f => f.record && f.record.held).length,
+      unrecorded: forms.filter(f => f.track !== 'live' && !(f.record && f.record.held)).length,
+      /* the number worth quoting: how many separate documents exist once the
+         per-person forms are multiplied out */
+      documents: forms.reduce((n, f) => n + f.copies, 0),
+      gaps: forms.reduce((n, f) => n + (f.state ? f.state.gaps.length : 0), 0),
+      /* documents BookIt is actually holding the file for, rather than a note
+         about where the file is. The number that turns "we have it somewhere"
+         into "here it is". */
+      participant_files: db.prepare("SELECT COUNT(*) AS n FROM participant_docs WHERE file_path <> ''").get().n,
+      worker_files: db.prepare("SELECT COUNT(*) AS n FROM worker_docs WHERE file_path <> ''").get().n
+    }
+  };
+}
+
+route('GET', /^\/api\/admin\/forms$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, formsRegister());
+});
+
+/* ============================================================================
+   The participant's file — the same filing cabinet the workers have had
+   ==========================================================================*/
+
+route('GET', /^\/api\/participant-doc-catalog$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  json(res, 200, { types: PDOC_CATALOG, methods: PDOC_METHODS });
+});
+
+/* what BookIt holds for one person, plus what it is still waiting for. The
+   second half is the point: a list of documents with nothing missing from it
+   is a list that cannot tell you anything. */
+function participantFile(pid) {
+  const docs = participantDocs(pid);
+  /* A rejected document is still shown — deleting the evidence that something
+     was offered is exactly the habit this build exists to break — but it does
+     not count as held, and the form goes back onto the outstanding list,
+     because from the file's point of view that gap was never filled. */
+  const live = docs.filter(d => d.review !== 'rejected');
+  const have = new Set(live.filter(d => d.has_file).map(d => d.form_key));
+  const noted = new Set(live.map(d => d.form_key));
+  const reqs = openRequests('participant', pid);
+  const asked = Object.fromEntries(reqs.map(r => [r.doc_key, r]));
+  return {
+    documents: docs,
+    requests: reqs,
+    /* Still outstanding even once we have asked. A request is a fact about
+       the gap, not a filling of it — the only thing it changes is that the
+       list can now say when we asked and stop the office asking again. */
+    outstanding: PDOC_CATALOG.filter(c => c.key !== 'p-other' && !noted.has(c.key))
+      .map(c => ({ key: c.key, label: c.label, signed: c.signed, requires: c.requires,
+        requested_at: (asked[c.key] || {}).requested_at || '',
+        requested_by: (asked[c.key] || {}).requested_by || '',
+        requested_note: (asked[c.key] || {}).note || '',
+        waiting_days: (asked[c.key] || {}).waiting_days ?? null })),
+    held: have.size,
+    of: PDOC_CATALOG.filter(c => c.key !== 'p-other').length
+  };
+}
+
+route('GET', /^\/api\/me\/participant-documents$/, (req, res, m, user) => {
+  const pers = actFor(req, user, 'documents');
+  if (!pers) return json(res, 403, { error: user && user.role === 'coordinator'
+    ? 'Choose a client first, or ask them to give you access to documents.' : 'Participants only.' });
+  json(res, 200, Object.assign(participantFile(pers.id), pers.self ? {} : { acting_for: pers.name }));
+});
+
+/* One upload path, two callers. A participant uploading a copy of their own
+   plan and the office filing the agreement they had signed are the same act
+   on the same shelf, so they are the same code — but who did it is recorded,
+   because "the participant gave us this" and "we put this here" are not the
+   same provenance and an auditor is entitled to tell them apart. */
+function savePdoc(res, pid, body, byWho, ip) {
+  if (limited(ip, 'pdocs', 40)) return json(res, 429, { error: 'Too many uploads — try again later.' });
+  const cat = PDOC_MAP[clean(body.form_key, 40)];
+  if (!cat) return json(res, 400, { error: 'Pick what this document is.' });
+  const docDate = clean(body.doc_date, 10);
+  const expiry = clean(body.expiry_date, 10);
+  for (const [v, what] of [[docDate, 'date on the document'], [expiry, 'expiry date']]) {
+    if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return json(res, 400, { error: `The ${what} looks wrong.` });
+  }
+  if (cat.expiry === 'required' && !expiry) return json(res, 400, { error: `Please enter the expiry date for the ${cat.label} — it drives the automatic checks.` });
+  if (cat.needsLabel && !clean(body.label, 90)) return json(res, 400, { error: 'Give the document a name so the file makes sense to someone else.' });
+  let fileName = '', fileMime = '', filePath = '';
+  if (body.file && body.file.data) {
+    fileMime = String(body.file.mime || '');
+    if (!DOC_MIMES[fileMime]) return json(res, 400, { error: 'Files must be PDF, JPG or PNG.' });
+    let buf;
+    try { buf = Buffer.from(String(body.file.data).replace(/^data:[^,]*,/, ''), 'base64'); } catch { return json(res, 400, { error: 'Could not read that file.' }); }
+    if (!buf.length || buf.length > 4 * 1024 * 1024) return json(res, 400, { error: 'Files can be up to 4 MB.' });
+    fileName = clean(body.file.name, 80).replace(/[^A-Za-z0-9. _-]/g, '') || ('document' + DOC_MIMES[fileMime]);
+    filePath = path.join(DOCS_DIR, `p${pid}-${Date.now()}${DOC_MIMES[fileMime]}`);
+    fs.writeFileSync(filePath, buf);
+  }
+  /* A row with no file is allowed on purpose: it is how you record that a
+     document exists on paper in a folder, dated and attributed, without
+     pretending BookIt has a copy of it. The register shows the difference. */
+  const r = db.prepare(`INSERT INTO participant_docs
+    (participant_id, form_key, label, doc_date, expiry_date, file_name, file_mime, file_path, note, uploaded_at, uploaded_by, review_state)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,'submitted')`)
+    .run(pid, cat.key, clean(body.label, 90), docDate, expiry, fileName, fileMime, filePath,
+         clean(body.note, 300), now(), byWho);
+  const answered = fulfilRequest('participant', pid, cat.key, Number(r.lastInsertRowid));
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid), has_file: Boolean(filePath),
+    review: 'submitted', answered_request: Boolean(answered) });
+  /* Truthy only when a row was actually written. Every refusal above returns
+     json(), which is undefined, so a caller can log on the result and never
+     record an upload that did not happen. */
+  return Number(r.lastInsertRowid);
+}
+
+route('POST', /^\/api\/me\/participant-documents$/, (req, res, m, user, body, ip) => {
+  const pers = actFor(req, user, 'documents');
+  if (!pers) return json(res, 403, { error: user && user.role === 'coordinator'
+    ? 'Choose a client first, or ask them to give you access to documents.' : 'Participants only.' });
+  /* savePdoc has taken a byWho since the day the office and the participant
+     started uploading to the same shelf — "the participant gave us this" and
+     "we put this here" are different provenance. A coordinator is a third
+     answer to the same question and gets written down the same way. */
+  const newId = savePdoc(res, pers.id, body || {}, pers.self ? `${user.name} (participant)` : `${user.name} (support coordinator)`, ip);
+  if (newId) logDelegate(pers, 'document', `uploaded ${clean(body && body.label, 90) || clean(body && body.form_key, 40) || 'a document'}`, `pdoc:${newId}`);
+});
+
+route('POST', /^\/api\/me\/participant-documents\/(\d+)\/delete$/, (req, res, m, user) => {
+  const pers = actFor(req, user, 'documents');
+  if (!pers) return json(res, 403, { error: user && user.role === 'coordinator'
+    ? 'Choose a client first, or ask them to give you access to documents.' : 'Participants only.' });
+  const d = db.prepare('SELECT * FROM participant_docs WHERE id = ? AND participant_id = ?').get(Number(m[1]), pers.id);
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  logDelegate(pers, 'document', `removed ${d.label || d.form_key}`, `pdoc:${d.id}`);
+  if (d.verified_at) return json(res, 400, { error: 'That one has been checked by the office — ask them to remove it.' });
+  if (d.file_path) { try { fs.unlinkSync(d.file_path); } catch {} }
+  db.prepare('DELETE FROM participant_docs WHERE id = ?').run(d.id);
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/participant-documents\/(\d+)\/file$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const d = db.prepare('SELECT * FROM participant_docs WHERE id = ?').get(Number(m[1]));
+  if (!d || !d.file_path) return json(res, 404, { error: 'No file.' });
+  if (!(user.admin || user.id === d.participant_id || linkAllows(user.id, d.participant_id, 'documents'))) return json(res, 403, { error: 'Not yours.' });
+  if (!fs.existsSync(d.file_path)) return json(res, 404, { error: 'File missing from disk.' });
+  res.writeHead(200, { 'Content-Type': d.file_mime || 'application/octet-stream', 'Content-Disposition': `inline; filename="${d.file_name || 'document'}"` });
+  fs.createReadStream(d.file_path).pipe(res);
+});
+
+route('GET', /^\/api\/admin\/participant-documents$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const people = db.prepare("SELECT id, name, email, suburb FROM users WHERE role = 'participant' ORDER BY name").all()
+    .map(p => ({ ...p, ...participantFile(p.id) }));
+  json(res, 200, { participants: people, types: PDOC_CATALOG, methods: PDOC_METHODS });
+});
+
+route('POST', /^\/api\/admin\/participants\/(\d+)\/documents$/, (req, res, m, user, body, ip) => {
+  if (!requireAdmin(user, res)) return;
+  const p = db.prepare("SELECT id, name FROM users WHERE id = ? AND role = 'participant'").get(Number(m[1]));
+  if (!p) return json(res, 404, { error: 'No such participant.' });
+  savePdoc(res, p.id, body || {}, user.email, ip);
+});
+
+route('POST', /^\/api\/admin\/participant-documents\/(\d+)\/verify$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const d = db.prepare(`SELECT pd.*, u.name AS participant_name FROM participant_docs pd
+    JOIN users u ON u.id = pd.participant_id WHERE pd.id = ?`).get(Number(m[1]));
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  body = body || {};
+  const method = PDOC_METHODS[clean(body.method, 30)] ? clean(body.method, 30) : 'signed-copy';
+  const note = clean(body.note, 300);
+  const when = now();
+  db.prepare(`UPDATE participant_docs SET verified_at = ?, verified_by = ?, verify_method = ?, verify_note = ?,
+    review_state = 'approved', review_note = '' WHERE id = ?`)
+    .run(when, user.email, method, note, d.id);
+  /* the same evidence trail the worker checks land in, so one export answers
+     "show me everything you checked and when" for both halves of the file */
+  logCompliance({
+    kind: 'participant-document',
+    result: 'verified',
+    detail: `${d.participant_name} — ${d.label || (PDOC_MAP[d.form_key] || {}).label || d.form_key} — ${PDOC_METHODS[method]}${d.expiry_date ? `, expires ${dmy(d.expiry_date)}` : ''}${note ? `. ${note}` : ''}`,
+    source: 'admin', checked_at: when, checked_by: user.email
+  });
+  json(res, 200, { ok: true, review: 'approved' });
+});
+
+/* --- 18. and the same on the participant's half of the cabinet.
+
+   The wording is the only real difference, and it is not a small one. A
+   worker whose screening check is rejected is losing shifts; a participant
+   whose service agreement comes back unsigned is being asked for a favour by
+   the people who support them. So this one says what is wrong, says nothing
+   changes about their supports, and does not imply they have done something
+   wrong — while still writing the same evidence row an auditor reads. --- */
+route('POST', /^\/api\/admin\/participant-documents\/(\d+)\/reject$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const d = db.prepare(`SELECT pd.*, u.name AS participant_name, u.email AS participant_email
+    FROM participant_docs pd JOIN users u ON u.id = pd.participant_id WHERE pd.id = ?`).get(Number(m[1]));
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  const reason = clean((body || {}).reason, 400);
+  if (!reason) return json(res, 400, { error: 'Say why it can\'t be accepted — nobody can fix what they can\'t see.' });
+  const when = now();
+  db.prepare(`UPDATE participant_docs SET review_state = 'rejected', review_note = ?,
+    verified_at = NULL, verified_by = '', verify_method = '', verify_note = '' WHERE id = ?`).run(reason, d.id);
+  const what = d.label || (PDOC_MAP[d.form_key] || {}).label || d.form_key;
+  logCompliance({ kind: 'participant-document', result: 'rejected',
+    detail: `${d.participant_name} — ${what} — not accepted. ${reason}`,
+    source: 'admin', checked_at: when, checked_by: user.email });
+  raiseRequest('participant', d.participant_id, d.form_key, reason, user.email, clean((body || {}).due_date, 10));
+  notify(d.participant_id, 'compliance', d.participant_email,
+    `We need another copy of your ${what} — BookIt`,
+    `Hello ${firstName(d.participant_name)}`,
+    `<p>Thanks for sending your <b>${escHtml(what)}</b>. We can't put this copy on your file yet.</p>
+     <p><b>Why:</b> ${escHtml(reason)}</p>
+     <p>Send us another when you get a chance — nothing changes about your supports or your bookings in the meantime.</p>`,
+    'Open my documents', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  for (const c of coordsFor(d.participant_id, 'documents')) {
+    notify(c.id, 'compliance', c.email,
+      `${d.participant_name}: ${what} needs replacing — BookIt`,
+      `${d.participant_name} — ${what}`,
+      `<p>The <b>${escHtml(what)}</b> on <b>${escHtml(d.participant_name)}</b>'s file couldn't be accepted.</p>
+       <p><b>Why:</b> ${escHtml(reason)}</p>`,
+      'Open their documents', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  }
+  json(res, 200, { ok: true, review: 'rejected', reason });
+});
+
+/* --- 18. asking for something, on the record.
+
+   The ask is stored in doc_requests and nowhere near the two document tables,
+   for the reason written above that table: three separate readers treat any
+   row on those tables as proof the thing exists, and one of them is the gate
+   that decides who may take bookings.
+
+   An ask that reaches nobody is just a row with a stamp on it, so the person
+   is emailed, and on the participant's side so is every support coordinator
+   holding the documents scope — very often the person who will actually go
+   and find it. --- */
+route('POST', /^\/api\/admin\/workers\/(\d+)\/request-document$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const w = db.prepare("SELECT id, name, email FROM users WHERE id = ? AND role = 'worker'").get(Number(m[1]));
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  body = body || {};
+  const cat = DOC_MAP[clean(body.doc_type, 40)];
+  if (!cat) return json(res, 400, { error: 'Pick which document you need.' });
+  const note = clean(body.note, 300);
+  const due = clean(body.due_date, 10);
+  if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) return json(res, 400, { error: 'That date looks wrong.' });
+  const r = raiseRequest('worker', w.id, cat.key, note, user.name, due);
+  logCompliance({ worker_id: w.id, worker_name: w.name, kind: 'document-requested', result: 'requested',
+    detail: `${cat.label}${due ? `, needed by ${dmy(due)}` : ''}${note ? `. ${note}` : ''}`,
+    source: 'admin', checked_by: user.name });
+  notify(w.id, 'compliance', w.email,
+    `Could you send us your ${cat.label}? — BookIt`,
+    `Hello ${firstName(w.name)}`,
+    `<p>We need your <b>${escHtml(cat.label)}</b> for your file.</p>
+     ${note ? `<p>${escHtml(note)}</p>` : ''}
+     ${due ? `<p>We're hoping to have it by <b>${escHtml(dmy(due))}</b>.</p>` : ''}
+     <p>You can upload it from your Documents section — it takes a photo or a PDF.</p>`,
+    'Upload it now', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  json(res, 200, { ok: true, id: r.id, again: r.again, doc: cat.label });
+});
+
+route('POST', /^\/api\/admin\/participants\/(\d+)\/request-document$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const p = db.prepare("SELECT id, name, email FROM users WHERE id = ? AND role = 'participant'").get(Number(m[1]));
+  if (!p) return json(res, 404, { error: 'No such participant.' });
+  body = body || {};
+  const cat = PDOC_MAP[clean(body.form_key, 40)];
+  if (!cat) return json(res, 400, { error: 'Pick which document you need.' });
+  const note = clean(body.note, 300);
+  const due = clean(body.due_date, 10);
+  if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) return json(res, 400, { error: 'That date looks wrong.' });
+  const r = raiseRequest('participant', p.id, cat.key, note, user.email, due);
+  logCompliance({ kind: 'participant-document', result: 'requested',
+    detail: `${p.name} — ${cat.label} requested${due ? `, needed by ${dmy(due)}` : ''}${note ? `. ${note}` : ''}`,
+    source: 'admin', checked_at: now(), checked_by: user.email });
+  notify(p.id, 'compliance', p.email,
+    `Could you send us your ${cat.label}? — BookIt`,
+    `Hello ${firstName(p.name)}`,
+    `<p>We'd like a copy of your <b>${escHtml(cat.label)}</b> for your file${cat.requires ? ` — it's what ${escHtml(cat.requires)} needs` : ''}.</p>
+     ${note ? `<p>${escHtml(note)}</p>` : ''}
+     ${due ? `<p>We're hoping to have it by <b>${escHtml(dmy(due))}</b>.</p>` : ''}
+     <p>A photo of it is fine. Nothing changes about your supports either way — we just like the file to be right.</p>`,
+    'Upload it now', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  for (const c of coordsFor(p.id, 'documents')) {
+    notify(c.id, 'compliance', c.email,
+      `${p.name}: we've asked for their ${cat.label} — BookIt`,
+      `${p.name} — ${cat.label}`,
+      `<p>We've asked <b>${escHtml(p.name)}</b> for their <b>${escHtml(cat.label)}</b>.</p>
+       ${note ? `<p>${escHtml(note)}</p>` : ''}
+       <p>You're getting this because you hold access to their documents.</p>`,
+      'Open their documents', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  }
+  json(res, 200, { ok: true, id: r.id, again: r.again, doc: cat.label });
+});
+
+/* Withdrawing an ask. Cancelled rather than deleted, and it keeps who
+   withdrew it, because "we asked and then decided we didn't need it" is a
+   different story from "we never asked", and only one of them is true. */
+route('POST', /^\/api\/admin\/doc-requests\/(\d+)\/cancel$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const r = db.prepare('SELECT * FROM doc_requests WHERE id = ?').get(Number(m[1]));
+  if (!r) return json(res, 404, { error: 'No such request.' });
+  if (r.fulfilled_at) return json(res, 400, { error: 'That one has already been answered.' });
+  if (r.cancelled_at) return json(res, 200, { ok: true, already: true });
+  db.prepare('UPDATE doc_requests SET cancelled_at = ?, cancelled_by = ? WHERE id = ?').run(now(), user.email || user.name, r.id);
+  json(res, 200, { ok: true });
+});
+
+/* Everything still outstanding, both halves of the file, oldest first. The
+   Monday-morning question is never "what did we ask this one person for" — it
+   is "what have we asked for and not been given, and how long ago". */
+route('GET', /^\/api\/admin\/doc-requests$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = db.prepare(`SELECT r.*, u.name AS person_name, u.email AS person_email, u.role AS person_role
+    FROM doc_requests r JOIN users u ON u.id = r.person_id
+    WHERE r.fulfilled_at = '' AND r.cancelled_at = '' ORDER BY r.requested_at ASC`).all();
+  const today = new Date().toISOString().slice(0, 10);
+  json(res, 200, {
+    requests: rows.map(r => ({
+      ...r,
+      label: ((r.scope === 'worker' ? DOC_MAP : PDOC_MAP)[r.doc_key] || {}).label || r.doc_key,
+      waiting_days: Math.max(0, Math.round((Date.now() - new Date(r.requested_at).getTime()) / 864e5)),
+      overdue: Boolean(r.due_date) && r.due_date < today
+    })),
+    worker_types: DOC_CATALOG.map(d => ({ key: d.key, label: d.label })),
+    participant_types: PDOC_CATALOG.map(d => ({ key: d.key, label: d.label })),
+    states: REVIEW_STATES
+  });
+});
+
+route('POST', /^\/api\/admin\/participant-documents\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const d = db.prepare('SELECT * FROM participant_docs WHERE id = ?').get(Number(m[1]));
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  if (d.file_path) { try { fs.unlinkSync(d.file_path); } catch {} }
+  db.prepare('DELETE FROM participant_docs WHERE id = ?').run(d.id);
+  json(res, 200, { ok: true });
+});
+
+route('GET', /^\/api\/admin\/participant-documents\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  /* Fifteen. Count them against every row builder below before changing it:
+     one extra heading with no cell under it shifts every column to its right
+     and the mistake surfaces as a wrong number in somebody else's report. */
+  const lines = [['Participant', 'NDIS number', 'Document', 'What requires it', 'Dated', 'Expires',
+    'Status today', 'Review', 'File in BookIt', 'Filed by', 'Filed on', 'Checked', 'Checked by', 'How', 'Note'].map(q).join(',')];
+  const people = db.prepare("SELECT id, name, email, ndis_number FROM users WHERE role = 'participant' ORDER BY name").all();
+  for (const p of people) {
+    const docs = db.prepare('SELECT * FROM participant_docs WHERE participant_id = ? ORDER BY form_key, id DESC').all(p.id);
+    /* A refused copy does not fill the gap it was offered for, so the form
+       shows up twice — once as the copy we hold and would not accept, once as
+       the thing still outstanding. Same rule as participantFile(), which is
+       what the screen renders; an export that disagrees with the screen is
+       the one document nobody can defend. */
+    const noted = new Set(docs.filter(d => reviewState(d) !== 'rejected').map(d => d.form_key));
+    const asked = Object.fromEntries(openRequests('participant', p.id).map(r => [r.doc_key, r]));
+    for (const d of docs) {
+      const cat = PDOC_MAP[d.form_key] || {};
+      /* Read from the ladder rather than counting thirty days here, so this
+         column can never end up telling an auditor something different from
+         what the same document's email told the participant. */
+      const st = docStatus(d), dd = docDays(d);
+      const state = st === 'no-expiry' ? 'No expiry recorded'
+        : st === 'expired' ? 'EXPIRED'
+          : st === 'expiring' ? `Expires in ${dd} day${dd === 1 ? '' : 's'}` : 'Current';
+      const rv = reviewState(d);
+      lines.push([p.name, p.ndis_number || '', d.label || cat.label || d.form_key, cat.requires || '',
+        d.doc_date ? dmy(d.doc_date) : '', d.expiry_date ? dmy(d.expiry_date) : '', state,
+        REVIEW_STATES[rv].label + (rv === 'rejected' && d.review_note ? ` — ${d.review_note}` : ''),
+        d.file_path && fs.existsSync(d.file_path) ? 'yes' : 'no file attached',
+        d.uploaded_by || '', d.uploaded_at ? dmy(d.uploaded_at.slice(0, 10)) : '',
+        d.verified_at ? dmy(d.verified_at.slice(0, 10)) : 'NOT CHECKED', d.verified_by || '',
+        PDOC_METHODS[d.verify_method] || '', d.verify_note || ''].map(q).join(','));
+    }
+    /* the rows worth having: a form this person's file should contain and does
+       not. A register that only lists what you hold cannot be read for what
+       you are missing, which is the only question anyone asks it. */
+    for (const c of PDOC_CATALOG) {
+      if (c.key === 'p-other' || noted.has(c.key)) continue;
+      /* Blank means nobody has asked yet, which is a different finding from
+         "asked and still waiting" and the auditor is entitled to tell them
+         apart. Same four words as the screen. */
+      const a = asked[c.key];
+      lines.push([p.name, p.ndis_number || '', c.label, c.requires || '', '', '', 'NOTHING ON FILE',
+        a ? `Requested ${dmy(String(a.requested_at).slice(0, 10))} by ${a.requested_by}` : '',
+        'no', '', '', '', '', '', ''].map(q).join(','));
+    }
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-participant-documents.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+
+/* Record a form BookIt cannot see for itself. The three rules this enforces
+   are the three that keep it evidence rather than decoration:
+
+     1. It refuses on a live-track form. Those are answered by the data, and a
+        typed assertion must never be able to overrule a computed one.
+     2. `recorded_at` comes from the server, every time. There is no field for
+        it and no way to pass one, so the register can never claim a document
+        was filed earlier than it was.
+     3. The covering period is optional but, once given, is stored verbatim and
+        shown next to the recording date — so a document filed months after the
+        period it covers reads as exactly that. Disclosure, not repair. */
+route('POST', /^\/api\/admin\/forms\/record$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const key = clean(body.key, 60);
+  const f = FORMS.find(x => x.key === key);
+  if (!f) return json(res, 404, { error: 'No such form.' });
+  if (f.track === 'live') return json(res, 400, {
+    error: 'BookIt tracks this form itself, so it cannot be recorded by hand. Whatever is missing has to be fixed in the data, not asserted over it.' });
+
+  const iso = v => { const d = clean(v, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : ''; };
+  const from = iso(body.covers_from), to = iso(body.covers_to);
+  if (from && to && to < from) return json(res, 400, { error: 'The period ends before it starts.' });
+  const today = new Date().toISOString().slice(0, 10);
+  if (from > today || to > today) return json(res, 400, { error: 'A record cannot cover a period that has not happened yet.' });
+
+  const held = body.held === false ? 0 : 1;
+  db.prepare(`INSERT INTO form_records (form_key, held, covers_from, covers_to, location, note, recorded_by, recorded_at)
+    VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT(form_key) DO UPDATE SET held = excluded.held, covers_from = excluded.covers_from,
+      covers_to = excluded.covers_to, location = excluded.location, note = excluded.note,
+      recorded_by = excluded.recorded_by, recorded_at = excluded.recorded_at`)
+    .run(key, held, from, to, clean(body.location, 200), clean(body.note, 600), user.name || user.email, now());
+
+  logCompliance({
+    kind: 'form-record',
+    result: held ? 'held' : 'not held',
+    detail: `${f.name} recorded as ${held ? 'held' : 'not held'}${from || to ? `, covering ${from || 'unstated'} to ${to || 'unstated'}` : ''}${clean(body.location, 200) ? `, kept at ${clean(body.location, 200)}` : ''}.`,
+    source: 'Admin forms register',
+    ref: key,
+    checked_by: user.name || user.email
+  });
+  json(res, 200, formsRegister());
+});
+
+route('DELETE', /^\/api\/admin\/forms\/record\/([a-z0-9-]+)$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const key = m[1];
+  const f = FORMS.find(x => x.key === key);
+  if (!f) return json(res, 404, { error: 'No such form.' });
+  db.prepare('DELETE FROM form_records WHERE form_key = ?').run(key);
+  logCompliance({ kind: 'form-record', result: 'withdrawn',
+    detail: `${f.name} — the record that it is held was withdrawn.`,
+    source: 'Admin forms register', ref: key, checked_by: user.name || user.email });
+  json(res, 200, formsRegister());
+});
+
+route('GET', /^\/api\/admin\/forms\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const scope = { company: 'Company', register: 'Register', worker: 'Per worker', participant: 'Per participant' };
+  const track = { live: 'BookIt tracks it', drive: 'File in Drive — nothing watches it', missing: 'Does not exist yet' };
+  const reg = formsRegister();
+  const byKey = Object.fromEntries(reg.forms.map(f => [f.key, f]));
+  const lines = [['Form', 'Belongs to', 'Where it is tracked', 'How often', 'Who signs', 'Whose template',
+    'What requires it', 'Held?', 'Period the records cover', 'Where it is kept',
+    'Recorded by', 'Date recorded', 'Note'].map(q).join(',')];
+  for (const f of FORMS) {
+    const r = (byKey[f.key] || {}).record;
+    const held = f.track === 'live' ? 'BookIt answers this one'
+      : r ? (r.held ? 'Yes — recorded by hand' : 'No — recorded as not held')
+      : 'Not recorded';
+    /* deliberately DD/MM/YYYY and deliberately side by side. A period ending
+       long before the date it was recorded is the disclosure, not a defect to
+       be smoothed over, and an auditor should be able to see it in one row. */
+    const covers = r && (r.covers_from || r.covers_to)
+      ? `${r.covers_from ? dmy(r.covers_from) : 'unstated'} to ${r.covers_to ? dmy(r.covers_to) : 'unstated'}` : '';
+    lines.push([f.name, scope[f.scope] || f.scope, track[f.track] || f.track, f.cadence, f.signed,
+      f.template === 'DMHC' ? "DMHC's own form"
+        : f.template === 'BookIt'
+          /* the URL goes in this cell rather than a fourteenth column: the row
+             widths are counted against the header in two places already, and
+             a reader who wants the blank wants it beside the word that told
+             them it exists. */
+          ? `Built for DMHC (no template existed)${f.template_url ? ` — print the blank at ${baseUrl(req)}${f.template_url}` : ''}`
+          : f.template,
+      f.requires, held, covers, r ? r.location : '', r ? r.recorded_by : '',
+      r ? dmy(String(r.recorded_at).slice(0, 10)) : '',
+      [f.note || '', r && r.note ? `Recorded: ${r.note}` : ''].filter(Boolean).join(' ')].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="dmhc-forms-register.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* ================================================================
+   THE AUDIT PACK — one button, everything, dated.
+
+   Bee's requirement, in his words: "All I want to do is download when
+   audit day comes and everything is there."
+
+   Two things make that true rather than aspirational.
+
+   FIRST, THE PACK DOES NOT HAVE ITS OWN COPY OF ANYTHING. Every register
+   in the zip is produced by calling the *same route* the individual
+   download button calls — dispatched internally through the router table
+   (`collect()` below). So the incident register inside the pack is byte
+   for byte the incident register you get from the Incidents card. There
+   is no second implementation to drift, and no way to fix a bug in one
+   and not the other. This is the same argument as PLAN_QUESTIONS: one
+   source, two consumers.
+
+   SECOND, IT RUNS ITSELF. `auditSnapshot()` writes one row a night —
+   how many forms, how many documents, how many gaps, and what the gaps
+   were. That history ships in the pack as monitoring-history.csv, and it
+   is the part an auditor actually cares about. A pack generated on audit
+   morning proves what is true on audit morning. A year of dated rows
+   proves you were watching all year, which is what "continuous
+   improvement" and Practice Standard "Governance and operational
+   management" are asking for. Nobody has to remember to press anything.
+   ================================================================ */
+
+for (const stmt of [
+  `CREATE TABLE IF NOT EXISTS audit_snapshots (
+     day TEXT PRIMARY KEY,
+     taken_at TEXT NOT NULL,
+     forms INTEGER DEFAULT 0,
+     documents INTEGER DEFAULT 0,
+     tracked_live INTEGER DEFAULT 0,
+     gaps INTEGER DEFAULT 0,
+     workers INTEGER DEFAULT 0,
+     participants INTEGER DEFAULT 0,
+     detail TEXT DEFAULT ''
+   )`
+]) { try { db.exec(stmt); } catch { } }
+
+/* ---------- a zip file, by hand ----------
+   BookIt has no dependencies and this is not the release that starts. A zip
+   is a well-specified container: a local header per entry, a central
+   directory, an end record. deflate comes from node's own zlib. Stored
+   rather than deflated when deflate makes it bigger, which is the usual
+   case for a JPEG or a PDF that is already compressed. */
+let CRC_TABLE = null;
+function crc32(buf) {
+  if (!CRC_TABLE) {
+    CRC_TABLE = new Int32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      CRC_TABLE[n] = c;
+    }
+  }
+  let c = -1;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ -1) >>> 0;
+}
+
+function dosStamp(d) {
+  const y = Math.max(1980, d.getFullYear());
+  return {
+    time: ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xFFFF,
+    date: (((y - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xFFFF
+  };
+}
+
+function zipBuffer(entries, when) {
+  const stamp = dosStamp(when || new Date());
+  const parts = [], central = [];
+  let offset = 0;
+  for (const e of entries) {
+    const name = Buffer.from(e.name, 'utf8');
+    const raw = Buffer.isBuffer(e.data) ? e.data : Buffer.from(String(e.data), 'utf8');
+    const crc = crc32(raw);
+    let body = raw, method = 0;
+    if (raw.length > 256) {
+      const comp = zlib.deflateRawSync(raw, { level: 6 });
+      if (comp.length < raw.length) { body = comp; method = 8; }
+    }
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0x0800, 6);              /* names are UTF-8 */
+    local.writeUInt16LE(method, 8);
+    local.writeUInt16LE(stamp.time, 10);
+    local.writeUInt16LE(stamp.date, 12);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(body.length, 18);
+    local.writeUInt32LE(raw.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    local.writeUInt16LE(0, 28);
+    parts.push(local, name, body);
+
+    const c = Buffer.alloc(46);
+    c.writeUInt32LE(0x02014b50, 0);
+    c.writeUInt16LE(20, 4); c.writeUInt16LE(20, 6);
+    c.writeUInt16LE(0x0800, 8);
+    c.writeUInt16LE(method, 10);
+    c.writeUInt16LE(stamp.time, 12);
+    c.writeUInt16LE(stamp.date, 14);
+    c.writeUInt32LE(crc, 16);
+    c.writeUInt32LE(body.length, 20);
+    c.writeUInt32LE(raw.length, 24);
+    c.writeUInt16LE(name.length, 28);
+    c.writeUInt16LE(0, 30); c.writeUInt16LE(0, 32); c.writeUInt16LE(0, 34);
+    c.writeUInt16LE(0, 36); c.writeUInt32LE(0, 38);
+    c.writeUInt32LE(offset, 42);
+    central.push(c, name);
+    offset += local.length + name.length + body.length;
+  }
+  const dir = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(0, 4); end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(dir.length, 12);
+  end.writeUInt32LE(offset, 16);
+  end.writeUInt16LE(0, 20);
+  return Buffer.concat([...parts, dir, end]);
+}
+
+/* ---------- call our own routes, in-process ----------
+   The pack must not contain a second implementation of any register. So it
+   asks the router for the same handler the download button hits, hands it a
+   response object that keeps the bytes instead of sending them, and puts
+   those exact bytes in the zip. If a register is ever wrong, it is wrong in
+   one place. */
+function collect(url, user) {
+  const pathOnly = url.split('?')[0];
+  const r = routes.find(rt => rt.method === 'GET' && rt.pattern.test(pathOnly));
+  if (!r) return { status: 404, body: '' };
+  let status = 200, body = '';
+  const sink = {
+    writeHead(code) { status = code; return sink; },
+    setHeader() { },
+    write(chunk) { body += chunk; },
+    end(chunk) { if (chunk != null) body += chunk; }
+  };
+  try {
+    r.handler({ url, method: 'GET', headers: { host: 'localhost' } }, sink, r.pattern.exec(pathOnly), user, null, '127.0.0.1');
+  } catch (e) {
+    return { status: 500, body: 'This register could not be generated: ' + e.message };
+  }
+  return { status, body };
+}
+
+/* The pack's table of contents. Order is the order an auditor reads in:
+   what you must hold, then what went wrong, then what you did about it,
+   then the money. */
+const AUDIT_REPORTS = [
+  { path: 'registers/01-forms-register.csv', url: '/api/admin/forms.csv', title: 'Every form DMHC must hold, what requires it, and where it is tracked' },
+  { path: 'registers/02-worker-credentials.csv', url: '/api/admin/worker-credentials.csv', title: 'Every credential on file for every worker, with expiry and verification' },
+  { path: 'registers/03-participants.csv', url: '/api/admin/participant-register.csv', title: 'Participants, service start, plan dates and support plan status' },
+  { path: 'registers/03a-participant-documents.csv', url: '/api/admin/participant-documents.csv', title: 'Every document on each participant file, what requires it, and what is still missing' },
+  { path: 'registers/04-incident-register.csv', url: '/api/admin/incidents.csv', title: 'Incident register — Practice Standards, incident management' },
+  { path: 'registers/05-complaints-register.csv', url: '/api/admin/complaints.csv', title: 'Complaints register — Practice Standards, feedback and complaints' },
+  { path: 'registers/06-out-of-scope-register.csv', url: '/api/admin/scope-register.csv', title: 'Requests for supports outside the certificate, and how each was closed' },
+  { path: 'registers/07-conditions-of-registration.csv', url: '/api/admin/compliance/0137.csv', title: 'Platform conditions of registration, evidenced condition by condition' },
+  { path: 'registers/08-support-plans.csv', url: '/api/admin/support-plans.csv', title: 'Support plans — version, continuity tier, confirmation and review dates' },
+  { path: 'evidence/compliance-log.csv', url: '/api/admin/compliance/log.csv', title: 'Every automated check the platform has ever run, with its result' },
+  { path: 'finance/invoices.csv', url: '/api/admin/invoices.csv', title: 'Invoices raised' },
+  { path: 'finance/payroll.csv', url: '/api/admin/payroll.csv', title: 'Worker payments including SCHADS on-call allowances' },
+  { path: 'finance/pace-claims.csv', url: '/api/admin/claims/pace.csv', title: 'PACE claim file as submitted' }
+];
+
+/* ---------- two registers an auditor asks for that had no export ---------- */
+route('GET', /^\/api\/admin\/worker-credentials\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const today = new Date().toISOString().slice(0, 10);
+  const lines = [['Worker', 'Email', 'Document', 'Label', 'Number', 'Expires', 'Status today', 'Uploaded', 'Verified', 'Verified by', 'File in pack'].map(q).join(',')];
+  const rows = db.prepare(`SELECT d.*, u.name, u.email FROM worker_docs d JOIN users u ON u.id = d.worker_id
+    ORDER BY u.name, d.doc_type, d.id`).all();
+  for (const d of rows) {
+    const state = !d.expiry_date ? 'No expiry recorded'
+      : d.expiry_date < today ? 'EXPIRED'
+        : d.expiry_date <= new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10) ? 'Expires within 30 days' : 'Current';
+    lines.push([d.name, d.email, DOC_TYPES[d.doc_type] || d.doc_type, d.label, d.check_number,
+      d.expiry_date ? dmy(d.expiry_date) : '', state, d.uploaded_at ? dmy(d.uploaded_at.slice(0, 10)) : '',
+      d.verified_at ? dmy(d.verified_at.slice(0, 10)) : 'NOT VERIFIED', d.verified_by || '',
+      d.file_path && fs.existsSync(d.file_path) ? 'yes' : 'no file attached'].map(q).join(','));
+  }
+  /* a worker with no documents at all never appears in a join over worker_docs,
+     and that worker is the one worth finding */
+  for (const w of db.prepare(`SELECT u.id, u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id
+      WHERE NOT EXISTS (SELECT 1 FROM worker_docs d WHERE d.worker_id = u.id) ORDER BY u.name`).all()) {
+    lines.push([w.name, w.email, '—', '', '', '', 'NOTHING ON FILE', '', '', '', 'no'].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-worker-credentials.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+route('GET', /^\/api\/admin\/participant-register\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['Participant', 'Email', 'Suburb', 'Joined', 'Shifts booked', 'Last shift',
+    'Support plan', 'Version', 'Continuity tier', 'Confirmed', 'Review due', 'Care plans named', 'Care plans on file'].map(q).join(',')];
+  for (const p of db.prepare("SELECT id, name, email, suburb, created FROM users WHERE role = 'participant' ORDER BY name").all()) {
+    const plan = db.prepare("SELECT * FROM support_plans WHERE participant_id = ? AND current = 1").get(p.id);
+    const b = db.prepare("SELECT COUNT(*) n, MAX(date) last FROM bookings WHERE participant_id = ?").get(p.id) || {};
+    /* care plans are a JSON column on the plan itself, not a table — the
+       participant names them and only the office can mark one filed */
+    const cps = plan ? safeJson(plan.care_plans, []) : [];
+    const due = plan && plan.confirmed_at ? planDue(plan.confirmed_at) : '';
+    lines.push([p.name, p.email, p.suburb, p.created ? dmy(p.created.slice(0, 10)) : '', b.n || 0, b.last ? dmy(b.last) : '',
+      plan ? (plan.status === 'confirmed' ? 'Confirmed' : 'Draft only') : 'NONE',
+      plan ? plan.version : '', plan ? continuityTier(plan).label : '',
+      plan && plan.confirmed_at ? dmy(plan.confirmed_at.slice(0, 10)) : '',
+      due ? dmy(due) + (due < new Date().toISOString().slice(0, 10) ? ' — OVERDUE' : '') : '',
+      cps.length, cps.filter(c => c && c.on_file).length].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-participant-register.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* ---------- the nightly snapshot ----------
+   One row a night. This is the difference between a pack that says "we are
+   compliant today" and a pack that says "here is every day of the year, and
+   here is the day each gap opened and the day it closed". */
+function auditSnapshot(why) {
+  const day = new Date().toISOString().slice(0, 10);
+  const reg = formsRegister();
+  const detail = reg.forms.filter(f => f.state && f.state.gaps.length)
+    .map(f => ({ form: f.name, gaps: f.state.gaps.length, who: f.state.gaps.slice(0, 12) }));
+  db.prepare(`INSERT INTO audit_snapshots (day, taken_at, forms, documents, tracked_live, gaps, workers, participants, detail)
+    VALUES (?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(day) DO UPDATE SET taken_at = excluded.taken_at, forms = excluded.forms,
+      documents = excluded.documents, tracked_live = excluded.tracked_live, gaps = excluded.gaps,
+      workers = excluded.workers, participants = excluded.participants, detail = excluded.detail`)
+    .run(day, now(), reg.counts.total, reg.counts.documents, reg.counts.live, reg.counts.gaps,
+      reg.workers, reg.participants, JSON.stringify({ why: why || 'nightly', open: detail }));
+  return { day, gaps: reg.counts.gaps, documents: reg.counts.documents };
+}
+try { auditSnapshot('boot'); } catch (e) { console.error('audit snapshot:', e.message); }
+setInterval(() => { try { auditSnapshot('nightly'); } catch (e) { console.error('audit snapshot:', e.message); } }, 24 * 3600e3);
+
+route('GET', /^\/api\/admin\/audit-history\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['Date', 'Taken at', 'Forms in the register', 'Documents that implies', 'Forms BookIt tracks live',
+    'Open gaps', 'Workers', 'Participants', 'What was open that day'].map(q).join(',')];
+  for (const s of db.prepare('SELECT * FROM audit_snapshots ORDER BY day').all()) {
+    let open = '';
+    try {
+      const d = JSON.parse(s.detail || '{}');
+      open = (d.open || []).map(o => `${o.form} (${o.gaps})`).join('; ');
+    } catch { open = ''; }
+    lines.push([dmy(s.day), s.taken_at, s.forms, s.documents, s.tracked_live, s.gaps, s.workers, s.participants, open].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-monitoring-history.csv"' });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* ---------- what is still open, as a worklist ---------- */
+/* liveState() reports gaps as plain strings — a worker's name for a per-worker
+   document, a whole sentence for anything counted in aggregate. Both are carried
+   through as they are; inventing structure they don't have would only lose
+   information on the way to the CSV. */
+function auditGaps(reg) {
+  const out = [];
+  for (const f of (reg || formsRegister()).forms) {
+    if (f.track === 'missing') {
+      /* Two different findings, and an auditor is entitled to tell them
+         apart. "We have never written this form" and "here is the blank, we
+         have not got a filled-in one back yet" are not the same admission,
+         and reporting the first when the second is true understates what is
+         actually held. track stays 'missing' either way — a blank is not a
+         completed signed copy and the register must not start pretending it
+         is. */
+      out.push({
+        form: f.name, scope: f.scope,
+        missing: f.template_url
+          ? `The blank form exists and can be printed from ${f.template_url}. What is still missing is a completed, signed copy on file.`
+          : 'This form does not exist yet — it has to be written before it can be held.',
+        requires: f.requires || ''
+      });
+    } else if (f.state) {
+      for (const g of f.state.gaps) out.push({ form: f.name, scope: f.scope, missing: String(g), requires: f.requires || '' });
+    }
+  }
+  return out;
+}
+
+/* ---------- the pack ---------- */
+const PACK_BYTES_CAP = 180 * 1024 * 1024;
+
+function buildAuditPack(user) {
+  const when = new Date();
+  const stampDay = when.toISOString().slice(0, 10);
+  const entries = [];
+  const built = [], failed = [], skipped = [];
+  let bytes = 0;
+  const taken = new Set();
+  const add = (name, data) => {
+    const buf = Buffer.isBuffer(data) ? data : Buffer.from(String(data), 'utf8');
+    if (bytes + buf.length > PACK_BYTES_CAP) { skipped.push(name); return false; }
+    /* A zip is allowed to carry the same name twice. Every extractor on earth
+       then overwrites the first copy with the second and says nothing, so the
+       pack would show 19 files in its index and hand the auditor 18. Two people
+       with the same name is not a rare edge case in a service this size, so the
+       collision is resolved here rather than hoped away — and the surviving
+       names both stay traceable because the disambiguator is the row id. */
+    let n = name;
+    if (taken.has(n)) {
+      const dot = name.lastIndexOf('.'), stem = dot > 0 ? name.slice(0, dot) : name, ext = dot > 0 ? name.slice(dot) : '';
+      let i = 2;
+      while (taken.has(`${stem} (${i})${ext}`)) i++;
+      n = `${stem} (${i})${ext}`;
+    }
+    taken.add(n);
+    bytes += buf.length;
+    entries.push({ name: n, data: buf });
+    return true;
+  };
+
+  for (const r of AUDIT_REPORTS) {
+    const got = collect(r.url, user);
+    if (got.status === 200 && got.body) { add(r.path, got.body); built.push(r); }
+    else { failed.push({ ...r, status: got.status }); }
+  }
+  add('evidence/monitoring-history.csv', collect('/api/admin/audit-history.csv', user).body || '');
+
+  /* one shift-note file per participant — the thing an auditor asks for by name */
+  const participants = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
+  const pNameUse = {};
+  for (const p of participants) { const k = safeName(p.name); pNameUse[k] = (pNameUse[k] || 0) + 1; }
+  for (const p of participants) {
+    const got = collect(`/api/admin/participants/${p.id}/notes.csv`, user);
+    if (got.status !== 200 || !got.body) continue;
+    /* the common case keeps a filename a person can read; only a genuine clash
+       carries the participant number, and that number is the one printed in
+       registers/03-participants.csv so the two can be tied together. */
+    const base = safeName(p.name);
+    add(`evidence/shift-notes/${pNameUse[base] > 1 ? `${base} - participant ${p.id}` : base}.csv`, got.body);
+  }
+
+  /* the actual uploaded files, filed under the person they belong to */
+  const docs = db.prepare(`SELECT d.*, u.name FROM worker_docs d JOIN users u ON u.id = d.worker_id
+    WHERE d.file_path <> '' ORDER BY u.name, d.doc_type, d.id`).all();
+  /* two workers with the same name would otherwise share one folder, and the
+     auditor reading it cannot tell whose WWCC is whose — which is worse than a
+     missing document, because it looks like evidence and is not. */
+  const wSeen = {};
+  for (const d of docs) { const k = safeName(d.name); (wSeen[k] = wSeen[k] || new Set()).add(d.worker_id); }
+  const wFolder = (id, name) => { const k = safeName(name); return wSeen[k].size > 1 ? `${k} - worker ${id}` : k; };
+  let filesIn = 0, filesMissing = 0;
+  for (const d of docs) {
+    if (!d.file_path || !fs.existsSync(d.file_path)) { filesMissing++; continue; }
+    const ext = path.extname(d.file_path) || '';
+    const label = safeName(`${DOC_TYPES[d.doc_type] || d.doc_type}${d.expiry_date ? ' expires ' + d.expiry_date : ''}`);
+    try {
+      if (add(`people/${wFolder(d.worker_id, d.name)}/${label}-${d.id}${ext}`, fs.readFileSync(d.file_path))) filesIn++;
+    } catch { filesMissing++; }
+  }
+
+  /* and the participant's own file, in its own folder. Kept separate from
+     people/ on purpose: a worker's folder answers "is this person safe to send
+     out", a participant's answers "is this person's support properly agreed and
+     planned", and an auditor reads them for different things. Mixing them makes
+     a reader check every folder to find out which kind it is. */
+  const pdocs = db.prepare(`SELECT d.*, u.name FROM participant_docs d JOIN users u ON u.id = d.participant_id
+    WHERE d.file_path <> '' ORDER BY u.name, d.form_key, d.id`).all();
+  const pSeen = {};
+  for (const d of pdocs) { const k = safeName(d.name); (pSeen[k] = pSeen[k] || new Set()).add(d.participant_id); }
+  const pFolder = (id, name) => { const k = safeName(name); return pSeen[k].size > 1 ? `${k} - participant ${id}` : k; };
+  let pFilesIn = 0;
+  for (const d of pdocs) {
+    if (!d.file_path || !fs.existsSync(d.file_path)) { filesMissing++; continue; }
+    const ext = path.extname(d.file_path) || '';
+    const cat = PDOC_MAP[d.form_key] || {};
+    const label = safeName(`${d.label || cat.label || d.form_key}${d.expiry_date ? ' expires ' + d.expiry_date : d.doc_date ? ' dated ' + d.doc_date : ''}`);
+    try {
+      if (add(`participants/${pFolder(d.participant_id, d.name)}/${label}-${d.id}${ext}`, fs.readFileSync(d.file_path))) pFilesIn++;
+    } catch { filesMissing++; }
+  }
+
+  /* the blanks themselves, so "download when audit day comes and everything
+     is there" includes the instruments and not only the records. An auditor
+     asking for a form DMHC has never filled in can at least be handed the
+     form. */
+  const tplBase = APP_URL || 'https://bookit.life';
+  for (const t of CLINICAL_TEMPLATES) {
+    try { add(`blank-forms/${t.key}.html`, templateHtml(t, null, tplBase)); } catch (e) { failed.push({ path: `blank-forms/${t.key}.html`, title: t.name, status: 500 }); }
+  }
+
+  const reg = formsRegister();
+  const gaps = auditGaps(reg);
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  add('gaps/open-items.csv', '﻿' + [['Form', 'Belongs to', 'What is missing', 'What requires it'].map(q).join(',')]
+    .concat(gaps.map(g => [g.form, g.scope, g.missing, g.requires].map(q).join(','))).join('\r\n'));
+
+  add('README.txt', packReadme({ when, user, reg, gaps, built, failed, skipped, filesIn, pFilesIn, filesMissing, participants }));
+  add('INDEX.html', packIndex({ when, user, reg, gaps, built, failed, skipped, filesIn, pFilesIn, filesMissing }));
+
+  return {
+    buffer: zipBuffer(entries, when),
+    filename: `DMHC-audit-pack-${stampDay}.zip`,
+    summary: {
+      generated: when.toISOString(), files: entries.length, bytes,
+      registers: built.length, failed: failed.length, skipped: skipped.length,
+      documents: filesIn, documents_missing: filesMissing, gaps: gaps.length,
+      forms: reg.counts.total, implied_documents: reg.counts.documents
+    }
+  };
+}
+
+function safeName(s) {
+  return String(s || 'unnamed').replace(/[^A-Za-z0-9 _.-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'unnamed';
+}
+
+function packReadme(c) {
+  const L = [];
+  L.push('DMHC PTY LTD — AUDIT PACK');
+  L.push('NDIS provider 4-LO5XNY0 · ABN 19 658 578 575');
+  L.push('');
+  L.push(`Generated ${dmy(c.when.toISOString().slice(0, 10))} at ${c.when.toTimeString().slice(0, 5)} by ${c.user.email}`);
+  L.push(`Generated from bookit.life — every file below was produced by the live system at that moment.`);
+  L.push('');
+  L.push('WHAT IS IN HERE');
+  L.push('  INDEX.html            open this first — the same contents, clickable, with the open items at the top');
+  L.push('  registers/            the registers you are required to keep');
+  L.push('  evidence/            what the platform did, and the shift notes behind it');
+  L.push('  evidence/monitoring-history.csv    one row per day — this is the evidence of ongoing monitoring');
+  L.push('  people/              the actual credential files, filed under the worker they belong to');
+  L.push('  participants/        each participant\'s own file — agreements, consents, plans and assessments');
+  L.push('  finance/             invoices, payroll and the PACE claim file');
+  L.push('  blank-forms/         the printable blanks for the forms that had no template — open in a browser');
+  L.push('  gaps/open-items.csv  everything the system knows is still missing');
+  L.push('');
+  L.push('THE NUMBERS');
+  L.push(`  ${c.reg.counts.total} forms in the register`);
+  L.push(`  ${c.reg.counts.documents} documents that implies across ${c.reg.workers} workers and ${c.reg.participants} participants`);
+  L.push(`  ${c.filesIn} worker credential files included`);
+  L.push(`  ${c.pFilesIn || 0} participant document${(c.pFilesIn || 0) === 1 ? '' : 's'} included`);
+  L.push(`  ${c.gaps.length} open items — listed in gaps/open-items.csv, and again at the top of INDEX.html`);
+  L.push('');
+  L.push('A NOTE ON THE OPEN ITEMS');
+  L.push('  They are in here on purpose. A pack that hides its own gaps is worth less than one');
+  L.push('  that names them, because the first thing an auditor does is look for the thing you');
+  L.push('  did not mention. Every open item below is dated in monitoring-history.csv, so the');
+  L.push('  record shows when it opened rather than implying it was always fine.');
+  if (c.filesMissing) {
+    L.push('');
+    L.push(`  ${c.filesMissing} document record(s) point at a file that is no longer on disk. They are still`);
+    L.push('  listed in registers/02-worker-credentials.csv with "no file attached" so the record is');
+    L.push('  honest about it rather than quietly short.');
+  }
+  if (c.failed.length) {
+    L.push('');
+    L.push('  These registers could not be generated and are NOT in this pack:');
+    for (const f of c.failed) L.push(`    - ${f.path} (${f.title})`);
+  }
+  if (c.skipped.length) {
+    L.push('');
+    L.push(`  ${c.skipped.length} file(s) were left out because the pack hit its ${Math.round(PACK_BYTES_CAP / 1048576)} MB size cap:`);
+    for (const s of c.skipped.slice(0, 30)) L.push(`    - ${s}`);
+  }
+  L.push('');
+  L.push('HOW THIS PACK IS KEPT CURRENT');
+  L.push('  Nothing in here is typed up for an audit. Every register is generated from the live');
+  L.push('  database at the moment you press the button, by the same code that produces the');
+  L.push('  individual downloads inside BookIt. The nightly snapshot runs on its own and needs');
+  L.push('  nobody to remember it.');
+  return L.join('\r\n');
+}
+
+function packIndex(c) {
+  const day = dmy(c.when.toISOString().slice(0, 10));
+  const rows = AUDIT_REPORTS.filter(r => c.built.includes(r))
+    .map(r => `<tr><td><a href="${escHtml(r.path)}">${escHtml(r.path)}</a></td><td>${escHtml(r.title)}</td></tr>`).join('');
+  const gapRows = c.gaps.length
+    ? c.gaps.map(g => `<tr><td>${escHtml(g.form)}</td><td>${escHtml(g.missing)}</td><td>${escHtml(g.requires || '')}</td></tr>`).join('')
+    : '<tr><td colspan="3">Nothing open. Every form the register tracks live has a current document behind it.</td></tr>';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DMHC audit pack — ${escHtml(day)}</title>
+<style>
+ :root{color-scheme:light}
+ body{font:16px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#16202b;background:#fff;max-width:60rem;margin:0 auto;padding:2rem 1.25rem 5rem}
+ h1{font-size:1.7rem;margin:0 0 .25rem} h2{font-size:1.15rem;margin:2.2rem 0 .6rem;border-bottom:2px solid #e6ebf1;padding-bottom:.3rem}
+ .sub{color:#5b6b7c;margin:0 0 1.5rem}
+ table{border-collapse:collapse;width:100%;font-size:.94rem;margin:.5rem 0}
+ th,td{text-align:left;padding:.5rem .6rem;border-bottom:1px solid #e6ebf1;vertical-align:top}
+ th{background:#f5f8fa;font-weight:600}
+ .n{display:flex;gap:1.5rem;flex-wrap:wrap;margin:1rem 0;padding:1rem 1.2rem;background:#f5f8fa;border-radius:10px}
+ .n div{min-width:7rem} .n b{display:block;font-size:1.5rem;line-height:1.2} .n span{color:#5b6b7c;font-size:.85rem}
+ .warn{background:#fff6e8;border-left:4px solid #e08a00;padding:.9rem 1.1rem;border-radius:0 8px 8px 0;margin:1rem 0}
+ .ok{background:#eefaf1;border-left:4px solid #1a9c53;padding:.9rem 1.1rem;border-radius:0 8px 8px 0;margin:1rem 0}
+ a{color:#0b6bcb}
+</style></head><body>
+<h1>DMHC Pty Ltd — audit pack</h1>
+<p class="sub">NDIS provider 4-LO5XNY0 · ABN 19 658 578 575 · generated ${escHtml(day)} at ${escHtml(c.when.toTimeString().slice(0, 5))} by ${escHtml(c.user.email)}</p>
+<div class="n">
+  <div><b>${c.reg.counts.total}</b><span>forms in the register</span></div>
+  <div><b>${c.reg.counts.documents}</b><span>documents that implies</span></div>
+  <div><b>${c.filesIn}</b><span>credential files enclosed</span></div>
+  <div><b>${c.gaps.length}</b><span>open items</span></div>
+</div>
+${c.gaps.length
+      ? `<div class="warn"><b>${c.gaps.length} open item${c.gaps.length === 1 ? '' : 's'}.</b> They are listed below and in <a href="gaps/open-items.csv">gaps/open-items.csv</a>. Each one is dated in <a href="evidence/monitoring-history.csv">monitoring-history.csv</a>, so the record shows the day it opened rather than implying it was never there.</div>`
+      : `<div class="ok"><b>Nothing open.</b> Every form the register tracks live has a current document behind it.</div>`}
+<h2>Still open</h2>
+<table><tr><th>Form</th><th>What is missing</th><th>What requires it</th></tr>${gapRows}</table>
+<h2>Registers</h2>
+<table><tr><th>File</th><th>What it is</th></tr>${rows}</table>
+<h2>Evidence</h2>
+<table>
+<tr><td><a href="evidence/compliance-log.csv">evidence/compliance-log.csv</a></td><td>Every automated check the platform has run, with its result</td></tr>
+<tr><td><a href="evidence/monitoring-history.csv">evidence/monitoring-history.csv</a></td><td>One row per day. This is the evidence of ongoing monitoring — it is written by a nightly job, not by a person</td></tr>
+<tr><td>evidence/shift-notes/</td><td>One file per participant, every shift note in date order, with any out-of-scope request and what was done about it</td></tr>
+<tr><td>people/</td><td>${c.filesIn} credential file${c.filesIn === 1 ? '' : 's'}, filed under the worker they belong to</td></tr>
+<tr><td>participants/</td><td>${c.pFilesIn || 0} document${(c.pFilesIn || 0) === 1 ? '' : 's'} from the participant files — agreements, consents, plans and assessments</td></tr>
+</table>
+${c.failed.length ? `<h2>Not in this pack</h2><table><tr><th>File</th><th>Why</th></tr>${c.failed.map(f => `<tr><td>${escHtml(f.path)}</td><td>Could not be generated (HTTP ${f.status})</td></tr>`).join('')}</table>` : ''}
+${c.skipped.length ? `<div class="warn"><b>${c.skipped.length} file(s) left out</b> — the pack hit its ${Math.round(PACK_BYTES_CAP / 1048576)} MB cap. They are named in README.txt.</div>` : ''}
+<h2>How this pack stays true</h2>
+<p>Nothing here was typed up for an audit. Every register was generated from the live database at the moment the button was pressed, by the same code that produces the individual downloads inside BookIt — so a register in this pack and the same register downloaded on its own are the same bytes. The daily snapshot runs on its own and needs nobody to remember it.</p>
+</body></html>`;
+}
+
+route('GET', /^\/api\/admin\/audit-pack\.zip$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  let pack;
+  try { pack = buildAuditPack(user); }
+  catch (e) { console.error('audit pack:', e); return json(res, 500, { error: 'Could not build the pack: ' + e.message }); }
+  logCompliance({
+    kind: 'audit-pack', result: 'ok', source: 'admin', checked_by: user.email,
+    detail: `Audit pack downloaded — ${pack.summary.files} files, ${pack.summary.registers} registers, ${pack.summary.documents} credential files, ${pack.summary.gaps} open items.`
+  });
+  res.writeHead(200, {
+    'Content-Type': 'application/zip',
+    'Content-Length': pack.buffer.length,
+    'Content-Disposition': `attachment; filename="${pack.filename}"`
+  });
+  res.end(pack.buffer);
+});
+
+/* what the button will contain, without building it — so the card can show the
+   numbers before anyone downloads 180 MB */
+route('GET', /^\/api\/admin\/audit-pack$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const reg = formsRegister();
+  const gaps = auditGaps(reg);
+  const files = db.prepare("SELECT COUNT(*) n FROM worker_docs WHERE file_path <> ''").get() || { n: 0 };
+  const history = db.prepare('SELECT COUNT(*) n, MIN(day) first, MAX(day) last FROM audit_snapshots').get() || {};
+  json(res, 200, {
+    reports: AUDIT_REPORTS.map(r => ({ path: r.path, title: r.title })),
+    forms: reg.counts.total, documents: reg.counts.documents,
+    workers: reg.workers, participants: reg.participants,
+    credential_files: files.n, gaps,
+    history: { days: history.n || 0, first: history.first || '', last: history.last || '' },
+    last_download: (db.prepare("SELECT checked_at, checked_by FROM compliance_log WHERE kind = 'audit-pack' ORDER BY id DESC LIMIT 1").get() || null)
+  });
+});
+
+/* admin: flagged notes float to the top, because those are the ones that need a phone call */
+route('GET', /^\/api\/admin\/shift-notes$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const notes = db.prepare(`SELECT n.id, n.booking_id, n.body, n.scope_flag, n.scope_detail, n.addendum, n.created,
+      n.reviewed_at, n.reviewed_by, n.review_note,
+      b.service, b.date, b.start, b.hours,
+      uw.name AS worker_name, up.id AS participant_id, up.name AS participant_name
+    FROM shift_notes n
+    JOIN bookings b ON b.id = n.booking_id
+    JOIN users uw ON uw.id = n.worker_id
+    JOIN users up ON up.id = n.participant_id
+    WHERE COALESCE(n.kind,'note') = 'note'
+    ORDER BY (n.scope_flag = 1 AND n.reviewed_at IS NULL) DESC, n.id DESC LIMIT 80`).all();
+  const people = db.prepare(`SELECT up.id, up.name, COUNT(*) AS notes, MAX(b.date) AS last_shift
+    FROM shift_notes n JOIN bookings b ON b.id = n.booking_id JOIN users up ON up.id = n.participant_id
+    WHERE COALESCE(n.kind,'note') = 'note'
+    GROUP BY up.id ORDER BY up.name`).all();
+  json(res, 200, { notes, people, flagged_open: notes.filter(r => r.scope_flag && !r.reviewed_at).length });
+});
+
+/* closing a flag records who dealt with it and what they did — the note is the whole point */
+route('POST', /^\/api\/admin\/shift-notes\/(\d+)\/review$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const n = db.prepare('SELECT id FROM shift_notes WHERE id = ?').get(Number(m[1]));
+  if (!n) return json(res, 404, { error: 'No such note.' });
+  const outcome = clean(body.note, 800);
+  if (outcome.length < 5) return json(res, 400, { error: 'Write what you did about it — that record is the point.' });
+  db.prepare('UPDATE shift_notes SET reviewed_at = ?, reviewed_by = ?, review_note = ? WHERE id = ?').run(now(), user.email, outcome, n.id);
+  json(res, 200, { ok: true });
+});
+
+/* one participant's whole note history as a file — this is the thing an auditor asks for */
+route('GET', /^\/api\/admin\/participants\/(\d+)\/notes\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const pid = Number(m[1]);
+  const p = db.prepare("SELECT name FROM users WHERE id = ? AND role = 'participant'").get(pid);
+  if (!p) return json(res, 404, { error: 'No such participant.' });
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  /* ORDER BY b.date, n.id reads correctly for one shift a day and falls
+     apart at two: the morning's note, the afternoon's note, then the
+     morning's question. Start and booking_id keep each shift's story whole,
+     shifts in the order they happened. Found by photograph. */
+  const rows = db.prepare(`SELECT n.booking_id, n.body, n.scope_flag, n.scope_detail, n.addendum, n.created,
+      n.reviewed_at, n.reviewed_by, n.review_note, COALESCE(n.kind,'note') AS kind,
+      b.service, b.date, b.start, b.hours, uw.name AS worker_name, ua.name AS author_name
+    FROM shift_notes n JOIN bookings b ON b.id = n.booking_id JOIN users uw ON uw.id = n.worker_id
+    LEFT JOIN users ua ON ua.id = n.author_id
+    WHERE n.participant_id = ? ORDER BY b.date ASC, b.start ASC, n.booking_id ASC, n.id ASC`).all(pid);
+  const lines = [['Shift ID', 'Date', 'Start', 'Hours', 'Service', 'Registration group', 'Worker', 'Entry',
+    'Shift note', 'Out-of-scope request flagged', 'What was asked for', 'Written at', 'Reviewed at', 'Reviewed by', 'What we did about it'].map(q).join(',')];
+  for (const r of rows) {
+    lines.push([r.booking_id, dmy(r.date), r.start, r.hours, SERVICE_LABELS[r.service] || r.service, REG_GROUPS[r.service] || '',
+      r.worker_name, r.kind === 'question' ? `Question (asked by ${r.author_name || 'the participant'})` : r.addendum ? 'Addendum' : 'Shift note', r.body, r.scope_flag ? 'Yes' : 'No', r.scope_detail,
+      r.created, r.reviewed_at || '', r.reviewed_by || '', r.review_note || ''].map(q).join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-shift-notes-${p.name.replace(/[^A-Za-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end('\ufeff' + lines.join('\r\n'));
+});
+
+/* post-shift review: one per completed booking, written by the participant */
+route('POST', /^\/api\/bookings\/(\d+)\/review$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'participant') return json(res, 403, { error: 'Only participants can review shifts.' });
+  if (limited(ip, 'review', 20)) return json(res, 429, { error: 'Slow down a moment.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ? AND participant_id = ?').get(Number(m[1]), user.id);
+  if (!b) return json(res, 404, { error: 'No such booking.' });
+  if (b.status !== 'completed') return json(res, 400, { error: 'You can review a shift once it\'s marked completed.' });
+  const rating = Math.round(Number(body.rating));
+  if (!(rating >= 1 && rating <= 5)) return json(res, 400, { error: 'Pick a star rating from 1 to 5.' });
+  if (db.prepare('SELECT id FROM reviews WHERE booking_id = ?').get(b.id)) return json(res, 409, { error: 'You\'ve already reviewed this shift — thank you!' });
+  const comment = clean(body.comment, 800);
+  db.prepare('INSERT INTO reviews (booking_id, worker_id, participant_id, rating, comment, published, created) VALUES (?,?,?,?,?,1,?)')
+    .run(b.id, b.worker_id, user.id, rating, comment, now());
+  const w = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.worker_id);
+  if (w && !w.email.endsWith('@demo.bookit.life')) sendMail(w.email, 'You\'ve got a new review — BookIt',
+    `⭐ ${rating} / 5 from ${firstName(user.name)}`,
+    `<p><b>${escHtml(firstName(user.name))}</b> rated your ${prettyDate(b.date)} shift <b>${rating} / 5</b>.</p>${comment ? `<p>“${escHtml(comment)}”</p>` : ''}<p>Reviews appear on your public profile and help new participants choose you. Nice work!</p>`,
+    'See my profile', `${baseUrl(req)}/#/worker/${b.worker_id}`).catch(() => {});
+  json(res, 200, { ok: true });
+});
+
+/* admin: review moderation */
+route('GET', /^\/api\/admin\/reviews$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = db.prepare(`SELECT r.*, uw.name AS worker_name, up.name AS participant_name FROM reviews r
+    JOIN users uw ON uw.id = r.worker_id JOIN users up ON up.id = r.participant_id
+    ORDER BY r.id DESC LIMIT 100`).all();
+  json(res, 200, { reviews: rows });
+});
+route('POST', /^\/api\/admin\/reviews\/(\d+)\/toggle$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const r = db.prepare('SELECT id, published FROM reviews WHERE id = ?').get(Number(m[1]));
+  if (!r) return json(res, 404, { error: 'No such review.' });
+  db.prepare('UPDATE reviews SET published = ? WHERE id = ?').run(r.published ? 0 : 1, r.id);
+  json(res, 200, { ok: true, published: r.published ? 0 : 1 });
+});
+
+/* ---------- SIL rosters: houses + weekly repeating slots → generated bookings ---------- */
+route('GET', /^\/api\/admin\/sil$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const houses = db.prepare('SELECT * FROM sil_houses ORDER BY name').all().map(h => ({
+    ...h,
+    slots: db.prepare(`SELECT s.*, uw.name AS worker_name, up.name AS participant_name FROM sil_slots s
+      LEFT JOIN users uw ON uw.id = s.worker_id LEFT JOIN users up ON up.id = s.participant_id
+      WHERE s.house_id = ? ORDER BY s.day, s.start`).all(h.id)
+  }));
+  const workers = db.prepare(`SELECT u.id, u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id
+    WHERE u.role = 'worker' AND p.visible = 1 ORDER BY u.name`).all()
+    .filter(w => platformEligible(w.id, w.email));   /* 0137 — not rosterable to a SIL house either */
+  const participants = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
+  json(res, 200, { houses, workers, participants });
+});
+
+route('POST', /^\/api\/admin\/sil\/houses$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const name = clean(body.name, 80);
+  if (!name) return json(res, 400, { error: 'Give the house a name (e.g. "Gosford — Wattle St").' });
+  const r = db.prepare('INSERT INTO sil_houses (name, address, notes, created) VALUES (?,?,?,?)')
+    .run(name, clean(body.address, 160), clean(body.notes, 400), now());
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
+});
+
+route('POST', /^\/api\/admin\/sil\/houses\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const h = db.prepare('SELECT id FROM sil_houses WHERE id = ?').get(Number(m[1]));
+  if (!h) return json(res, 404, { error: 'No such house.' });
+  db.prepare('DELETE FROM sil_slots WHERE house_id = ?').run(h.id);
+  db.prepare('DELETE FROM sil_houses WHERE id = ?').run(h.id);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/sil\/slots$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const house = db.prepare('SELECT id FROM sil_houses WHERE id = ?').get(Number(body.house_id));
+  if (!house) return json(res, 404, { error: 'No such house.' });
+  const day = Number(body.day);
+  if (!(day >= 0 && day <= 6)) return json(res, 400, { error: 'Pick a day of the week.' });
+  const start = clean(body.start, 5);
+  if (!/^\d{2}:\d{2}$/.test(start)) return json(res, 400, { error: 'Start time looks wrong (use 24-hour HH:MM).' });
+  const hours = Number(body.hours);
+  if (!(hours >= 1 && hours <= 12)) return json(res, 400, { error: 'Slots are between 1 and 12 hours.' });
+  const service = clean(body.service, 30) || 'daily-tasks';
+  if (!SERVICES.includes(service)) return json(res, 400, { error: 'Pick a service.' });
+  const sleepover = body.sleepover && ['personal-care', 'daily-tasks'].includes(service) ? 1 : 0;
+  const workerId = body.worker_id ? Number(body.worker_id) : null;
+  if (workerId && !db.prepare("SELECT id FROM users WHERE id = ? AND role = 'worker'").get(workerId)) return json(res, 404, { error: 'No such worker.' });
+  const participantId = body.participant_id ? Number(body.participant_id) : null;
+  if (participantId && !db.prepare("SELECT id FROM users WHERE id = ? AND role = 'participant'").get(participantId)) return json(res, 404, { error: 'No such participant.' });
+  const r = db.prepare('INSERT INTO sil_slots (house_id, day, start, hours, service, sleepover, worker_id, participant_id, created) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run(house.id, day, start, hours, service, sleepover, workerId, participantId, now());
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
+});
+
+route('POST', /^\/api\/admin\/sil\/slots\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const s = db.prepare('SELECT id FROM sil_slots WHERE id = ?').get(Number(m[1]));
+  if (!s) return json(res, 404, { error: 'No such slot.' });
+  db.prepare('DELETE FROM sil_slots WHERE id = ?').run(s.id);
+  json(res, 200, { ok: true });
+});
+
+/* turn the weekly template into real bookings for one week (idempotent per slot+date) */
+route('POST', /^\/api\/admin\/sil\/generate$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  let weekStart = clean(body.week_start, 10);
+  if (!weekStart) {
+    const d = new Date();
+    const dow = (d.getUTCDay() + 6) % 7; /* 0 = Monday */
+    d.setUTCDate(d.getUTCDate() + (7 - dow));
+    weekStart = d.toISOString().slice(0, 10);
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) return json(res, 400, { error: 'Week start looks wrong.' });
+  const ws = new Date(weekStart + 'T00:00:00Z');
+  if (isNaN(ws)) return json(res, 400, { error: 'Week start looks wrong.' });
+  if ((ws.getUTCDay() + 6) % 7 !== 0) return json(res, 400, { error: 'The week starts on a Monday — pick a Monday date.' });
+  const slots = db.prepare(`SELECT s.*, h.name AS house_name FROM sil_slots s JOIN sil_houses h ON h.id = s.house_id`).all();
+  let created = 0, existing = 0;
+  const unfilled = [];
+  for (const s of slots) {
+    if (!s.worker_id || !s.participant_id) { unfilled.push({ house: s.house_name, day: s.day, start: s.start, missing: !s.worker_id ? 'worker' : 'participant' }); continue; }
+    const d = new Date(ws);
+    d.setUTCDate(d.getUTCDate() + s.day);
+    const date = d.toISOString().slice(0, 10);
+    if (db.prepare('SELECT id FROM bookings WHERE sil_slot_id = ? AND date = ?').get(s.id, date)) { existing++; continue; }
+    db.prepare(`INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, status, created, sil_slot_id)
+      VALUES (?,?,?,?,?,?,?,?,'accepted',?,?)`)
+      .run(s.participant_id, s.worker_id, s.service, date, s.start, s.hours, `SIL roster — ${s.house_name}`, s.sleepover, now(), s.id);
+    created++;
+  }
+  console.log(`SIL generate ${weekStart}: ${created} bookings created, ${existing} already existed, ${unfilled.length} slots unfilled.`);
+  json(res, 200, { ok: true, week_start: weekStart, created, existing, unfilled });
+});
+
+route('POST', /^\/api\/contact$/, (req, res, m, user, body, ip) => {
+  if (limited(ip, 'contact', 20)) return json(res, 429, { error: 'Too many messages — try again later.' });
+  const mid = db.prepare('INSERT INTO contact_messages (name, email, topic, body, created) VALUES (?,?,?,?,?)')
+    .run(clean(body.name, 80), clean(body.email, 120), clean(body.topic, 80), clean(body.body, 2000), now()).lastInsertRowid;
+  /* complaints land straight in the complaints register too — and the
+     reference we hand back is the register row, so an anonymous complainant
+     can still quote a number that finds their complaint */
+  let ref = 'M-' + mid;
+  if (/complaint/i.test(String(body.topic || ''))) {
+    const cid = db.prepare('INSERT INTO complaints (source_name, source_email, channel, summary, details, created) VALUES (?,?,?,?,?,?)')
+      .run(clean(body.name, 80), clean(body.email, 120), 'site', clean(body.body, 2000).slice(0, 200) || 'Complaint via contact form', clean(body.body, 4000), now()).lastInsertRowid;
+    ref = 'C-' + cid;
+  }
+  /* forward a copy to the BookIt inbox so nothing sits unseen in the database */
+  const fromEmail = clean(body.email, 120);
+  if (MAIL_FROM) sendMail(MAIL_FROM, `Contact form — ${clean(body.topic, 80) || 'General'}`,
+    'New message from the contact form',
+    `<p><b>Ref:</b> ${ref}<br><b>From:</b> ${escHtml(clean(body.name, 80)) || 'Anonymous'} &lt;${escHtml(fromEmail) || 'no email given'}&gt;<br><b>Topic:</b> ${escHtml(clean(body.topic, 80)) || 'General'}</p><p style="white-space:pre-wrap;">${escHtml(clean(body.body, 2000))}</p>`,
+    null, null, EMAIL_RE.test(fromEmail) ? fromEmail : undefined).catch(() => {});
+  json(res, 200, { ok: true, ref });
+});
+
+
+/* ============================================================================
+   COVER ENGINE
+   ============================================================================ */
+
+/* SCHADS MA000100 cl.26 on-call allowance, per 24-hour period, from 01/07/2026.
+   Weekday band runs from the end of ordinary duty Monday to the end of ordinary
+   duty Friday; everything else — weekends and public holidays — is the other band.
+   Editable from the admin console, because award rates move every July. */
+const ONCALL_DEFAULT = { weekday: 25.66, other: 50.81 };
+function oncallRates() {
+  const w = Number(setting('oncall_weekday'));
+  const o = Number(setting('oncall_other'));
+  return { weekday: w > 0 ? w : ONCALL_DEFAULT.weekday, other: o > 0 ? o : ONCALL_DEFAULT.other };
+}
+/* SCHADS cl.20.9: remote work taken while on call is paid at a minimum of 15
+   minutes (6am–10pm) or 30 minutes (10pm–6am). Every phone call the cascade
+   removes is that minimum saved, on top of the coordinator's time. */
+const REMOTE_MIN = { day: 15, night: 30 };
+
+const COVER_TIERS = ['web', 'standby', 'pool', 'allied'];
+const TIER_LABELS = {
+  web: 'the participant\'s care web',
+  standby: 'workers on standby that day',
+  pool: 'every matched worker in the area',
+  allied: 'partner providers'
+};
+
+/* How long each tier gets before the cascade moves on. The closer the shift, the
+   shorter the patience — and inside four hours everybody is asked at once,
+   because sequencing politely through a list is how a shift goes unfilled. */
+function coverClock(leadMin) {
+  if (leadMin > 7 * 24 * 60) return { win: 720, parallel: 0, label: 'more than a week away' };
+  if (leadMin > 24 * 60) return { win: 180, parallel: 0, label: 'more than a day away' };
+  if (leadMin > 4 * 60) return { win: 45, parallel: 0, label: 'later today' };
+  return { win: 15, parallel: 1, label: 'in the next few hours' };
+}
+function bookingStart(b) { return new Date(`${b.date}T${b.start || '00:00'}:00`); }
+function leadMinutes(b) { return Math.round((bookingStart(b) - Date.now()) / 60000); }
+function standbyBand(dateIso) {
+  const d = new Date(dateIso + 'T00:00:00').getDay();
+  return (d === 0 || d === 6) ? 'other' : 'weekday';
+}
+
+/* Is this worker actually free? Overlapping bookings are the silent killer of
+   auto-offers — offering a shift to somebody already working it is how a system
+   loses a participant's trust in one move. */
+function workerFree(workerId, date, start, hours, excludeBookingId) {
+  const s0 = new Date(`${date}T${start}:00`).getTime();
+  const e0 = s0 + hours * 3600e3;
+  const rows = db.prepare(`SELECT id, start, hours FROM bookings
+    WHERE worker_id = ? AND date = ? AND status IN ('requested','accepted','completed') AND id != ?`)
+    .all(workerId, date, excludeBookingId || 0);
+  for (const r of rows) {
+    const s1 = new Date(`${date}T${r.start}:00`).getTime();
+    const e1 = s1 + r.hours * 3600e3;
+    if (s0 < e1 && s1 < e0) return false;
+  }
+  return true;
+}
+/* Everything that has to be true before a name goes on an offer list: live
+   profile, current screening, offers the service, works that weekday, free. */
+function workerEligible(workerId, b) {
+  const p = db.prepare(`SELECT p.visible, p.services, p.days, u.email FROM worker_profiles p
+    JOIN users u ON u.id = p.user_id WHERE p.user_id = ?`).get(workerId);
+  if (!p || !p.visible) return false;
+  /* the cover cascade fills shifts at short notice, which is exactly when a
+     compliance gate is most likely to be skipped — so it is asked here too */
+  if (!platformEligible(workerId, p.email)) return false;
+  if (screeningState(workerId) === 'expired') return false;
+  const svcs = safeJson(p.services, []);
+  if (svcs.length && !svcs.includes(b.service)) return false;
+  const days = safeJson(p.days, [1, 1, 1, 1, 1, 0, 0]);
+  const dow = new Date(b.date + 'T00:00:00').getDay();
+  const idx = dow === 0 ? 6 : dow - 1;           /* profile days are Mon-first */
+  if (days.length === 7 && !days[idx]) return false;
+  return workerFree(workerId, b.date, b.start, b.hours, b.id);
+}
+
+/* The ranked candidate list for one tier. Order matters and is never random:
+   the care web is in the participant's own order, standby is by who has been
+   called on least, the pool is by who this participant has worked with most. */
+function coverCandidates(cv, b, tier) {
+  const already = db.prepare('SELECT worker_id FROM cover_offers WHERE cover_id = ? AND worker_id IS NOT NULL').all(cv.id).map(r => r.worker_id);
+  const skip = new Set(already.concat([cv.from_worker_id].filter(Boolean)));
+  if (tier === 'web') {
+    return db.prepare(`SELECT cw.worker_id AS id, cw.rank, cw.role FROM care_web cw
+      WHERE cw.participant_id = ? AND cw.auto_offer = 1 ORDER BY cw.rank ASC, cw.id ASC`).all(b.participant_id)
+      .filter(r => !skip.has(r.id) && workerEligible(r.id, b));
+  }
+  if (tier === 'standby') {
+    return db.prepare(`SELECT s.worker_id AS id, s.id AS standby_id, s.services,
+        (SELECT COUNT(*) FROM standby s2 WHERE s2.worker_id = s.worker_id AND s2.called_at IS NOT NULL) AS called
+      FROM standby s WHERE s.date = ? AND s.status = 'accepted' ORDER BY called ASC, s.id ASC`).all(b.date)
+      .filter(r => {
+        if (skip.has(r.id)) return false;
+        const svcs = safeJson(r.services, []);
+        if (svcs.length && !svcs.includes(b.service)) return false;
+        return workerEligible(r.id, b);
+      });
+  }
+  if (tier === 'pool') {
+    return db.prepare(`SELECT u.id,
+        (SELECT COUNT(*) FROM bookings bb WHERE bb.worker_id = u.id AND bb.participant_id = ? AND bb.status = 'completed') AS shared,
+        COALESCE(p.rating, 0) AS rating
+      FROM users u JOIN worker_profiles p ON p.user_id = u.id
+      WHERE u.role = 'worker' AND p.visible = 1 ORDER BY shared DESC, rating DESC, p.shifts DESC`).all(b.participant_id)
+      .filter(r => !skip.has(r.id) && workerEligible(r.id, b));
+  }
+  /* allied: registered for this support type, covers this suburb, agreement on
+     file, insurance not expired. An empty suburb list means statewide. */
+  const group = REG_GROUPS[b.service] || '';
+  const pt = db.prepare('SELECT suburb FROM users WHERE id = ?').get(b.participant_id) || {};
+  const sub = String(pt.suburb || '').toLowerCase();
+  const sentTo = db.prepare('SELECT allied_id FROM cover_offers WHERE cover_id = ? AND allied_id IS NOT NULL').all(cv.id).map(r => r.allied_id);
+  const today = new Date().toISOString().slice(0, 10);
+  return db.prepare('SELECT * FROM allied_providers WHERE active = 1 ORDER BY reciprocal DESC, share ASC, id ASC').all()
+    .filter(a => {
+      if (sentTo.includes(a.id)) return false;
+      if (!a.agreement_ref) return false;
+      if (a.insurance_expiry && a.insurance_expiry < today) return false;
+      const groups = safeJson(a.reg_groups, []);
+      if (groups.length && group && !groups.some(g => String(group).includes(g))) return false;
+      const subs = safeJson(a.suburbs, []).map(s => String(s).toLowerCase());
+      if (subs.length && sub && !subs.includes(sub)) return false;
+      return true;
+    });
+}
+
+/* one-click accept from the email — the single biggest lever on fill time.
+   Signed, single-purpose, and it still checks eligibility at the moment of
+   acceptance rather than the moment of sending. */
+function coverToken(offerId) { return sign(`cover.${offerId}`).slice(0, 32); }
+function coverLink(req, offerId, kind) {
+  return `${baseUrl(req)}/cover?o=${offerId}&t=${coverToken(offerId)}&k=${kind}`;
+}
+
+/* A worker reading this on a phone at a bus stop should not have to log in to
+   say yes. One tap, one signed link, one plain-English page. */
+function coverPage(heading, body, ctaText, ctaUrl, tone) {
+  const accent = tone === 'bad' ? '#B4451F' : '#0E6B62';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>${escHtml(heading)} — BookIt</title>
+<style>
+ :root{color-scheme:light}
+ body{margin:0;background:#F5F3EF;color:#17211F;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+   display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+ .card{background:#fff;border:1px solid #E4E0D9;border-radius:18px;max-width:520px;width:100%;padding:34px 30px;
+   box-shadow:0 12px 34px rgba(23,33,31,.07)}
+ .mark{font-weight:800;letter-spacing:-.02em;color:${accent};font-size:20px;margin:0 0 18px}
+ h1{font-size:25px;line-height:1.25;margin:0 0 14px;letter-spacing:-.02em}
+ p{margin:0 0 14px;color:#3D4B48}
+ b{color:#17211F}
+ .btn{display:inline-block;background:${accent};color:#fff;text-decoration:none;font-weight:600;
+   padding:13px 24px;border-radius:10px;margin-top:10px}
+ .fine{font-size:13.5px;color:#6C7A77;margin-top:20px}
+</style></head><body><div class="card">
+<p class="mark">BookIt</p><h1>${escHtml(heading)}</h1>${body}
+${ctaUrl ? `<a class="btn" href="${escHtml(ctaUrl)}">${escHtml(ctaText || 'Open BookIt')}</a>` : ''}
+<p class="fine">Disability &amp; Mental Health Care Pty Ltd · registered NDIS provider 4-LO5XNY0</p>
+</div></body></html>`;
+}
+
+/* the whole one-tap flow, in one place: cover offers and standby offers both
+   land here, both are signed, and neither requires a session. */
+function handleCoverLink(req, res, url) {
+  const kind = url.searchParams.get('k') || '';
+  const token = url.searchParams.get('t') || '';
+  const send = html => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' }); res.end(html); };
+  const bad = msg => send(coverPage('That link has expired', `<p>${escHtml(msg)}</p>`, 'Open BookIt', `${baseUrl(req)}/#/bookings`, 'bad'));
+
+  if (kind === 'standby-yes' || kind === 'standby-no') {
+    const id = Number(url.searchParams.get('s') || 0);
+    const s = id ? db.prepare('SELECT * FROM standby WHERE id = ?').get(id) : null;
+    if (!s || token !== standbyToken(id)) return bad('We couldn\'t match that link to a standby offer.');
+    if (s.status !== 'offered') return send(coverPage('Already answered',
+      `<p>You've already told us <b>${escHtml(s.status === 'accepted' ? 'yes' : 'no')}</b> for ${escHtml(prettyDate(s.date))}. Nothing more to do.</p>`,
+      'Open my shifts', `${baseUrl(req)}/#/bookings`));
+    const yes = kind === 'standby-yes';
+    db.prepare('UPDATE standby SET status = ?, responded_at = ? WHERE id = ?').run(yes ? 'accepted' : 'declined', now(), id);
+    return send(yes
+      ? coverPage(`You're on call for ${prettyDate(s.date).replace(/,.*$/, '')}`,
+          `<p><b>$${s.allowance.toFixed(2)}</b> is yours for that period whether or not we call you. It'll show on your next pay as an on-call allowance.</p>
+           <p>All it means is keeping your phone on. If a shift comes up you'll get one message with the details, and you can still say no on the day.</p>`,
+          'See my shifts', `${baseUrl(req)}/#/bookings`)
+      : coverPage('No worries', `<p>We've taken you off standby for <b>${escHtml(prettyDate(s.date))}</b> and we'll ask someone else.</p><p>You'll still be asked about other days — declining one never counts against you.</p>`,
+          'See my shifts', `${baseUrl(req)}/#/bookings`));
+  }
+
+  const offerId = Number(url.searchParams.get('o') || 0);
+  const o = offerId ? db.prepare('SELECT * FROM cover_offers WHERE id = ?').get(offerId) : null;
+  if (!o || token !== coverToken(offerId)) return bad('We couldn\'t match that link to an open shift.');
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(o.cover_id);
+  const b = cv ? db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id) : null;
+  const svc = b ? (SERVICE_LABELS[b.service] || b.service) : '';
+
+  if (kind === 'decline') {
+    if (!o.response) db.prepare("UPDATE cover_offers SET response = 'declined', responded_at = ? WHERE id = ?").run(now(), offerId);
+    return send(coverPage('Thanks for telling us', '<p>We\'ve passed it straight to the next person. Knowing quickly is genuinely the most useful thing you can do.</p>',
+      'See my shifts', `${baseUrl(req)}/#/bookings`));
+  }
+
+  const r = coverAccept(offerId, req, o.worker_id);
+  if (r.error) return send(coverPage('Someone got there first', `<p>${escHtml(r.error)}</p><p>Thanks for being quick — that's exactly how this is meant to work.</p>`,
+    'See my shifts', `${baseUrl(req)}/#/bookings`, 'bad'));
+  if (r.allied) return send(coverPage('Thank you — the shift is yours',
+    `<p>We've recorded <b>${escHtml(r.allied)}</b> as delivering this ${escHtml(svc)} shift on <b>${escHtml(prettyDate(b.date))}</b> at <b>${escHtml(b.start)}</b>.</p>
+     <p>Please reply to the cover email with the name and NDIS Worker Screening Check number of the worker attending. Disability &amp; Mental Health Care remains the registered provider of record.</p>`,
+    null, null));
+  return send(coverPage('You\'re locked in 🎉',
+    `<p><b>${escHtml(svc)}</b><br>${escHtml(prettyDate(b.date))} at <b>${escHtml(b.start)}</b> · ${b.hours} hours</p>
+     <p>It's in your shifts now and it pays exactly like any other shift — covering someone never pays less.</p>
+     <p>${escHtml((db.prepare('SELECT name FROM users WHERE id = ?').get(b.participant_id) || {}).name || 'The participant')} has already been told you're coming.</p>`,
+    'Open my shifts', `${baseUrl(req)}/#/bookings`));
+}
+
+function sendCoverOffer(req, cv, b, tier, cand, rank) {
+  const exp = new Date(Date.now() + cv.window_minutes * 60000).toISOString();
+  const isAllied = tier === 'allied';
+  const r = db.prepare(`INSERT INTO cover_offers (cover_id, tier, worker_id, allied_id, rank, sent_at, expires_at)
+    VALUES (?,?,?,?,?,?,?)`).run(cv.id, tier, isAllied ? null : cand.id, isAllied ? cand.id : null, rank, now(), exp);
+  const offerId = Number(r.lastInsertRowid);
+  const pt = db.prepare('SELECT name, suburb FROM users WHERE id = ?').get(b.participant_id) || {};
+  const svc = SERVICE_LABELS[b.service] || b.service;
+  const when = `${prettyDate(b.date)} at ${escHtml(b.start)} (${b.hours} hours)`;
+  const clock = coverClock(cv.lead_minutes);
+  if (isAllied) {
+    const a = db.prepare('SELECT * FROM allied_providers WHERE id = ?').get(cand.id);
+    const rate = INVOICE_RATES[suggestCategory(b)] || {};
+    const payable = rate.price ? (rate.price * (a.share || 0.85) * (rate.perNight ? 1 : b.hours)) : 0;
+    sendMail(a.email, `Cover request — ${svc}, ${prettyDate(b.date)} — BookIt`,
+      `A shift we'd like your help with`,
+      `<p>We have a confirmed <b>${escHtml(svc)}</b> shift we can't staff from our own team, and under our partner agreement <b>${escHtml(a.agreement_ref)}</b> we're offering it to you first.</p>
+       <p><b>When:</b> ${when}<br><b>Where:</b> ${escHtml(pt.suburb || 'see booking')}<br><b>Support type:</b> ${escHtml(svc)} (${escHtml(REG_GROUPS[b.service] || '')})<br><b>We pay you:</b> ${payable.toFixed(2)} (${Math.round((a.share || 0.85) * 100)}% of the NDIS price limit for this line)</p>
+       <p>Disability &amp; Mental Health Care Pty Ltd remains the registered provider of record for this support and keeps the participant's service agreement, the claim and the incident-reporting duty. Your worker delivers under our agreement — please confirm their NDIS Worker Screening Check number when you accept.</p>
+       <p>This offer is open for <b>${cv.window_minutes} minutes</b>, then it moves on.</p>`,
+      'Accept this shift', coverLink(req, offerId, 'allied')).catch(() => {});
+    return offerId;
+  }
+  const w = db.prepare('SELECT name, email FROM users WHERE id = ?').get(cand.id);
+  const onStandby = tier === 'standby';
+  if (w) sendMail(w.email, `Cover needed — ${prettyDate(b.date)} — BookIt`,
+    onStandby ? `You're on standby today, ${firstName(w.name)}` : `Can you cover this one, ${firstName(w.name)}?`,
+    `<p>${tier === 'web'
+      ? `<b>${escHtml(pt.name || 'A participant')}</b> has you in their care web, and the worker booked for this shift can't make it.`
+      : onStandby
+        ? `You accepted the on-call standby for today, and a shift has come up.`
+        : `A shift near you needs covering and you're a match for it.`}</p>
+     <p><b>${escHtml(svc)}</b><br>${when}<br>${escHtml(pt.suburb || '')}</p>
+     <p>The booking is still confirmed — ${escHtml((pt.name || 'they').split(' ')[0])} is expecting somebody. First to accept gets it. This offer is open for <b>${cv.window_minutes} minutes</b>${clock.parallel ? ' and has gone to everyone available at once' : ', then it passes to the next person'}.</p>
+     <p style="font-size:14px;color:#6C7A77">Can't do it? <a href="${coverLink(req, offerId, 'decline')}" style="color:#6C7A77">Tell us now</a> and it moves to the next person immediately. Saying no never counts against you.</p>`,
+    'Yes, I can cover it', coverLink(req, offerId, 'accept')).catch(() => {});
+  return offerId;
+}
+
+/* Send the next wave. Returns the number of offers sent. */
+function coverWave(cv, req) {
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+  if (!b) return 0;
+  let sent = 0;
+  const tiers = cv.parallel ? COVER_TIERS.slice(COVER_TIERS.indexOf(cv.tier)) : [cv.tier];
+  for (const tier of tiers) {
+    /* the allied tier is never fired automatically inside the parallel sweep
+       without an office alert — subcontracting is a decision, not a reflex */
+    const cands = coverCandidates(cv, b, tier);
+    if (!cands.length) continue;
+    const batch = cv.parallel ? cands : cands.slice(0, tier === 'pool' ? 5 : 1);
+    batch.forEach((c, i) => { sendCoverOffer(req, cv, b, tier, c, i + 1); sent++; });
+    if (tier === 'standby') batch.forEach(c => {
+      db.prepare("UPDATE standby SET called_at = ?, booking_id = ? WHERE worker_id = ? AND date = ? AND status = 'accepted'")
+        .run(now(), b.id, c.id, b.date);
+    });
+    if (!cv.parallel) break;
+  }
+  return sent;
+}
+
+/* Two different questions get asked of this function and they were sharing one
+   answer. "Cover has opened and nobody is found yet" can be said twice in three
+   lines of openCover — once because the participant is Tier 1 and once because
+   the first offer round came up empty — and those are the same news, so the
+   second must not ring again or overwrite the first reason. But "the shift
+   started and nobody came" is not the same news as "we are looking", and that
+   one has to get through even though the office has already heard about this
+   cover. So: once-only by default, `escalate` for a genuine change of state.
+
+   The guard also has to read the database rather than the row the caller is
+   holding. openCover hands the same `cv` object to both of its calls, and that
+   object was selected before either write — so a guard on cv.office_alerted_at
+   sees null twice, sends twice, and the "nobody was eligible" line lands on top
+   of the continuity line that was the reason worth reading. Re-read, then write
+   the result back onto the object so the caller's copy stops lying too. */
+function alertOffice(req, cv, b, why, opts) {
+  if (!MAIL_FROM) return;
+  const cur = db.prepare('SELECT office_alerted_at, office_alert_why FROM cover WHERE id = ?').get(cv.id);
+  if (!cur) return;
+  if (cur.office_alerted_at && !(opts && opts.escalate)) {
+    cv.office_alerted_at = cur.office_alerted_at; cv.office_alert_why = cur.office_alert_why;
+    return;
+  }
+  const alertedAt = now();
+  db.prepare('UPDATE cover SET office_alerted_at = ?, office_alert_why = ? WHERE id = ?').run(alertedAt, String(why || ''), cv.id);
+  cv.office_alerted_at = alertedAt; cv.office_alert_why = String(why || '');
+  const pt = db.prepare('SELECT name, phone, suburb FROM users WHERE id = ?').get(b.participant_id) || {};
+  const tried = db.prepare('SELECT COUNT(*) AS n FROM cover_offers WHERE cover_id = ?').get(cv.id).n;
+  sendMail(MAIL_FROM, `Cover needs a person — ${pt.name || 'participant'} ${b.date}`,
+    'The cascade needs you',
+    `<p><b>${escHtml(why)}</b></p>
+     <p><b>${escHtml(pt.name || '')}</b> — ${escHtml(SERVICE_LABELS[b.service] || b.service)}, ${prettyDate(b.date)} at ${escHtml(b.start)}, ${b.hours} hours, ${escHtml(pt.suburb || '')}.<br>
+     ${tried} offer${tried === 1 ? '' : 's'} sent, none accepted. Phone: ${escHtml(pt.phone || 'not on file')}.</p>
+     <p>This is the only stage that needs a human. Everything before it ran without one.</p>`,
+    'Open the cover board', `${baseUrl(req) || APP_URL}/#/admin`).catch(() => {});
+}
+
+/* Open a cover request. The booking is NOT cancelled — it keeps its confirmed
+   status and its date, and only the person changes. */
+function openCover(bookingId, fromWorkerId, reason, req) {
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
+  if (!b) return null;
+  const open = db.prepare("SELECT id FROM cover WHERE booking_id = ? AND status = 'open'").get(bookingId);
+  if (open) return db.prepare('SELECT * FROM cover WHERE id = ?').get(open.id);
+  const lead = leadMinutes(b);
+  const clock = coverClock(lead);
+  const r = db.prepare(`INSERT INTO cover (booking_id, from_worker_id, reason, opened_at, lead_minutes, window_minutes, parallel, tier, status)
+    VALUES (?,?,?,?,?,?,?,'web','open')`).run(bookingId, fromWorkerId || null, clean(reason, 300), now(), lead, clock.win, clock.parallel);
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(Number(r.lastInsertRowid));
+  db.prepare('UPDATE bookings SET cover_state = ?, original_worker_id = COALESCE(original_worker_id, worker_id) WHERE id = ?')
+    .run('finding', bookingId);
+  const sent = coverWave(cv, req);
+  /* tell the participant immediately — before they find out from the worker.
+     "we are on it" beats "your shift is cancelled" every time. */
+  const pt = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
+  if (pt) sendMail(pt.email, `We're finding cover for ${prettyDate(b.date)} — BookIt`,
+    `We're on it, ${firstName(pt.name)}`,
+    `<p>The worker booked for your <b>${escHtml(SERVICE_LABELS[b.service] || b.service)}</b> shift on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> can't make it.</p>
+     <p><b>Your booking has not been cancelled.</b> ${sent > 0
+       ? `We've already asked ${sent} ${sent === 1 ? 'person' : 'people'}, starting with your own care web, and we'll email you the moment somebody says yes.`
+       : `We're working through who's available now and we'll email you the moment somebody says yes.`}</p>
+     <p>If you'd rather not have cover this time, you can stand it down from your bookings page and nothing is charged.</p>`,
+    'See what\'s happening', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  /* Tier 1 is the participant whose own support plan says BookIt is their main
+     source of support, that their health or safety is significantly affected
+     without it, and that there is nobody else inside 24 hours. For them the
+     cascade still runs — it is faster than a person — but it runs *alongside* a
+     human rather than in front of one. Waiting for the offer rounds to fail
+     before ringing the office is the right default for everybody else and
+     exactly the wrong one here, and the participant has already told us which
+     they are. Acting on the answer is the whole reason for asking it. */
+  const ct = continuityTier(confirmedPlan(b.participant_id));
+  if (ct.tier === 1) alertOffice(req, cv, b,
+    `${ct.label} continuity — their support plan says there is no other support available within 24 hours. Ring them now; the offer round is running in parallel.`);
+  /* and this is the ordinary case: the office hears about it only once the
+     machine has run out of people. The call above has already claimed the alert
+     for a Tier 1 participant, and alertOffice is once-only by default, so the
+     office keeps the reason that actually matters instead of having it painted
+     over by "nobody was eligible". */
+  if (!sent) alertOffice(req, cv, b, 'Nobody was eligible on the first pass.');
+  return cv;
+}
+
+/* Somebody said yes. Swap the worker, keep the booking, tell everyone. */
+function coverAccept(offerId, req, acceptingWorkerId) {
+  const o = db.prepare('SELECT * FROM cover_offers WHERE id = ?').get(offerId);
+  if (!o) return { error: 'That offer no longer exists.' };
+  if (o.response) return { error: o.response === 'accepted' ? 'You\'ve already accepted this one.' : 'That offer has already been answered.' };
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(o.cover_id);
+  if (!cv || cv.status !== 'open') return { error: 'This shift has already been covered — thank you for being quick.' };
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+  if (!b) return { error: 'Booking not found.' };
+  if (new Date(o.expires_at) < new Date()) {
+    db.prepare("UPDATE cover_offers SET response = 'expired', responded_at = ? WHERE id = ?").run(now(), offerId);
+    return { error: 'That offer had already timed out and moved on.' };
+  }
+  if (o.tier === 'allied') {
+    const a = db.prepare('SELECT * FROM allied_providers WHERE id = ?').get(o.allied_id);
+    db.prepare("UPDATE cover_offers SET response = 'accepted', responded_at = ? WHERE id = ?").run(now(), offerId);
+    db.prepare("UPDATE cover SET status = 'referred', allied_id = ?, allied_share = ?, filled_at = ?, closed_at = ? WHERE id = ?")
+      .run(a.id, a.share, now(), now(), cv.id);
+    db.prepare("UPDATE bookings SET cover_state = 'allied', delivered_by_allied = ?, swap_count = swap_count + 1 WHERE id = ?").run(a.id, b.id);
+    closeSiblings(cv.id, offerId);
+    notifyCovered(req, b, null, a);
+    return { ok: true, allied: a.name };
+  }
+  const workerId = acceptingWorkerId || o.worker_id;
+  if (!workerId || workerId !== o.worker_id) return { error: 'That offer belongs to someone else.' };
+  if (!workerEligible(workerId, b)) return { error: 'Something has changed since we sent this — you\'re no longer free at that time, or a credential needs updating.' };
+  db.prepare("UPDATE cover_offers SET response = 'accepted', responded_at = ? WHERE id = ?").run(now(), offerId);
+  db.prepare("UPDATE cover SET status = 'filled', filled_worker_id = ?, filled_at = ?, closed_at = ? WHERE id = ?")
+    .run(workerId, now(), now(), cv.id);
+  db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', swap_count = swap_count + 1 WHERE id = ?")
+    .run(workerId, b.id);
+  closeSiblings(cv.id, offerId);
+  const w = db.prepare('SELECT name FROM users WHERE id = ?').get(workerId);
+  notifyCovered(req, b, w, null);
+  /* a person who has now worked with this participant belongs in their care web —
+     offered, never imposed */
+  return { ok: true, worker: w ? w.name : '' };
+}
+function closeSiblings(coverId, keepOfferId) {
+  db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND id != ? AND response IS NULL")
+    .run(now(), coverId, keepOfferId);
+}
+function notifyCovered(req, b, w, allied) {
+  const pt = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
+  const svc = SERVICE_LABELS[b.service] || b.service;
+  if (pt) sendMail(pt.email, `Cover confirmed for ${prettyDate(b.date)} — BookIt`,
+    `Sorted, ${firstName(pt.name)} 🎉`,
+    allied
+      ? `<p>Your <b>${escHtml(svc)}</b> shift on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> will be delivered by a worker from <b>${escHtml(allied.name)}</b>, one of our partner providers.</p>
+         <p>We stay responsible for this support — same agreement, same standards, same complaints line. They'll confirm the worker's name with you before the day, and you can tell us any time if you'd rather wait for one of our own team instead.</p>`
+      : `<p><b>${escHtml(w ? w.name : 'A worker')}</b> is covering your <b>${escHtml(svc)}</b> shift on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>
+         <p>Same time, same booking, same price. You can message them from your bookings page before the day.</p>
+         <p>If they were a good fit, add them to your care web — next time somebody can't make it, they'll be asked first.</p>`,
+    'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  if (w) {
+    const wu = db.prepare('SELECT email, name FROM users WHERE id = ?').get(b.worker_id);
+    if (wu) sendMail(wu.email, `Confirmed — you're covering ${prettyDate(b.date)} — BookIt`,
+      `You're locked in, ${firstName(wu.name)}`,
+      `<p>Thanks for stepping in. <b>${escHtml(svc)}</b> with <b>${escHtml(pt ? pt.name : '')}</b>, <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>, ${b.hours} hours.</p>
+       <p>It's in your bookings now and pays exactly like any other shift — covering someone doesn't pay less.</p>`,
+      'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  }
+}
+
+/* The clock. Expires stale offers, advances tiers, escalates to a human only
+   when the machine has genuinely run out of options. */
+function coverSweep(req) {
+  const acted = [];
+  const open = db.prepare("SELECT * FROM cover WHERE status = 'open'").all();
+  for (const cv0 of open) {
+    let cv = cv0;
+    const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+    if (!b) { db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ? WHERE id = ?").run(now(), cv.id); continue; }
+    /* the shift has started and nobody came — close it, flag it, and make sure a
+       human knows a participant went without. This is a reportable-quality event,
+       not a rostering footnote. */
+    if (bookingStart(b) < new Date()) {
+      db.prepare("UPDATE cover SET status = 'failed', closed_at = ?, outcome_note = ? WHERE id = ?")
+        .run(now(), 'Shift start passed with no cover found.', cv.id);
+      db.prepare("UPDATE bookings SET cover_state = 'uncovered' WHERE id = ?").run(b.id);
+      alertOffice(req, cv, b, 'A shift started with no cover. Please contact the participant today.', { escalate: true });
+      acted.push({ cover: cv.id, outcome: 'failed' });
+      continue;
+    }
+    /* the lead time has shortened since we opened — tighten the clock */
+    const lead = leadMinutes(b);
+    const clock = coverClock(lead);
+    if (clock.win !== cv.window_minutes || clock.parallel !== cv.parallel) {
+      db.prepare('UPDATE cover SET window_minutes = ?, parallel = ?, lead_minutes = ? WHERE id = ?')
+        .run(clock.win, clock.parallel, lead, cv.id);
+      cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(cv.id);
+    }
+    const live = db.prepare("SELECT COUNT(*) AS n FROM cover_offers WHERE cover_id = ? AND response IS NULL AND expires_at > ?").get(cv.id, now()).n;
+    if (live > 0) continue;
+    db.prepare("UPDATE cover_offers SET response = 'expired', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
+    /* same tier again if there are more names, otherwise step down */
+    let sent = coverWave(cv, req);
+    while (!sent) {
+      const next = COVER_TIERS[COVER_TIERS.indexOf(cv.tier) + 1];
+      if (!next) {
+        db.prepare("UPDATE cover SET status = 'failed', closed_at = ?, outcome_note = ? WHERE id = ?")
+          .run(now(), 'Every tier exhausted before the shift.', cv.id);
+        db.prepare("UPDATE bookings SET cover_state = 'uncovered' WHERE id = ?").run(b.id);
+        alertOffice(req, cv, b, 'All four tiers exhausted — no one available.', { escalate: true });
+        acted.push({ cover: cv.id, outcome: 'exhausted' });
+        break;
+      }
+      db.prepare('UPDATE cover SET tier = ? WHERE id = ?').run(next, cv.id);
+      cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(cv.id);
+      if (next === 'allied') alertOffice(req, cv, b, 'Cover has reached the partner-provider tier.', { escalate: true });
+      sent = coverWave(cv, req);
+    }
+    if (sent) acted.push({ cover: cv.id, tier: cv.tier, sent });
+  }
+  return acted;
+}
+setTimeout(() => { try { coverSweep(); } catch (e) { console.error('cover:', e.message); } }, 20_000);
+setInterval(() => { try { coverSweep(); } catch (e) { console.error('cover:', e.message); } }, 60_000);
+
+/* How exposed is this booking? Answered when the booking is made, not at 6am on
+   the day — which is the only time it can still be fixed cheaply. */
+function coverDepth(b) {
+  const fake = { id: 0, from_worker_id: b.worker_id };
+  const web = db.prepare('SELECT worker_id FROM care_web WHERE participant_id = ? AND auto_offer = 1').all(b.participant_id)
+    .filter(r => r.worker_id !== b.worker_id && workerEligible(r.worker_id, b)).length;
+  const standby = db.prepare("SELECT worker_id FROM standby WHERE date = ? AND status = 'accepted'").all(b.date)
+    .filter(r => r.worker_id !== b.worker_id && workerEligible(r.worker_id, b)).length;
+  const pool = coverCandidates(fake, b, 'pool').length;
+  const allied = coverCandidates(fake, b, 'allied').length;
+  return { web, standby, pool, allied, total: web + standby + pool + allied };
+}
+
+
+/* ============================================================================
+   STANDBY — the locked-in backup bench, rostered by the machine
+   ----------------------------------------------------------------------------
+   This is the part that has to be automatic or it doesn't happen. Nobody is
+   going to sit down every Sunday night and decide who's on call next week.
+
+   The rule is simple: for every day inside the horizon that has shifts on it,
+   there should be at least one worker being paid to be reachable. If there
+   isn't, the sweep offers the period to the opted-in worker who has been asked
+   least recently — spreading both the money and the imposition — and the worker
+   accepts or declines with one tap. Nobody is ever rostered a standby SHIFT
+   (see the note in the schema: cl.25.5(f) would make that expensive). They are
+   offered a cl.26 on-call ALLOWANCE, which is paid whether or not they get
+   called, and which is the entire marginal cost of the whole system.
+   ============================================================================ */
+
+function standbyToken(id) { return sign(`standby.${id}`).slice(0, 32); }
+
+function offerStandby(workerId, date, req) {
+  if (db.prepare('SELECT id FROM standby WHERE worker_id = ? AND date = ?').get(workerId, date)) return null;
+  const w = db.prepare(`SELECT u.name, u.email, p.standby_services FROM users u
+    JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?`).get(workerId);
+  if (!w) return null;
+  const band = standbyBand(date);
+  const allowance = oncallRates()[band];
+  const r = db.prepare(`INSERT INTO standby (worker_id, date, band, allowance, services, status, offered_at)
+    VALUES (?,?,?,?,?, 'offered', ?)`).run(workerId, date, band, allowance, w.standby_services || '[]', now());
+  const id = Number(r.lastInsertRowid);
+  const link = k => `${baseUrl(req)}/cover?s=${id}&t=${standbyToken(id)}&k=${k}`;
+  sendMail(w.email, `On-call standby for ${prettyDate(date)} — ${allowance.toFixed(2)} — BookIt`,
+    `Free on ${prettyDate(date).split(',')[0]}, ${firstName(w.name)}?`,
+    `<p>We're asking you to be <b>on call</b> for <b>${prettyDate(date)}</b>. That means keeping your phone on and being able to get to a shift if somebody can't make theirs.</p>
+     <p><b>You get paid ${allowance.toFixed(2)} just for saying yes</b> — that's the SCHADS on-call allowance for a ${band === 'weekday' ? 'weekday' : 'weekend or public holiday'} period, and it's yours whether or not we end up calling you.</p>
+     <p>If we do call you, the shift is paid on top at your normal rate, and you can still say no on the day. Saying yes to standby is not agreeing to work — it's agreeing to be reachable.</p>
+     <p style="margin:24px 0"><a href="${link('standby-yes')}" style="background:#0E6B62;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Yes, I'm on call that day</a>
+     &nbsp;&nbsp;<a href="${link('standby-no')}" style="color:#5b6b68;text-decoration:underline">Not that day</a></p>`,
+    null, null).catch(() => {});
+  return id;
+}
+
+/* how many people should be reachable on a given day */
+function standbyWanted(date) {
+  const ratio = Math.max(1, Number(setting('standby_ratio')) || 8);
+  const n = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE date = ? AND status IN ('requested','accepted')").get(date).n;
+  if (!n) return 0;
+  return Math.max(1, Math.min(3, Math.ceil(n / ratio)));
+}
+
+/* Ordered list of who to ask next: opted in, visible, screened, not already
+   working most of that day, under their own weekly cap, asked least recently. */
+function standbyCandidates(date, want) {
+  const dow = new Date(date + 'T00:00:00').getDay();
+  const idx = dow === 0 ? 6 : dow - 1;
+  const weekStart = (() => { const d = new Date(date + 'T00:00:00'); d.setDate(d.getDate() - idx); return d.toISOString().slice(0, 10); })();
+  const weekEnd = (() => { const d = new Date(weekStart + 'T00:00:00'); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })();
+  return db.prepare(`SELECT u.id, u.name, p.standby_max, p.days,
+      (SELECT COUNT(*) FROM standby s WHERE s.worker_id = u.id AND s.date BETWEEN ? AND ? AND s.status IN ('offered','accepted')) AS this_week,
+      (SELECT COUNT(*) FROM standby s WHERE s.worker_id = u.id AND s.status = 'accepted' AND s.date >= ?) AS recent,
+      (SELECT COUNT(*) FROM bookings b WHERE b.worker_id = u.id AND b.date = ? AND b.status IN ('requested','accepted')) AS working
+    FROM users u JOIN worker_profiles p ON p.user_id = u.id
+    WHERE u.role = 'worker' AND p.visible = 1 AND p.standby_optin = 1
+      AND u.id NOT IN (SELECT worker_id FROM standby WHERE date = ?)
+    ORDER BY recent ASC, this_week ASC, u.id ASC`)
+    .all(weekStart, weekEnd, new Date(Date.now() - 90 * 86400e3).toISOString().slice(0, 10), date, date)
+    .filter(c => {
+      if (!platformEligible(c.id)) return false;       /* 0137 — never offer standby to a worker who can't be on the platform */
+      if (screeningState(c.id) === 'expired') return false;
+      if (c.this_week >= (c.standby_max ?? 2)) return false;
+      if (c.working) return false;                     /* already on shift most of that day */
+      const days = safeJson(c.days, [1, 1, 1, 1, 1, 0, 0]);
+      return !(days.length === 7 && !days[idx]);       /* respects the days they said they work */
+    })
+    .slice(0, want);
+}
+
+/* The sweep. Runs on a timer, and can be pushed from the admin console. */
+function standbySweep(req, days) {
+  const horizon = days || Math.max(1, Number(setting('standby_horizon')) || 10);
+  const out = { days: 0, offered: 0, short: [] };
+  for (let i = 0; i < horizon; i++) {
+    const d = new Date(Date.now() + i * 86400e3).toISOString().slice(0, 10);
+    const want = standbyWanted(d);
+    if (!want) continue;
+    out.days++;
+    const have = db.prepare("SELECT COUNT(*) AS n FROM standby WHERE date = ? AND status IN ('offered','accepted')").get(d).n;
+    const gap = want - have;
+    if (gap <= 0) continue;
+    const cands = standbyCandidates(d, gap);
+    if (!cands.length) { out.short.push(d); continue; }
+    for (const c of cands) { if (offerStandby(c.id, d, req)) out.offered++; }
+  }
+  /* If the bench can't be filled at all, that is worth a human knowing about
+     once a day — not at 6am on the day it bites. */
+  if (out.short.length && MAIL_FROM) {
+    const last = setting('standby_short_alert');
+    const today = new Date().toISOString().slice(0, 10);
+    if (last !== today) {
+      setSetting('standby_short_alert', today);
+      sendMail(MAIL_FROM, `Standby bench short on ${out.short.length} day${out.short.length === 1 ? '' : 's'}`,
+        'Nobody available to be on call',
+        `<p>These days have shifts booked but nobody on standby, and there's no opted-in worker left to ask:</p>
+         <p><b>${out.short.map(d => escHtml(prettyDate(d))).join('<br>')}</b></p>
+         <p>Either more workers need to opt in to standby, or the allowance needs to be worth more. Both are fixable this week; neither is fixable on the morning.</p>`,
+        'Open the cover board', `${baseUrl(req) || APP_URL}/#/admin`).catch(() => {});
+    }
+  }
+  return out;
+}
+setTimeout(() => { try { standbySweep(); } catch (e) { console.error('standby:', e.message); } }, 45_000);
+setInterval(() => { try { standbySweep(); } catch (e) { console.error('standby:', e.message); } }, 6 * 3600e3);
+
+
+/* ============================================================================
+   COVER — routes
+   ============================================================================ */
+
+/* ---------- the participant's care web ---------- */
+
+function careWebRows(participantId) {
+  return db.prepare(`SELECT cw.id, cw.worker_id, cw.rank, cw.role, cw.auto_offer, cw.note, cw.added_at,
+      u.name, u.suburb, COALESCE(p.color, '#0E6B62') AS color, COALESCE(p.visible, 0) AS visible,
+      p.photo, p.photo_at, p.services, p.days,
+      (SELECT COUNT(*) FROM bookings b WHERE b.worker_id = cw.worker_id AND b.participant_id = cw.participant_id AND b.status = 'completed') AS shifts_together,
+      (SELECT COUNT(*) FROM cover_offers o JOIN cover c ON c.id = o.cover_id
+        JOIN bookings bb ON bb.id = c.booking_id
+        WHERE o.worker_id = cw.worker_id AND bb.participant_id = cw.participant_id AND o.response = 'accepted') AS covers_done
+    FROM care_web cw JOIN users u ON u.id = cw.worker_id
+    LEFT JOIN worker_profiles p ON p.user_id = cw.worker_id
+    WHERE cw.participant_id = ? ORDER BY cw.rank ASC, cw.id ASC`).all(participantId)
+    .map(r => ({
+      ...r,
+      services: safeJson(r.services, []),
+      days: safeJson(r.days, []),
+      screening: screeningState(r.worker_id),
+      photo: r.photo ? `/photos/${r.worker_id}?v=${encodeURIComponent(r.photo_at || '')}` : null
+    }));
+}
+
+/* Everyone this participant has actually worked with who isn't in the web yet.
+   Nobody should have to remember a name — the system already knows who turned up. */
+function careWebSuggestions(participantId) {
+  return db.prepare(`SELECT u.id AS worker_id, u.name, u.suburb, COALESCE(p.color, '#0E6B62') AS color,
+      p.photo, p.photo_at, p.services,
+      COUNT(b.id) AS shifts_together, MAX(b.date) AS last_shift
+    FROM bookings b JOIN users u ON u.id = b.worker_id
+    LEFT JOIN worker_profiles p ON p.user_id = u.id
+    WHERE b.participant_id = ? AND b.status IN ('completed','accepted')
+      AND u.id NOT IN (SELECT worker_id FROM care_web WHERE participant_id = ?)
+      AND COALESCE(p.visible, 0) = 1
+    GROUP BY u.id ORDER BY shifts_together DESC, last_shift DESC LIMIT 12`).all(participantId, participantId)
+    .filter(r => platformEligible(r.worker_id))
+    .map(r => ({ ...r, services: safeJson(r.services, []), photo: r.photo ? `/photos/${r.worker_id}?v=${encodeURIComponent(r.photo_at || '')}` : null }));
+}
+
+route('GET', /^\/api\/me\/care-web$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'participant') return json(res, 403, { error: 'Care webs belong to participants.' });
+  json(res, 200, {
+    web: careWebRows(user.id),
+    suggestions: careWebSuggestions(user.id),
+    tiers: COVER_TIERS.map(t => ({ key: t, label: TIER_LABELS[t] }))
+  });
+});
+
+route('POST', /^\/api\/me\/care-web$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'participant') return json(res, 403, { error: 'Care webs belong to participants.' });
+  const workerId = Number(body.worker_id);
+  const w = db.prepare("SELECT u.id, u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker' AND p.visible = 1").get(workerId);
+  if (!w || !platformEligible(workerId, w.email)) return json(res, 404, { error: 'That worker isn\'t available to add.' });
+  if (db.prepare('SELECT id FROM care_web WHERE participant_id = ? AND worker_id = ?').get(user.id, workerId))
+    return json(res, 400, { error: `${w.name.split(' ')[0]} is already in your care web.` });
+  const role = ['regular', 'backup', 'emergency'].includes(body.role) ? body.role : 'backup';
+  const next = db.prepare('SELECT COALESCE(MAX(rank), 0) + 1 AS r FROM care_web WHERE participant_id = ?').get(user.id).r;
+  db.prepare('INSERT INTO care_web (participant_id, worker_id, rank, role, auto_offer, note, added_at) VALUES (?,?,?,?,?,?,?)')
+    .run(user.id, workerId, next, role, body.auto_offer === false ? 0 : 1, clean(body.note, 200), now());
+  json(res, 200, { ok: true, web: careWebRows(user.id), suggestions: careWebSuggestions(user.id) });
+});
+
+route('POST', /^\/api\/me\/care-web\/(\d+)$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const row = db.prepare('SELECT * FROM care_web WHERE id = ? AND participant_id = ?').get(Number(m[1]), user.id);
+  if (!row) return json(res, 404, { error: 'Not in your care web.' });
+  const role = ['regular', 'backup', 'emergency'].includes(body.role) ? body.role : row.role;
+  const auto = body.auto_offer === undefined ? row.auto_offer : (body.auto_offer ? 1 : 0);
+  db.prepare('UPDATE care_web SET role = ?, auto_offer = ?, note = ? WHERE id = ?')
+    .run(role, auto, body.note === undefined ? row.note : clean(body.note, 200), row.id);
+  json(res, 200, { ok: true, web: careWebRows(user.id) });
+});
+
+/* One move, one save: the whole order arrives as a list of ids. */
+route('POST', /^\/api\/me\/care-web\/order$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const ids = Array.isArray(body.ids) ? body.ids.map(Number).filter(Boolean) : [];
+  if (!ids.length) return json(res, 400, { error: 'Nothing to reorder.' });
+  const mine = new Set(db.prepare('SELECT id FROM care_web WHERE participant_id = ?').all(user.id).map(r => r.id));
+  const up = db.prepare('UPDATE care_web SET rank = ? WHERE id = ? AND participant_id = ?');
+  ids.forEach((id, i) => { if (mine.has(id)) up.run(i + 1, id, user.id); });
+  json(res, 200, { ok: true, web: careWebRows(user.id) });
+});
+
+route('POST', /^\/api\/me\/care-web\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const row = db.prepare('SELECT * FROM care_web WHERE id = ? AND participant_id = ?').get(Number(m[1]), user.id);
+  if (!row) return json(res, 404, { error: 'Not in your care web.' });
+  db.prepare('DELETE FROM care_web WHERE id = ?').run(row.id);
+  db.prepare('SELECT id FROM care_web WHERE participant_id = ? ORDER BY rank ASC, id ASC').all(user.id)
+    .forEach((r, i) => db.prepare('UPDATE care_web SET rank = ? WHERE id = ?').run(i + 1, r.id));
+  json(res, 200, { ok: true, web: careWebRows(user.id), suggestions: careWebSuggestions(user.id) });
+});
+
+/* ---------- the worker's side: offers and standby ---------- */
+
+function offerRows(workerId) {
+  return db.prepare(`SELECT o.id, o.tier, o.rank, o.sent_at, o.expires_at, o.response,
+      c.id AS cover_id, c.reason, c.status AS cover_status,
+      b.id AS booking_id, b.service, b.date, b.start, b.hours, b.sleepover,
+      up.name AS participant_name, up.suburb
+    FROM cover_offers o JOIN cover c ON c.id = o.cover_id
+    JOIN bookings b ON b.id = c.booking_id
+    JOIN users up ON up.id = b.participant_id
+    WHERE o.worker_id = ? AND o.response IS NULL AND o.expires_at > ? AND c.status = 'open'
+    ORDER BY b.date ASC, b.start ASC`).all(workerId, now())
+    .map(r => {
+      const rate = INVOICE_RATES[suggestCategory(r)] || {};
+      return {
+        ...r,
+        service_label: SERVICE_LABELS[r.service] || r.service,
+        tier_label: TIER_LABELS[r.tier] || r.tier,
+        pay: rate.worker ? Number((rate.worker * (rate.perNight ? 1 : r.hours)).toFixed(2)) : null,
+        rate_label: rate.label || ''
+      };
+    });
+}
+function standbyRows(workerId) {
+  return db.prepare(`SELECT s.*, (SELECT COUNT(*) FROM bookings b WHERE b.date = s.date) AS shifts_that_day
+    FROM standby s WHERE s.worker_id = ? AND s.date >= ? ORDER BY s.date ASC`)
+    .all(workerId, new Date(Date.now() - 30 * 86400e3).toISOString().slice(0, 10))
+    .map(r => ({ ...r, services: safeJson(r.services, []) }));
+}
+
+route('GET', /^\/api\/me\/offers$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 200, { offers: [], standby: [] });
+  const p = db.prepare('SELECT standby_optin, standby_max, standby_services FROM worker_profiles WHERE user_id = ?').get(user.id) || {};
+  const rates = oncallRates();
+  const paid = db.prepare("SELECT COALESCE(SUM(allowance), 0) AS s FROM standby WHERE worker_id = ? AND status = 'accepted'").get(user.id).s;
+  const webs = db.prepare(`SELECT COUNT(*) AS n FROM care_web WHERE worker_id = ?`).get(user.id).n;
+  json(res, 200, {
+    offers: offerRows(user.id),
+    standby: standbyRows(user.id),
+    standby_optin: p.standby_optin ? 1 : 0,
+    standby_max: p.standby_max ?? 2,
+    standby_services: safeJson(p.standby_services, []),
+    rates,
+    allowance_earned: Number(paid.toFixed(2)),
+    in_care_webs: webs
+  });
+});
+
+route('POST', /^\/api\/me\/offers\/(\d+)\/(accept|decline)$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const offerId = Number(m[1]);
+  const o = db.prepare('SELECT * FROM cover_offers WHERE id = ?').get(offerId);
+  if (!o || o.worker_id !== user.id) return json(res, 404, { error: 'That offer isn\'t yours.' });
+  if (m[2] === 'decline') {
+    if (!o.response) db.prepare("UPDATE cover_offers SET response = 'declined', responded_at = ? WHERE id = ?").run(now(), offerId);
+    return json(res, 200, { ok: true, offers: offerRows(user.id) });
+  }
+  const r = coverAccept(offerId, req, user.id);
+  if (r.error) return json(res, 400, { error: r.error, offers: offerRows(user.id) });
+  json(res, 200, { ok: true, ...r, offers: offerRows(user.id) });
+});
+
+/* opt in once, and the roster fills itself from then on */
+route('POST', /^\/api\/me\/standby-settings$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const svcs = Array.isArray(body.services) ? body.services.filter(s => SERVICES.includes(s)) : [];
+  const max = Math.max(0, Math.min(7, Number(body.max) || 0));
+  db.prepare('UPDATE worker_profiles SET standby_optin = ?, standby_max = ?, standby_services = ? WHERE user_id = ?')
+    .run(body.optin ? 1 : 0, max, JSON.stringify(svcs), user.id);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/me\/standby\/(\d+)\/(accept|decline)$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const s = db.prepare('SELECT * FROM standby WHERE id = ?').get(Number(m[1]));
+  if (!s || s.worker_id !== user.id) return json(res, 404, { error: 'That standby period isn\'t yours.' });
+  if (s.status !== 'offered') return json(res, 400, { error: 'That one has already been answered.' });
+  const answer = m[2] === 'accept' ? 'accepted' : 'declined';
+  db.prepare('UPDATE standby SET status = ?, responded_at = ? WHERE id = ?').run(answer, now(), s.id);
+  json(res, 200, { ok: true, standby: standbyRows(user.id) });
+});
+
+/* ---------- the trigger: a worker who can't make it ---------- */
+
+route('POST', /^\/api\/bookings\/(\d+)\/cant-make-it$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'Booking not found.' });
+  if (!(user.role === 'worker' && b.worker_id === user.id) && !user.admin)
+    return json(res, 403, { error: 'That isn\'t your shift.' });
+  if (!['requested', 'accepted'].includes(b.status)) return json(res, 400, { error: 'That shift isn\'t live any more.' });
+  if (b.cover_state === 'finding') return json(res, 400, { error: 'Cover is already being found for this shift.' });
+  const reason = clean(body.reason, 300);
+  const cv = openCover(b.id, user.id, reason, req);
+  if (!cv) return json(res, 500, { error: 'Couldn\'t open a cover request.' });
+  const depth = coverDepth(b);
+  /* SCHADS cl.25.5(f) belongs to the employer's roster, not to this exchange —
+     no penalty is applied to a worker here, deliberately. Punishing a cancellation
+     buys you a worker who turns up sick and tells nobody. */
+  json(res, 200, {
+    ok: true, cover_id: cv.id, depth,
+    message: depth.total
+      ? `We're on it — ${depth.total} ${depth.total === 1 ? 'person is' : 'people are'} being asked, starting with the participant's own care web.`
+      : 'We\'re on it — the office has been alerted straight away because nobody was free.'
+  });
+});
+
+/* the participant can wave it off — no cover, no charge, and the worker's slot frees */
+route('POST', /^\/api\/bookings\/(\d+)\/stand-down$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'Booking not found.' });
+  if (b.participant_id !== user.id && !user.admin) return json(res, 403, { error: 'That isn\'t your booking.' });
+  const cv = db.prepare("SELECT * FROM cover WHERE booking_id = ? AND status = 'open'").get(b.id);
+  if (cv) {
+    db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = ? WHERE id = ?")
+      .run(now(), clean(body.reason, 200) || 'Participant stood cover down.', cv.id);
+    db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
+  }
+  db.prepare("UPDATE bookings SET status = 'cancelled', cover_state = 'stood-down' WHERE id = ?").run(b.id);
+  json(res, 200, { ok: true });
+});
+
+/* what's happening with my shift, in plain words */
+route('GET', /^\/api\/bookings\/(\d+)\/cover$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'Booking not found.' });
+  if (b.participant_id !== user.id && b.worker_id !== user.id && !user.admin) return json(res, 403, { error: 'Not your booking.' });
+  const cv = db.prepare('SELECT * FROM cover WHERE booking_id = ? ORDER BY id DESC LIMIT 1').get(b.id);
+  const offers = cv ? db.prepare(`SELECT o.tier, o.sent_at, o.expires_at, o.response, o.responded_at,
+      COALESCE(u.name, a.name) AS who
+    FROM cover_offers o LEFT JOIN users u ON u.id = o.worker_id
+    LEFT JOIN allied_providers a ON a.id = o.allied_id
+    WHERE o.cover_id = ? ORDER BY o.id ASC`).all(cv.id) : [];
+  json(res, 200, {
+    cover: cv || null,
+    tier_label: cv ? TIER_LABELS[cv.tier] : '',
+    offers: offers.map(o => ({ ...o, tier_label: TIER_LABELS[o.tier] || o.tier })),
+    depth: ['requested', 'accepted'].includes(b.status) ? coverDepth(b) : null
+  });
+});
+
+/* ---------- admin: the cover board ---------- */
+
+route('GET', /^\/api\/admin\/cover$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const base = `SELECT c.*, b.date, b.start, b.hours, b.service, b.participant_id,
+      up.name AS participant_name, up.phone AS participant_phone, up.suburb,
+      uw.name AS from_worker_name, uf.name AS filled_worker_name, a.name AS allied_name,
+      (SELECT COUNT(*) FROM cover_offers o WHERE o.cover_id = c.id) AS offers_sent
+    FROM cover c JOIN bookings b ON b.id = c.booking_id
+    JOIN users up ON up.id = b.participant_id
+    LEFT JOIN users uw ON uw.id = c.from_worker_id
+    LEFT JOIN users uf ON uf.id = c.filled_worker_id
+    LEFT JOIN allied_providers a ON a.id = c.allied_id`;
+  const dec = r => ({ ...r, tier_label: TIER_LABELS[r.tier] || r.tier, service_label: SERVICE_LABELS[r.service] || r.service });
+  const open = db.prepare(`${base} WHERE c.status = 'open' ORDER BY b.date ASC, b.start ASC`).all().map(r => ({
+    ...dec(r),
+    continuity: continuityTier(confirmedPlan(r.participant_id)),
+    live_offers: db.prepare(`SELECT o.tier, o.expires_at, COALESCE(u.name, a.name) AS who FROM cover_offers o
+      LEFT JOIN users u ON u.id = o.worker_id LEFT JOIN allied_providers a ON a.id = o.allied_id
+      WHERE o.cover_id = ? AND o.response IS NULL ORDER BY o.id ASC`).all(r.id)
+  }))
+  /* soonest-first is the right order for a roster and the wrong one for a
+     board somebody is working down at 6am. A Tier 1 shift on Thursday matters
+     more than a Tier 3 shift this afternoon, because the Tier 3 participant
+     has somebody else and the Tier 1 participant does not. Tier first, then
+     time. Tier 0 — no confirmed plan — sorts with the standard ones rather
+     than at the top, because an unanswered question is not an emergency; it
+     shows up as a gap on the support-plan board instead, which is where it
+     can actually be closed. */
+    .sort((a, b2) => (a.continuity.tier || 9) - (b2.continuity.tier || 9)
+      || (a.date + a.start < b2.date + b2.start ? -1 : 1));
+  const recent = db.prepare(`${base} WHERE c.status != 'open' ORDER BY c.id DESC LIMIT 40`).all().map(dec);
+  /* the number that matters: how much of this ran without a person */
+  const all = db.prepare("SELECT status, tier, office_alerted_at, opened_at, filled_at FROM cover WHERE status != 'open'").all();
+  const done = all.length;
+  const noHuman = all.filter(c => !c.office_alerted_at && ['filled', 'referred'].includes(c.status)).length;
+  const fillTimes = all.filter(c => c.filled_at).map(c => (new Date(c.filled_at) - new Date(c.opened_at)) / 60000);
+  const stats = {
+    total: done,
+    filled: all.filter(c => c.status === 'filled').length,
+    referred: all.filter(c => c.status === 'referred').length,
+    failed: all.filter(c => c.status === 'failed').length,
+    stood_down: all.filter(c => c.status === 'stood-down').length,
+    hands_off_pct: done ? Math.round((noHuman / done) * 100) : null,
+    median_fill_minutes: fillTimes.length ? Math.round(fillTimes.sort((a, b) => a - b)[Math.floor(fillTimes.length / 2)]) : null,
+    by_tier: COVER_TIERS.map(t => ({ tier: t, label: TIER_LABELS[t], n: all.filter(c => c.tier === t && ['filled', 'referred'].includes(c.status)).length }))
+  };
+  const today = new Date().toISOString().slice(0, 10);
+  const standby = db.prepare(`SELECT s.*, u.name FROM standby s JOIN users u ON u.id = s.worker_id
+    WHERE s.date >= ? ORDER BY s.date ASC, u.name ASC LIMIT 200`).all(today);
+  const rates = oncallRates();
+  const spend = db.prepare("SELECT COALESCE(SUM(allowance),0) AS s, COUNT(*) AS n FROM standby WHERE status = 'accepted' AND date >= ?")
+    .get(new Date(Date.now() - 90 * 86400e3).toISOString().slice(0, 10));
+  json(res, 200, {
+    open, recent, stats, rates,
+    standby: standby.map(s => ({ ...s, services: safeJson(s.services, []) })),
+    standby_spend_90d: Number(spend.s.toFixed(2)),
+    standby_periods_90d: spend.n,
+    allied: db.prepare('SELECT * FROM allied_providers ORDER BY active DESC, reciprocal DESC, name ASC').all()
+      .map(a => ({ ...a, reg_groups: safeJson(a.reg_groups, []), suburbs: safeJson(a.suburbs, []) })),
+    optins: db.prepare(`SELECT u.id, u.name, p.standby_max, p.standby_services FROM users u JOIN worker_profiles p ON p.user_id = u.id
+      WHERE p.standby_optin = 1 AND p.visible = 1 ORDER BY u.name`).all()
+      .map(o => ({ ...o, standby_services: safeJson(o.standby_services, []) }))
+  });
+});
+
+route('POST', /^\/api\/admin\/cover\/(\d+)\/escalate$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  let cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(Number(m[1]));
+  if (!cv || cv.status !== 'open') return json(res, 400, { error: 'That cover request isn\'t open.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+  db.prepare("UPDATE cover_offers SET response = 'expired', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
+  const next = COVER_TIERS[COVER_TIERS.indexOf(cv.tier) + 1];
+  if (next) { db.prepare('UPDATE cover SET tier = ? WHERE id = ?').run(next, cv.id); cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(cv.id); }
+  const sent = coverWave(cv, req);
+  json(res, 200, { ok: true, tier: cv.tier, sent });
+});
+
+route('POST', /^\/api\/admin\/cover\/(\d+)\/assign$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(Number(m[1]));
+  if (!cv || cv.status !== 'open') return json(res, 400, { error: 'That cover request isn\'t open.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+  const workerId = Number(body.worker_id);
+  if (!workerEligible(workerId, b)) return json(res, 400, { error: 'That worker isn\'t free or isn\'t currently screened for this shift.' });
+  const r = db.prepare(`INSERT INTO cover_offers (cover_id, tier, worker_id, rank, sent_at, expires_at, response, responded_at)
+    VALUES (?,?,?,?,?,?,'accepted',?)`).run(cv.id, cv.tier, workerId, 99, now(), new Date(Date.now() + 60000).toISOString(), now());
+  db.prepare("UPDATE cover SET status = 'filled', filled_worker_id = ?, filled_at = ?, closed_at = ?, human_minutes = human_minutes + 5, outcome_note = ? WHERE id = ?")
+    .run(workerId, now(), now(), 'Assigned by the office.', cv.id);
+  db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', swap_count = swap_count + 1 WHERE id = ?").run(workerId, b.id);
+  closeSiblings(cv.id, Number(r.lastInsertRowid));
+  notifyCovered(req, db.prepare('SELECT * FROM bookings WHERE id = ?').get(b.id), db.prepare('SELECT name FROM users WHERE id = ?').get(workerId), null);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/cover\/(\d+)\/close$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(Number(m[1]));
+  if (!cv) return json(res, 404, { error: 'Not found.' });
+  const mins = Math.max(0, Math.min(600, Number(body.human_minutes) || 0));
+  db.prepare("UPDATE cover SET status = ?, closed_at = ?, outcome_note = ?, human_minutes = human_minutes + ? WHERE id = ?")
+    .run(clean(body.status, 20) === 'failed' ? 'failed' : 'stood-down', now(), clean(body.note, 300), mins, cv.id);
+  db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
+  db.prepare("UPDATE bookings SET cover_state = ? WHERE id = ?").run('stood-down', cv.booking_id);
+  json(res, 200, { ok: true });
+});
+
+/* who could take this, right now — the office's answer to "who do I ring?" */
+route('GET', /^\/api\/admin\/cover\/(\d+)\/candidates$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(Number(m[1]));
+  if (!cv) return json(res, 404, { error: 'Not found.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+  const out = {};
+  for (const t of COVER_TIERS) {
+    out[t] = coverCandidates(cv, b, t).slice(0, 10).map(c => {
+      if (t === 'allied') return { id: c.id, allied: 1, name: c.name, phone: c.phone || '', email: c.email, share: c.share, agreement: c.agreement_ref };
+      const u = db.prepare('SELECT name, phone FROM users WHERE id = ?').get(c.id) || {};
+      return { id: c.id, name: u.name || '', phone: u.phone || '' };
+    });
+  }
+  json(res, 200, { candidates: out, labels: TIER_LABELS });
+});
+
+/* ---------- admin: allied providers ---------- */
+
+route('GET', /^\/api\/admin\/allied$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, {
+    allied: db.prepare('SELECT * FROM allied_providers ORDER BY active DESC, name ASC').all()
+      .map(a => ({ ...a, reg_groups: safeJson(a.reg_groups, []), suburbs: safeJson(a.suburbs, []) })),
+    groups: Object.entries(REG_GROUPS).map(([k, v]) => ({ service: k, label: SERVICE_LABELS[k], group: v }))
+  });
+});
+
+route('POST', /^\/api\/admin\/allied$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const name = clean(body.name, 120);
+  const email = clean(body.email, 160).toLowerCase();
+  if (!name) return json(res, 400, { error: 'A provider name is needed.' });
+  if (!EMAIL_RE.test(email)) return json(res, 400, { error: 'A valid contact email is needed — that\'s where cover requests go.' });
+  const groups = Array.isArray(body.reg_groups) ? body.reg_groups.map(g => clean(g, 12)).filter(Boolean) : [];
+  const subs = Array.isArray(body.suburbs) ? body.suburbs.map(s => clean(s, 60)).filter(Boolean)
+    : clean(body.suburbs, 600).split(',').map(s => s.trim()).filter(Boolean);
+  const share = Math.max(0.5, Math.min(1, Number(body.share) || 0.85));
+  const id = Number(body.id) || 0;
+  const vals = [name, clean(body.abn, 20), clean(body.ndis_reg, 30), clean(body.contact_name, 80), email, clean(body.phone, 30),
+    JSON.stringify(groups), JSON.stringify(subs), share, clean(body.agreement_ref, 60), clean(body.agreement_date, 10),
+    clean(body.insurance_expiry, 10), body.reciprocal === false ? 0 : 1, body.active === false ? 0 : 1];
+  if (id && db.prepare('SELECT id FROM allied_providers WHERE id = ?').get(id)) {
+    db.prepare(`UPDATE allied_providers SET name=?, abn=?, ndis_reg=?, contact_name=?, email=?, phone=?, reg_groups=?, suburbs=?,
+      share=?, agreement_ref=?, agreement_date=?, insurance_expiry=?, reciprocal=?, active=? WHERE id=?`).run(...vals, id);
+    return json(res, 200, { ok: true, id });
+  }
+  const r = db.prepare(`INSERT INTO allied_providers (name, abn, ndis_reg, contact_name, email, phone, reg_groups, suburbs,
+    share, agreement_ref, agreement_date, insurance_expiry, reciprocal, active, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(...vals, now());
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
+});
+
+route('POST', /^\/api\/admin\/allied\/(\d+)\/delete$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  db.prepare('UPDATE allied_providers SET active = 0 WHERE id = ?').run(Number(m[1]));
+  json(res, 200, { ok: true });
+});
+
+/* ---------- admin: standby roster ---------- */
+
+route('POST', /^\/api\/admin\/standby$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const date = clean(body.date, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: 'Pick a date.' });
+  const ids = Array.isArray(body.worker_ids) ? body.worker_ids.map(Number).filter(Boolean) : [];
+  if (!ids.length) return json(res, 400, { error: 'Pick at least one worker.' });
+  const out = ids.map(id => offerStandby(id, date, req)).filter(Boolean);
+  json(res, 200, { ok: true, offered: out.length });
+});
+
+route('POST', /^\/api\/admin\/standby\/(\d+)\/release$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const s = db.prepare('SELECT * FROM standby WHERE id = ?').get(Number(m[1]));
+  if (!s) return json(res, 404, { error: 'Not found.' });
+  db.prepare("UPDATE standby SET status = 'released' WHERE id = ?").run(s.id);
+  json(res, 200, { ok: true });
+});
+
+route('POST', /^\/api\/admin\/standby\/fill$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const r = standbySweep(req, Number(body.days) || 14);
+  json(res, 200, { ok: true, ...r });
+});
+
+/* SCHADS moves every 1 July — this is a form field, not a deploy */
+route('POST', /^\/api\/admin\/oncall-rates$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const w = Number(body.weekday), o = Number(body.other);
+  if (!(w > 0 && w < 500) || !(o > 0 && o < 500)) return json(res, 400, { error: 'Both allowances need to be a sensible dollar figure.' });
+  setSetting('oncall_weekday', w.toFixed(2));
+  setSetting('oncall_other', o.toFixed(2));
+  setSetting('standby_ratio', String(Math.max(1, Math.min(50, Number(body.ratio) || 8))));
+  setSetting('standby_horizon', String(Math.max(1, Math.min(28, Number(body.horizon) || 10))));
+  json(res, 200, { ok: true, rates: oncallRates() });
+});
+
+/* ============================================================================
+   THE AWARDS LADDER
+   ============================================================================
+
+   Two things wearing one name, because they are the same mechanism:
+
+   1. The reward ladder. Four tiers set by rolling 12-month hours. Each tier is
+      a percentage share of the NDIS price limit, not a dollar figure — so one
+      number drives all nine rate categories and the ladder survives every
+      annual price review without being rebuilt.
+
+   2. The SCHADS award floor. The ladder is not allowed to pay below the award,
+      and on household tasks (0120) the flat share ALREADY DOES — $38.84 base
+      against a Level 2 casual minimum of $45.28. That is a live problem today,
+      before any tier exists, and no percentage fixes it because the 0120 price
+      limit is capped 18% below personal care while the award doesn't fall with
+      it. It needs a floor. That is why the floor ships with the ladder rather
+      than after it.
+
+   Nothing here is a constant. Shares, bands, award minimums and penalty
+   multipliers are all settings, because SCHADS moves every 1 July and the
+   ladder is a commercial decision that should not need a deploy to change. */
+
+for (const col of ["tier TEXT DEFAULT 'bronze'", 'schads_level INTEGER DEFAULT 2',
+  "tier_below_since TEXT DEFAULT ''", "tier_notice_at TEXT DEFAULT ''", "tier_pending TEXT DEFAULT ''",
+  "tier_paused_until TEXT DEFAULT ''", "tier_pause_reason TEXT DEFAULT ''", "tier_reviewed_at TEXT DEFAULT ''"]) {
+  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+}
+/* what was actually applied to this shift, frozen at completion. A tier change
+   next month must never silently restate last month's pay. */
+for (const col of ["tier_at_shift TEXT DEFAULT ''", 'share_pct REAL', 'award_floored INTEGER DEFAULT 0']) {
+  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+}
+/* Append-only. Under the Fair Work Act employee-like worker provisions (in force
+   26/08/2024) a pay-rate reduction needs a defensible record of when the
+   threshold was crossed and when notice was given. Rows are never updated. */
+db.exec(`CREATE TABLE IF NOT EXISTS tier_log (
+  id INTEGER PRIMARY KEY,
+  worker_id INTEGER NOT NULL REFERENCES users(id),
+  from_tier TEXT NOT NULL DEFAULT '',
+  to_tier TEXT NOT NULL DEFAULT '',
+  direction TEXT NOT NULL DEFAULT '',
+  hours REAL NOT NULL DEFAULT 0,
+  reason TEXT NOT NULL DEFAULT '',
+  notice_at TEXT NOT NULL DEFAULT '',
+  actor TEXT NOT NULL DEFAULT 'system',
+  created TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tier_log_worker ON tier_log(worker_id);`);
+
+const TIERS = [
+  { key: 'bronze',   label: 'Bronze',   sub: 'Starter' },
+  { key: 'silver',   label: 'Silver',   sub: 'Regular' },
+  { key: 'gold',     label: 'Gold',     sub: 'Committed' },
+  { key: 'platinum', label: 'Platinum', sub: 'Career' }
+];
+const TIER_KEYS = TIERS.map(t => t.key);
+const tierIndex = k => Math.max(0, TIER_KEYS.indexOf(k));
+
+/* Seeded to the "Steady" ladder — 72.5 / 74.0 / 75.5 / 76.5 — which costs about
+   $19,510 a year against the flat 72.4% and lands within $209 of the solved
+   "Level" ladder where no tier returns less than any other. The ladder
+   DECELERATES on purpose: the retention dividend that funds it arrives almost
+   entirely at the first step ($1.29/hr Bronze→Silver, $0.45 Silver→Gold,
+   $0.11 Gold→Platinum) while every extra percentage point costs a flat
+   $0.7358/hr. A conventional +3/+3/+3 ladder spends the most money exactly
+   where the least comes back.
+
+   Bands seeded low — 200/600/1,200 rather than 300/900/1,500 — because moving
+   the bands is cheaper than raising the percentages, and Silver is the step
+   that pays for itself. At the sector's average 22.7 hours a week, 1,500 hours
+   puts the top tier out of reach for most casuals. */
+const LADDER_DEFAULT = {
+  share: { bronze: 72.5, silver: 74.0, gold: 75.5, platinum: 76.5 },
+  band: { silver: 200, gold: 600, platinum: 1200 },
+  super: 12,
+  /* SCHADS MA000100 casual minimums, per hour, from 01/07/2026. Level 1 pp1
+     $34.44 · Level 2 pp1 $45.28 · Level 3 pp1 $50.61. These already include the
+     25% casual loading — the whole ladder only clears the award because they do.
+     Engage anyone permanent and these figures are wrong. */
+  schads: { 1: 34.44, 2: 45.28, 3: 50.61 },
+  notice_days: 28,
+  grace_days: 90,
+  /* Bronze already keeps 27.5% and Platinum 23.5%, so on an unfloored rate this
+     never binds. It exists for the floored ones, where the uplift has to stop
+     somewhere. 20% is the point below which the shift stops covering workers
+     comp, insurance and admin — move it in settings once the real on-costs are
+     known, don't guess it lower to make a red row go green. */
+  min_margin_pct: 20
+};
+
+/* Casual penalty multipliers, expressed against the casual ORDINARY rate (125%),
+   because that is what the SCHADS figures above already are.
+
+   Casual loading is added TO the penalty, not compounded with it — Saturday
+   casual is 175%, not 150%. So Saturday = 175/125 = 1.40, Sunday = 225/125 =
+   1.80, public holiday = 275/125 = 2.20.
+
+   Evening and night are shift ALLOWANCES rather than penalty rates, but they
+   go in the same place because SCHADS calculates them the same way: on the
+   ordinary rate, added to the casual loading, not compounded. Afternoon shift
+   is 12.5% -> 137.5/125 = 1.10. Night shift is 15% -> 140/125 = 1.12.
+   Permanent night shift (30%) is deliberately NOT offered here: it applies to
+   permanent employees, and this whole ladder assumes casual engagement — see
+   the LADDER_DEFAULT.schads comment. If DMHC ever engages permanent staff,
+   every figure in this block is wrong, not just these two.
+   They stay confirmed:false so the console keeps saying where the number came
+   from, but 1.10/1.12 is strictly safer than the 1.00 they used to sit at:
+   raising a floor can only ever stop an underpayment, never cause one. The
+   real percentages belong to the award, so have the bookkeeper confirm them at
+   the next pay run and set award_mult_weekday-evening / -night if they differ. */
+const AWARD_MULT_DEFAULT = {
+  'weekday-day': { mult: 1.00, confirmed: true, note: 'Ordinary casual rate.' },
+  'weekday-evening': { mult: 1.10, confirmed: false, note: 'SCHADS afternoon shift allowance, 12.5% on the ordinary rate, added to the casual loading rather than compounded: 137.5 ÷ 125 = 1.10. Confirm at the next pay run.' },
+  'weekday-night': { mult: 1.12, confirmed: false, note: 'SCHADS night shift allowance, 15% on the ordinary rate, added to the casual loading rather than compounded: 140 ÷ 125 = 1.12. Confirm at the next pay run. Permanent night shift (30%) does not arise — the ladder assumes casual engagement throughout.' },
+  'saturday': { mult: 1.40, confirmed: true, note: '175% casual ÷ 125% ordinary casual.' },
+  'sunday': { mult: 1.80, confirmed: true, note: '225% casual ÷ 125% ordinary casual.' },
+  'public-holiday': { mult: 2.20, confirmed: true, note: '275% casual ÷ 125% ordinary casual.' },
+  'household': { mult: 1.00, confirmed: true, note: 'Ordinary casual rate. SCHADS classifies the EMPLOYEE, not the task — a Level 2 worker cannot be paid Level 1 for a cleaning shift.' },
+  'employment': { mult: 1.00, confirmed: true, note: 'Ordinary casual rate.' }
+};
+
+const round2 = n => Math.round(n * 100) / 100;
+function numSetting(key, fallback) { const n = Number(setting(key)); return Number.isFinite(n) && n > 0 ? n : fallback; }
+function tierShares() {
+  const out = {};
+  for (const k of TIER_KEYS) out[k] = numSetting(`tier_share_${k}`, LADDER_DEFAULT.share[k]);
+  return out;
+}
+function tierBands() {
+  return {
+    silver: numSetting('tier_band_silver', LADDER_DEFAULT.band.silver),
+    gold: numSetting('tier_band_gold', LADDER_DEFAULT.band.gold),
+    platinum: numSetting('tier_band_platinum', LADDER_DEFAULT.band.platinum)
+  };
+}
+function superRate() { return numSetting('super_rate', LADDER_DEFAULT.super); }
+/* The minimum gross margin the platform has to retain out of the price limit to
+   cover workers comp, insurance, admin and the platform itself. It exists to
+   stop the tier uplift below being paid out of money that isn't there — see
+   `workerPay`. It is NOT permission to pay under the award: the floor always
+   wins over the cap, and a row where the floor is above the cap is a rostering
+   problem, not a pay problem. */
+function minMarginPct() { return numSetting('min_margin_pct', LADDER_DEFAULT.min_margin_pct); }
+function schadsCasual(level) {
+  const lv = [1, 2, 3].includes(Number(level)) ? Number(level) : 2;
+  return numSetting(`schads_l${lv}_casual`, LADDER_DEFAULT.schads[lv]);
+}
+function awardMult(category) {
+  const d = AWARD_MULT_DEFAULT[category];
+  if (!d) return { mult: 1, confirmed: false, note: 'No multiplier recorded for this category.' };
+  const n = Number(setting(`award_mult_${category}`));
+  return { ...d, mult: Number.isFinite(n) && n > 0 ? n : d.mult };
+}
+
+/* Rolling 12 months of completed hours. Recalculated on review, not on read,
+   so a worker's rate can't move mid-fortnight underneath a payroll run. */
+function rollingHours(workerId) {
+  const since = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+  const r = db.prepare(`SELECT COALESCE(SUM(hours), 0) AS h FROM bookings
+    WHERE worker_id = ? AND status = 'completed' AND date >= ? AND COALESCE(sleepover, 0) = 0`).get(workerId, since);
+  return Math.round((r.h || 0) * 10) / 10;
+}
+function tierForHours(hours) {
+  const b = tierBands();
+  if (hours >= b.platinum) return 'platinum';
+  if (hours >= b.gold) return 'gold';
+  if (hours >= b.silver) return 'silver';
+  return 'bronze';
+}
+function tierOf(workerId) {
+  const p = db.prepare('SELECT tier FROM worker_profiles WHERE user_id = ?').get(workerId);
+  return p && TIER_KEYS.includes(p.tier) ? p.tier : 'bronze';
+}
+
+/* The floor. base award × penalty multiplier × (1 + super), because the ladder
+   share is quoted all-in and the two have to be compared on the same basis. */
+function awardFloorFor(level, category) {
+  const m = awardMult(category);
+  return {
+    rate: round2(schadsCasual(level) * m.mult * (1 + superRate() / 100)),
+    base: round2(schadsCasual(level) * m.mult),
+    mult: m.mult, confirmed: m.confirmed, note: m.note, level: Number(level) || 2
+  };
+}
+
+/* The one function that decides what an hour is worth to a worker.
+     share of the price limit, floored by the award for their classification.
+   Sleepovers are excluded from the floor by design: the 0115/0138 item is
+   priced per night, and SCHADS treats a sleepover as an allowance plus payment
+   for hours actually worked, so an hourly minimum does not test it. It stays on
+   its own rule rather than being forced through a formula that doesn't fit. */
+/* Rounding note, because it changes cents and cents get audited: the hourly
+   rate is rounded to the cent FIRST, then multiplied by hours. Not the other
+   way round. A payslip has to state an hourly rate, and "$55.5529" is not a
+   rate anyone can be paid — so the rate is the real number and the total
+   follows from it. It also means the award comparison is rate against rate,
+   which is how the award itself is written. */
+function workerPay(workerId, category, hours) {
+  const r = INVOICE_RATES[category];
+  if (!r) return null;
+  const prof = db.prepare('SELECT tier, schads_level FROM worker_profiles WHERE user_id = ?').get(workerId) || {};
+  const tier = TIER_KEYS.includes(prof.tier) ? prof.tier : 'bronze';
+  const shares = tierShares();
+  const share = shares[tier];
+  const qty = r.perNight ? 1 : hours;
+  const ladderRate = round2(r.price * share / 100);
+
+  if (r.perNight) {
+    return { tier, share_pct: share, rate: ladderRate, qty, amount: round2(ladderRate * qty),
+      floored: false, floor: null, why: 'Per-night sleepover allowance — the hourly award floor does not apply.' };
+  }
+  const floor = awardFloorFor(prof.schads_level, category);
+  const floored = floor.rate > ladderRate;
+
+  /* THE TIER HAS TO MEAN SOMETHING EVEN WHEN THE FLOOR GOVERNS.
+     max(share, floor) looks fair and isn't. A Level 3 casual costs $56.68 all-in
+     on a weekday; Platinum at 76.5% of $73.58 is $56.29. So under a plain
+     max() a Level 3 worker is paid the floor at Bronze and the same floor at
+     Platinum — their dashboard says Platinum and their payslip says starter, and
+     1,200 hours of loyalty buys them nothing. That is not a rounding artefact,
+     it is the ladder being switched off for the classification that has done the
+     most training.
+     So when the floor wins, the tier is applied TO THE FLOOR, in the same
+     proportion the ladder uses between tiers (share ÷ bronze share). Bronze
+     multiplies by exactly 1, so a Bronze floored worker is paid what they were
+     paid before and no historical rate moves. */
+  const upliftRate = round2(floor.rate * share / shares.bronze);
+  /* `base` is what this hour was worth before any of this existed: the ladder
+     share, or the award if the award is higher. Everything below can only add to
+     it. Writing it down as its own name is the whole safety argument — the cap
+     further down is a limit on the UPLIFT, and if it were allowed to bite into
+     `base` a platform margin setting could cut the pay of a worker the floor
+     never touched. At a 40% target that is exactly what it would do: a Gold
+     Level 2 weekday hour would fall from $55.55 to the $50.71 floor. A margin
+     target is a statement about what the platform keeps, and it is never
+     permitted to become a pay cut. */
+  const base = Math.max(floor.rate, ladderRate);
+  const target = Math.max(base, upliftRate);
+
+  /* ...but the uplift can only be paid out of margin that exists. Household
+     tasks are the case: $60.10 against a Level 3 floor of $56.68 leaves $3.42,
+     and there is no loyalty bonus inside $3.42. The cap withholds the uplift
+     rather than pretending the money is there.
+     The floor OUTRANKS the cap, always. If the award is above the cap the award
+     is still paid — the answer to an unprofitable shift is who gets rostered on
+     it, never a rate below the minimum. `uneconomic` says so out loud. */
+  /* floored to the cent, not rounded to it. This is a MAXIMUM payable rate, and
+     rounding a maximum upwards puts the paid rate a fraction past the target it
+     exists to enforce — on an $81.07 evening the cap wants $64.856, and $64.86
+     leaves $16.21 against a $16.214 target, so the row reports itself as failing
+     by four tenths of a cent. That is a rounding artefact wearing the costume of
+     a finding, and it would have told Bee not to roster Level 3 on evenings.
+     Rounding down costs a capped worker at most one cent and makes the flag
+     mean what it says. */
+  const cap = Math.floor(r.price * (1 - minMarginPct() / 100) * 100) / 100;
+  const rate = round2(Math.max(base, Math.min(target, cap)));
+  const uplift_withheld = floored && target > cap && rate < target;
+  const uneconomic = floor.rate > cap;
+  const L = TIERS[tierIndex(tier)].label;
+
+  return {
+    tier, share_pct: share, rate, qty, amount: round2(rate * qty), floored, floor,
+    ladder_rate: ladderRate, uplift_rate: upliftRate, cap, uplift_withheld, uneconomic,
+    margin: round2(r.price - rate), margin_pct: round2((r.price - rate) / r.price * 100),
+    why: !floored
+      ? `${L} — ${share}% of the $${r.price.toFixed(2)} price limit.`
+      : uneconomic
+        ? `Award floor applied, and this shift does not clear the ${minMarginPct()}% margin at Level ${floor.level}. ${L} at ${share}% of $${r.price.toFixed(2)} is $${ladderRate.toFixed(2)}, below the SCHADS Level ${floor.level} casual minimum of $${floor.base.toFixed(2)} plus ${superRate()}% super. The award is paid in full — but the tier uplift is withheld because the price limit cannot fund it, and this classification should not be rostered on this support on its own.`
+        : uplift_withheld
+          ? `Award floor applied, with the ${L} uplift capped. The floor for Level ${floor.level} is $${floor.rate.toFixed(2)}; ${L} would lift it to $${upliftRate.toFixed(2)}, which leaves less than the ${minMarginPct()}% the platform has to retain, so it is paid at $${rate.toFixed(2)}.`
+          : `Award floor applied, then lifted for ${L}. ${L} at ${share}% of $${r.price.toFixed(2)} is $${ladderRate.toFixed(2)}, below the SCHADS Level ${floor.level} casual minimum of $${floor.base.toFixed(2)} plus ${superRate()}% super — so the floor of $${floor.rate.toFixed(2)} applies, lifted by the ${L} share to $${rate.toFixed(2)}.`
+  };
+}
+
+/* ---------- movement ----------
+   Up immediately. Down slowly, one step, with notice, never while on leave.
+   These rules are not decoration: unfair-deactivation protections apply to
+   platform care work, and a pay cut is the kind of change that gets tested. */
+function reviewWorkerTier(workerId, opts = {}) {
+  const p = db.prepare('SELECT tier, tier_below_since, tier_notice_at, tier_pending, tier_paused_until FROM worker_profiles WHERE user_id = ?').get(workerId);
+  if (!p) return null;
+  const cur = TIER_KEYS.includes(p.tier) ? p.tier : 'bronze';
+  const hours = rollingHours(workerId);
+  const earned = tierForHours(hours);
+  const nowIso = now();
+  const today = nowIso.slice(0, 10);
+  const paused = p.tier_paused_until && p.tier_paused_until >= today;
+  const log = (to, direction, reason, noticeAt = '') =>
+    db.prepare('INSERT INTO tier_log (worker_id, from_tier, to_tier, direction, hours, reason, notice_at, actor, created) VALUES (?,?,?,?,?,?,?,?,?)')
+      .run(workerId, cur, to, direction, hours, reason, noticeAt, opts.actor || 'system', nowIso);
+  const touch = fields => db.prepare(`UPDATE worker_profiles SET ${Object.keys(fields).map(k => `${k} = ?`).join(', ')}, tier_reviewed_at = ? WHERE user_id = ?`)
+    .run(...Object.values(fields), nowIso, workerId);
+
+  /* Going up is immediate and cancels any pending drop outright. */
+  if (tierIndex(earned) > tierIndex(cur)) {
+    touch({ tier: earned, tier_below_since: '', tier_notice_at: '', tier_pending: '' });
+    log(earned, 'up', `${hours} hours in the last 12 months.`);
+    return { moved: 'up', from: cur, to: earned, hours };
+  }
+  /* At or above your own band: nothing pending, clock cleared. */
+  if (tierIndex(earned) >= tierIndex(cur)) {
+    if (p.tier_below_since || p.tier_notice_at) touch({ tier_below_since: '', tier_notice_at: '', tier_pending: '' });
+    else db.prepare('UPDATE worker_profiles SET tier_reviewed_at = ? WHERE user_id = ?').run(nowIso, workerId);
+    return { moved: null, from: cur, to: cur, hours };
+  }
+  /* Below. Nothing at all happens while the clock is paused — someone who
+     breaks a wrist does not lose their pay rate. */
+  if (paused) return { moved: null, from: cur, to: cur, hours, paused: true };
+
+  const grace = numSetting('tier_grace_days', LADDER_DEFAULT.grace_days);
+  const noticeDays = numSetting('tier_notice_days', LADDER_DEFAULT.notice_days);
+
+  if (!p.tier_below_since) { touch({ tier_below_since: nowIso }); return { moved: null, from: cur, to: cur, hours, below_since: nowIso }; }
+  const belowDays = Math.floor((Date.parse(nowIso) - Date.parse(p.tier_below_since)) / 864e5);
+  if (belowDays < grace) return { moved: null, from: cur, to: cur, hours, below_days: belowDays };
+
+  /* One step down only, never straight to the earned tier. */
+  const next = TIER_KEYS[Math.max(0, tierIndex(cur) - 1)];
+
+  if (!p.tier_notice_at) {
+    touch({ tier_notice_at: nowIso, tier_pending: next });
+    log(next, 'notice', `${hours} hours in the last 12 months — ${belowDays} days below the ${TIERS[tierIndex(cur)].label} band. ${noticeDays} days' notice given.`, nowIso);
+    const w = db.prepare('SELECT name, email FROM users WHERE id = ?').get(workerId);
+    if (w) sendMail(w.email, `A change to your BookIt pay tier on ${fmtDate(new Date(Date.now() + noticeDays * 864e5).toISOString().slice(0, 10))}`,
+      `<p>Hi ${escHtml(w.name.split(' ')[0])},</p>
+       <p>Your hours over the last 12 months come to <b>${hours}</b>. That has been below the ${escHtml(TIERS[tierIndex(cur)].label)} band for ${belowDays} days, so from <b>${escHtml(fmtDate(new Date(Date.now() + noticeDays * 864e5).toISOString().slice(0, 10)))}</b> your tier will move from ${escHtml(TIERS[tierIndex(cur)].label)} to ${escHtml(TIERS[tierIndex(next)].label)} — one step, not more.</p>
+       <p><b>This is reversible before it happens.</b> Tiers go up the moment you cross back over the band, and crossing back cancels this change entirely. You need ${Math.max(0, tierBands()[cur] - hours).toFixed(1)} more hours in the rolling 12 months.</p>
+       <p>If you have been on parental leave, carer's leave, workers compensation or long-term illness during this period, tell us — the clock pauses for all of those and this notice should not have been sent.</p>`);
+    return { moved: 'notice', from: cur, to: next, hours, effective: new Date(Date.now() + noticeDays * 864e5).toISOString() };
+  }
+  const noticeDaysElapsed = Math.floor((Date.parse(nowIso) - Date.parse(p.tier_notice_at)) / 864e5);
+  if (noticeDaysElapsed < noticeDays) return { moved: null, from: cur, to: cur, hours, notice_days_left: noticeDays - noticeDaysElapsed };
+
+  /* Reset the below-clock rather than clearing it, so the next step down can't
+     happen for another full grace period. Never more than one step per 90 days. */
+  touch({ tier: next, tier_below_since: nowIso, tier_notice_at: '', tier_pending: '' });
+  log(next, 'down', `${hours} hours in the last 12 months. ${noticeDays} days' notice given on ${p.tier_notice_at.slice(0, 10)}.`, p.tier_notice_at);
+  return { moved: 'down', from: cur, to: next, hours };
+}
+
+function reviewAllTiers(opts = {}) {
+  const ids = db.prepare("SELECT id FROM users WHERE role = 'worker'").all().map(r => r.id);
+  const out = { checked: 0, up: 0, down: 0, notice: 0 };
+  for (const id of ids) {
+    const r = reviewWorkerTier(id, opts);
+    if (!r) continue;
+    out.checked++;
+    if (r.moved === 'up') out.up++;
+    else if (r.moved === 'down') out.down++;
+    else if (r.moved === 'notice') out.notice++;
+  }
+  return out;
+}
+
+/* ---------- what a worker sees ---------- */
+route('GET', /^\/api\/me\/tier$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const p = db.prepare('SELECT tier, schads_level, tier_pending, tier_notice_at, tier_paused_until, tier_pause_reason FROM worker_profiles WHERE user_id = ?').get(user.id) || {};
+  const tier = TIER_KEYS.includes(p.tier) ? p.tier : 'bronze';
+  const hours = rollingHours(user.id);
+  const shares = tierShares(); const bands = tierBands();
+  const i = tierIndex(tier);
+  const nextKey = TIER_KEYS[i + 1] || null;
+  const noticeDays = numSetting('tier_notice_days', LADDER_DEFAULT.notice_days);
+  json(res, 200, {
+    tier, label: TIERS[i].label, sub: TIERS[i].sub, share_pct: shares[tier], hours,
+    /* the headline figure: what a weekday daytime hour is worth to them right now */
+    weekday_rate: (workerPay(user.id, 'weekday-day', 1) || {}).rate,
+    next: nextKey ? { tier: nextKey, label: TIERS[i + 1].label, share_pct: shares[nextKey], at_hours: bands[nextKey],
+      hours_to_go: Math.max(0, round2(bands[nextKey] - hours)),
+      worth: round2(INVOICE_RATES['weekday-day'].price * (shares[nextKey] - shares[tier]) / 100) } : null,
+    ladder: TIERS.map((t, n) => ({ ...t, share_pct: shares[t.key], from_hours: n === 0 ? 0 : bands[t.key],
+      weekday_rate: round2(INVOICE_RATES['weekday-day'].price * shares[t.key] / 100), current: t.key === tier })),
+    schads_level: p.schads_level || 2,
+    pending: p.tier_pending ? { tier: p.tier_pending, label: TIERS[tierIndex(p.tier_pending)].label,
+      effective: p.tier_notice_at ? new Date(Date.parse(p.tier_notice_at) + noticeDays * 864e5).toISOString() : '',
+      hours_to_cancel: Math.max(0, round2(bands[tier] - hours)) } : null,
+    paused: p.tier_paused_until && p.tier_paused_until >= now().slice(0, 10) ? { until: p.tier_paused_until, reason: p.tier_pause_reason || '' } : null,
+    history: db.prepare('SELECT from_tier, to_tier, direction, hours, reason, created FROM tier_log WHERE worker_id = ? ORDER BY id DESC LIMIT 20').all(user.id)
+  });
+});
+
+/* ---------- admin: the ladder board ---------- */
+route('GET', /^\/api\/admin\/ladder$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const shares = tierShares(); const bands = tierBands();
+  const price = INVOICE_RATES['weekday-day'].price;
+  const workers = db.prepare(`SELECT u.id, u.name, u.email, p.tier, p.schads_level, p.tier_pending, p.tier_notice_at,
+      p.tier_paused_until, p.tier_pause_reason, p.tier_below_since, p.visible
+    FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' ORDER BY u.name`).all()
+    .map(w => {
+      const tier = TIER_KEYS.includes(w.tier) ? w.tier : 'bronze';
+      const hours = rollingHours(w.id);
+      const pay = workerPay(w.id, 'weekday-day', 1) || {};
+      return { ...w, tier, label: TIERS[tierIndex(tier)].label, hours, share_pct: shares[tier],
+        weekday_rate: pay.rate, floored: !!pay.floored, earned: tierForHours(hours) };
+    });
+  const counts = {};
+  for (const k of TIER_KEYS) counts[k] = workers.filter(w => w.tier === k).length;
+  json(res, 200, {
+    tiers: TIERS.map((t, n) => ({ ...t, share_pct: shares[t.key], from_hours: n === 0 ? 0 : bands[t.key],
+      weekday_all_in: round2(price * shares[t.key] / 100),
+      weekday_base: round2(price * shares[t.key] / 100 / (1 + superRate() / 100)),
+      you_keep: round2(price - price * shares[t.key] / 100), n: counts[t.key] })),
+    settings: { shares, bands, super: superRate(), notice_days: numSetting('tier_notice_days', LADDER_DEFAULT.notice_days),
+      grace_days: numSetting('tier_grace_days', LADDER_DEFAULT.grace_days), min_margin: minMarginPct(),
+      schads: { 1: schadsCasual(1), 2: schadsCasual(2), 3: schadsCasual(3) } },
+    /* every category, tested against the floor at every tier — this is the table
+       that shows household tasks failing before anyone has to discover it */
+    award_check: Object.entries(INVOICE_RATES).filter(([, r]) => !r.perNight).map(([key, r]) => {
+      const mult = awardMult(key);
+      const cap = Math.floor(r.price * (1 - minMarginPct() / 100) * 100) / 100;
+      const bronzeRate = round2(r.price * shares.bronze / 100);
+      const topRate = round2(r.price * shares.platinum / 100);
+      return { key, label: r.label, price: r.price, mult: mult.mult, confirmed: mult.confirmed, note: mult.note, cap,
+        levels: [1, 2, 3].map(lv => {
+          const floor = awardFloorFor(lv, key);
+          /* what the worker is actually paid at each end of the ladder, through
+             the same clamp workerPay uses — so this table cannot drift from the
+             payslip. The old version reported the margin at Level 2 only, which
+             printed 27.5% on rows that were flagged in the same breath for
+             failing at Level 3. Two numbers in one row that could not both be
+             true about the same worker. */
+          const payAt = share => {
+            const ladder = round2(r.price * share / 100);
+            const baseRate = Math.max(floor.rate, ladder);
+            const target = Math.max(baseRate, round2(floor.rate * share / shares.bronze));
+            return round2(Math.max(baseRate, Math.min(target, cap)));
+          };
+          const paidBronze = payAt(shares.bronze);
+          const paidTop = payAt(shares.platinum);
+          return { level: lv, floor: floor.rate, bronze_short: round2(floor.rate - bronzeRate),
+            clears_at_bronze: bronzeRate >= floor.rate, clears_at_top: topRate >= floor.rate,
+            paid_bronze: paidBronze, paid_top: paidTop,
+            margin: round2(r.price - paidBronze), margin_pct: round2((r.price - paidBronze) / r.price * 100),
+            top_margin_pct: round2((r.price - paidTop) / r.price * 100),
+            /* does the ladder still move for this classification, or has the
+               floor swallowed it whole? */
+            ladder_live: paidTop > paidBronze,
+            /* measured at the TOP of the ladder, not the bottom. A Platinum
+               worker is the most expensive one who could take this shift, so
+               that is the number that decides whether it is affordable — and
+               measuring it here makes this flag agree with `uneconomic` on the
+               payslip by construction rather than by coincidence. */
+            economic: paidTop <= cap
+          };
+        }) };
+    }),
+    workers,
+    log: db.prepare(`SELECT l.*, u.name FROM tier_log l JOIN users u ON u.id = l.worker_id ORDER BY l.id DESC LIMIT 50`).all()
+  });
+});
+
+route('POST', /^\/api\/admin\/ladder\/settings$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const saved = [];
+  const put = (key, val, min, max) => {
+    const n = Number(val);
+    if (!Number.isFinite(n) || n < min || n > max) return;
+    setSetting(key, n); saved.push(key);
+  };
+  for (const k of TIER_KEYS) if (body[`share_${k}`] !== undefined) put(`tier_share_${k}`, body[`share_${k}`], 50, 100);
+  for (const k of ['silver', 'gold', 'platinum']) if (body[`band_${k}`] !== undefined) put(`tier_band_${k}`, body[`band_${k}`], 1, 20000);
+  if (body.super !== undefined) put('super_rate', body.super, 0, 30);
+  if (body.notice_days !== undefined) put('tier_notice_days', body.notice_days, 1, 365);
+  /* capped at 40 deliberately — a margin target above that is not a margin
+     target, it is a decision to pay everyone the award and call it a ladder */
+  if (body.min_margin !== undefined) put('min_margin_pct', body.min_margin, 5, 40);
+  if (body.grace_days !== undefined) put('tier_grace_days', body.grace_days, 1, 730);
+  for (const lv of [1, 2, 3]) if (body[`schads_l${lv}`] !== undefined) put(`schads_l${lv}_casual`, body[`schads_l${lv}`], 1, 500);
+  for (const key of Object.keys(AWARD_MULT_DEFAULT)) if (body[`mult_${key}`] !== undefined) put(`award_mult_${key}`, body[`mult_${key}`], 0.5, 5);
+  /* shares must not invert — a lower tier paying more than a higher one is not a
+     ladder, and it would quietly reverse the incentive the whole thing exists for */
+  const s = tierShares();
+  for (let i = 1; i < TIER_KEYS.length; i++) {
+    if (s[TIER_KEYS[i]] < s[TIER_KEYS[i - 1]]) {
+      return json(res, 400, { error: `${TIERS[i].label} (${s[TIER_KEYS[i]]}%) can't pay less than ${TIERS[i - 1].label} (${s[TIER_KEYS[i - 1]]}%). Saved what was valid; fix the order and save again.`, saved });
+    }
+  }
+  const b = tierBands();
+  if (!(b.silver < b.gold && b.gold < b.platinum)) return json(res, 400, { error: 'Hour bands must increase: Silver, then Gold, then Platinum.', saved });
+  json(res, 200, { ok: true, saved, shares: s, bands: b });
+});
+
+route('POST', /^\/api\/admin\/workers\/(\d+)\/tier$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const id = Number(m[1]);
+  const w = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(id);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  const cur = tierOf(id);
+
+  if (body.schads_level !== undefined) {
+    const lv = Number(body.schads_level);
+    if (![1, 2, 3].includes(lv)) return json(res, 400, { error: 'SCHADS level must be 1, 2 or 3.' });
+    db.prepare('UPDATE worker_profiles SET schads_level = ? WHERE user_id = ?').run(lv, id);
+    db.prepare('INSERT INTO tier_log (worker_id, from_tier, to_tier, direction, hours, reason, actor, created) VALUES (?,?,?,?,?,?,?,?)')
+      .run(id, cur, cur, 'classification', rollingHours(id), `SCHADS classification set to Level ${lv}.`, user.email || 'admin', now());
+  }
+  /* Pausing is the leave rule. It stops downward movement dead — parental leave,
+     carer's leave, workers compensation, long-term illness. */
+  if (body.pause_until !== undefined) {
+    const until = clean(body.pause_until, 10);
+    const reason = clean(body.pause_reason || '', 200);
+    db.prepare('UPDATE worker_profiles SET tier_paused_until = ?, tier_pause_reason = ?, tier_notice_at = ?, tier_pending = ? WHERE user_id = ?')
+      .run(until, reason, '', '', id);
+    db.prepare('INSERT INTO tier_log (worker_id, from_tier, to_tier, direction, hours, reason, actor, created) VALUES (?,?,?,?,?,?,?,?)')
+      .run(id, cur, cur, until ? 'paused' : 'unpaused', rollingHours(id),
+        until ? `Tier clock paused until ${until}${reason ? ` — ${reason}` : ''}. Any pending reduction cancelled.` : 'Tier clock resumed.', user.email || 'admin', now());
+  }
+  /* A manual set is always allowed upward. Downward by hand would route around
+     the notice rule, so it is refused and the reviewer is pointed at the sweep. */
+  if (body.tier !== undefined) {
+    const t = String(body.tier);
+    if (!TIER_KEYS.includes(t)) return json(res, 400, { error: 'Unknown tier.' });
+    if (tierIndex(t) < tierIndex(cur)) return json(res, 400, {
+      error: `Tiers can't be lowered by hand — that would skip the 90-day grace period and the 28 days' written notice. Let the monthly review do it, or pause the clock if this worker is on leave.` });
+    if (t !== cur) {
+      db.prepare("UPDATE worker_profiles SET tier = ?, tier_below_since = '', tier_notice_at = '', tier_pending = '' WHERE user_id = ?").run(t, id);
+      db.prepare('INSERT INTO tier_log (worker_id, from_tier, to_tier, direction, hours, reason, actor, created) VALUES (?,?,?,?,?,?,?,?)')
+        .run(id, cur, t, 'up', rollingHours(id), clean(body.reason || '', 300) || 'Set by an administrator.', user.email || 'admin', now());
+    }
+  }
+  json(res, 200, { ok: true, tier: tierOf(id), hours: rollingHours(id) });
+});
+
+route('POST', /^\/api\/admin\/ladder\/review$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { ok: true, ...reviewAllTiers({ actor: user.email || 'admin' }) });
+});
+
+/* Daily rather than monthly. The bands are checked against a rolling window, so
+   a monthly cadence would mean somebody sits a rate below what they've earned
+   for up to four weeks — and upward movement is supposed to be immediate. */
+setInterval(() => { try { reviewAllTiers(); } catch (e) { console.error('tier review', e); } }, 24 * 3600e3);
+setTimeout(() => { try { reviewAllTiers(); } catch (e) { console.error('tier review', e); } }, 8000);
+
+/* ==========================================================================
+   1. THE THIRD ROLE.
+   Hireup has exactly two kinds of account, so a support coordinator managing
+   six clients keeps six sets of login details in a spreadsheet and every
+   action any of them takes is recorded as the participant. That is not a
+   convenience problem, it is an audit problem: there is no way afterwards to
+   say who actually made a booking.
+
+   The fix is a role and a link. The role is `coordinator`. The link is a row
+   in account_links naming one participant, one coordinator, and the scopes
+   the participant chose to grant. Nothing is implied: a coordinator with no
+   row sees nothing at all, and every scope is opt-in per client. The
+   participant revokes it themselves, instantly, without ringing anyone.
+
+   Every delegated action writes a delegate_log row, so the diary shows both
+   the participant it was for and the human who did it.
+   ========================================================================== */
+
+/* --- who am I acting for, and what may I do --- */
+route('GET', /^\/api\/coordinator\/clients$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'coordinator') return json(res, 403, { error: 'Coordinator accounts only.' });
+  const clients = coordClients(user.id).map(c => {
+    /* 'requested', not 'pending'. The CHECK constraint on bookings.status
+       allows requested/accepted/declined/cancelled/completed and nothing
+       else, so a query naming 'pending' matches a row that cannot exist. It
+       cost this screen both of its numbers: the next shift skipped anything
+       still awaiting a worker's answer, and the counter beside it could only
+       ever read 0. A request nobody has answered is the first thing a
+       coordinator needs to see, not the one thing hidden from them. */
+    const next = db.prepare(`SELECT date, start, service FROM bookings
+      WHERE participant_id = ? AND status IN ('requested','accepted') AND date >= date('now')
+      ORDER BY date, start LIMIT 1`).get(c.participant_id);
+    const counts = db.prepare(`SELECT
+        SUM(CASE WHEN status = 'requested' THEN 1 ELSE 0 END) AS pending,
+        SUM(CASE WHEN status = 'completed' AND approval_state = 'pending' THEN 1 ELSE 0 END) AS to_approve
+      FROM bookings WHERE participant_id = ?`).get(c.participant_id) || {};
+    return {
+      id: c.participant_id, link_id: c.id,
+      name: c.name, suburb: c.suburb, org: c.org,
+      relationship: c.relationship, scopes: c.scopes,
+      accepted_at: c.accepted_at,
+      next_shift: next || null,
+      pending: Number(counts.pending || 0),
+      to_approve: Number(counts.to_approve || 0)
+    };
+  });
+  json(res, 200, { clients, scopes: LINK_SCOPES, scope_labels: SCOPE_LABELS });
+});
+
+/* the participant's own view of who they have let in */
+route('GET', /^\/api\/links$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const rows = db.prepare(`SELECT l.*, u.name AS coordinator_name, u.email AS coordinator_email
+    FROM account_links l LEFT JOIN users u ON u.id = l.coordinator_id
+    WHERE l.participant_id = ? ORDER BY l.id DESC`).all(user.id);
+  const links = rows.map(r => ({
+    id: r.id, coordinator_id: r.coordinator_id,
+    name: r.coordinator_name || '', email: r.coordinator_email || r.invite_email,
+    org: r.org, relationship: r.relationship,
+    scopes: safeJson(r.scopes, []), status: r.status,
+    invited_at: r.invited_at, accepted_at: r.accepted_at,
+    revoked_at: r.revoked_at, revoked_by: r.revoked_by, note: r.note
+  }));
+  const log = db.prepare('SELECT * FROM delegate_log WHERE participant_id = ? ORDER BY id DESC LIMIT 60').all(user.id);
+  json(res, 200, { links, log, scopes: LINK_SCOPES, scope_labels: SCOPE_LABELS });
+});
+
+/* invite: the participant names an email and ticks the boxes. No coordinator
+   account needs to exist yet — the token is what turns up in the email. */
+route('POST', /^\/api\/links$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'participant') return json(res, 403, { error: 'Only the person receiving supports can give someone access to their account.' });
+  if (limited(ip, 'link-invite', 10)) return json(res, 429, { error: 'That is a lot of invitations at once. Try again in a few minutes.' });
+  const email = clean(body.email, 160).toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json(res, 400, { error: 'That email address does not look right.' });
+  if (email === String(user.email || '').toLowerCase()) return json(res, 400, { error: 'That is your own address — you already have full access.' });
+  const scopes = (Array.isArray(body.scopes) ? body.scopes : []).filter(x => LINK_SCOPES.includes(x));
+  if (!scopes.length) return json(res, 400, { error: 'Choose at least one thing they may do.' });
+  const existing = db.prepare(`SELECT * FROM account_links WHERE participant_id = ?
+    AND (invite_email = ? OR coordinator_id = (SELECT id FROM users WHERE lower(email) = ?))
+    AND status IN ('invited','active')`).get(user.id, email, email);
+  if (existing) return json(res, 400, { error: 'That person already has an invitation or access. Change or remove the existing one first.' });
+  const token = crypto.randomBytes(24).toString('hex');
+  const co = db.prepare('SELECT id, name, role FROM users WHERE lower(email) = ?').get(email);
+  const info = db.prepare(`INSERT INTO account_links
+    (participant_id, coordinator_id, invite_email, invite_token, org, relationship, scopes, status, invited_by, invited_at, note)
+    VALUES (?,?,?,?,?,?,?,'invited',?,?,?)`)
+    .run(user.id, co && co.role === 'coordinator' ? co.id : null, email, token,
+         clean(body.org, 120), clean(body.relationship, 60) || 'support-coordinator',
+         JSON.stringify(scopes), user.id, now(), clean(body.note, 300));
+  logAccess(user.id, user, 'invited', `${email} invited with ${scopes.map(x => SCOPE_LABELS[x] || x).join(', ')}`, `link:${info.lastInsertRowid}`);
+  const url = `${baseUrl(req)}/#/invite?token=${token}`;
+  sendMail(email, `${user.name} has invited you to help manage their supports — BookIt`,
+    `An invitation from ${escHtml(user.name)}`,
+    `<p><b>${escHtml(user.name)}</b> has invited you to help manage their supports on BookIt${clean(body.org, 120) ? ` on behalf of <b>${escHtml(clean(body.org, 120))}</b>` : ''}.</p>
+     <p>You would be able to: <b>${scopes.map(x => escHtml(SCOPE_LABELS[x] || x)).join('</b>, <b>')}</b>.</p>
+     <p>You will not be able to change their password, their bank details, or anything you have not been given above. Everything you do is recorded against your name, and ${escHtml(firstName(user.name))} can take this access away at any moment without asking anyone.</p>
+     <p>If you do not already have a BookIt coordinator account, the link below will set one up.</p>`,
+    'Accept the invitation', url).catch(() => {});
+  json(res, 200, { ok: true, id: Number(info.lastInsertRowid), invite_url: url });
+});
+
+/* look at an invitation before signing in — enough to decide, nothing more */
+route('GET', /^\/api\/invite\/([a-f0-9]{16,64})$/, (req, res, m) => {
+  const l = db.prepare("SELECT * FROM account_links WHERE invite_token = ? AND status = 'invited'").get(m[1]);
+  if (!l) return json(res, 404, { error: 'That invitation has been used, withdrawn, or never existed.' });
+  const p = db.prepare('SELECT name FROM users WHERE id = ?').get(l.participant_id);
+  json(res, 200, {
+    participant: p ? p.name : 'a BookIt member',
+    email: l.invite_email, org: l.org, relationship: l.relationship,
+    scopes: safeJson(l.scopes, []), scope_labels: SCOPE_LABELS, invited_at: l.invited_at
+  });
+});
+
+route('POST', /^\/api\/invite\/([a-f0-9]{16,64})\/accept$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in or create your coordinator account first.' });
+  const l = db.prepare("SELECT * FROM account_links WHERE invite_token = ? AND status = 'invited'").get(m[1]);
+  if (!l) return json(res, 404, { error: 'That invitation has been used, withdrawn, or never existed.' });
+  if (user.role !== 'coordinator') return json(res, 400, { error: 'Invitations like this are accepted with a coordinator account. Yours is a ' + user.role + ' account.' });
+  if (String(user.email || '').toLowerCase() !== String(l.invite_email || '').toLowerCase())
+    return json(res, 403, { error: 'This invitation was sent to a different email address.' });
+  db.prepare("UPDATE account_links SET coordinator_id = ?, status = 'active', accepted_at = ?, invite_token = '' WHERE id = ?")
+    .run(user.id, now(), l.id);
+  logAccess(l.participant_id, user, 'accepted', `${user.name} accepted the invitation`, `link:${l.id}`);
+  const p = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(l.participant_id);
+  if (p) notify(p.id, 'security', p.email, 'Access accepted — BookIt', `${escHtml(user.name)} now has access`,
+    `<p><b>${escHtml(user.name)}</b> has accepted your invitation and can now: <b>${safeJson(l.scopes, []).map(x => escHtml(SCOPE_LABELS[x] || x)).join('</b>, <b>')}</b>.</p>
+     <p>You can change or remove this at any time from <b>People with access</b> in your account, and every action they take is listed there against their name.</p>`,
+    'See who has access', `${baseUrl(req)}/#/access`).catch(() => {});
+  json(res, 200, { ok: true, participant: p ? p.name : '' });
+});
+
+/* change the scopes on a live link */
+route('PATCH', /^\/api\/links\/(\d+)$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const l = db.prepare('SELECT * FROM account_links WHERE id = ?').get(Number(m[1]));
+  if (!l || l.participant_id !== user.id) return json(res, 404, { error: 'Not found.' });
+  if (l.status === 'revoked') return json(res, 400, { error: 'That access has already been removed.' });
+  const scopes = (Array.isArray(body.scopes) ? body.scopes : []).filter(x => LINK_SCOPES.includes(x));
+  if (!scopes.length) return json(res, 400, { error: 'Leave at least one box ticked, or remove their access altogether.' });
+  const was = safeJson(l.scopes, []);
+  db.prepare('UPDATE account_links SET scopes = ?, note = ? WHERE id = ?')
+    .run(JSON.stringify(scopes), clean(body.note, 300), l.id);
+  const added = scopes.filter(x => !was.includes(x)), gone = was.filter(x => !scopes.includes(x));
+  logAccess(user.id, user, 'scopes-changed',
+    [added.length ? `added ${added.map(x => SCOPE_LABELS[x] || x).join(', ')}` : '',
+     gone.length ? `removed ${gone.map(x => SCOPE_LABELS[x] || x).join(', ')}` : ''].filter(Boolean).join('; ') || 'no change',
+    `link:${l.id}`);
+  json(res, 200, { ok: true, scopes });
+});
+
+/* revoke — one button, no conversation, effective immediately */
+route('DELETE', /^\/api\/links\/(\d+)$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const l = db.prepare('SELECT * FROM account_links WHERE id = ?').get(Number(m[1]));
+  if (!l) return json(res, 404, { error: 'Not found.' });
+  const mine = l.participant_id === user.id;
+  const theirs = l.coordinator_id === user.id;
+  if (!mine && !theirs) return json(res, 403, { error: 'Not yours to remove.' });
+  if (l.status === 'revoked') return json(res, 200, { ok: true, already: true });
+  db.prepare("UPDATE account_links SET status = 'revoked', revoked_at = ?, revoked_by = ? WHERE id = ?")
+    .run(now(), mine ? 'participant' : 'coordinator', l.id);
+  logAccess(l.participant_id, user, 'revoked',
+    mine ? 'access removed by the participant' : `${user.name} stepped away from the account`, `link:${l.id}`);
+  if (mine && l.coordinator_id) {
+    const co = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(l.coordinator_id);
+    if (co) notify(co.id, 'security', co.email, 'Access ended — BookIt', 'Access has been removed',
+      `<p>${escHtml(user.name)} has removed your access to their BookIt account. Nothing you recorded has been deleted &mdash; you simply cannot see or change the account any more.</p>`,
+      'Open BookIt', `${baseUrl(req)}/#/clients`).catch(() => {});
+  }
+  json(res, 200, { ok: true });
+});
+
+/* the audit trail on its own, for a participant who wants the whole list */
+route('GET', /^\/api\/links\/log$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  json(res, 200, { log: db.prepare('SELECT * FROM delegate_log WHERE participant_id = ? ORDER BY id DESC LIMIT 400').all(user.id) });
+});
+
+/* ==========================================================================
+   10. ONE LIST, NOT TWO.
+   "My team" lived on the server; "Saved" lived in the browser's localStorage,
+   which means it was lost on a new phone and invisible to anyone helping.
+   Both are the same idea &mdash; a person you have an opinion about &mdash; so both are
+   now rows in participant_workers with a relation flag: saved, team, or
+   blocked. The private note travels with the row.
+   ========================================================================== */
+route('GET', /^\/api\/my-workers$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pers = user.role === 'worker' ? null : actFor(req, user, 'workers');
+  if (!pers) return json(res, user.role === 'coordinator' ? 403 : 400,
+    { error: user.role === 'coordinator' ? 'Choose a client first, or ask them to give you access to their workers.' : 'Not available for this account.' });
+  const rows = db.prepare(`SELECT pw.*, u.name, u.email FROM participant_workers pw
+    JOIN users u ON u.id = pw.worker_id WHERE pw.participant_id = ? ORDER BY pw.relation, u.name`).all(pers.id);
+  const out = rows.map(r => {
+    const wp = db.prepare('SELECT * FROM worker_profiles WHERE user_id = ?').get(r.worker_id);
+    const pub = wp ? publicWorker({ ...wp, id: r.worker_id, name: r.name }) : { id: r.worker_id, name: r.name };
+    const shifts = db.prepare("SELECT COUNT(*) AS n, MAX(date) AS last FROM bookings WHERE participant_id = ? AND worker_id = ? AND status = 'completed'").get(pers.id, r.worker_id) || {};
+    return { ...pub, relation: r.relation, note: r.note, added: r.added,
+      shifts: Number(shifts.n || 0), last_shift: shifts.last || '',
+      acked: relationOf(pers.id, r.worker_id) === 'blocked' ? null : planAck(pers.id, r.worker_id) };
+  });
+  json(res, 200, { workers: out, acting_for: pers.id === user.id ? null : { id: pers.id, name: pers.name } });
+});
+
+route('PUT', /^\/api\/my-workers\/(\d+)$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pers = actFor(req, user, 'workers');
+  if (!pers) return json(res, 403, { error: 'You do not have access to this person\'s workers.' });
+  const wid = Number(m[1]);
+  const w = db.prepare("SELECT id, name FROM users WHERE id = ? AND role = 'worker'").get(wid);
+  if (!w) return json(res, 404, { error: 'No such worker.' });
+  const rel = ['saved', 'team', 'blocked'].includes(body.relation) ? body.relation : 'saved';
+  if (rel === 'team') {
+    const open = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE participant_id = ? AND worker_id = ? AND status IN ('accepted','completed')").get(pers.id, wid);
+    if (!Number(open.n || 0)) return json(res, 400, { error: 'Someone joins your team once they have worked a shift with you. Save them for now \u2014 they will move across on their own.' });
+  }
+  setRelation(pers.id, wid, rel, body.note === undefined ? undefined : clean(body.note, 600), user.id);
+  if (rel === 'blocked') logAccess(pers.id, user, 'blocked-worker', `${w.name} blocked`, `worker:${wid}`);
+  else logDelegate(pers, rel === 'team' ? 'team-added' : 'saved-worker', `${w.name}`, `worker:${wid}`);
+  json(res, 200, { ok: true, relation: rel });
+});
+
+route('DELETE', /^\/api\/my-workers\/(\d+)$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pers = actFor(req, user, 'workers');
+  if (!pers) return json(res, 403, { error: 'You do not have access to this person\'s workers.' });
+  db.prepare('DELETE FROM participant_workers WHERE participant_id = ? AND worker_id = ?').run(pers.id, Number(m[1]));
+  json(res, 200, { ok: true });
+});
+
+/* ==========================================================================
+   11. THE PLAN IS NOT A PDF IN A DRAWER.
+   A worker cannot accept a shift until they have ticked that they have read
+   the current version of the support plan. Publishing a new version re-arms
+   the tick for the whole team, so "they read v1" never quietly stands in for
+   "they read v3". An out-of-date review date blocks NEW bookings and never
+   touches ones already in the diary &mdash; cancelling somebody's Tuesday morning
+   because a date rolled over would be the wrong kind of strict.
+   ========================================================================== */
+route('GET', /^\/api\/plan\/(\d+)\/ack$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pid = Number(m[1]);
+  if (user.role === 'worker') {
+    const worked = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE participant_id = ? AND worker_id = ? AND status IN ('accepted','completed')").get(pid, user.id);
+    if (!Number(worked.n || 0)) return json(res, 403, { error: 'Not your participant.' });
+    return json(res, 200, { ack: planAck(pid, user.id) });
+  }
+  const pers = actFor(req, user, 'plan');
+  if (!pers || pers.id !== pid) return json(res, 403, { error: 'Not yours.' });
+  const plan = currentPlan(pid);
+  const team = db.prepare(`SELECT DISTINCT u.id, u.name, u.email FROM bookings b JOIN users u ON u.id = b.worker_id
+    WHERE b.participant_id = ? AND b.status IN ('accepted','completed')`).all(pid);
+  json(res, 200, {
+    plan: plan ? { id: plan.id, version: plan.version, confirmed_at: plan.confirmed_at, review_due: plan.review_due || '' } : null,
+    team: team.map(w => ({ ...w, ack: planAck(pid, w.id) }))
+  });
+});
+
+route('POST', /^\/api\/plan\/(\d+)\/ack$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 403, { error: 'Workers acknowledge the plan.' });
+  if (!body.read) return json(res, 400, { error: 'Please tick the box to say you have read it.' });
+  const pid = Number(m[1]);
+  const worked = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE participant_id = ? AND worker_id = ? AND status IN ('accepted','completed')").get(pid, user.id);
+  if (!Number(worked.n || 0)) return json(res, 403, { error: 'Not your participant.' });
+  const plan = currentPlan(pid);
+  if (!plan) return json(res, 400, { error: 'There is no confirmed support plan for this person yet.' });
+  db.prepare(`INSERT INTO plan_acks (plan_id, participant_id, version, worker_id, acked_at, ip)
+    VALUES (?,?,?,?,?,?) ON CONFLICT(plan_id, worker_id) DO UPDATE SET acked_at = excluded.acked_at, ip = excluded.ip`)
+    .run(plan.id, pid, plan.version, user.id, now(), String(ip || '').slice(0, 45));
+  logCompliance({ worker_id: user.id, worker_name: user.name, kind: 'plan-ack', result: 'read',
+    detail: `Support plan v${plan.version} acknowledged`, source: 'worker', ref: `plan:${plan.id}`, checked_by: user.name });
+  json(res, 200, { ok: true, ack: planAck(pid, user.id) });
+});
+
+/* the version history, and what changed between two versions */
+route('GET', /^\/api\/plan\/(\d+)\/versions$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pid = Number(m[1]);
+  const allowed = user.admin || (user.role === 'worker'
+    ? Number((db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE participant_id = ? AND worker_id = ? AND status IN ('accepted','completed')").get(pid, user.id) || {}).n || 0) > 0
+    : (() => { const p = actFor(req, user, 'plan'); return p && p.id === pid; })());
+  if (!allowed) return json(res, 403, { error: 'Not yours.' });
+  const rows = db.prepare("SELECT * FROM support_plans WHERE participant_id = ? AND status = 'confirmed' ORDER BY version DESC").all(pid);
+  json(res, 200, {
+    versions: rows.map(r => ({ id: r.id, version: r.version, confirmed_at: r.confirmed_at, review_due: r.review_due || '',
+      acks: db.prepare('SELECT COUNT(*) AS n FROM plan_acks WHERE plan_id = ?').get(r.id).n }))
+  });
+});
+
+route('GET', /^\/api\/plan\/(\d+)\/diff\/(\d+)\/(\d+)$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pid = Number(m[1]);
+  const pers = user.admin ? { id: pid } : actFor(req, user, 'plan');
+  if (!pers || pers.id !== pid) return json(res, 403, { error: 'Not yours.' });
+  const a = db.prepare('SELECT * FROM support_plans WHERE participant_id = ? AND version = ?').get(pid, Number(m[2]));
+  const b = db.prepare('SELECT * FROM support_plans WHERE participant_id = ? AND version = ?').get(pid, Number(m[3]));
+  if (!a || !b) return json(res, 404, { error: 'One of those versions does not exist.' });
+  const skip = new Set(['id', 'participant_id', 'version', 'status', 'created', 'confirmed_at', 'updated']);
+  const changes = [];
+  for (const k of Object.keys(a)) {
+    if (skip.has(k)) continue;
+    const av = a[k] == null ? '' : String(a[k]), bv = b[k] == null ? '' : String(b[k]);
+    if (av !== bv) changes.push({ field: k, from: av.slice(0, 4000), to: bv.slice(0, 4000) });
+  }
+  json(res, 200, { from: a.version, to: b.version, changes });
+});
+
+/* ==========================================================================
+   4. THE JOB BOARD.
+   Search finds people who are already listed. A job post finds people who
+   would have said yes if anybody had asked &mdash; which is most of the market at
+   any given moment. Hireup has this; we did not.
+
+   Three things theirs does not do, all of them the sort of thing you only
+   notice after a month of live posts:
+     &bull; hours a week, stated up front. A worker's first question is always
+       "is this enough work to be worth rearranging my week for", and a post
+       that cannot answer it wastes everybody's time.
+     &bull; an expiry with an automatic close. Boards rot. A post that closes
+       itself on a date the poster chose is a board people trust.
+     &bull; edit and withdraw, by the person who posted it, without an email
+       to the office.
+   ========================================================================== */
+const JOB_MAX_OPEN = 6;                 /* per participant, so the board stays real */
+const JOB_DEFAULT_DAYS = 30;
+const JOB_MAX_DAYS = 90;
+const JOB_REQUIREMENTS = {
+  'drivers-licence':   'Driver&rsquo;s licence',
+  'own-car':           'Own car, comprehensively insured',
+  'manual-handling':   'Manual handling training',
+  'hoist':             'Hoist and transfer experience',
+  'medication':        'Medication support',
+  'first-aid':         'First aid and CPR',
+  'ndis-worker-check': 'NDIS Worker Screening Check',
+  'covid':             'COVID-19 vaccination',
+  'non-smoker':        'Non-smoker',
+  'pet-friendly':      'Comfortable with pets'
+};
+const JOB_TIMES = { morning: 'Mornings', midday: 'Middle of the day', afternoon: 'Afternoons', evening: 'Evenings', overnight: 'Overnight', flexible: 'Flexible' };
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function jobExpired(j) { return j.expires_at && j.expires_at < new Date().toISOString().slice(0, 10); }
+
+/* posts close themselves. Runs on boot and every six hours, and also lazily
+   whenever the board is read, so a stale post is never shown even if the
+   process has only just started. */
+function jobSweep() {
+  const today = new Date().toISOString().slice(0, 10);
+  const stale = db.prepare("SELECT * FROM jobs WHERE status = 'open' AND expires_at != '' AND expires_at < ?").all(today);
+  for (const j of stale) {
+    db.prepare("UPDATE jobs SET status = 'closed', closed_at = ?, closed_reason = 'expired' WHERE id = ?").run(now(), j.id);
+    const p = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(j.participant_id);
+    const apps = db.prepare("SELECT COUNT(*) AS n FROM job_applications WHERE job_id = ? AND status = 'applied'").get(j.id);
+    if (p) notify(p.id, 'jobs', p.email, 'Your job post has closed — BookIt', `&ldquo;${escHtml(j.title)}&rdquo; has closed`,
+      `<p>The closing date you set has passed, so this post is no longer showing to workers.</p>
+       ${Number(apps.n || 0) ? `<p>You have <b>${apps.n} application${apps.n === 1 ? '' : 's'}</b> still waiting for an answer &mdash; they do not disappear, and you can still read and reply to them.</p>` : ''}
+       <p>Reposting takes one tap if you still need someone.</p>`,
+      'Open my jobs', `${APP_URL || 'https://bookit.life'}/#/my-jobs`).catch(() => {});
+  }
+  return stale.length;
+}
+setInterval(() => { try { jobSweep(); } catch (e) { console.error('job sweep:', e.message); } }, 6 * 3600e3);
+setTimeout(() => { try { jobSweep(); } catch {} }, 9000);
+
+function jobRow(j, viewer) {
+  const days = safeJson(j.days, [0, 0, 0, 0, 0, 0, 0]);
+  const services = safeJson(j.services, []);
+  const reqs = safeJson(j.requirements, []);
+  const apps = db.prepare('SELECT COUNT(*) AS n FROM job_applications WHERE job_id = ?').get(j.id);
+  const out = {
+    id: j.id, title: j.title, services,
+    service_labels: services.map(x => SERVICE_LABELS[x] || x),
+    suburb: j.suburb, postcode: j.postcode,
+    days, day_names: days.map((v, i) => v ? DAY_NAMES[i] : null).filter(Boolean),
+    time_of_day: j.time_of_day, time_label: JOB_TIMES[j.time_of_day] || '',
+    hours_week: j.hours_week, start_date: j.start_date, ongoing: j.ongoing,
+    description: j.description, other_qualities: j.other_qualities,
+    gender_pref: j.gender_pref, langs: j.langs,
+    requirements: reqs, requirement_labels: reqs.map(x => JOB_REQUIREMENTS[x] || x),
+    status: j.status, expires_at: j.expires_at, created: j.created,
+    applications: Number(apps.n || 0)
+  };
+  if (viewer && viewer.role === 'worker') {
+    const mine = db.prepare('SELECT * FROM job_applications WHERE job_id = ? AND worker_id = ?').get(j.id, viewer.id);
+    out.my_application = mine ? { id: mine.id, status: mine.status, created: mine.created } : null;
+  }
+  return out;
+}
+
+/* --- the board, as a worker sees it --- */
+route('GET', /^\/api\/jobs$/, (req, res, m, user) => {
+  try { jobSweep(); } catch {}
+  const q = new URL(req.url, 'http://x').searchParams;
+  const rows = db.prepare("SELECT * FROM jobs WHERE status = 'open' ORDER BY id DESC LIMIT 300").all();
+  let jobs = rows.map(j => jobRow(j, user));
+  const svc = clean(q.get('service'), 40);
+  if (svc) jobs = jobs.filter(j => j.services.includes(svc));
+  const sub = clean(q.get('suburb'), 60).toLowerCase();
+  if (sub) jobs = jobs.filter(j => String(j.suburb || '').toLowerCase().includes(sub) || String(j.postcode || '').includes(sub));
+  const dow = q.get('day');
+  if (dow !== null && dow !== '' && !Number.isNaN(Number(dow))) jobs = jobs.filter(j => j.days[Number(dow)]);
+  const minH = Number(q.get('min_hours') || 0);
+  if (minH > 0) jobs = jobs.filter(j => Number(j.hours_week || 0) >= minH);
+  json(res, 200, {
+    jobs, total: jobs.length,
+    services: SERVICE_LABELS, requirements: JOB_REQUIREMENTS, times: JOB_TIMES, day_names: DAY_NAMES
+  });
+});
+
+route('GET', /^\/api\/jobs\/(\d+)$/, (req, res, m, user) => {
+  const j = db.prepare('SELECT * FROM jobs WHERE id = ?').get(Number(m[1]));
+  if (!j) return json(res, 404, { error: 'That job post is no longer here.' });
+  const owner = user && (user.id === j.participant_id ||
+    (user.role === 'coordinator' && linkAllows(user.id, j.participant_id, 'bookings')));
+  if (j.status !== 'open' && !owner && !(user && user.admin)) return json(res, 404, { error: 'That job post has closed.' });
+  if (user && user.role === 'worker') db.prepare('UPDATE jobs SET views = views + 1 WHERE id = ?').run(j.id);
+  const out = jobRow(j, user);
+  if (owner || (user && user.admin)) {
+    out.applicants = db.prepare(`SELECT a.*, u.name, u.email FROM job_applications a
+      JOIN users u ON u.id = a.worker_id WHERE a.job_id = ? ORDER BY a.id DESC`).all(j.id).map(a => {
+        const wp = db.prepare('SELECT * FROM worker_profiles WHERE user_id = ?').get(a.worker_id);
+        return {
+          id: a.id, worker_id: a.worker_id, message: a.message, status: a.status, created: a.created,
+          worker: wp ? publicWorker({ ...wp, id: a.worker_id, name: a.name }) : { id: a.worker_id, name: a.name }
+        };
+      });
+    out.views = j.views;
+  }
+  json(res, 200, out);
+});
+
+/* --- post one --- */
+function jobProblem(body) {
+  const title = clean(body.title, 120);
+  if (title.length < 6) return 'Give the post a title &mdash; a short line about what you are looking for.';
+  const services = (Array.isArray(body.services) ? body.services : []).filter(x => SERVICE_LABELS[x]);
+  if (!services.length) return 'Choose at least one kind of support.';
+  const days = Array.isArray(body.days) ? body.days.slice(0, 7).map(x => x ? 1 : 0) : [];
+  while (days.length < 7) days.push(0);
+  if (!days.some(Boolean)) return 'Choose at least one day of the week.';
+  if (!clean(body.suburb, 80)) return 'Which suburb is the support in?';
+  const desc = clean(body.description, 4000);
+  if (desc.length < 30) return 'Please write a few sentences about the support you need &mdash; it is the part workers actually read.';
+  const hw = Number(body.hours_week || 0);
+  if (!(hw > 0)) return 'About how many hours a week is this? Workers ask this first.';
+  if (hw > 80) return 'That is more than 80 hours a week &mdash; if it really is, ring the office and we will set it up properly.';
+  return '';
+}
+
+route('POST', /^\/api\/jobs$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pers = actFor(req, user, 'bookings');
+  if (!pers) return json(res, 403, { error: user.role === 'worker' ? 'Jobs are posted by the person looking for support.' : 'Choose a client first, or ask them to give you access.' });
+  if (limited(ip, 'job-post', 12)) return json(res, 429, { error: 'That is a lot of posts at once. Try again shortly.' });
+  const open = db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE participant_id = ? AND status = 'open'").get(pers.id);
+  if (Number(open.n || 0) >= JOB_MAX_OPEN) return json(res, 400, { error: `You already have ${JOB_MAX_OPEN} posts open. Close one before adding another \u2014 a board full of half-live posts is worse than a short one.` });
+  const bad = jobProblem(body);
+  if (bad) return json(res, 400, { error: bad });
+  const days = Array.isArray(body.days) ? body.days.slice(0, 7).map(x => x ? 1 : 0) : [];
+  while (days.length < 7) days.push(0);
+  let dur = Number(body.days_open || JOB_DEFAULT_DAYS);
+  if (!(dur > 0)) dur = JOB_DEFAULT_DAYS;
+  dur = Math.min(JOB_MAX_DAYS, dur);
+  const expires = new Date(Date.now() + dur * 864e5).toISOString().slice(0, 10);
+  const info = db.prepare(`INSERT INTO jobs
+    (participant_id, posted_by, title, services, suburb, postcode, days, time_of_day, hours_week,
+     start_date, ongoing, description, other_qualities, gender_pref, langs, requirements,
+     status, expires_at, created)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?,?)`)
+    .run(pers.id, user.id, clean(body.title, 120),
+      JSON.stringify((body.services || []).filter(x => SERVICE_LABELS[x])),
+      clean(body.suburb, 80), clean(body.postcode, 10), JSON.stringify(days),
+      JOB_TIMES[body.time_of_day] ? body.time_of_day : 'flexible', Number(body.hours_week || 0),
+      clean(body.start_date, 10), body.ongoing === false ? 0 : 1,
+      clean(body.description, 4000), clean(body.other_qualities, 1000),
+      clean(body.gender_pref, 30), clean(body.langs, 200),
+      JSON.stringify((Array.isArray(body.requirements) ? body.requirements : []).filter(x => JOB_REQUIREMENTS[x])),
+      expires, now());
+  logDelegate(pers, 'job-posted', clean(body.title, 120), `job:${info.lastInsertRowid}`);
+  json(res, 200, { ok: true, id: Number(info.lastInsertRowid), expires_at: expires });
+});
+
+/* --- edit or withdraw, by the person who posted it --- */
+function ownsJob(req, user, j) {
+  if (!user || !j) return false;
+  if (user.admin) return true;
+  if (user.id === j.participant_id) return true;
+  return user.role === 'coordinator' && linkAllows(user.id, j.participant_id, 'bookings');
+}
+
+route('PATCH', /^\/api\/jobs\/(\d+)$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const j = db.prepare('SELECT * FROM jobs WHERE id = ?').get(Number(m[1]));
+  if (!j) return json(res, 404, { error: 'Not found.' });
+  if (!ownsJob(req, user, j)) return json(res, 403, { error: 'That is not your post.' });
+
+  if (body.status === 'closed') {
+    if (j.status === 'closed') return json(res, 200, { ok: true, already: true });
+    db.prepare("UPDATE jobs SET status = 'closed', closed_at = ?, closed_reason = ?, updated = ? WHERE id = ?")
+      .run(now(), clean(body.reason, 60) || 'withdrawn', now(), j.id);
+    const waiting = db.prepare("SELECT a.*, u.id AS uid, u.name, u.email FROM job_applications a JOIN users u ON u.id = a.worker_id WHERE a.job_id = ? AND a.status = 'applied'").all(j.id);
+    for (const a of waiting) {
+      db.prepare("UPDATE job_applications SET status = 'closed', updated = ? WHERE id = ?").run(now(), a.id);
+      notify(a.uid, 'jobs', a.email, 'A job you applied for has closed — BookIt', `&ldquo;${escHtml(j.title)}&rdquo; has closed`,
+        `<p>The post you applied for has been withdrawn, so it is no longer waiting on you. This is not a reflection on your application &mdash; posts close for all sorts of reasons.</p>
+         <p>There are other jobs on the board, and your profile stays where it is.</p>`,
+        'See open jobs', `${baseUrl(req)}/#/jobs`).catch(() => {});
+    }
+    return json(res, 200, { ok: true, closed: waiting.length });
+  }
+  if (body.status === 'open') {
+    if (j.status === 'open') return json(res, 200, { ok: true, already: true });
+    let dur = Math.min(JOB_MAX_DAYS, Number(body.days_open || JOB_DEFAULT_DAYS) || JOB_DEFAULT_DAYS);
+    db.prepare("UPDATE jobs SET status = 'open', closed_at = NULL, closed_reason = '', expires_at = ?, updated = ? WHERE id = ?")
+      .run(new Date(Date.now() + dur * 864e5).toISOString().slice(0, 10), now(), j.id);
+    return json(res, 200, { ok: true, reopened: true });
+  }
+
+  const bad = jobProblem({ ...j, ...body, services: body.services || safeJson(j.services, []), days: body.days || safeJson(j.days, []) });
+  if (bad) return json(res, 400, { error: bad });
+  const days = Array.isArray(body.days) ? body.days.slice(0, 7).map(x => x ? 1 : 0) : safeJson(j.days, [0, 0, 0, 0, 0, 0, 0]);
+  while (days.length < 7) days.push(0);
+  db.prepare(`UPDATE jobs SET title = ?, services = ?, suburb = ?, postcode = ?, days = ?, time_of_day = ?,
+    hours_week = ?, start_date = ?, ongoing = ?, description = ?, other_qualities = ?, gender_pref = ?,
+    langs = ?, requirements = ?, expires_at = ?, updated = ? WHERE id = ?`)
+    .run(clean(body.title, 120) || j.title,
+      JSON.stringify((body.services || safeJson(j.services, [])).filter(x => SERVICE_LABELS[x])),
+      clean(body.suburb, 80) || j.suburb, clean(body.postcode, 10),
+      JSON.stringify(days), JOB_TIMES[body.time_of_day] ? body.time_of_day : j.time_of_day,
+      Number(body.hours_week || j.hours_week || 0), clean(body.start_date, 10),
+      body.ongoing === false ? 0 : 1, clean(body.description, 4000) || j.description,
+      clean(body.other_qualities, 1000), clean(body.gender_pref, 30), clean(body.langs, 200),
+      JSON.stringify((Array.isArray(body.requirements) ? body.requirements : safeJson(j.requirements, [])).filter(x => JOB_REQUIREMENTS[x])),
+      body.days_open ? new Date(Date.now() + Math.min(JOB_MAX_DAYS, Number(body.days_open)) * 864e5).toISOString().slice(0, 10) : j.expires_at,
+      now(), j.id);
+  json(res, 200, { ok: true });
+});
+
+/* --- my posts --- */
+route('GET', /^\/api\/my-jobs$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pers = actFor(req, user, 'bookings');
+  if (!pers) return json(res, 403, { error: 'Not available for this account.' });
+  try { jobSweep(); } catch {}
+  const rows = db.prepare('SELECT * FROM jobs WHERE participant_id = ? ORDER BY id DESC').all(pers.id);
+  json(res, 200, {
+    jobs: rows.map(j => ({ ...jobRow(j, user), views: j.views, closed_reason: j.closed_reason,
+      new_applications: db.prepare("SELECT COUNT(*) AS n FROM job_applications WHERE job_id = ? AND status = 'applied'").get(j.id).n })),
+    max_open: JOB_MAX_OPEN, services: SERVICE_LABELS, requirements: JOB_REQUIREMENTS, times: JOB_TIMES, day_names: DAY_NAMES
+  });
+});
+
+/* --- apply --- */
+route('POST', /^\/api\/jobs\/(\d+)\/apply$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 403, { error: 'Only support workers apply for jobs.' });
+  if (limited(ip, 'job-apply', 40)) return json(res, 429, { error: 'Slow down a moment and try again.' });
+  const j = db.prepare('SELECT * FROM jobs WHERE id = ?').get(Number(m[1]));
+  if (!j || j.status !== 'open') return json(res, 404, { error: 'That job has closed.' });
+  if (jobExpired(j)) return json(res, 400, { error: 'That job closed on its closing date.' });
+  /* the same two facts every other worker-facing door checks: approved into
+     visibility, and 0137-eligible right now. (An earlier draft read
+     wp.status, a column that does not exist — which made this gate refuse
+     every worker on the platform, forever, politely.) */
+  const wp = db.prepare('SELECT * FROM worker_profiles WHERE user_id = ?').get(user.id);
+  if (!wp || !wp.visible || !platformEligible(user.id, user.email)) return json(res, 403, { error: 'Your account is still being checked. Once you are approved you can apply for jobs.' });
+  if (blockedPair(j.participant_id, user.id)) return json(res, 403, { error: 'You are not able to apply for this one.' });
+  const already = db.prepare('SELECT id FROM job_applications WHERE job_id = ? AND worker_id = ?').get(j.id, user.id);
+  if (already) return json(res, 400, { error: 'You have already applied for this job.' });
+  const msg = clean(body.message, 2000);
+  if (msg.length < 20) return json(res, 400, { error: 'Write a few lines about why this one suits you \u2014 a blank application is nearly always passed over.' });
+  const info = db.prepare('INSERT INTO job_applications (job_id, worker_id, message, status, created) VALUES (?,?,?,\'applied\',?)')
+    .run(j.id, user.id, msg, now());
+  const p = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(j.participant_id);
+  if (p) notify(p.id, 'jobs', p.email, 'Someone applied for your job — BookIt',
+    `${escHtml(user.name)} applied`,
+    `<p><b>${escHtml(user.name)}</b> has applied for <b>${escHtml(j.title)}</b>.</p><blockquote style="margin:0 0 12px;padding:10px 14px;border-left:3px solid #d7dce4;color:#444">${escHtml(msg).slice(0, 600)}</blockquote>
+     <p>You can read their full profile, message them, or say no thank you &mdash; whichever you do, they get a clear answer rather than silence.</p>`,
+    'Read the application', `${baseUrl(req)}/#/my-jobs`).catch(() => {});
+  json(res, 200, { ok: true, id: Number(info.lastInsertRowid) });
+});
+
+route('GET', /^\/api\/my-applications$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const rows = db.prepare(`SELECT a.*, j.title, j.suburb, j.status AS job_status, j.services, j.hours_week
+    FROM job_applications a JOIN jobs j ON j.id = a.job_id WHERE a.worker_id = ? ORDER BY a.id DESC`).all(user.id);
+  json(res, 200, {
+    applications: rows.map(a => ({
+      id: a.id, job_id: a.job_id, title: a.title, suburb: a.suburb, hours_week: a.hours_week,
+      services: safeJson(a.services, []).map(x => SERVICE_LABELS[x] || x),
+      message: a.message, status: a.status, job_status: a.job_status, created: a.created, updated: a.updated
+    }))
+  });
+});
+
+route('DELETE', /^\/api\/my-applications\/(\d+)$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const a = db.prepare('SELECT * FROM job_applications WHERE id = ?').get(Number(m[1]));
+  if (!a || a.worker_id !== user.id) return json(res, 404, { error: 'Not found.' });
+  db.prepare("UPDATE job_applications SET status = 'withdrawn', updated = ? WHERE id = ?").run(now(), a.id);
+  json(res, 200, { ok: true });
+});
+
+/* --- shortlist or decline. Everyone gets an answer. --- */
+route('PATCH', /^\/api\/applications\/(\d+)$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const a = db.prepare('SELECT * FROM job_applications WHERE id = ?').get(Number(m[1]));
+  if (!a) return json(res, 404, { error: 'Not found.' });
+  const j = db.prepare('SELECT * FROM jobs WHERE id = ?').get(a.job_id);
+  if (!ownsJob(req, user, j)) return json(res, 403, { error: 'That is not your post.' });
+  const to = ['shortlisted', 'declined', 'hired'].includes(body.status) ? body.status : '';
+  if (!to) return json(res, 400, { error: 'Unknown status.' });
+  db.prepare('UPDATE job_applications SET status = ?, updated = ? WHERE id = ?').run(to, now(), a.id);
+  const w = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(a.worker_id);
+  const p = db.prepare('SELECT name FROM users WHERE id = ?').get(j.participant_id);
+  if (to === 'hired') setRelation(j.participant_id, a.worker_id, 'saved', '', user.id);
+  if (w) {
+    const copy = {
+      shortlisted: [`Good news about &ldquo;${escHtml(j.title)}&rdquo;`,
+        `<p><b>${escHtml(p ? p.name : 'The person who posted the job')}</b> has shortlisted you for <b>${escHtml(j.title)}</b>.</p><p>That usually means a message or a short chat next. Nothing is locked in yet on either side.</p>`],
+      hired: [`You have the job`,
+        `<p><b>${escHtml(p ? p.name : 'The person who posted the job')}</b> would like to go ahead with you for <b>${escHtml(j.title)}</b>.</p><p>The first booking will come through in the usual way, and you will need to read their support plan before you can accept it.</p>`],
+      declined: [`About &ldquo;${escHtml(j.title)}&rdquo;`,
+        `<p>Thank you for applying for <b>${escHtml(j.title)}</b>. On this occasion they have decided to go a different way.</p><p>This is not a mark against your profile and it is not visible to anyone else. Support matching is mostly about days, distance and fit &mdash; a no here says very little about the next one.</p>`]
+    }[to];
+    notify(w.id, 'jobs', w.email, `${to === 'declined' ? 'An update on your application' : to === 'hired' ? 'You have the job' : 'You have been shortlisted'} — BookIt`,
+      copy[0], copy[1], 'Open BookIt', `${baseUrl(req)}/#/my-applications`).catch(() => {});
+  }
+  json(res, 200, { ok: true, status: to });
+});
+
+/* ==========================================================================
+   6. WHAT IT COST, WITHOUT RINGING ANYONE.
+   applyInvoice() has been writing unit_price, worker_share and total onto
+   every completed booking since the invoicing build. Nobody who is not an
+   administrator could read any of it. A plan-managed participant whose plan
+   manager asks "what was the 14th of March" had to email the office.
+
+   Nothing new is calculated here. This is the same rows, filtered by date,
+   with a total at the bottom and three ways out: on screen, as a CSV their
+   plan manager can open, and as a printable statement.
+   ========================================================================== */
+/* Dates are built from local calendar components here, not sliced off an ISO
+   string. `new Date(y, m, 1)` is local midnight; on any server east of
+   Greenwich .toISOString() rolls that back to the previous day, so a
+   "this month" filter starting on the 1st would silently start on the 31st.
+   The box this runs on is UTC today. It does not have to stay that way. */
+const isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function periodRange(q) {
+  const today = new Date();
+  const iso = isoLocal;
+  const preset = clean(q.get('period'), 20);
+  let from = clean(q.get('from'), 10), to = clean(q.get('to'), 10);
+  if (!from || !to) {
+    if (preset === 'this-month') { from = iso(new Date(today.getFullYear(), today.getMonth(), 1)); to = iso(today); }
+    else if (preset === 'last-month') {
+      from = iso(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+      to = iso(new Date(today.getFullYear(), today.getMonth(), 0));
+    } else if (preset === 'this-fy') {
+      const y = today.getMonth() >= 6 ? today.getFullYear() : today.getFullYear() - 1;
+      from = `${y}-07-01`; to = iso(today);
+    } else if (preset === 'last-fy') {
+      const y = today.getMonth() >= 6 ? today.getFullYear() - 1 : today.getFullYear() - 2;
+      from = `${y}-07-01`; to = `${y + 1}-06-30`;
+    } else { from = iso(new Date(today.getFullYear(), today.getMonth() - 2, 1)); to = iso(today); }
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) from = '2000-01-01';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(to)) to = iso(today);
+  return { from, to };
+}
+
+function statementRows(participantId, from, to) {
+  return db.prepare(`SELECT b.*, u.name AS worker_name FROM bookings b
+    JOIN users u ON u.id = b.worker_id
+    WHERE b.participant_id = ? AND ${billable('b')} AND b.date BETWEEN ? AND ?
+    ORDER BY b.date DESC, b.start DESC`).all(Number(participantId), from, to)
+    .map(b => ({
+      id: b.id, date: b.date, start: b.start, hours: b.hours,
+      service: b.service, service_label: SERVICE_LABELS[b.service] || b.service,
+      worker: b.worker_name, worker_id: b.worker_id,
+      category: b.rate_category, category_label: (INVOICE_RATES[b.rate_category] || {}).label || b.rate_category || '',
+      /* the item an administrator confirmed if they confirmed one, otherwise
+         the one the service and day-type imply &mdash; same rule the claim file uses */
+      support_item: effectiveItem(b),
+      unit_price: b.unit_price || 0, total: b.total || 0,
+      km: b.km || 0, km_total: b.km_total || 0, km_from: b.km_from || '', km_to: b.km_to || '',
+      invoice_no: b.invoice_no || '', claim_status: b.claim_status || 'unclaimed',
+      approval_state: b.approval_state || '', approved_at: b.approved_at || '',
+      short_notice: b.short_notice ? 1 : 0,
+      /* A charge a participant cannot find on their statement is a charge they
+         have to ring up about. It goes on the statement, named for what it is,
+         with the notice they gave and the reason they gave. */
+      cancelled: b.status === 'cancelled',
+      cancel_reason: b.cancel_reason || '',
+      cancel_label: b.status === 'cancelled' ? (CANCEL_CODES[b.cancel_code || 'NSDO'] || CANCEL_CODES.NSDO) : '',
+      notice_hours: b.notice_hours === null || b.notice_hours === undefined ? null : b.notice_hours,
+      grand: round2((b.total || 0) + (b.km_total || 0))
+    }));
+}
+
+route('GET', /^\/api\/statements$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pers = user.role === 'worker' ? null : actFor(req, user, 'invoices');
+  if (!pers) return json(res, user.role === 'coordinator' ? 403 : 400,
+    { error: user.role === 'coordinator' ? 'You have not been given access to this person\'s invoices.' : 'Not available for this account.' });
+  const q = new URL(req.url, 'http://x').searchParams;
+  const { from, to } = periodRange(q);
+  const rows = statementRows(pers.id, from, to);
+  const sum = rows.reduce((a, r) => {
+    a.supports = round2(a.supports + r.total);
+    a.travel = round2(a.travel + r.km_total);
+    a.hours = round2(a.hours + (r.hours || 0));
+    a.km = round2(a.km + (r.km || 0));
+    /* Cancellations are inside `supports` because that is where the money is —
+       but they get their own sub-total and their own count, because "what did I
+       spend on support" and "what did I spend without receiving support" are
+       two questions, and only the second one is worth changing your habits over. */
+    if (r.cancelled) { a.cancelled = round2(a.cancelled + r.total); a.cancelled_shifts += 1; }
+    a.by_service[r.service] = round2((a.by_service[r.service] || 0) + r.total + r.km_total);
+    a.by_category[r.category_label || 'Other'] = round2((a.by_category[r.category_label || 'Other'] || 0) + r.total);
+    return a;
+  }, { supports: 0, travel: 0, hours: 0, km: 0, cancelled: 0, cancelled_shifts: 0, by_service: {}, by_category: {} });
+  json(res, 200, {
+    from, to, rows,
+    totals: { ...sum, grand: round2(sum.supports + sum.travel), shifts: rows.length },
+    service_labels: SERVICE_LABELS,
+    acting_for: pers.id === user.id ? null : { id: pers.id, name: pers.name },
+    note: 'These figures are the NDIS price limits that applied on the day of each shift. Where your plan is managed by a plan manager or the agency, this statement is a record for you \u2014 the claim itself is lodged separately.'
+  });
+});
+
+route('GET', /^\/api\/statements\.csv$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pers = user.role === 'worker' ? null : actFor(req, user, 'invoices');
+  if (!pers) return json(res, 403, { error: 'Not available for this account.' });
+  const q = new URL(req.url, 'http://x').searchParams;
+  const { from, to } = periodRange(q);
+  const rows = statementRows(pers.id, from, to);
+  const qq = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['Date', 'Start', 'Hours', 'Support', 'Support item', 'Worker', 'Rate category',
+    'Unit price', 'Support total', 'Kilometres', 'Travel total', 'Line total', 'Invoice no', 'Approved', 'Delivered'].map(qq).join(',')];
+  for (const r of rows) {
+    lines.push([qq(dmy(r.date)), qq(r.start), r.hours, qq(r.service_label), qq(r.support_item), qq(r.worker),
+      qq(r.category_label), (r.unit_price || 0).toFixed(2), (r.total || 0).toFixed(2),
+      r.km || 0, (r.km_total || 0).toFixed(2), r.grand.toFixed(2), qq(r.invoice_no),
+      qq(r.approval_state === 'approved' ? dmy(String(r.approved_at).slice(0, 10)) : r.approval_state || ''),
+      /* the whole point of the column: a line that was charged without a
+         support being delivered says so, in words, on the row itself */
+      qq(r.cancelled ? `Cancelled — ${r.cancel_label || 'short notice'}` : 'Yes')].join(','));
+  }
+  /* the total row lands each figure under its own heading, so the file opens
+     in a spreadsheet and sums down the column without anyone re-typing it */
+  const t = rows.reduce((a, r) => ({
+    hours: a.hours + (r.hours || 0), supports: a.supports + (r.total || 0),
+    km: a.km + (r.km || 0), travel: a.travel + (r.km_total || 0), grand: a.grand + r.grand,
+    cancelled: a.cancelled + (r.cancelled ? (r.total || 0) : 0),
+    cancelled_n: a.cancelled_n + (r.cancelled ? 1 : 0)
+  }), { hours: 0, supports: 0, km: 0, travel: 0, grand: 0, cancelled: 0, cancelled_n: 0 });
+  lines.push([qq('TOTAL'), '', round2(t.hours), '', '', '', '', '', t.supports.toFixed(2),
+    round2(t.km), t.travel.toFixed(2), t.grand.toFixed(2), '',
+    /* the last cell carries the one figure worth pulling out of the total:
+       what was charged for support that was not delivered. Blank when there is
+       none, so the column reads as an exception and not a running commentary. */
+    '', qq(t.cancelled_n ? `${t.cancelled_n} cancelled — $${t.cancelled.toFixed(2)}` : '')].join(','));
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-statement-${from}-to-${to}.csv"`
+  });
+  res.end('﻿' + lines.join('\n'));
+});
+
+/* one shift, in the detail a plan manager queries */
+route('GET', /^\/api\/statements\/(\d+)$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'Not found.' });
+  const pers = user.role === 'worker' ? null : actFor(req, user, 'invoices');
+  const mine = pers && pers.id === b.participant_id;
+  if (!mine && !user.admin && !(user.role === 'worker' && b.worker_id === user.id))
+    return json(res, 403, { error: 'Not yours.' });
+  const w = db.prepare('SELECT name FROM users WHERE id = ?').get(b.worker_id);
+  const notes = db.prepare("SELECT body, addendum, created FROM shift_notes WHERE booking_id = ? AND COALESCE(kind,'note') = 'note' ORDER BY id").all(b.id);
+  const r = INVOICE_RATES[b.rate_category] || {};
+  json(res, 200, {
+    id: b.id, date: b.date, start: b.start, hours: b.hours,
+    service_label: SERVICE_LABELS[b.service] || b.service, worker: w ? w.name : '',
+    category_label: r.label || b.rate_category, support_item: effectiveItem(b),
+    unit_price: b.unit_price || 0, total: b.total || 0,
+    km: b.km || 0, km_from: b.km_from || '', km_to: b.km_to || '', km_rate: b.km_rate || 0, km_total: b.km_total || 0,
+    grand: round2((b.total || 0) + (b.km_total || 0)),
+    invoice_no: b.invoice_no || '', approval_state: b.approval_state || '', approved_at: b.approved_at || '',
+    approval_source: b.approval_source || '', short_notice: b.short_notice ? 1 : 0,
+    notes: notes.map(n => ({ body: n.body, addendum: n.addendum, created: n.created })),
+    km_rule: KM_RULE
+  });
+});
+
+/* ==========================================================================
+   14. WHAT A WORKER IS ACTUALLY EARNING.
+   Every number below already exists somewhere &mdash; worker_share on the booking,
+   the km line, the tier ladder, the rolling-hours clock. What did not exist
+   was a single screen that says: this fortnight, last fortnight, what the
+   loading was worth, what the driving was worth, and how many hours until
+   the rate goes up. Pay you cannot see is pay you do not trust.
+   ========================================================================== */
+function payPeriods(n) {
+  /* fortnights ending on the most recent Sunday, which is how the runs go out */
+  const out = [];
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  /* forward to the COMING Sunday (or today, on a Sunday): the first period is
+     the fortnight currently running, because a worker who worked yesterday
+     must never open "this fortnight" and read $0.00. The runs still go out on
+     Sundays — this is about what the screen calls "this period". */
+  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
+  for (let i = 0; i < n; i++) {
+    /* stepped with setDate rather than millisecond arithmetic: 864e5 is not
+       a day on the two nights a year the clocks move, and a pay period that
+       ends at 23:00 on the Saturday is a fortnight nobody gets paid for. */
+    const end = new Date(d); end.setDate(end.getDate() - i * 14);
+    const start = new Date(end); start.setDate(start.getDate() - 13);
+    out.push({ from: isoLocal(start), to: isoLocal(end) });
+  }
+  return out;
+}
+
+function earningsFor(workerId, from, to) {
+  const rows = db.prepare(`SELECT b.*, u.name AS participant_name FROM bookings b
+    JOIN users u ON u.id = b.participant_id
+    WHERE b.worker_id = ? AND ${billable('b')} AND b.date BETWEEN ? AND ?
+    ORDER BY b.date DESC, b.start DESC`).all(Number(workerId), from, to);
+  let pay = 0, kmPay = 0, hours = 0, km = 0, loading = 0, awaiting = 0, cancelledPay = 0, cancelledShifts = 0;
+  const byCategory = {};
+  const lines = rows.map(b => {
+    const share = b.worker_share || 0;
+    const kmLine = round2((b.km || 0) * (KM_RATE_PAY()));
+    const plainRate = b.hours > 0 ? round2(share / b.hours) : 0;
+    pay = round2(pay + share); kmPay = round2(kmPay + kmLine);
+    hours = round2(hours + (b.hours || 0)); km = round2(km + (b.km || 0));
+    const cl = (INVOICE_RATES[b.rate_category] || {}).label || b.rate_category || 'Other';
+    byCategory[cl] = round2((byCategory[cl] || 0) + share);
+    if (b.approval_state === 'pending' || b.approval_state === 'queried') awaiting = round2(awaiting + share + kmLine);
+    if (b.status === 'cancelled') { cancelledPay = round2(cancelledPay + share); cancelledShifts += 1; }
+    return {
+      id: b.id, date: b.date, start: b.start, hours: b.hours,
+      participant: b.participant_name,
+      service_label: SERVICE_LABELS[b.service] || b.service,
+      category_label: cl, rate: plainRate, pay: share,
+      km: b.km || 0, km_pay: kmLine, total: round2(share + kmLine),
+      approval_state: b.approval_state || '', approved_at: b.approved_at || '',
+      short_notice: b.short_notice ? 1 : 0,
+      /* The cancellation email tells the worker "you are paid in full". This is
+         the line that has to agree with it. */
+      cancelled: b.status === 'cancelled',
+      notice_hours: b.notice_hours === null || b.notice_hours === undefined ? null : b.notice_hours
+    };
+  });
+  /* loading = everything earned above the plain weekday rate for the same hours */
+  const plain = workerPay(workerId, 'weekday-day', 1);
+  const plainHourly = plain ? plain.rate : 0;
+  loading = round2(Math.max(0, pay - plainHourly * hours));
+  return {
+    from, to, lines, shifts: lines.length, hours, km,
+    pay, km_pay: kmPay, loading, plain_hourly: plainHourly,
+    /* `hours` counts every paid hour, including hours held open for a shift
+       that was called off — which is what the pay is for. rollingHours(), which
+       decides the pay tier, deliberately counts only hours worked: a tier is
+       earned by turning up, not by being cancelled on. */
+    cancelled_pay: cancelledPay, cancelled_shifts: cancelledShifts,
+    total: round2(pay + kmPay), awaiting, by_category: byCategory
+  };
+}
+
+route('GET', /^\/api\/me\/earnings$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const q = new URL(req.url, 'http://x').searchParams;
+  const custom = clean(q.get('from'), 10) && clean(q.get('to'), 10);
+  const periods = payPeriods(8);
+  const cur = custom ? { from: clean(q.get('from'), 10), to: clean(q.get('to'), 10) } : periods[0];
+  const prev = periods[1];
+  const this_period = earningsFor(user.id, cur.from, cur.to);
+  const last_period = custom ? null : earningsFor(user.id, prev.from, prev.to);
+  const hours = rollingHours(user.id);
+  const tier = tierOf(user.id);
+  const i = tierIndex(tier);
+  const nextKey = TIER_KEYS[i + 1] || null;
+  const bands = tierBands(), shares = tierShares();
+  const fy = (() => {
+    const t = new Date();
+    const y = t.getMonth() >= 6 ? t.getFullYear() : t.getFullYear() - 1;
+    return earningsFor(user.id, `${y}-07-01`, t.toISOString().slice(0, 10));
+  })();
+  json(res, 200, {
+    this_period, last_period, periods,
+    year_to_date: { from: fy.from, to: fy.to, pay: fy.pay, km_pay: fy.km_pay, total: fy.total, hours: fy.hours, shifts: fy.shifts },
+    tier: {
+      key: tier, label: TIERS[i].label, share_pct: shares[tier],
+      hours_banked: hours,
+      next: nextKey ? {
+        key: nextKey, label: TIERS[i + 1].label, share_pct: shares[nextKey],
+        at_hours: bands[nextKey], hours_to_go: Math.max(0, round2(bands[nextKey] - hours)),
+        extra_per_hour: round2(INVOICE_RATES['weekday-day'].price * (shares[nextKey] - shares[tier]) / 100)
+      } : null
+    },
+    km_rate: KM_RATE_PAY(), km_rule: KM_RULE,
+    approval_days: APPROVAL_DEEM_DAYS,
+    note: 'Figures are what BookIt owes you for work already marked complete, before tax and including superannuation, on the tier you are on today. A shift that is still waiting on a timesheet is shown separately because it is not payable yet.'
+  });
+});
+
+route('GET', /^\/api\/me\/earnings\.csv$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const q = new URL(req.url, 'http://x').searchParams;
+  const { from, to } = periodRange(q);
+  const e = earningsFor(user.id, from, to);
+  const qq = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['Date', 'Start', 'Hours', 'Person supported', 'Support', 'Rate category',
+    'Hourly', 'Shift pay', 'Kilometres', 'Travel pay', 'Line total', 'Timesheet'].map(qq).join(',')];
+  for (const r of e.lines) {
+    lines.push([qq(dmy(r.date)), qq(r.start), r.hours, qq(r.participant), qq(r.service_label), qq(r.category_label),
+      (r.rate || 0).toFixed(2), (r.pay || 0).toFixed(2), r.km || 0, (r.km_pay || 0).toFixed(2),
+      (r.total || 0).toFixed(2), qq(r.approval_state || '')].join(','));
+  }
+  lines.push([qq('TOTAL'), '', e.hours, '', '', '', '', e.pay.toFixed(2), e.km, e.km_pay.toFixed(2), e.total.toFixed(2), ''].join(','));
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-earnings-${from}-to-${to}.csv"`
+  });
+  res.end('﻿' + lines.join('\n'));
+});
+
+
+/* ==========================================================================
+   BUILD 9 - MULTI-FACTOR AUTHENTICATION, AND KNOWING WHERE YOU ARE SIGNED IN
+
+   A support worker's account holds a participant's address, their plan, and
+   the notes describing what happens in their bathroom. A password alone
+   guards it. Multi-factor closes that, but only if people actually switch it
+   on, and nobody switches on a feature that opens with a thirty-two
+   character key to hand-type. So the barcode is the feature, and the barcode
+   is drawn here rather than installed, because this server has no
+   dependencies and is not getting one for this.
+
+   The sessions list is the other half. Multi-factor stops a stolen password
+   creating a new session; it does nothing about a session that already
+   exists on a laptop left at a client's house. One list, one revoke button.
+   ========================================================================== */
+
+/* Google Authenticator, Authy, 1Password and iOS Passwords all read this
+   URI. The issuer appears twice on purpose: once in the label so the entry
+   reads "BookIt: name@example.com" on older apps, once as a parameter so
+   newer ones group it properly. */
+function otpauthUri(label, secret) {
+  return `otpauth://totp/BookIt:${encodeURIComponent(label)}?secret=${secret}&issuer=BookIt&algorithm=SHA1&digits=6&period=30`;
+}
+/* Typing a secret by hand is the fallback, and a wall of thirty-two
+   characters is where people mistype. Four-character groups is how every
+   licence key has been printed for thirty years. */
+const b32groups = sec => String(sec).replace(/(.{4})/g, '$1 ').trim();
+
+/* Security email is not in the notification preferences, and that is
+   deliberate: MAIL_KINDS marks 'security' optional:false, so nobody can
+   accidentally opt out of being told their second factor was turned off. */
+function securityMail(req, u, subject, html) {
+  return notify(u.id, 'security', u.email, `${subject} — BookIt`, `Hi ${firstName(u.name)},`,
+    html, 'Open your security settings', `${baseUrl(req)}/#/security`).catch(() => {});
+}
+
+/* The email that catches a stolen password. It fires on the first sign-in
+   from a device family this account has not used before - not on every
+   sign-in, which would train people to ignore it, and not on registration,
+   where every device is new by definition. */
+function newDeviceAlert(req, u, ip) {
+  try {
+    const ua = (req.headers && req.headers['user-agent']) || '';
+    const name = deviceName(ua);
+    const seen = db.prepare("SELECT ua FROM sessions WHERE user_id = ? AND sid NOT LIKE 'legacy-cutoff-%'").all(u.id);
+    if (seen.some(r => deviceName(r.ua) === name)) return;
+    if (!seen.length) return;   /* first ever session: registration, not news */
+    securityMail(req, u, 'New sign-in to your BookIt account',
+      `<p>Your account was just signed in to from <b>${escHtml(name)}</b>${ip ? ` (${escHtml(String(ip))})` : ''}.</p>
+       <p>If that was you, nothing to do. If it wasn’t, change your password straight away — that signs out every device — and turn on two-step sign-in.</p>`);
+  } catch {}
+}
+
+function mfaStatus(userId) {
+  const r = db.prepare('SELECT enabled, confirmed_at, created FROM mfa WHERE user_id = ?').get(Number(userId));
+  const left = db.prepare('SELECT COUNT(*) n FROM mfa_recovery WHERE user_id = ? AND used_at IS NULL').get(Number(userId)).n;
+  return {
+    enabled: !!(r && r.enabled),
+    pending: !!(r && !r.enabled && r.created),
+    since: (r && r.confirmed_at) ? dmy(String(r.confirmed_at).slice(0, 10)) : '',
+    recovery_left: left,
+    recovery_low: left > 0 && left <= 3
+  };
+}
+
+route('GET', /^\/api\/me\/mfa$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  json(res, 200, mfaStatus(user.id));
+});
+
+/* Starting enrolment mints a fresh secret every time and leaves enabled at
+   0. Half-finished enrolments are therefore harmless, and someone who
+   abandoned the screen a week ago and comes back does not get a secret
+   their old scan would still match. */
+route('POST', /^\/api\/me\/mfa\/start$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (mfaOn(user.id)) return json(res, 400, { error: 'Two-step sign-in is already on. Turn it off first if you want to move it to a new phone.' });
+  const secret = b32encode(crypto.randomBytes(20));
+  db.prepare('DELETE FROM mfa WHERE user_id = ?').run(user.id);
+  db.prepare('INSERT INTO mfa (user_id, secret, enabled, created) VALUES (?,?,0,?)').run(user.id, secret, now());
+  json(res, 200, { secret, typed: b32groups(secret), uri: otpauthUri(user.email, secret) });
+});
+
+/* The barcode is served as its own image rather than inlined in the JSON so
+   the secret never lands in a string the front-end could log, cache or paste
+   into an error report. no-store, and it is gone the moment MFA is on. */
+route('GET', /^\/api\/me\/mfa\/qr\.svg$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const r = db.prepare('SELECT secret, enabled FROM mfa WHERE user_id = ?').get(user.id);
+  if (!r || r.enabled) return json(res, 404, { error: 'No set-up in progress.' });
+  const svg = qrSvg(otpauthUri(user.email, r.secret), 6, 4);
+  res.writeHead(200, {
+    'Content-Type': 'image/svg+xml; charset=utf-8',
+    'Content-Length': Buffer.byteLength(svg),
+    'Cache-Control': 'no-store, private',
+    'X-Content-Type-Options': 'nosniff'
+  });
+  res.end(svg);
+});
+
+/* Confirming proves the phone and the server agree about the time, which is
+   the failure nobody diagnoses on their own. Only then does it go live, and
+   only then are the recovery codes issued - issuing them earlier would mean
+   handing out codes for a factor that was never switched on. */
+route('POST', /^\/api\/me\/mfa\/confirm$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (limited(ip, 'mfaconfirm', 15)) return json(res, 429, { error: 'Too many attempts — try again in a few minutes.' });
+  const r = db.prepare('SELECT secret, enabled, last_used_step FROM mfa WHERE user_id = ?').get(user.id);
+  if (!r) return json(res, 400, { error: 'Start the set-up again — scan the barcode first.' });
+  if (r.enabled) return json(res, 400, { error: 'Two-step sign-in is already on.' });
+  const step = totpCheck(r.secret, body.code, 0);
+  if (step === null) return json(res, 400, { error: 'That code isn’t right. Check your phone’s clock is set automatically, wait for the next code, and try again.' });
+  db.prepare('UPDATE mfa SET enabled = 1, confirmed_at = ?, last_used_step = ?, disabled_at = NULL WHERE user_id = ?')
+    .run(now(), step, user.id);
+  const codes = newRecoveryCodes(user.id);
+  securityMail(req, user, 'Two-step sign-in is now on',
+    `<p>Two-step sign-in was switched on for your BookIt account from ${escHtml(deviceName(req.headers['user-agent']))}. From now on you will be asked for a six-digit code after your password.</p>
+     <p>Ten recovery codes were issued at the same time. Keep them somewhere that is not your phone — they are how you get back in if the phone is lost.</p>
+     <p>If you did not do this, change your password immediately.</p>`);
+  logCompliance({ kind: 'security', result: 'on', ref: `user-${user.id}`, source: deviceName(req.headers['user-agent']),
+    detail: 'Two-step sign-in switched on', checked_by: user.email,
+    worker_id: user.role === 'worker' ? user.id : null, worker_name: user.role === 'worker' ? user.name : '' });
+  json(res, 200, { ok: true, codes, ...mfaStatus(user.id) });
+});
+
+/* Turning it off asks for the password, not for a code. Someone whose phone
+   is in the sea cannot produce a code, and locking them out of their own
+   account is not security, it is a support ticket. The password plus a live
+   session is the same bar as changing it. */
+route('POST', /^\/api\/me\/mfa\/disable$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (limited(ip, 'mfadisable', 10)) return json(res, 429, { error: 'Too many attempts — try again in a few minutes.' });
+  const row = db.prepare('SELECT pass FROM users WHERE id = ?').get(user.id);
+  if (!verifyPassword(String(body.password || ''), row.pass)) return json(res, 401, { error: 'That password doesn’t match.' });
+  db.prepare('UPDATE mfa SET enabled = 0, disabled_at = ? WHERE user_id = ?').run(now(), user.id);
+  db.prepare('DELETE FROM mfa_recovery WHERE user_id = ?').run(user.id);
+  securityMail(req, user, 'Two-step sign-in has been turned off',
+    `<p>Two-step sign-in was switched off for your BookIt account from ${escHtml(deviceName(req.headers['user-agent']))}. Your password is now the only thing protecting it, and your old recovery codes no longer work.</p>
+     <p>If you did not do this, change your password now and switch two-step back on.</p>`);
+  logCompliance({ kind: 'security', result: 'off', ref: `user-${user.id}`, source: deviceName(req.headers['user-agent']),
+    detail: 'Two-step sign-in switched off', checked_by: user.email,
+    worker_id: user.role === 'worker' ? user.id : null, worker_name: user.role === 'worker' ? user.name : '' });
+  json(res, 200, { ok: true, ...mfaStatus(user.id) });
+});
+
+/* Regenerating burns the old set. That is the point: the reason to
+   regenerate is that the old ones were seen by someone. */
+route('POST', /^\/api\/me\/mfa\/recovery$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (limited(ip, 'mfarec', 8)) return json(res, 429, { error: 'Too many attempts — try again in a few minutes.' });
+  if (!mfaOn(user.id)) return json(res, 400, { error: 'Recovery codes only exist once two-step sign-in is on.' });
+  const row = db.prepare('SELECT pass FROM users WHERE id = ?').get(user.id);
+  if (!verifyPassword(String(body.password || ''), row.pass)) return json(res, 401, { error: 'That password doesn’t match.' });
+  const codes = newRecoveryCodes(user.id);
+  securityMail(req, user, 'New recovery codes were issued',
+    `<p>A fresh set of ten recovery codes was issued for your BookIt account. <b>Your previous codes stopped working the moment these were made.</b></p>
+     <p>If you did not do this, change your password now.</p>`);
+  json(res, 200, { ok: true, codes, ...mfaStatus(user.id) });
+});
+
+/* ---------- where you are signed in ---------- */
+
+route('GET', /^\/api\/me\/sessions$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const rows = db.prepare("SELECT sid, created, last_seen, ip, ua, revoked_at FROM sessions WHERE user_id = ? AND sid NOT LIKE 'legacy-cutoff-%' AND revoked_at IS NULL ORDER BY last_seen DESC LIMIT 60").all(user.id);
+  const stampAU = iso => {
+    try {
+      const d = new Date(iso);
+      const t = d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).replace(' ', '');
+      return `${dmy(iso.slice(0, 10))}, ${t.toLowerCase()}`;
+    } catch { return dmy(String(iso).slice(0, 10)); }
+  };
+  const agoWords = iso => {
+    const mins = Math.floor((Date.now() - Date.parse(iso)) / 60e3);
+    if (!(mins >= 0)) return '';
+    if (mins < 2) return 'Just now';
+    if (mins < 60) return `${mins} minutes ago`;
+    const h = Math.floor(mins / 60);
+    if (h < 24) return h === 1 ? 'An hour ago' : `${h} hours ago`;
+    const days = Math.floor(h / 24);
+    return days === 1 ? 'Yesterday' : `${days} days ago`;
+  };
+  const list = rows.map(r => ({
+    sid: r.sid,
+    device: deviceName(r.ua),
+    ip: r.ip || '',
+    started: dmy(String(r.created).slice(0, 10)),
+    /* the words you recognise yourself by first, the stamp you would write
+       down beside it — never a raw ISO string pointed at a person */
+    last_seen: `${agoWords(r.last_seen)} · ${stampAU(String(r.last_seen))}`,
+    current: r.sid === user.sid
+  }));
+  /* whoever is reading the screen wants to find themselves first */
+  list.sort((a, b) => (b.current ? 1 : 0) - (a.current ? 1 : 0));
+  json(res, 200, {
+    sessions: list,
+    /* an honest line rather than a silent gap: cookies from before this
+       feature shipped have no row here, and saying so beats pretending
+       the list is complete */
+    legacy: !user.sid,
+    note: user.sid ? '' : 'You signed in before this screen existed, so this device isn’t listed. Sign out and back in to see it here.'
+  });
+});
+
+route('POST', /^\/api\/me\/sessions\/revoke$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (body.all) {
+    /* everything except the device asking - the alternative is a button that
+       signs you out for pressing it, which nobody presses twice */
+    db.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL AND sid <> ? AND sid NOT LIKE 'legacy-cutoff-%'")
+      .run(now(), user.id, user.sid || '');
+    stampLegacyCutoff(user.id);
+    securityMail(req, user, 'Signed out of all other devices',
+      `<p>Every other device signed in to your BookIt account has been signed out. Only ${escHtml(deviceName(req.headers['user-agent']))} is still signed in.</p>
+       <p>If you did not do this, change your password now.</p>`);
+    return json(res, 200, { ok: true, all: true });
+  }
+  const sid = String(body.sid || '');
+  if (!/^[0-9a-f]{32}$/.test(sid)) return json(res, 400, { error: 'Pick a device to sign out.' });
+  /* revoked_at IS NULL matters: without it, pressing the button twice
+     rewrites the time the device was actually signed out, and this row is
+     the only record of when it happened. */
+  const r = db.prepare('SELECT id FROM sessions WHERE sid = ? AND user_id = ? AND revoked_at IS NULL').get(sid, user.id);
+  if (!r) return json(res, 404, { error: 'That device is already signed out.' });
+  db.prepare('UPDATE sessions SET revoked_at = ? WHERE id = ?').run(now(), r.id);
+  json(res, 200, { ok: true, self: sid === user.sid });
+});
+
+/* ---------- deleting a person, completely ----------
+
+   The old sweep named eight tables. There are twenty-nine that carry
+   somebody's id, and the list was last correct several builds ago; once the
+   sessions table arrived, a demo account that had ever signed in could not
+   be deleted at all, because the foreign key refused and the whole request
+   five-hundred'd. Maintaining the list by hand was the bug.
+
+   So the list is discovered instead. Any column called user_id, worker_id,
+   participant_id and so on, declared INTEGER, is a reference to a person,
+   and a table added next year is swept without anyone remembering to come
+   back to this function. compliance_log.checked_by is deliberately excluded
+   by the INTEGER test - it holds an email address, and the compliance log is
+   append-only evidence that must survive the person it is about. */
+const PERSON_COLS = /^(user_id|worker_id|participant_id|coordinator_id|actor_id|reviewer_id|author_id|sender_id|owner_id|by_id|created_by|assigned_to|requested_by|approved_by|cancelled_by|revoked_by)$/;
+
+function personColumns() {
+  const out = [];
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> 'users'").all();
+  for (const t of tables) {
+    const cols = db.prepare(`PRAGMA table_info("${t.name}")`).all()
+      .filter(c => PERSON_COLS.test(c.name) && /INT/i.test(c.type || ''))
+      .map(c => c.name);
+    if (cols.length) out.push({ table: t.name, cols });
+  }
+  return out;
+}
+
+/* Deletes every row in every table that names one of these people. Returns a
+   per-table count so the screen can show what actually went, rather than a
+   reassuring "done". */
+function sweepPeople(ids) {
+  if (!ids.length) return { total: 0, tables: {} };
+  const ph = ids.map(() => '?').join(',');
+  const tables = {};
+  let total = 0;
+  /* Foreign keys go off for the duration. The alternative is working out a
+     safe deletion order across twenty-nine tables and keeping it right
+     forever, which is the same losing game as the hand-list. Integrity is
+     re-checked at the end instead, which is stronger: it verifies the
+     result rather than trusting the order. */
+  db.exec('PRAGMA foreign_keys = OFF');
+  try {
+    for (const { table, cols } of personColumns()) {
+      const where = cols.map(c => `"${c}" IN (${ph})`).join(' OR ');
+      const args = [];
+      for (const _ of cols) args.push(...ids);
+      const r = db.prepare(`DELETE FROM "${table}" WHERE ${where}`).run(...args);
+      if (r.changes) { tables[table] = Number(r.changes); total += Number(r.changes); }
+    }
+  } finally { db.exec('PRAGMA foreign_keys = ON'); }
+  return { total, tables };
+}
+
+/* A message belongs to a conversation, not to a person, so deleting both
+   people leaves the message behind pointing at nothing. Rather than hard-code
+   that relationship - and the same one for job applications, and whichever
+   arrives next - ask SQLite which rows now point at something that is gone,
+   and delete those. Repeat, because deleting a parent can orphan its own
+   children. It settles in two or three passes; the cap is there so a
+   circular reference cannot spin. */
+function sweepOrphans(maxPasses = 8) {
+  let removed = 0;
+  db.exec('PRAGMA foreign_keys = OFF');
+  try {
+    for (let pass = 0; pass < maxPasses; pass++) {
+      const bad = db.prepare('PRAGMA foreign_key_check').all();
+      if (!bad.length) break;
+      const byTable = new Map();
+      for (const r of bad) {
+        if (r.rowid === null || r.rowid === undefined) continue;
+        if (!byTable.has(r.table)) byTable.set(r.table, new Set());
+        byTable.get(r.table).add(Number(r.rowid));
+      }
+      if (!byTable.size) break;
+      for (const [t, set] of byTable) {
+        const list = [...set];
+        const r = db.prepare(`DELETE FROM "${t}" WHERE rowid IN (${list.map(() => '?').join(',')})`).run(...list);
+        removed += Number(r.changes);
+      }
+    }
+  } finally { db.exec('PRAGMA foreign_keys = ON'); }
+  return removed;
+}
+
+/* ---------- 12. attachments that are documents we already hold ----------
+
+   Hireup lets you send a photo in a message; it becomes a new file, in a new
+   place, with no status attached to it, and nobody ever checks it again. The
+   version here refuses to make a second copy. A message stores a kind and an
+   id and nothing more, and every read resolves that pointer live.
+
+   Three things fall out of that and they are the whole reason for the shape:
+
+   a document that has not been verified is labelled unverified in the thread,
+   so a worker cannot make a certificate look official by emailing it to a
+   participant instead of uploading it;
+
+   a document that expires stops looking current everywhere at once, including
+   in a conversation from last winter, because nothing was ever frozen;
+
+   and a person who asks to have their documents deleted is actually deleted,
+   because there is no orphan copy sitting in a chat log. The message keeps
+   the name it had - doc_name - so the thread still reads sensibly, and says
+   the file is no longer held. */
+
+function attachableDoc(user, kind, id, ownerId) {
+  if (!id) return null;
+  /* ownerId is the participant a coordinator is acting for. Zero for
+     everybody else, which leaves the original two branches untouched. */
+  const pid = Number(ownerId) || (user.role === 'participant' ? user.id : 0);
+  if (kind === 'worker' && user.role === 'worker') {
+    const d = db.prepare('SELECT * FROM worker_docs WHERE id = ? AND worker_id = ?').get(id, user.id);
+    if (!d) return null;
+    const cat = DOC_MAP[d.doc_type] || {};
+    return { kind: 'worker', id: d.id, name: d.label || cat.label || d.doc_type,
+      has_file: Boolean(d.file_path), file_name: d.file_name, mime: d.file_mime,
+      verified: Boolean(d.verified_at), expiry: d.expiry_date || '', status: docStatus(d) };
+  }
+  if (kind === 'participant' && pid) {
+    const d = db.prepare('SELECT * FROM participant_docs WHERE id = ? AND participant_id = ?').get(id, pid);
+    if (!d) return null;
+    const cat = PDOC_MAP[d.form_key] || {};
+    return { kind: 'participant', id: d.id, name: d.label || cat.label || d.form_key,
+      has_file: Boolean(d.file_path), file_name: d.file_name, mime: d.file_mime,
+      verified: Boolean(d.verified_at), expiry: d.expiry_date || '', status: docStatus(d) };
+  }
+  return null;
+}
+
+/* Everything the signed-in person is allowed to put on a message, with the
+   status shown before they choose rather than after they send. Somebody about
+   to share an expired blue card should be able to see that it is expired. */
+function attachableList(user, ownerId) {
+  if (!user) return [];
+  const pid = Number(ownerId) || (user.role === 'participant' ? user.id : 0);
+  if (user.role === 'worker') {
+    return db.prepare("SELECT * FROM worker_docs WHERE worker_id = ? AND file_path <> '' ORDER BY uploaded_at DESC").all(user.id)
+      .map(d => {
+        const cat = DOC_MAP[d.doc_type] || {};
+        return { kind: 'worker', id: d.id, name: d.label || cat.label || d.doc_type,
+          group: cat.category || 'other', file_name: d.file_name,
+          verified: Boolean(d.verified_at), expiry: d.expiry_date || '', status: docStatus(d) };
+      });
+  }
+  if (pid) {
+    return db.prepare("SELECT * FROM participant_docs WHERE participant_id = ? AND file_path <> '' ORDER BY uploaded_at DESC").all(pid)
+      .map(d => {
+        const cat = PDOC_MAP[d.form_key] || {};
+        return { kind: 'participant', id: d.id, name: d.label || cat.label || d.form_key,
+          group: 'participant', file_name: d.file_name,
+          verified: Boolean(d.verified_at), expiry: d.expiry_date || '', status: docStatus(d) };
+      });
+  }
+  return [];
+}
+
+/* The live view of whatever a message points at. Returns null for an ordinary
+   message; for one with an attachment whose document has since been deleted it
+   returns the name it had and gone:true, because "the file this refers to is
+   no longer held" is information, and a silently vanishing paperclip is not. */
+function messageAttachment(msg) {
+  if (!msg || !msg.doc_kind || !msg.doc_id) return null;
+  const base = { kind: msg.doc_kind, name: msg.doc_name || 'Document', url: `/api/messages/${msg.id}/file` };
+  const row = msg.doc_kind === 'worker'
+    ? db.prepare('SELECT * FROM worker_docs WHERE id = ?').get(msg.doc_id)
+    : db.prepare('SELECT * FROM participant_docs WHERE id = ?').get(msg.doc_id);
+  if (!row || !row.file_path) return { ...base, gone: true, verified: false, status: 'gone' };
+  const cat = msg.doc_kind === 'worker' ? (DOC_MAP[row.doc_type] || {}) : (PDOC_MAP[row.form_key] || {});
+  return {
+    ...base,
+    name: row.label || cat.label || msg.doc_name || 'Document',
+    file_name: row.file_name || '',
+    mime: row.file_mime || '',
+    gone: false,
+    verified: Boolean(row.verified_at),
+    verified_by: row.verified_by || '',
+    expiry: row.expiry_date || '',
+    status: docStatus(row),
+    days: docDays(row)
+  };
+}
+
+route('GET', /^\/api\/me\/attachable$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pers = user.role === 'coordinator' ? actFor(req, user, 'documents') : null;
+  json(res, 200, { documents: attachableList(user, pers ? pers.id : 0), acting_for: pers && !pers.self ? pers.name : null });
+});
+
+/* The file is served by message id, not by document id. Permission comes from
+   being in the conversation, so the existing "only the owner and an admin"
+   rule on /api/documents/:id/file stays exactly as strict as it was - sharing
+   one document with one person does not open the folder. */
+route('GET', /^\/api\/messages\/(\d+)\/file$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(Number(m[1]));
+  if (!msg || !msg.doc_kind || !msg.doc_id) return json(res, 404, { error: 'No attachment.' });
+  if (!memberOf(user, msg.convo_id)) return json(res, 403, { error: 'Not your conversation.' });
+  const row = msg.doc_kind === 'worker'
+    ? db.prepare('SELECT * FROM worker_docs WHERE id = ?').get(msg.doc_id)
+    : db.prepare('SELECT * FROM participant_docs WHERE id = ?').get(msg.doc_id);
+  if (!row || !row.file_path) return json(res, 404, { error: 'That document is no longer held.' });
+  if (!fs.existsSync(row.file_path)) return json(res, 404, { error: 'File missing from disk.' });
+  res.writeHead(200, {
+    'Content-Type': row.file_mime || 'application/octet-stream',
+    'Content-Disposition': `inline; filename="${(row.file_name || 'document').replace(/[^\w.\- ]/g, '')}"`,
+    /* a shared document is somebody's medical history often enough that it
+       should not sit in a shared proxy cache */
+    'Cache-Control': 'no-store, private'
+  });
+  fs.createReadStream(row.file_path).pipe(res);
+});
+
+/* ---------- message search ----------
+
+   Threads with a regular worker run to hundreds of messages, and the thing
+   people scroll for is always the same: the address, the gate code, the day
+   they agreed to swap. instr() rather than LIKE, so % and _ typed by a human
+   are searched for instead of interpreted, and no escaping rule to get wrong.
+   Attachment names are searched too - "where did they send the care plan" is
+   the same question. */
+function searchSnippet(bodyText, q, span = 90) {
+  const b = String(bodyText || '');
+  if (!b) return '';
+  const at = b.toLowerCase().indexOf(q.toLowerCase());
+  if (at < 0) return b.slice(0, span * 2) + (b.length > span * 2 ? '…' : '');
+  const from = Math.max(0, at - Math.floor(span / 2));
+  const to = Math.min(b.length, at + q.length + Math.floor(span * 1.5));
+  return (from > 0 ? '…' : '') + b.slice(from, to).trim() + (to < b.length ? '…' : '');
+}
+
+route('GET', /^\/api\/messages\/search$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const url = new URL(req.url, 'http://x');
+  const q = clean(url.searchParams.get('q') || '', 120).trim();
+  /* One character matches most of the alphabet and returns a page of noise.
+     Say so rather than returning a bad answer. */
+  if (q.length < 2) return json(res, 200, { q, results: [], total: 0, note: q ? 'Type at least two characters.' : '' });
+  const convoId = Number(url.searchParams.get('convo') || 0) || null;
+  const mine = db.prepare('SELECT * FROM conversations WHERE participant_id = ? OR worker_id = ?').all(user.id, user.id);
+  const ids = mine.filter(c => !convoId || c.id === convoId).map(c => c.id);
+  if (!ids.length) return json(res, 200, { q, results: [], total: 0 });
+  const ph = ids.map(() => '?').join(',');
+  const rows = db.prepare(`SELECT * FROM messages
+    WHERE convo_id IN (${ph}) AND (instr(lower(body), lower(?)) > 0 OR instr(lower(COALESCE(doc_name, '')), lower(?)) > 0)
+    ORDER BY id DESC LIMIT 60`).all(...ids, q, q);
+  const byConvo = new Map(mine.map(c => [c.id, c]));
+  const names = new Map();
+  const nameFor = id => {
+    if (!names.has(id)) names.set(id, (db.prepare('SELECT name FROM users WHERE id = ?').get(id) || {}).name || 'Someone');
+    return names.get(id);
+  };
+  json(res, 200, {
+    q,
+    total: rows.length,
+    results: rows.map(x => {
+      const c = byConvo.get(x.convo_id);
+      const otherId = user.role === 'participant' ? c.worker_id : c.participant_id;
+      return {
+        id: x.id, convo_id: x.convo_id, mine: x.sender_id === user.id,
+        with: nameFor(otherId), created: x.created,
+        snippet: searchSnippet(x.body, q) || (x.doc_name ? `\u{1F4CE} ${x.doc_name}` : ''),
+        attachment_name: x.doc_name || ''
+      };
+    })
+  });
+});
+
+/* ---------- 15. training, and the roster lock behind it ----------
+
+   The forms register names w-hi-competency as an evidence gap in writing, and
+   an evidence gap is not closed by a policy saying training happens. It is
+   closed by a dated record with a name on it. So a module ends in a
+   certificate written into worker_docs, which means it appears in the
+   credential list, in the audit pack zip, in the worker-credentials CSV and on
+   the expiry sweep, exactly like a first aid certificate does - one filing
+   cabinet, not two.
+
+   The lock escalates rather than falling. Seven days overdue is a soft lock:
+   the worker is told, the office is told, and nothing stops. Fourteen days is
+   a hard lock and they cannot accept new shifts. What it never does, at any
+   stage, is touch a booking already accepted - pulling somebody off tomorrow
+   morning's shift because their infection control refresher lapsed leaves a
+   participant with no support, which is a worse safety outcome than the thing
+   the lock was worried about. */
+
+const MODULE_SEED = [
+  {
+    key: 'code-of-conduct',
+    title: 'The NDIS Code of Conduct',
+    summary: 'The seven obligations every worker delivering NDIS supports is held to, and what each one looks like on a shift.',
+    minutes: 12, renew_months: 24, required: 1, sort: 10, doc_type: 'ndis-orientation',
+    services: [],
+    body: [
+      'The NDIS Code of Conduct applies to you personally, not only to BookIt. It is enforceable by the NDIS Quality and Safeguards Commission against an individual worker, and a breach can end in a banning order that follows you to any other provider.',
+      'There are seven obligations. Act with respect for individual rights to freedom of expression, self-determination and decision-making. Respect the privacy of people with disability. Provide supports in a safe and competent manner with care and skill. Act with integrity, honesty and transparency. Promptly take steps to raise and act on concerns about matters that may impact the quality and safety of supports. Take all reasonable steps to prevent and respond to all forms of violence against, and exploitation, neglect and abuse of, people with disability. Take all reasonable steps to prevent and respond to sexual misconduct.',
+      'Two of those are about what you do when something is wrong, not about what you do when everything is fine. Raising a concern is an obligation, and "I did not want to get anyone in trouble" is not a defence. In BookIt, the way you raise one is the incident form, or a direct message to the office if you would rather it not sit in a shift note.',
+      'Self-determination is the one most often lost by accident. Doing a task faster than the person could do it themselves is not always help. If a support plan says the person makes their own lunch with prompting, making it for them because you are running late is a departure from the plan, not a favour.',
+      'Respecting privacy includes what you say outside the shift. A participant’s name, address, diagnosis, funding, or the fact they receive supports at all, is theirs. That includes social media, group chats, and telling a story to a friend with the name left out but the suburb left in.'
+    ].join('\n\n'),
+    pass_mark: 80,
+    quiz: [
+      { q: 'A participant tells you their previous worker used to shout at them. They ask you not to tell anyone. What does the Code require?',
+        a: ['Respect their wish — privacy comes first', 'Raise it with the office, and tell the participant you have to', 'Wait to see if it happens again', 'Only report it if you witnessed it yourself'], correct: 1,
+        why: 'Obligation five requires you to promptly raise concerns about quality and safety. Privacy is not a reason to sit on a disclosure of abuse — but you tell the person what you are doing rather than going behind them.' },
+      { q: 'The support plan says the participant prepares their own meal with verbal prompting. You are behind schedule. What do you do?',
+        a: ['Make the meal so the shift finishes on time', 'Make the meal and note it in the shift note', 'Follow the plan and record that the shift ran over', 'Ask the participant to skip the meal'], correct: 2,
+        why: 'Self-determination is the support, not an obstacle to it. Departing from the plan for convenience is a departure whether or not you write it down.' },
+      { q: 'Who can the NDIS Code of Conduct be enforced against?',
+        a: ['Registered providers only', 'Providers and their workers, including unregistered ones', 'Workers only', 'Nobody — it is guidance'], correct: 1,
+        why: 'It binds providers and workers, registered or not, and the Commission can ban an individual worker.' },
+      { q: 'You post a photo of the beach from a community access shift, no faces, captioned "great day with my client in Cronulla". Is that a privacy breach?',
+        a: ['No — there are no faces in it', 'No — you did not use their name', 'Yes — it identifies that a person in a place receives supports', 'Only if the participant objects'], correct: 2,
+        why: 'Identification does not require a name or a face. Time, place and the fact of receiving supports can be enough, particularly in a small community.' },
+      { q: 'Which of these is NOT one of the seven obligations?',
+        a: ['Act with integrity, honesty and transparency', 'Provide supports in a safe and competent manner', 'Achieve the participant’s goals within their plan budget', 'Respect the privacy of people with disability'], correct: 2,
+        why: 'Budget management is a plan management function. It is not one of the seven Code obligations.' }
+    ]
+  },
+  {
+    key: 'safeguarding',
+    title: 'Recognising and reporting abuse, neglect and reportable incidents',
+    summary: 'What has to be reported, by whom, and inside what clock — including the five that are 24 hours.',
+    minutes: 15, renew_months: 12, required: 1, sort: 20, doc_type: 'ndis-orientation',
+    services: [],
+    body: [
+      'A reportable incident is a defined category, not a judgement call about seriousness. The five that must reach the NDIS Commission within 24 hours are: the death of a participant, serious injury of a participant, abuse or neglect of a participant, unlawful sexual or physical contact with or assault of a participant, and sexual misconduct committed against, with or in the presence of a participant.',
+      'The sixth category, the unauthorised use of a restrictive practice, is reportable within five business days, unless it also caused harm, in which case it is back inside the 24-hour clock.',
+      'The 24 hours runs from when the provider becomes aware, not from when the incident happened, and not from when the paperwork was finished. This is why the BookIt incident form asks you to submit it before you write the detail: an incomplete report inside the clock beats a complete one outside it, and the form lets you add to it afterwards.',
+      'Allegations count. "Abuse or neglect of a participant" includes an allegation of abuse or neglect, and includes allegations about another worker, a family member, another provider, or a stranger. It is not your job to decide whether it is true. It is your job to report it so that somebody whose job that is can decide.',
+      'Neglect is the one people miss because it looks like nothing happening. A participant left without a meal, without a repositioning, without the medication prompt in their plan, or alone when the plan says they are not to be left alone, is a reportable incident even where nobody intended harm and nothing visible went wrong.'
+    ].join('\n\n'),
+    pass_mark: 80,
+    quiz: [
+      { q: 'When does the 24-hour clock for a reportable incident start?',
+        a: ['When the incident happened', 'When the provider becomes aware of it', 'When the report is finished', 'At the end of the shift'], correct: 1,
+        why: 'Awareness starts the clock. That is why you submit early and add detail after, rather than waiting until you have the full picture.' },
+      { q: 'You arrive to find the participant has not been repositioned overnight as their plan requires, and has a new pressure area. Nobody meant harm.',
+        a: ['Not reportable — it was an oversight', 'Reportable as neglect, and it needs first aid or clinical advice too', 'Only reportable if the participant complains', 'Note it in the shift note and move on'], correct: 1,
+        why: 'Neglect does not require intent. The care response and the reporting obligation both run.' },
+      { q: 'A participant alleges their brother took money from their account. What is your obligation?',
+        a: ['Nothing — it is a family matter, not a support matter', 'Investigate and report if you find it is true', 'Report the allegation — it is not yours to test', 'Report only if the brother is a paid worker'], correct: 2,
+        why: 'An allegation of abuse, including financial abuse, is reportable whoever it is about. Testing it is the Commission’s job, not yours.' },
+      { q: 'Unauthorised use of a restrictive practice that caused no harm is reportable within:',
+        a: ['24 hours', '5 business days', '30 days', 'It is not reportable'], correct: 1,
+        why: 'Five business days, unless harm resulted, in which case it moves into the 24-hour category.' },
+      { q: 'Which of these is NOT one of the five 24-hour categories?',
+        a: ['Death of a participant', 'Serious injury of a participant', 'A medication error with no harm', 'Sexual misconduct'], correct: 2,
+        why: 'A medication error is recorded and reviewed, and may become reportable depending on what followed, but it is not itself one of the named five.' }
+    ]
+  },
+  {
+    key: 'manual-handling',
+    title: 'Safe transfers, hoists and manual handling',
+    summary: 'Hoist and transfer technique, when to stop, and why the plan beats the shortcut. Required for 0107 personal activities and 0115/0138.',
+    minutes: 15, renew_months: 12, required: 1, sort: 30, doc_type: 'manual-handling',
+    services: ['personal-care', 'daily-tasks'],
+    body: [
+      'A transfer is done the way the participant’s manual handling plan says it is done. Not the way the last worker did it, not the way you were taught somewhere else, and not the quicker way the participant themselves suggests on a day they are in a hurry. If the plan is wrong, the plan gets changed by the occupational therapist who wrote it — you do not change it on the floor.',
+      'Two-person transfers are two people. There is no version of a two-person transfer that one person does carefully. If the second person has not arrived, the transfer waits and you call the office.',
+      'Before any hoist transfer: check the sling is the right size and the right type for the person, check the label is legible and in date, check the stitching and webbing for fraying, check the hoist battery, check the brakes, and check the path you are moving through is clear. A sling that is fraying is taken out of service, not used gently.',
+      'During the transfer, the participant is told what is happening before each step. The lift is slow. You keep the load close, you do not twist, and you never lift a person off the floor by hand after a fall — a floor recovery uses a hoist designed for it, or an ambulance.',
+      'Stop and call for help if: the participant’s posture in the sling is not what you expect, they report pain, they are sliding, the hoist alarms, or you find yourself taking any of the person’s weight on your own body. Stopping mid-transfer is safe. Continuing a transfer that is going wrong is what produces the injuries.',
+      'Report every near miss, including the ones where nothing happened. A sling that was nearly the wrong one is the cheapest possible warning that the storage system needs fixing.'
+    ].join('\n\n'),
+    pass_mark: 80,
+    quiz: [
+      { q: 'The plan specifies a two-person transfer. Your co-worker is fifteen minutes away and the participant wants to get up now.',
+        a: ['Do it alone carefully — the participant consented', 'Do it alone but document it', 'Wait, tell the participant why, and call the office', 'Ask the participant to help take their own weight'], correct: 2,
+        why: 'Consent does not make a one-person version of a two-person transfer safe, for either of you. Waiting is the correct clinical answer and the correct legal one.' },
+      { q: 'The sling label is worn and you cannot read the size or the date.',
+        a: ['Use it — it is the one that is always used', 'Use it and report it afterwards', 'Take it out of service and use another', 'Guess the size from the participant’s build'], correct: 2,
+        why: 'An unreadable label means an unverifiable safe working load and no service history. It is out of service.' },
+      { q: 'A participant has slipped from their chair to the floor and is uninjured and wants to get up.',
+        a: ['Lift them by hand — they are uninjured', 'Two of you lift them under the arms', 'Use the appropriate hoist or call an ambulance', 'Let them get themselves up however they can'], correct: 2,
+        why: 'Manual floor lifts injure workers and shoulders. Floor recovery is a hoist task, and an ambulance is a reasonable call.' },
+      { q: 'Mid-hoist, the participant says the sling feels wrong and they are sliding.',
+        a: ['Finish quickly — the chair is close', 'Stop, lower to the nearest safe surface, reassess', 'Pull the sling straight and continue', 'Ask them to hold on'], correct: 1,
+        why: 'Stopping and lowering to a safe surface is always available and always the right answer to a transfer going wrong.' },
+      { q: 'Who can change the way a participant’s transfer is performed?',
+        a: ['Any worker who finds a better way', 'The participant, at any time', 'The clinician who wrote the plan, through a plan update', 'The most senior worker on shift'], correct: 2,
+        why: 'Changes go through the OT or physiotherapist and land in an updated plan, which then re-arms the acknowledgement tick for every worker.' }
+    ]
+  },
+  {
+    key: 'infection-control',
+    title: 'Infection prevention and control',
+    summary: 'Hand hygiene, PPE order, and what to do when you or the participant is unwell.',
+    minutes: 10, renew_months: 12, required: 1, sort: 40, doc_type: 'infection-control',
+    services: [],
+    body: [
+      'Hand hygiene is the single highest-value thing on this page. The five moments are: before touching a participant, before a procedure, after a body fluid exposure risk, after touching a participant, and after touching a participant’s surroundings. Alcohol rub is fine unless hands are visibly soiled or the concern is a spore-forming organism, in which case it is soap and water.',
+      'Putting PPE on: gown, mask, eye protection, gloves. Taking it off: gloves, eye protection, gown, mask — gloves first because they are the dirtiest thing you own, mask last because you keep it on until you have left the contaminated area. Hand hygiene after removing gloves, every time. Gloves are not a substitute for washing.',
+      'If you are unwell, you do not attend. This is not a judgement call about how unwell. A worker with a respiratory illness attending a shift with a person who has a spinal cord injury, a tracheostomy or a chronic respiratory condition is a serious risk, and BookIt would rather cover the shift than have you push through. Report it as early as you can so the cover cascade has time to work.',
+      'If the participant is unwell, the shift usually still happens, with more precautions rather than fewer. Record what you observed in the shift note in plain terms — temperature if taken, what they ate and drank, what changed since yesterday — because a note that says "seemed unwell" tells the next person nothing.',
+      'Sharps go in the sharps container, never in a bin, never recapped. Soiled linen goes straight to the wash and not on the floor. Spills of blood or body fluid are cleaned with gloves on, with the participant’s own cleaning products, and reported if there was any exposure to broken skin or mucous membranes.'
+    ].join('\n\n'),
+    pass_mark: 80,
+    quiz: [
+      { q: 'In what order is PPE removed?',
+        a: ['Mask, gown, eye protection, gloves', 'Gloves, eye protection, gown, mask', 'Gown, gloves, mask, eye protection', 'It does not matter as long as hands are washed after'], correct: 1,
+        why: 'Gloves first because they are the most contaminated; the mask stays on until you have left the area.' },
+      { q: 'Your hands are visibly soiled. Alcohol rub or soap and water?',
+        a: ['Alcohol rub — it is stronger', 'Soap and water', 'Either', 'Alcohol rub twice'], correct: 1,
+        why: 'Alcohol does not work through soiling, and does not remove it.' },
+      { q: 'You wake with a sore throat and a cough on the morning of a shift with a participant who has a tracheostomy.',
+        a: ['Attend wearing a mask', 'Attend and keep your distance', 'Report it immediately so the shift can be covered', 'Attend but shorten the shift'], correct: 2,
+        why: 'For a participant with a compromised airway this is a serious risk. The cover cascade exists precisely so that "I cannot come" is a safe thing to say.' },
+      { q: 'A needle has been used and there is no sharps container in the house.',
+        a: ['Recap it carefully and bin it', 'Wrap it in paper and bin it', 'Do not recap it; secure it and contact the office for a container', 'Take it home to dispose of'], correct: 2,
+        why: 'Recapping is where most needlestick injuries happen. Securing and escalating is the answer.' }
+    ]
+  },
+  {
+    key: 'transport-safety',
+    title: 'Transport, restraints and wheelchair loading',
+    summary: 'For 0108 Assist-Travel/Transport: securing a wheelchair, what the kilometre record is for, and when a trip does not go ahead.',
+    minutes: 12, renew_months: 12, required: 1, sort: 50, doc_type: 'other',
+    services: ['transport', 'community'],
+    body: [
+      'A wheelchair in a vehicle is secured at four points, and the occupant is restrained separately from the chair. The chair restraint holds the chair; the lap-sash holds the person. One is not a substitute for the other, and a person travelling in a chair held only by its own brakes is unrestrained.',
+      'The lap belt sits low across the pelvis, not across the abdomen, and the sash crosses the chest and shoulder. If the chair’s own postural belt is the only thing available, the trip does not go ahead — a postural belt is not an occupant restraint and is not tested as one.',
+      'Check the vehicle before the participant is in it: ramp or hoist working, floor anchor points clear and undamaged, straps not frayed, and enough room to secure the chair without the person having to be moved once they are aboard.',
+      'Kilometres are recorded from and to, per trip, on the booking. The record is not bookkeeping for its own sake: provider travel and participant transport are claimed differently, an incorrect claim is recoverable by the Agency, and the from-and-to pair is what makes a claim defensible two years later. Your commute to the first shift and home from the last is not claimable and is not recorded as participant transport.',
+      'Do not start or continue a trip if the participant is not safely restrained, if you are fatigued, if the vehicle has a fault that affects the restraint system, or if a behaviour of concern in the vehicle makes driving unsafe. Stopping somewhere safe and calling the office is always the correct answer, and it is never held against you.'
+    ].join('\n\n'),
+    pass_mark: 80,
+    quiz: [
+      { q: 'A wheelchair is secured at four points. What restrains the person?',
+        a: ['The four-point chair restraint', 'The chair’s own postural belt', 'A separate lap-sash occupant restraint', 'Nothing further is required'], correct: 2,
+        why: 'Chair restraint and occupant restraint are two different systems. A postural belt is neither tested nor rated as an occupant restraint.' },
+      { q: 'Where does the lap belt sit?',
+        a: ['Across the abdomen', 'Low across the pelvis', 'Over the armrests', 'Wherever it reaches'], correct: 1,
+        why: 'A belt across the abdomen transfers crash load into soft tissue and organs.' },
+      { q: 'Which of these is NOT recorded as participant transport?',
+        a: ['Driving the participant to a medical appointment', 'Driving the participant to a community activity', 'Your drive from home to the first shift of the day', 'Driving the participant home from the shops'], correct: 2,
+        why: 'Commuting to and from work is not participant transport and is not claimable. BookIt states this in writing on the kilometre form for exactly this reason.' },
+      { q: 'Mid-trip the participant unclips their restraint and will not put it back on.',
+        a: ['Keep driving slowly and talk to them', 'Pull over somewhere safe, stop, and call the office', 'Continue to the destination since it is close', 'Refuse to speak until they comply'], correct: 1,
+        why: 'An unrestrained occupant is the whole risk. Stopping safely is always available and is never treated as a failure.' }
+    ]
+  },
+  {
+    key: 'privacy-records',
+    title: 'Privacy, records and shift notes',
+    summary: 'What goes in a note, what does not, and who can ask to see everything you have written about them.',
+    minutes: 10, renew_months: 24, required: 1, sort: 60, doc_type: 'other',
+    services: [],
+    body: [
+      'Assume the participant will read every word you write about them, because under the Australian Privacy Principles they can ask to, and they will usually be given it. That is not a reason to write less. It is a reason to write in the terms you would use to their face.',
+      'A shift note records what you observed and what you did. "Observed" means what a camera would have caught: what was eaten, what was said, what the skin looked like, how far they walked, what time they went to bed. "Refused", "difficult", "attention-seeking" and "non-compliant" are conclusions, not observations, and they are the words that turn up in complaints.',
+      'Write the note the same day. In BookIt a note cannot be edited once submitted — a correction is an addendum, dated and attributed, sitting under the original. That is deliberate: an evidence record that can be quietly rewritten is not evidence. If you got something wrong, adding the correction is the professional act, not a mark against you.',
+      'Do not record another participant’s information in this participant’s note. In shared living especially, "the other resident was shouting" belongs in an incident record, not in a note that the first participant can request a copy of.',
+      'Photographs of a participant, their home or their injuries are taken only with consent and only where a support plan or an incident process calls for it, and they belong in BookIt against the record, not in your phone’s camera roll. Delete the local copy the same day.'
+    ].join('\n\n'),
+    pass_mark: 80,
+    quiz: [
+      { q: 'Which of these belongs in a shift note?',
+        a: ['"Client was non-compliant with personal care"', '"Declined a shower; accepted a wash at the basin at 9:10am"', '"Client was difficult this morning"', '"Client had an attitude"'], correct: 1,
+        why: 'The second is what happened. The others are conclusions that a reader — including the participant — cannot check.' },
+      { q: 'You realise a note you submitted yesterday has the wrong time in it.',
+        a: ['Edit the note', 'Ask an admin to edit it', 'Add a dated addendum correcting it', 'Leave it — it is a minor detail'], correct: 2,
+        why: 'Notes are append-only by design. The addendum is the correction and the trail stays intact.' },
+      { q: 'Can a participant ask to read everything written about them in BookIt?',
+        a: ['No, notes are internal', 'Only with a lawyer', 'Yes, and they generally must be given it', 'Only the notes they were present for'], correct: 2,
+        why: 'Australian Privacy Principle 12 gives an individual a right of access to their personal information, with narrow exceptions.' },
+      { q: 'You photograph a pressure area for the record.',
+        a: ['Keep it on your phone as backup', 'Upload it to BookIt and delete the phone copy that day', 'Send it to the family by text', 'Post it in the worker group chat for advice'], correct: 1,
+        why: 'The record is the place for it. A copy on a personal phone is an uncontrolled copy of health information.' }
+    ]
+  },
+  {
+    key: 'emergency-ready',
+    title: 'Emergencies and disaster preparedness',
+    summary: 'Fire, medical emergency, heat, flood and power failure — with the two minutes that matter most for people with high physical support needs.',
+    minutes: 12, renew_months: 12, required: 1, sort: 70, doc_type: 'other',
+    services: [],
+    body: [
+      'Every participant with high physical support needs should have an emergency plan that answers three questions: how do they get out, what has to come with them, and who else needs to be told. Read it before you need it. A hoist-dependent person and a locked-in-place power wheelchair change the answer to "just leave the building" completely.',
+      'What has to come with them is usually a short list and it is worth knowing by heart: medication, the charger, the catheter or continence supplies for the next twelve hours, and any communication device. A person separated from their communication device in an evacuation centre is a person who cannot tell anyone what they need.',
+      'In a medical emergency, call 000 first and the office second. Nobody at BookIt will ever criticise a worker for calling an ambulance. The reverse — a worker who rang the office first and lost four minutes waiting for someone to make the decision for them — is the failure.',
+      'Autonomic dysreflexia is a medical emergency in people with a spinal cord injury at T6 or above. Signs are a sudden pounding headache, flushing and sweating above the level of injury, blotchy skin, a slow pulse, and a spike in blood pressure. Sit the person upright, loosen anything tight, look for the cause — most often a blocked catheter, a full bowel, or a pressure point — and call 000 if it does not resolve immediately. It can kill within the hour.',
+      'Heat is the most underrated one in Australia and people with spinal cord injuries above T6 often cannot thermoregulate or sweat below the level of injury. On a day over 35 degrees, cooling, fluids and air conditioning are the support, and a shift plan built around an outdoor activity gets changed.',
+      'In a power failure, the immediate questions are the hoist, the pressure-relieving mattress, the ventilator or cough assist if there is one, and the phone. Know where the participant’s backup is before the lights go out.'
+    ].join('\n\n'),
+    pass_mark: 80,
+    quiz: [
+      { q: 'A participant with a C4 spinal cord injury develops a sudden pounding headache, sweating and blotchy skin above the injury.',
+        a: ['Lie them flat and let them rest', 'Sit them upright, look for a blocked catheter or other cause, call 000 if it does not resolve', 'Give pain relief and monitor', 'Call the office for advice first'], correct: 1,
+        why: 'This is autonomic dysreflexia. Sitting upright drops blood pressure; lying flat raises it. It can be fatal within the hour.' },
+      { q: 'In a medical emergency, who do you call first?',
+        a: ['The office', 'The participant’s family', '000', 'The on-call coordinator'], correct: 2,
+        why: 'Ambulance first, always. Nobody is ever criticised for calling one.' },
+      { q: 'Evacuating a participant who uses a communication device, what comes with them?',
+        a: ['Medication only — everything else can be replaced', 'Medication, charger, twelve hours of continence supplies, and the communication device', 'Whatever is nearest the door', 'Nothing — get out first and return later'], correct: 1,
+        why: 'A person separated from their communication device cannot tell an evacuation centre what they need.' },
+      { q: 'It is 38 degrees and the shift plan is an outdoor community access activity with a participant with a C4 injury.',
+        a: ['Go ahead but take water', 'Go ahead but keep it short', 'Change the activity — thermoregulation is impaired above T6', 'Ask the participant to decide'], correct: 2,
+        why: 'Impaired thermoregulation below the level of injury makes heat a clinical risk, not a comfort question.' }
+    ]
+  },
+  {
+    key: 'hi-supports',
+    title: 'High intensity supports: knowledge check',
+    summary: 'Bowel care, PEG feeding, urinary catheters, tracheostomy, ventilation and complex wounds — the knowledge half of the competency requirement.',
+    minutes: 18, renew_months: 12, required: 0, sort: 80, doc_type: 'other',
+    services: ['personal-care'],
+    body: [
+      'This module is the knowledge half of a high intensity competency and it is deliberately not the whole thing. The NDIS High Intensity Support Skills Descriptors require observed practice signed off by a qualified assessor for each support type, against the individual participant. Passing this quiz produces a dated knowledge certificate. It does not produce a competency sign-off, and BookIt records the two separately so that neither can be mistaken for the other.',
+      'The unifying rule across every high intensity support is that it is delegated to you for a named participant, by a named clinician, in writing, after you have been observed doing it for that participant. A skill signed off for one person does not transfer to another person, because the equipment, the anatomy and the plan are different.',
+      'Bowel care: follow the participant’s bowel care plan exactly, including the timing, since routine is most of what makes it work. Stop and escalate for bleeding, severe pain, no result after the plan’s specified interval, or any sign of autonomic dysreflexia in a person with a spinal injury above T6.',
+      'PEG feeding: check placement and the external marker before every feed, sit the person upright at 30 to 45 degrees during and for at least 30 minutes after, flush before and after, and never force a blocked tube. Stop for vomiting, coughing, respiratory distress, or leakage around the stoma, and escalate.',
+      'Urinary catheters: closed system, bag below bladder level, never lift the bag above the bladder when moving someone. Escalate for no output, cloudy or offensive urine, blood, bypassing, pain, or fever. In a person with a spinal injury above T6, a blocked catheter is the most common trigger of autonomic dysreflexia.',
+      'Tracheostomy and ventilation: suction only as trained and only to the depth specified, watch for a change in secretions, and know where the spare tube, the obturator and the manual resuscitation bag are kept before you need them. A blocked or displaced tube is a call to 000 while you follow the participant’s emergency plan.',
+      'Complex wounds and pressure care: you follow the wound plan and you do not improvise a dressing. Report a change in size, depth, odour, exudate or surrounding skin. A new pressure area is a reportable matter as well as a clinical one.'
+    ].join('\n\n'),
+    pass_mark: 80,
+    quiz: [
+      { q: 'You are signed off for PEG feeding for one participant. A second participant on your roster also has a PEG.',
+        a: ['You can feed both — it is the same skill', 'You can feed the second with supervision', 'You need a separate sign-off for the second participant', 'You can feed the second if their plan is similar'], correct: 2,
+        why: 'High intensity sign-off is participant-specific. Different equipment, different anatomy, different plan.' },
+      { q: 'A participant with a C4 injury has a headache and is flushed. Their catheter bag has not filled in five hours.',
+        a: ['Wait and monitor for another hour', 'Treat as autonomic dysreflexia: sit upright, check the catheter for a block, escalate', 'Give fluids to increase output', 'Change the bag'], correct: 1,
+        why: 'A blocked catheter is the most common trigger of autonomic dysreflexia, and AD is a medical emergency.' },
+      { q: 'During a PEG feed the participant begins coughing and appears short of breath.',
+        a: ['Slow the feed', 'Stop the feed, sit them upright, escalate', 'Continue and monitor', 'Flush the tube'], correct: 1,
+        why: 'Coughing or respiratory distress during a feed suggests aspiration. Stop first.' },
+      { q: 'Does passing this module make you competent to deliver high intensity supports?',
+        a: ['Yes', 'Yes, for the supports covered by the quiz', 'No — observed practice for the named participant is still required', 'Only if your Certificate III is current'], correct: 2,
+        why: 'This is the knowledge half. The observation record is a separate document and BookIt keeps them apart on purpose.' },
+      { q: 'When moving a participant with a urinary catheter, the bag must stay:',
+        a: ['Above bladder level to assist drainage', 'Below bladder level at all times', 'At bladder level', 'Wherever is convenient for the transfer'], correct: 1,
+        why: 'Raising the bag above the bladder risks backflow and infection.' }
+    ]
+  }
+];
+
+/* Seeded once, then left alone. Editing a module in the source and restarting
+   should not silently rewrite the version a worker sat last week and passed -
+   if the content changes materially, the honest move is a new key, which
+   re-arms the requirement for everybody rather than pretending they have
+   already done the new one. */
+function seedModules() {
+  const have = db.prepare('SELECT COUNT(*) AS n FROM modules').get().n;
+  if (have) return 0;
+  const ins = db.prepare(`INSERT INTO modules (key, title, summary, body, minutes, quiz, pass_mark, required, services, renew_months, doc_type, sort, active, created)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?)`);
+  let n = 0;
+  for (const m of MODULE_SEED) {
+    try {
+      ins.run(m.key, m.title, m.summary, m.body, m.minutes, JSON.stringify(m.quiz), m.pass_mark,
+        m.required, JSON.stringify(m.services || []), m.renew_months, m.doc_type || '', m.sort, now());
+      n++;
+    } catch (e) { console.error('module seed', m.key, e.message); }
+  }
+  if (n) console.log(`Seeded ${n} training modules.`);
+  return n;
+}
+/* The demo workers are marked as trained, on purpose.
+
+   Without this, every demo database quietly hard-locks all twelve of them a
+   fortnight after it is created, and the demo stops being able to accept a
+   booking for a reason that is invisible from the outside. It also gives the
+   training matrix something to show, which is rather the point of a demo.
+
+   These rows are fiction and are labelled as such: the certificate reference
+   begins DEMO-, so nothing seeded here can be mistaken for evidence in an
+   audit pack. Real accounts get no such gift - they sit the quiz.
+
+   Kept out of seedModules() and made idempotent by its own lookup, so it also
+   catches the case where demo data is seeded into a database that already had
+   the modules in it. */
+function seedDemoTraining() {
+  const demo = db.prepare("SELECT id, name FROM users WHERE role = 'worker' AND email LIKE '%@demo.bookit.life'").all();
+  if (!demo.length) return 0;
+  const mods = db.prepare('SELECT * FROM modules WHERE active = 1 AND required = 1').all();
+  if (!mods.length) return 0;
+  const ins = db.prepare(`INSERT INTO module_completions (module_id, module_key, worker_id, score, passed, attempts, completed_at, expires_at)
+    VALUES (?,?,?,100,1,1,?,?)`);
+  const insDoc = db.prepare(`INSERT INTO worker_docs (worker_id, doc_type, label, check_number, expiry_date, file_name, file_mime, file_path,
+    uploaded_at, verified_at, verified_by, verify_method, verify_ref, verify_note, review_state)
+    VALUES (?,?,?,?,?,'','','',?,?,?,?,?,?,'approved')`);
+  let seeded = 0;
+  for (const w of demo) {
+    for (const mo of mods) {
+      if (db.prepare('SELECT id FROM module_completions WHERE worker_id = ? AND module_key = ?').get(w.id, mo.key)) continue;
+      const done = new Date(); done.setDate(done.getDate() - 30);
+      const exp = new Date(done); exp.setMonth(exp.getMonth() + Number(mo.renew_months || 12));
+      const at = `${isoLocal(done)}T09:00:00.000Z`;
+      const r = ins.run(mo.id, mo.key, w.id, at, isoLocal(exp));
+      const ref = `DEMO-${mo.key.toUpperCase().replace(/[^A-Z0-9]/g, '')}-${r.lastInsertRowid}`;
+      const docId = insDoc.run(w.id, mo.doc_type || 'other', `${mo.title} (BookIt module)`, ref, isoLocal(exp),
+        at, at, 'BookIt (platform-issued)', 'issuer-confirmed', ref, 'Demo data — not evidence.').lastInsertRowid;
+      db.prepare('UPDATE module_completions SET doc_id = ? WHERE id = ?').run(Number(docId), Number(r.lastInsertRowid));
+      seeded++;
+    }
+  }
+  if (seeded) console.log(`Marked ${demo.length} demo workers as trained (${seeded} records).`);
+  return seeded;
+}
+
+try { seedModules(); seedDemoTraining(); } catch (e) { console.error('seedModules:', e.message); }
+
+/* The quiz as the browser is allowed to see it. The correct index and the
+   explanation are stripped, because a marking key sitting in the network tab
+   makes the whole certificate worthless - and the certificate is the thing an
+   auditor is going to look at. Marking happens server-side, always. */
+function quizForWorker(mod) {
+  return safeJson(mod.quiz, []).map((q, i) => ({ n: i, q: q.q, a: q.a }));
+}
+
+/* On a pass, the certificate. It is written into worker_docs so that it lands
+   in the credential list, the audit pack, the CSV and the expiry sweep like
+   every other document - one filing cabinet.
+
+   verified_by says "BookIt (platform-issued)" and the method says so too,
+   rather than a person's name. That is the point: nobody sighted this, because
+   there was no external document to sight. BookIt issued it and BookIt can
+   prove the attempt behind it. Writing a staff member's name here would be a
+   small lie that an auditor is specifically trained to find. */
+function issueModuleCertificate(worker, mod, completion) {
+  const type = mod.doc_type || 'other';
+  const label = `${mod.title} (BookIt module)`;
+  const expiry = completion.expires_at || '';
+  const ref = `BK-${mod.key.toUpperCase().replace(/[^A-Z0-9]/g, '')}-${completion.id}`;
+  const existing = db.prepare("SELECT * FROM worker_docs WHERE worker_id = ? AND doc_type = ? AND label = ?").get(worker.id, type, label);
+  let docId;
+  if (existing) {
+    /* One current certificate per module, updated in place. The history is not
+       lost - it is in module_completions, which is append-only, and that is
+       the right place for it. A credential list with six copies of the same
+       refresher is a list nobody reads. */
+    db.prepare(`UPDATE worker_docs SET check_number = ?, expiry_date = ?, uploaded_at = ?, verified_at = ?,
+      verified_by = ?, verify_method = ?, verify_ref = ?, verify_note = ?, warned_stage = '', review_state = 'approved' WHERE id = ?`)
+      .run(ref, expiry, now(), now(), 'BookIt (platform-issued)', 'issuer-confirmed', ref,
+        `Scored ${completion.score}% against a pass mark of ${mod.pass_mark}% on attempt ${completion.attempts}.`, existing.id);
+    docId = existing.id;
+  } else {
+    const r = db.prepare(`INSERT INTO worker_docs (worker_id, doc_type, label, check_number, expiry_date, file_name, file_mime, file_path,
+      uploaded_at, verified_at, verified_by, verify_method, verify_ref, verify_note, review_state)
+      VALUES (?,?,?,?,?,'','','',?,?,?,?,?,?,'approved')`)
+      .run(worker.id, type, label, ref, expiry, now(), now(), 'BookIt (platform-issued)', 'issuer-confirmed', ref,
+        `Scored ${completion.score}% against a pass mark of ${mod.pass_mark}% on attempt ${completion.attempts}.`);
+    docId = Number(r.lastInsertRowid);
+  }
+  db.prepare('UPDATE module_completions SET doc_id = ? WHERE id = ?').run(docId, completion.id);
+  logCompliance({
+    worker_id: worker.id, worker_name: worker.name, kind: 'training-completed', result: 'passed',
+    detail: `${mod.title} — ${completion.score}% (pass mark ${mod.pass_mark}%), attempt ${completion.attempts}${expiry ? `, valid to ${expiry}` : ''}.`,
+    source: 'BookIt training module', ref, doc_id: docId, checked_by: 'BookIt (platform-issued)'
+  });
+  return docId;
+}
+
+route('GET', /^\/api\/me\/training$/, (req, res, m, user) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  json(res, 200, moduleState(user.id));
+});
+
+route('GET', /^\/api\/modules\/([a-z0-9-]+)$/, (req, res, m, user) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const mod = db.prepare('SELECT * FROM modules WHERE key = ? AND active = 1').get(m[1]);
+  if (!mod) return json(res, 404, { error: 'No such module.' });
+  const last = db.prepare('SELECT * FROM module_completions WHERE worker_id = ? AND module_key = ? ORDER BY id DESC LIMIT 1').get(user.id, mod.key);
+  const passed = db.prepare('SELECT * FROM module_completions WHERE worker_id = ? AND module_key = ? AND passed = 1 ORDER BY id DESC LIMIT 1').get(user.id, mod.key);
+  json(res, 200, {
+    module: {
+      key: mod.key, title: mod.title, summary: mod.summary, body: mod.body, minutes: mod.minutes,
+      pass_mark: mod.pass_mark, required: !!mod.required, renew_months: mod.renew_months,
+      questions: quizForWorker(mod)
+    },
+    attempts: db.prepare('SELECT COUNT(*) AS n FROM module_completions WHERE worker_id = ? AND module_key = ?').get(user.id, mod.key).n,
+    last_score: last ? last.score : null,
+    passed_at: passed ? passed.completed_at : '',
+    expires_at: passed ? passed.expires_at : ''
+  });
+});
+
+route('POST', /^\/api\/modules\/([a-z0-9-]+)\/submit$/, (req, res, m, user, body, ip) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  if (limited(ip, `quiz:${user.id}`, 30, 10 * 60e3)) return json(res, 429, { error: 'That is a lot of attempts in a short time — take a break and come back to it.' });
+  const mod = db.prepare('SELECT * FROM modules WHERE key = ? AND active = 1').get(m[1]);
+  if (!mod) return json(res, 404, { error: 'No such module.' });
+  const quiz = safeJson(mod.quiz, []);
+  if (!quiz.length) return json(res, 400, { error: 'That module has no questions yet.' });
+  const given = Array.isArray(body.answers) ? body.answers : [];
+  if (given.length !== quiz.length) return json(res, 400, { error: `Please answer all ${quiz.length} questions.` });
+
+  /* Marked here, never in the browser. The response tells the worker which
+     ones they got wrong and why, because a quiz that only says "60%" teaches
+     nobody anything and the point of the module is the knowledge, not the
+     certificate. */
+  const marks = quiz.map((q, i) => ({
+    n: i, correct: Number(given[i]) === Number(q.correct), right: q.correct, why: q.why || '', q: q.q
+  }));
+  const right = marks.filter(x => x.correct).length;
+  const score = Math.round((right / quiz.length) * 100);
+  const passed = score >= mod.pass_mark;
+  const attempts = db.prepare('SELECT COUNT(*) AS n FROM module_completions WHERE worker_id = ? AND module_key = ?').get(user.id, mod.key).n + 1;
+  const expires = passed && mod.renew_months
+    ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(mod.renew_months)); return isoLocal(d); })()
+    : '';
+  const r = db.prepare(`INSERT INTO module_completions (module_id, module_key, worker_id, score, passed, attempts, completed_at, expires_at)
+    VALUES (?,?,?,?,?,?,?,?)`).run(mod.id, mod.key, user.id, score, passed ? 1 : 0, attempts, now(), expires);
+  const completion = db.prepare('SELECT * FROM module_completions WHERE id = ?').get(Number(r.lastInsertRowid));
+
+  let docId = null;
+  if (passed) {
+    try { docId = issueModuleCertificate(user, mod, completion); } catch (e) { console.error('certificate:', e.message); }
+    /* A hard lock lifts the moment the last overdue module is finished. Waiting
+       for a nightly job to notice would mean a worker sitting the module at
+       9pm and still being unable to accept a shift at 9:05. */
+    try {
+      const st = moduleState(user.id);
+      db.prepare("UPDATE worker_profiles SET training_lock = ?, training_due = ? WHERE user_id = ?")
+        .run(st.lock, st.modules.filter(x => x.required).map(x => x.expires_at).filter(Boolean).sort()[0] || '', user.id);
+    } catch {}
+  }
+  json(res, 200, {
+    ok: true, score, passed, pass_mark: mod.pass_mark, attempts,
+    expires_at: expires, doc_id: docId,
+    /* wrong answers only — the ones they got right need no explanation and
+       shipping the full key back would defeat the point of hiding it */
+    review: marks.filter(x => !x.correct),
+    training: moduleState(user.id)
+  });
+});
+
+/* ---------- the matrix ----------
+   One screen, every worker, every required module. This is the artefact for
+   Practice Standard "Human Resource Management" and it is also the thing that
+   makes the lock defensible: nobody is locked out without the office having
+   been able to see it coming for a fortnight. */
+function trainingMatrix() {
+  const mods = db.prepare('SELECT * FROM modules WHERE active = 1 ORDER BY sort, id').all();
+  const workers = db.prepare(`SELECT u.id, u.name, u.email, p.visible FROM users u
+    JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' ORDER BY u.name`).all();
+  const rows = workers.map(w => {
+    const st = moduleState(w.id);
+    const by = Object.fromEntries(st.modules.map(x => [x.key, x]));
+    return {
+      id: w.id, name: w.name, email: w.email, visible: !!w.visible,
+      demo: w.email.endsWith('@demo.bookit.life'),
+      lock: st.lock, overdue_days: st.overdue_days,
+      outstanding: st.outstanding,
+      cells: mods.map(mo => {
+        const c = by[mo.key] || {};
+        return { key: mo.key, done: !!c.done, score: c.score ?? null, completed_at: c.completed_at || '',
+          expires_at: c.expires_at || '', overdue_days: c.overdue_days || 0, required: !!mo.required };
+      })
+    };
+  });
+  return {
+    modules: mods.map(mo => ({ key: mo.key, title: mo.title, required: !!mo.required, minutes: mo.minutes,
+      renew_months: mo.renew_months, questions: safeJson(mo.quiz, []).length, pass_mark: mo.pass_mark })),
+    workers: rows,
+    soft_days: TRAIN_SOFT_DAYS, hard_days: TRAIN_HARD_DAYS,
+    locked: rows.filter(r => r.lock === 'hard' && !r.demo).length,
+    warned: rows.filter(r => r.lock === 'soft' && !r.demo).length
+  };
+}
+
+route('GET', /^\/api\/admin\/training$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, trainingMatrix());
+});
+
+route('GET', /^\/api\/admin\/training\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const mx = trainingMatrix();
+  const head = ['Worker', 'Email', 'On the platform', 'Lock', 'Days overdue']
+    .concat(mx.modules.flatMap(mo => [`${mo.title}${mo.required ? '' : ' (optional)'} — completed`, `${mo.title} — expires`, `${mo.title} — score`]));
+  const lines = [head.map(q).join(',')];
+  for (const w of mx.workers) {
+    const cells = w.cells.flatMap(c => [c.completed_at ? c.completed_at.slice(0, 10) : '', c.expires_at || '', c.score === null ? '' : `${c.score}%`]);
+    lines.push([w.name, w.email, w.visible ? 'Yes' : 'No', w.lock === 'hard' ? 'HARD — cannot accept shifts' : w.lock === 'soft' ? 'Soft — warned' : '', w.overdue_days || '']
+      .concat(cells).map(q).join(','));
+  }
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="bookit-training-matrix-${new Date().toISOString().slice(0, 10)}.csv"`
+  });
+  res.end('﻿' + lines.join('\r\n'));
+});
+
+/* ---------- the sweep that makes the lock fair ----------
+
+   A lock nobody saw coming is a trap. This runs twice a day and writes at most
+   one email per worker per stage, so a fortnight of being overdue produces
+   three emails, not twenty-eight. The stage is stored on the profile rather
+   than in a set in memory, so a restart does not re-send them all. */
+function trainingSweep(req) {
+  const base = req ? baseUrl(req) : APP_URL || 'https://bookit.life';
+  const out = [];
+  const workers = db.prepare(`SELECT u.id, u.name, u.email, p.training_lock FROM users u
+    JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker'`).all();
+  for (const w of workers) {
+    if (w.email.endsWith('@demo.bookit.life')) continue;
+    const st = moduleState(w.id);
+    const stage = st.lock === 'hard' ? 'hard' : st.lock === 'soft' ? 'soft' : (st.overdue_days > 0 ? 'due' : '');
+    const next = st.modules.filter(x => x.required).map(x => x.expires_at).filter(Boolean).sort()[0] || '';
+    if (String(w.training_lock || '') === stage) {
+      db.prepare('UPDATE worker_profiles SET training_due = ? WHERE user_id = ?').run(next, w.id);
+      continue;
+    }
+    db.prepare('UPDATE worker_profiles SET training_lock = ?, training_due = ? WHERE user_id = ?').run(stage, next, w.id);
+    if (!stage) continue;
+    const list = st.outstanding.map(t => `<li>${escHtml(t)}</li>`).join('');
+    const copy = stage === 'hard'
+      ? `<p>Your training is now <b>${st.overdue_days} days overdue</b>, so you can’t accept new shifts until it’s done.</p>
+         <p><b>Shifts you have already accepted are not affected</b> — please work them as normal. This only stops new ones.</p>
+         <p>Outstanding:</p><ul>${list}</ul>
+         <p>Most of these take ten to fifteen minutes. Finish the last one and the lock lifts immediately, not overnight.</p>`
+      : stage === 'soft'
+        ? `<p>Your training is <b>${st.overdue_days} days overdue</b>. Nothing has stopped yet.</p>
+           <p>At ${TRAIN_HARD_DAYS} days you won’t be able to accept new shifts, so there are ${Math.max(0, TRAIN_HARD_DAYS - st.overdue_days)} days to sort it.</p>
+           <p>Outstanding:</p><ul>${list}</ul>`
+        : `<p>Some of your training has come due for renewal.</p><ul>${list}</ul>
+           <p>There’s no rush today — you have ${TRAIN_SOFT_DAYS} days before we chase it and ${TRAIN_HARD_DAYS} before it affects new bookings.</p>`;
+    notify(w.id, 'compliance', w.email,
+      stage === 'hard' ? 'Training overdue — new shifts paused — BookIt' : stage === 'soft' ? 'Training overdue — BookIt' : 'Training due for renewal — BookIt',
+      stage === 'hard' ? `${firstName(w.name)}, new shifts are paused` : `Hi ${firstName(w.name)}`,
+      copy, 'Open my training', `${base}/#/training`).catch(() => {});
+    if (MAIL_FROM && stage !== 'due') sendMail(MAIL_FROM,
+      `Training ${stage === 'hard' ? 'HARD LOCK' : 'overdue'}: ${w.name} — BookIt`,
+      `${w.name} — ${st.overdue_days} days overdue`,
+      `<p><b>${escHtml(w.name)}</b> is ${st.overdue_days} days overdue on: ${escHtml(st.outstanding.join(', '))}.</p>
+       <p>${stage === 'hard' ? 'They cannot accept new shifts. Existing bookings are unaffected.' : `Hard lock at ${TRAIN_HARD_DAYS} days.`}</p>`,
+      'Open the training matrix', `${base}/#/admin`).catch(() => {});
+    logCompliance({ worker_id: w.id, worker_name: w.name, kind: 'training-lock', result: stage,
+      detail: `${st.overdue_days} days overdue: ${st.outstanding.join(', ') || 'none'}`,
+      source: 'Scheduled training sweep', checked_by: 'BookIt (automatic)' });
+    out.push({ worker: w.name, stage, days: st.overdue_days });
+  }
+  return out;
+}
+route('POST', /^\/api\/admin\/training\/sweep$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { ok: true, actions: trainingSweep(req) });
+});
+setTimeout(() => { try { trainingSweep(); } catch (e) { console.error('training sweep:', e.message); } }, 45_000);
+setInterval(() => { try { trainingSweep(); } catch (e) { console.error('training sweep:', e.message); } }, 12 * 3600e3);
+
+
+/* ==========================================================================
+   BUILD 17 — THE ACCOUNT SETTINGS.
+   Preferences, a copy of your data, a pause button, and a password change.
+   None of these sell a subscription. All of them are the reason somebody
+   trusts a platform with a disabled person's care information.
+   ========================================================================== */
+
+/* ---------- notification preferences ---------- */
+
+/* The screen is built from MAIL_KINDS, never from a list in the front end.
+   A kind added to the server appears on the settings page the same day; a
+   list in the browser would have to be remembered, and would not be.
+
+   `optional: false` is returned rather than filtered out on purpose. A
+   password-reset email cannot be switched off, and saying so next to a
+   greyed-out switch is more honest than leaving a gap where somebody assumes
+   they have turned everything off and then gets an email. */
+/* ---------- Build 19: personal details, self-service ----------
+
+   Hireup makes a payment-method change a phone call and a five-day wait;
+   the settings hub's promise is that everything on it is a button. Name,
+   mobile and suburb are the participant's own facts to correct. Email is
+   deliberately NOT here: it is the sign-in identity and the address every
+   safeguarding notice goes to, so changing it belongs to a verified flow,
+   not a text field. */
+route('POST', /^\/api\/me\/details$/, (req, res, m, user, body) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const b = body || {};
+  const name = String(b.name ?? user.name ?? '').trim();
+  const phone = String(b.phone ?? user.phone ?? '').trim();
+  const suburb = String(b.suburb ?? user.suburb ?? '').trim();
+  if (name.length < 2 || name.length > 80) return json(res, 400, { error: 'Your name needs to be 2\u201380 characters.' });
+  if (phone.length > 25) return json(res, 400, { error: 'That mobile number looks too long.' });
+  if (phone && !/^[0-9+ ()-]+$/.test(phone)) return json(res, 400, { error: 'Mobile numbers can only hold digits, spaces and + ( ) -.' });
+  if (suburb.length > 80) return json(res, 400, { error: 'That suburb looks too long.' });
+  db.prepare('UPDATE users SET name = ?, phone = ?, suburb = ? WHERE id = ?').run(name, phone, suburb, user.id);
+  json(res, 200, { ok: true, name, phone, suburb, note: 'Saved.' });
+});
+
+route('GET', /^\/api\/me\/notifications$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const on = mailPrefs(user.id);
+  json(res, 200, {
+    kinds: Object.keys(MAIL_KINDS).map(k => ({
+      key: k, label: MAIL_KINDS[k].label, optional: MAIL_KINDS[k].optional, on: on[k]
+    })),
+    note: 'Sign-in alerts and anything about documents, screening or safeguarding are always sent — they exist to protect you and the people you support.'
+  });
+});
+
+/* PATCH is the honest verb: the body is a partial set of switches, not the
+   whole object, so a settings page with a stale tab cannot silently switch
+   something back on. POST is registered at the same handler because every
+   other write in this front end is a POST and a 404 on save is a bad way to
+   find out about a verb. */
+function setNotifications(req, res, m, user, body) {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const patch = {};
+  for (const k of Object.keys(MAIL_KINDS)) if (k in (body || {})) patch[k] = !!body[k];
+  if (!Object.keys(patch).length) return json(res, 400, { error: 'Nothing to change.' });
+  /* setMailPrefs only writes kinds marked optional, so a crafted request
+     naming `security: false` is not rejected with an error that teaches the
+     sender something — it is simply ignored, and the response shows the true
+     state afterwards. */
+  const now_ = setMailPrefs(user.id, patch);
+  const refused = Object.keys(patch).filter(k => !MAIL_KINDS[k].optional);
+  json(res, 200, {
+    ok: true,
+    kinds: Object.keys(MAIL_KINDS).map(k => ({ key: k, label: MAIL_KINDS[k].label, optional: MAIL_KINDS[k].optional, on: now_[k] })),
+    note: refused.length ? `${refused.map(k => MAIL_KINDS[k].label).join(' and ')} can't be switched off.` : ''
+  });
+}
+route('PATCH', /^\/api\/me\/notifications$/, setNotifications);
+route('POST', /^\/api\/me\/notifications$/, setNotifications);
+
+/* ---------- APP 12: a copy of everything ----------
+
+   Australian Privacy Principle 12 gives a person the right to a copy of the
+   personal information an organisation holds about them, and APP 12.5 says
+   it has to be given in the way they ask for where that is reasonable. A
+   button that produces a file beats a form that produces a phone call.
+
+   The hard part is not gathering the data. It is APP 12.3(b): access must be
+   refused where giving it would have an unreasonable impact on the privacy of
+   other people. In a disability platform that is not a theoretical clause —
+   a worker's shift notes describe another human being's continence, seizures
+   and medication, and a worker who downloads five years of them onto a
+   personal laptop has created a data breach with the platform's own button.
+
+   The rule that came out of it has two halves. If a table keeps a clinical
+   record — an account of somebody's body, household or supports — and the row
+   names a participant who is not you, you get the shape of the row without the
+   words. If the table keeps operational detail — what the shift is, when, and
+   what was asked for — you get all of it, because you were handed it to do the
+   job and are looking at it in another tab. See EXPORT_CLINICAL below. */
+
+/* Credentials, not information. A scrypt hash is no use to the person it
+   belongs to and is a gift to whoever eventually reads the file; a TOTP seed
+   handed back in plain text turns a second factor into a first one. */
+const EXPORT_HIDE = /^(pass|password|secret|totp_secret|code_hash|recovery_hash|sig|signature|token|api_key|stripe_session)$/i;
+
+/* A person column either means "this row is about you" or "you did this to
+   somebody else's row". A complaint does not stop being somebody else's
+   complaint because you were the one who closed it. */
+const EXPORT_SUBJECT = /^(user_id|worker_id|participant_id|coordinator_id|owner_id|author_id|sender_id|assigned_to)$/;
+
+/* What survives on a row where you were only the actor: what you did, when,
+   and to which record — never the record's contents. */
+const EXPORT_ACTOR_KEEP = /^(id|kind|action|result|status|stage|outcome|version|source|ref)$|(_at|_on|_date|date|created|updated|checked|when)$/i;
+
+/* The words. Everything on this list can carry a clinical or personal
+   account of a participant. */
+const EXPORT_FREETEXT = /^(body|note|notes|detail|details|summary|description|content|message|text|what_happened|immediate_actions|actions|outcome_note|plan|goals|risks|routine|about|bio|reason|answer|comment|response|resolution|instructions)$/i;
+
+/* Your own correspondence is yours: both parties already have it, so the
+   third-party rule would withhold from somebody the thing they wrote. */
+const EXPORT_CORRESPONDENCE = new Set(['messages', 'contact_messages', 'conversations']);
+
+/* Which free text is a record ABOUT a person, and which is an instruction TO
+   a worker. The distinction cannot be derived from the schema — it is a fact
+   about what a column is for, and SQLite does not know it — so it is written
+   down, and the writing down is guarded rather than trusted.
+
+   CLINICAL: an account of somebody's body, behaviour, household or supports.
+   A worker wrote most of it and is still not entitled to walk away with five
+   years of it on a personal laptop, because the subject is not them.
+
+   OPERATIONAL: what the shift is, when, and what the participant asked for.
+   The worker was handed this to do the job and is looking at it in another
+   tab. Redacting it does not protect anybody; it just makes the export look
+   broken, which quietly devalues the redactions that matter. */
+const EXPORT_CLINICAL = new Set([
+  'shift_notes', 'incidents', 'complaints', 'support_plans', 'participant_docs',
+  'care_web', 'participant_workers', 'form_records', 'scope_requests', 'delegate_log'
+]);
+const EXPORT_OPERATIONAL = new Set([
+  'bookings', 'booking_series', 'cover', 'cover_offers', 'standby', 'jobs',
+  'job_applications', 'plan_acks', 'reviews', 'sil_houses', 'sil_slots',
+  'allied_providers', 'account_links', 'tier_log', 'notification_prefs',
+  'audit_snapshots', 'compliance_log', 'worker_docs', 'worker_profiles',
+  'module_completions', 'modules', 'sessions', 'mfa', 'mfa_recovery', 'settings'
+]);
+
+/* The guard. A table added next year that carries a participant and a body of
+   free text, and is on neither list, is treated as CLINICAL — the failure
+   mode is a person being told something was held back that need not have
+   been, which is visible, complainable and fixable in one line. The opposite
+   default fails silently and the first anybody hears of it is a breach.
+
+   It also says so on the console at boot, because a fail-safe nobody is told
+   about becomes permanent. */
+function unclassifiedExportTables() {
+  const out = [];
+  for (const { table } of personColumns()) {
+    if (EXPORT_CLINICAL.has(table) || EXPORT_OPERATIONAL.has(table) || EXPORT_CORRESPONDENCE.has(table)) continue;
+    const cols = db.prepare(`PRAGMA table_info("${table}")`).all().map(c => c.name);
+    if (cols.includes('participant_id') && cols.some(c => EXPORT_FREETEXT.test(c))) out.push(table);
+  }
+  return out;
+}
+
+/* A fail-safe nobody is told about becomes permanent. If a table has turned up
+   carrying a participant and a body of free text and nobody has said which it
+   is, the export withholds it and this line is how anybody finds out.
+
+   It sits here, immediately under the function it calls, rather than beside the
+   other boot checks: put it up there and it reads the constants before they are
+   declared, which is how the first version of this failed. */
+try {
+  const unclassifiedNow = unclassifiedExportTables();
+  if (unclassifiedNow.length) {
+    console.warn(`Data export: ${unclassifiedNow.join(', ')} ${unclassifiedNow.length === 1 ? 'is' : 'are'} not classified as clinical or operational, so free text in ${unclassifiedNow.length === 1 ? 'it' : 'them'} is withheld from exports. Add ${unclassifiedNow.length === 1 ? 'it' : 'them'} to EXPORT_CLINICAL or EXPORT_OPERATIONAL in server.js.`);
+  }
+} catch (e) { console.error('export classification check:', e.message); }
+
+function exportForPerson(u) {
+  const id = Number(u.id);
+  const meRow = db.prepare('SELECT * FROM users WHERE id = ?').get(id) || {};
+  const about = {};
+  for (const k of Object.keys(meRow)) if (!EXPORT_HIDE.test(k)) about[k] = meRow[k];
+
+  const tables = {};
+  const withheld = [];
+  let rows = 0;
+
+  for (const { table, cols } of personColumns()) {
+    /* messages is handled below instead. Discovery finds it by sender_id,
+       which would return only the half of every conversation this person
+       wrote — a strange, one-sided transcript that looks like a bug. */
+    if (table === 'messages') continue;
+    const subjectCols = cols.filter(c => EXPORT_SUBJECT.test(c));
+    const actorCols = cols.filter(c => !EXPORT_SUBJECT.test(c));
+    const namesParticipant = db.prepare(`PRAGMA table_info("${table}")`).all().some(c => c.name === 'participant_id');
+    const correspondence = EXPORT_CORRESPONDENCE.has(table);
+    const clinical = !correspondence && !EXPORT_OPERATIONAL.has(table);
+    const unclassified = clinical && !EXPORT_CLINICAL.has(table);
+
+    const pull = (where) => {
+      try {
+        return db.prepare(`SELECT * FROM "${table}" WHERE ${where.map(c => `"${c}" = ?`).join(' OR ')} ORDER BY rowid DESC LIMIT 5000`)
+          .all(...where.map(() => id));
+      } catch { return []; }
+    };
+
+    const out = [];
+    let trimmedText = 0, trimmedActor = 0;
+
+    for (const r of subjectCols.length ? pull(subjectCols) : []) {
+      const clean_ = {};
+      /* Is this a clinical record about somebody else? Three conditions, all
+         of which have to hold: the table keeps a clinical record, the row
+         names a participant, and that participant is not the person asking. */
+      const aboutSomeoneElse = clinical && namesParticipant && Number(r.participant_id || 0) !== id;
+      let blanked = 0;
+      for (const k of Object.keys(r)) {
+        if (EXPORT_HIDE.test(k)) continue;
+        if (aboutSomeoneElse && EXPORT_FREETEXT.test(k) && String(r[k] ?? '').trim()) { clean_[k] = '[withheld]'; blanked++; continue; }
+        clean_[k] = r[k];
+      }
+      /* Counted on what was actually blanked, not on what might have been.
+         A row whose only free-text column was empty had nothing withheld, and
+         saying otherwise overstates the redaction — which is the same species
+         of untruth as understating it, and rather worse for trust. */
+      if (blanked) trimmedText++;
+      out.push(clean_);
+    }
+
+    /* Actor-only rows are added separately and cut back hard, and only if
+       they are not already in the list from a subject match. */
+    if (actorCols.length) {
+      /* Not every table has an `id` — notification_prefs is keyed on user_id.
+         Deduping on undefined would drop every row after the first, so the
+         dedupe only applies where there is something to dedupe on. */
+      const seen = new Set(out.map(r => r.id).filter(x => x !== undefined && x !== null));
+      for (const r of pull(actorCols)) {
+        if (r.id !== undefined && r.id !== null && seen.has(r.id)) continue;
+        const clean_ = {};
+        for (const k of Object.keys(r)) if (!EXPORT_HIDE.test(k) && EXPORT_ACTOR_KEEP.test(k)) clean_[k] = r[k];
+        clean_._your_role = 'you actioned this record; it is about someone else';
+        out.push(clean_);
+        trimmedActor++;
+      }
+    }
+
+    if (!out.length) continue;
+    tables[table] = out;
+    rows += out.length;
+    if (trimmedText) withheld.push({
+      table, rows: trimmedText,
+      withheld: 'the written content',
+      why: unclassified
+        ? 'These records describe another person and BookIt has not yet classified this part of the system, so it is treated as clinical and held back. If this looks wrong, it probably is — please tell us.'
+        : 'These records describe another person’s supports. Under Australian Privacy Principle 12.3(b) we can’t hand over an account of somebody else’s health and daily care.',
+      what_you_can_do: 'Email hello@bookit.life and we will extract the parts you wrote, with the other person’s details removed.'
+    });
+    if (trimmedActor) withheld.push({
+      table, rows: trimmedActor,
+      withheld: 'everything except what you did and when',
+      why: 'You appear on these records as the person who actioned them, not as the person they are about.',
+      what_you_can_do: 'Nothing needed — the part of these records that is about you is included.'
+    });
+  }
+
+  /* Correspondence, properly. `messages` carries sender_id but the other half
+     of a conversation is keyed on convo_id, which is not a person column and
+     so is invisible to the discovery above. Without this, a person exporting
+     their data would get only the messages they sent, which reads as a bug
+     and is arguably an incomplete response to an access request. */
+  const convos = db.prepare('SELECT id FROM conversations WHERE participant_id = ? OR worker_id = ?').all(id, id).map(r => r.id);
+  if (convos.length) {
+    const ph = convos.map(() => '?').join(',');
+    const msgs = db.prepare(`SELECT * FROM messages WHERE convo_id IN (${ph}) ORDER BY id`).all(...convos);
+    tables.messages = msgs.map(r => {
+      const o = {};
+      for (const k of Object.keys(r)) if (!EXPORT_HIDE.test(k)) o[k] = r[k];
+      o._direction = Number(r.sender_id) === id ? 'sent' : 'received';
+      return o;
+    });
+    rows += msgs.length;
+  }
+
+  return {
+    readme: [
+      `This is every piece of information BookIt holds about ${u.name}, produced on ${dmy(isoLocal(new Date()))}.`,
+      'It is a machine-readable file rather than a tidy report, because a tidy report is a summary and a summary is a decision somebody else made about what mattered.',
+      '"about" is your account record. "tables" is everything else, one entry per part of the system that mentions you.',
+      'Your password is not in here. Neither is your two-factor key. Those are credentials, not information about you, and putting them in a file you might email would make you less safe rather than more informed.',
+      '"withheld" lists anything held back and why, so you can see the shape of what is missing rather than having to wonder.',
+      'If something in here is wrong, you can ask us to correct it — that is Australian Privacy Principle 13, and the address is hello@bookit.life.',
+      'BookIt is operated by DMHC Pty Ltd, ABN 19 658 578 575, NDIS registration 4-LO5XNY0.'
+    ],
+    generated_at: now(),
+    about,
+    counts: { tables: Object.keys(tables).length, rows },
+    withheld,
+    tables
+  };
+}
+
+/* Not a debug endpoint — an answer to the auditor's question, which is never
+   "do you have a privacy policy" but "show me what you hand over and what you
+   hold back, and how you decide". */
+route('GET', /^\/api\/admin\/export-policy$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const unclassified = unclassifiedExportTables();
+  json(res, 200, {
+    clinical: [...EXPORT_CLINICAL].sort(),
+    operational: [...EXPORT_OPERATIONAL].sort(),
+    correspondence: [...EXPORT_CORRESPONDENCE].sort(),
+    unclassified,
+    never_exported: 'Passwords, two-factor seeds and recovery codes. They are credentials, not information about a person.',
+    default_for_unclassified: 'clinical — free text withheld',
+    note: unclassified.length
+      ? `${unclassified.join(', ')} needs classifying in server.js. Until then free text in ${unclassified.length === 1 ? 'it is' : 'them is'} withheld, which is the safe way round but not the right answer.`
+      : 'Every table that names a participant and carries free text has been classified.'
+  });
+});
+
+route('GET', /^\/api\/me\/export$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const data = exportForPerson(user);
+  /* An access request is itself a privacy event, and the first question after
+     any breach is who took a copy of what and when. */
+  if (user.role === 'participant') {
+    logAccess(user.id, user, 'data-export', `Downloaded a full copy of their own record: ${data.counts.rows} rows across ${data.counts.tables} tables.`, 'APP 12');
+  } else {
+    logCompliance({ worker_id: user.id, worker_name: user.name, kind: 'data-export', result: 'provided',
+      detail: `Worker downloaded a copy of their own record: ${data.counts.rows} rows across ${data.counts.tables} tables. ${data.withheld.length} section(s) restricted for third-party privacy.`,
+      source: 'Australian Privacy Principle 12', checked_by: 'BookIt (self-service)' });
+  }
+  const body = Buffer.from(JSON.stringify(data, null, 2), 'utf8');
+  res.writeHead(200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': body.length,
+    'Content-Disposition': `attachment; filename="bookit-my-data-${isoLocal(new Date())}.json"`,
+    /* A file full of somebody's care information must not sit in a shared
+       cache on the way back to them. */
+    'Cache-Control': 'no-store, private'
+  });
+  res.end(body);
+});
+
+/* ---------- hide my profile ----------
+
+   The whole feature is one flag, and the whole difficulty is which flag.
+
+   `auto_hidden` means "the 0137 sweep hid this worker, and the sweep may put
+   them back". A worker who has gone to a wedding in Nepal for six weeks must
+   NOT carry it, or the first credential check after they leave will cheerfully
+   return them to Find Workers and a participant will book somebody who is on
+   another continent. So a self-pause sets `visible = 0` and leaves
+   `auto_hidden` exactly where it was, which makes reconcileVisibility()
+   correctly do nothing.
+
+   And it stops new work only. Shifts already accepted stand, messages still
+   arrive, the account is untouched — the same humane constraint the training
+   lock has, for the same reason: a pause that silently cancels a fortnight of
+   somebody's bookings is not a pause, it is a resignation. */
+route('POST', /^\/api\/me\/pause$/, (req, res, m, user, body) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const p = db.prepare('SELECT visible, self_paused, auto_hidden FROM worker_profiles WHERE user_id = ?').get(user.id);
+  if (!p) return json(res, 404, { error: 'No worker profile.' });
+  if (p.self_paused) return json(res, 200, { ok: true, already: true, paused: true });
+  const note = clean(body.note, 200);
+  db.prepare('UPDATE worker_profiles SET visible = 0, self_paused = 1, paused_at = ?, pause_note = ? WHERE user_id = ?')
+    .run(now(), note, user.id);
+  /* Requested as well as accepted. The whole sentence this number appears in
+     is "your diary is unchanged" — a worker with three outstanding requests
+     who is told "0 bookings" will read that as nothing to come back for. */
+  const upcoming = db.prepare(`SELECT COUNT(*) AS n FROM bookings WHERE worker_id = ?
+    AND status IN ('requested','accepted') AND date >= ?`).get(user.id, isoLocal(new Date())).n;
+  logCompliance({ worker_id: user.id, worker_name: user.name, kind: 'platform-access', result: 'self-paused',
+    detail: `Worker hid their own profile${note ? ` — "${note}"` : ''}. ${upcoming} upcoming booking(s) left in place.`,
+    source: 'Worker request', checked_by: user.name });
+  json(res, 200, {
+    ok: true, paused: true, upcoming,
+    note: upcoming
+      ? `Your profile is hidden, so no new requests will come in. Your ${upcoming} booking${upcoming === 1 ? '' : 's'} already in the diary ${upcoming === 1 ? 'is' : 'are'} unchanged — please work ${upcoming === 1 ? 'it' : 'them'} as normal, or cancel ${upcoming === 1 ? 'it' : 'them'} yourself if you need to.`
+      : 'Your profile is hidden, so no new requests will come in. Switch it back on whenever you like — nothing has been deleted.'
+  });
+});
+
+route('POST', /^\/api\/me\/resume$/, (req, res, m, user) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const p = db.prepare('SELECT visible, self_paused FROM worker_profiles WHERE user_id = ?').get(user.id);
+  if (!p) return json(res, 404, { error: 'No worker profile.' });
+  if (!p.self_paused) return json(res, 200, { ok: true, already: true, visible: !!p.visible });
+  /* Clearing the pause is the worker's decision. Becoming visible again is
+     not — 0137 still gets the last word, and a worker whose screening lapsed
+     while they were away comes back to a list of what is missing rather than
+     to a live profile. Handing them to auto_hidden is the correct handover:
+     the sweep now owns them and will restore them the moment it can. */
+  const st = platformStatus(user.id);
+  if (st.ok) {
+    db.prepare('UPDATE worker_profiles SET visible = 1, self_paused = 0, auto_hidden = 0, paused_at = \'\', pause_note = \'\' WHERE user_id = ?').run(user.id);
+  } else {
+    db.prepare('UPDATE worker_profiles SET visible = 0, self_paused = 0, auto_hidden = 1, paused_at = \'\', pause_note = \'\' WHERE user_id = ?').run(user.id);
+  }
+  logCompliance({ worker_id: user.id, worker_name: user.name, kind: 'platform-access',
+    result: st.ok ? 'self-resumed' : 'self-resumed-but-blocked',
+    detail: st.ok ? 'Worker switched their own profile back on.' : `Worker switched their profile back on, but it stays hidden: ${st.blocks.join(' ')}`,
+    source: 'Worker request', checked_by: user.name });
+  json(res, 200, {
+    ok: true, paused: false, visible: st.ok, blocks: st.blocks,
+    note: st.ok
+      ? 'You’re back in Find Workers and participants can request you again.'
+      : 'Your pause is lifted, but your profile stays hidden until the items below are sorted. It switches back on by itself the moment they are.'
+  });
+});
+
+/* ---------- change your password while signed in ----------
+
+   BookIt could reset a forgotten password by email and could not change a
+   remembered one. That is backwards: the second is the safe, ordinary thing
+   somebody does after lending their laptop to a colleague, and sending them
+   round the "forgot password" loop to do it teaches people that the reset
+   email is routine, which is precisely what a phisher needs them to believe. */
+route('POST', /^\/api\/me\/password$/, (req, res, m, user, body, ip) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  if (limited(ip, 'chpw', 10)) return json(res, 429, { error: 'Too many attempts — try again in a few minutes.' });
+  const row = db.prepare('SELECT pass, email, name FROM users WHERE id = ?').get(user.id);
+  if (!row) return json(res, 404, { error: 'No such account.' });
+  /* The current password is required even though the session already proves
+     who this is. A session proves the browser; it does not prove the person,
+     and an unattended laptop is the commonest way an account is taken. */
+  if (!verifyPassword(String(body.current || ''), row.pass)) return json(res, 400, { error: 'That current password isn\'t right.' });
+  const next = String(body.password || '');
+  if (next.length < 8) return json(res, 400, { error: 'Password needs at least 8 characters.' });
+  if (verifyPassword(next, row.pass)) return json(res, 400, { error: 'That\'s the password you already have — pick a different one.' });
+  const weak = weakPassword(next, row.email, row.name);
+  if (weak) return json(res, 400, { error: weak });
+
+  db.prepare('UPDATE users SET pass = ? WHERE id = ?').run(hashPassword(next), user.id);
+  /* Every other device goes, and this one is re-issued. Same reasoning as the
+     reset route: if the password was changed because somebody else had it,
+     leaving their session alive makes the change decorative. */
+  try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now(), user.id); } catch {}
+  stampLegacyCutoff(user.id);
+  securityMail(req, user, 'Your BookIt password was changed',
+    `<p>Your password was changed just now from ${escHtml(deviceName(req.headers['user-agent']))}. Every other device has been signed out.</p>
+     <p><b>If this wasn't you</b>, use "Forgot password" on the log in screen straight away and then email hello@bookit.life.</p>`);
+  json(res, 200, { ok: true, note: 'Password changed. Every other device has been signed out.' },
+    setSessionHeaders(user.id, req, ip));
+});
+
+
+
+/* ---------- 7e. the sweep that makes the deadline real ----------
+
+   The number was published in three places and computed on read, which is the
+   easy part. This is the part a worker's rent depends on.
+
+   Day 3: one nudge, to everybody who can actually press approve. Stamped on
+   the row rather than remembered in a set, so a restart does not re-send it.
+
+   Day 7: deemed approved and the worker is paid, with both sides told. The
+   participant hearing about it is not a courtesy — an auto-approval they
+   discover later on a statement is exactly the silence the published rule
+   existed to prevent, and the email says plainly that approving was never the
+   same as agreeing, so a concern can still be raised.
+
+   Queried timesheets are skipped: the clock is stopped until the worker
+   answers (see 7d). Cancelled and declined shifts never enter the state at all.
+
+   Demo participants are deemed like everybody else — otherwise the demo fills
+   up with timesheets that sit pending forever and the product looks broken —
+   but nothing is emailed to a demo address. */
+function approvalSweep(req) {
+  const base = req ? baseUrl(req) : APP_URL || 'https://bookit.life';
+  const real = e => e && !String(e).endsWith('@demo.bookit.life');
+  const out = [];
+  const rows = db.prepare(`SELECT b.*, p.name AS p_name, p.email AS p_email, p.id AS p_id,
+      w.name AS w_name, w.email AS w_email, w.id AS w_id
+    FROM bookings b
+    JOIN users p ON p.id = b.participant_id
+    JOIN users w ON w.id = b.worker_id
+    WHERE b.status = 'completed' AND b.approval_state = 'pending'`).all();
+
+  for (const b of rows) {
+    const days = Math.floor((Date.now() - approvalFrom(b)) / 864e5);
+    const label = SERVICE_LABELS[b.service] || b.service;
+
+    /* ---- deemed ---- */
+    if (days >= APPROVAL_DEEM_DAYS) {
+      db.prepare("UPDATE bookings SET approval_state = 'approved', approved_at = ?, approved_by = 0, approval_source = 'deemed' WHERE id = ?")
+        .run(now(), b.id);
+      logAccess(b.participant_id, null, 'Timesheet approved automatically',
+        `${label} on ${dmy(b.date)} — ${APPROVAL_DEEM_DAYS} days passed with no approval and no question, so it was approved under the published rule`, b.id);
+      if (real(b.w_email)) notify(b.w_id, 'timesheets', b.w_email, 'Timesheet approved — BookIt',
+        `Approved, ${firstName(b.w_name)}`,
+        `<p>Your <b>${escHtml(label)}</b> shift on <b>${prettyDate(b.date)}</b> has been approved automatically.</p>
+         <p>${escHtml(b.p_name)} had ${APPROVAL_DEEM_DAYS} days to look at it and did not raise anything, so it goes into the next pay run rather than waiting.</p>`,
+        'See my earnings', `${base}/#/earnings`).catch(() => {});
+      if (real(b.p_email)) notify(b.p_id, 'timesheets', b.p_email, 'Timesheet approved automatically — BookIt',
+        `About the shift on ${prettyDate(b.date)}`,
+        `<p>The <b>${escHtml(label)}</b> shift with <b>${escHtml(b.w_name)}</b> on <b>${prettyDate(b.date)}</b> has been approved automatically, ${APPROVAL_DEEM_DAYS} days after it was completed.</p>
+         <p>We are telling you because it happened without you doing anything, and you should never find that out from a statement.</p>
+         <p><b>This does not close anything off.</b> Approving was never the same as agreeing the shift was perfect — if something about it wasn't right, ring us on 0488 114 368 or reply to this email and we will sort it out, today or in three weeks.</p>`,
+        'See the shift and its note', `${base}/#/bookings`).catch(() => {});
+      out.push({ booking: b.id, action: 'deemed', days });
+      continue;
+    }
+
+    /* ---- nudged ---- */
+    if (days >= APPROVAL_NUDGE_DAYS && !b.nudged_at) {
+      db.prepare('UPDATE bookings SET nudged_at = ? WHERE id = ?').run(now(), b.id);
+      const left = Math.max(0, APPROVAL_DEEM_DAYS - days);
+      const deadline = new Date(approvalFrom(b) + APPROVAL_DEEM_DAYS * 864e5).toISOString().slice(0, 10);
+      const body = `<p><b>${escHtml(b.w_name)}</b>'s <b>${escHtml(label)}</b> shift on <b>${prettyDate(b.date)}</b> is waiting to be approved.</p>
+         <p>It takes one tap, and there is a shift note to read first if you'd like.</p>
+         <p><b>${left === 0 ? 'It will be approved automatically today' : left === 1 ? 'One day left' : `${left} days left`}</b> — after ${prettyDate(deadline)} it is approved automatically so ${firstName(b.w_name)} is paid on time. If something doesn't look right, use <b>Ask a question</b> instead and the clock stops until it's answered.</p>`;
+      const people = [];
+      if (real(b.p_email)) people.push({ id: b.p_id, name: b.p_name, email: b.p_email, who: 'participant' });
+      for (const c of coordsFor(b.participant_id, 'bookings')) {
+        if (real(c.email)) people.push({ id: c.id, name: c.name, email: c.email, who: 'coordinator' });
+      }
+      for (const p of people) {
+        notify(p.id, 'timesheets', p.email, 'A timesheet is waiting for you — BookIt',
+          `Hi ${firstName(p.name)}`,
+          p.who === 'coordinator'
+            ? `<p>This is about <b>${escHtml(b.p_name)}</b>'s account, which you hold bookings access on.</p>` + body
+            : body,
+          'Approve the timesheet', `${base}/#/bookings`).catch(() => {});
+      }
+      out.push({ booking: b.id, action: 'nudged', days, told: people.length });
+    }
+  }
+  return out;
+}
+
+/* Run by hand when somebody wants to see it work rather than wait for it. */
+route('POST', /^\/api\/admin\/approvals\/sweep$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { ok: true, nudge_days: APPROVAL_NUDGE_DAYS, deem_days: APPROVAL_DEEM_DAYS, actions: approvalSweep(req) });
+});
+/* Four times a day. The clock has day granularity, so six hours is the most
+   anybody waits past the moment their reminder or their pay became due. */
+setTimeout(() => { try { approvalSweep(); } catch (e) { console.error('approval sweep:', e.message); } }, 50_000);
+setInterval(() => { try { approvalSweep(); } catch (e) { console.error('approval sweep:', e.message); } }, 6 * 3600e3);
+
+/* The cancellation window and the four reason options, from the same tables the
+   charge is computed from. Published so the booking screen can show a person
+   what a cancellation will cost BEFORE they confirm it, and so the reason list
+   can never drift out of step with the codes that go to the NDIA. */
+route('GET', /^\/api\/cancel-policy$/, (req, res) => {
+  json(res, 200, {
+    windows: Object.entries(CANCEL_HOURS).map(([service, hours]) => ({
+      service, label: SERVICE_LABELS[service] || service, hours,
+      notice: hours % 24 === 0 ? `${hours / 24} clear day${hours / 24 === 1 ? '' : 's'}` : `${hours} hours`
+    })),
+    default_hours: 48,
+    reasons: Object.entries(CANCEL_CODES).map(([code, label]) => ({ code, label })),
+    note: 'Cancel outside the window and there is no charge. Inside it, the shift is charged in full and your worker is paid in full — that is what makes it possible for them to hold the time for you.'
+  });
+});
+
+/* ---------- static files ---------- */
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
+function serveStatic(req, res, pathname) {
+  let file = pathname === '/' ? '/index.html' : pathname;
+  file = path.normalize(file).replace(/^(\.\.[\/\\])+/, '');
+  const full = path.join(PUBLIC_DIR, file);
+  if (!full.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end('Forbidden'); }
+  fs.readFile(full, (err, data) => {
+    if (err) {
+      /* SPA-ish: unknown paths get the app shell */
+      return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, home) => {
+        if (e2) { res.writeHead(404); return res.end('Not found'); }
+        res.writeHead(200, { 'Content-Type': MIME['.html'] });
+        res.end(home);
+      });
+    }
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(full)] || 'application/octet-stream',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      ...(SITE_PASSWORD ? { 'X-Robots-Tag': 'noindex, nofollow' } : {})
+    });
+    res.end(data);
+  });
+}
+
+/* ---------- server ---------- */
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const pathname = url.pathname;
+  const ip = req.socket.remoteAddress || 'unknown';
+
+  /* ----- baseline security headers, every response ----- */
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  if (String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  if (pathname === '/' || pathname.endsWith('.html')) {
+    /* the app is one file of inline script by design, so 'unsafe-inline'
+       stays — the value here is pinning every OTHER origin shut */
+    res.setHeader('Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  }
+
+  /* ----- cross-site writes are refused when the browser names a foreign
+     origin. Same-origin fetches pass; requests without an Origin header
+     (curl, tests, old clients) are unaffected — this is a tripwire for
+     CSRF, layered on the SameSite cookie, not a wall. Stripe's webhook is
+     exempt: it is HMAC-verified and legitimately cross-origin. ----- */
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && pathname.startsWith('/api/') && pathname !== '/api/stripe/webhook') {
+    const origin = String(req.headers.origin || '');
+    if (origin) {
+      try {
+        const oHost = new URL(origin).host;
+        const rHost = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+        if (oHost && rHost && oHost !== rHost) return json(res, 403, { error: 'Cross-site request refused.' });
+      } catch { /* malformed Origin — let the route's own auth decide */ }
+    }
+  }
+
+  /* ----- force HTTPS when behind a proxy (Railway etc.) ----- */
+  const xfProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  if (xfProto === 'http') {
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+    if (host) { res.writeHead(301, { 'Location': `https://${host}${req.url}` }); return res.end(); }
+  }
+
+  /* ----- private preview gate ----- */
+  if (SITE_PASSWORD && pathname !== '/api/stripe/webhook') { /* Stripe's servers can't type passwords — the webhook is HMAC-verified instead */
+    if (pathname === '/robots.txt') {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      return res.end('User-agent: *\nDisallow: /\n');
+    }
+    if (pathname === '/gate' && req.method === 'POST') {
+      let raw = '';
+      req.on('data', c => { raw += c; if (raw.length > 5000) req.destroy(); });
+      req.on('end', () => {
+        const pw = new URLSearchParams(raw).get('pw') || '';
+        if (limited(ip, 'gate', 30)) {
+          res.writeHead(429, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(gatePage(true));
+        }
+        const a = sign('pw:' + pw), b = sign('pw:' + SITE_PASSWORD);
+        if (a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b))) {
+          res.writeHead(302, {
+            'Location': '/',
+            'Set-Cookie': `bk_gate=${sign('gate-ok:' + SITE_PASSWORD)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${30 * 86400}`
+          });
+          return res.end();
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'X-Robots-Tag': 'noindex, nofollow' });
+        res.end(gatePage(true));
+      });
+      return;
+    }
+    if (!gateValid(req.headers.cookie)) {
+      if (pathname.startsWith('/api/')) {
+        return json(res, 401, { error: 'This site is in private preview.' }, { 'X-Robots-Tag': 'noindex, nofollow' });
+      }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'no-store' });
+      return res.end(gatePage(false));
+    }
+  }
+
+  /* worker profile photos (behind the preview gate like every page) */
+  const photoMatch = pathname.match(/^\/photos\/(\d+)$/);
+  if (photoMatch && req.method === 'GET') {
+    const uid = Number(photoMatch[1]);
+    let row = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(uid);
+    let priv = false;
+    if (!row || !row.photo) {
+      /* not a worker's public photo — a participant's or coordinator's, which
+         only signed-in people ever see, and which never caches shared */
+      priv = true;
+      row = readSession(req.headers.cookie) ? db.prepare("SELECT photo FROM users WHERE id = ? AND photo != ''").get(uid) : null;
+    }
+    if (!row || !row.photo || !fs.existsSync(row.photo)) { res.writeHead(404); return res.end(); }
+    res.writeHead(200, {
+      'Content-Type': row.photo.endsWith('.png') ? 'image/png' : 'image/jpeg',
+      'Cache-Control': priv ? 'private, max-age=3600' : 'public, max-age=86400'
+    });
+    return fs.createReadStream(row.photo).pipe(res);
+  }
+
+  /* emailed verification links land here, then bounce into the app */
+  /* one-tap cover + standby answers from an email — signed, no login needed */
+  if (pathname === '/cover' && req.method === 'GET') {
+    try { return handleCoverLink(req, res, url); }
+    catch (e) { console.error(e); res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(coverPage('Something went wrong', '<p>Please open BookIt and answer from your shifts page.</p>', 'Open BookIt', '/#/bookings', 'bad')); }
+  }
+
+  if (pathname === '/verify-email' && req.method === 'GET') {
+    const u = readEmailToken('v', url.searchParams.get('token') || '');
+    if (u) db.prepare('UPDATE users SET verified = 1 WHERE id = ?').run(u.id);
+    res.writeHead(302, { 'Location': u ? '/#/verified' : '/#/verify-failed' });
+    return res.end();
+  }
+
+  /* the blank clinical forms. Human-facing and printable, so they live here
+     rather than in the route table — the dispatcher below only ever sees
+     /api paths. Sitting after the site-password gate means an unlaunched
+     site does not quietly serve them to the open internet. */
+  if (pathname === '/templates' || pathname.startsWith('/templates/')) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+    try {
+      const b = baseUrl(req);
+      const send = html => {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' });
+        res.end(req.method === 'HEAD' ? '' : html);
+      };
+      if (pathname === '/templates') return send(templateIndexHtml(b));
+      const t = TPL_MAP[decodeURIComponent(pathname.slice('/templates/'.length))];
+      if (!t) {
+        res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(coverPage('There is no form at that address',
+          '<p>The blank forms are all listed on one page.</p>', 'See the blank forms', `${b}/templates`, 'bad'));
+      }
+      return send(templateHtml(t, tplPerson(req, url, t), b));
+    } catch (e) {
+      console.error(e);
+      res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(coverPage('Something went wrong',
+        '<p>We could not build that form just now. Please try again, or email hello@bookit.life and we will send you a copy.</p>',
+        'Open BookIt', '/#/bookings', 'bad'));
+    }
+  }
+
+  if (!pathname.startsWith('/api/')) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+    return serveStatic(req, res, pathname);
+  }
+
+  let raw = '';
+  let overflow = false;
+  const bodyCap = (pathname === '/api/me/documents' || pathname === '/api/me/photo'
+    || pathname === '/api/me/participant-documents'
+    || /^\/api\/admin\/participants\/\d+\/documents$/.test(pathname)) ? 8_000_000 : 100_000; /* uploads carry base64 files */
+  req.on('data', chunk => {
+    if (overflow) return; /* keep draining so the response can get through, but stop buffering */
+    raw += chunk;
+    if (raw.length > bodyCap) {
+      overflow = true;
+      raw = '';
+      json(res, 413, { error: 'That file is too big to upload. Photos are shrunk automatically before sending — refresh the page and try again. PDFs need to be under 4 MB.' });
+    }
+  });
+  req.on('end', () => {
+    if (overflow) return;
+    /* Stripe webhook needs the raw body for signature verification */
+    if (pathname === '/api/stripe/webhook' && req.method === 'POST') return handleStripeWebhook(req, res, raw);
+    let body = {};
+    if (raw) { try { body = JSON.parse(raw); } catch { return json(res, 400, { error: 'Invalid JSON.' }); } }
+    const user = readSession(req.headers.cookie);
+    for (const r of routes) {
+      if (r.method !== req.method) continue;
+      const m = r.pattern.exec(pathname);
+      if (!m) continue;
+      try { return r.handler(req, res, m, user, body, ip); }
+      catch (e) { console.error(e); return json(res, 500, { error: 'Something went wrong on our end.' }); }
+    }
+    json(res, 404, { error: 'Not found.' });
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`BookIt server running → http://localhost:${PORT}`);
+  console.log(`Database: ${DB_PATH} · auto-reply bot: ${AUTO_REPLY ? 'on' : 'off'}`);
+  console.log(`Email: ${EMAIL_ON ? `ON — sending as ${MAIL_FROM} via ${RESEND_KEY ? 'Resend HTTPS API' : `${SMTP_HOST}:${SMTP_PORT} (SMTP — blocked on Railway Free/Trial/Hobby!)`}` : 'OFF — set RESEND_API_KEY (or SMTP_USER + SMTP_PASS) to enable; emails are logged to console instead'}`);
+});
