@@ -1508,6 +1508,163 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
   #homeWorkers > *:nth-child(n+3){display:none;}
 }
 
+
+
+/* ---------- Build 26: curated care-scene backgrounds ----------
+   The full isometric map is deliberately never shown. Instead, a few
+   purpose-built fragments sit in the page margins: one quiet hero journey,
+   a garden-care moment, a mower pass, and a small sensory garden. Existing
+   random doodles are removed from the homepage so the result stays calm. */
+#page-home .decor-sprite,
+#page-home .decor-figure{display:none!important;}
+
+#page-home .hero{
+  isolation:isolate;overflow:hidden;padding:88px 0 76px;
+  background:
+    radial-gradient(780px 460px at 78% 14%,rgba(245,184,65,.16),transparent 66%),
+    radial-gradient(720px 430px at 4% 104%,rgba(14,107,98,.11),transparent 66%),
+    linear-gradient(180deg,#FEFCF8 0%,#FAF6F0 100%);
+}
+#page-home .hero > .container{z-index:3;}
+#page-home .hero-grid{grid-template-columns:minmax(0,1.02fr) minmax(390px,.98fr);gap:clamp(42px,5.5vw,78px);}
+#page-home .hero h1{
+  font-family:var(--font-display);font-optical-sizing:auto;font-weight:520;
+  font-size:clamp(3.05rem,5vw,4.8rem);line-height:.99;letter-spacing:-.042em;
+  max-width:9.6em;
+}
+#page-home .hero .lead{max-width:42em;}
+#page-home .hero .kicker{background:rgba(255,255,255,.72);border:1px solid rgba(14,107,98,.12);}
+
+.care-hero-vignette{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;}
+.care-hero-vignette img{position:absolute;display:block;filter:saturate(.94) contrast(.98);}
+.care-hero-pergola{width:265px;right:-15px;top:54px;opacity:.72;}
+.care-hero-companions{width:125px;right:22px;top:322px;opacity:.82;}
+.care-hero-route{position:absolute;width:min(46vw,620px);height:auto;right:-4px;top:92px;opacity:.85;}
+html.js-fx .care-hero-pergola{animation:carePergolaIn .9s .18s var(--ease-out) both;}
+html.js-fx .care-hero-companions{animation:careCompanionIn 1s .46s var(--ease-out) both, careCompanionDrift 8s 1.5s ease-in-out infinite;}
+html.js-fx .care-hero-route path{stroke-dasharray:10 12;animation:careRouteDraw 1.45s .25s var(--ease-out) both;}
+@keyframes carePergolaIn{from{opacity:0;transform:translate(32px,-12px) scale(.96);}to{opacity:.72;transform:none;}}
+@keyframes careCompanionIn{from{opacity:0;transform:translate(36px,18px) scale(.94);}to{opacity:.82;transform:none;}}
+@keyframes careCompanionDrift{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+@keyframes careRouteDraw{from{stroke-dashoffset:130;opacity:0;}to{stroke-dashoffset:0;opacity:1;}}
+
+.hero-care-art{min-height:570px;display:flex;align-items:center;justify-content:center;}
+.hero-care-frame{
+  position:relative;width:100%;height:548px;overflow:hidden;border-radius:34px;
+  background:#E8E1D7;border:1px solid rgba(23,49,58,.09);
+  box-shadow:0 24px 70px -24px rgba(23,49,58,.30),0 4px 14px rgba(23,49,58,.07);
+  transform:rotate(.35deg);
+}
+.hero-care-frame img{width:100%;height:100%;object-fit:cover;object-position:61% center;display:block;}
+.hero-care-frame::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent 54%,rgba(7,42,37,.16) 100%);
+}
+.hero-care-glow{
+  position:absolute;inset:auto -18% -35% 20%;height:62%;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(245,184,65,.34),transparent 72%);
+  mix-blend-mode:screen;
+}
+.hero-care-proof{
+  position:absolute;left:-22px;bottom:28px;right:34px;display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:13px;
+  padding:15px 17px;background:rgba(255,255,255,.88);backdrop-filter:blur(14px) saturate(1.1);
+  border:1px solid rgba(255,255,255,.9);border-radius:20px;
+  box-shadow:0 18px 44px -18px rgba(23,49,58,.36);
+}
+.hero-care-proof b{display:block;font-size:.92rem;line-height:1.3;color:var(--ink);}
+.hero-care-proof small{display:block;margin-top:2px;font-size:.76rem;color:var(--ink-soft);}
+.proof-avatars{display:flex;align-items:center;padding-left:5px;}
+.proof-avatars span{
+  width:34px;height:34px;margin-left:-7px;display:grid;place-items:center;border-radius:50%;
+  border:3px solid #fff;color:#fff;font-size:.67rem;font-weight:800;background:var(--teal);
+}
+.proof-avatars span:nth-child(2){background:var(--coral);}
+.proof-avatars span:nth-child(3){background:#8A6D00;}
+.proof-tick{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--teal);color:#fff;font-weight:900;}
+
+.care-scene{position:relative;isolation:isolate;overflow:hidden;}
+.care-scene > .container{position:relative;z-index:2;}
+.care-section-decor{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.care-section-decor img{position:absolute;display:block;filter:saturate(.94) contrast(.98);}
+
+.care-services-scene{
+  background:
+    radial-gradient(440px 250px at 98% 8%,rgba(226,241,238,.72),transparent 72%),
+    var(--cream);
+}
+.care-services-garden{width:300px;right:-12px;top:30px;opacity:.72;}
+.care-services-trail{position:absolute;width:390px;right:192px;top:38px;opacity:.9;}
+
+.care-how-scene{
+  background:
+    linear-gradient(155deg,rgba(14,107,98,.025) 25%,transparent 25%,transparent 50%,rgba(14,107,98,.025) 50%,rgba(14,107,98,.025) 75%,transparent 75%) 0 0/40px 40px,
+    var(--card)!important;
+}
+.care-how-scene::after{
+  content:"";position:absolute;inset:auto 0 0 0;height:44%;z-index:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(226,241,238,.26));
+}
+.care-how-mower{width:410px;left:-86px;bottom:-18px;opacity:.64;}
+
+.care-stories-scene{
+  background:
+    radial-gradient(360px 220px at 100% 100%,rgba(245,184,65,.11),transparent 72%),
+    var(--cream);
+}
+.care-stories-garden{width:200px;right:18px;bottom:8px;opacity:.62;}
+.care-stories-trail{position:absolute;width:340px;right:86px;bottom:54px;}
+
+html.js-fx .care-services-garden,
+html.js-fx .care-how-mower,
+html.js-fx .care-stories-garden{transition:opacity .8s var(--ease-out),transform .8s var(--ease-out);}
+.care-services-scene:not(.care-seen) .care-services-garden{opacity:0;transform:translate(28px,-8px);}
+.care-how-scene:not(.care-seen) .care-how-mower{opacity:0;transform:translate(-28px,14px);}
+.care-stories-scene:not(.care-seen) .care-stories-garden{opacity:0;transform:translate(24px,12px);}
+
+html.high-contrast .care-hero-vignette,
+html.high-contrast .care-section-decor{display:none!important;}
+html.high-contrast .hero-care-frame{border:2px solid #000;box-shadow:none;}
+
+@media (max-width:1180px){
+  .care-hero-pergola{right:-72px;opacity:.55;}
+  .care-hero-companions{right:-4px;top:346px;opacity:.68;}
+  .care-hero-route{right:-72px;opacity:.55;}
+  .care-services-garden{right:-88px;opacity:.58;}
+  .care-services-trail{right:80px;}
+}
+@media (max-width:900px){
+  #page-home .hero-grid{grid-template-columns:1fr;}
+  #page-home .hero h1{max-width:12em;}
+  .hero-care-art{min-height:500px;max-width:660px;margin:0 auto;}
+  .hero-care-frame{height:500px;}
+  .care-hero-pergola{right:-92px;top:38px;width:220px;opacity:.46;}
+  .care-hero-companions{right:-18px;top:280px;width:105px;opacity:.56;}
+  .care-hero-route{right:-110px;top:62px;width:480px;opacity:.42;}
+  .care-services-garden{right:-82px;top:38px;width:250px;opacity:.48;}
+  .care-services-trail{right:20px;top:44px;width:320px;}
+  .care-how-mower{left:-125px;width:340px;opacity:.48;}
+  .care-stories-garden{right:-48px;opacity:.46;}
+}
+@media (max-width:640px){
+  #page-home .hero{padding-top:30px;padding-bottom:48px;}
+  #page-home .hero h1{font-size:clamp(2.55rem,12vw,3.35rem);line-height:1.01;}
+  .care-hero-vignette{display:none;}
+  .hero-care-art{display:none;}
+  .care-services-garden{width:185px;right:-75px;top:70px;opacity:.36;}
+  .care-services-trail{display:none;}
+  .care-how-mower{width:270px;left:-150px;bottom:4px;opacity:.34;}
+  .care-stories-garden,.care-stories-trail{display:none;}
+}
+@media (prefers-reduced-motion:reduce){
+  .care-hero-vignette *{animation:none!important;}
+  .care-services-scene:not(.care-seen) .care-services-garden,
+  .care-how-scene:not(.care-seen) .care-how-mower,
+  .care-stories-scene:not(.care-seen) .care-stories-garden{opacity:inherit;transform:none;}
+}
+html[data-motion="reduce"] .care-hero-vignette *,
+html[data-motion="reduce"] .care-section-decor *{animation:none!important;transition:none!important;}
+
 /* ---------- Build 24: the walkers ----------
    A quiet life at the bottom of every page: carers and the people they
    support crossing the screen, tracks fading behind them. The section
@@ -1515,21 +1672,15 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
    above the paper, below every menu/header/modal (z50 < 60+) — at
    watermark alpha, untouchable, and OFF for reduced motion, high contrast
    and print. */
-/* (the walkers engine was replaced by the 3D care scene in Build 28) */
-
-/* ═══ Build 29: the yard — the ambient 3D layer (Bee's ensembles) ═══ */
-#bgYard{position:fixed;inset:0;width:100%;height:100%;z-index:50;pointer-events:none;opacity:0;transition:opacity 1200ms ease;}
-#bgYard.is-live{opacity:1;}
-#bgYard canvas{display:block;width:100%;height:100%;}
-html[data-motion="reduce"] #bgYard,
-html.high-contrast #bgYard{display:none;}
-@media (prefers-reduced-motion: reduce){#bgYard{display:none;}}
-@media (max-width: 699px){#bgYard{display:none;}}
-@media print{#bgYard{display:none;}}
-
+#bgWalkers{position:fixed;inset:0;width:100%;height:100%;z-index:50;pointer-events:none;}
+html[data-motion="reduce"] #bgWalkers,
+html.high-contrast #bgWalkers{display:none;}
+@media (prefers-reduced-motion: reduce){#bgWalkers{display:none;}}
+@media print{#bgWalkers{display:none;}}
 </style>
 </head>
 <body>
+<canvas id="bgWalkers" aria-hidden="true"></canvas>
 <a class="skip-link" href="#main">Skip to main content</a>
 
 <!-- ============ HEADER ============ -->
@@ -1657,12 +1808,33 @@ html.high-contrast #bgYard{display:none;}
   <button type="button" class="vb-close" id="btnDismissVerify" aria-label="Hide this reminder for now">✕</button>
 </div>
 <div id="actBar" class="act-bar" hidden></div>
-<div id="bgYard" aria-hidden="true"></div>
 
 <!-- ================= HOME ================= -->
 <section class="page" id="page-home" data-title="BookIt — Find NDIS support workers who fit your life">
   <div class="hero">
-    <div class="hero-rings" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="care-hero-vignette" aria-hidden="true">
+      <svg class="care-hero-route" viewBox="0 0 620 360" focusable="false">
+        <defs>
+          <linearGradient id="careHeroTrackFade" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#0E6B62" stop-opacity="0"/>
+            <stop offset=".34" stop-color="#0E6B62" stop-opacity=".12"/>
+            <stop offset=".72" stop-color="#17313A" stop-opacity=".16"/>
+            <stop offset="1" stop-color="#17313A" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d="M52 28 C214 48 218 132 334 154 C448 176 450 268 578 318" fill="none" stroke="url(#careHeroTrackFade)" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M65 44 C214 60 224 145 338 168 C449 191 454 281 568 330" fill="none" stroke="url(#careHeroTrackFade)" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="3 12"/>
+        <g fill="#17313A" opacity=".12">
+          <ellipse cx="122" cy="60" rx="7" ry="3.5" transform="rotate(24 122 60)"/>
+          <ellipse cx="144" cy="72" rx="7" ry="3.5" transform="rotate(31 144 72)" opacity=".9"/>
+          <ellipse cx="169" cy="88" rx="6.5" ry="3.2" transform="rotate(36 169 88)" opacity=".78"/>
+          <ellipse cx="197" cy="107" rx="6" ry="3" transform="rotate(39 197 107)" opacity=".64"/>
+          <ellipse cx="228" cy="126" rx="5.5" ry="2.7" transform="rotate(34 228 126)" opacity=".48"/>
+        </g>
+      </svg>
+      <img class="care-hero-pergola" src="assets/care-backgrounds/hero-pergola.webp" alt="" width="265" height="190">
+      <img class="care-hero-companions" src="assets/care-backgrounds/hero-companions.webp" alt="" width="125" height="120">
+    </div>
     <div class="container hero-grid">
       <div>
         <span class="kicker">NDIS registered provider · Australia wide</span>
@@ -1683,15 +1855,15 @@ html.high-contrast #bgYard{display:none;}
           <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Self-, plan- and NDIA-managed welcome</span>
         </div>
       </div>
-      <div class="hero-art" aria-hidden="true">
-        <div class="ill-scene" data-ill="home" aria-hidden="true"></div>
-        <div class="float-card fc1">
-          <div class="avatar" style="background:#0E6B62;">SM</div>
-          <div><b>Sarah M. · Verified ✓</b><small>Community access · Parramatta<br>★ 4.9 (112 shifts)</small></div>
+      <div class="hero-art hero-care-art" aria-hidden="true">
+        <div class="hero-care-frame">
+          <img src="assets/care-backgrounds/hero-home-care.webp" alt="" width="1568" height="980">
+          <div class="hero-care-glow"></div>
         </div>
-        <div class="float-card fc2">
-          <div class="avatar" style="background:#D94F32;">✓</div>
-          <div><b>Shift confirmed 🎉</b><small>Tue 9:00am – 1:00pm · Household tasks</small></div>
+        <div class="hero-care-proof">
+          <div class="proof-avatars" aria-hidden="true"><span>SM</span><span>AK</span><span>JP</span></div>
+          <div><b>Support chosen around your life</b><small>Employed · screened · insured</small></div>
+          <span class="proof-tick" aria-hidden="true">✓</span>
         </div>
       </div>
     </div>
@@ -1699,8 +1871,6 @@ html.high-contrast #bgYard{display:none;}
 
   <!-- support marquee -->
   <div class="oo-marquee" aria-hidden="true"><div class="mq-track"><span>Employment support <i>0102</i></span><span class="mq-oo"></span><span>Personal care <i>0107</i></span><span class="mq-oo"></span><span>Travel &amp; transport <i>0108</i></span><span class="mq-oo"></span><span>Daily tasks &amp; shared living <i>0115</i></span><span class="mq-oo"></span><span>Household tasks <i>0120</i></span><span class="mq-oo"></span><span>Community participation <i>0125</i></span><span class="mq-oo"></span><span>Employment support <i>0102</i></span><span class="mq-oo"></span><span>Personal care <i>0107</i></span><span class="mq-oo"></span><span>Travel &amp; transport <i>0108</i></span><span class="mq-oo"></span><span>Daily tasks &amp; shared living <i>0115</i></span><span class="mq-oo"></span><span>Household tasks <i>0120</i></span><span class="mq-oo"></span><span>Community participation <i>0125</i></span><span class="mq-oo"></span></div></div>
-
-
 
   <!-- value strip -->
   <div class="value-strip" role="region" aria-label="Why choose BookIt">
@@ -1730,7 +1900,21 @@ html.high-contrast #bgYard{display:none;}
   </div>
 
   <!-- services -->
-  <section class="block" aria-labelledby="svcHead">
+  <section class="block care-scene care-services-scene" aria-labelledby="svcHead">
+    <div class="care-section-decor" aria-hidden="true">
+      <svg class="care-services-trail" viewBox="0 0 430 170" focusable="false">
+        <g fill="#17313A">
+          <ellipse cx="36" cy="120" rx="8" ry="4" transform="rotate(-15 36 120)" opacity=".035"/>
+          <ellipse cx="72" cy="111" rx="8" ry="4" transform="rotate(-11 72 111)" opacity=".05"/>
+          <ellipse cx="111" cy="101" rx="7.5" ry="3.7" transform="rotate(-8 111 101)" opacity=".07"/>
+          <ellipse cx="152" cy="90" rx="7" ry="3.5" transform="rotate(-4 152 90)" opacity=".09"/>
+          <ellipse cx="196" cy="80" rx="6.5" ry="3.2" transform="rotate(2 196 80)" opacity=".11"/>
+          <ellipse cx="243" cy="72" rx="6" ry="3" transform="rotate(8 243 72)" opacity=".10"/>
+          <ellipse cx="292" cy="68" rx="5.5" ry="2.8" transform="rotate(12 292 68)" opacity=".07"/>
+        </g>
+      </svg>
+      <img class="care-services-garden" src="assets/care-backgrounds/services-garden.webp" alt="" width="270" height="165" loading="lazy">
+    </div>
     <div class="container">
       <div class="section-head">
         <span class="kicker">What we support</span>
@@ -1742,7 +1926,10 @@ html.high-contrast #bgYard{display:none;}
   </section>
 
   <!-- how it works -->
-  <section class="block" style="background:var(--card);" aria-labelledby="hiwHead">
+  <section class="block care-scene care-how-scene" style="background:var(--card);" aria-labelledby="hiwHead">
+    <div class="care-section-decor" aria-hidden="true">
+      <img class="care-how-mower" src="assets/care-backgrounds/how-mower.webp" alt="" width="410" height="245" loading="lazy">
+    </div>
     <div class="container">
       <div class="section-head">
         <span class="kicker">How it works</span>
@@ -1814,7 +2001,19 @@ html.high-contrast #bgYard{display:none;}
   </section>
 
   <!-- testimonials -->
-  <section class="block" aria-labelledby="tsHead">
+  <section class="block care-scene care-stories-scene" aria-labelledby="tsHead">
+    <div class="care-section-decor" aria-hidden="true">
+      <svg class="care-stories-trail" viewBox="0 0 360 150" focusable="false">
+        <path d="M10 126 C104 118 160 72 226 80 C280 86 302 58 346 28" fill="none" stroke="#0E6B62" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 12" opacity=".08"/>
+        <g fill="#17313A">
+          <ellipse cx="52" cy="118" rx="7" ry="3.5" transform="rotate(-10 52 118)" opacity=".05"/>
+          <ellipse cx="86" cy="107" rx="6.5" ry="3.2" transform="rotate(-18 86 107)" opacity=".075"/>
+          <ellipse cx="122" cy="93" rx="6" ry="3" transform="rotate(-24 122 93)" opacity=".09"/>
+          <ellipse cx="162" cy="82" rx="5.5" ry="2.8" transform="rotate(-12 162 82)" opacity=".075"/>
+        </g>
+      </svg>
+      <img class="care-stories-garden" src="assets/care-backgrounds/stories-garden.webp" alt="" width="200" height="145" loading="lazy">
+    </div>
     <div class="container">
       <div class="section-head">
         <span class="kicker">Stories</span>
@@ -12643,3372 +12842,525 @@ document.addEventListener('click', async e => {
   }
 })();
 
-</script>
+/* ═══════════ Build 24/25: the walkers ═══════════
+   Life across the whole page, in the site's own illustration voice: filled
+   two-tone characters — a carer beside a wheelchair user with a balloon, a
+   kite flown from a chair, a guide dog in harness, forearm crutches, a
+   walking frame, a running blade — crossing at three depths (near, mid,
+   far), birds up high, tracks fading like prints on wet sand. Decorative:
+   off under reduced motion / high contrast / print, aria-hidden, untouchable,
+   and the loop fully idles when the stage is empty. */
+(() => {
+  var cv = document.getElementById('bgWalkers');
+  if(!cv || !cv.getContext) return;
+  var ctx = cv.getContext('2d');
+  var W = 0, H = 0, raf = 0, lastT = 0, uid = 0;
+  var walkers = [], birds = null, marks = [], tracks = {};
+  var tNear = 0, tDeep = 0, tBirds = 0;
+  var TTL = 16000;
+  var INK = '18,43,51', TEAL = '14,107,98', AMBER = '245,184,65';
 
-<script type="module">
-/* ═══════════ Build 29: the yard — the ambient 3D layer ═══════════
-   Bee's care-website-3d-animation rigs and routines (watering, mowing,
-   the walking duos, the fading trails) recomposed as background life
-   across the whole site — the role the walkers used to play. three.js
-   0.179.1 stays vendored at /vendor/ and is imported only after the
-   page has settled, desktop only, effects on. */
-const yardEl = document.getElementById('bgYard');
-const yardOff = () =>
-  (navigator.webdriver && !window.__yardAllow) ||
-  document.documentElement.getAttribute('data-motion') === 'reduce' ||
-  document.documentElement.classList.contains('high-contrast') ||
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-  window.innerWidth < 700;
-if (yardEl && !yardOff()) {
-  const start = async () => {
-    if (yardOff()) return;
-    try {
-      const THREE = await import('/vendor/three.module.min.js');
-      yardMain(THREE);
-    } catch (e) { /* decor never breaks the page */ }
-  };
-  if ('requestIdleCallback' in window) requestIdleCallback(() => setTimeout(start, 3500), { timeout: 9000 });
-  else setTimeout(start, 5000);
-}
-function yardMain(THREE) {
-var __defProp = Object.defineProperty;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-const PERSONAS = [
-  {
-    id: "manual-chair",
-    names: "Amara & Eli",
-    eyebrow: "Moving together",
-    description: "Amara chooses the route and self-propels her chair while support worker Eli keeps pace beside her.",
-    accent: "#d6a247"
-  },
-  {
-    id: "white-cane",
-    names: "Daniel & Tahlia",
-    eyebrow: "At their own pace",
-    description: "Daniel travels with his white cane while Tahlia walks alongside, leaving space for each natural cane sweep.",
-    accent: "#6f91c2"
-  },
-  {
-    id: "crutches",
-    names: "Noor & Grace",
-    eyebrow: "A shared journey",
-    description: "Noor moves confidently with forearm crutches, with Grace beside her and clear of the crutch path.",
-    accent: "#806f98"
-  },
-  {
-    id: "power-chair-dog",
-    names: "Kenji, Rosa & Milo",
-    eyebrow: "Community time",
-    description: "Kenji leads in his power chair while Rosa walks Milo on the outside of the curve.",
-    accent: "#2d847d"
-  },
-  {
-    id: "prosthetic",
-    names: "Luca & Aisha",
-    eyebrow: "Life keeps moving",
-    description: "Luca and Aisha follow a wide crescent path together, chatting as they go.",
-    accent: "#d47e6c"
-  },
-  {
-    id: "garden-care",
-    names: "Maya",
-    eyebrow: "Care for every space",
-    description: "Maya waters each raised garden, tidies the grass edging, then carries her tools out through the gate.",
-    accent: "#7fa78d"
-  },
-  {
-    id: "lawn-care",
-    names: "Sam",
-    eyebrow: "A welcoming home",
-    description: "Sam mows the lawn in neat passes, leaves through the gate, and the grass slowly grows back for the next visit.",
-    accent: "#d6a247"
-  },
-  {
-    id: "dog-walk",
-    names: "Priya & Alfie",
-    eyebrow: "A little fresh air",
-    description: "Priya and Alfie take a curved walk through the garden, leaving footprints and paw prints behind them.",
-    accent: "#b98568"
+  function size(){
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   }
-];
-const VIEW_LABELS = {
-  isometric: "Isometric",
-  "three-quarter": "Three-quarter",
-  "ground-level": "Ground level"
-};
-const CYCLE_SECONDS = 80;
-const GARDEN_START = 3;
-const GARDEN_DURATION = 34;
-const LAWN_START = 32;
-const LAWN_DURATION = 38;
-const GARDEN_BEDS = [
-  new THREE.Vector3(-15.7, 0.42, 10.5),
-  new THREE.Vector3(-11.2, 0.42, 11.2)
-];
-const UP = new THREE.Vector3(0, 1, 0);
-function standardMaterial(color, roughness = 0.78, metalness = 0) {
-  return new THREE.MeshStandardMaterial({ color, roughness, metalness });
-}
-function makeCapsule(radius, length, material, radialSegments = 12) {
-  const mesh = new THREE.Mesh(
-    new THREE.CapsuleGeometry(radius, length, 6, radialSegments),
-    material
-  );
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  return mesh;
-}
-function makeSphere(radius, material, widthSegments = 18, heightSegments = 12) {
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(radius, widthSegments, heightSegments),
-    material
-  );
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  return mesh;
-}
-function makeBox(width, height, depth, material, radius = 0.05) {
-  const geometry = new THREE.BoxGeometry(width, height, depth, 2, 2, 2);
-  const position = geometry.getAttribute("position");
-  for (let index = 0; index < position.count; index += 1) {
-    const x = position.getX(index);
-    const y = position.getY(index);
-    const z = position.getZ(index);
-    const length = Math.hypot(x, y, z) || 1;
-    const soften = Math.min(radius, 0.045);
-    position.setXYZ(
-      index,
-      x - x / length * soften,
-      y - y / length * soften,
-      z - z / length * soften
-    );
-  }
-  geometry.computeVertexNormals();
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  return mesh;
-}
-function cylinderBetween(start, end, radius, material, radialSegments = 10) {
-  const direction = end.clone().sub(start);
-  const length = direction.length();
-  const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(radius, radius, length, radialSegments),
-    material
-  );
-  mesh.position.copy(start).add(end).multiplyScalar(0.5);
-  mesh.quaternion.setFromUnitVectors(UP, direction.normalize());
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  return mesh;
-}
-function createHuman(options) {
-  const root = new THREE.Group();
-  root.scale.setScalar(options.scale ?? 0.78);
-  const skin = standardMaterial(options.skin, 0.82);
-  const shirt = standardMaterial(options.shirt, 0.84);
-  const trousers = standardMaterial(options.trousers, 0.88);
-  const hair = standardMaterial(options.hair, 0.94);
-  const shoes = standardMaterial(options.shoes ?? 2635844, 0.72);
-  const jacket = options.jacket ? standardMaterial(options.jacket, 0.86) : null;
-  const eye = standardMaterial(1976624, 0.7);
-  const prosthetic = standardMaterial(7701389, 0.42, 0.42);
-  const torso = new THREE.Group();
-  const torsoMesh = makeCapsule(0.39, 0.58, shirt, 14);
-  torsoMesh.scale.set(1, 1, 0.82);
-  torso.add(torsoMesh);
-  if (jacket) {
-    const jacketPanel = makeBox(0.86, 0.7, 0.12, jacket, 0.06);
-    jacketPanel.position.set(0, -0.03, 0.34);
-    torso.add(jacketPanel);
-  }
-  const collar = new THREE.Mesh(
-    new THREE.TorusGeometry(0.16, 0.026, 8, 22, Math.PI * 1.45),
-    jacket ?? shirt
-  );
-  collar.position.set(0, 0.34, 0.31);
-  collar.rotation.set(Math.PI / 2, 0, 0.78);
-  torso.add(collar);
-  if (options.shirt === 2983037) {
-    const badge = new THREE.Group();
-    const badgeBase = new THREE.Mesh(
-      new THREE.CircleGeometry(0.075, 18),
-      new THREE.MeshBasicMaterial({ color: 16776696, toneMapped: false })
-    );
-    const badgeMark = new THREE.Mesh(
-      new THREE.CircleGeometry(0.031, 14),
-      new THREE.MeshBasicMaterial({ color: 13925996, toneMapped: false })
-    );
-    badgeMark.position.z = 2e-3;
-    badge.add(badgeBase, badgeMark);
-    badge.position.set(0.22, 0.12, 0.36);
-    torso.add(badge);
-  }
-  const head = new THREE.Group();
-  const face = makeSphere(0.31, skin, 20, 14);
-  face.scale.set(0.9, 1.08, 0.9);
-  head.add(face);
-  const leftEye = makeSphere(0.032, eye, 10, 8);
-  leftEye.position.set(-0.105, 0.035, 0.272);
-  const rightEye = leftEye.clone();
-  rightEye.position.x = 0.105;
-  head.add(leftEye, rightEye);
-  const nose = makeSphere(0.037, skin, 10, 8);
-  nose.scale.set(0.78, 1.2, 0.9);
-  nose.position.set(0, -0.025, 0.305);
-  const leftEar = makeSphere(0.065, skin, 10, 8);
-  leftEar.scale.set(0.58, 1, 0.5);
-  leftEar.position.set(-0.288, 5e-3, -5e-3);
-  const rightEar = leftEar.clone();
-  rightEar.position.x = 0.288;
-  const leftBrow = makeBox(0.105, 0.018, 0.024, eye, 8e-3);
-  leftBrow.position.set(-0.105, 0.108, 0.286);
-  leftBrow.rotation.z = -0.07;
-  const rightBrow = leftBrow.clone();
-  rightBrow.position.x = 0.105;
-  rightBrow.rotation.z = 0.07;
-  const mouthMaterial = standardMaterial(9326920, 0.76);
-  const mouth = new THREE.Mesh(
-    new THREE.TorusGeometry(0.067, 8e-3, 6, 18, Math.PI),
-    mouthMaterial
-  );
-  mouth.position.set(0, -0.105, 0.292);
-  mouth.rotation.z = Math.PI;
-  head.add(nose, leftEar, rightEar, leftBrow, rightBrow, mouth);
-  const hairCap = makeSphere(0.325, hair, 18, 12);
-  hairCap.scale.set(0.94, 0.64, 0.94);
-  hairCap.position.set(0, 0.18, -0.035);
-  head.add(hairCap);
-  if (options.hairStyle === "bun") {
-    const bun = makeSphere(0.17, hair, 14, 10);
-    bun.position.set(0, 0.34, -0.18);
-    head.add(bun);
-  } else if (options.hairStyle === "curls") {
-    for (const [x, y, z, scale] of [
-      [-0.22, 0.13, -0.08, 0.11],
-      [0.22, 0.13, -0.08, 0.11],
-      [-0.25, -0.03, -0.09, 0.1],
-      [0.25, -0.03, -0.09, 0.1],
-      [-0.15, 0.3, -0.08, 0.1],
-      [0.15, 0.3, -0.08, 0.1]
-    ]) {
-      const curl = makeSphere(scale, hair, 10, 8);
-      curl.position.set(x, y, z);
-      head.add(curl);
-    }
-  } else if (options.hairStyle === "waves") {
-    const leftWave = makeCapsule(0.09, 0.36, hair, 10);
-    leftWave.position.set(-0.26, -0.03, -0.08);
-    leftWave.rotation.z = 0.1;
-    const rightWave = leftWave.clone();
-    rightWave.position.x = 0.26;
-    rightWave.rotation.z = -0.1;
-    head.add(leftWave, rightWave);
-  }
-  const leftArm = new THREE.Group();
-  const rightArm = new THREE.Group();
-  const leftLeg = new THREE.Group();
-  const rightLeg = new THREE.Group();
-  function addArm(target, side) {
-    const sleeve = makeCapsule(0.105, 0.34, jacket ?? shirt, 10);
-    sleeve.position.y = -0.27;
-    const hand = makeCapsule(0.075, 0.22, skin, 10);
-    hand.position.y = -0.62;
-    const cuff = new THREE.Mesh(
-      new THREE.TorusGeometry(0.098, 0.022, 7, 18),
-      jacket ?? shirt
-    );
-    cuff.position.y = -0.47;
-    cuff.rotation.x = Math.PI / 2;
-    target.add(sleeve, cuff, hand);
-    target.position.x = side * 0.47;
-  }
-  function addLeg(target, side) {
-    const isProsthetic = options.prosthetic === (side < 0 ? "left" : "right");
-    const upper = makeCapsule(0.14, 0.38, trousers, 11);
-    upper.position.y = -0.31;
-    const lower = makeCapsule(0.12, 0.34, isProsthetic ? prosthetic : trousers, 11);
-    lower.position.y = -0.74;
-    if (isProsthetic) lower.scale.set(0.78, 1.02, 0.78);
-    const shoe = makeBox(0.26, 0.16, 0.45, shoes, 0.04);
-    shoe.position.set(0, -1.01, 0.11);
-    target.add(upper, lower, shoe);
-    target.position.x = side * 0.2;
-  }
-  addArm(leftArm, -1);
-  addArm(rightArm, 1);
-  addLeg(leftLeg, -1);
-  addLeg(rightLeg, 1);
-  const seated = Boolean(options.seated);
-  const baseY = 0;
-  if (seated) {
-    torso.position.y = 1.2;
-    head.position.y = 2.02;
-    leftArm.position.y = 1.52;
-    rightArm.position.y = 1.52;
-    leftArm.rotation.x = -0.25;
-    rightArm.rotation.x = -0.25;
-    leftLeg.position.y = 0.72;
-    rightLeg.position.y = 0.72;
-    leftLeg.rotation.x = -1.16;
-    rightLeg.rotation.x = -1.16;
-    leftLeg.children[1].rotation.x = 0.78;
-    rightLeg.children[1].rotation.x = 0.78;
-  } else {
-    torso.position.y = 1.78;
-    head.position.y = 2.64;
-    leftArm.position.y = 2.05;
-    rightArm.position.y = 2.05;
-    leftLeg.position.y = 1.02;
-    rightLeg.position.y = 1.02;
-  }
-  root.add(torso, head, leftArm, rightArm, leftLeg, rightLeg);
-  const animate = (phase, intensity = 1) => {
-    if (seated) {
-      const push = Math.sin(phase * 0.72);
-      leftArm.rotation.x = -0.34 + push * 0.18 * intensity;
-      rightArm.rotation.x = -0.34 + push * 0.18 * intensity;
-      torso.rotation.z = Math.sin(phase * 0.36) * 0.025 * intensity;
-      head.rotation.y = Math.sin(phase * 0.22) * 0.14 * intensity;
-      return;
-    }
-    const stride = Math.sin(phase);
-    const lift = Math.max(0, Math.sin(phase * 2)) * 0.045 * intensity;
-    leftLeg.rotation.x = stride * 0.48 * intensity;
-    rightLeg.rotation.x = -stride * 0.48 * intensity;
-    leftArm.rotation.x = -stride * 0.4 * intensity;
-    rightArm.rotation.x = stride * 0.4 * intensity;
-    torso.position.y = 1.78 + lift;
-    torso.rotation.y = stride * 0.035 * intensity;
-    head.position.y = 2.64 + lift * 0.65;
-    head.rotation.y = Math.sin(phase * 0.35) * 0.11 * intensity;
-  };
-  return {
-    root,
-    leftArm,
-    rightArm,
-    leftLeg,
-    rightLeg,
-    head,
-    torso,
-    baseY,
-    seated,
-    animate
-  };
-}
-function createContactShadow(width = 1.5, depth = 1.1, opacity = 0.11) {
-  const material = new THREE.MeshBasicMaterial({
-    color: 2640193,
-    transparent: true,
-    opacity,
-    depthWrite: false
-  });
-  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.7, 28), material);
-  shadow.scale.set(width, depth, 1);
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 9e-3;
-  shadow.renderOrder = 1;
-  return shadow;
-}
-function createWheel(radius, manual) {
-  const group = new THREE.Group();
-  const rubber = standardMaterial(2569274, 0.74);
-  const metal = standardMaterial(10924468, 0.34, 0.52);
-  const accent = standardMaterial(manual ? 14066247 : 2983037, 0.58, 0.08);
-  const tyre = new THREE.Mesh(
-    new THREE.TorusGeometry(radius, manual ? 0.052 : 0.09, 10, 34),
-    rubber
-  );
-  tyre.rotation.y = Math.PI / 2;
-  tyre.castShadow = true;
-  group.add(tyre);
-  if (manual) {
-    const handRim = new THREE.Mesh(
-      new THREE.TorusGeometry(radius * 0.83, 0.022, 8, 32),
-      metal
-    );
-    handRim.rotation.y = Math.PI / 2;
-    group.add(handRim);
-  }
-  const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.075, 0.075, 0.12, 14),
-    accent
-  );
-  hub.rotation.z = Math.PI / 2;
-  group.add(hub);
-  const spokeMaterial = manual ? metal : accent;
-  for (let index = 0; index < 8; index += 1) {
-    const angle = index / 8 * Math.PI * 2;
-    const end = new THREE.Vector3(
-      0,
-      Math.sin(angle) * radius * 0.78,
-      Math.cos(angle) * radius * 0.78
-    );
-    group.add(cylinderBetween(new THREE.Vector3(), end, 0.012, spokeMaterial, 6));
-  }
-  return group;
-}
-function createWheelchair(power, person) {
-  const root = new THREE.Group();
-  const frame = standardMaterial(power ? 3490121 : 5992565, 0.38, 0.42);
-  const cushion = standardMaterial(power ? 3562337 : 14066247, 0.9);
-  const dark = standardMaterial(2504252, 0.76);
-  const radius = power ? 0.46 : 0.68;
-  const wheelX = power ? 0.68 : 0.74;
-  const wheelY = radius + 0.04;
-  const leftWheel = createWheel(radius, !power);
-  const rightWheel = createWheel(radius, !power);
-  leftWheel.position.set(-wheelX, wheelY, -0.06);
-  rightWheel.position.set(wheelX, wheelY, -0.06);
-  root.add(leftWheel, rightWheel);
-  const seat = makeBox(1.02, 0.17, 0.84, cushion, 0.08);
-  seat.position.set(0, power ? 0.82 : 0.86, 0.02);
-  const back = makeBox(0.94, power ? 1.02 : 0.86, 0.17, cushion, 0.08);
-  back.position.set(0, power ? 1.28 : 1.25, -0.34);
-  back.rotation.x = -0.08;
-  root.add(seat, back);
-  const leftRail = cylinderBetween(
-    new THREE.Vector3(-0.56, 0.52, -0.34),
-    new THREE.Vector3(-0.56, 1.34, -0.34),
-    0.035,
-    frame
-  );
-  const rightRail = leftRail.clone();
-  rightRail.position.x *= -1;
-  root.add(leftRail, rightRail);
-  for (const side of [-1, 1]) {
-    const arm = makeBox(0.13, 0.11, 0.72, dark, 0.035);
-    arm.position.set(side * 0.59, 1.22, 0.02);
-    root.add(arm);
-    const casterFork = cylinderBetween(
-      new THREE.Vector3(side * 0.48, 0.42, 0.36),
-      new THREE.Vector3(side * 0.48, 0.2, 0.62),
-      0.032,
-      frame
-    );
-    const caster = createWheel(power ? 0.17 : 0.14, false);
-    caster.scale.setScalar(0.72);
-    caster.position.set(side * 0.48, 0.18, 0.65);
-    root.add(casterFork, caster);
-  }
-  const footPlate = makeBox(0.72, 0.06, 0.42, frame, 0.025);
-  footPlate.position.set(0, 0.28, 0.73);
-  footPlate.rotation.x = -0.08;
-  root.add(footPlate);
-  if (power) {
-    const base = makeBox(1.28, 0.34, 1.16, frame, 0.1);
-    base.position.set(0, 0.39, 0.02);
-    root.add(base);
-    const headrest = makeBox(0.45, 0.34, 0.13, dark, 0.06);
-    headrest.position.set(0, 1.98, -0.38);
-    root.add(headrest);
-    const joystickStem = cylinderBetween(
-      new THREE.Vector3(0.64, 1.2, 0.17),
-      new THREE.Vector3(0.64, 1.48, 0.35),
-      0.022,
-      frame
-    );
-    const joystick = makeSphere(0.07, standardMaterial(13925996, 0.62), 12, 8);
-    joystick.position.set(0.64, 1.5, 0.36);
-    const tablet = makeBox(0.42, 0.3, 0.05, standardMaterial(2044217, 0.4, 0.18), 0.04);
-    tablet.position.set(-0.24, 1.53, 0.34);
-    tablet.rotation.x = -0.18;
-    root.add(joystickStem, joystick, tablet);
-  }
-  const seatedPerson = createHuman({ ...person, seated: true, scale: 0.69 });
-  seatedPerson.root.position.set(0, 0.82, -0.02);
-  root.add(seatedPerson.root);
-  root.add(createContactShadow(power ? 1.25 : 1.35, 1.22, 0.13));
-  return {
-    root,
-    person: seatedPerson,
-    animate(distance, phase) {
-      leftWheel.rotation.x = -distance / radius;
-      rightWheel.rotation.x = -distance / radius;
-      seatedPerson.animate(phase, power ? 0.55 : 1);
-    }
-  };
-}
-function createCrutch(color) {
-  const root = new THREE.Group();
-  const metal = standardMaterial(10990776, 0.34, 0.5);
-  const grip = standardMaterial(color, 0.82);
-  root.add(
-    cylinderBetween(
-      new THREE.Vector3(0, 0.02, 0),
-      new THREE.Vector3(0, 1.48, 0),
-      0.025,
-      metal,
-      8
-    )
-  );
-  const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 7, 20, Math.PI * 1.45), grip);
-  cuff.position.set(0, 1.42, 0);
-  cuff.rotation.set(Math.PI / 2, 0, 0.78);
-  const handle = makeBox(0.28, 0.055, 0.07, grip, 0.02);
-  handle.position.set(0.09, 1.1, 0);
-  const tip = makeSphere(0.047, standardMaterial(2963520, 0.92), 10, 7);
-  tip.scale.set(0.9, 0.55, 0.9);
-  tip.position.y = 0.025;
-  root.add(cuff, handle, tip);
-  return root;
-}
-function createDog() {
-  const root = new THREE.Group();
-  root.scale.setScalar(0.84);
-  const coat = standardMaterial(12354390, 0.94);
-  const lightCoat = standardMaterial(13937278, 0.96);
-  const nose = standardMaterial(2569274, 0.8);
-  const harness = standardMaterial(2983037, 0.7);
-  const body = makeSphere(0.5, coat, 18, 12);
-  body.scale.set(0.82, 0.62, 1.38);
-  body.position.y = 0.68;
-  const chest = makeSphere(0.33, lightCoat, 16, 10);
-  chest.scale.set(0.75, 1.05, 0.58);
-  chest.position.set(0, 0.72, 0.45);
-  const head = makeSphere(0.31, coat, 16, 11);
-  head.position.set(0, 1.02, 0.73);
-  const muzzle = makeSphere(0.18, lightCoat, 14, 9);
-  muzzle.scale.set(0.85, 0.7, 1.08);
-  muzzle.position.set(0, 0.96, 0.99);
-  const noseMesh = makeSphere(0.075, nose, 10, 7);
-  noseMesh.position.set(0, 1, 1.15);
-  root.add(body, chest, head, muzzle, noseMesh);
-  for (const side of [-1, 1]) {
-    const ear = makeCapsule(0.09, 0.24, coat, 9);
-    ear.position.set(side * 0.23, 1.04, 0.67);
-    ear.rotation.z = side * 0.28;
-    root.add(ear);
-    const eye = makeSphere(0.034, nose, 9, 7);
-    eye.position.set(side * 0.105, 1.08, 1.01);
-    root.add(eye);
-  }
-  const legs = [];
-  for (const [x, z] of [
-    [-0.29, -0.37],
-    [0.29, -0.37],
-    [-0.29, 0.42],
-    [0.29, 0.42]
-  ]) {
-    const leg = new THREE.Group();
-    const limb = makeCapsule(0.085, 0.38, coat, 9);
-    limb.position.y = -0.28;
-    const paw = makeSphere(0.1, lightCoat, 10, 7);
-    paw.scale.set(1, 0.55, 1.25);
-    paw.position.set(0, -0.51, 0.05);
-    leg.add(limb, paw);
-    leg.position.set(x, 0.53, z);
-    legs.push(leg);
-    root.add(leg);
-  }
-  const harnessBand = new THREE.Mesh(new THREE.TorusGeometry(0.41, 0.045, 8, 24), harness);
-  harnessBand.scale.set(0.9, 1, 1);
-  harnessBand.position.set(0, 0.7, 0.08);
-  harnessBand.rotation.x = Math.PI / 2;
-  root.add(harnessBand);
-  const tail = new THREE.Group();
-  tail.position.set(0, 0.82, -0.65);
-  const tailMesh = makeCapsule(0.075, 0.5, coat, 9);
-  tailMesh.position.y = 0.29;
-  tailMesh.rotation.x = -0.56;
-  tail.add(tailMesh);
-  root.add(tail);
-  root.add(createContactShadow(0.78, 0.82, 0.1));
-  return {
-    root,
-    animate(phase) {
-      legs[0].rotation.x = Math.sin(phase) * 0.48;
-      legs[3].rotation.x = Math.sin(phase) * 0.48;
-      legs[1].rotation.x = -Math.sin(phase) * 0.48;
-      legs[2].rotation.x = -Math.sin(phase) * 0.48;
-      tail.rotation.z = Math.sin(phase * 0.58) * 0.42;
-      head.rotation.y = Math.sin(phase * 0.28) * 0.12;
-      root.position.y = Math.abs(Math.sin(phase * 2)) * 0.025;
-    }
-  };
-}
-function createWateringCan() {
-  const root = new THREE.Group();
-  const bodyMaterial = standardMaterial(13925996, 0.72, 0.06);
-  const darkMaterial = standardMaterial(10443087, 0.72, 0.04);
-  const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.27, 0.31, 0.46, 16),
-    bodyMaterial
-  );
-  body.castShadow = true;
-  const handle = new THREE.Mesh(
-    new THREE.TorusGeometry(0.3, 0.045, 8, 24, Math.PI * 1.42),
-    darkMaterial
-  );
-  handle.position.set(0, 0.23, -0.02);
-  handle.rotation.z = Math.PI * 0.79;
-  const spout = cylinderBetween(
-    new THREE.Vector3(0.25, 0.02, 0.02),
-    new THREE.Vector3(0.72, 0.22, 0.25),
-    0.055,
-    bodyMaterial,
-    10
-  );
-  const rose = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.12, 0.075, 0.08, 12),
-    darkMaterial
-  );
-  rose.position.set(0.75, 0.24, 0.27);
-  rose.quaternion.copy(spout.quaternion);
-  root.add(body, handle, spout, rose);
-  return root;
-}
-function createGardenShears() {
-  const root = new THREE.Group();
-  const steel = standardMaterial(11977413, 0.34, 0.52);
-  const grip = standardMaterial(14066247, 0.78);
-  const pivot = makeSphere(0.07, standardMaterial(7239547, 0.42, 0.42), 10, 8);
-  const leftHalf = new THREE.Group();
-  const rightHalf = new THREE.Group();
-  const leftBlade = makeBox(0.09, 0.055, 0.72, steel, 0.02);
-  leftBlade.position.z = 0.36;
-  const rightBlade = leftBlade.clone();
-  const leftHandle = makeCapsule(0.065, 0.42, grip, 9);
-  leftHandle.position.z = -0.28;
-  leftHandle.rotation.x = Math.PI / 2;
-  const rightHandle = leftHandle.clone();
-  leftHalf.add(leftBlade, leftHandle);
-  rightHalf.add(rightBlade, rightHandle);
-  root.add(leftHalf, rightHalf, pivot);
-  return {
-    root,
-    animate(phase) {
-      const open = 0.16 + (Math.sin(phase * 2.4) * 0.5 + 0.5) * 0.28;
-      leftHalf.rotation.y = open;
-      rightHalf.rotation.y = -open;
-    }
-  };
-}
-function createLawnMower(workerOptions) {
-  const root = new THREE.Group();
-  const frame = standardMaterial(3230287, 0.46, 0.24);
-  const deckMaterial = standardMaterial(14066247, 0.72, 0.06);
-  const engineMaterial = standardMaterial(2983037, 0.62, 0.08);
-  const wheelRadius = 0.22;
-  const deck = makeBox(1.06, 0.2, 0.82, deckMaterial, 0.08);
-  deck.position.set(0, 0.24, 0.1);
-  const engine = makeBox(0.58, 0.34, 0.5, engineMaterial, 0.08);
-  engine.position.set(0, 0.48, 0.05);
-  const cap = makeSphere(0.09, frame, 12, 8);
-  cap.scale.set(1, 0.5, 1);
-  cap.position.set(0, 0.68, 0.05);
-  const blade = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.38, 0.38, 0.035, 22),
-    standardMaterial(11450812, 0.36, 0.5)
-  );
-  blade.position.set(0, 0.11, 0.1);
-  const grassBag = makeBox(0.72, 0.42, 0.5, standardMaterial(4809820, 0.92), 0.07);
-  grassBag.position.set(0, 0.46, -0.5);
-  grassBag.rotation.x = -0.08;
-  const safetyLamp = makeSphere(
-    0.055,
-    new THREE.MeshBasicMaterial({ color: 16174946, toneMapped: false }),
-    10,
-    7
-  );
-  safetyLamp.position.set(0.21, 0.68, 0.29);
-  root.add(deck, engine, cap, blade, grassBag, safetyLamp);
-  const clippingMaterial = new THREE.MeshBasicMaterial({
-    color: 7903343,
-    transparent: true,
-    opacity: 0.58,
-    depthWrite: false,
-    toneMapped: false
-  });
-  const clippings = [];
-  for (let index = 0; index < 14; index += 1) {
-    const clipping = new THREE.Mesh(new THREE.TetrahedronGeometry(0.038, 0), clippingMaterial);
-    clipping.scale.set(0.5 + index % 3 * 0.16, 0.3, 1.1);
-    root.add(clipping);
-    clippings.push(clipping);
-  }
-  const wheels = [];
-  for (const [x, z] of [
-    [-0.53, -0.27],
-    [0.53, -0.27],
-    [-0.53, 0.38],
-    [0.53, 0.38]
-  ]) {
-    const wheel = createWheel(wheelRadius, false);
-    wheel.scale.setScalar(0.84);
-    wheel.position.set(x, wheelRadius, z);
-    root.add(wheel);
-    wheels.push(wheel);
-  }
-  for (const side of [-1, 1]) {
-    root.add(
-      cylinderBetween(
-        new THREE.Vector3(side * 0.42, 0.42, -0.31),
-        new THREE.Vector3(side * 0.31, 1.24, -1.13),
-        0.034,
-        frame
-      )
-    );
-  }
-  root.add(
-    cylinderBetween(
-      new THREE.Vector3(-0.31, 1.24, -1.13),
-      new THREE.Vector3(0.31, 1.24, -1.13),
-      0.045,
-      frame
-    )
-  );
-  const worker = createHuman(workerOptions);
-  worker.root.position.set(0, 0, -1.62);
-  root.add(worker.root, createContactShadow(1.15, 1.42, 0.1));
-  return {
-    root,
-    worker,
-    animate(distance, phase) {
-      for (const wheel of wheels) wheel.rotation.x = -distance / wheelRadius;
-      blade.rotation.y = distance * 8.4;
-      clippings.forEach((clipping, index) => {
-        const travel = (distance * 0.72 + index / clippings.length) % 1;
-        const side = (index % 5 - 2) * 0.055;
-        clipping.position.set(
-          0.55 + travel * 0.72,
-          0.19 + Math.sin(travel * Math.PI) * 0.34,
-          0.14 + side - travel * 0.16
-        );
-        clipping.rotation.set(
-          phase * 0.13 + index,
-          phase * 0.18 + index * 0.7,
-          phase * 0.11
-        );
-        const clippingPulse = 0.985 + Math.sin(phase * 0.05 + index) * 4e-3;
-        clipping.scale.set(
-          (0.5 + index % 3 * 0.16) * clippingPulse,
-          0.3 * clippingPulse,
-          1.1 * clippingPulse
-        );
-      });
-      worker.animate(phase, 0.72);
-      worker.leftArm.rotation.x = -0.92 + Math.sin(phase) * 0.08;
-      worker.rightArm.rotation.x = -0.92 - Math.sin(phase) * 0.08;
-      worker.head.rotation.y = Math.sin(phase * 0.2) * 0.08;
-    }
-  };
-}
-function createTrailTexture(kind) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Unable to create trail texture");
-  context.clearRect(0, 0, 256, 256);
-  context.fillStyle = "#ffffff";
-  context.strokeStyle = "#ffffff";
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.shadowColor = "rgba(255, 255, 255, 0.42)";
-  context.shadowBlur = kind === "wheel" || kind === "mow" ? 8 : 13;
-  if (kind === "foot") {
-    context.beginPath();
-    context.moveTo(105, 226);
-    context.bezierCurveTo(78, 218, 72, 190, 79, 162);
-    context.bezierCurveTo(84, 140, 73, 119, 76, 91);
-    context.bezierCurveTo(80, 49, 108, 25, 146, 30);
-    context.bezierCurveTo(183, 35, 196, 68, 185, 105);
-    context.bezierCurveTo(177, 132, 169, 151, 169, 179);
-    context.bezierCurveTo(168, 214, 141, 235, 105, 226);
-    context.closePath();
-    context.fill();
-    context.save();
-    context.globalCompositeOperation = "destination-out";
-    context.globalAlpha = 0.42;
-    context.lineWidth = 8;
-    for (let y = 62; y <= 192; y += 27) {
-      context.beginPath();
-      context.moveTo(91, y + 8);
-      context.lineTo(164, y - 8);
-      context.stroke();
-    }
-    context.beginPath();
-    context.ellipse(122, 205, 21, 11, -0.1, 0, Math.PI * 2);
-    context.fill();
-    context.restore();
-  } else if (kind === "paw") {
-    context.beginPath();
-    context.ellipse(128, 158, 48, 40, 0, 0, Math.PI * 2);
-    context.fill();
-    for (const [x, y, rx, ry] of [
-      [79, 99, 17, 23],
-      [111, 75, 18, 25],
-      [146, 75, 18, 25],
-      [178, 99, 17, 23]
-    ]) {
-      context.beginPath();
-      context.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-      context.fill();
-    }
-    context.save();
-    context.globalCompositeOperation = "destination-out";
-    context.globalAlpha = 0.2;
-    context.beginPath();
-    context.ellipse(128, 158, 19, 15, 0, 0, Math.PI * 2);
-    context.fill();
-    context.restore();
-  } else if (kind === "wheel") {
-    context.lineWidth = 28;
-    context.beginPath();
-    context.moveTo(128, 4);
-    context.lineTo(128, 252);
-    context.stroke();
-    context.save();
-    context.globalCompositeOperation = "destination-out";
-    context.globalAlpha = 0.5;
-    context.lineWidth = 7;
-    for (let y = 9; y < 256; y += 28) {
-      context.beginPath();
-      context.moveTo(102, y - 9);
-      context.lineTo(154, y + 10);
-      context.stroke();
-      context.beginPath();
-      context.moveTo(154, y + 5);
-      context.lineTo(111, y + 21);
-      context.stroke();
-    }
-    context.restore();
-  } else if (kind === "mow") {
-    const gradient = context.createLinearGradient(16, 0, 240, 0);
-    gradient.addColorStop(0, "rgba(255,255,255,0)");
-    gradient.addColorStop(0.16, "rgba(255,255,255,0.82)");
-    gradient.addColorStop(0.5, "rgba(255,255,255,1)");
-    gradient.addColorStop(0.84, "rgba(255,255,255,0.82)");
-    gradient.addColorStop(1, "rgba(255,255,255,0)");
-    context.fillStyle = gradient;
-    context.fillRect(12, 6, 232, 244);
-    context.save();
-    context.globalCompositeOperation = "destination-out";
-    context.globalAlpha = 0.22;
-    for (let x = 48; x < 226; x += 36) context.fillRect(x, 6, 9, 244);
-    context.restore();
-  } else {
-    context.lineWidth = kind === "cane" ? 16 : 24;
-    context.beginPath();
-    context.arc(128, 128, kind === "cane" ? 36 : 50, 0, Math.PI * 2);
-    context.stroke();
-    context.globalAlpha = 0.62;
-    context.beginPath();
-    context.arc(128, 128, kind === "cane" ? 10 : 14, 0, Math.PI * 2);
-    context.fill();
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.needsUpdate = true;
-  return texture;
-}
-const TRAIL_STYLE = {
-  foot: { color: 3109997, opacity: 0.52, lifetime: 9.4, capacity: 440 },
-  wheel: { color: 4545904, opacity: 0.44, lifetime: 11.8, capacity: 300 },
-  paw: { color: 10117701, opacity: 0.5, lifetime: 8.8, capacity: 150 },
-  crutch: { color: 7101329, opacity: 0.46, lifetime: 9.4, capacity: 140 },
-  cane: { color: 5210001, opacity: 0.42, lifetime: 7, capacity: 120 },
-  mow: { color: 6458195, opacity: 0.28, lifetime: 18, capacity: 240 }
-};
-class TrailLayer {
-  constructor(scene, kind, capacityScale) {
-    __publicField(this, "scene");
-    __publicField(this, "geometry");
-    __publicField(this, "material");
-    __publicField(this, "texture");
-    __publicField(this, "mesh");
-    __publicField(this, "fadeAttribute");
-    __publicField(this, "items");
-    __publicField(this, "cursor", 0);
-    __publicField(this, "transform", new THREE.Object3D());
-    // Face textured marks along local +Z. Shader trails are double-sided, so a
-    // downward plane normal is harmless and preserves the intuitive texture basis.
-    __publicField(this, "flatQuaternion", new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(Math.PI / 2, 0, 0)
-    ));
-    __publicField(this, "yawQuaternion", new THREE.Quaternion());
-    this.scene = scene;
-    const style = TRAIL_STYLE[kind];
-    const capacity = Math.max(24, Math.round(style.capacity * capacityScale));
-    this.texture = createTrailTexture(kind);
-    this.geometry = new THREE.PlaneGeometry(1, 1);
-    this.fadeAttribute = new THREE.InstancedBufferAttribute(
-      new Float32Array(capacity),
-      1
-    );
-    this.fadeAttribute.setUsage(THREE.DynamicDrawUsage);
-    this.geometry.setAttribute("instanceFade", this.fadeAttribute);
-    this.material = new THREE.ShaderMaterial({
-      uniforms: {
-        trailMap: { value: this.texture },
-        trailColor: { value: new THREE.Color(style.color) }
-      },
-      vertexShader: `
-        attribute float instanceFade;
-        varying vec2 vTrailUv;
-        varying float vTrailFade;
+  addEventListener('resize', size); size();
 
-        void main() {
-          vTrailUv = uv;
-          vTrailFade = instanceFade;
-          vec4 localPosition = vec4(position, 1.0);
-          #ifdef USE_INSTANCING
-            localPosition = instanceMatrix * localPosition;
-          #endif
-          gl_Position = projectionMatrix * modelViewMatrix * localPosition;
-        }
-      `,
-      fragmentShader: `
-        uniform sampler2D trailMap;
-        uniform vec3 trailColor;
-        varying vec2 vTrailUv;
-        varying float vTrailFade;
+  function off(){
+    var de = document.documentElement;
+    return !de.classList.contains('js-fx')
+      || de.getAttribute('data-motion') === 'reduce'
+      || de.classList.contains('high-contrast')
+      || (matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  function edgeA(x){ return Math.max(0, Math.min(1, Math.min(x + 70, W + 70 - x) / 150)); }
 
-        void main() {
-          float textureAlpha = texture2D(trailMap, vTrailUv).a;
-          float alpha = textureAlpha * vTrailFade;
-          if (alpha < 0.004) discard;
-          gl_FragColor = vec4(trailColor, alpha);
-        }
-      `,
-      transparent: true,
-      depthWrite: false,
-      depthTest: true,
-      side: THREE.DoubleSide,
-      polygonOffset: true,
-      polygonOffsetFactor: -4,
-      toneMapped: false
-    });
-    this.mesh = new THREE.InstancedMesh(this.geometry, this.material, capacity);
-    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = 4;
-    this.items = Array.from({ length: capacity }, () => ({
-      active: false,
-      age: 0,
-      lifetime: style.lifetime,
-      baseOpacity: style.opacity
-    }));
-    this.transform.position.set(0, -1e3, 0);
-    this.transform.scale.setScalar(1e-3);
-    this.transform.updateMatrix();
-    for (let index = 0; index < capacity; index += 1) {
-      this.mesh.setMatrixAt(index, this.transform.matrix);
-      this.fadeAttribute.setX(index, 0);
-    }
-    this.mesh.instanceMatrix.needsUpdate = true;
-    this.fadeAttribute.needsUpdate = true;
-    scene.add(this.mesh);
+  /* ---------- fading marks ---------- */
+  function foot(x, y, side, dir){ marks.push({ k:'foot', x:x, y:y, s:side, d:dir, t:performance.now() }); }
+  function paw(x, y){ marks.push({ k:'paw', x:x, y:y, t:performance.now() }); }
+  function tap(x, y){ marks.push({ k:'tap', x:x, y:y, t:performance.now() }); }
+  function track(id, x, y){
+    var tr = tracks[id] || (tracks[id] = { pts: [] });
+    var last = tr.pts[tr.pts.length - 1];
+    if(!last || Math.abs(x - last.x) >= 7) tr.pts.push({ x:x, y:y, t:performance.now() });
   }
-  emit(kind, position, yaw, width, depth, lifetime, flip = false) {
-    const style = TRAIL_STYLE[kind];
-    const index = this.cursor;
-    this.cursor = (this.cursor + 1) % this.items.length;
-    const item = this.items[index];
-    item.active = true;
-    item.age = 0;
-    item.lifetime = lifetime ?? style.lifetime;
-    item.baseOpacity = style.opacity;
-    this.transform.position.set(
-      position.x,
-      position.y + (kind === "mow" ? 0.029 : 0.019),
-      position.z
-    );
-    this.yawQuaternion.setFromAxisAngle(UP, yaw);
-    this.transform.quaternion.multiplyQuaternions(
-      this.yawQuaternion,
-      this.flatQuaternion
-    );
-    this.transform.scale.set(flip ? -width : width, depth, 1);
-    this.transform.updateMatrix();
-    this.mesh.setMatrixAt(index, this.transform.matrix);
-    this.fadeAttribute.setX(index, 1e-3);
-    this.mesh.instanceMatrix.needsUpdate = true;
-    this.fadeAttribute.needsUpdate = true;
-  }
-  update(delta) {
-    let changed = false;
-    for (let index = 0; index < this.items.length; index += 1) {
-      const item = this.items[index];
-      if (!item.active) continue;
-      item.age += delta;
-      const fadeIn = Math.min(0.14, item.lifetime * 0.08);
-      const fadeStart = item.lifetime * 0.42;
-      let visibility = 1;
-      if (item.age < fadeIn) {
-        visibility = smoothStep(item.age / Math.max(1e-3, fadeIn));
-      } else if (item.age > fadeStart) {
-        const fadeProgress = THREE.MathUtils.clamp(
-          (item.age - fadeStart) / Math.max(1e-3, item.lifetime - fadeStart),
-          0,
-          1
-        );
-        visibility = (1 - fadeProgress) * (1 - fadeProgress);
-      }
-      this.fadeAttribute.setX(index, item.baseOpacity * visibility);
-      changed = true;
-      if (item.age >= item.lifetime || visibility <= 1e-3) {
-        item.active = false;
-        this.fadeAttribute.setX(index, 0);
+  function drawMarks(now){
+    for(var i = 0; i < marks.length; i++){
+      var m = marks[i], a = 1 - (now - m.t) / TTL;
+      if(a <= 0) continue;
+      if(m.k === 'foot'){
+        ctx.fillStyle = 'rgba(' + INK + ',' + (0.115 * a).toFixed(3) + ')';
+        ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.s * 0.14 * m.d);
+        ctx.beginPath(); ctx.ellipse(0, m.s * 1.6, 3.1, 1.6, 0, 0, 7); ctx.fill(); ctx.restore();
+      } else if(m.k === 'paw'){
+        ctx.fillStyle = 'rgba(' + INK + ',' + (0.11 * a).toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, 1.0, 0, 7);
+        ctx.arc(m.x - 2, m.y - 1.6, 0.7, 0, 7);
+        ctx.arc(m.x + 0.4, m.y - 2.1, 0.7, 0, 7);
+        ctx.arc(m.x + 2.2, m.y - 1.2, 0.7, 0, 7);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = 'rgba(' + TEAL + ',' + (0.13 * a).toFixed(3) + ')';
+        ctx.beginPath(); ctx.arc(m.x, m.y, 1.3, 0, 7); ctx.fill();
       }
     }
-    if (changed) this.fadeAttribute.needsUpdate = true;
   }
-  dispose() {
-    this.scene.remove(this.mesh);
-    this.geometry.dispose();
-    this.material.dispose();
-    this.texture.dispose();
-  }
-}
-class TrailPool {
-  constructor(scene, compact = false) {
-    __publicField(this, "layers");
-    const capacityScale = compact ? 0.72 : 1;
-    this.layers = {
-      foot: new TrailLayer(scene, "foot", capacityScale),
-      wheel: new TrailLayer(scene, "wheel", capacityScale),
-      paw: new TrailLayer(scene, "paw", capacityScale),
-      crutch: new TrailLayer(scene, "crutch", capacityScale),
-      cane: new TrailLayer(scene, "cane", capacityScale),
-      mow: new TrailLayer(scene, "mow", capacityScale)
-    };
-  }
-  emit(kind, position, yaw, width, depth, lifetime, flip = false) {
-    this.layers[kind].emit(kind, position, yaw, width, depth, lifetime, flip);
-  }
-  update(delta) {
-    Object.values(this.layers).forEach((layer) => layer.update(delta));
-  }
-  dispose() {
-    Object.values(this.layers).forEach((layer) => layer.dispose());
-  }
-}
-function makeHitbox(id, width, height, depth, y = 1.2) {
-  const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(width, height, depth),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
-  );
-  mesh.position.y = y;
-  mesh.userData.actorId = id;
-  return mesh;
-}
-function createPath(points) {
-  return new THREE.CatmullRomCurve3(
-    points.map(([x, z], index) => {
-      const atEdge = index === 0 || index === points.length - 1;
-      return new THREE.Vector3(atEdge ? x * 1.25 : x, 0, atEdge ? z * 1.25 : z);
-    }),
-    false,
-    "centripetal",
-    0.35
-  );
-}
-function createRoundedPolylinePath(points, cornerRadius = 0.72) {
-  const vectors = points.map(([x, z]) => new THREE.Vector3(x, 0, z));
-  const path = new THREE.CurvePath();
-  if (vectors.length < 2) return path;
-  let cursor = vectors[0].clone();
-  for (let index = 1; index < vectors.length - 1; index += 1) {
-    const previous = vectors[index - 1];
-    const corner = vectors[index];
-    const next = vectors[index + 1];
-    const incoming = corner.clone().sub(previous);
-    const outgoing = next.clone().sub(corner);
-    const incomingLength = incoming.length();
-    const outgoingLength = outgoing.length();
-    if (incomingLength < 1e-3 || outgoingLength < 1e-3) continue;
-    incoming.normalize();
-    outgoing.normalize();
-    const radius = Math.min(
-      cornerRadius,
-      incomingLength * 0.36,
-      outgoingLength * 0.36
-    );
-    const entry = corner.clone().addScaledVector(incoming, -radius);
-    const exit = corner.clone().addScaledVector(outgoing, radius);
-    if (cursor.distanceToSquared(entry) > 1e-4) {
-      path.add(new THREE.LineCurve3(cursor.clone(), entry.clone()));
-    }
-    path.add(new THREE.QuadraticBezierCurve3(entry, corner.clone(), exit));
-    cursor = exit;
-  }
-  const end = vectors[vectors.length - 1];
-  if (cursor.distanceToSquared(end) > 1e-4) {
-    path.add(new THREE.LineCurve3(cursor.clone(), end.clone()));
-  }
-  return path;
-}
-function createTrailPose(path, distance, pathLength) {
-  const progress = THREE.MathUtils.clamp(distance / Math.max(1e-3, pathLength), 0, 0.999);
-  const position = path.getPointAt(progress);
-  const tangent = path.getTangentAt(Math.min(0.9999, progress + 1e-4)).normalize();
-  const yaw = Math.atan2(tangent.x, tangent.z);
-  const quaternion = new THREE.Quaternion().setFromAxisAngle(UP, yaw);
-  return {
-    yaw,
-    point(x, z, y = 0) {
-      return new THREE.Vector3(x, y, z).applyQuaternion(quaternion).add(position);
-    }
-  };
-}
-function cycleLocalTime(simulationTime, start) {
-  return ((simulationTime - start) % CYCLE_SECONDS + CYCLE_SECONDS) % CYCLE_SECONDS;
-}
-function smoothStep(value) {
-  const t = THREE.MathUtils.clamp(value, 0, 1);
-  return t * t * (3 - 2 * t);
-}
-function travelBetween(progress, startTime, endTime, startPath, endPath) {
-  const t = smoothStep((progress - startTime) / Math.max(1e-3, endTime - startTime));
-  return THREE.MathUtils.lerp(startPath, endPath, t);
-}
-function closestPathProgress(path, target) {
-  let closest = 0;
-  let closestDistance = Number.POSITIVE_INFINITY;
-  for (let index = 0; index <= 320; index += 1) {
-    const progress = index / 320;
-    const distance = path.getPointAt(progress).distanceToSquared(target);
-    if (distance < closestDistance) {
-      closest = progress;
-      closestDistance = distance;
-    }
-  }
-  return closest;
-}
-function facePoint(root, point, blend = 0.18) {
-  const direction = point.clone().sub(root.position);
-  direction.y = 0;
-  if (direction.lengthSq() < 1e-4) return;
-  const target = new THREE.Quaternion().setFromAxisAngle(
-    UP,
-    Math.atan2(direction.x, direction.z)
-  );
-  root.quaternion.slerp(target, blend);
-}
-function edgeMotion(progress) {
-  if (progress < 0.1) {
-    const t = THREE.MathUtils.clamp(progress / 0.1, 0, 1);
-    return t * t * (3 - 2 * t) * 0.24;
-  }
-  if (progress > 0.9) {
-    const t = THREE.MathUtils.clamp((progress - 0.9) / 0.1, 0, 1);
-    return 0.76 + t * t * (3 - 2 * t) * 0.239;
-  }
-  return 0.24 + (progress - 0.1) / 0.8 * 0.52;
-}
-function createEnsembles(scene, clickables, grounding) {
-  const ensembles = [];
-  const workerTeal = 2983037;
-  {
-    const root = new THREE.Group();
-    const chair = createWheelchair(false, {
-      skin: 7357743,
-      shirt: 14066247,
-      trousers: 2571080,
-      hair: 2103832,
-      hairStyle: "curls"
-    });
-    chair.root.position.x = -0.55;
-    const worker = createHuman({
-      skin: 15185814,
-      shirt: workerTeal,
-      trousers: 3098194,
-      hair: 4928295,
-      hairStyle: "crop"
-    });
-    worker.root.position.set(0.88, 0, -0.08);
-    root.add(chair.root, worker.root, makeHitbox("manual-chair", 3.2, 2.8, 2.3, 1.35));
-    scene.add(root);
-    clickables.push(root.children[root.children.length - 1]);
-    const path = createPath([
-      [-62, 38],
-      [-42, 25],
-      [-25, 10],
-      [-19, -8.2],
-      [-13, -6],
-      [-8, -3.7],
-      [-3.5, -4.6],
-      [1, -1.7],
-      [7, -3.4],
-      [13, -1.7],
-      [20, -4.2],
-      [40, -23],
-      [62, -38]
-    ]);
-    ensembles.push({
-      id: "manual-chair",
-      root,
-      path,
-      pathLength: path.getLength(),
-      start: 0,
-      duration: 30,
-      stampEvery: 0.22,
-      lastStamp: -1,
-      wasActive: false,
-      targetQuaternion: new THREE.Quaternion(),
-      motion: edgeMotion,
-      animate(distance, phase) {
-        chair.animate(distance, phase);
-        worker.animate(phase + 1.2);
-        chair.person.head.rotation.y = 0.22 + Math.sin(phase * 0.16) * 0.08;
-        worker.head.rotation.y = -0.18 + Math.sin(phase * 0.18) * 0.06;
-      },
-      stamp(trails, distance, pose) {
-        trails.emit("wheel", pose.point(-1.3, -0.08), pose.yaw, 0.14, 0.76, 11.8);
-        trails.emit("wheel", pose.point(0.2, -0.08), pose.yaw, 0.14, 0.76, 11.8);
-        const stepIndex = Math.floor(distance / 0.22);
-        if (stepIndex % 2 === 0) {
-          const left = Math.floor(stepIndex / 2) % 2 === 0;
-          trails.emit(
-            "foot",
-            pose.point(left ? 0.74 : 1.02, -0.36),
-            pose.yaw,
-            0.19,
-            0.46,
-            9.4,
-            left
-          );
-        }
-      }
-    });
-  }
-  {
-    const root = new THREE.Group();
-    const participant = createHuman({
-      skin: 9396294,
-      shirt: 7311810,
-      trousers: 3360082,
-      hair: 2893090,
-      hairStyle: "waves"
-    });
-    participant.root.position.x = -0.55;
-    const worker = createHuman({
-      skin: 7094318,
-      shirt: workerTeal,
-      trousers: 3030088,
-      hair: 1644825,
-      hairStyle: "bun"
-    });
-    worker.root.position.set(0.65, 0, -0.1);
-    const cane = new THREE.Group();
-    cane.position.set(-0.27, 1.22, 0.08);
-    cane.add(
-      cylinderBetween(
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0.12, -1.2, 0.72),
-        0.021,
-        standardMaterial(15987951, 0.38, 0.2),
-        8
-      )
-    );
-    const caneTip = makeSphere(0.04, standardMaterial(14242885, 0.8), 9, 7);
-    caneTip.position.set(0.12, -1.2, 0.72);
-    cane.add(caneTip);
-    root.add(participant.root, worker.root, cane, makeHitbox("white-cane", 2.8, 2.8, 2.4, 1.35));
-    root.add(createContactShadow(1.38, 0.85, 0.08));
-    scene.add(root);
-    clickables.push(root.children[root.children.length - 2]);
-    const path = createPath([
-      [62, -38],
-      [43, -23],
-      [26, -8],
-      [20, 8.2],
-      [13.5, 6.5],
-      [9, 4.1],
-      [5, 1.1],
-      [1.5, 4.3],
-      [-5, 6.1],
-      [-11, 4.2],
-      [-19, 7.2],
-      [-39, 24],
-      [-62, 38]
-    ]);
-    ensembles.push({
-      id: "white-cane",
-      root,
-      path,
-      pathLength: path.getLength(),
-      start: 10,
-      duration: 29,
-      stampEvery: 0.38,
-      lastStamp: -1,
-      wasActive: false,
-      targetQuaternion: new THREE.Quaternion(),
-      motion: edgeMotion,
-      animate(_distance, phase) {
-        participant.animate(phase);
-        worker.animate(phase + 1.5);
-        cane.rotation.y = Math.sin(phase * 0.52) * 0.54;
-      },
-      stamp(trails, distance, pose) {
-        const left = Math.floor(distance / 0.38) % 2 === 0;
-        trails.emit("foot", pose.point(left ? -0.72 : -0.42, -0.32), pose.yaw, 0.19, 0.46, 9.4, left);
-        trails.emit("foot", pose.point(left ? 0.5 : 0.8, -0.3), pose.yaw, 0.19, 0.46, 9.4, !left);
-        const sweep = Math.sin(distance * 1.3) > 0 ? -0.96 : 0.12;
-        trails.emit("cane", pose.point(sweep, 0.8), pose.yaw, 0.14, 0.14, 7);
-      }
-    });
-  }
-  {
-    const root = new THREE.Group();
-    const participant = createHuman({
-      skin: 13208933,
-      shirt: 8417176,
-      trousers: 3623255,
-      hair: 3746339,
-      hairStyle: "curls",
-      jacket: 10114166
-    });
-    participant.root.position.x = -0.48;
-    participant.root.scale.multiplyScalar(0.97);
-    const worker = createHuman({
-      skin: 14724230,
-      shirt: workerTeal,
-      trousers: 4411740,
-      hair: 10776137,
-      hairStyle: "waves"
-    });
-    worker.root.position.set(0.72, 0, -0.15);
-    const leftCrutch = createCrutch(8417176);
-    const rightCrutch = createCrutch(8417176);
-    leftCrutch.position.set(-0.92, 0, 0.12);
-    rightCrutch.position.set(-0.06, 0, 0.12);
-    root.add(
-      participant.root,
-      worker.root,
-      leftCrutch,
-      rightCrutch,
-      makeHitbox("crutches", 3, 2.8, 2.5, 1.35),
-      createContactShadow(1.45, 0.85, 0.1)
-    );
-    scene.add(root);
-    clickables.push(root.children[4]);
-    const path = createPath([
-      [-62, 38],
-      [-42, 25],
-      [-25, 8],
-      [-20, -0.8],
-      [-14, 0.4],
-      [-11, 4.3],
-      [-6.5, 5.8],
-      [-2.5, 3.6],
-      [0.3, 0.4],
-      [6, 1.3],
-      [12, 4],
-      [20, 5.5],
-      [42, -19],
-      [62, -38]
-    ]);
-    ensembles.push({
-      id: "crutches",
-      root,
-      path,
-      pathLength: path.getLength(),
-      start: 24,
-      duration: 31,
-      stampEvery: 0.4,
-      lastStamp: -1,
-      wasActive: false,
-      targetQuaternion: new THREE.Quaternion(),
-      motion: edgeMotion,
-      animate(_distance, phase) {
-        participant.animate(phase, 0.66);
-        worker.animate(phase + 1.05);
-        leftCrutch.rotation.x = -0.1 + Math.sin(phase) * 0.18;
-        rightCrutch.rotation.x = -0.1 - Math.sin(phase) * 0.18;
-      },
-      stamp(trails, distance, pose) {
-        const even = Math.floor(distance / 0.4) % 2 === 0;
-        trails.emit("foot", pose.point(even ? -0.65 : -0.32, -0.35), pose.yaw, 0.19, 0.46, 9.4, even);
-        trails.emit("foot", pose.point(even ? 0.58 : 0.82, -0.34), pose.yaw, 0.19, 0.46, 9.4, !even);
-        trails.emit("crutch", pose.point(even ? -0.95 : -0.05, 0.18), pose.yaw, 0.16, 0.16, 9.4);
-      }
-    });
-  }
-  {
-    const root = new THREE.Group();
-    const chair = createWheelchair(true, {
-      skin: 14197374,
-      shirt: 4353421,
-      trousers: 3096393,
-      hair: 1514271,
-      hairStyle: "crop"
-    });
-    chair.root.position.x = -0.68;
-    const worker = createHuman({
-      skin: 11038287,
-      shirt: workerTeal,
-      trousers: 4082260,
-      hair: 3022617,
-      hairStyle: "bun"
-    });
-    worker.root.position.set(0.68, 0, -0.28);
-    const dog = createDog();
-    dog.root.position.set(1.62, 0, 0.26);
-    const lead = new THREE.Mesh(
-      new THREE.TubeGeometry(
-        new THREE.CatmullRomCurve3([
-          new THREE.Vector3(0.95, 1.08, 0.18),
-          new THREE.Vector3(1.25, 0.92, 0.5),
-          new THREE.Vector3(1.58, 0.72, 0.38)
-        ]),
-        16,
-        0.012,
-        6,
-        false
-      ),
-      standardMaterial(9526591, 0.8)
-    );
-    root.add(chair.root, worker.root, dog.root, lead, makeHitbox("power-chair-dog", 4.2, 3, 2.7, 1.45));
-    scene.add(root);
-    clickables.push(root.children[4]);
-    const path = createPath([
-      [62, -38],
-      [43, -25],
-      [31, -16],
-      [26, -6],
-      [23, 3.5],
-      [20, 9],
-      [15, 12.5],
-      [7, 14],
-      [-16, 21],
-      [-40, 29],
-      [-62, 38]
-    ]);
-    ensembles.push({
-      id: "power-chair-dog",
-      root,
-      path,
-      pathLength: path.getLength(),
-      start: 40,
-      duration: 30,
-      stampEvery: 0.22,
-      lastStamp: -1,
-      wasActive: false,
-      targetQuaternion: new THREE.Quaternion(),
-      motion: edgeMotion,
-      animate(distance, phase) {
-        chair.animate(distance, phase);
-        worker.animate(phase + 0.8);
-        dog.animate(phase * 1.35);
-      },
-      stamp(trails, distance, pose) {
-        trails.emit("wheel", pose.point(-1.35, -0.08), pose.yaw, 0.17, 0.74, 11.8);
-        trails.emit("wheel", pose.point(0.02, -0.08), pose.yaw, 0.17, 0.74, 11.8);
-        const stepIndex = Math.floor(distance / 0.22);
-        const left = stepIndex % 2 === 0;
-        if (stepIndex % 2 === 0) {
-          trails.emit("foot", pose.point(left ? 0.54 : 0.8, -0.52), pose.yaw, 0.19, 0.46, 9.4, left);
-        }
-        trails.emit("paw", pose.point(left ? 1.42 : 1.78, 0.1), pose.yaw, 0.17, 0.2, 8.8, left);
-      }
-    });
-  }
-  {
-    const root = new THREE.Group();
-    const participant = createHuman({
-      skin: 7095862,
-      shirt: 13925996,
-      trousers: 4216677,
-      hair: 1907997,
-      hairStyle: "crop",
-      prosthetic: "right"
-    });
-    participant.root.position.x = -0.55;
-    const worker = createHuman({
-      skin: 12682335,
-      shirt: workerTeal,
-      trousers: 3033170,
-      hair: 4993061,
-      hairStyle: "waves"
-    });
-    worker.root.position.set(0.66, 0, -0.08);
-    const tote = makeBox(0.46, 0.58, 0.14, standardMaterial(14066247, 0.9), 0.06);
-    tote.position.set(1.03, 0.86, 0.02);
-    tote.rotation.z = -0.08;
-    root.add(participant.root, worker.root, tote, makeHitbox("prosthetic", 2.8, 2.8, 2.4, 1.35));
-    root.add(createContactShadow(1.4, 0.85, 0.09));
-    scene.add(root);
-    clickables.push(root.children[3]);
-    const path = createPath([
-      [-62, 38],
-      [-42, 27],
-      [-34, 8],
-      [-26, -1.5],
-      [-18, -0.8],
-      [-10, 2],
-      [-3, 5],
-      [5, 7],
-      [14, 5.5],
-      [24, 0.5],
-      [31, -8],
-      [39, -20],
-      [45, -33],
-      [62, -38]
-    ]);
-    ensembles.push({
-      id: "prosthetic",
-      root,
-      path,
-      pathLength: path.getLength(),
-      start: 56,
-      duration: 28,
-      stampEvery: 0.4,
-      lastStamp: -1,
-      wasActive: false,
-      targetQuaternion: new THREE.Quaternion(),
-      motion: edgeMotion,
-      animate(_distance, phase) {
-        participant.animate(phase, 0.94);
-        worker.animate(phase + 1.3);
-        participant.rightLeg.rotation.x *= 0.9;
-      },
-      stamp(trails, distance, pose) {
-        const left = Math.floor(distance / 0.4) % 2 === 0;
-        trails.emit("foot", pose.point(left ? -0.7 : -0.4, -0.34), pose.yaw, 0.19, 0.46, 9.4, left);
-        trails.emit("foot", pose.point(left ? 0.52 : 0.82, -0.34), pose.yaw, 0.19, 0.46, 9.4, !left);
-      }
-    });
-  }
-  {
-    const root = new THREE.Group();
-    const worker = createHuman({
-      skin: 9396294,
-      shirt: workerTeal,
-      trousers: 4018784,
-      hair: 2564125,
-      hairStyle: "bun",
-      jacket: 6788218
-    });
-    const wateringCan = createWateringCan();
-    wateringCan.position.set(0.46, 0.92, 0.32);
-    wateringCan.scale.setScalar(0.82);
-    const shears = createGardenShears();
-    shears.root.position.set(-0.38, 0.92, 0.62);
-    shears.root.scale.setScalar(0.72);
-    shears.root.visible = false;
-    const waterDrops = new THREE.Group();
-    waterDrops.renderOrder = 9;
-    const waterMaterial = new THREE.MeshBasicMaterial({
-      color: 5883368,
-      transparent: true,
-      opacity: 0.96,
-      depthWrite: false,
-      toneMapped: false
-    });
-    const waterArcMaterial = new THREE.MeshBasicMaterial({
-      color: 7393258,
-      transparent: true,
-      opacity: 0.34,
-      depthWrite: false,
-      toneMapped: false
-    });
-    const waterHighlightMaterial = new THREE.MeshBasicMaterial({
-      color: 15268863,
-      transparent: true,
-      opacity: 0.76,
-      depthWrite: false,
-      toneMapped: false
-    });
-    for (let streamIndex = -3; streamIndex <= 3; streamIndex += 1) {
-      const spread = streamIndex / 3;
-      const curve = new THREE.QuadraticBezierCurve3(
-        new THREE.Vector3(0.62 + spread * 0.035, 1.23, 0.9),
-        new THREE.Vector3(0.64 + spread * 0.18, 1.68 - Math.abs(spread) * 0.08, 1.73),
-        new THREE.Vector3(0.64 + spread * 0.58, 0.18, 2.72)
-      );
-      const stream = new THREE.Mesh(
-        new THREE.TubeGeometry(curve, 30, streamIndex === 0 ? 0.024 : 0.016, 6, false),
-        streamIndex === 0 ? waterHighlightMaterial : waterArcMaterial
-      );
-      stream.renderOrder = 9;
-      waterDrops.add(stream);
-    }
-    const drops = [];
-    const dropGeometry = new THREE.SphereGeometry(0.055, 8, 6);
-    for (let index = 0; index < 72; index += 1) {
-      const drop = new THREE.Mesh(dropGeometry, index % 11 === 0 ? waterHighlightMaterial : waterMaterial);
-      drop.scale.set(0.58, 1.9, 0.58);
-      drop.renderOrder = 10;
-      drops.push(drop);
-      waterDrops.add(drop);
-    }
-    waterDrops.visible = false;
-    const hitbox = makeHitbox("garden-care", 1.9, 2.8, 2.1, 1.35);
-    root.add(
-      worker.root,
-      wateringCan,
-      shears.root,
-      waterDrops,
-      hitbox,
-      createContactShadow(0.9, 0.72, 0.09)
-    );
-    scene.add(root);
-    clickables.push(hitbox);
-    const path = createPath([
-      [-72, 44],
-      [-48, 30],
-      [-33, 19],
-      [-23, 12],
-      [-18.2, 8.5],
-      [-17.5, 8.6],
-      [-13.4, 8.8],
-      [-12.8, 8.9],
-      [-10.1, 8.5],
-      [-8.4, 8.1],
-      [-17, 13.6],
-      [-33, 17.5],
-      [-50, 31.5],
-      [-72, 44]
-    ]);
-    const waterOneStation = new THREE.Vector3(-17.5, 0, 8.6);
-    const waterTwoStation = new THREE.Vector3(-12.8, 0, 8.9);
-    const trimStart = new THREE.Vector3(-10.1, 0, 8.5);
-    const trimEnd = new THREE.Vector3(-8.4, 0, 9.4);
-    const waterOnePath = closestPathProgress(path, waterOneStation);
-    const waterTwoPath = closestPathProgress(path, waterTwoStation);
-    const trimStartPath = closestPathProgress(path, trimStart);
-    const trimEndPath = closestPathProgress(path, trimEnd);
-    const trimTarget = new THREE.Vector3(-9.3, 0, 9.9);
-    ensembles.push({
-      id: "garden-care",
-      root,
-      path,
-      pathLength: path.getLength(),
-      start: GARDEN_START,
-      duration: GARDEN_DURATION,
-      stampEvery: 0.38,
-      lastStamp: -1,
-      wasActive: false,
-      targetQuaternion: new THREE.Quaternion(),
-      motion(progress) {
-        if (progress < 0.21) return travelBetween(progress, 0, 0.21, 0, waterOnePath);
-        if (progress < 0.35) return waterOnePath;
-        if (progress < 0.47) {
-          return travelBetween(progress, 0.35, 0.47, waterOnePath, waterTwoPath);
-        }
-        if (progress < 0.61) return waterTwoPath;
-        if (progress < 0.7) {
-          return travelBetween(progress, 0.61, 0.7, waterTwoPath, trimStartPath);
-        }
-        if (progress < 0.82) {
-          return travelBetween(progress, 0.7, 0.82, trimStartPath, trimEndPath);
-        }
-        return travelBetween(progress, 0.82, 1, trimEndPath, 0.999);
-      },
-      animate(_distance, phase, progress) {
-        const wateringOne = progress >= 0.21 && progress < 0.35;
-        const wateringTwo = progress >= 0.47 && progress < 0.61;
-        const watering = wateringOne || wateringTwo;
-        const trimming = progress >= 0.7 && progress < 0.82;
-        worker.animate(phase, watering ? 0 : trimming ? 0.14 : 0.88);
-        if (watering) {
-          const waterStart = wateringOne ? 0.21 : 0.47;
-          const waterEnd = wateringOne ? 0.35 : 0.61;
-          const waterProgress = smoothStep((progress - waterStart) / (waterEnd - waterStart));
-          const waterTarget = (wateringOne ? GARDEN_BEDS[0] : GARDEN_BEDS[1]).clone();
-          waterTarget.x += THREE.MathUtils.lerp(-1.15, 1.15, waterProgress);
-          grounding.waterGardenBed(wateringOne ? 0 : 1, 0.9);
-          facePoint(root, waterTarget, 0.5);
-          worker.leftArm.rotation.x = -0.76;
-          worker.rightArm.rotation.x = -0.94;
-          wateringCan.position.set(0.46, 0.92, 0.32);
-          wateringCan.rotation.set(0, -1.06, -0.42);
-        } else if (trimming) {
-          facePoint(root, trimTarget, 0.32);
-          worker.leftArm.rotation.x = -0.78 + Math.sin(phase * 1.2) * 0.08;
-          worker.rightArm.rotation.x = -0.84 - Math.sin(phase * 1.2) * 0.08;
-          wateringCan.position.set(0.54, 0.69, -0.02);
-          wateringCan.rotation.set(0.08, -0.2, 0.08);
-          shears.animate(phase);
-          grounding.trimGardenEdge((progress - 0.7) / 0.12);
-        } else {
-          wateringCan.position.set(0.46, 0.92, 0.32);
-          wateringCan.rotation.set(0, 0, 0.05);
-        }
-        shears.root.visible = trimming;
-        waterDrops.visible = watering;
-        if (!watering) return;
-        waterArcMaterial.opacity = 0.3 + (Math.sin(phase * 1.7) * 0.5 + 0.5) * 0.09;
-        waterHighlightMaterial.opacity = 0.68 + (Math.sin(phase * 2.1) * 0.5 + 0.5) * 0.18;
-        for (let index = 0; index < drops.length; index += 1) {
-          const fall = (progress * GARDEN_DURATION * 2.65 + index / drops.length) % 1;
-          const fan = (index % 11 - 5) / 5;
-          const splash = fall > 0.84 ? (fall - 0.84) / 0.16 : 0;
-          drops[index].position.set(
-            0.62 + fan * (0.045 + fall * 0.47) + Math.sin(index * 2.7) * 0.032,
-            1.22 + fall * 0.58 - fall * fall * 1.56 + splash * 0.13,
-            0.92 + fall * 1.82 + splash * 0.12
-          );
-          const sparkle = 0.82 + Math.sin(phase * 0.8 + index) * 0.18;
-          drops[index].scale.set(
-            0.58 * sparkle,
-            (0.78 + fall * 2.05) * sparkle,
-            0.58 * sparkle
-          );
-        }
-      },
-      stamp(trails, distance, pose) {
-        const left = Math.floor(distance / 0.38) % 2 === 0;
-        trails.emit("foot", pose.point(left ? -0.17 : 0.17, -0.3), pose.yaw, 0.19, 0.46, 9.4, left);
-      }
-    });
-  }
-  {
-    const root = new THREE.Group();
-    const mower = createLawnMower({
-      skin: 14724487,
-      shirt: workerTeal,
-      trousers: 3426646,
-      hair: 6242351,
-      hairStyle: "crop"
-    });
-    const hitbox = makeHitbox("lawn-care", 2.5, 2.8, 3.4, 1.35);
-    root.add(mower.root, hitbox);
-    scene.add(root);
-    clickables.push(hitbox);
-    const lawnLanes = [19.5, 17.8, 16.1, 14.4, 12.7, 11, 9.3, 7.6, 5.9, 4.2];
-    const mowerRoute = [
-      [28, -58],
-      [23.5, -37],
-      [21.5, -26],
-      [21.5, -16],
-      [19.5, -12.05]
-    ];
-    lawnLanes.forEach((laneX, laneIndex) => {
-      const travellingNorth = laneIndex % 2 === 0;
-      const laneEndZ = travellingNorth ? -2.95 : -12.05;
-      mowerRoute.push([laneX, laneEndZ]);
-      const nextLane = lawnLanes[laneIndex + 1];
-      if (nextLane === void 0) return;
-      const turnZ = travellingNorth ? -1.62 : -13.38;
-      mowerRoute.push([laneX, turnZ], [nextLane, turnZ], [nextLane, laneEndZ]);
-    });
-    mowerRoute.push(
-      [4.2, -14.25],
-      [8.4, -15.9],
-      [14.6, -17.35],
-      [19.4, -17.9],
-      [21.5, -19.2],
-      [21.5, -24],
-      [21.5, -31],
-      [28, -58]
-    );
-    const path = createRoundedPolylinePath(mowerRoute, 0.64);
-    ensembles.push({
-      id: "lawn-care",
-      root,
-      path,
-      pathLength: path.getLength(),
-      start: LAWN_START,
-      duration: LAWN_DURATION,
-      stampEvery: 0.22,
-      lastStamp: -1,
-      wasActive: false,
-      targetQuaternion: new THREE.Quaternion(),
-      motion: smoothStep,
-      animate(distance, phase, _progress, pathYaw) {
-        mower.animate(distance, phase);
-        grounding.markMowed(root.position.x, root.position.z, pathYaw);
-      },
-      stamp(trails, distance, pose) {
-        const stepIndex = Math.floor(distance / 0.22);
-        const left = Math.floor(stepIndex / 2) % 2 === 0;
-        if (stepIndex % 2 === 0) {
-          trails.emit("foot", pose.point(left ? -0.18 : 0.18, -1.92), pose.yaw, 0.19, 0.46, 9.4, left);
-        }
-        trails.emit("wheel", pose.point(-0.45, 0.1), pose.yaw, 0.11, 0.72, 11.8);
-        trails.emit("wheel", pose.point(0.45, 0.1), pose.yaw, 0.11, 0.72, 11.8);
-        const deckMark = pose.point(0, 0.18);
-        if (Math.abs(Math.cos(pose.yaw)) >= 0.82 && deckMark.x >= 3.3 && deckMark.x <= 20.7 && deckMark.z >= -13 && deckMark.z <= -2.1) {
-          trails.emit("mow", deckMark, pose.yaw, 1.58, 0.84, 18);
-        }
-      }
-    });
-  }
-  {
-    const root = new THREE.Group();
-    const worker = createHuman({
-      skin: 7292469,
-      shirt: workerTeal,
-      trousers: 3426645,
-      hair: 1644825,
-      hairStyle: "waves"
-    });
-    worker.root.position.x = -0.48;
-    const dog = createDog();
-    dog.root.position.set(0.96, 0, 0.3);
-    dog.root.scale.multiplyScalar(0.9);
-    const lead = new THREE.Mesh(
-      new THREE.TubeGeometry(
-        new THREE.CatmullRomCurve3([
-          new THREE.Vector3(-0.1, 1.08, 0.1),
-          new THREE.Vector3(0.42, 0.9, 0.46),
-          new THREE.Vector3(0.92, 0.72, 0.42)
-        ]),
-        14,
-        0.012,
-        6,
-        false
-      ),
-      standardMaterial(9526591, 0.8)
-    );
-    const hitbox = makeHitbox("dog-walk", 3.1, 2.8, 2.5, 1.35);
-    root.add(worker.root, dog.root, lead, hitbox);
-    scene.add(root);
-    clickables.push(hitbox);
-    const path = createPath([
-      [-62, 38],
-      [-44, 24],
-      [-32, 7],
-      [-25, -16],
-      [-17, -12],
-      [-10, -14],
-      [-2, -10],
-      [5, -12.5],
-      [12, -9],
-      [18, -2],
-      [23, 6],
-      [28, 13],
-      [42, -5],
-      [62, -38]
-    ]);
-    ensembles.push({
-      id: "dog-walk",
-      root,
-      path,
-      pathLength: path.getLength(),
-      start: 56,
-      duration: 22,
-      stampEvery: 0.3,
-      lastStamp: -1,
-      wasActive: false,
-      targetQuaternion: new THREE.Quaternion(),
-      motion: edgeMotion,
-      animate(_distance, phase) {
-        worker.animate(phase, 0.92);
-        dog.animate(phase * 1.35);
-        worker.rightArm.rotation.x = -0.42 + Math.sin(phase) * 0.08;
-      },
-      stamp(trails, distance, pose) {
-        const left = Math.floor(distance / 0.3) % 2 === 0;
-        trails.emit("foot", pose.point(left ? -0.63 : -0.34, -0.34), pose.yaw, 0.19, 0.46, 9.4, left);
-        trails.emit("paw", pose.point(left ? 0.78 : 1.08, 0.18), pose.yaw, 0.17, 0.2, 8.8, left);
-      }
-    });
-  }
-  return ensembles;
-}
-function addGroundingElements(scene) {
-  const lawnTiles = [];
-  const gardenEdgeGrass = [];
-  const gardenBeds = [];
-  const swayItems = [];
-  const butterflies = [];
-  let gardenTrimAmount = 0;
-  const groundMaterial = standardMaterial(15656924, 0.98);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(144, 100), groundMaterial);
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -0.035;
-  ground.receiveShadow = true;
-  scene.add(ground);
-  function addOrganicPatch(points, color, opacity = 0.88, y = -0.018) {
-    const shape = new THREE.Shape();
-    points.forEach(([x, z], index) => {
-      if (index === 0) shape.moveTo(x, -z);
-      else shape.lineTo(x, -z);
-    });
-    shape.closePath();
-    const material = new THREE.MeshStandardMaterial({
-      color,
-      roughness: 0.99,
-      transparent: true,
-      opacity
-    });
-    const patch = new THREE.Mesh(new THREE.ShapeGeometry(shape), material);
-    patch.rotation.x = -Math.PI / 2;
-    patch.position.y = y;
-    patch.receiveShadow = true;
-    scene.add(patch);
-    return patch;
-  }
-  addOrganicPatch(
-    [
-      [-23.8, 6.6],
-      [-19.4, 5.8],
-      [-12.7, 6.4],
-      [-6.4, 9.2],
-      [-8.2, 14.6],
-      [-14.4, 16.1],
-      [-21.4, 14.3]
-    ],
-    14280402,
-    0.9
-  );
-  addOrganicPatch(
-    [
-      [12.2, 12.4],
-      [17.4, 10.9],
-      [24.8, 12.3],
-      [26.6, 17.6],
-      [22.3, 21.2],
-      [15.1, 20.4],
-      [12.8, 16.8]
-    ],
-    14215135,
-    0.88
-  );
-  addOrganicPatch(
-    [
-      [-29.2, -18.9],
-      [-22.5, -19.4],
-      [-16.2, -16.1],
-      [-17.1, -11.3],
-      [-22.4, -8.8],
-      [-28.5, -11.1]
-    ],
-    14477010,
-    0.9
-  );
-  addOrganicPatch(
-    [
-      [-6.2, -19.4],
-      [5.7, -19.2],
-      [7.1, -15.1],
-      [3.8, -11.3],
-      [-2.2, -11.2],
-      [-6.7, -14.7]
-    ],
-    15326670,
-    0.93
-  );
-  addOrganicPatch(
-    [
-      [1.6, -14.4],
-      [2.4, -1.2],
-      [12.4, 0.5],
-      [22.2, -1.2],
-      [22.8, -13.9],
-      [14.4, -15.3],
-      [6.2, -15.5]
-    ],
-    13951692,
-    0.82
-  );
-  function createGroundRibbon(path, width, material, segments = 150) {
-    const positions = [];
-    const uvs = [];
-    const indices = [];
-    const right = new THREE.Vector3();
-    for (let index = 0; index <= segments; index += 1) {
-      const t = index / segments;
-      const point = path.getPointAt(t);
-      const tangent = path.getTangentAt(Math.min(0.9999, t + 1e-4)).normalize();
-      right.set(tangent.z, 0, -tangent.x).normalize();
-      const leftPoint = point.clone().addScaledVector(right, width * 0.5);
-      const rightPoint = point.clone().addScaledVector(right, -width * 0.5);
-      positions.push(leftPoint.x, 2e-3, leftPoint.z, rightPoint.x, 2e-3, rightPoint.z);
-      uvs.push(0, t * 8, 1, t * 8);
-      if (index < segments) {
-        const vertex = index * 2;
-        indices.push(vertex, vertex + 2, vertex + 1, vertex + 2, vertex + 3, vertex + 1);
+  function drawTracks(now){
+    for(var id in tracks){
+      var pts = tracks[id].pts;
+      for(var i = 1; i < pts.length; i++){
+        var a = 1 - (now - pts[i].t) / TTL;
+        if(a <= 0) continue;
+        ctx.strokeStyle = 'rgba(' + TEAL + ',' + (0.10 * a).toFixed(3) + ')';
+        ctx.lineWidth = 1.1;
+        ctx.beginPath(); ctx.moveTo(pts[i-1].x, pts[i-1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
       }
     }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-    const ribbon = new THREE.Mesh(geometry, material);
-    ribbon.receiveShadow = true;
-    ribbon.renderOrder = 0;
-    scene.add(ribbon);
-    return ribbon;
   }
-  const pathEdgeMaterial = new THREE.MeshStandardMaterial({
-    color: 12167055,
-    roughness: 0.95,
-    transparent: true,
-    opacity: 0.82,
-    depthWrite: false
-  });
-  const pathMaterial = new THREE.MeshStandardMaterial({
-    color: 13483946,
-    roughness: 0.98,
-    transparent: true,
-    opacity: 0.94,
-    depthWrite: false
-  });
-  const pathInsetMaterial = new THREE.MeshStandardMaterial({
-    color: 15656410,
-    roughness: 0.99,
-    transparent: true,
-    opacity: 0.9,
-    depthWrite: false
-  });
-  const mainPath = new THREE.CatmullRomCurve3(
-    [
-      [-31.5, 4.7],
-      [-24, 4.2],
-      [-16, 1.2],
-      [-7, -0.6],
-      [2, 2.2],
-      [11, 5.7],
-      [20, 8.6],
-      [28.3, 12.6]
-    ].map(([x, z]) => new THREE.Vector3(x, 0, z)),
-    false,
-    "centripetal",
-    0.44
-  );
-  const gardenPath = new THREE.CatmullRomCurve3(
-    [
-      [-22.5, 23.2],
-      [-22.3, 18],
-      [-20.2, 14.2],
-      [-17.2, 11.1],
-      [-13.7, 9.1],
-      [-9.2, 8.4]
-    ].map(([x, z]) => new THREE.Vector3(x, 0, z)),
-    false,
-    "centripetal",
-    0.42
-  );
-  const servicePath = createRoundedPolylinePath(
-    [
-      [21.5, -21],
-      [21.5, -17.4],
-      [20.2, -14.2]
-    ],
-    0.62
-  );
-  const pergolaPath = createRoundedPolylinePath(
-    [
-      [-4.6, -3.8],
-      [-2.3, -8.3],
-      [-0.7, -12.4],
-      [0, -14.1]
-    ],
-    0.9
-  );
-  createGroundRibbon(mainPath, 3.62, pathEdgeMaterial, 170);
-  createGroundRibbon(mainPath, 3.28, pathMaterial, 170);
-  createGroundRibbon(mainPath, 2.78, pathInsetMaterial, 170);
-  createGroundRibbon(gardenPath, 2.7, pathEdgeMaterial, 90);
-  createGroundRibbon(gardenPath, 2.36, pathMaterial, 90);
-  createGroundRibbon(gardenPath, 1.92, pathInsetMaterial, 90);
-  createGroundRibbon(servicePath, 2.45, pathEdgeMaterial, 48);
-  createGroundRibbon(servicePath, 2.12, pathMaterial, 48);
-  createGroundRibbon(servicePath, 1.7, pathInsetMaterial, 48);
-  createGroundRibbon(pergolaPath, 2.56, pathEdgeMaterial, 64);
-  createGroundRibbon(pergolaPath, 2.22, pathMaterial, 64);
-  createGroundRibbon(pergolaPath, 1.8, pathInsetMaterial, 64);
-  function addTactilePad(x, z, yaw, columns = 7, rows = 3) {
-    const pad = new THREE.Group();
-    const base = makeBox(2.05, 0.045, 0.88, standardMaterial(14066247, 0.92), 0.025);
-    base.position.y = 6e-3;
-    base.receiveShadow = true;
-    pad.add(base);
-    const domeMaterial = standardMaterial(12881717, 0.72);
-    for (let row = 0; row < rows; row += 1) {
-      for (let column = 0; column < columns; column += 1) {
-        const dome = makeSphere(0.055, domeMaterial, 9, 6);
-        dome.scale.y = 0.42;
-        dome.position.set(
-          -0.82 + column / Math.max(1, columns - 1) * 1.64,
-          0.045,
-          -0.28 + row / Math.max(1, rows - 1) * 0.56
-        );
-        pad.add(dome);
-      }
-    }
-    pad.position.set(x, 0.01, z);
-    pad.rotation.y = yaw;
-    scene.add(pad);
-  }
-  addTactilePad(-22.4, 21.3, 0);
-  addTactilePad(21.5, -18.9, 0);
-  addTactilePad(-29.4, 4.8, Math.PI / 2);
-  addTactilePad(26.4, -7.5, Math.PI / 2);
-  const lawnMaterial = new THREE.MeshStandardMaterial({
-    color: 10401661,
-    roughness: 0.96,
-    transparent: true,
-    opacity: 0.9
-  });
-  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(17, 10.5), lawnMaterial);
-  lawn.rotation.x = -Math.PI / 2;
-  lawn.position.set(12, -8e-3, -7.5);
-  lawn.receiveShadow = true;
-  scene.add(lawn);
-  const grassTileMaterial = standardMaterial(8825197, 0.98);
-  const grassTileGeometry = new THREE.BoxGeometry(1, 1, 1);
-  const lawnColumns = 34;
-  const lawnRows = 24;
-  const tileWidth = 17 / lawnColumns;
-  const tileDepth = 10.5 / lawnRows;
-  const grassTiles = new THREE.InstancedMesh(
-    grassTileGeometry,
-    grassTileMaterial,
-    lawnColumns * lawnRows
-  );
-  grassTiles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  grassTiles.castShadow = false;
-  grassTiles.receiveShadow = true;
-  const grassTransform = new THREE.Object3D();
-  const uncutGrassDark = new THREE.Color(7904097);
-  const uncutGrassLight = new THREE.Color(9548919);
-  const cutGrassLight = new THREE.Color(12834458);
-  const cutGrassDark = new THREE.Color(10797179);
-  const baseGrassColor = new THREE.Color();
-  const stripeColor = new THREE.Color();
-  const grassColor = new THREE.Color();
-  for (let row = 0; row < lawnRows; row += 1) {
-    for (let column = 0; column < lawnColumns; column += 1) {
-      const x = 3.5 + tileWidth * (column + 0.5);
-      const z = -12.75 + tileDepth * (row + 0.5);
-      const baseHeight = 0.125 + (row * 7 + column * 3) % 5 * 9e-3;
-      grassTransform.scale.set(tileWidth * 0.96, baseHeight, tileDepth * 0.96);
-      grassTransform.position.set(x, 8e-3 + baseHeight * 0.5, z);
-      grassTransform.updateMatrix();
-      const tileIndex = row * lawnColumns + column;
-      grassTiles.setMatrixAt(tileIndex, grassTransform.matrix);
-      const tone = (row * 5 + column * 11) % 9 / 8;
-      baseGrassColor.lerpColors(uncutGrassDark, uncutGrassLight, tone);
-      grassTiles.setColorAt(tileIndex, baseGrassColor);
-      lawnTiles.push({ x, z, baseHeight, cut: 0, stripe: 0, tone });
+  function prune(now){
+    marks = marks.filter(function(m){ return now - m.t < TTL; });
+    for(var id in tracks){
+      tracks[id].pts = tracks[id].pts.filter(function(p){ return now - p.t < TTL; });
+      if(!tracks[id].pts.length) delete tracks[id];
     }
   }
-  grassTiles.instanceMatrix.needsUpdate = true;
-  if (grassTiles.instanceColor) grassTiles.instanceColor.needsUpdate = true;
-  scene.add(grassTiles);
-  const lawnBorder = standardMaterial(7903343, 0.94);
-  for (const [x, z, width, depth] of [
-    [12, -12.68, 17.3, 0.16],
-    [12, -2.32, 17.3, 0.16],
-    [3.42, -7.5, 0.16, 10.5],
-    [20.58, -7.5, 0.16, 10.5]
-  ]) {
-    const edge = makeBox(width, 0.08, depth, lawnBorder, 0.025);
-    edge.position.set(x, 0.01, z);
-    edge.receiveShadow = true;
-    scene.add(edge);
+  function empty(){
+    if(marks.length) return false;
+    for(var id in tracks) return false;
+    return true;
   }
-  const islandMaterial = new THREE.MeshStandardMaterial({
-    color: 15130064,
-    roughness: 0.95,
-    transparent: true,
-    opacity: 0.7
-  });
-  for (const [x, z, sx, sz] of [
-    [-21, -13, 4.8, 1.4],
-    [23, 16, 4.2, 1.25],
-    [-14, 10.5, 6.2, 3.2],
-    [17, 16, 2.6, 0.8]
-  ]) {
-    const island = new THREE.Mesh(new THREE.CircleGeometry(1, 48), islandMaterial);
-    island.rotation.x = -Math.PI / 2;
-    island.position.set(x, -0.012, z);
-    island.scale.set(sx, sz, 1);
-    island.receiveShadow = true;
-    scene.add(island);
+
+  /* ---------- soft-body drawing kit (filled capsules, not sticks) ---------- */
+  function capsule(x1, y1, x2, y2, r1, r2){
+    var a = Math.atan2(y2 - y1, x2 - x1);
+    ctx.beginPath();
+    ctx.arc(x1, y1, r1, a + 1.5708, a - 1.5708);
+    ctx.arc(x2, y2, r2 == null ? r1 * 0.72 : r2, a - 1.5708, a + 1.5708);
+    ctx.closePath(); ctx.fill();
   }
-  const patioMaterial = standardMaterial(14140590, 0.97);
-  const patio = new THREE.Mesh(new THREE.CircleGeometry(3.72, 64), patioMaterial);
-  patio.rotation.x = -Math.PI / 2;
-  patio.position.set(0, 4e-3, -16.05);
-  patio.receiveShadow = true;
-  scene.add(patio);
-  const patioRing = new THREE.Mesh(
-    new THREE.RingGeometry(3.05, 3.58, 64),
-    standardMaterial(12559497, 0.94)
-  );
-  patioRing.rotation.x = -Math.PI / 2;
-  patioRing.position.set(0, 0.016, -16.05);
-  patioRing.receiveShadow = true;
-  scene.add(patioRing);
-  const paverMaterials = [
-    standardMaterial(13217169, 0.96),
-    standardMaterial(14995900, 0.96)
-  ];
-  for (let index = 0; index < 18; index += 1) {
-    const angle = index / 18 * Math.PI * 2;
-    const paver = makeBox(0.72, 0.045, 0.36, paverMaterials[index % 2], 0.035);
-    paver.position.set(Math.cos(angle) * 2.61, 0.045, -16.05 + Math.sin(angle) * 2.61);
-    paver.rotation.y = -angle + Math.PI / 2;
-    paver.receiveShadow = true;
-    scene.add(paver);
-  }
-  const pergola = new THREE.Group();
-  const pergolaWood = standardMaterial(10252367, 0.82);
-  const pergolaLightWood = standardMaterial(12817513, 0.86);
-  const pergolaLeaf = standardMaterial(6263153, 0.93);
-  for (const x of [-2.25, 2.25]) {
-    for (const z of [-1.42, 1.42]) {
-      const post = makeBox(0.2, 2.84, 0.2, pergolaWood, 0.04);
-      post.position.set(x, 1.42, z);
-      pergola.add(post);
+  function dot(x, y, r){ ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+  function ring(x, y, r, lw){ ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); }
+  function col(c, a){ return 'rgba(' + c + ',' + a.toFixed(3) + ')'; }
+
+  /* a walking companion — soft body, amber beanie, optional tote bag */
+  function personF(h, ph, A, tote){
+    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845, lean = h * 0.05;
+    var s1 = Math.sin(ph), s2 = Math.sin(ph + Math.PI);
+    ctx.fillStyle = col(INK, A);
+    capsule(0, hipY, s1 * h * 0.165, -h * 0.015, h * 0.052, h * 0.040);
+    capsule(0, hipY, s2 * h * 0.165, -h * 0.015, h * 0.052, h * 0.040);
+    capsule(0, hipY + h * 0.02, lean, shY, h * 0.112, h * 0.096);
+    dot(lean * 1.15, hdY, h * 0.100);
+    capsule(lean, shY + h * 0.035, lean + s2 * h * 0.14, -h * 0.40, h * 0.040, h * 0.032);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.arc(lean * 1.15, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
+    if(tote){
+      ctx.fillStyle = col(TEAL, A * 0.9);
+      ctx.beginPath();
+      var bx = lean + s2 * h * 0.14, by = -h * 0.385;
+      ctx.moveTo(bx - h * 0.055, by); ctx.lineTo(bx + h * 0.055, by);
+      ctx.lineTo(bx + h * 0.045, by + h * 0.115); ctx.lineTo(bx - h * 0.045, by + h * 0.115);
+      ctx.closePath(); ctx.fill();
     }
   }
-  for (const z of [-1.42, 1.42]) {
-    const beam = makeBox(5.05, 0.2, 0.22, pergolaWood, 0.04);
-    beam.position.set(0, 2.84, z);
-    pergola.add(beam);
-  }
-  for (const x of [-2.25, 2.25]) {
-    const beam = makeBox(0.22, 0.18, 3.05, pergolaWood, 0.04);
-    beam.position.set(x, 2.92, 0);
-    pergola.add(beam);
-  }
-  for (let index = 0; index < 8; index += 1) {
-    const x = -1.95 + index * 0.56;
-    const slat = makeBox(0.12, 0.11, 3.18, pergolaLightWood, 0.025);
-    slat.position.set(x, 3.03, 0);
-    pergola.add(slat);
-  }
-  const vineBloomMaterials = [
-    standardMaterial(13925996, 0.88),
-    standardMaterial(14066247, 0.88),
-    standardMaterial(8417176, 0.88)
-  ];
-  for (let index = 0; index < 22; index += 1) {
-    const side = index % 2 === 0 ? -1 : 1;
-    const along = -2.05 + index * 0.73 % 4.1;
-    const leafBall = makeSphere(0.18 + index % 3 * 0.025, pergolaLeaf, 10, 7);
-    leafBall.scale.set(1.35, 0.66, 0.9);
-    leafBall.position.set(along, 2.91 + Math.sin(index * 1.3) * 0.1, side * 1.43);
-    pergola.add(leafBall);
-    if (index % 3 === 0) {
-      const bloom = makeSphere(0.075, vineBloomMaterials[index % vineBloomMaterials.length], 9, 6);
-      bloom.position.set(along + 0.07, 2.72, side * 1.48);
-      pergola.add(bloom);
+
+  /* wheelchair + rider: teal chair, amber hub (the oo), soft rider */
+  function chairF(h, roll, A){
+    var R = h * 0.295, wy = -R;
+    ctx.strokeStyle = col(TEAL, A);
+    ring(0, wy, R, 2.3);
+    ctx.strokeStyle = col(INK, A * 0.9); ctx.lineWidth = 1.2;
+    for(var i = 0; i < 3; i++){
+      var an = roll + i * 2.094;
+      ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(Math.cos(an) * R * 0.8, wy + Math.sin(an) * R * 0.8); ctx.stroke();
     }
+    ctx.fillStyle = col(AMBER, A); dot(0, wy, h * 0.045);
+    ctx.strokeStyle = col(TEAL, A);
+    ring(R * 1.14, -h * 0.065, h * 0.062, 2.0);
+    ctx.lineWidth = 2.3;
+    var seatY = wy - R * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(-R * 0.22, seatY); ctx.lineTo(R * 0.72, seatY);
+    ctx.moveTo(-R * 0.22, seatY); ctx.lineTo(-R * 0.34, seatY - R * 0.80);
+    ctx.moveTo(R * 0.72, seatY); ctx.lineTo(R * 1.03, -h * 0.075); ctx.lineTo(R * 1.26, -h * 0.075);
+    ctx.stroke();
+    /* rider */
+    var hipX = R * 0.06, shX = -R * 0.14, shY2 = seatY - h * 0.235, hdY = shY2 - h * 0.115;
+    ctx.fillStyle = col(INK, A);
+    capsule(hipX, seatY - h * 0.01, R * 0.60, seatY - h * 0.02, h * 0.055, h * 0.048);
+    capsule(R * 0.60, seatY - h * 0.02, R * 0.94, -h * 0.085, h * 0.045, h * 0.036);
+    capsule(hipX, seatY - h * 0.02, shX, shY2, h * 0.100, h * 0.088);
+    dot(shX - h * 0.008, hdY, h * 0.095);
+    var ha = 0.9 + Math.sin(roll * 0.9) * 0.5;
+    capsule(shX, shY2 + h * 0.03, Math.cos(ha) * R * 0.8, wy + Math.sin(ha) * R * 0.8, h * 0.038, h * 0.030);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.arc(shX - h * 0.008, hdY - h * 0.010, h * 0.095, Math.PI, 0); ctx.closePath(); ctx.fill();
   }
-  const pendantMaterial = new THREE.MeshStandardMaterial({
-    color: 16770980,
-    emissive: 16764770,
-    emissiveIntensity: 1.4,
-    roughness: 0.38
-  });
-  for (const x of [-1.45, -0.48, 0.48, 1.45]) {
-    const cable = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.014, 0.014, 0.55, 6),
-      standardMaterial(5465707, 0.72)
-    );
-    cable.position.set(x, 2.68, 0);
-    const pendant = makeSphere(0.105, pendantMaterial, 12, 8);
-    pendant.position.set(x, 2.38, 0);
-    pergola.add(cable, pendant);
+
+  /* guide dog in working harness, trotting proud */
+  function dogF(h, ph, A, wag){
+    var bh = h * 0.30, bl = h * 0.40;
+    var s1 = Math.sin(ph * 1.35), s2 = Math.sin(ph * 1.35 + Math.PI);
+    ctx.fillStyle = col(INK, A);
+    capsule(-bl * 0.42, -bh * 0.95, -bl * 0.42 + s1 * 3.2, -1, h * 0.035, h * 0.026);
+    capsule(-bl * 0.30, -bh * 0.92, -bl * 0.30 + s2 * 3.2, -1, h * 0.035, h * 0.026);
+    capsule(bl * 0.30, -bh * 0.92, bl * 0.30 + s2 * 3.6, -1, h * 0.036, h * 0.027);
+    capsule(bl * 0.42, -bh * 0.95, bl * 0.42 + s1 * 3.6, -1, h * 0.036, h * 0.027);
+    ctx.beginPath();
+    ctx.ellipse(0, -bh * 1.06, bl * 0.52, bh * 0.34, -0.06, 0, 7);
+    ctx.fill();
+    dot(bl * 0.62, -bh * 1.38, h * 0.062);
+    capsule(bl * 0.66, -bh * 1.33, bl * 0.80, -bh * 1.22, h * 0.030, h * 0.020);
+    ctx.beginPath();
+    ctx.moveTo(bl * 0.585, -bh * 1.50); ctx.lineTo(bl * 0.545, -bh * 1.66); ctx.lineTo(bl * 0.66, -bh * 1.545);
+    ctx.closePath(); ctx.fill();
+    capsule(-bl * 0.50, -bh * 1.08, -bl * 0.66, -bh * (1.30 + Math.sin(wag) * 0.10), h * 0.026, h * 0.014);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.ellipse(bl * 0.50, -bh * 1.24, h * 0.026, h * 0.048, -0.5, 0, 7); ctx.fill();
+    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.ellipse(0, -bh * 1.06, bl * 0.30, bh * 0.36, 0, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
   }
-  const pergolaBench = new THREE.Group();
-  const benchSeat = makeBox(2.45, 0.16, 0.58, pergolaLightWood, 0.045);
-  benchSeat.position.set(-0.62, 0.72, -0.84);
-  pergolaBench.add(benchSeat);
-  for (const x of [-1.45, 0.18]) {
-    const leg = makeBox(0.13, 0.67, 0.13, pergolaWood, 0.025);
-    leg.position.set(x, 0.34, -0.84);
-    pergolaBench.add(leg);
+
+  /* long-cane traveller — the dog is the guide here */
+  function caneF(h, ph, A){
+    personF(h, ph, A, false);
+    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.7;
+    var sway = Math.sin(ph) * h * 0.10;
+    ctx.beginPath();
+    ctx.moveTo(h * 0.10, -h * 0.42);
+    ctx.lineTo(h * 0.30 + sway, -h * 0.01);
+    ctx.stroke();
   }
-  pergola.add(pergolaBench, createContactShadow(2.55, 1.1, 0.08));
-  pergola.position.set(0, 0, -16.05);
-  scene.add(pergola);
-  const flowerStemMaterial = standardMaterial(6262121, 0.96);
-  const patchBloomMaterials = [
-    standardMaterial(13925996, 0.9),
-    standardMaterial(15186013, 0.9),
-    standardMaterial(8417176, 0.9),
-    standardMaterial(7311810, 0.9),
-    standardMaterial(15779279, 0.9)
-  ];
-  function addFlowerPatch(cx, cz, radiusX, radiusZ, count, phase) {
-    const patch = new THREE.Group();
-    for (let index = 0; index < count; index += 1) {
-      const angle = index * 2.399963 + phase;
-      const radial = Math.sqrt((index + 0.45) / count);
-      const height = 0.35 + index * 7 % 5 * 0.055;
-      const stem = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.018, 0.026, height, 6),
-        flowerStemMaterial
-      );
-      stem.position.y = height * 0.5;
-      const bloom = makeSphere(
-        0.085 + index % 3 * 0.014,
-        patchBloomMaterials[index % patchBloomMaterials.length],
-        9,
-        6
-      );
-      bloom.scale.set(1.15, 0.68, 1.15);
-      bloom.position.y = height + 0.035;
-      const flower = new THREE.Group();
-      flower.add(stem, bloom);
-      flower.position.set(
-        cx + Math.cos(angle) * radiusX * radial,
-        0,
-        cz + Math.sin(angle) * radiusZ * radial
-      );
-      flower.rotation.z = Math.sin(index * 1.4) * 0.035;
-      patch.add(flower);
-      swayItems.push({
-        object: flower,
-        baseX: flower.rotation.x,
-        baseZ: flower.rotation.z,
-        phase: phase + index * 0.49,
-        amplitude: 0.045,
-        speed: 0.9
-      });
+
+  /* forearm crutches, one strong leg, gentle bounce */
+  function crutchF(h, ph, A, bob){
+    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845;
+    var s1 = Math.sin(ph);
+    ctx.fillStyle = col(INK, A);
+    capsule(0, hipY, s1 * h * 0.14, -h * 0.015 + bob, h * 0.052, h * 0.040);
+    capsule(0, hipY, -h * 0.075, -h * 0.24, h * 0.048, h * 0.036);
+    capsule(0, hipY + h * 0.02, h * 0.035, shY, h * 0.112, h * 0.096);
+    dot(h * 0.045, hdY, h * 0.100);
+    capsule(h * 0.035, shY + h * 0.035, h * 0.145 + s1 * h * 0.03, -h * 0.42, h * 0.040, h * 0.032);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.arc(h * 0.045, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.9;
+    var c1 = s1 * h * 0.09, c2 = -s1 * h * 0.06;
+    ctx.beginPath();
+    ctx.moveTo(h * 0.14 + c1, -h * 0.46); ctx.lineTo(h * 0.185 + c1 * 1.6, bob);
+    ctx.moveTo(-h * 0.045 + c2, -h * 0.46); ctx.lineTo(-h * 0.03 + c2 * 1.6, bob);
+    ctx.stroke();
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(h * 0.14 + c1, -h * 0.455, h * 0.030, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-h * 0.045 + c2, -h * 0.455, h * 0.030, 0, 7); ctx.stroke();
+  }
+
+  /* four-wheel walker frame, unhurried */
+  function frameF(h, ph, A){
+    var s1 = Math.sin(ph) * 0.5, s2 = Math.sin(ph + Math.PI) * 0.5;
+    var hipY = -h * 0.42, shY = -h * 0.66, hdY = -h * 0.80;
+    ctx.fillStyle = col(INK, A);
+    capsule(0, hipY, s1 * h * 0.11, -h * 0.015, h * 0.050, h * 0.038);
+    capsule(0, hipY, s2 * h * 0.11, -h * 0.015, h * 0.050, h * 0.038);
+    capsule(0, hipY + h * 0.02, h * 0.075, shY, h * 0.108, h * 0.092);
+    dot(h * 0.09, hdY, h * 0.096);
+    capsule(h * 0.075, shY + h * 0.03, h * 0.27, -h * 0.505, h * 0.038, h * 0.030);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.arc(h * 0.09, hdY - h * 0.010, h * 0.096, Math.PI, 0); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 2.1;
+    var fh = h * 0.50;
+    ctx.beginPath();
+    ctx.moveTo(h * 0.26, -fh); ctx.lineTo(h * 0.245, -h * 0.055);
+    ctx.moveTo(h * 0.44, -fh); ctx.lineTo(h * 0.455, -h * 0.055);
+    ctx.moveTo(h * 0.225, -fh); ctx.lineTo(h * 0.475, -fh);
+    ctx.moveTo(h * 0.25, -fh * 0.56); ctx.lineTo(h * 0.45, -fh * 0.56);
+    ctx.stroke();
+    ctx.fillStyle = col(AMBER, A);
+    dot(h * 0.245, -h * 0.038, h * 0.038); dot(h * 0.455, -h * 0.038, h * 0.038);
+  }
+
+  /* running-blade walker — celebration, not apology */
+  function bladeF(h, ph, A){
+    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845, lean = h * 0.06;
+    var s1 = Math.sin(ph), s2 = Math.sin(ph + Math.PI);
+    ctx.fillStyle = col(INK, A);
+    capsule(0, hipY, s1 * h * 0.17, -h * 0.015, h * 0.052, h * 0.040);
+    capsule(0, hipY, s2 * h * 0.10, -h * 0.22, h * 0.050, h * 0.040);
+    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(s2 * h * 0.10, -h * 0.22);
+    ctx.quadraticCurveTo(s2 * h * 0.17 + h * 0.02, -h * 0.10, s2 * h * 0.19 + h * 0.058, -h * 0.005);
+    ctx.stroke();
+    ctx.fillStyle = col(INK, A);
+    capsule(0, hipY + h * 0.02, lean, shY, h * 0.112, h * 0.096);
+    dot(lean * 1.15, hdY, h * 0.100);
+    capsule(lean, shY + h * 0.035, lean + s2 * h * 0.15, -h * 0.40, h * 0.040, h * 0.032);
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.arc(lean * 1.15, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
+  }
+
+  function balloonF(hx, hy, h, A, t, seed){
+    var bob = Math.sin(t * 0.0012 + seed) * 4, sway = Math.sin(t * 0.0009 + seed) * 6;
+    var bx = hx + sway * 0.4, by = hy - h * 0.72 + bob;
+    ctx.strokeStyle = col(TEAL, A * 0.85); ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo(hx + sway * 0.25, (hy + by) / 2, bx, by + h * 0.135); ctx.stroke();
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.ellipse(bx, by, h * 0.105, h * 0.13, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(bx - h * 0.02, by + h * 0.132); ctx.lineTo(bx + h * 0.02, by + h * 0.132); ctx.lineTo(bx, by + h * 0.165); ctx.closePath(); ctx.fill();
+  }
+
+  function kiteF(hx, hy, gy, h, A, t, seed, dir){
+    var sway = Math.sin(t * 0.0008 + seed) * 16, lift = Math.sin(t * 0.0011 + seed * 2) * 10;
+    var kx = hx + dir * (h * 1.7 + sway), ky = Math.max(86, gy - H * 0.40 + lift);
+    ctx.strokeStyle = col(TEAL, A * 0.8); ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo((hx + kx) / 2 + dir * 24, (hy + ky) / 2 + 26, kx, ky + 12); ctx.stroke();
+    ctx.save(); ctx.translate(kx, ky); ctx.rotate(dir * (0.18 + sway * 0.006));
+    ctx.fillStyle = col(AMBER, A);
+    ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(9, 0); ctx.lineTo(0, 12); ctx.lineTo(-9, 0); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col(INK, A * 0.7); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(0, 12); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.stroke();
+    ctx.strokeStyle = col(TEAL, A * 0.8);
+    ctx.beginPath(); ctx.moveTo(0, 12); ctx.quadraticCurveTo(-dir * 6, 20, -dir * 3, 27); ctx.stroke();
+    ctx.fillStyle = col(TEAL, A * 0.9);
+    dot(-dir * 1, 18, 1.8); dot(-dir * 4, 24, 1.8);
+    ctx.restore();
+  }
+
+  /* the pause beat: two little dots overhead — the oo, saying hello */
+  function bubbleF(x, y, h, A, k){
+    var a = A * Math.sin(Math.min(1, k) * Math.PI);
+    if(a <= 0.004) return;
+    ctx.fillStyle = col(TEAL, a); dot(x - h * 0.055, y, h * 0.042);
+    ctx.fillStyle = col(AMBER, a); dot(x + h * 0.055, y, h * 0.042);
+  }
+
+  /* ---------- the six scenes ---------- */
+  function drawScene(w, gyf, now){
+    var A = w.alpha * edgeA(w.x);
+    if(A <= 0.004) return;
+    var h = w.h, dir = w.dir, ph = w.ph;
+    function at(ox, fn){
+      ctx.save(); ctx.translate(w.x + dir * ox, gyf); ctx.scale(dir, 1); fn(); ctx.restore();
     }
-    scene.add(patch);
-  }
-  addFlowerPatch(-23.6, -14.3, 2.45, 1.7, 28, 0.4);
-  addFlowerPatch(21.3, 17.2, 2.75, 1.55, 26, 1.2);
-  addFlowerPatch(-3.8, -16.1, 1.15, 1.65, 16, 2.1);
-  addFlowerPatch(3.85, -16, 1.15, 1.62, 16, 2.8);
-  const pathLightMetal = standardMaterial(5334635, 0.42, 0.28);
-  const pathLightGlow = new THREE.MeshStandardMaterial({
-    color: 16771240,
-    emissive: 16764770,
-    emissiveIntensity: 1.25,
-    roughness: 0.38
-  });
-  function addPathLight(x, z) {
-    const light = new THREE.Group();
-    const stem = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.045, 0.06, 0.74, 8),
-      pathLightMetal
-    );
-    stem.position.y = 0.37;
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.09, 0.1, 10), pathLightMetal);
-    cap.position.y = 0.76;
-    const glow = makeSphere(0.105, pathLightGlow, 12, 8);
-    glow.scale.y = 0.62;
-    glow.position.y = 0.69;
-    light.add(stem, cap, glow, createContactShadow(0.2, 0.18, 0.05));
-    light.position.set(x, 0, z);
-    scene.add(light);
-  }
-  for (const [x, z] of [
-    [-25.8, 2.45],
-    [-17.3, -0.15],
-    [-7.7, -2.15],
-    [2.6, 3.7],
-    [12.1, 7.3],
-    [21.4, 10.6],
-    [-24.2, 17.2],
-    [-18.9, 12.2],
-    [-3.65, -8.9],
-    [-1.85, -12.8],
-    [23.1, -16.2]
-  ]) addPathLight(x, z);
-  function addCommunitySign() {
-    const canvas = document.createElement("canvas");
-    canvas.width = 768;
-    canvas.height = 360;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-    context.fillStyle = "#fff8e9";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = "#2d847d";
-    context.fillRect(0, 0, canvas.width, 72);
-    context.fillStyle = "#d47e6c";
-    context.beginPath();
-    context.arc(92, 182, 43, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "#fff8e9";
-    context.beginPath();
-    context.ellipse(78, 176, 12, 27, -0.55, 0, Math.PI * 2);
-    context.ellipse(104, 176, 12, 27, 0.55, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "#234048";
-    context.font = "700 68px sans-serif";
-    context.fillText("GROW TOGETHER", 164, 190);
-    context.fillStyle = "#536671";
-    context.font = "500 31px sans-serif";
-    context.fillText("Accessible community garden", 166, 242);
-    context.fillStyle = "#2d847d";
-    context.font = "700 24px sans-serif";
-    context.fillText("REST  •  CONNECT  •  BELONG", 166, 292);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 4;
-    const sign = new THREE.Group();
-    const board = makeBox(3.9, 1.8, 0.16, standardMaterial(7952447, 0.86), 0.08);
-    board.position.y = 2.02;
-    const face = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.72, 1.62),
-      new THREE.MeshBasicMaterial({ map: texture, toneMapped: false })
-    );
-    face.position.set(0, 2.02, 0.086);
-    for (const x of [-1.43, 1.43]) {
-      const post = makeBox(0.17, 2.25, 0.17, pergolaWood, 0.035);
-      post.position.set(x, 1.12, 0);
-      sign.add(post);
-    }
-    sign.add(board, face, createContactShadow(2.15, 0.55, 0.08));
-    sign.position.set(-27.1, 0, 19.8);
-    sign.rotation.y = Math.PI * 0.25;
-    scene.add(sign);
-  }
-  addCommunitySign();
-  const wood = standardMaterial(10844501, 0.91);
-  const leaf = standardMaterial(7315320, 0.94);
-  const drySoilColor = new THREE.Color(7951936);
-  const wetSoilColor = new THREE.Color(5192241);
-  const flowerColors = [13925996, 14066247, 8417176, 7311810];
-  for (const [bedIndex, bedPosition] of GARDEN_BEDS.entries()) {
-    const bedX = bedPosition.x;
-    const bedZ = bedPosition.z;
-    const rotation = bedIndex === 0 ? -0.08 : 0.09;
-    const bed = new THREE.Group();
-    const frame = makeBox(3.8, 0.34, 1.72, wood, 0.07);
-    frame.position.y = 0.17;
-    const earthMaterial = new THREE.MeshStandardMaterial({
-      color: drySoilColor.clone(),
-      roughness: 0.98
-    });
-    const earth = makeBox(3.42, 0.18, 1.36, earthMaterial, 0.05);
-    earth.position.y = 0.37;
-    bed.add(frame, earth);
-    const plants = [];
-    for (let plantIndex = 0; plantIndex < 8; plantIndex += 1) {
-      const plant = new THREE.Group();
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.48, 7), leaf);
-      stem.position.y = 0.24;
-      const bloom = makeSphere(
-        0.13,
-        standardMaterial(flowerColors[plantIndex % flowerColors.length], 0.9),
-        10,
-        7
-      );
-      bloom.scale.set(1.1, 0.7, 1.1);
-      bloom.position.y = 0.51;
-      const leftLeaf = makeSphere(0.105, leaf, 9, 6);
-      leftLeaf.scale.set(1.45, 0.24, 0.7);
-      leftLeaf.position.set(-0.1, 0.25, 0.01);
-      leftLeaf.rotation.z = -0.42;
-      const rightLeaf = leftLeaf.clone();
-      rightLeaf.position.x = 0.1;
-      rightLeaf.rotation.z = 0.42;
-      plant.add(stem, leftLeaf, rightLeaf, bloom);
-      plant.position.set(
-        -1.35 + plantIndex % 4 * 0.9,
-        0.43,
-        Math.floor(plantIndex / 4) * 0.58 - 0.29
-      );
-      bed.add(plant);
-      plants.push({ group: plant, phase: bedIndex * 1.7 + plantIndex * 0.63 });
-    }
-    const plaquePost = makeBox(0.08, 0.48, 0.08, wood, 0.02);
-    plaquePost.position.set(1.58, 0.67, -0.62);
-    const plaque = makeBox(0.66, 0.27, 0.07, standardMaterial(15259837, 0.88), 0.035);
-    plaque.position.set(1.58, 0.87, -0.62);
-    plaque.rotation.x = -0.18;
-    bed.add(plaquePost, plaque);
-    const ripples = [];
-    for (let rippleIndex = 0; rippleIndex < 5; rippleIndex += 1) {
-      const rippleMaterial = new THREE.MeshBasicMaterial({
-        color: 10474719,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        toneMapped: false
-      });
-      const ripple = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.12, 22), rippleMaterial);
-      ripple.rotation.x = -Math.PI / 2;
-      ripple.position.set(
-        -1.28 + rippleIndex % 3 * 1.06,
-        0.475,
-        rippleIndex % 2 === 0 ? -0.23 : 0.27
-      );
-      ripple.renderOrder = 5;
-      bed.add(ripple);
-      ripples.push({ mesh: ripple, material: rippleMaterial, phase: rippleIndex * 0.19 });
-    }
-    bed.position.set(bedX, 0, bedZ);
-    bed.rotation.y = rotation;
-    scene.add(bed);
-    gardenBeds.push({
-      earthMaterial,
-      hydration: 0,
-      splashEnergy: 0,
-      plants,
-      ripples
-    });
-  }
-  const gardenGrassGeometry = new THREE.ConeGeometry(0.12, 0.62, 6);
-  const gardenGrassMaterial = standardMaterial(7313264, 0.98);
-  for (let index = 0; index < 32; index += 1) {
-    const baseHeight = 0.72 + index % 5 * 0.055;
-    const tuft = new THREE.Mesh(gardenGrassGeometry, gardenGrassMaterial);
-    tuft.scale.set(0.7 + index % 3 * 0.09, baseHeight, 0.76);
-    tuft.position.set(
-      -18.4 + index * 0.34,
-      0.31 * baseHeight,
-      9.02 + Math.sin(index * 1.7) * 0.14
-    );
-    tuft.rotation.y = index % 5 * 0.26;
-    tuft.castShadow = true;
-    scene.add(tuft);
-    gardenEdgeGrass.push({ mesh: tuft, baseHeight });
-    swayItems.push({
-      object: tuft,
-      baseX: tuft.rotation.x,
-      baseZ: tuft.rotation.z,
-      phase: index * 0.57,
-      amplitude: 0.045,
-      speed: 0.85
-    });
-  }
-  const stone = standardMaterial(13155759, 0.97);
-  for (let index = 0; index < 8; index += 1) {
-    const step = new THREE.Mesh(new THREE.CircleGeometry(0.48 + index % 2 * 0.08, 18), stone);
-    step.rotation.x = -Math.PI / 2;
-    step.position.set(-22 + index * 1.2, 6e-3, 14.4 - index * 0.62);
-    step.scale.y = 0.72;
-    step.receiveShadow = true;
-    scene.add(step);
-  }
-  const shrubMaterial = standardMaterial(7772792, 0.96);
-  for (const [index, shrubData] of [
-    [-18.5, 9.4, 0.6],
-    [-16.8, 8.1, 0.74],
-    [-10.1, 9, 0.68],
-    [-8.8, 10.1, 0.58]
-  ].entries()) {
-    const [x, z, size] = shrubData;
-    const shrub = makeSphere(size, shrubMaterial, 12, 8);
-    shrub.scale.set(1.2, 0.72, 1);
-    shrub.position.set(x, size * 0.58, z);
-    scene.add(shrub);
-    swayItems.push({
-      object: shrub,
-      baseX: 0,
-      baseZ: 0,
-      phase: index * 1.33,
-      amplitude: 0.022,
-      speed: 0.58
-    });
-  }
-  const trunk = standardMaterial(9860701, 0.9);
-  const foliage = standardMaterial(8365965, 0.92);
-  for (const [treeIndex, treeData] of [
-    [-22, -13, 0.94],
-    [23.6, 16, 0.82],
-    [-21.4, 16.6, 0.72],
-    [19.1, 16.2, 0.66]
-  ].entries()) {
-    const [x, z, size] = treeData;
-    const tree = new THREE.Group();
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.7, 9), trunk);
-    stem.position.y = 0.85;
-    const crown = new THREE.Group();
-    for (const [cx, cy, cz, scale] of [
-      [0, 2.05, 0, 1],
-      [-0.34, 1.98, 0.03, 0.66],
-      [0.32, 2.02, -0.02, 0.62]
-    ]) {
-      const crownPart = makeSphere(0.78 * scale, foliage, 12, 8);
-      crownPart.scale.set(1.08, 1.18, 0.95);
-      crownPart.position.set(cx, cy, cz);
-      crown.add(crownPart);
-    }
-    tree.add(stem, crown, createContactShadow(0.8, 0.62, 0.08));
-    tree.position.set(x, 0, z);
-    tree.scale.setScalar(size);
-    scene.add(tree);
-    swayItems.push({
-      object: crown,
-      baseX: 0,
-      baseZ: 0,
-      phase: treeIndex * 1.6,
-      amplitude: 0.032,
-      speed: 0.48
-    });
-  }
-  const bench = new THREE.Group();
-  const benchWood = standardMaterial(11960669, 0.84);
-  const benchFrame = standardMaterial(5465707, 0.48, 0.2);
-  for (let slat = 0; slat < 4; slat += 1) {
-    const seatSlat = makeBox(2.8, 0.11, 0.27, benchWood, 0.035);
-    seatSlat.position.set(0, 0.62, -0.43 + slat * 0.28);
-    bench.add(seatSlat);
-  }
-  for (let slat = 0; slat < 3; slat += 1) {
-    const backSlat = makeBox(2.8, 0.12, 0.25, benchWood, 0.035);
-    backSlat.position.set(0, 1.08 + slat * 0.26, -0.5);
-    backSlat.rotation.x = -0.08;
-    bench.add(backSlat);
-  }
-  for (const x of [-1.15, 1.15]) {
-    const leg = makeBox(0.12, 0.66, 0.12, benchFrame, 0.02);
-    leg.position.set(x, 0.33, -0.02);
-    const arm = makeBox(0.12, 0.12, 0.92, benchFrame, 0.025);
-    arm.position.set(x, 0.92, -0.05);
-    bench.add(leg, arm);
-  }
-  bench.add(createContactShadow(2.25, 0.72, 0.08));
-  bench.position.set(-24.8, 0, 13.8);
-  bench.rotation.y = 0.28;
-  scene.add(bench);
-  const birdBath = new THREE.Group();
-  const birdBathMaterial = standardMaterial(12567224, 0.82);
-  const bathStem = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 1, 12), birdBathMaterial);
-  bathStem.position.y = 0.5;
-  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.38, 0.16, 24), birdBathMaterial);
-  bowl.position.y = 1.04;
-  const water = new THREE.Mesh(
-    new THREE.CircleGeometry(0.48, 28),
-    new THREE.MeshBasicMaterial({
-      color: 9357014,
-      transparent: true,
-      opacity: 0.48,
-      depthWrite: false,
-      toneMapped: false
-    })
-  );
-  water.rotation.x = -Math.PI / 2;
-  water.position.y = 1.13;
-  birdBath.add(bathStem, bowl, water, createContactShadow(0.62, 0.54, 0.07));
-  birdBath.position.set(21.2, 0, 16.2);
-  scene.add(birdBath);
-  for (let index = 0; index < 3; index += 1) {
-    const group = new THREE.Group();
-    const wingMaterial = new THREE.MeshBasicMaterial({
-      color: flowerColors[(index + 1) % flowerColors.length],
-      transparent: true,
-      opacity: 0.76,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      toneMapped: false
-    });
-    const wingGeometry = new THREE.CircleGeometry(0.14, 12, 0, Math.PI * 1.45);
-    const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-    const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
-    leftWing.position.x = -0.08;
-    rightWing.position.x = 0.08;
-    rightWing.scale.x = -1;
-    const body = makeCapsule(0.025, 0.12, standardMaterial(5195068, 0.82), 7);
-    body.rotation.x = Math.PI / 2;
-    group.add(leftWing, rightWing, body);
-    const centre = new THREE.Vector3(-15.6 + index * 2.4, 1.45 + index * 0.13, 10.8);
-    group.position.copy(centre);
-    scene.add(group);
-    butterflies.push({
-      group,
-      leftWing,
-      rightWing,
-      centre,
-      phase: index * 2.1,
-      radius: 0.52 + index * 0.12
-    });
-  }
-  const fence = new THREE.Group();
-  const fenceMaterial = standardMaterial(13482395, 0.88);
-  const fencePostMaterial = standardMaterial(11108185, 0.86);
-  function addFenceSegment(x1, z1, x2, z2) {
-    const dx = x2 - x1;
-    const dz = z2 - z1;
-    const length = Math.hypot(dx, dz);
-    const yaw = Math.atan2(dx, dz);
-    for (const height of [0.48, 0.98]) {
-      const rail = makeBox(0.12, 0.1, length, fenceMaterial, 0.025);
-      rail.position.set((x1 + x2) * 0.5, height, (z1 + z2) * 0.5);
-      rail.rotation.y = yaw;
-      fence.add(rail);
-    }
-    const posts = Math.max(1, Math.ceil(length / 2.8));
-    for (let index = 0; index <= posts; index += 1) {
-      const t = index / posts;
-      const post = makeBox(0.18, 1.34, 0.18, fencePostMaterial, 0.035);
-      post.position.set(
-        THREE.MathUtils.lerp(x1, x2, t),
-        0.67,
-        THREE.MathUtils.lerp(z1, z2, t)
-      );
-      fence.add(post);
-    }
-  }
-  function addOpenGateLeaf(x, z, yaw, length = 2.25) {
-    const gate = new THREE.Group();
-    for (const height of [0.48, 0.98]) {
-      const rail = makeBox(0.1, 0.1, length, fenceMaterial, 0.025);
-      rail.position.set(0, height, length * 0.5);
-      gate.add(rail);
-    }
-    const endPost = makeBox(0.16, 1.24, 0.16, fencePostMaterial, 0.03);
-    endPost.position.set(0, 0.62, length);
-    const brace = cylinderBetween(
-      new THREE.Vector3(0, 0.34, 0.12),
-      new THREE.Vector3(0, 1.08, length - 0.12),
-      0.035,
-      fencePostMaterial,
-      7
-    );
-    gate.add(endPost, brace);
-    gate.position.set(x, 0, z);
-    gate.rotation.y = yaw;
-    fence.add(gate);
-  }
-  addFenceSegment(-31, 23, -28, 23);
-  addFenceSegment(-17, 23, 28, 23);
-  addFenceSegment(-31, -20.5, 18.4, -20.5);
-  addFenceSegment(24.6, -20.5, 28, -20.5);
-  addFenceSegment(-31, -20.5, -31, 1);
-  addFenceSegment(-31, 8.5, -31, 11);
-  addFenceSegment(-31, 19, -31, 23);
-  addFenceSegment(28, -20.5, 28, -13.5);
-  addFenceSegment(28, -1.5, 28, 9.5);
-  addFenceSegment(28, 16.5, 28, 23);
-  addOpenGateLeaf(-28, 23, 0, 2.5);
-  addOpenGateLeaf(-17, 23, 0, 2.5);
-  addOpenGateLeaf(18.4, -20.5, Math.PI, 2.35);
-  addOpenGateLeaf(24.6, -20.5, Math.PI, 2.35);
-  addOpenGateLeaf(-31, 1, -Math.PI / 2, 2.25);
-  addOpenGateLeaf(-31, 8.5, -Math.PI / 2, 2.25);
-  addOpenGateLeaf(-31, 11, -Math.PI / 2, 2.25);
-  addOpenGateLeaf(-31, 19, -Math.PI / 2, 2.25);
-  addOpenGateLeaf(28, -13.5, Math.PI / 2, 2.35);
-  addOpenGateLeaf(28, -1.5, Math.PI / 2, 2.35);
-  addOpenGateLeaf(28, 9.5, Math.PI / 2, 2.25);
-  addOpenGateLeaf(28, 16.5, Math.PI / 2, 2.25);
-  scene.add(fence);
-  return {
-    markMowed(x, z, yaw) {
-      if (x < 3.15 || x > 20.85 || z < -13.05 || z > -1.95) return;
-      if (Math.abs(Math.cos(yaw)) < 0.82) return;
-      const forwardX = Math.sin(yaw);
-      const forwardZ = Math.cos(yaw);
-      const rightX = Math.cos(yaw);
-      const rightZ = -Math.sin(yaw);
-      const centreX = x + forwardX * 0.12;
-      const centreZ = z + forwardZ * 0.12;
-      for (const tile of lawnTiles) {
-        const dx = tile.x - centreX;
-        const dz = tile.z - centreZ;
-        const lateral = dx * rightX + dz * rightZ;
-        const longitudinal = dx * forwardX + dz * forwardZ;
-        const lateralLimit = 0.82;
-        const longitudinalLimit = 0.62;
-        if (Math.abs(lateral) <= lateralLimit && Math.abs(longitudinal) <= longitudinalLimit) {
-          const edgeDistance = Math.max(
-            Math.abs(lateral) / lateralLimit,
-            Math.abs(longitudinal) / longitudinalLimit
-          );
-          const coverage = smoothStep(THREE.MathUtils.clamp((1 - edgeDistance) * 1.8, 0, 1));
-          tile.cut = Math.max(tile.cut, 0.74 + coverage * 0.26);
-          const laneIndex = Math.round((tile.x - 4.2) / 1.7);
-          tile.stripe = laneIndex % 2 === 0 ? 1 : -1;
-        }
-      }
-    },
-    trimGardenEdge(amount) {
-      gardenTrimAmount = Math.max(gardenTrimAmount, THREE.MathUtils.clamp(amount, 0, 1));
-    },
-    waterGardenBed(index, intensity) {
-      const bed = gardenBeds[index];
-      if (!bed) return;
-      const strength = THREE.MathUtils.clamp(intensity, 0, 1);
-      bed.hydration = Math.max(bed.hydration, strength);
-      bed.splashEnergy = Math.min(1, bed.splashEnergy + strength * 0.12);
-    },
-    update(simulationTime, delta) {
-      const lawnTime = cycleLocalTime(simulationTime, LAWN_START);
-      const lawnCanRegrow = lawnTime > LAWN_DURATION + 1.5;
-      lawnTiles.forEach((tile, index) => {
-        if (lawnCanRegrow) tile.cut = Math.max(0, tile.cut - delta / 16);
-        const cut = smoothStep(tile.cut);
-        const height = THREE.MathUtils.lerp(tile.baseHeight, 0.026, cut);
-        grassTransform.scale.set(tileWidth * 0.96, height, tileDepth * 0.96);
-        grassTransform.position.set(tile.x, 8e-3 + height * 0.5, tile.z);
-        grassTransform.updateMatrix();
-        grassTiles.setMatrixAt(index, grassTransform.matrix);
-        stripeColor.copy(tile.stripe >= 0 ? cutGrassLight : cutGrassDark);
-        baseGrassColor.lerpColors(uncutGrassDark, uncutGrassLight, tile.tone);
-        grassColor.lerpColors(baseGrassColor, stripeColor, cut);
-        grassTiles.setColorAt(index, grassColor);
-      });
-      grassTiles.instanceMatrix.needsUpdate = true;
-      if (grassTiles.instanceColor) grassTiles.instanceColor.needsUpdate = true;
-      const gardenTime = cycleLocalTime(simulationTime, GARDEN_START);
-      if (gardenTime > GARDEN_DURATION + 1.5) {
-        gardenTrimAmount = Math.max(0, gardenTrimAmount - delta / 12);
-      }
-      gardenEdgeGrass.forEach(({ mesh, baseHeight }, index) => {
-        const sequence = THREE.MathUtils.clamp(
-          gardenTrimAmount * 1.18 - index / Math.max(1, gardenEdgeGrass.length - 1) * 0.18,
-          0,
-          1
-        );
-        const heightScale = THREE.MathUtils.lerp(
-          baseHeight,
-          baseHeight * 0.32,
-          smoothStep(sequence)
-        );
-        mesh.scale.y = heightScale;
-        mesh.position.y = 0.31 * heightScale;
-      });
-      gardenBeds.forEach((bed, bedIndex) => {
-        bed.hydration = Math.max(0, bed.hydration - delta / 22);
-        bed.splashEnergy = Math.max(0, bed.splashEnergy - delta / 0.82);
-        const wet = smoothStep(bed.hydration);
-        bed.earthMaterial.color.lerpColors(drySoilColor, wetSoilColor, wet);
-        bed.earthMaterial.roughness = THREE.MathUtils.lerp(0.98, 0.56, wet);
-        bed.plants.forEach(({ group, phase }) => {
-          const breeze = Math.sin(simulationTime * 0.78 + phase) * 0.022;
-          group.rotation.z = breeze;
-          group.rotation.x = Math.cos(simulationTime * 0.66 + phase) * 0.014;
-          group.scale.y = 1 + wet * 0.075 + Math.sin(simulationTime * 1.1 + phase) * 0.012;
-        });
-        bed.ripples.forEach(({ mesh, material, phase }) => {
-          const ripple = (simulationTime * 1.4 + phase + bedIndex * 0.11) % 1;
-          const rippleFade = (1 - ripple) * (1 - ripple);
-          material.opacity = bed.splashEnergy * rippleFade * 0.38;
-          const scale = 0.42 + ripple * 1.8;
-          mesh.scale.setScalar(scale);
-          mesh.visible = material.opacity > 4e-3;
-        });
-      });
-      swayItems.forEach(({ object, baseX, baseZ, phase, amplitude, speed }) => {
-        object.rotation.x = baseX + Math.sin(simulationTime * speed + phase) * amplitude * 0.55;
-        object.rotation.z = baseZ + Math.cos(simulationTime * speed * 0.86 + phase) * amplitude;
-      });
-      butterflies.forEach(({ group, leftWing, rightWing, centre, phase, radius }, index) => {
-        const orbit = simulationTime * (0.42 + index * 0.055) + phase;
-        group.position.set(
-          centre.x + Math.cos(orbit) * radius,
-          centre.y + Math.sin(orbit * 1.7) * 0.16,
-          centre.z + Math.sin(orbit) * radius * 0.56
-        );
-        group.rotation.y = -orbit + Math.PI * 0.5;
-        const flap = Math.sin(simulationTime * 8.2 + phase) * 0.72;
-        leftWing.rotation.y = 0.34 + flap;
-        rightWing.rotation.y = -0.34 - flap;
-      });
-    }
-  };
-}
-function getCameraGoal(view, aspect) {
-  const portrait = aspect < 0.85;
-  const compact = aspect < 1.2;
-  const wide = aspect > 2;
-  const distance = portrait ? 1.86 : compact ? 1.36 : wide ? 1.1 : 1;
-  if (view === "ground-level") {
-    return {
-      position: new THREE.Vector3(0, portrait ? 10.5 : 7.2, 34 * distance),
-      target: new THREE.Vector3(0, 1.05, 0),
-      fov: portrait ? 48 : 40,
-      orthographic: false,
-      orthoHalfHeight: 0
-    };
-  }
-  if (view === "isometric") {
-    return {
-      position: new THREE.Vector3(46, 43, 46),
-      target: new THREE.Vector3(-1.5, 0.45, 0.35),
-      fov: 34,
-      orthographic: true,
-      orthoHalfHeight: Math.max(23, 35 / Math.max(0.42, aspect))
-    };
-  }
-  return {
-    position: new THREE.Vector3(24 * distance, 19 * distance, 30 * distance),
-    target: new THREE.Vector3(0, 0.8, 0),
-    fov: portrait ? 47 : 40,
-    orthographic: false,
-    orthoHalfHeight: 0
-  };
-}
-
-
-/* ─── the yard engine (v2, on the improved source) ─── */
-const layer = document.getElementById('bgYard');
-
-function addYardIslands(scene) {
-  const lawnTiles = [];
-  const gardenEdgeGrass = [];
-  const gardenBeds = [];
-  const swayItems = [];
-  const butterflies = [];
-  let gardenTrimAmount = 0;
-
-  const islandMaterial = new THREE.MeshStandardMaterial({ color: 0xe6ddd0, roughness: 0.95, transparent: true, opacity: 0.6 });
-  for (const [x, z, sx, sz] of [[-13.6, 10.2, 7.4, 3.6], [12, -7.8, 10.4, 6.4]]) {
-    const island = new THREE.Mesh(new THREE.CircleGeometry(1, 48), islandMaterial);
-    island.rotation.x = -Math.PI / 2;
-    island.position.set(x, -0.012, z);
-    island.scale.set(sx, sz, 1);
-    island.receiveShadow = true;
-    scene.add(island);
-  }
-
-  /* the lawn — fine grid, per-tile tone, mow stripes */
-  const lawnMaterial = new THREE.MeshStandardMaterial({ color: 0x9eb77d, roughness: 0.96, transparent: true, opacity: 0.9 });
-  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(17, 10.5), lawnMaterial);
-  lawn.rotation.x = -Math.PI / 2;
-  lawn.position.set(12, -0.008, -7.5);
-  lawn.receiveShadow = true;
-  scene.add(lawn);
-  const grassTileMaterial = standardMaterial(0x86a96d, 0.98);
-  const lawnColumns = 34, lawnRows = 24;
-  const tileWidth = 17 / lawnColumns, tileDepth = 10.5 / lawnRows;
-  const grassTiles = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), grassTileMaterial, lawnColumns * lawnRows);
-  grassTiles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  const grassTransform = new THREE.Object3D();
-  const uncutGrassDark = new THREE.Color(0x789b61);
-  const uncutGrassLight = new THREE.Color(0x91b477);
-  const cutGrassLight = new THREE.Color(0xc3d69a);
-  const cutGrassDark = new THREE.Color(0xa4c07b);
-  const baseGrassColor = new THREE.Color();
-  const stripeColor = new THREE.Color();
-  const grassColor = new THREE.Color();
-  for (let row = 0; row < lawnRows; row += 1) {
-    for (let column = 0; column < lawnColumns; column += 1) {
-      const x = 3.5 + tileWidth * (column + 0.5);
-      const z = -12.75 + tileDepth * (row + 0.5);
-      const baseHeight = 0.125 + ((row * 7 + column * 3) % 5) * 0.009;
-      grassTransform.scale.set(tileWidth * 0.96, baseHeight, tileDepth * 0.96);
-      grassTransform.position.set(x, 0.008 + baseHeight * 0.5, z);
-      grassTransform.updateMatrix();
-      const tileIndex = row * lawnColumns + column;
-      grassTiles.setMatrixAt(tileIndex, grassTransform.matrix);
-      const tone = ((row * 5 + column * 11) % 9) / 8;
-      baseGrassColor.lerpColors(uncutGrassDark, uncutGrassLight, tone);
-      grassTiles.setColorAt(tileIndex, baseGrassColor);
-      lawnTiles.push({ x, z, baseHeight, cut: 0, stripe: 0, tone });
-    }
-  }
-  grassTiles.instanceMatrix.needsUpdate = true;
-  if (grassTiles.instanceColor) grassTiles.instanceColor.needsUpdate = true;
-  scene.add(grassTiles);
-  const lawnBorder = standardMaterial(0x78986f, 0.94);
-  for (const [x, z, width, depth] of [[12, -12.68, 17.3, 0.16], [12, -2.32, 17.3, 0.16], [3.42, -7.5, 0.16, 10.5], [20.58, -7.5, 0.16, 10.5]]) {
-    const edge = makeBox(width, 0.08, depth, lawnBorder, 0.025);
-    edge.position.set(x, 0.01, z);
-    scene.add(edge);
-  }
-
-  /* the garden — hydrating beds, ripples, perking flowers, plaques */
-  const wood = standardMaterial(0xa57855, 0.91);
-  const leaf = standardMaterial(0x6fa178, 0.94);
-  const flowerColors = [0xd47e6c, 0xd6a247, 0x806f98, 0x6f91c2];
-  const drySoilColor = new THREE.Color(0x795640);
-  const wetSoilColor = new THREE.Color(0x4e3421);
-  for (const [bedIndex, bedPosition] of GARDEN_BEDS.entries()) {
-    const bed = new THREE.Group();
-    const frame = makeBox(3.8, 0.34, 1.72, wood, 0.07);
-    frame.position.y = 0.17;
-    const earthMaterial = new THREE.MeshStandardMaterial({ color: drySoilColor.clone(), roughness: 0.98 });
-    const earth = makeBox(3.42, 0.18, 1.36, earthMaterial, 0.05);
-    earth.position.y = 0.37;
-    bed.add(frame, earth);
-    const plants = [];
-    for (let plantIndex = 0; plantIndex < 8; plantIndex += 1) {
-      const plant = new THREE.Group();
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.48, 7), leaf);
-      stem.position.y = 0.24;
-      const bloom = makeSphere(0.13, standardMaterial(flowerColors[plantIndex % flowerColors.length], 0.9), 10, 7);
-      bloom.scale.set(1.1, 0.7, 1.1);
-      bloom.position.y = 0.51;
-      const leftLeaf = makeSphere(0.105, leaf, 9, 6);
-      leftLeaf.scale.set(1.45, 0.24, 0.7);
-      leftLeaf.position.set(-0.1, 0.25, 0.01);
-      leftLeaf.rotation.z = -0.42;
-      const rightLeaf = leftLeaf.clone();
-      rightLeaf.position.x = 0.1;
-      rightLeaf.rotation.z = 0.42;
-      plant.add(stem, leftLeaf, rightLeaf, bloom);
-      plant.position.set(-1.35 + (plantIndex % 4) * 0.9, 0.43, Math.floor(plantIndex / 4) * 0.58 - 0.29);
-      bed.add(plant);
-      plants.push({ group: plant, phase: bedIndex * 1.7 + plantIndex * 0.63 });
-    }
-    const plaquePost = makeBox(0.08, 0.48, 0.08, wood, 0.02);
-    plaquePost.position.set(1.58, 0.67, -0.62);
-    const plaque = makeBox(0.66, 0.27, 0.07, standardMaterial(0xe8d8bd, 0.88), 0.035);
-    plaque.position.set(1.58, 0.87, -0.62);
-    plaque.rotation.x = -0.18;
-    bed.add(plaquePost, plaque);
-    const ripples = [];
-    for (let rippleIndex = 0; rippleIndex < 5; rippleIndex += 1) {
-      const rippleMaterial = new THREE.MeshBasicMaterial({ color: 0x9fd4df, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
-      const ripple = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.12, 22), rippleMaterial);
-      ripple.rotation.x = -Math.PI / 2;
-      ripple.position.set(-1.28 + (rippleIndex % 3) * 1.06, 0.475, rippleIndex % 2 === 0 ? -0.23 : 0.27);
-      ripple.renderOrder = 5;
-      bed.add(ripple);
-      ripples.push({ mesh: ripple, material: rippleMaterial, phase: rippleIndex * 0.19 });
-    }
-    bed.position.set(bedPosition.x, 0, bedPosition.z);
-    bed.rotation.y = bedIndex === 0 ? -0.08 : 0.09;
-    scene.add(bed);
-    gardenBeds.push({ earthMaterial, hydration: 0, splashEnergy: 0, plants, ripples });
-  }
-
-  const gardenGrassGeometry = new THREE.ConeGeometry(0.12, 0.62, 6);
-  const gardenGrassMaterial = standardMaterial(0x6f9770, 0.98);
-  for (let i = 0; i < 32; i += 1) {
-    const baseHeight = 0.72 + (i % 5) * 0.055;
-    const tuft = new THREE.Mesh(gardenGrassGeometry, gardenGrassMaterial);
-    tuft.scale.set(0.7 + (i % 3) * 0.09, baseHeight, 0.76);
-    tuft.position.set(-18.4 + i * 0.34, 0.31 * baseHeight, 9.02 + Math.sin(i * 1.7) * 0.14);
-    tuft.rotation.y = (i % 5) * 0.26;
-    scene.add(tuft);
-    gardenEdgeGrass.push({ mesh: tuft, baseHeight });
-    swayItems.push({ object: tuft, baseX: tuft.rotation.x, baseZ: tuft.rotation.z, phase: i * 0.57, amplitude: 0.045, speed: 0.85 });
-  }
-  const shrubMaterial = standardMaterial(0x769a78, 0.96);
-  for (const [index, [x, z, size]] of [[-18.5, 9.4, 0.6], [-16.8, 8.1, 0.74], [-10.1, 9, 0.68], [-8.8, 10.1, 0.58]].entries()) {
-    const shrub = makeSphere(size, shrubMaterial, 12, 8);
-    shrub.scale.set(1.2, 0.72, 1);
-    shrub.position.set(x, size * 0.58, z);
-    scene.add(shrub);
-    swayItems.push({ object: shrub, baseX: 0, baseZ: 0, phase: index * 1.33, amplitude: 0.022, speed: 0.58 });
-  }
-
-  /* the butterflies — Bee's improvement; they drift about the beds */
-  for (let index = 0; index < 3; index += 1) {
-    const group = new THREE.Group();
-    const wingMaterial = new THREE.MeshBasicMaterial({ color: flowerColors[(index + 1) % flowerColors.length], transparent: true, opacity: 0.76, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
-    const wingGeometry = new THREE.CircleGeometry(0.14, 12, 0, Math.PI * 1.45);
-    const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-    const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
-    leftWing.position.x = -0.08;
-    rightWing.position.x = 0.08;
-    rightWing.scale.x = -1;
-    const body = makeCapsule(0.025, 0.12, standardMaterial(0x4f453c, 0.82), 7);
-    body.rotation.x = Math.PI / 2;
-    group.add(leftWing, rightWing, body);
-    const centre = new THREE.Vector3(-15.6 + index * 2.4, 1.45 + index * 0.13, 10.8);
-    group.position.copy(centre);
-    scene.add(group);
-    butterflies.push({ group, leftWing, rightWing, centre, phase: index * 2.1, radius: 0.52 + index * 0.12 });
-  }
-
-  return {
-    markMowed(x, z, yaw) {
-      if (x < 3.15 || x > 20.85 || z < -13.05 || z > -1.95) return;
-      if (Math.abs(Math.cos(yaw)) < 0.82) return;
-      const forwardX = Math.sin(yaw), forwardZ = Math.cos(yaw);
-      const rightX = Math.cos(yaw), rightZ = -Math.sin(yaw);
-      const centreX = x + forwardX * 0.12, centreZ = z + forwardZ * 0.12;
-      for (const tile of lawnTiles) {
-        const dx = tile.x - centreX, dz = tile.z - centreZ;
-        const lateral = dx * rightX + dz * rightZ;
-        const longitudinal = dx * forwardX + dz * forwardZ;
-        if (Math.abs(lateral) <= 0.82 && Math.abs(longitudinal) <= 0.62) {
-          const edgeDistance = Math.max(Math.abs(lateral) / 0.82, Math.abs(longitudinal) / 0.62);
-          const coverage = smoothStep(THREE.MathUtils.clamp((1 - edgeDistance) * 1.8, 0, 1));
-          tile.cut = Math.max(tile.cut, 0.74 + coverage * 0.26);
-          const laneIndex = Math.round((tile.x - 4.2) / 1.7);
-          tile.stripe = laneIndex % 2 === 0 ? 1 : -1;
-        }
-      }
-    },
-    trimGardenEdge(amount) {
-      gardenTrimAmount = Math.max(gardenTrimAmount, THREE.MathUtils.clamp(amount, 0, 1));
-    },
-    waterGardenBed(index, intensity) {
-      const bed = gardenBeds[index];
-      if (!bed) return;
-      const strength = THREE.MathUtils.clamp(intensity, 0, 1);
-      bed.hydration = Math.max(bed.hydration, strength);
-      bed.splashEnergy = Math.min(1, bed.splashEnergy + 0.5);
-    },
-    update(delta, sim, lawnActive, gardenActive) {
-      lawnTiles.forEach((tile, index) => {
-        if (!lawnActive) tile.cut = Math.max(0, tile.cut - delta / 22);
-        const cut = smoothStep(tile.cut);
-        const height = THREE.MathUtils.lerp(tile.baseHeight, 0.026, cut);
-        grassTransform.scale.set(tileWidth * 0.96, height, tileDepth * 0.96);
-        grassTransform.position.set(tile.x, 0.008 + height * 0.5, tile.z);
-        grassTransform.updateMatrix();
-        grassTiles.setMatrixAt(index, grassTransform.matrix);
-        stripeColor.copy(tile.stripe >= 0 ? cutGrassLight : cutGrassDark);
-        baseGrassColor.lerpColors(uncutGrassDark, uncutGrassLight, tile.tone);
-        grassColor.lerpColors(baseGrassColor, stripeColor, cut);
-        grassTiles.setColorAt(index, grassColor);
-      });
-      grassTiles.instanceMatrix.needsUpdate = true;
-      if (grassTiles.instanceColor) grassTiles.instanceColor.needsUpdate = true;
-      if (!gardenActive) gardenTrimAmount = Math.max(0, gardenTrimAmount - delta / 30);
-      gardenEdgeGrass.forEach(({ mesh, baseHeight }, index) => {
-        const sequence = THREE.MathUtils.clamp(gardenTrimAmount * 1.18 - index / Math.max(1, gardenEdgeGrass.length - 1) * 0.18, 0, 1);
-        const heightScale = THREE.MathUtils.lerp(baseHeight, baseHeight * 0.32, smoothStep(sequence));
-        mesh.scale.y = heightScale;
-        mesh.position.y = 0.31 * heightScale;
-      });
-      gardenBeds.forEach((bed, bedIndex) => {
-        bed.hydration = Math.max(0, bed.hydration - delta / 22);
-        bed.splashEnergy = Math.max(0, bed.splashEnergy - delta / 0.82);
-        const wet = smoothStep(bed.hydration);
-        bed.earthMaterial.color.lerpColors(drySoilColor, wetSoilColor, wet);
-        bed.earthMaterial.roughness = THREE.MathUtils.lerp(0.98, 0.56, wet);
-        bed.plants.forEach(({ group, phase }) => {
-          group.rotation.z = Math.sin(sim * 0.78 + phase) * 0.022;
-          group.rotation.x = Math.cos(sim * 0.66 + phase) * 0.014;
-          group.scale.y = 1 + wet * 0.075 + Math.sin(sim * 1.1 + phase) * 0.012;
-        });
-        bed.ripples.forEach(({ mesh, material, phase }) => {
-          const ripple = (sim * 1.4 + phase + bedIndex * 0.11) % 1;
-          const rippleFade = (1 - ripple) * (1 - ripple);
-          material.opacity = bed.splashEnergy * rippleFade * 0.38;
-          mesh.scale.setScalar(0.42 + ripple * 1.8);
-          mesh.visible = material.opacity > 0.004;
-        });
-      });
-      swayItems.forEach(({ object, baseX, baseZ, phase, amplitude, speed }) => {
-        object.rotation.x = baseX + Math.sin(sim * speed + phase) * amplitude * 0.55;
-        object.rotation.z = baseZ + Math.cos(sim * speed * 0.86 + phase) * amplitude;
-      });
-      butterflies.forEach(({ group, leftWing, rightWing, centre, phase, radius }, index) => {
-        const orbit = sim * (0.42 + index * 0.055) + phase;
-        group.position.set(centre.x + Math.cos(orbit) * radius, centre.y + Math.sin(orbit * 1.7) * 0.16, centre.z + Math.sin(orbit) * radius * 0.56);
-        group.rotation.y = -orbit + Math.PI * 0.5;
-        const flap = Math.sin(sim * 8.2 + phase) * 0.72;
-        leftWing.rotation.y = 0.34 + flap;
-        rightWing.rotation.y = -0.34 - flap;
-      });
-    }
-  };
-}
-
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
-renderer.setClearColor(0x000000, 0);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.96;
-layer.appendChild(renderer.domElement);
-
-const scene = new THREE.Scene();
-const hemisphere = new THREE.HemisphereLight(0xfbf7ee, 0x6e8d87, 2.25);
-const key = new THREE.DirectionalLight(0xfff0d8, 3.6);
-key.position.set(-10, 18, 12);
-const fill = new THREE.DirectionalLight(0x9dc6d4, 1.05);
-fill.position.set(14, 8, -10);
-scene.add(hemisphere, key, fill);
-
-const grounding = addYardIslands(scene);
-const trails = new TrailPool(scene, 300);
-const groundingShim = { markMowed: grounding.markMowed, trimGardenEdge: grounding.trimGardenEdge, waterGardenBed: grounding.waterGardenBed, update() {} };
-const ensembles = createEnsembles(scene, [], groundingShim);
-const byId = {};
-for (const e of ensembles) byId[e.id] = e;
-
-/* the improved mower route enters and exits deep upstage (z −58), which on
-   the yard's page-fixed camera walks Sam straight over mid-page content. He
-   keeps the whole serpentine, but arrives and leaves along the LOW right
-   edge instead. */
-{
-  const lawnLanes = [19.5, 17.8, 16.1, 14.4, 12.7, 11, 9.3, 7.6, 5.9, 4.2];
-  const route = [[46, -15.2], [33, -14.8], [25.5, -15.4], [21.5, -16], [19.5, -12.05]];
-  lawnLanes.forEach((laneX, laneIndex) => {
-    const travellingNorth = laneIndex % 2 === 0;
-    const laneEndZ = travellingNorth ? -2.95 : -12.05;
-    route.push([laneX, laneEndZ]);
-    const nextLane = lawnLanes[laneIndex + 1];
-    if (nextLane === undefined) return;
-    const turnZ = travellingNorth ? -1.62 : -13.38;
-    route.push([laneX, turnZ], [nextLane, turnZ], [nextLane, laneEndZ]);
-  });
-  route.push([4.2, -14.25], [8.4, -15.9], [14.6, -17.35], [19.4, -17.9], [26, -18.4], [34, -17.2], [46, -16.2]);
-  const p = createRoundedPolylinePath(route, 0.64);
-  byId['lawn-care'].path = p;
-  byId['lawn-care'].pathLength = p.getLength();
-  byId['lawn-care'].duration = 33;
-}
-
-byId['manual-chair'].root.add(createContactShadow(1.7, 0.95, 0.1));
-byId['power-chair-dog'].root.add(createContactShadow(2.1, 1.05, 0.1));
-byId['dog-walk'].root.add(createContactShadow(1.55, 0.9, 0.09));
-byId['lawn-care'].root.add(createContactShadow(1.35, 1.6, 0.09));
-
-const camera = new THREE.PerspectiveCamera(27, 1.6, 0.1, 260);
-camera.position.set(0, 12.5, 58);
-camera.lookAt(0, 0.2, 0);
-function frame() {
-  const w = Math.max(1, window.innerWidth);
-  const hgt = Math.max(1, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35));
-  renderer.setSize(w, hgt, false);
-  camera.aspect = w / hgt;
-  camera.setViewOffset(w, hgt, 0, -Math.round(hgt * 0.37), w, hgt);
-  camera.updateProjectionMatrix();
-}
-window.addEventListener('resize', frame);
-frame();
-
-const _ray = new THREE.Raycaster();
-const _plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-const _pt = new THREE.Vector3();
-function edgeX(side, z) {
-  for (let sx = 1.05; sx < 3; sx += 0.15) {
-    _ray.setFromCamera({ x: side * sx, y: -0.55 }, camera);
-    if (_ray.ray.intersectPlane(_plane, _pt) && Math.abs(_pt.z - z) < 60) return _pt.x + side * 6;
-  }
-  return side * 70;
-}
-
-function crossingPath(dir) {
-  /* the near lane: in front of the lawn (far side) and clear of the beds */
-  const zBase = 2 + Math.random() * 4.5;
-  const points = [];
-  const from = edgeX(-dir, zBase), to = edgeX(dir, zBase);
-  const steps = 7;
-  for (let i = 0; i <= steps; i += 1) {
-    const t = i / steps;
-    const x = THREE.MathUtils.lerp(from, to, t);
-    const z = zBase + Math.sin(t * Math.PI * (1.6 + Math.random() * 0.4) + Math.random()) * 1.8;
-    points.push([x, z]);
-  }
-  return createPath(points);
-}
-
-const CROSSERS = ['manual-chair', 'white-cane', 'crutches', 'power-chair-dog', 'prosthetic', 'dog-walk'];
-let sim = 0;
-const slots = {};
-for (const e of ensembles) slots[e.id] = { at: Infinity, until: -1 };
-let nextCrossingAt = 8 + Math.random() * 8;
-let recentCrossers = [];
-
-function scheduleGarden(at) { slots['garden-care'] = { at, until: at + byId['garden-care'].duration }; }
-function scheduleLawn(at)   { slots['lawn-care']   = { at, until: at + byId['lawn-care'].duration }; }
-scheduleGarden(sim + 16 + Math.random() * 10);
-scheduleLawn(sim + 70 + Math.random() * 25);
-
-function launchCrossing(forcedId) {
-  const pool = CROSSERS.filter(id => !recentCrossers.includes(id) && slots[id].until < sim);
-  const id = forcedId || (pool.length ? pool[Math.floor(Math.random() * pool.length)] : CROSSERS[0]);
-  const e = byId[id];
-  const dir = Math.random() < 0.5 ? 1 : -1;
-  e.path = crossingPath(dir);
-  e.pathLength = e.path.getLength();
-  e.duration = 20 + e.pathLength / 3.4;
-  e.lastStamp = -1;
-  e.wasActive = false;
-  slots[id] = { at: sim, until: sim + e.duration };
-  recentCrossers.push(id);
-  if (recentCrossers.length > 3) recentCrossers.shift();
-  return id;
-}
-
-let rafOn = false, frameId = 0, wakeTimer = 0, wakeTarget = 0, lastLifeAt = -999, disposed = false;
-const QUIET_TAIL = 26; /* longest trail life ~18s + grass regrowth easing */
-const clock = new THREE.Clock();
-const fxOff = () =>
-  (navigator.webdriver && !window.__yardAllow) ||
-  document.documentElement.getAttribute('data-motion') === 'reduce' ||
-  document.documentElement.classList.contains('high-contrast') ||
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-  window.innerWidth < 700;
-
-function tick() {
-  if (disposed) return;
-  frameId = 0;
-  if (fxOff() || document.hidden) { rafOn = false; return; }
-  const delta = Math.min(clock.getDelta(), 0.05);
-  sim += delta;
-
-  if (sim >= nextCrossingAt) {
-    launchCrossing();
-    nextCrossingAt = sim + 34 + Math.random() * 34;
-  }
-  if (sim > slots['garden-care'].until && slots['garden-care'].until > 0 && slots['garden-care'].at <= sim)
-    scheduleGarden(sim + 150 + Math.random() * 90);
-  if (sim > slots['lawn-care'].until && slots['lawn-care'].until > 0 && slots['lawn-care'].at <= sim)
-    scheduleLawn(sim + 190 + Math.random() * 90);
-
-  let anyActive = false;
-  for (const e of ensembles) {
-    const slot = slots[e.id];
-    const localTime = sim - slot.at;
-    const active = localTime >= 0 && localTime <= e.duration;
-    e.root.visible = active;
-    if (!active) { e.wasActive = false; e.lastStamp = -1; continue; }
-    anyActive = true;
-    const progress = THREE.MathUtils.clamp(localTime / e.duration, 0, 1);
-    const pathProgress = THREE.MathUtils.clamp(e.motion ? e.motion(progress) : progress, 0, 0.999);
-    const position = e.path.getPointAt(pathProgress);
-    const tangent = e.path.getTangentAt(Math.min(0.999, pathProgress + 0.001)).normalize();
-    const yaw = Math.atan2(tangent.x, tangent.z);
-    e.targetQuaternion.setFromAxisAngle(UP, yaw);
-    e.root.position.copy(position);
-    const distance = pathProgress * e.pathLength;
-    if (!e.wasActive) {
-      e.root.quaternion.copy(e.targetQuaternion);
-      e.lastStamp = distance - e.stampEvery;
-      e.wasActive = true;
+    if(w.scene === 0 || w.scene === 1){
+      at(0, function(){ chairF(h, w.roll, A); });
+      at(-h * 0.62, function(){ personF(h, ph, A, w.scene === 0); });
+      if(w.scene === 0 && w.balloon) balloonF(w.x + dir * h * 0.1, gyf - h * 0.52, h, A, now, w.seed);
+      if(w.scene === 1) kiteF(w.x + dir * h * 0.05, gyf - h * 0.50, w.gy, h, A, now, w.seed, dir);
+    } else if(w.scene === 2){
+      at(0, function(){ caneF(h, ph, A); });
+      at(h * 0.92, function(){ dogF(h, ph, A, w.state === 'pause' ? now * 0.02 : ph * 0.8); });
+      ctx.strokeStyle = col(TEAL, A * 0.9); ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(w.x + dir * h * 0.13, gyf - h * 0.40);
+      ctx.quadraticCurveTo(w.x + dir * h * 0.55, gyf - h * 0.50, w.x + dir * h * 0.86, gyf - h * 0.335);
+      ctx.stroke();
+    } else if(w.scene === 3){
+      at(0, function(){ crutchF(h, ph, A, Math.abs(Math.sin(ph)) * 1.5); });
+      at(-h * 0.60, function(){ personF(h, ph, A, false); });
+    } else if(w.scene === 4){
+      at(0, function(){ frameF(h, ph, A); });
+      at(-h * 0.58, function(){ personF(h, ph * 0.9, A, true); });
     } else {
-      e.root.quaternion.slerp(e.targetQuaternion, 1 - Math.exp(-Math.max(delta, 0.016) * 8));
+      at(0, function(){ bladeF(h, ph, A); });
+      at(-h * 0.56, function(){ personF(h, ph + 0.6, A, false); });
     }
-    e.animate(distance, distance * 5.25, progress, yaw);
-    if (delta > 0) {
-      let nextStamp = Math.max(0, e.lastStamp + e.stampEvery);
-      let emitted = 0;
-      while (nextStamp <= distance + 0.0001 && emitted < 32) {
-        const pose = createTrailPose(e.path, nextStamp, e.pathLength);
-        e.stamp(trails, nextStamp, pose);
-        e.lastStamp = nextStamp;
-        nextStamp += e.stampEvery;
-        emitted += 1;
-      }
-      if (emitted === 32 && distance - e.lastStamp > e.stampEvery * 32) e.lastStamp = distance;
+    if(w.state === 'pause' || w.bubbleK > 0){
+      bubbleF(w.x - dir * h * 0.28, gyf - h * 1.06, h, A, w.bubbleK);
     }
   }
 
-  grounding.update(delta, sim,
-    sim >= slots['lawn-care'].at && sim <= slots['lawn-care'].until,
-    sim >= slots['garden-care'].at && sim <= slots['garden-care'].until);
-  trails.update(delta);
-  renderer.render(scene, camera);
+  function stampScene(w, gyf){
+    if(!w.stamps) return;
+    var dir = w.dir;
+    if(w.scene === 0 || w.scene === 1){
+      track(w.id + 'a', w.x, gyf + 0.6);
+      track(w.id + 'b', w.x + dir * w.h * 0.34, gyf + 0.6);
+      stepStamp(w, w.x - dir * w.h * 0.62, gyf);
+    } else if(w.scene === 2){
+      if(stepStamp(w, w.x, gyf)){
+        paw(w.x + dir * w.h * 0.86, gyf + 1); paw(w.x + dir * w.h * 0.96, gyf + 0.3);
+      }
+      if(Math.cos(w.ph) > 0.995) tap(w.x + dir * w.h * 0.30, gyf + 1);
+    } else if(w.scene === 3){
+      var sgn = Math.sin(w.ph) >= 0 ? 1 : -1;
+      if(sgn !== w.step){
+        w.step = sgn;
+        if(sgn > 0){ tap(w.x + dir * w.h * 0.185, gyf + 1); tap(w.x - dir * w.h * 0.03, gyf + 1.4); }
+        else foot(w.x + dir * 3, gyf + 1.5, 1, dir);
+      }
+      stepStamp2(w, w.x - dir * w.h * 0.60, gyf);
+    } else if(w.scene === 4){
+      track(w.id + 'a', w.x + dir * w.h * 0.245, gyf + 0.6);
+      track(w.id + 'b', w.x + dir * w.h * 0.455, gyf + 0.6);
+      stepStamp(w, w.x - dir * w.h * 0.58, gyf);
+    } else {
+      if(stepStamp(w, w.x, gyf)) tap(w.x + dir * w.h * 0.10, gyf + 1);
+      stepStamp2(w, w.x - dir * w.h * 0.56, gyf);
+    }
+  }
+  function stepStamp(w, footX, gy){
+    var sgn = Math.sin(w.ph) >= 0 ? 1 : -1;
+    if(sgn !== w.step){ w.step = sgn; foot(footX + w.dir * sgn * 4, gy + 1.5, sgn, w.dir); return true; }
+    return false;
+  }
+  function stepStamp2(w, footX, gy){
+    var sgn = Math.sin(w.ph + 1.2) >= 0 ? 1 : -1;
+    if(sgn !== w.step2){ w.step2 = sgn; foot(footX + w.dir * sgn * 4, gy + 1.5, sgn, w.dir); }
+  }
 
-  if (anyActive) lastLifeAt = sim;
-  if (sim - lastLifeAt > QUIET_TAIL) {
-    rafOn = false;
-    const nextAt = Math.min(nextCrossingAt, slots['garden-care'].at, slots['lawn-care'].at);
-    wakeTarget = nextAt;
-    clearTimeout(wakeTimer);
-    wakeTimer = setTimeout(() => { sim = Math.max(sim, wakeTarget - 0.1); wake(); }, Math.max(500, (nextAt - sim) * 1000 - 200));
+  /* ---------- walkers ---------- */
+  function mkWalker(scene, dir, gy, band){
+    var near = band === 'near';
+    var h = near ? 52 + Math.random() * 14 : band === 'mid' ? 28 + Math.random() * 8 : 15 + Math.random() * 5;
+    return {
+      id: 'w' + (++uid), scene: scene, dir: dir, gy: gy, band: band,
+      h: h, v: (near ? 34 : band === 'mid' ? 21 : 13) + Math.random() * (near ? 16 : 6),
+      alpha: near ? 0.16 : band === 'mid' ? 0.10 : 0.075,
+      x: dir > 0 ? -110 : W + 110, ph: 0, roll: 0, seed: Math.random() * 9,
+      step: 1, step2: 1, stamps: near,
+      state: 'walk', pauseT: 0, pausedOnce: Math.random() < 0.45, bubbleK: 0,
+      balloon: Math.random() < 0.6
+    };
+  }
+  function updateWalker(w, dt, now){
+    if(w.state === 'walk'){
+      w.x += w.dir * w.v * dt;
+      w.ph = w.x / (w.h * 0.165);
+      w.roll = w.dir * w.x / (w.h * 0.28);
+      if(!w.pausedOnce && w.band === 'near' && w.x > W * 0.34 && w.x < W * 0.58 && Math.random() < dt * 0.5){
+        w.state = 'pause'; w.pauseT = 1.7; w.pausedOnce = true;
+      }
+    } else {
+      w.pauseT -= dt;
+      w.ph *= Math.pow(0.02, dt);
+      w.bubbleK = Math.min(1, (1.7 - w.pauseT) / 1.7);
+      if(w.pauseT <= 0){ w.state = 'walk'; }
+    }
+    if(w.state === 'walk' && w.bubbleK > 0) w.bubbleK = Math.max(0, w.bubbleK - dt * 1.4);
+    var gyf = w.gy + Math.sin(w.x * 0.0045 + w.seed) * (w.band === 'near' ? 5 : 2);
+    if(w.state === 'walk') stampScene(w, gyf);
+    drawScene(w, gyf, now);
+    return !((w.dir > 0 && w.x > W + 300) || (w.dir < 0 && w.x < -300));
+  }
+
+  /* ---------- birds ---------- */
+  function mkBirds(){
+    var dir = Math.random() < 0.5 ? 1 : -1;
+    var n = 3 + (Math.random() * 3 | 0), offs = [];
+    for(var i = 0; i < n; i++) offs.push([i * 26 + Math.random() * 12, Math.sin(i * 1.7) * 14 + Math.random() * 8, Math.random() * 6]);
+    return { dir: dir, x: dir > 0 ? -80 : W + 80, y: 96 + Math.random() * H * 0.22, v: 26 + Math.random() * 8, offs: offs };
+  }
+  function updateBirds(dt, now){
+    if(!birds) return;
+    birds.x += birds.dir * birds.v * dt;
+    var A = 0.09 * edgeA(birds.x);
+    if(A > 0.004){
+      ctx.strokeStyle = col(INK, A); ctx.lineWidth = 1.3;
+      for(var i = 0; i < birds.offs.length; i++){
+        var o = birds.offs[i];
+        var bx = birds.x - birds.dir * o[0], by = birds.y + o[1] + Math.sin(now * 0.001 + o[2]) * 3;
+        var fl = 2.2 + Math.sin(now * 0.014 + o[2] * 2) * 2.0;
+        ctx.beginPath();
+        ctx.moveTo(bx - 4.6, by);
+        ctx.quadraticCurveTo(bx - 2.2, by - fl, bx, by);
+        ctx.quadraticCurveTo(bx + 2.2, by - fl, bx + 4.6, by);
+        ctx.stroke();
+      }
+    }
+    if((birds.dir > 0 && birds.x > W + 180) || (birds.dir < 0 && birds.x < -180)) birds = null;
+  }
+
+  /* ---------- loop ---------- */
+  function tick(now){
+    raf = 0;
+    if(off()){ walkers = []; birds = null; marks = []; tracks = {}; ctx.clearRect(0, 0, W, H); return; }
+    var dt = Math.min(0.05, (now - (lastT || now)) / 1000);
+    lastT = now;
+    prune(now);
+    ctx.clearRect(0, 0, W, H);
+    drawTracks(now);
+    drawMarks(now);
+    walkers = walkers.filter(function(w){ return updateWalker(w, dt, now); });
+    updateBirds(dt, now);
+    if(walkers.length || birds || !empty()) raf = requestAnimationFrame(tick);
+  }
+  function ensure(){ if(!raf){ lastT = 0; raf = requestAnimationFrame(tick); } }
+
+  function pick(deep){
+    var pool = deep ? [0, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5];
+    return pool[(Math.random() * pool.length) | 0];
+  }
+  function spawnNear(){
+    clearTimeout(tNear); tNear = setTimeout(spawnNear, 26000 + Math.random() * 18000);
+    if(document.hidden || off()) return;
+    if(walkers.some(function(w){ return w.band === 'near'; })) return;
+    walkers.push(mkWalker(pick(false), Math.random() < 0.5 ? 1 : -1, H - 44 - Math.random() * 62, 'near'));
+    ensure();
+  }
+  function spawnDeep(){
+    clearTimeout(tDeep); tDeep = setTimeout(spawnDeep, 36000 + Math.random() * 26000);
+    if(document.hidden || off()) return;
+    var band = Math.random() < 0.55 ? 'mid' : 'far';
+    if(walkers.some(function(w){ return w.band === band; })) return;
+    var gy = band === 'mid' ? H * (0.58 + Math.random() * 0.12) : H * (0.30 + Math.random() * 0.10);
+    walkers.push(mkWalker(pick(true), Math.random() < 0.5 ? 1 : -1, gy, band));
+    ensure();
+  }
+  function spawnBirds(){
+    clearTimeout(tBirds); tBirds = setTimeout(spawnBirds, 55000 + Math.random() * 50000);
+    if(document.hidden || off() || birds) return;
+    birds = mkBirds(); ensure();
+  }
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden){ if(raf){ cancelAnimationFrame(raf); raf = 0; } }
+    else if(walkers.length || birds || !empty()) ensure();
+  });
+
+  /* deterministic hooks for the drives */
+  window.__bgWalk = function(i, dir, gy){
+    clearTimeout(tNear); tNear = setTimeout(spawnNear, 60000);
+    var w = mkWalker((i || 0) % 6, dir || 1, gy || (H - 90), 'near');
+    w.balloon = true; w.pausedOnce = true;
+    walkers = [w]; ensure();
+  };
+  window.__bgWalkState = function(){ return { active: walkers.length > 0, marks: marks.length, raf: !!raf }; };
+  window.__bgWalkStop = function(){
+    walkers = []; birds = null;
+    clearTimeout(tNear); clearTimeout(tDeep); clearTimeout(tBirds);
+    tNear = setTimeout(spawnNear, 300000);
+  };
+
+  tNear = setTimeout(spawnNear, 4500);
+  tDeep = setTimeout(spawnDeep, 11000);
+  tBirds = setTimeout(spawnBirds, 24000);
+})();
+
+
+/* Build 26: reveal curated care fragments only when their own section arrives. */
+(() => {
+  const scenes = Array.from(document.querySelectorAll('#page-home .care-scene'));
+  if (!scenes.length) return;
+  const reduce = () => document.documentElement.getAttribute('data-motion') === 'reduce'
+    || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  if (!('IntersectionObserver' in window) || reduce()) {
+    scenes.forEach(s => s.classList.add('care-seen'));
     return;
   }
-  frameId = requestAnimationFrame(tick);
-}
-function wake() {
-  if (disposed || rafOn || fxOff() || document.hidden) return;
-  rafOn = true;
-  clock.getDelta();
-  frameId = requestAnimationFrame(tick);
-}
-document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
-new MutationObserver(() => { if (!fxOff()) wake(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-motion'] });
-window.addEventListener('resize', () => { if (!fxOff()) wake(); });
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('care-seen');
+      io.unobserve(entry.target);
+    });
+  }, { rootMargin:'0px 0px -12% 0px', threshold:.08 });
+  scenes.forEach(s => io.observe(s));
+})();
 
-layer.classList.add('is-live');
-/* born asleep: one frame proves nothing is due, then the timer owns it */
-lastLifeAt = -999;
-wake();
-
-window.__bgYard = {
-  state() {
-    return { inited: true, rafOn, sim: Math.round(sim * 10) / 10,
-      active: ensembles.filter(e => { const s = slots[e.id]; return sim - s.at >= 0 && sim - s.at <= e.duration; }).map(e => e.id) };
-  },
-  visit(id) {
-    if (id === 'garden-care') scheduleGarden(sim);
-    else if (id === 'lawn-care') scheduleLawn(sim);
-    else launchCrossing(id);
-    lastLifeAt = sim;
-    wake();
-    return true;
-  },
-  hurry(seconds) { sim += Math.max(0, Number(seconds) || 0); wake(); },
-  stop() { for (const k of Object.keys(slots)) slots[k] = { at: Infinity, until: -1 }; nextCrossingAt = sim + 3600; }
-};
-
-}
 </script>
 </body>
 </html>

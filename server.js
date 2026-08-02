@@ -12653,7 +12653,7 @@ route('GET', /^\/api\/cancel-policy$/, (req, res) => {
 });
 
 /* ---------- static files ---------- */
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.webp': 'image/webp' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 function serveStatic(req, res, pathname) {
   let file = pathname === '/' ? '/index.html' : pathname;
   file = path.normalize(file).replace(/^(\.\.[\/\\])+/, '');
