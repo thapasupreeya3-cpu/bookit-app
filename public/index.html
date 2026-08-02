@@ -925,8 +925,15 @@ html.high-contrast .thread-body{background:#f4f4f4;}
 }
 
 /* ============ Router pages ============ */
-.page{display:none;}
+.page{display:none;position:relative;overflow:hidden;}
 .page.active{display:block;}
+.page:not(#page-home)::before,.page:not(#page-home)::after{content:'';position:absolute;pointer-events:none;z-index:0;opacity:.22;filter:saturate(.92) contrast(.98);}
+.page:not(#page-home)::before{right:26px;top:22px;width:156px;height:116px;background:url('assets/care-backgrounds/hero-pergola.webp') center/contain no-repeat;transform:rotate(1.2deg);}
+.page:not(#page-home)::after{left:18px;bottom:18px;width:116px;height:110px;background:url('assets/care-backgrounds/hero-companions.webp') center/contain no-repeat;}
+.page:not(#page-home) > *{position:relative;z-index:1;}
+html.high-contrast .page:not(#page-home)::before,html.high-contrast .page:not(#page-home)::after,html[data-motion="reduce"] .page:not(#page-home)::before,html[data-motion="reduce"] .page:not(#page-home)::after{display:none;}
+@media (prefers-reduced-motion: reduce){.page:not(#page-home)::before,.page:not(#page-home)::after{display:none;}}
+@media (max-width:900px){.page:not(#page-home)::before{width:124px;height:92px;right:10px;top:16px;opacity:.16}.page:not(#page-home)::after{width:92px;height:86px;left:8px;bottom:10px;opacity:.16}}
 main:focus{outline:none;}
 
 /* utility */
@@ -1734,7 +1741,7 @@ html.care-motion-ready .care-static-fallback{
   opacity:0!important;visibility:hidden;transition:opacity .5s ease,visibility 0s .5s;
 }
 .care-static-fallback{transition:opacity .45s ease;}
-.care-motion-hero{right:18px;top:22px;width:min(34vw,470px);height:340px;z-index:2;opacity:0;}
+.care-motion-hero{right:-6px;top:12px;width:min(43vw,600px);height:430px;z-index:2;opacity:0;}
 .care-motion-garden{right:-30px;top:16px;width:510px;height:300px;z-index:1;}
 .care-motion-mower{left:-118px;bottom:-52px;width:560px;height:350px;z-index:1;}
 .care-motion-story{right:-70px;bottom:-36px;width:410px;height:270px;z-index:1;}
@@ -1748,11 +1755,11 @@ html.care-motion-ready .care-stories-trail,
 html.care-motion-ready .care-stories-garden{opacity:0!important;visibility:hidden;}
 /* The older full-page walkers would compete with the curated scenes. Keep
    them on inner pages, but quietly retire them while the homepage is open. */
-html.care-home-active #bgWalkers{opacity:0;transition:opacity .4s ease;}
+html.care-home-active #bgWalkers{opacity:.08;transition:opacity .4s ease;}
 #bgWalkers{transition:opacity .4s ease;}
 
 @media (max-width:1180px){
-  .care-motion-hero{right:-6px;top:28px;width:410px;height:308px;opacity:.84;}
+  .care-motion-hero{right:-54px;top:14px;width:540px;height:392px;opacity:.86;}
   .care-motion-garden{right:-92px;width:465px;height:280px;}
   .care-motion-mower{left:-145px;width:500px;height:325px;}
   .care-motion-story{right:-92px;width:360px;height:245px;}
@@ -1762,7 +1769,7 @@ html.care-home-active #bgWalkers{opacity:0;transition:opacity .4s ease;}
   html.care-motion-ready .care-motion-story{opacity:.48;}
 }
 @media (max-width:900px){
-  .care-motion-hero{right:-24px;top:18px;width:360px;height:270px;opacity:.64;}
+  .care-motion-hero{right:-94px;top:8px;width:470px;height:338px;opacity:.68;}
   .care-motion-garden{right:-118px;top:20px;width:430px;height:270px;opacity:.7;}
   .care-motion-mower{left:-170px;bottom:-18px;width:450px;height:300px;opacity:.62;}
   .care-motion-story{right:-115px;width:330px;height:225px;opacity:.58;}
