@@ -511,34 +511,34 @@ class MiniStage {
 
 class HeroJourneyStage extends MiniStage {
   constructor(canvas){
-    super(canvas,{cameraPosition:new THREE.Vector3(9.5,8.3,10.5),lookAt:new THREE.Vector3(.4,.4,0),frustum:9.2,lightPosition:new THREE.Vector3(-6,11,6)});
-    const pathPoints=[new THREE.Vector3(-5.8,0,3.8),new THREE.Vector3(-4.2,0,2.5),new THREE.Vector3(-2.2,0,1.4),new THREE.Vector3(.1,0,.8),new THREE.Vector3(2.1,0,-.1),new THREE.Vector3(3.8,0,-1.8),new THREE.Vector3(5.5,0,-3.4)];
-    this.path=new THREE.CatmullRomCurve3(pathPoints,false,'centripetal',.25);this.pathLength=this.path.getLength();
-    const edgeMat=new THREE.MeshStandardMaterial({color:C.pathEdge,roughness:.98,transparent:true,opacity:.52});
-    const pathMat=new THREE.MeshStandardMaterial({color:C.path,roughness:.99,transparent:true,opacity:.74});
-    this.scene.add(pathRibbon(this.path,1.25,edgeMat,80,.008),pathRibbon(this.path,1.04,pathMat,80,.014));
-    this.pergola=createPergola();this.pergola.root.position.set(3.7,0,-2.55);this.pergola.root.scale.setScalar(.82);this.scene.add(this.pergola.root);
-    this.pair=new THREE.Group();this.chair=createWheelchair();this.worker=createHuman({skin:0x8a553d,shirt:C.tealMid,trousers:0x3c5557,hair:0x2b211e,hairStyle:'curls',scale:.65});
-    this.chair.root.position.x=-.78;this.worker.root.position.x=.75;this.worker.root.position.z=.02;this.pair.add(this.chair.root,this.worker.root,contactShadow(2.25,1.25,.055));this.pair.scale.setScalar(.78);this.scene.add(this.pair);
+    super(canvas,{cameraPosition:new THREE.Vector3(9.2,8.1,10.1),lookAt:new THREE.Vector3(3.25,.45,.25),frustum:6.6,lightPosition:new THREE.Vector3(-6,11,6)});
+    const pathPoints=[new THREE.Vector3(1.1,0,2.9),new THREE.Vector3(1.75,0,2.4),new THREE.Vector3(2.45,0,1.95),new THREE.Vector3(3.08,0,1.38),new THREE.Vector3(3.6,0,.7),new THREE.Vector3(4.02,0,.02),new THREE.Vector3(4.34,0,-.52)];
+    this.path=new THREE.CatmullRomCurve3(pathPoints,false,'centripetal',.22);this.pathLength=this.path.getLength();
+    const edgeMat=new THREE.MeshStandardMaterial({color:C.pathEdge,roughness:.98,transparent:true,opacity:.5});
+    const pathMat=new THREE.MeshStandardMaterial({color:C.path,roughness:.99,transparent:true,opacity:.72});
+    this.scene.add(pathRibbon(this.path,1.02,edgeMat,72,.008),pathRibbon(this.path,.82,pathMat,72,.014));
+    this.pergola=createPergola();this.pergola.root.position.set(4.95,0,-1.55);this.pergola.root.scale.setScalar(.64);this.scene.add(this.pergola.root);
+    this.pair=new THREE.Group();this.chair=createWheelchair();this.worker=createHuman({skin:0x8a553d,shirt:C.tealMid,trousers:0x3c5557,hair:0x2b211e,hairStyle:'curls',scale:.61});
+    this.chair.root.position.x=-.68;this.worker.root.position.x=.6;this.worker.root.position.z=.02;this.pair.add(this.chair.root,this.worker.root,contactShadow(1.9,1.04,.05));this.pair.scale.setScalar(.62);this.scene.add(this.pair);
     this.lastDistance=-1;this.footSide=0;this.lastCycle=-1;
   }
   update(dt,t){
     super.update(dt,t);this.pergola.update(t);
     const duration=17.5;const cycle=Math.floor(t/duration);const local=(t%duration)/duration;
     if(cycle!==this.lastCycle){this.lastCycle=cycle;this.lastDistance=-1;}
-    const travel=smoother(invLerp(.035,.91,local));
+    const travel=smoother(invLerp(.06,.9,local));
     const p=this.path.getPointAt(travel),tan=this.path.getTangentAt(travel).normalize(),yaw=Math.atan2(tan.x,tan.z);
     this.pair.position.copy(p);this.pair.rotation.y=yaw;
-    const distance=travel*this.pathLength;const moving=local>.035&&local<.91;
-    this.chair.animate(distance,t*7.3);this.worker.animate(t*7.3,moving?1:.08);
-    const fadeIn=smooth(invLerp(0,.06,local)),fadeOut=1-smooth(invLerp(.9,1,local));this.pair.visible=fadeIn*fadeOut>.01;this.pair.scale.setScalar(.78*(.94+.06*fadeIn*fadeOut));
+    const distance=travel*this.pathLength;const moving=local>.06&&local<.9;
+    this.chair.animate(distance,t*7.1);this.worker.animate(t*7.1,moving?1:.08);
+    const fadeIn=smooth(invLerp(0,.08,local)),fadeOut=1-smooth(invLerp(.89,1,local));this.pair.visible=fadeIn*fadeOut>.01;this.pair.scale.setScalar(.62*(.95+.05*fadeIn*fadeOut));
     this.pair.traverse(o=>{if(o.material&&'opacity'in o.material&&o.material.transparent)o.material.opacity=fadeIn*fadeOut;});
-    if(moving&&distance-this.lastDistance>.34){
+    if(moving&&distance-this.lastDistance>.28){
       this.lastDistance=distance;this.footSide^=1;
       const chairCenter=p.clone();
-      this.trails.emit('wheel',offsetPoint(chairCenter,yaw,-.78-.36,-.2),yaw,.09,.56,5.6,.12);
-      this.trails.emit('wheel',offsetPoint(chairCenter,yaw,-.78+.36,-.2),yaw,.09,.56,5.6,.12);
-      this.trails.emit('foot',offsetPoint(chairCenter,yaw,.75+(this.footSide?-.16:.16),-.28),yaw,.16,.34,4.6,.13,this.footSide===1);
+      this.trails.emit('wheel',offsetPoint(chairCenter,yaw,-.68-.32,-.16),yaw,.08,.46,5.4,.11);
+      this.trails.emit('wheel',offsetPoint(chairCenter,yaw,-.68+.32,-.16),yaw,.08,.46,5.4,.11);
+      this.trails.emit('foot',offsetPoint(chairCenter,yaw,.6+(this.footSide?-.14:.14),-.22),yaw,.14,.29,4.4,.12,this.footSide===1);
     }
   }
 }
@@ -554,9 +554,16 @@ class GardenCareStage extends MiniStage {
     this.waterMaterial=new THREE.MeshBasicMaterial({color:C.blue,transparent:true,opacity:.6,depthWrite:false,toneMapped:false});this.drops=[];
     for(let i=0;i<18;i+=1){const drop=new THREE.Mesh(new THREE.SphereGeometry(.035+(i%3)*.006,7,5),this.waterMaterial);drop.visible=false;this.scene.add(drop);this.drops.push(drop);}
     this.lastStamp=-1;this.footSide=0;this.lastCycle=-1;
-    this.positions={start:new THREE.Vector3(-4.6,0,2.4),bed1:new THREE.Vector3(.25,0,1.25),bed2:new THREE.Vector3(2.65,0,1.15),exit:new THREE.Vector3(5.5,0,-2.4)};
+    this.positions={start:new THREE.Vector3(-4.6,0,2.4),bed1:new THREE.Vector3(.25,0,1.25),bed2:new THREE.Vector3(2.65,0,1.15),midExit:new THREE.Vector3(4.4,0,1.05),exit:new THREE.Vector3(5.55,0,.28)};
   }
   walkBetween(a,b,p,phase){const e=easeInOut(p);const pos=a.clone().lerp(b,e);const dir=b.clone().sub(a).normalize();const yaw=Math.atan2(dir.x,dir.z);this.gardener.root.position.copy(pos);this.gardener.root.rotation.y=yaw;this.gardener.animateWalk(phase,.9);this.emitFootprints(pos,yaw,p);return {pos,yaw};}
+  walkSequence(points,p,phase){
+    const segments=[];let total=0;
+    for(let i=0;i<points.length-1;i+=1){const len=points[i].distanceTo(points[i+1]);segments.push(len);total+=len;}
+    let acc=0;const target=clamp(p)*total;
+    for(let i=0;i<segments.length;i+=1){const next=acc+segments[i];if(target<=next||i===segments.length-1){const local=(target-acc)/Math.max(.0001,segments[i]);return this.walkBetween(points[i],points[i+1],local,phase);}acc=next;}
+    return this.walkBetween(points[0],points[1],0,phase);
+  }
   emitFootprints(pos,yaw,progress){const d=progress*6;if(d-this.lastStamp>.33){this.lastStamp=d;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,this.footSide?-.15:.15,-.3),yaw,.16,.34,4.2,.13,this.footSide===1);}}
   waterBed(index,t,phase){
     const bed=this.beds[index],target=bed.root.position.clone().add(new THREE.Vector3(0,.62,0));
@@ -572,7 +579,7 @@ class GardenCareStage extends MiniStage {
     else if(p<.43){stage='water1';this.lastStamp=-1;this.waterBed(0,t,t*5);}
     else if(p<.57){stage='walk2';this.walkBetween(this.positions.bed1,this.positions.bed2,invLerp(.43,.57,p),t*7.5);}
     else if(p<.76){stage='water2';this.lastStamp=-1;this.waterBed(1,t,t*5);}
-    else{stage='exit';this.walkBetween(this.positions.bed2,this.positions.exit,invLerp(.76,1,p),t*7.5);}
+    else{stage='exit';this.walkSequence([this.positions.bed2,this.positions.midExit,this.positions.exit],invLerp(.76,1,p),t*7.5);}
     const fade=smooth(invLerp(0,.04,p))*(1-smooth(invLerp(.95,1,p)));this.gardener.root.visible=fade>.01;
     this.tree.crown.rotation.z=Math.sin(t*.55)*.035;this.flowers.forEach(({flower,phase})=>{flower.position.y=flower.userData.baseY+Math.sin(t*1.1+phase)*.012;});
   }
@@ -630,7 +637,7 @@ class StoryGardenStage extends MiniStage {
     super(canvas,{cameraPosition:new THREE.Vector3(7.8,7.5,8.8),lookAt:new THREE.Vector3(0,.5,0),frustum:7.2,lightPosition:new THREE.Vector3(-4,9,5)});
     const patch=new THREE.Mesh(new THREE.CircleGeometry(3.4,44),new THREE.MeshStandardMaterial({color:0xf3efe8,roughness:1,transparent:true,opacity:.45}));patch.rotation.x=-Math.PI/2;patch.scale.set(1.5,.68,1);patch.position.y=.001;this.scene.add(patch);
     this.trees=[createTree(.75),createTree(.62)];this.trees[0].root.position.set(1.5,0,-.3);this.trees[1].root.position.set(-1.7,0,.45);this.scene.add(this.trees[0].root,this.trees[1].root);this.flowers=addFlowerPatch(this.scene,0,0,22);
-    const path=new THREE.CatmullRomCurve3([new THREE.Vector3(-4,0,1.8),new THREE.Vector3(-1.5,0,.8),new THREE.Vector3(.5,0,.4),new THREE.Vector3(2.4,0,-.8),new THREE.Vector3(4,0,-1.6)],false,'centripetal');this.path=path;this.pathLength=path.getLength();this.scene.add(pathRibbon(path,.78,new THREE.MeshStandardMaterial({color:C.path,roughness:1,transparent:true,opacity:.52}),56,.008));
+    const path=new THREE.CatmullRomCurve3([new THREE.Vector3(-4,0,1.95),new THREE.Vector3(-2.2,0,1.32),new THREE.Vector3(-.35,0,.98),new THREE.Vector3(1.65,0,.25),new THREE.Vector3(3.3,0,-.88),new THREE.Vector3(4,0,-1.35)],false,'centripetal');this.path=path;this.pathLength=path.getLength();this.scene.add(pathRibbon(path,.78,new THREE.MeshStandardMaterial({color:C.path,roughness:1,transparent:true,opacity:.52}),56,.008));
     this.walker=createHuman({skin:0x9f6547,shirt:C.coral,trousers:0x3f5558,hair:0x2d231f,hairStyle:'waves',scale:.58});this.dog=createDog();this.group=new THREE.Group();this.walker.root.position.x=-.35;this.dog.root.position.set(.55,0,.1);this.group.add(this.walker.root,this.dog.root);this.group.scale.setScalar(.72);this.scene.add(this.group);this.lastDistance=-1;this.footSide=0;this.lastCycle=-1;
   }
   update(dt,t){super.update(dt,t);const duration=21,cycle=Math.floor(t/duration),p=(t%duration)/duration;if(cycle!==this.lastCycle){this.lastCycle=cycle;this.lastDistance=-1;}const travel=smoother(invLerp(.12,.88,p));const pos=this.path.getPointAt(travel),tan=this.path.getTangentAt(travel),yaw=Math.atan2(tan.x,tan.z),distance=travel*this.pathLength;this.group.position.copy(pos);this.group.rotation.y=yaw;this.walker.animate(t*7.2,.85);this.dog.animate(t*8.2);const fade=smooth(invLerp(.08,.16,p))*(1-smooth(invLerp(.86,.94,p)));this.group.visible=fade>.01;if(distance-this.lastDistance>.31&&p>.12&&p<.88){this.lastDistance=distance;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,-.35+(this.footSide?-.12:.12),-.18),yaw,.14,.3,4.1,.1,this.footSide===1);this.trails.emit('paw',offsetPoint(pos,yaw,.56,-.2),yaw,.16,.18,3.8,.09);}

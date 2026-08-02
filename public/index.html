@@ -1225,16 +1225,53 @@ html.high-contrast .value-strip{background:#000;}
   #homeServices .service-card:nth-child(1) p{font-size:1rem;max-width:34em;}
   #homeServices .service-card:nth-child(1)::after{font-size:7.5rem;}
   #homeServices .service-card:nth-child(6){
-    grid-column:1/-1;display:grid;grid-template-columns:auto 1fr auto;
+    grid-column:1/-1;display:grid;grid-template-columns:auto 1fr 150px;
     align-items:center;column-gap:24px;row-gap:6px;padding:28px 34px;
   }
-  #homeServices .service-card:nth-child(6) .service-icon{grid-row:1/4;}
-  #homeServices .service-card:nth-child(6) h3,#homeServices .service-card:nth-child(6) p,#homeServices .service-card:nth-child(6) .code{grid-column:2;}
-  #homeServices .service-card:nth-child(6) .code{justify-self:start;}
-  #homeServices .service-card:nth-child(6) p{flex:none;}
-  #homeServices .service-card:nth-child(6) .go{grid-column:3;grid-row:1/4;}
+  #homeServices .service-card:nth-child(6) .service-icon{grid-row:1;}
+  #homeServices .service-card:nth-child(6) .service-copy{grid-column:2;display:flex;flex-direction:column;gap:10px;}
+  #homeServices .service-card:nth-child(6) .service-copy p{flex:none;}
+  #homeServices .service-card:nth-child(6) .service-scene{grid-column:3;position:relative;right:auto;bottom:auto;justify-self:end;align-self:center;width:145px;height:82px;}
 }
 html.high-contrast #homeServices .service-card::after{display:none;}
+
+#homeServices .service-card{min-height:252px;}
+#homeServices .service-card .service-copy{position:relative;z-index:2;display:flex;flex-direction:column;gap:12px;flex:1;}
+#homeServices .service-card .service-scene{position:absolute;right:12px;bottom:10px;width:124px;height:74px;pointer-events:none;opacity:.92;z-index:1;}
+#homeServices .service-card .service-scene svg{width:100%;height:100%;display:block;overflow:visible;}
+#homeServices .service-card .service-scene .stroke{fill:none;stroke:rgba(23,49,58,.18);stroke-width:2.1;stroke-linecap:round;stroke-dasharray:3 9;}
+#homeServices .service-card .service-scene .ground{fill:rgba(14,107,98,.08);}
+#homeServices .service-card .service-scene .soft{fill:#F5F0E8;}
+#homeServices .service-card .service-scene .teal{fill:#0E6B62;}
+#homeServices .service-card .service-scene .teal-dark{fill:#17313A;}
+#homeServices .service-card .service-scene .amber{fill:#D6A247;}
+#homeServices .service-card .service-scene .coral{fill:#D47E6C;}
+#homeServices .service-card .service-scene .green{fill:#7FA36F;}
+#homeServices .service-card .service-scene .ink-line{stroke:#17313A;stroke-width:2;stroke-linecap:round;fill:none;}
+#homeServices .service-card .service-scene .dot{fill:rgba(23,49,58,.17);}
+#homeServices .service-card .service-scene .pulse{transform-origin:center;animation:svcPulse 2.4s ease-in-out infinite;}
+#homeServices .service-card .service-scene .float{animation:svcFloat 3.4s ease-in-out infinite;}
+#homeServices .service-card .service-scene .float2{animation:svcFloat 3.8s ease-in-out infinite reverse;}
+#homeServices .service-card .service-scene .slide-x{animation:svcSlideX 4.2s ease-in-out infinite;}
+#homeServices .service-card .service-scene .slide-x-slow{animation:svcSlideX 5.4s ease-in-out infinite;}
+#homeServices .service-card .service-scene .sweep{transform-origin:36px 50px;animation:svcSweep 3.2s ease-in-out infinite;}
+#homeServices .service-card .service-scene .steam{animation:svcSteam 2.8s ease-in-out infinite;}
+#homeServices .service-card .service-scene .dash-run{animation:svcDash 3.8s linear infinite;}
+#homeServices .service-card .service-scene .blink{animation:svcBlink 2.6s ease-in-out infinite;}
+#homeServices .service-card .service-scene .tracks{animation:svcFadeTrail 4s ease-in-out infinite;}
+@keyframes svcFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes svcPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes svcSlideX{0%{transform:translateX(0)}50%{transform:translateX(16px)}100%{transform:translateX(0)}}
+@keyframes svcSweep{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(18deg)}}
+@keyframes svcSteam{0%{transform:translateY(0);opacity:.18}50%{transform:translateY(-8px);opacity:.5}100%{transform:translateY(-14px);opacity:0}}
+@keyframes svcDash{to{stroke-dashoffset:-48}}
+@keyframes svcBlink{0%,100%{opacity:.2}50%{opacity:.7}}
+@keyframes svcFadeTrail{0%,100%{opacity:.1}50%{opacity:.35}}
+@media (max-width:960px){#homeServices .service-card .service-scene{width:112px;height:66px;}}
+@media (max-width:620px){#homeServices .service-card .service-scene{width:105px;height:62px;right:10px;bottom:8px;}}
+html.high-contrast #homeServices .service-card .service-scene,
+html[data-motion="reduce"] #homeServices .service-card .service-scene{display:none;}
+@media (prefers-reduced-motion:reduce){#homeServices .service-card .service-scene{display:none;}}
 
 /* ---------- steps ---------- */
 .steps{position:relative;}
@@ -1697,7 +1734,7 @@ html.care-motion-ready .care-static-fallback{
   opacity:0!important;visibility:hidden;transition:opacity .5s ease,visibility 0s .5s;
 }
 .care-static-fallback{transition:opacity .45s ease;}
-.care-motion-hero{right:-34px;top:-14px;width:min(55vw,760px);height:500px;z-index:2;opacity:0;}
+.care-motion-hero{right:18px;top:22px;width:min(34vw,470px);height:340px;z-index:2;opacity:0;}
 .care-motion-garden{right:-30px;top:16px;width:510px;height:300px;z-index:1;}
 .care-motion-mower{left:-118px;bottom:-52px;width:560px;height:350px;z-index:1;}
 .care-motion-story{right:-70px;bottom:-36px;width:410px;height:270px;z-index:1;}
@@ -1715,21 +1752,21 @@ html.care-home-active #bgWalkers{opacity:0;transition:opacity .4s ease;}
 #bgWalkers{transition:opacity .4s ease;}
 
 @media (max-width:1180px){
-  .care-motion-hero{right:-95px;width:690px;height:475px;opacity:.86;}
+  .care-motion-hero{right:-6px;top:28px;width:410px;height:308px;opacity:.84;}
   .care-motion-garden{right:-92px;width:465px;height:280px;}
   .care-motion-mower{left:-145px;width:500px;height:325px;}
   .care-motion-story{right:-92px;width:360px;height:245px;}
-  html.care-motion-ready .care-motion-hero{opacity:.82;}
+  html.care-motion-ready .care-motion-hero{opacity:.8;}
   html.care-motion-ready .care-motion-garden{opacity:.66;}
   html.care-motion-ready .care-motion-mower{opacity:.56;}
   html.care-motion-ready .care-motion-story{opacity:.48;}
 }
 @media (max-width:900px){
-  .care-motion-hero{right:-125px;top:-6px;width:620px;height:430px;opacity:.68;}
+  .care-motion-hero{right:-24px;top:18px;width:360px;height:270px;opacity:.64;}
   .care-motion-garden{right:-118px;top:20px;width:430px;height:270px;opacity:.7;}
   .care-motion-mower{left:-170px;bottom:-18px;width:450px;height:300px;opacity:.62;}
   .care-motion-story{right:-115px;width:330px;height:225px;opacity:.58;}
-  html.care-motion-ready .care-motion-hero{opacity:.68;}
+  html.care-motion-ready .care-motion-hero{opacity:.64;}
   html.care-motion-ready .care-motion-garden{opacity:.56;}
   html.care-motion-ready .care-motion-mower{opacity:.46;}
   html.care-motion-ready .care-motion-story{opacity:.42;}
@@ -5163,17 +5200,31 @@ $('#resetForm').addEventListener('submit', async e => {
 });
 
 /* ============ Render: services ============ */
-function serviceCard(s){
+function serviceSceneMarkup(slug){
+  const scenes = {
+    'employment': `<span class="service-scene" aria-hidden="true"><svg viewBox="0 0 124 74"><path class="stroke dash-run" d="M10 58 C28 58 42 52 56 44 C72 35 83 28 97 26"/><rect class="soft" x="76" y="16" width="26" height="17" rx="3"/><rect class="teal" x="80" y="19" width="18" height="10" rx="2"/><rect class="amber" x="45" y="42" width="12" height="10" rx="2"/><circle class="coral slide-x" cx="23" cy="55" r="6"/><rect class="teal-dark slide-x" x="18" y="44" width="9" height="11" rx="4"/><circle class="dot tracks" cx="62" cy="39" r="2.6"/><circle class="dot tracks" cx="69" cy="35" r="2.2"/><circle class="dot tracks" cx="76" cy="32" r="1.8"/></svg></span>`,
+    'personal-care': `<span class="service-scene" aria-hidden="true"><svg viewBox="0 0 124 74"><rect class="soft" x="14" y="20" width="96" height="42" rx="14" opacity=".55"/><path class="ink-line" d="M30 22 h18"/><path class="ink-line" d="M48 22 q8 0 8 8"/><circle class="coral pulse" cx="82" cy="33" r="8"/><path class="soft pulse" d="M82 38c-6-4-9-7-9-11a5 5 0 019-3 5 5 0 019 3c0 4-3 7-9 11z"/><path class="teal" d="M42 30 c0 0 0 0 0 0"/><ellipse class="teal float" cx="44" cy="36" rx="2.2" ry="4.4"/><ellipse class="teal float2" cx="52" cy="39" rx="2.2" ry="4.4"/><ellipse class="teal float" cx="60" cy="36" rx="2.2" ry="4.4"/><circle class="amber" cx="84" cy="53" r="5.2"/><rect class="teal-dark" x="79" y="43" width="10" height="10" rx="4"/></svg></span>`,
+    'transport': `<span class="service-scene" aria-hidden="true"><svg viewBox="0 0 124 74"><path class="stroke dash-run" d="M12 58 C34 58 46 48 58 39 C70 30 82 24 110 20"/><circle class="dot tracks" cx="25" cy="56" r="3"/><circle class="dot tracks" cx="31" cy="54" r="2.3"/><g class="slide-x-slow"><circle class="amber" cx="34" cy="48" r="9"/><rect class="teal-dark" x="31" y="35" width="7" height="11" rx="3"/><circle class="teal" cx="26" cy="54" r="8"/><circle class="teal" cx="42" cy="54" r="8"/><rect class="teal-dark" x="49" y="40" width="8" height="13" rx="4"/></g></svg></span>`,
+    'daily-tasks': `<span class="service-scene" aria-hidden="true"><svg viewBox="0 0 124 74"><rect class="soft" x="12" y="24" width="40" height="30" rx="4"/><path class="teal" d="M16 37 h14"/><path class="teal" d="M16 44 h18"/><path class="teal" d="M16 51 h12"/><path class="coral blink" d="M36 38 l4 4 8-10" fill="none" stroke="#D47E6C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path class="stroke dash-run" d="M57 56 C70 56 82 49 95 36"/><rect class="amber" x="82" y="26" width="24" height="18" rx="2"/><path class="teal-dark" d="M79 29 l15-10 15 10" fill="none" stroke="#17313A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle class="green float" cx="93" cy="54" r="7"/></svg></span>`,
+    'household': `<span class="service-scene" aria-hidden="true"><svg viewBox="0 0 124 74"><path class="ground" d="M10 56 h102 v8 H10z"/><path class="teal-dark sweep" d="M37 28 l10 18" fill="none" stroke="#17313A" stroke-width="3" stroke-linecap="round"/><path class="amber sweep" d="M47 46 h24" fill="none" stroke="#D6A247" stroke-width="4.2" stroke-linecap="round"/><circle class="soft steam" cx="82" cy="31" r="4"/><circle class="soft steam" cx="92" cy="26" r="3.5"/><circle class="soft steam" cx="100" cy="33" r="3.8"/><rect class="coral" x="86" y="43" width="16" height="10" rx="3"/><path class="stroke dash-run" d="M54 53 C68 51 82 48 100 48"/></svg></span>`,
+    'community': `<span class="service-scene" aria-hidden="true"><svg viewBox="0 0 124 74"><path class="stroke dash-run" d="M10 58 C34 58 44 49 56 43 C71 35 84 31 110 27"/><circle class="green float" cx="95" cy="22" r="7"/><circle class="green float2" cx="104" cy="29" r="5"/><circle class="coral slide-x" cx="28" cy="53" r="6"/><rect class="teal-dark slide-x" x="24" y="42" width="8" height="11" rx="4"/><circle class="amber slide-x" cx="48" cy="55" r="5.5"/><path class="ink-line slide-x" d="M52 56 q8 4 14 -4"/><circle class="dot tracks" cx="61" cy="42" r="2.8"/><circle class="dot tracks" cx="68" cy="39" r="2.2"/><circle class="dot tracks" cx="75" cy="36" r="1.8"/></svg></span>`
+  };
+  return scenes[slug] || '';
+}
+function serviceCard(s,home=false){
   return `<a href="#/services/${s.slug}" class="service-card">
     <span class="service-icon ${s.color}">${ICONS[s.icon]}</span>
-    <h3>${s.name}</h3>
-    <p>${s.short}</p>
-    <span class="code">${s.code}</span>
-    <span class="go">Learn more →</span>
+    <div class="service-copy">
+      <h3>${s.name}</h3>
+      <p>${s.short}</p>
+      <span class="code">${s.code}</span>
+      <span class="go">Learn more →</span>
+    </div>
+    ${home ? serviceSceneMarkup(s.slug) : ''}
   </a>`;
 }
-$('#homeServices').innerHTML = SERVICES.map(serviceCard).join('');
-$('#allServices').innerHTML = SERVICES.map(serviceCard).join('');
+$('#homeServices').innerHTML = SERVICES.map(s => serviceCard(s,true)).join('');
+$('#allServices').innerHTML = SERVICES.map(s => serviceCard(s,false)).join('');
 
 /* ============ Render: rates tables ============ */
 function renderRateTables(){
