@@ -1515,15 +1515,119 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
    above the paper, below every menu/header/modal (z50 < 60+) — at
    watermark alpha, untouchable, and OFF for reduced motion, high contrast
    and print. */
-#bgWalkers{position:fixed;inset:0;width:100%;height:100%;z-index:50;pointer-events:none;}
-html[data-motion="reduce"] #bgWalkers,
-html.high-contrast #bgWalkers{display:none;}
-@media (prefers-reduced-motion: reduce){#bgWalkers{display:none;}}
-@media print{#bgWalkers{display:none;}}
+/* (the walkers engine was replaced by the 3D care scene in Build 28) */
+
+/* ═══ Build 28: the shared-paths 3D care scene (homepage) ═══ */
+#careScene { position: relative; height: min(88svh, 820px); min-height: 540px; overflow: hidden;
+  --cs-ivory:#f6f3ee; --cs-ink:#233747; --cs-ink-soft:#536671; --cs-teal:#2d847d; --cs-teal-dark:#1e655f;
+  --cs-coral:#d47e6c; --cs-panel:rgba(255,253,248,.78); --cs-panel-strong:rgba(255,253,248,.94);
+  --cs-ease:cubic-bezier(.22,1,.36,1); }
+#careScene button:focus-visible { outline: 3px solid rgba(45,132,125,.46); outline-offset: 3px; }
+#careScene .animation-shell { position: relative; width: 100%; height: 100%; isolation: isolate; overflow: hidden;
+  background: radial-gradient(circle at 16% 14%, rgba(214,162,71,.13), transparent 25%),
+    radial-gradient(circle at 84% 18%, rgba(111,145,194,.13), transparent 28%),
+    radial-gradient(circle at 72% 82%, rgba(127,167,141,.12), transparent 25%),
+    linear-gradient(152deg,#faf7f2 0%,#f4efe7 56%,#efe8de 100%); }
+#careScene .animation-shell::before { position: absolute; z-index: 2; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(246,243,238,.42) 0%, transparent 25%, transparent 78%, rgba(246,243,238,.24) 100%),
+    linear-gradient(180deg, rgba(246,243,238,.26) 0%, transparent 22%, transparent 78%, rgba(246,243,238,.22) 100%); content: ""; }
+#careScene .scene-host, #careScene .scene-poster { position: absolute; z-index: 1; inset: 0; }
+#careScene .scene-host { opacity: 0; transition: opacity 900ms var(--cs-ease); }
+#careScene .scene-host.is-ready { opacity: 1; }
+#careScene .scene-host canvas { display: block; width: 100%; height: 100%; touch-action: manipulation; }
+#careScene .scene-poster { display: grid; place-items: center; overflow: hidden;
+  background: linear-gradient(150deg,#f8f4ed,#efe8dd);
+  transition: opacity 650ms var(--cs-ease), visibility 650ms; }
+#careScene .scene-poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+#careScene .scene-poster::after { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(246,243,238,.30) 0%, transparent 30%, transparent 68%, rgba(246,243,238,.42) 100%); }
+#careScene .scene-host.is-ready + .scene-poster { visibility: hidden; opacity: 0; }
+#careScene .scene-poster > p { position: absolute; z-index: 3; bottom: 44px; left: 50%; margin: 0; transform: translateX(-50%);
+  color: var(--cs-ink-soft); font-size: 12px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase;
+  background: rgba(255,253,248,.85); padding: 8px 16px; border-radius: 999px; white-space: nowrap; }
+#careScene .scene-poster > p:empty { display: none; }
+#careScene .cs-tap { position: absolute; z-index: 4; left: 50%; top: 50%; transform: translate(-50%,-50%); }
+#careScene .scene-heading { position: absolute; z-index: 8; top: clamp(24px,4.2vw,66px); left: clamp(24px,4.5vw,72px); max-width: 340px; pointer-events: none; }
+#careScene .scene-kicker { display: inline-flex; align-items: center; gap: 9px; color: var(--cs-teal-dark); font-size: 10px; font-weight: 780; letter-spacing: .15em; text-transform: uppercase; }
+#careScene .scene-kicker::before { width: 8px; height: 8px; border: 2px solid var(--cs-coral); border-radius: 50%; content: ""; }
+#careScene .scene-heading h2 { margin: 11px 0 5px; font-family: "Fraunces", Georgia, serif; font-size: clamp(34px,3.6vw,54px); font-weight: 460; line-height: .95; letter-spacing: -.04em; color: var(--cs-ink); }
+#careScene .scene-heading p { margin: 0; color: var(--cs-ink-soft); font-size: 13px; font-weight: 540; letter-spacing: -.01em; }
+#careScene .camera-controls, #careScene .pause-control, #careScene .cs-tap, #careScene .persona-buttons button, #careScene .persona-card { border: 1px solid rgba(255,255,255,.72); background: var(--cs-panel);
+  box-shadow: 0 1px 0 rgba(255,255,255,.8) inset, 0 18px 46px rgba(47,62,69,.10); backdrop-filter: blur(18px) saturate(1.1); -webkit-backdrop-filter: blur(18px) saturate(1.1); }
+#careScene .camera-controls { position: absolute; z-index: 12; top: clamp(24px,4vw,62px); right: clamp(24px,4.5vw,72px); display: flex; gap: 3px; padding: 5px; border-radius: 999px; }
+#careScene .camera-controls button { min-height: 40px; padding: 0 15px; border: 0; border-radius: 999px; background: transparent; color: var(--cs-ink-soft); cursor: pointer; font: inherit; font-size: 11px; font-weight: 680; transition: color 180ms ease, background 180ms ease, transform 180ms var(--cs-ease); }
+#careScene .camera-controls button:hover { color: var(--cs-ink); transform: translateY(-1px); }
+#careScene .camera-controls button.is-active { background: var(--cs-ink); color: #fffdf8; }
+#careScene .scene-guide { position: absolute; z-index: 11; bottom: clamp(58px,7vw,102px); left: clamp(24px,4.5vw,72px); max-width: min(1120px, calc(100% - 230px)); }
+#careScene .scene-guide > p { display: inline-block; margin: 0 0 12px 9px; color: var(--cs-ink-soft); font-size: 10px; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+#careScene .guide-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--cs-coral); box-shadow: 0 0 0 6px rgba(212,126,108,.11); }
+#careScene .persona-buttons { display: flex; flex-wrap: wrap; gap: 7px; }
+#careScene .persona-buttons button { display: inline-flex; min-height: 41px; align-items: center; gap: 8px; padding: 5px 12px 5px 6px; border-radius: 999px; cursor: pointer; font: inherit; color: inherit; transition: border-color 180ms ease, background 180ms ease, transform 180ms var(--cs-ease); }
+#careScene .persona-buttons button:hover, #careScene .persona-buttons button[aria-pressed="true"] { transform: translateY(-2px); border-color: color-mix(in srgb, var(--persona-accent) 55%, white); background: var(--cs-panel-strong); }
+#careScene .persona-buttons span { display: grid; width: 29px; height: 29px; place-items: center; flex: 0 0 29px; border-radius: 50%; background: var(--persona-accent); color: #fff; font-family: "Fraunces", Georgia, serif; font-size: 15px; font-weight: 560; }
+#careScene .persona-buttons b { white-space: nowrap; font-size: 11px; font-weight: 680; }
+#careScene .pause-control { position: absolute; z-index: 14; right: clamp(24px,4.5vw,72px); bottom: clamp(58px,7vw,102px); display: inline-flex; min-height: 48px; align-items: center; gap: 10px; padding: 0 17px; border-radius: 999px; color: var(--cs-ink); cursor: pointer; font: inherit; font-size: 11px; font-weight: 720; transition: transform 180ms var(--cs-ease), background 180ms ease; }
+#careScene .cs-tap { display: inline-flex; min-height: 48px; align-items: center; gap: 10px; padding: 0 18px; border-radius: 999px; color: var(--cs-ink); cursor: pointer; font: inherit; font-size: 12px; font-weight: 720; }
+#careScene .pause-control:hover, #careScene .cs-tap:hover { transform: translateY(-2px); background: var(--cs-panel-strong); }
+#careScene .cs-tap:hover { transform: translate(-50%,-50%) translateY(-2px); }
+#careScene .pause-icon { display: inline-block; width: 11px; height: 12px; border: solid var(--cs-teal); border-width: 0 3px; }
+#careScene .play-icon { width: 0; height: 0; margin-left: 2px; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 9px solid var(--cs-teal); }
+#careScene .motion-note { position: absolute; z-index: 13; right: clamp(24px,4.5vw,72px); bottom: clamp(112px, calc(7vw + 54px), 156px); max-width: 255px; margin: 0; color: var(--cs-ink-soft); font-size: 10px; line-height: 1.45; text-align: right; }
+#careScene .persona-card { position: absolute; z-index: 15; right: clamp(24px,4.5vw,72px); bottom: clamp(124px,13vw,196px); width: min(330px, calc(100% - 48px)); padding: 24px 26px 25px; border-radius: 24px; border-top: 3px solid var(--card-accent, var(--cs-teal)); visibility: hidden; opacity: 0; transform: translateY(14px) scale(.97); transform-origin: bottom right; transition: opacity 220ms ease, transform 320ms var(--cs-ease), visibility 320ms; }
+#careScene .persona-card.is-open { visibility: visible; opacity: 1; transform: translateY(0) scale(1); }
+#careScene .persona-card > span { display: block; padding-right: 24px; color: var(--card-accent, var(--cs-teal)); font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+#careScene .persona-card h3 { margin: 7px 0 7px; font-family: "Fraunces", Georgia, serif; font-size: 29px; font-weight: 480; line-height: 1; letter-spacing: -.035em; color: var(--cs-ink); }
+#careScene .persona-card p { margin: 0; color: var(--cs-ink-soft); font-size: 12px; line-height: 1.55; }
+#careScene .card-close { position: absolute; top: 12px; right: 12px; display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 50%; background: rgba(35,55,71,.06); color: var(--cs-ink-soft); cursor: pointer; font: inherit; font-size: 21px; font-weight: 300; line-height: 1; }
+#careScene .track-key { position: absolute; z-index: 7; right: 50%; bottom: 20px; display: flex; align-items: center; gap: 22px; transform: translateX(50%); color: rgba(35,55,71,.58); font-size: 9px; font-weight: 680; letter-spacing: .08em; text-transform: uppercase; }
+#careScene .track-key span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+#careScene .track-key span::before { width: 13px; height: 7px; border-radius: 50%; background: currentColor; content: ""; opacity: .66; }
+#careScene .track-key .key-foot { color: #4e918b; }
+#careScene .track-key .key-wheel { color: #65778a; }
+#careScene .track-key .key-wheel::before { height: 2px; border-radius: 0; }
+#careScene .track-key .key-paw { color: #b98568; }
+#careScene .track-key .key-paw::before { width: 8px; height: 8px; box-shadow: 5px -4px 0 -2px currentColor; }
+#careScene .track-key .key-crutch { color: #82739a; }
+#careScene .track-key .key-crutch::before { width: 8px; height: 8px; border: 2px solid currentColor; background: transparent; }
+@media (max-width: 920px) {
+#careScene .scene-heading { top: 22px; left: 24px; }
+#careScene .scene-heading p { display: none; }
+#careScene .camera-controls { top: 22px; right: 22px; }
+#careScene .camera-controls button { padding: 0 11px; }
+#careScene .scene-guide { right: 22px; bottom: 74px; left: 22px; max-width: calc(100% - 44px); }
+#careScene .persona-buttons { flex-wrap: nowrap; max-width: calc(100vw - 150px); padding: 2px 1px 8px; overflow-x: auto; scrollbar-width: none; }
+#careScene .persona-buttons::-webkit-scrollbar { display: none; }
+#careScene .pause-control { right: 22px; bottom: 80px; min-width: 48px; justify-content: center; padding: 0 15px; font-size: 0; }
+#careScene .pause-icon, #careScene .play-icon { flex: 0 0 auto; }
+#careScene .motion-note { display: none; }
+#careScene .persona-card { right: 22px; bottom: 142px; }
+#careScene .track-key { display: none; }
+}
+@media (max-width: 680px) {
+#careScene { height: min(76svh, 640px); min-height: 470px; }
+#careScene .animation-shell::before { background: linear-gradient(180deg, rgba(246,243,238,.46) 0%, transparent 22%, transparent 72%, rgba(246,243,238,.44) 100%); }
+#careScene .scene-heading { top: 18px; right: 18px; left: 18px; }
+#careScene .scene-kicker { font-size: 8px; }
+#careScene .scene-heading h2 { margin-top: 7px; font-size: 30px; }
+#careScene .camera-controls { top: auto; right: auto; bottom: 18px; left: 18px; width: calc(100% - 36px); justify-content: space-between; padding: 4px; }
+#careScene .camera-controls button { min-height: 39px; flex: 1 1 0; padding: 0 7px; font-size: 9px; }
+#careScene .scene-guide { right: 18px; bottom: 78px; left: 18px; max-width: none; }
+#careScene .scene-guide > p, #careScene .guide-dot { display: none; }
+#careScene .persona-buttons { max-width: calc(100vw - 100px); gap: 6px; padding-bottom: 2px; }
+#careScene .persona-buttons button { min-height: 42px; padding: 5px 10px 5px 5px; }
+#careScene .persona-buttons span { width: 30px; height: 30px; flex-basis: 30px; }
+#careScene .persona-buttons b { font-size: 10px; }
+#careScene .pause-control { right: 18px; bottom: 80px; width: 44px; min-width: 44px; min-height: 44px; padding: 0; }
+#careScene .persona-card { right: 18px; bottom: 134px; width: calc(100vw - 36px); padding: 20px 22px 21px; border-radius: 20px; }
+#careScene .persona-card h3 { font-size: 25px; }
+#careScene .scene-poster > p { bottom: 70px; font-size: 9px; }
+}
+html.high-contrast #careScene .scene-host { display: none; }
+@media print { #careScene { display: none; } }
+
 </style>
 </head>
 <body>
-<canvas id="bgWalkers" aria-hidden="true"></canvas>
 <a class="skip-link" href="#main">Skip to main content</a>
 
 <!-- ============ HEADER ============ -->
@@ -1692,6 +1796,34 @@ html.high-contrast #bgWalkers{display:none;}
 
   <!-- support marquee -->
   <div class="oo-marquee" aria-hidden="true"><div class="mq-track"><span>Employment support <i>0102</i></span><span class="mq-oo"></span><span>Personal care <i>0107</i></span><span class="mq-oo"></span><span>Travel &amp; transport <i>0108</i></span><span class="mq-oo"></span><span>Daily tasks &amp; shared living <i>0115</i></span><span class="mq-oo"></span><span>Household tasks <i>0120</i></span><span class="mq-oo"></span><span>Community participation <i>0125</i></span><span class="mq-oo"></span><span>Employment support <i>0102</i></span><span class="mq-oo"></span><span>Personal care <i>0107</i></span><span class="mq-oo"></span><span>Travel &amp; transport <i>0108</i></span><span class="mq-oo"></span><span>Daily tasks &amp; shared living <i>0115</i></span><span class="mq-oo"></span><span>Household tasks <i>0120</i></span><span class="mq-oo"></span><span>Community participation <i>0125</i></span><span class="mq-oo"></span></div></div>
+
+
+  <!-- Build 28: the shared-paths 3D care scene -->
+  <section id="careScene" aria-labelledby="csHead">
+    <div class="animation-shell" aria-label="Wide isometric 3D garden scene of disabled people and support workers moving together along curved paths">
+      <div id="csHost" class="scene-host" role="img" aria-label="An isometric community garden scene with wheelchair users, a person using crutches, a white-cane user, a person with a prosthetic leg, support workers, a gardener, a lawn mower and dog walkers. Their footprints, wheel tracks and paw prints fade behind them."></div>
+      <div class="scene-poster" id="csPoster">
+        <img src="/images/care-poster.webp" alt="" loading="lazy">
+        <p id="csPosterMsg"></p>
+        <button id="csTapPlay" class="cs-tap" type="button" hidden><span class="play-icon" aria-hidden="true"></span>Play the 3D scene</button>
+      </div>
+      <div class="scene-heading">
+        <span class="scene-kicker">Shared paths</span>
+        <h2 id="csHead">Every journey, side by side</h2>
+        <p>Meet the people in the scene — support that moves at your pace.</p>
+      </div>
+      <div class="camera-controls" role="group" aria-label="Camera view" id="csViews" hidden></div>
+      <div class="scene-guide" id="csGuide" hidden>
+        <span class="guide-dot" aria-hidden="true"></span>
+        <p>Choose a journey or garden moment</p>
+        <div class="persona-buttons" id="csPersonas" aria-label="People in the scene"></div>
+      </div>
+      <button class="pause-control" id="csPause" type="button" aria-pressed="false" hidden><span class="pause-icon" aria-hidden="true"></span><span id="csPauseLabel">Pause animation</span></button>
+      <p class="motion-note" id="csMotionNote" hidden>Motion is paused to match your device setting. Press play to preview it.</p>
+      <aside class="persona-card" id="csCard" aria-live="polite" aria-hidden="true"></aside>
+      <div class="track-key" aria-hidden="true"><span class="key-foot">footprints</span><span class="key-wheel">wheel tracks</span><span class="key-paw">paw prints</span><span class="key-crutch">crutch &amp; cane marks</span></div>
+    </div>
+  </section>
 
   <!-- value strip -->
   <div class="value-strip" role="region" aria-label="Why choose BookIt">
@@ -4517,6 +4649,11 @@ const money = n => '$' + n.toFixed(2);
    script-init — the public rate tables and the pay ladder both do — hits the temporal
    dead zone and throws, which kills the whole inline script and blanks every page. */
 const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* the calendar date HERE, in the user's timezone — toISOString() is UTC and
+   answers yesterday for the first ten-odd hours of every Australian day */
+function ymd(d = new Date()){
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 const SVC_NAME = Object.fromEntries(SERVICES.map(s => [s.slug, s.name]));
 /* The eight supports in NDIS Practice Standards Supplementary Module 1 (high intensity daily
    personal activities, registration group 0104). DMHC holds 0107, not 0104, so BookIt screens
@@ -6867,8 +7004,8 @@ function openBookingModal(w){
   if(window.syncBkRateLine) syncBkRateLine();
   const today = new Date();
   const tomorrow = new Date(Date.now() + 864e5);
-  $('#bkDate').min = today.toISOString().slice(0, 10);
-  $('#bkDate').value = tomorrow.toISOString().slice(0, 10);
+  $('#bkDate').min = ymd(today);
+  $('#bkDate').value = ymd(tomorrow);
   syncSleepoverOption();
   openModal('#bookingModal');
 }
@@ -7197,8 +7334,12 @@ async function renderBookingsPage(){
   let d;
   try { d = await API.call('/bookings'); } catch(e){ return; }
   API.apprDays = d.approval_days || 7;
+  const wActive = d.worker_active !== false;
+  const wdBanner = vrole() === 'worker' && !wActive ? `<div class="info-card" style="margin-bottom:18px;border-left:6px solid #D94F32;">
+    <p style="margin:0;"><b>Your profile isn't active on BookIt right now</b>, so accepting and completing shifts is paused, and cover is being arranged for anything upcoming. <a href="#/contact">Contact the office</a> — they can help you get back on.</p>
+  </div>` : '';
   if(!d.bookings.length){
-    wrap.innerHTML = cover.top + billingCard + planCard + pdocCard + hiCard + seriesCard + cover.mid + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (vrole() === 'participant'
+    wrap.innerHTML = cover.top + wdBanner + billingCard + planCard + pdocCard + hiCard + seriesCard + cover.mid + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (vrole() === 'participant'
       ? 'Find a worker you like, have a chat, then hit "Request a booking" on their profile.'
       : 'When participants request you, their bookings appear here for you to accept or decline.') + '</p></div>';
     revealPendingSection();
@@ -7217,7 +7358,7 @@ async function renderBookingsPage(){
       </div>`;
     }
   }
-  wrap.innerHTML = cover.top + apprBanner + billingCard + planCard + pdocCard + hiCard + seriesCard + cover.mid + workerCards + incidentCard + d.bookings.map(b => `
+  wrap.innerHTML = cover.top + wdBanner + apprBanner + billingCard + planCard + pdocCard + hiCard + seriesCard + cover.mid + workerCards + incidentCard + d.bookings.map(b => `
     <div class="bk-card">
       <div class="wc-avatar" style="background:${b.other_color};">${b.other_name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
       <div class="bk-main">
@@ -7227,7 +7368,7 @@ async function renderBookingsPage(){
         ${b.sleepover ? '<span class="muted-sm">🌙 Overnight sleepover (inactive night — flat rate)</span>' : ''}
         ${b.series_id ? `<span class="muted-sm">${b.detached ? '↳ Moved out of its repeating booking — a one-off now' : `🔁 Part of a repeating booking — shift #${(b.series_index || 0) + 1}`}</span>` : ''}
         ${vrole() === 'participant' && ['requested','accepted'].includes(b.status) ? `<div data-cancel-box="${b.id}" data-cb-svc="${b.service}" data-cb-date="${b.date}" data-cb-start="${b.start}" data-cb-status="${b.status}" data-cb-worker="${esc(b.other_name.split(' ')[0])}" hidden></div>` : ''}
-        ${vrole() === 'participant' && b.series_id && !b.detached && ['requested','accepted'].includes(b.status) && b.date >= new Date().toISOString().slice(0,10) ? `
+        ${vrole() === 'participant' && b.series_id && !b.detached && ['requested','accepted'].includes(b.status) && b.date >= ymd() ? `
         <div data-move-box="${b.id}" hidden style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:8px;">
           <label style="font-size:.82rem;">New date<input type="date" data-mv-date="${b.id}" value="${b.date}" style="display:block;font:inherit;padding:6px 8px;border-radius:8px;border:1.5px solid #E7DFD4;margin-top:3px;"></label>
           <label style="font-size:.82rem;">Start<input type="time" data-mv-start="${b.id}" value="${b.start}" style="display:block;font:inherit;padding:6px 8px;border-radius:8px;border:1.5px solid #E7DFD4;margin-top:3px;"></label>
@@ -7252,7 +7393,7 @@ async function renderBookingsPage(){
         ${b.status === 'completed' && b.note_count ? `
         <button type="button" class="btn btn-secondary btn-sm" data-note-read="${b.id}" style="align-self:flex-start;margin-top:8px;">Read the shift note${b.note_count > 1 ? ` (${b.note_count})` : ''}</button>
         <div class="note-out" data-note-out="${b.id}" hidden></div>` : ''}
-        ${vrole() === 'worker' && b.status === 'accepted' && b.date <= new Date().toISOString().slice(0,10) ? `
+        ${vrole() === 'worker' && b.status === 'accepted' && b.date <= ymd() ? `
         <div class="note-box" data-note-form="${b.id}" hidden>
           <b style="font-size:.92rem;">Your shift note</b>
           <p class="muted-sm" style="margin:4px 0 9px;">What you did together and how it went — a few lines is plenty. ${esc(b.other_name.split(' ')[0])} and their support coordinator can read this, and it's the record that the shift happened.</p>
@@ -7274,11 +7415,12 @@ async function renderBookingsPage(){
       </div>
       <span class="bk-status bk-${b.status}">${STATUS_LABEL[b.status] || b.status}</span>
       <div class="bk-actions">
-        ${vrole() === 'worker' && b.status === 'requested' ? `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="accepted">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined">Decline</button>` : ''}
-        ${vrole() === 'worker' && b.status === 'accepted' && b.date <= new Date().toISOString().slice(0,10) ? `<button class="btn btn-primary btn-sm" data-note-open="${b.id}">Mark shift completed</button>` : ''}
+        ${vrole() === 'worker' && b.status === 'requested' && wActive && b.cover_state !== 'finding' ? `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="accepted">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined">Decline</button>` : ''}
+        ${vrole() === 'worker' && ['requested','accepted'].includes(b.status) && (!wActive || b.cover_state === 'finding') ? `<span class="muted-sm" style="color:#7a4a12;"><b>Cover is being arranged</b> — the office will be in touch.</span>` : ''}
+        ${vrole() === 'worker' && b.status === 'accepted' && b.date <= ymd() && wActive && b.cover_state !== 'finding' ? `<button class="btn btn-primary btn-sm" data-note-open="${b.id}">Mark shift completed</button>` : ''}
         ${vrole() === 'participant' && ['requested','accepted'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" data-cancel-open="${b.id}">Cancel</button>` : ''}
-        ${vrole() === 'participant' && b.series_id && !b.detached && ['requested','accepted'].includes(b.status) && b.date >= new Date().toISOString().slice(0,10) ? `<button class="btn btn-secondary btn-sm" data-move-one="${b.id}">Move just this one</button>` : ''}
-        ${vrole() === 'worker' && ['requested','accepted'].includes(b.status) && !b.cover_state && b.date >= new Date().toISOString().slice(0,10) ? `<button class="btn btn-secondary btn-sm" data-cant="${b.id}">I can't make it</button>` : ''}
+        ${vrole() === 'participant' && b.series_id && !b.detached && ['requested','accepted'].includes(b.status) && b.date >= ymd() ? `<button class="btn btn-secondary btn-sm" data-move-one="${b.id}">Move just this one</button>` : ''}
+        ${vrole() === 'worker' && ['requested','accepted'].includes(b.status) && !b.cover_state && wActive && b.date >= ymd() ? `<button class="btn btn-secondary btn-sm" data-cant="${b.id}">I can't make it</button>` : ''}
         ${vrole() === 'participant' && b.cover_state === 'finding' ? `<button class="btn btn-secondary btn-sm" data-standdown="${b.id}">Don't find cover</button>` : ''}
       </div>
     </div>`).join('');
@@ -7413,7 +7555,7 @@ function spPaint(){
   if(!wrap || !cat || !d) return;
   const p = d.plan, prev = d.previous, ct = d.continuity || {};
   const confirmed = p && p.status === 'confirmed';
-  const today = new Date().toISOString().slice(0,10);
+  const today = ymd();
 
   /* the strip at the top answers the only two questions worth asking on
      arrival: is my plan current, and what is it doing for me */
@@ -9183,7 +9325,7 @@ function offersHtml(d){
 
 /* ------------------------------------------------------- worker: paid standby */
 function standbyHtml(d){
-  const rows = (d.standby || []).filter(s => s.date >= new Date().toISOString().slice(0, 10));
+  const rows = (d.standby || []).filter(s => s.date >= ymd());
   const live = rows.filter(s => ['offered','accepted'].includes(s.status));
   const svcs = d.standby_services || [];
   return `
@@ -9742,6 +9884,10 @@ function coverBoardHtml(d){
           : ''}<span class="cb-tier">${esc(c.tier_label)}</span> ${c.office_alerted_at ? '<b style="color:#D94F32;">needs you</b>' : '<span class="muted-sm">running itself</span>'}</span>
       </div>
       ${c.continuity && c.continuity.tier === 1 ? `<p class="cb-crit">${esc(c.continuity.why || '')}</p>` : ''}
+      ${c.series ? `<p class="cb-who" style="color:#7a4a12;">🔁 <b>Part of a recurring series</b> — ${c.series.remaining} upcoming shift${c.series.remaining === 1 ? '' : 's'} on the same arrangement.${c.series.review_required ? ` <b>Series review required:</b> a permanent replacement needs the participant's agreement.` : ''}${c.series.participant_approved_at ? ` <b style="color:#1C7C43;">Participant has agreed — series moved.</b>` : ''}</p>
+      ${c.series.review_required && !c.series.participant_approved_at ? (c.series.proposed_worker_id
+        ? `<p class="cb-who">Proposed replacement: <b>${esc(c.series.proposed_name || 'worker #' + c.series.proposed_worker_id)}</b> · <input type="text" data-sr-who="${c.series.id}" placeholder="Who agreed & how (e.g. Maria, by phone)" style="width:240px;padding:4px 8px;font-size:.85rem;"> <button class="adm-btn-sm" data-sr-approve="${c.series.id}">Record agreement & move the series</button></p>`
+        : `<p class="cb-who"><button class="adm-btn-sm" data-sr-propose="${c.id}" data-sr-id="${c.series.id}">Propose permanent replacement…</button> <span class="muted-sm">picks from the same candidates as one-off cover</span></p>`) : ''}` : ''}
       <p class="cb-who">${esc(c.from_worker_name || 'The worker')} pulled out ${mins < 60 ? mins + ' min' : Math.round(mins / 60) + ' hr'} ago${c.reason ? ` — “${esc(c.reason)}”` : ''}. ${c.offers_sent} ${c.offers_sent === 1 ? 'person has' : 'people have'} been asked.
         ${c.live_offers.length ? '<br>Waiting on: <b>' + c.live_offers.map(o => esc(o.who || 'partner provider')).join(', ') + '</b>' : '<br><b>Nobody is currently being waited on.</b>'}
         ${c.participant_phone ? `<br>Participant: ${esc(c.participant_phone)}` : ''}</p>
@@ -9772,7 +9918,7 @@ function coverBoardHtml(d){
         <td>${c.human_minutes || 0}</td></tr>`;
     }).join('')}</tbody></table></div>` : '<p class="adm-empty">No cover history yet.</p>';
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = ymd();
   const sbLive = d.standby.filter(s => ['offered','accepted'].includes(s.status) && s.date >= today);
   const byDate = {};
   sbLive.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
@@ -9991,6 +10137,46 @@ document.addEventListener('click', async e => {
       toast('Assigned — the participant and the worker have both been told.');
       renderAdminPage();
     }catch(err){ toast(err.message); asg.disabled = false; }
+    return;
+  }
+  const srp = e.target.closest('[data-sr-propose]');
+  if(srp){
+    const cid = srp.dataset.srPropose, sid = srp.dataset.srId;
+    const box = $(`[data-cb-cands-out="${cid}"]`);
+    if(!box) return;
+    box.hidden = false;
+    box.innerHTML = '<span class="muted-sm">Looking…</span>';
+    try{
+      const d = await API.call(`/admin/cover/${cid}/candidates?series=1`);
+      const rows = Object.keys(d.candidates).flatMap(t => d.candidates[t].filter(x => !x.allied).map(x =>
+        `<span class="cb-cand">${esc(x.name)}${x.phone ? ' · ' + esc(x.phone) : ''}<button class="adm-btn-sm" data-sr-pick="${sid}" data-sr-worker="${x.id}">propose for the series</button></span>`));
+      box.innerHTML = rows.length ? `<h5>Propose a permanent replacement</h5>` + rows.join('')
+        : '<p class="muted-sm">No platform worker is free and screened for this shift shape. This is the case that needs a phone call.</p>';
+    }catch(err){ box.innerHTML = '<span class="muted-sm">' + esc(err.message) + '</span>'; }
+    return;
+  }
+  const srk = e.target.closest('[data-sr-pick]');
+  if(srk){
+    srk.disabled = true;
+    try{
+      const r = await API.call(`/admin/series/${srk.dataset.srPick}/propose`, {method:'POST', body:{worker_id: Number(srk.dataset.srWorker)}});
+      toast(`${r.proposed} proposed — now record the participant's agreement.`);
+      renderAdminPage();
+    }catch(err){ toast(err.message); srk.disabled = false; }
+    return;
+  }
+  const sra = e.target.closest('[data-sr-approve]');
+  if(sra){
+    const sid = sra.dataset.srApprove;
+    const whoEl = $(`[data-sr-who="${sid}"]`);
+    const who = whoEl ? whoEl.value.trim() : '';
+    if(!who){ toast('Record who gave the agreement first — a name, and how.'); return; }
+    sra.disabled = true;
+    try{
+      const r = await API.call(`/admin/series/${sid}/approve`, {method:'POST', body:{approved_by: who}});
+      toast(`Series moved — ${r.moved} upcoming shift${r.moved === 1 ? '' : 's'} now with ${r.worker}.`);
+      renderAdminPage();
+    }catch(err){ toast(err.message); sra.disabled = false; }
     return;
   }
   const esc2 = e.target.closest('[data-cb-esc]');
@@ -12580,503 +12766,2164 @@ document.addEventListener('click', async e => {
   }
 })();
 
-/* ═══════════ Build 24/25: the walkers ═══════════
-   Life across the whole page, in the site's own illustration voice: filled
-   two-tone characters — a carer beside a wheelchair user with a balloon, a
-   kite flown from a chair, a guide dog in harness, forearm crutches, a
-   walking frame, a running blade — crossing at three depths (near, mid,
-   far), birds up high, tracks fading like prints on wet sand. Decorative:
-   off under reduced motion / high contrast / print, aria-hidden, untouchable,
-   and the loop fully idles when the stage is empty. */
-(() => {
-  var cv = document.getElementById('bgWalkers');
-  if(!cv || !cv.getContext) return;
-  var ctx = cv.getContext('2d');
-  var W = 0, H = 0, raf = 0, lastT = 0, uid = 0;
-  var walkers = [], birds = null, marks = [], tracks = {};
-  var tNear = 0, tDeep = 0, tBirds = 0;
-  var TTL = 16000;
-  var INK = '18,43,51', TEAL = '14,107,98', AMBER = '245,184,65';
+</script>
 
-  function size(){
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    W = innerWidth; H = innerHeight;
-    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+<script type="module">
+/* ═══════════ Build 28: the shared-paths 3D care scene ═══════════
+   Bee's three.js diorama (care-website-3d-animation), ported from React
+   to the vanilla shell below. three.js 0.179.1 is vendored at
+   /vendor/ and dynamically imported the first time the homepage
+   section nears the viewport — no other page pays for it. */
+const sectionEl = document.getElementById('careScene');
+if (sectionEl) {
+  const lazy = new IntersectionObserver(async (entries) => {
+    if (!entries.some(e => e.isIntersecting)) return;
+    lazy.disconnect();
+    try {
+      const THREE = await import('/vendor/three.module.min.js');
+      careSceneMain(THREE);
+    } catch (e) {
+      const m = document.getElementById('csPosterMsg');
+      if (m) m.textContent = 'The motion version could not load, so a still scene is shown.';
+    }
+  }, { rootMargin: '600px' });
+  lazy.observe(sectionEl);
+}
+function careSceneMain(THREE) {
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+const PERSONAS = [
+  {
+    id: "manual-chair",
+    names: "Amara & Eli",
+    eyebrow: "Moving together",
+    description: "Amara chooses the route and self-propels her chair while support worker Eli keeps pace beside her.",
+    accent: "#d6a247"
+  },
+  {
+    id: "white-cane",
+    names: "Daniel & Tahlia",
+    eyebrow: "At their own pace",
+    description: "Daniel travels with his white cane while Tahlia walks alongside, leaving space for each natural cane sweep.",
+    accent: "#6f91c2"
+  },
+  {
+    id: "crutches",
+    names: "Noor & Grace",
+    eyebrow: "A shared journey",
+    description: "Noor moves confidently with forearm crutches, with Grace beside her and clear of the crutch path.",
+    accent: "#806f98"
+  },
+  {
+    id: "power-chair-dog",
+    names: "Kenji, Rosa & Milo",
+    eyebrow: "Community time",
+    description: "Kenji leads in his power chair while Rosa walks Milo on the outside of the curve.",
+    accent: "#2d847d"
+  },
+  {
+    id: "prosthetic",
+    names: "Luca & Aisha",
+    eyebrow: "Life keeps moving",
+    description: "Luca and Aisha follow a wide crescent path together, chatting as they go.",
+    accent: "#d47e6c"
+  },
+  {
+    id: "garden-care",
+    names: "Maya",
+    eyebrow: "Care for every space",
+    description: "Maya waters each raised garden, tidies the grass edging, then carries her tools out through the gate.",
+    accent: "#7fa78d"
+  },
+  {
+    id: "lawn-care",
+    names: "Sam",
+    eyebrow: "A welcoming home",
+    description: "Sam mows the lawn in neat passes, leaves through the gate, and the grass slowly grows back for the next visit.",
+    accent: "#d6a247"
+  },
+  {
+    id: "dog-walk",
+    names: "Priya & Alfie",
+    eyebrow: "A little fresh air",
+    description: "Priya and Alfie take a curved walk through the garden, leaving footprints and paw prints behind them.",
+    accent: "#b98568"
   }
-  addEventListener('resize', size); size();
-
-  function off(){
-    var de = document.documentElement;
-    return !de.classList.contains('js-fx')
-      || de.getAttribute('data-motion') === 'reduce'
-      || de.classList.contains('high-contrast')
-      || (matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+];
+const VIEW_LABELS = {
+  isometric: "Isometric",
+  "three-quarter": "Three-quarter",
+  "ground-level": "Ground level"
+};
+const CYCLE_SECONDS = 80;
+const GARDEN_START = 3;
+const GARDEN_DURATION = 34;
+const LAWN_START = 32;
+const LAWN_DURATION = 35;
+const GARDEN_BEDS = [
+  new THREE.Vector3(-15.7, 0.42, 10.5),
+  new THREE.Vector3(-11.2, 0.42, 11.2)
+];
+const UP = new THREE.Vector3(0, 1, 0);
+function standardMaterial(color, roughness = 0.78, metalness = 0) {
+  return new THREE.MeshStandardMaterial({ color, roughness, metalness });
+}
+function makeCapsule(radius, length, material, radialSegments = 12) {
+  const mesh = new THREE.Mesh(
+    new THREE.CapsuleGeometry(radius, length, 6, radialSegments),
+    material
+  );
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+function makeSphere(radius, material, widthSegments = 18, heightSegments = 12) {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(radius, widthSegments, heightSegments),
+    material
+  );
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+function makeBox(width, height, depth, material, radius = 0.05) {
+  const geometry = new THREE.BoxGeometry(width, height, depth, 2, 2, 2);
+  const position = geometry.getAttribute("position");
+  for (let index = 0; index < position.count; index += 1) {
+    const x = position.getX(index);
+    const y = position.getY(index);
+    const z = position.getZ(index);
+    const length = Math.hypot(x, y, z) || 1;
+    const soften = Math.min(radius, 0.045);
+    position.setXYZ(
+      index,
+      x - x / length * soften,
+      y - y / length * soften,
+      z - z / length * soften
+    );
   }
-  function edgeA(x){ return Math.max(0, Math.min(1, Math.min(x + 70, W + 70 - x) / 150)); }
-
-  /* ---------- fading marks ---------- */
-  function foot(x, y, side, dir){ marks.push({ k:'foot', x:x, y:y, s:side, d:dir, t:performance.now() }); }
-  function paw(x, y){ marks.push({ k:'paw', x:x, y:y, t:performance.now() }); }
-  function tap(x, y){ marks.push({ k:'tap', x:x, y:y, t:performance.now() }); }
-  function track(id, x, y){
-    var tr = tracks[id] || (tracks[id] = { pts: [] });
-    var last = tr.pts[tr.pts.length - 1];
-    if(!last || Math.abs(x - last.x) >= 7) tr.pts.push({ x:x, y:y, t:performance.now() });
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+function cylinderBetween(start, end, radius, material, radialSegments = 10) {
+  const direction = end.clone().sub(start);
+  const length = direction.length();
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, length, radialSegments),
+    material
+  );
+  mesh.position.copy(start).add(end).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(UP, direction.normalize());
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+function createHuman(options) {
+  const root = new THREE.Group();
+  root.scale.setScalar(options.scale ?? 0.72);
+  const skin = standardMaterial(options.skin, 0.82);
+  const shirt = standardMaterial(options.shirt, 0.84);
+  const trousers = standardMaterial(options.trousers, 0.88);
+  const hair = standardMaterial(options.hair, 0.94);
+  const shoes = standardMaterial(options.shoes ?? 2635844, 0.72);
+  const jacket = options.jacket ? standardMaterial(options.jacket, 0.86) : null;
+  const eye = standardMaterial(1976624, 0.7);
+  const prosthetic = standardMaterial(7701389, 0.42, 0.42);
+  const torso = new THREE.Group();
+  const torsoMesh = makeCapsule(0.39, 0.58, shirt, 14);
+  torsoMesh.scale.set(1, 1, 0.82);
+  torso.add(torsoMesh);
+  if (jacket) {
+    const jacketPanel = makeBox(0.86, 0.7, 0.12, jacket, 0.06);
+    jacketPanel.position.set(0, -0.03, 0.34);
+    torso.add(jacketPanel);
   }
-  function drawMarks(now){
-    for(var i = 0; i < marks.length; i++){
-      var m = marks[i], a = 1 - (now - m.t) / TTL;
-      if(a <= 0) continue;
-      if(m.k === 'foot'){
-        ctx.fillStyle = 'rgba(' + INK + ',' + (0.115 * a).toFixed(3) + ')';
-        ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.s * 0.14 * m.d);
-        ctx.beginPath(); ctx.ellipse(0, m.s * 1.6, 3.1, 1.6, 0, 0, 7); ctx.fill(); ctx.restore();
-      } else if(m.k === 'paw'){
-        ctx.fillStyle = 'rgba(' + INK + ',' + (0.11 * a).toFixed(3) + ')';
-        ctx.beginPath();
-        ctx.arc(m.x, m.y, 1.0, 0, 7);
-        ctx.arc(m.x - 2, m.y - 1.6, 0.7, 0, 7);
-        ctx.arc(m.x + 0.4, m.y - 2.1, 0.7, 0, 7);
-        ctx.arc(m.x + 2.2, m.y - 1.2, 0.7, 0, 7);
-        ctx.fill();
-      } else {
-        ctx.fillStyle = 'rgba(' + TEAL + ',' + (0.13 * a).toFixed(3) + ')';
-        ctx.beginPath(); ctx.arc(m.x, m.y, 1.3, 0, 7); ctx.fill();
+  const collar = new THREE.Mesh(
+    new THREE.TorusGeometry(0.16, 0.026, 8, 22, Math.PI * 1.45),
+    jacket ?? shirt
+  );
+  collar.position.set(0, 0.34, 0.31);
+  collar.rotation.set(Math.PI / 2, 0, 0.78);
+  torso.add(collar);
+  const head = new THREE.Group();
+  const face = makeSphere(0.31, skin, 20, 14);
+  face.scale.set(0.9, 1.08, 0.9);
+  head.add(face);
+  const leftEye = makeSphere(0.032, eye, 10, 8);
+  leftEye.position.set(-0.105, 0.035, 0.272);
+  const rightEye = leftEye.clone();
+  rightEye.position.x = 0.105;
+  head.add(leftEye, rightEye);
+  const nose = makeSphere(0.037, skin, 10, 8);
+  nose.scale.set(0.78, 1.2, 0.9);
+  nose.position.set(0, -0.025, 0.305);
+  head.add(nose);
+  const hairCap = makeSphere(0.325, hair, 18, 12);
+  hairCap.scale.set(0.94, 0.64, 0.94);
+  hairCap.position.set(0, 0.18, -0.035);
+  head.add(hairCap);
+  if (options.hairStyle === "bun") {
+    const bun = makeSphere(0.17, hair, 14, 10);
+    bun.position.set(0, 0.34, -0.18);
+    head.add(bun);
+  } else if (options.hairStyle === "curls") {
+    for (const [x, y, z, scale] of [
+      [-0.22, 0.13, -0.08, 0.11],
+      [0.22, 0.13, -0.08, 0.11],
+      [-0.25, -0.03, -0.09, 0.1],
+      [0.25, -0.03, -0.09, 0.1],
+      [-0.15, 0.3, -0.08, 0.1],
+      [0.15, 0.3, -0.08, 0.1]
+    ]) {
+      const curl = makeSphere(scale, hair, 10, 8);
+      curl.position.set(x, y, z);
+      head.add(curl);
+    }
+  } else if (options.hairStyle === "waves") {
+    const leftWave = makeCapsule(0.09, 0.36, hair, 10);
+    leftWave.position.set(-0.26, -0.03, -0.08);
+    leftWave.rotation.z = 0.1;
+    const rightWave = leftWave.clone();
+    rightWave.position.x = 0.26;
+    rightWave.rotation.z = -0.1;
+    head.add(leftWave, rightWave);
+  }
+  const leftArm = new THREE.Group();
+  const rightArm = new THREE.Group();
+  const leftLeg = new THREE.Group();
+  const rightLeg = new THREE.Group();
+  function addArm(target, side) {
+    const sleeve = makeCapsule(0.105, 0.34, jacket ?? shirt, 10);
+    sleeve.position.y = -0.27;
+    const hand = makeCapsule(0.075, 0.22, skin, 10);
+    hand.position.y = -0.62;
+    const cuff = new THREE.Mesh(
+      new THREE.TorusGeometry(0.098, 0.022, 7, 18),
+      jacket ?? shirt
+    );
+    cuff.position.y = -0.47;
+    cuff.rotation.x = Math.PI / 2;
+    target.add(sleeve, cuff, hand);
+    target.position.x = side * 0.47;
+  }
+  function addLeg(target, side) {
+    const isProsthetic = options.prosthetic === (side < 0 ? "left" : "right");
+    const upper = makeCapsule(0.14, 0.38, trousers, 11);
+    upper.position.y = -0.31;
+    const lower = makeCapsule(0.12, 0.34, isProsthetic ? prosthetic : trousers, 11);
+    lower.position.y = -0.74;
+    if (isProsthetic) lower.scale.set(0.78, 1.02, 0.78);
+    const shoe = makeBox(0.26, 0.16, 0.45, shoes, 0.04);
+    shoe.position.set(0, -1.01, 0.11);
+    target.add(upper, lower, shoe);
+    target.position.x = side * 0.2;
+  }
+  addArm(leftArm, -1);
+  addArm(rightArm, 1);
+  addLeg(leftLeg, -1);
+  addLeg(rightLeg, 1);
+  const seated = Boolean(options.seated);
+  const baseY = 0;
+  if (seated) {
+    torso.position.y = 1.2;
+    head.position.y = 2.02;
+    leftArm.position.y = 1.52;
+    rightArm.position.y = 1.52;
+    leftArm.rotation.x = -0.25;
+    rightArm.rotation.x = -0.25;
+    leftLeg.position.y = 0.72;
+    rightLeg.position.y = 0.72;
+    leftLeg.rotation.x = -1.16;
+    rightLeg.rotation.x = -1.16;
+    leftLeg.children[1].rotation.x = 0.78;
+    rightLeg.children[1].rotation.x = 0.78;
+  } else {
+    torso.position.y = 1.78;
+    head.position.y = 2.64;
+    leftArm.position.y = 2.05;
+    rightArm.position.y = 2.05;
+    leftLeg.position.y = 1.02;
+    rightLeg.position.y = 1.02;
+  }
+  root.add(torso, head, leftArm, rightArm, leftLeg, rightLeg);
+  const animate = (phase, intensity = 1) => {
+    if (seated) {
+      const push = Math.sin(phase * 0.72);
+      leftArm.rotation.x = -0.34 + push * 0.18 * intensity;
+      rightArm.rotation.x = -0.34 + push * 0.18 * intensity;
+      torso.rotation.z = Math.sin(phase * 0.36) * 0.025 * intensity;
+      head.rotation.y = Math.sin(phase * 0.22) * 0.14 * intensity;
+      return;
+    }
+    const stride = Math.sin(phase);
+    const lift = Math.max(0, Math.sin(phase * 2)) * 0.045 * intensity;
+    leftLeg.rotation.x = stride * 0.48 * intensity;
+    rightLeg.rotation.x = -stride * 0.48 * intensity;
+    leftArm.rotation.x = -stride * 0.4 * intensity;
+    rightArm.rotation.x = stride * 0.4 * intensity;
+    torso.position.y = 1.78 + lift;
+    torso.rotation.y = stride * 0.035 * intensity;
+    head.position.y = 2.64 + lift * 0.65;
+    head.rotation.y = Math.sin(phase * 0.35) * 0.11 * intensity;
+  };
+  return {
+    root,
+    leftArm,
+    rightArm,
+    leftLeg,
+    rightLeg,
+    head,
+    torso,
+    baseY,
+    seated,
+    animate
+  };
+}
+function createContactShadow(width = 1.5, depth = 1.1, opacity = 0.11) {
+  const material = new THREE.MeshBasicMaterial({
+    color: 2640193,
+    transparent: true,
+    opacity,
+    depthWrite: false
+  });
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.7, 28), material);
+  shadow.scale.set(width, depth, 1);
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 9e-3;
+  shadow.renderOrder = 1;
+  return shadow;
+}
+function createWheel(radius, manual) {
+  const group = new THREE.Group();
+  const rubber = standardMaterial(2569274, 0.74);
+  const metal = standardMaterial(10924468, 0.34, 0.52);
+  const accent = standardMaterial(manual ? 14066247 : 2983037, 0.58, 0.08);
+  const tyre = new THREE.Mesh(
+    new THREE.TorusGeometry(radius, manual ? 0.052 : 0.09, 10, 34),
+    rubber
+  );
+  tyre.rotation.y = Math.PI / 2;
+  tyre.castShadow = true;
+  group.add(tyre);
+  if (manual) {
+    const handRim = new THREE.Mesh(
+      new THREE.TorusGeometry(radius * 0.83, 0.022, 8, 32),
+      metal
+    );
+    handRim.rotation.y = Math.PI / 2;
+    group.add(handRim);
+  }
+  const hub = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.075, 0.12, 14),
+    accent
+  );
+  hub.rotation.z = Math.PI / 2;
+  group.add(hub);
+  const spokeMaterial = manual ? metal : accent;
+  for (let index = 0; index < 8; index += 1) {
+    const angle = index / 8 * Math.PI * 2;
+    const end = new THREE.Vector3(
+      0,
+      Math.sin(angle) * radius * 0.78,
+      Math.cos(angle) * radius * 0.78
+    );
+    group.add(cylinderBetween(new THREE.Vector3(), end, 0.012, spokeMaterial, 6));
+  }
+  return group;
+}
+function createWheelchair(power, person) {
+  const root = new THREE.Group();
+  const frame = standardMaterial(power ? 3490121 : 5992565, 0.38, 0.42);
+  const cushion = standardMaterial(power ? 3562337 : 14066247, 0.9);
+  const dark = standardMaterial(2504252, 0.76);
+  const radius = power ? 0.46 : 0.68;
+  const wheelX = power ? 0.68 : 0.74;
+  const wheelY = radius + 0.04;
+  const leftWheel = createWheel(radius, !power);
+  const rightWheel = createWheel(radius, !power);
+  leftWheel.position.set(-wheelX, wheelY, -0.06);
+  rightWheel.position.set(wheelX, wheelY, -0.06);
+  root.add(leftWheel, rightWheel);
+  const seat = makeBox(1.02, 0.17, 0.84, cushion, 0.08);
+  seat.position.set(0, power ? 0.82 : 0.86, 0.02);
+  const back = makeBox(0.94, power ? 1.02 : 0.86, 0.17, cushion, 0.08);
+  back.position.set(0, power ? 1.28 : 1.25, -0.34);
+  back.rotation.x = -0.08;
+  root.add(seat, back);
+  const leftRail = cylinderBetween(
+    new THREE.Vector3(-0.56, 0.52, -0.34),
+    new THREE.Vector3(-0.56, 1.34, -0.34),
+    0.035,
+    frame
+  );
+  const rightRail = leftRail.clone();
+  rightRail.position.x *= -1;
+  root.add(leftRail, rightRail);
+  for (const side of [-1, 1]) {
+    const arm = makeBox(0.13, 0.11, 0.72, dark, 0.035);
+    arm.position.set(side * 0.59, 1.22, 0.02);
+    root.add(arm);
+    const casterFork = cylinderBetween(
+      new THREE.Vector3(side * 0.48, 0.42, 0.36),
+      new THREE.Vector3(side * 0.48, 0.2, 0.62),
+      0.032,
+      frame
+    );
+    const caster = createWheel(power ? 0.17 : 0.14, false);
+    caster.scale.setScalar(0.72);
+    caster.position.set(side * 0.48, 0.18, 0.65);
+    root.add(casterFork, caster);
+  }
+  const footPlate = makeBox(0.72, 0.06, 0.42, frame, 0.025);
+  footPlate.position.set(0, 0.28, 0.73);
+  footPlate.rotation.x = -0.08;
+  root.add(footPlate);
+  if (power) {
+    const base = makeBox(1.28, 0.34, 1.16, frame, 0.1);
+    base.position.set(0, 0.39, 0.02);
+    root.add(base);
+    const headrest = makeBox(0.45, 0.34, 0.13, dark, 0.06);
+    headrest.position.set(0, 1.98, -0.38);
+    root.add(headrest);
+    const joystickStem = cylinderBetween(
+      new THREE.Vector3(0.64, 1.2, 0.17),
+      new THREE.Vector3(0.64, 1.48, 0.35),
+      0.022,
+      frame
+    );
+    const joystick = makeSphere(0.07, standardMaterial(13925996, 0.62), 12, 8);
+    joystick.position.set(0.64, 1.5, 0.36);
+    const tablet = makeBox(0.42, 0.3, 0.05, standardMaterial(2044217, 0.4, 0.18), 0.04);
+    tablet.position.set(-0.24, 1.53, 0.34);
+    tablet.rotation.x = -0.18;
+    root.add(joystickStem, joystick, tablet);
+  }
+  const seatedPerson = createHuman({ ...person, seated: true, scale: 0.69 });
+  seatedPerson.root.position.set(0, 0.82, -0.02);
+  root.add(seatedPerson.root);
+  root.add(createContactShadow(power ? 1.25 : 1.35, 1.22, 0.13));
+  return {
+    root,
+    person: seatedPerson,
+    animate(distance, phase) {
+      leftWheel.rotation.x = -distance / radius;
+      rightWheel.rotation.x = -distance / radius;
+      seatedPerson.animate(phase, power ? 0.55 : 1);
+    }
+  };
+}
+function createCrutch(color) {
+  const root = new THREE.Group();
+  const metal = standardMaterial(10990776, 0.34, 0.5);
+  const grip = standardMaterial(color, 0.82);
+  root.add(
+    cylinderBetween(
+      new THREE.Vector3(0, 0.02, 0),
+      new THREE.Vector3(0, 1.48, 0),
+      0.025,
+      metal,
+      8
+    )
+  );
+  const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 7, 20, Math.PI * 1.45), grip);
+  cuff.position.set(0, 1.42, 0);
+  cuff.rotation.set(Math.PI / 2, 0, 0.78);
+  const handle = makeBox(0.28, 0.055, 0.07, grip, 0.02);
+  handle.position.set(0.09, 1.1, 0);
+  const tip = makeSphere(0.047, standardMaterial(2963520, 0.92), 10, 7);
+  tip.scale.set(0.9, 0.55, 0.9);
+  tip.position.y = 0.025;
+  root.add(cuff, handle, tip);
+  return root;
+}
+function createDog() {
+  const root = new THREE.Group();
+  root.scale.setScalar(0.78);
+  const coat = standardMaterial(12354390, 0.94);
+  const lightCoat = standardMaterial(13937278, 0.96);
+  const nose = standardMaterial(2569274, 0.8);
+  const harness = standardMaterial(2983037, 0.7);
+  const body = makeSphere(0.5, coat, 18, 12);
+  body.scale.set(0.82, 0.62, 1.38);
+  body.position.y = 0.68;
+  const chest = makeSphere(0.33, lightCoat, 16, 10);
+  chest.scale.set(0.75, 1.05, 0.58);
+  chest.position.set(0, 0.72, 0.45);
+  const head = makeSphere(0.31, coat, 16, 11);
+  head.position.set(0, 1.02, 0.73);
+  const muzzle = makeSphere(0.18, lightCoat, 14, 9);
+  muzzle.scale.set(0.85, 0.7, 1.08);
+  muzzle.position.set(0, 0.96, 0.99);
+  const noseMesh = makeSphere(0.075, nose, 10, 7);
+  noseMesh.position.set(0, 1, 1.15);
+  root.add(body, chest, head, muzzle, noseMesh);
+  for (const side of [-1, 1]) {
+    const ear = makeCapsule(0.09, 0.24, coat, 9);
+    ear.position.set(side * 0.23, 1.04, 0.67);
+    ear.rotation.z = side * 0.28;
+    root.add(ear);
+    const eye = makeSphere(0.034, nose, 9, 7);
+    eye.position.set(side * 0.105, 1.08, 1.01);
+    root.add(eye);
+  }
+  const legs = [];
+  for (const [x, z] of [
+    [-0.29, -0.37],
+    [0.29, -0.37],
+    [-0.29, 0.42],
+    [0.29, 0.42]
+  ]) {
+    const leg = new THREE.Group();
+    const limb = makeCapsule(0.085, 0.38, coat, 9);
+    limb.position.y = -0.28;
+    const paw = makeSphere(0.1, lightCoat, 10, 7);
+    paw.scale.set(1, 0.55, 1.25);
+    paw.position.set(0, -0.51, 0.05);
+    leg.add(limb, paw);
+    leg.position.set(x, 0.53, z);
+    legs.push(leg);
+    root.add(leg);
+  }
+  const harnessBand = new THREE.Mesh(new THREE.TorusGeometry(0.41, 0.045, 8, 24), harness);
+  harnessBand.scale.set(0.9, 1, 1);
+  harnessBand.position.set(0, 0.7, 0.08);
+  harnessBand.rotation.x = Math.PI / 2;
+  root.add(harnessBand);
+  const tail = new THREE.Group();
+  tail.position.set(0, 0.82, -0.65);
+  const tailMesh = makeCapsule(0.075, 0.5, coat, 9);
+  tailMesh.position.y = 0.29;
+  tailMesh.rotation.x = -0.56;
+  tail.add(tailMesh);
+  root.add(tail);
+  root.add(createContactShadow(0.78, 0.82, 0.1));
+  return {
+    root,
+    animate(phase) {
+      legs[0].rotation.x = Math.sin(phase) * 0.48;
+      legs[3].rotation.x = Math.sin(phase) * 0.48;
+      legs[1].rotation.x = -Math.sin(phase) * 0.48;
+      legs[2].rotation.x = -Math.sin(phase) * 0.48;
+      tail.rotation.z = Math.sin(phase * 0.58) * 0.42;
+      head.rotation.y = Math.sin(phase * 0.28) * 0.12;
+      root.position.y = Math.abs(Math.sin(phase * 2)) * 0.025;
+    }
+  };
+}
+function createWateringCan() {
+  const root = new THREE.Group();
+  const bodyMaterial = standardMaterial(13925996, 0.72, 0.06);
+  const darkMaterial = standardMaterial(10443087, 0.72, 0.04);
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.27, 0.31, 0.46, 16),
+    bodyMaterial
+  );
+  body.castShadow = true;
+  const handle = new THREE.Mesh(
+    new THREE.TorusGeometry(0.3, 0.045, 8, 24, Math.PI * 1.42),
+    darkMaterial
+  );
+  handle.position.set(0, 0.23, -0.02);
+  handle.rotation.z = Math.PI * 0.79;
+  const spout = cylinderBetween(
+    new THREE.Vector3(0.25, 0.02, 0.02),
+    new THREE.Vector3(0.72, 0.22, 0.25),
+    0.055,
+    bodyMaterial,
+    10
+  );
+  const rose = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.12, 0.075, 0.08, 12),
+    darkMaterial
+  );
+  rose.position.set(0.75, 0.24, 0.27);
+  rose.quaternion.copy(spout.quaternion);
+  root.add(body, handle, spout, rose);
+  return root;
+}
+function createGardenShears() {
+  const root = new THREE.Group();
+  const steel = standardMaterial(11977413, 0.34, 0.52);
+  const grip = standardMaterial(14066247, 0.78);
+  const pivot = makeSphere(0.07, standardMaterial(7239547, 0.42, 0.42), 10, 8);
+  const leftHalf = new THREE.Group();
+  const rightHalf = new THREE.Group();
+  const leftBlade = makeBox(0.09, 0.055, 0.72, steel, 0.02);
+  leftBlade.position.z = 0.36;
+  const rightBlade = leftBlade.clone();
+  const leftHandle = makeCapsule(0.065, 0.42, grip, 9);
+  leftHandle.position.z = -0.28;
+  leftHandle.rotation.x = Math.PI / 2;
+  const rightHandle = leftHandle.clone();
+  leftHalf.add(leftBlade, leftHandle);
+  rightHalf.add(rightBlade, rightHandle);
+  root.add(leftHalf, rightHalf, pivot);
+  return {
+    root,
+    animate(phase) {
+      const open = 0.16 + (Math.sin(phase * 2.4) * 0.5 + 0.5) * 0.28;
+      leftHalf.rotation.y = open;
+      rightHalf.rotation.y = -open;
+    }
+  };
+}
+function createLawnMower(workerOptions) {
+  const root = new THREE.Group();
+  const frame = standardMaterial(3230287, 0.46, 0.24);
+  const deckMaterial = standardMaterial(14066247, 0.72, 0.06);
+  const engineMaterial = standardMaterial(2983037, 0.62, 0.08);
+  const wheelRadius = 0.22;
+  const deck = makeBox(1.06, 0.2, 0.82, deckMaterial, 0.08);
+  deck.position.set(0, 0.24, 0.1);
+  const engine = makeBox(0.58, 0.34, 0.5, engineMaterial, 0.08);
+  engine.position.set(0, 0.48, 0.05);
+  const cap = makeSphere(0.09, frame, 12, 8);
+  cap.scale.set(1, 0.5, 1);
+  cap.position.set(0, 0.68, 0.05);
+  root.add(deck, engine, cap);
+  const wheels = [];
+  for (const [x, z] of [
+    [-0.53, -0.27],
+    [0.53, -0.27],
+    [-0.53, 0.38],
+    [0.53, 0.38]
+  ]) {
+    const wheel = createWheel(wheelRadius, false);
+    wheel.scale.setScalar(0.84);
+    wheel.position.set(x, wheelRadius, z);
+    root.add(wheel);
+    wheels.push(wheel);
+  }
+  for (const side of [-1, 1]) {
+    root.add(
+      cylinderBetween(
+        new THREE.Vector3(side * 0.42, 0.42, -0.31),
+        new THREE.Vector3(side * 0.31, 1.24, -1.13),
+        0.034,
+        frame
+      )
+    );
+  }
+  root.add(
+    cylinderBetween(
+      new THREE.Vector3(-0.31, 1.24, -1.13),
+      new THREE.Vector3(0.31, 1.24, -1.13),
+      0.045,
+      frame
+    )
+  );
+  const worker = createHuman(workerOptions);
+  worker.root.position.set(0, 0, -1.62);
+  root.add(worker.root, createContactShadow(1.15, 1.42, 0.1));
+  return {
+    root,
+    worker,
+    animate(distance, phase) {
+      for (const wheel of wheels) wheel.rotation.x = -distance / wheelRadius;
+      worker.animate(phase, 0.72);
+      worker.leftArm.rotation.x = -0.92 + Math.sin(phase) * 0.08;
+      worker.rightArm.rotation.x = -0.92 - Math.sin(phase) * 0.08;
+      worker.head.rotation.y = Math.sin(phase * 0.2) * 0.08;
+    }
+  };
+}
+function createTrailTexture(kind) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 128;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Unable to create trail texture");
+  context.clearRect(0, 0, 128, 128);
+  context.fillStyle = "#ffffff";
+  context.strokeStyle = "#ffffff";
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  if (kind === "foot") {
+    context.beginPath();
+    context.ellipse(64, 76, 20, 39, -0.08, 0, Math.PI * 2);
+    context.fill();
+    for (const [x, y, radius] of [
+      [45, 34, 5],
+      [55, 27, 6],
+      [67, 24, 6.5],
+      [79, 27, 6],
+      [89, 34, 5]
+    ]) {
+      context.beginPath();
+      context.arc(x, y, radius, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (kind === "paw") {
+    context.beginPath();
+    context.ellipse(64, 78, 24, 20, 0, 0, Math.PI * 2);
+    context.fill();
+    for (const [x, y] of [
+      [40, 49],
+      [56, 39],
+      [73, 39],
+      [89, 49]
+    ]) {
+      context.beginPath();
+      context.ellipse(x, y, 9, 12, 0, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (kind === "wheel") {
+    context.lineWidth = 13;
+    context.beginPath();
+    context.moveTo(64, 4);
+    context.lineTo(64, 124);
+    context.stroke();
+    context.globalCompositeOperation = "destination-out";
+    context.lineWidth = 4;
+    for (let y = 12; y < 128; y += 20) {
+      context.beginPath();
+      context.moveTo(52, y - 5);
+      context.lineTo(76, y + 7);
+      context.stroke();
+    }
+    context.globalCompositeOperation = "source-over";
+  } else if (kind === "mow") {
+    context.globalAlpha = 0.78;
+    context.fillRect(12, 5, 104, 118);
+    context.globalCompositeOperation = "destination-out";
+    context.globalAlpha = 0.22;
+    for (let x = 22; x < 116; x += 18) context.fillRect(x, 5, 6, 118);
+    context.globalCompositeOperation = "source-over";
+    context.globalAlpha = 1;
+  } else {
+    context.lineWidth = kind === "cane" ? 10 : 14;
+    context.beginPath();
+    context.arc(64, 64, kind === "cane" ? 19 : 26, 0, Math.PI * 2);
+    context.stroke();
+    context.globalAlpha = 0.5;
+    context.beginPath();
+    context.arc(64, 64, 7, 0, Math.PI * 2);
+    context.fill();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+class TrailPool {
+  constructor(scene, size = 190) {
+    __publicField(this, "scene");
+    __publicField(this, "geometry", new THREE.PlaneGeometry(1, 1));
+    __publicField(this, "textures");
+    __publicField(this, "items", []);
+    __publicField(this, "cursor", 0);
+    this.scene = scene;
+    this.textures = {
+      foot: createTrailTexture("foot"),
+      wheel: createTrailTexture("wheel"),
+      paw: createTrailTexture("paw"),
+      crutch: createTrailTexture("crutch"),
+      cane: createTrailTexture("cane"),
+      mow: createTrailTexture("mow")
+    };
+    for (let index = 0; index < size; index += 1) {
+      const material = new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        side: THREE.DoubleSide
+      });
+      const mesh = new THREE.Mesh(this.geometry, material);
+      mesh.rotation.x = -Math.PI / 2;
+      const group = new THREE.Group();
+      group.visible = false;
+      group.position.y = 0.017;
+      group.add(mesh);
+      group.renderOrder = 3;
+      this.scene.add(group);
+      this.items.push({ group, mesh, age: 0, lifetime: 1, baseOpacity: 0 });
+    }
+  }
+  emit(kind, position, yaw, width, depth, lifetime, flip = false) {
+    const item = this.items[this.cursor];
+    this.cursor = (this.cursor + 1) % this.items.length;
+    item.age = 0;
+    item.lifetime = lifetime ?? (kind === "mow" ? 15 : kind === "wheel" ? 6.4 : kind === "paw" ? 4.6 : kind === "cane" ? 2.2 : 5.4);
+    item.group.visible = true;
+    item.group.position.set(position.x, position.y + (kind === "mow" ? 0.026 : 0.017), position.z);
+    item.group.rotation.y = yaw;
+    item.mesh.scale.set(flip ? -width : width, depth, 1);
+    item.mesh.material.map = this.textures[kind];
+    item.mesh.material.color.set(
+      kind === "foot" ? 5149067 : kind === "wheel" ? 6649738 : kind === "paw" ? 12158312 : kind === "crutch" ? 8549274 : kind === "mow" ? 12110476 : 7904941
+    );
+    item.baseOpacity = kind === "cane" ? 0.18 : kind === "mow" ? 0.34 : 0.27;
+    item.mesh.material.opacity = item.baseOpacity;
+    item.mesh.material.needsUpdate = true;
+  }
+  update(delta) {
+    for (const item of this.items) {
+      if (!item.group.visible) continue;
+      item.age += delta;
+      const fadeStart = item.lifetime * 0.48;
+      const fade = THREE.MathUtils.clamp(
+        1 - (item.age - fadeStart) / Math.max(1e-3, item.lifetime - fadeStart),
+        0,
+        1
+      );
+      item.mesh.material.opacity = item.baseOpacity * fade;
+      if (item.age >= item.lifetime || fade <= 0) {
+        item.group.visible = false;
+        item.mesh.material.opacity = 0;
       }
     }
   }
-  function drawTracks(now){
-    for(var id in tracks){
-      var pts = tracks[id].pts;
-      for(var i = 1; i < pts.length; i++){
-        var a = 1 - (now - pts[i].t) / TTL;
-        if(a <= 0) continue;
-        ctx.strokeStyle = 'rgba(' + TEAL + ',' + (0.10 * a).toFixed(3) + ')';
-        ctx.lineWidth = 1.1;
-        ctx.beginPath(); ctx.moveTo(pts[i-1].x, pts[i-1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
+  dispose() {
+    this.geometry.dispose();
+    Object.values(this.textures).forEach((texture) => texture.dispose());
+    for (const item of this.items) {
+      item.mesh.material.dispose();
+      this.scene.remove(item.group);
+    }
+  }
+}
+function localPoint(root, x, z) {
+  return new THREE.Vector3(x, 0, z).applyQuaternion(root.quaternion).add(root.position);
+}
+function yawFromQuaternion(quaternion) {
+  const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion);
+  return Math.atan2(forward.x, forward.z);
+}
+function makeHitbox(id, width, height, depth, y = 1.2) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(width, height, depth),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+  );
+  mesh.position.y = y;
+  mesh.userData.actorId = id;
+  return mesh;
+}
+function createPath(points) {
+  return new THREE.CatmullRomCurve3(
+    points.map(([x, z], index) => {
+      const atEdge = index === 0 || index === points.length - 1;
+      return new THREE.Vector3(atEdge ? x * 1.25 : x, 0, atEdge ? z * 1.25 : z);
+    }),
+    false,
+    "centripetal",
+    0.35
+  );
+}
+function cycleLocalTime(simulationTime, start) {
+  return ((simulationTime - start) % CYCLE_SECONDS + CYCLE_SECONDS) % CYCLE_SECONDS;
+}
+function smoothStep(value) {
+  const t = THREE.MathUtils.clamp(value, 0, 1);
+  return t * t * (3 - 2 * t);
+}
+function travelBetween(progress, startTime, endTime, startPath, endPath) {
+  const t = smoothStep((progress - startTime) / Math.max(1e-3, endTime - startTime));
+  return THREE.MathUtils.lerp(startPath, endPath, t);
+}
+function closestPathProgress(path, target) {
+  let closest = 0;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  for (let index = 0; index <= 320; index += 1) {
+    const progress = index / 320;
+    const distance = path.getPointAt(progress).distanceToSquared(target);
+    if (distance < closestDistance) {
+      closest = progress;
+      closestDistance = distance;
+    }
+  }
+  return closest;
+}
+function facePoint(root, point, blend = 0.18) {
+  const direction = point.clone().sub(root.position);
+  direction.y = 0;
+  if (direction.lengthSq() < 1e-4) return;
+  const target = new THREE.Quaternion().setFromAxisAngle(
+    UP,
+    Math.atan2(direction.x, direction.z)
+  );
+  root.quaternion.slerp(target, blend);
+}
+function edgeMotion(progress) {
+  if (progress < 0.1) {
+    const t = THREE.MathUtils.clamp(progress / 0.1, 0, 1);
+    return t * t * (3 - 2 * t) * 0.24;
+  }
+  if (progress > 0.9) {
+    const t = THREE.MathUtils.clamp((progress - 0.9) / 0.1, 0, 1);
+    return 0.76 + t * t * (3 - 2 * t) * 0.239;
+  }
+  return 0.24 + (progress - 0.1) / 0.8 * 0.52;
+}
+function createEnsembles(scene, clickables, grounding) {
+  const ensembles = [];
+  const workerTeal = 2983037;
+  {
+    const root = new THREE.Group();
+    const chair = createWheelchair(false, {
+      skin: 7357743,
+      shirt: 14066247,
+      trousers: 2571080,
+      hair: 2103832,
+      hairStyle: "curls"
+    });
+    chair.root.position.x = -0.55;
+    const worker = createHuman({
+      skin: 15185814,
+      shirt: workerTeal,
+      trousers: 3098194,
+      hair: 4928295,
+      hairStyle: "crop"
+    });
+    worker.root.position.set(0.88, 0, -0.08);
+    root.add(chair.root, worker.root, makeHitbox("manual-chair", 3.2, 2.8, 2.3, 1.35));
+    scene.add(root);
+    clickables.push(root.children[root.children.length - 1]);
+    const path = createPath([
+      [-62, 38],
+      [-42, 25],
+      [-25, 10],
+      [-19, -8.2],
+      [-13, -6],
+      [-8, -3.7],
+      [-3.5, -4.6],
+      [1, -1.7],
+      [7, -3.4],
+      [13, -1.7],
+      [20, -4.2],
+      [40, -23],
+      [62, -38]
+    ]);
+    ensembles.push({
+      id: "manual-chair",
+      root,
+      path,
+      pathLength: path.getLength(),
+      start: 0,
+      duration: 30,
+      stampEvery: 0.34,
+      lastStamp: -1,
+      wasActive: false,
+      targetQuaternion: new THREE.Quaternion(),
+      motion: edgeMotion,
+      animate(distance, phase) {
+        chair.animate(distance, phase);
+        worker.animate(phase + 1.2);
+        chair.person.head.rotation.y = 0.22 + Math.sin(phase * 0.16) * 0.08;
+        worker.head.rotation.y = -0.18 + Math.sin(phase * 0.18) * 0.06;
+      },
+      stamp(trails, distance) {
+        const yaw = yawFromQuaternion(root.quaternion);
+        trails.emit("wheel", localPoint(root, -1.3, -0.08), yaw, 0.13, 0.48, 6.5);
+        trails.emit("wheel", localPoint(root, 0.2, -0.08), yaw, 0.13, 0.48, 6.5);
+        const left = Math.floor(distance / 0.34) % 2 === 0;
+        trails.emit("foot", localPoint(root, left ? 0.76 : 1, -0.36), yaw, 0.18, 0.42, 5.5, left);
       }
-    }
+    });
   }
-  function prune(now){
-    marks = marks.filter(function(m){ return now - m.t < TTL; });
-    for(var id in tracks){
-      tracks[id].pts = tracks[id].pts.filter(function(p){ return now - p.t < TTL; });
-      if(!tracks[id].pts.length) delete tracks[id];
-    }
-  }
-  function empty(){
-    if(marks.length) return false;
-    for(var id in tracks) return false;
-    return true;
-  }
-
-  /* ---------- soft-body drawing kit (filled capsules, not sticks) ---------- */
-  function capsule(x1, y1, x2, y2, r1, r2){
-    var a = Math.atan2(y2 - y1, x2 - x1);
-    ctx.beginPath();
-    ctx.arc(x1, y1, r1, a + 1.5708, a - 1.5708);
-    ctx.arc(x2, y2, r2 == null ? r1 * 0.72 : r2, a - 1.5708, a + 1.5708);
-    ctx.closePath(); ctx.fill();
-  }
-  function dot(x, y, r){ ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
-  function ring(x, y, r, lw){ ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); }
-  function col(c, a){ return 'rgba(' + c + ',' + a.toFixed(3) + ')'; }
-
-  /* a walking companion — soft body, amber beanie, optional tote bag */
-  function personF(h, ph, A, tote){
-    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845, lean = h * 0.05;
-    var s1 = Math.sin(ph), s2 = Math.sin(ph + Math.PI);
-    ctx.fillStyle = col(INK, A);
-    capsule(0, hipY, s1 * h * 0.165, -h * 0.015, h * 0.052, h * 0.040);
-    capsule(0, hipY, s2 * h * 0.165, -h * 0.015, h * 0.052, h * 0.040);
-    capsule(0, hipY + h * 0.02, lean, shY, h * 0.112, h * 0.096);
-    dot(lean * 1.15, hdY, h * 0.100);
-    capsule(lean, shY + h * 0.035, lean + s2 * h * 0.14, -h * 0.40, h * 0.040, h * 0.032);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.arc(lean * 1.15, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
-    if(tote){
-      ctx.fillStyle = col(TEAL, A * 0.9);
-      ctx.beginPath();
-      var bx = lean + s2 * h * 0.14, by = -h * 0.385;
-      ctx.moveTo(bx - h * 0.055, by); ctx.lineTo(bx + h * 0.055, by);
-      ctx.lineTo(bx + h * 0.045, by + h * 0.115); ctx.lineTo(bx - h * 0.045, by + h * 0.115);
-      ctx.closePath(); ctx.fill();
-    }
-  }
-
-  /* wheelchair + rider: teal chair, amber hub (the oo), soft rider */
-  function chairF(h, roll, A){
-    var R = h * 0.295, wy = -R;
-    ctx.strokeStyle = col(TEAL, A);
-    ring(0, wy, R, 2.3);
-    ctx.strokeStyle = col(INK, A * 0.9); ctx.lineWidth = 1.2;
-    for(var i = 0; i < 3; i++){
-      var an = roll + i * 2.094;
-      ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(Math.cos(an) * R * 0.8, wy + Math.sin(an) * R * 0.8); ctx.stroke();
-    }
-    ctx.fillStyle = col(AMBER, A); dot(0, wy, h * 0.045);
-    ctx.strokeStyle = col(TEAL, A);
-    ring(R * 1.14, -h * 0.065, h * 0.062, 2.0);
-    ctx.lineWidth = 2.3;
-    var seatY = wy - R * 0.55;
-    ctx.beginPath();
-    ctx.moveTo(-R * 0.22, seatY); ctx.lineTo(R * 0.72, seatY);
-    ctx.moveTo(-R * 0.22, seatY); ctx.lineTo(-R * 0.34, seatY - R * 0.80);
-    ctx.moveTo(R * 0.72, seatY); ctx.lineTo(R * 1.03, -h * 0.075); ctx.lineTo(R * 1.26, -h * 0.075);
-    ctx.stroke();
-    /* rider */
-    var hipX = R * 0.06, shX = -R * 0.14, shY2 = seatY - h * 0.235, hdY = shY2 - h * 0.115;
-    ctx.fillStyle = col(INK, A);
-    capsule(hipX, seatY - h * 0.01, R * 0.60, seatY - h * 0.02, h * 0.055, h * 0.048);
-    capsule(R * 0.60, seatY - h * 0.02, R * 0.94, -h * 0.085, h * 0.045, h * 0.036);
-    capsule(hipX, seatY - h * 0.02, shX, shY2, h * 0.100, h * 0.088);
-    dot(shX - h * 0.008, hdY, h * 0.095);
-    var ha = 0.9 + Math.sin(roll * 0.9) * 0.5;
-    capsule(shX, shY2 + h * 0.03, Math.cos(ha) * R * 0.8, wy + Math.sin(ha) * R * 0.8, h * 0.038, h * 0.030);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.arc(shX - h * 0.008, hdY - h * 0.010, h * 0.095, Math.PI, 0); ctx.closePath(); ctx.fill();
-  }
-
-  /* guide dog in working harness, trotting proud */
-  function dogF(h, ph, A, wag){
-    var bh = h * 0.30, bl = h * 0.40;
-    var s1 = Math.sin(ph * 1.35), s2 = Math.sin(ph * 1.35 + Math.PI);
-    ctx.fillStyle = col(INK, A);
-    capsule(-bl * 0.42, -bh * 0.95, -bl * 0.42 + s1 * 3.2, -1, h * 0.035, h * 0.026);
-    capsule(-bl * 0.30, -bh * 0.92, -bl * 0.30 + s2 * 3.2, -1, h * 0.035, h * 0.026);
-    capsule(bl * 0.30, -bh * 0.92, bl * 0.30 + s2 * 3.6, -1, h * 0.036, h * 0.027);
-    capsule(bl * 0.42, -bh * 0.95, bl * 0.42 + s1 * 3.6, -1, h * 0.036, h * 0.027);
-    ctx.beginPath();
-    ctx.ellipse(0, -bh * 1.06, bl * 0.52, bh * 0.34, -0.06, 0, 7);
-    ctx.fill();
-    dot(bl * 0.62, -bh * 1.38, h * 0.062);
-    capsule(bl * 0.66, -bh * 1.33, bl * 0.80, -bh * 1.22, h * 0.030, h * 0.020);
-    ctx.beginPath();
-    ctx.moveTo(bl * 0.585, -bh * 1.50); ctx.lineTo(bl * 0.545, -bh * 1.66); ctx.lineTo(bl * 0.66, -bh * 1.545);
-    ctx.closePath(); ctx.fill();
-    capsule(-bl * 0.50, -bh * 1.08, -bl * 0.66, -bh * (1.30 + Math.sin(wag) * 0.10), h * 0.026, h * 0.014);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.ellipse(bl * 0.50, -bh * 1.24, h * 0.026, h * 0.048, -0.5, 0, 7); ctx.fill();
-    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.ellipse(0, -bh * 1.06, bl * 0.30, bh * 0.36, 0, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
-  }
-
-  /* long-cane traveller — the dog is the guide here */
-  function caneF(h, ph, A){
-    personF(h, ph, A, false);
-    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.7;
-    var sway = Math.sin(ph) * h * 0.10;
-    ctx.beginPath();
-    ctx.moveTo(h * 0.10, -h * 0.42);
-    ctx.lineTo(h * 0.30 + sway, -h * 0.01);
-    ctx.stroke();
-  }
-
-  /* forearm crutches, one strong leg, gentle bounce */
-  function crutchF(h, ph, A, bob){
-    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845;
-    var s1 = Math.sin(ph);
-    ctx.fillStyle = col(INK, A);
-    capsule(0, hipY, s1 * h * 0.14, -h * 0.015 + bob, h * 0.052, h * 0.040);
-    capsule(0, hipY, -h * 0.075, -h * 0.24, h * 0.048, h * 0.036);
-    capsule(0, hipY + h * 0.02, h * 0.035, shY, h * 0.112, h * 0.096);
-    dot(h * 0.045, hdY, h * 0.100);
-    capsule(h * 0.035, shY + h * 0.035, h * 0.145 + s1 * h * 0.03, -h * 0.42, h * 0.040, h * 0.032);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.arc(h * 0.045, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.9;
-    var c1 = s1 * h * 0.09, c2 = -s1 * h * 0.06;
-    ctx.beginPath();
-    ctx.moveTo(h * 0.14 + c1, -h * 0.46); ctx.lineTo(h * 0.185 + c1 * 1.6, bob);
-    ctx.moveTo(-h * 0.045 + c2, -h * 0.46); ctx.lineTo(-h * 0.03 + c2 * 1.6, bob);
-    ctx.stroke();
-    ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.arc(h * 0.14 + c1, -h * 0.455, h * 0.030, 0, 7); ctx.stroke();
-    ctx.beginPath(); ctx.arc(-h * 0.045 + c2, -h * 0.455, h * 0.030, 0, 7); ctx.stroke();
-  }
-
-  /* four-wheel walker frame, unhurried */
-  function frameF(h, ph, A){
-    var s1 = Math.sin(ph) * 0.5, s2 = Math.sin(ph + Math.PI) * 0.5;
-    var hipY = -h * 0.42, shY = -h * 0.66, hdY = -h * 0.80;
-    ctx.fillStyle = col(INK, A);
-    capsule(0, hipY, s1 * h * 0.11, -h * 0.015, h * 0.050, h * 0.038);
-    capsule(0, hipY, s2 * h * 0.11, -h * 0.015, h * 0.050, h * 0.038);
-    capsule(0, hipY + h * 0.02, h * 0.075, shY, h * 0.108, h * 0.092);
-    dot(h * 0.09, hdY, h * 0.096);
-    capsule(h * 0.075, shY + h * 0.03, h * 0.27, -h * 0.505, h * 0.038, h * 0.030);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.arc(h * 0.09, hdY - h * 0.010, h * 0.096, Math.PI, 0); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 2.1;
-    var fh = h * 0.50;
-    ctx.beginPath();
-    ctx.moveTo(h * 0.26, -fh); ctx.lineTo(h * 0.245, -h * 0.055);
-    ctx.moveTo(h * 0.44, -fh); ctx.lineTo(h * 0.455, -h * 0.055);
-    ctx.moveTo(h * 0.225, -fh); ctx.lineTo(h * 0.475, -fh);
-    ctx.moveTo(h * 0.25, -fh * 0.56); ctx.lineTo(h * 0.45, -fh * 0.56);
-    ctx.stroke();
-    ctx.fillStyle = col(AMBER, A);
-    dot(h * 0.245, -h * 0.038, h * 0.038); dot(h * 0.455, -h * 0.038, h * 0.038);
-  }
-
-  /* running-blade walker — celebration, not apology */
-  function bladeF(h, ph, A){
-    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845, lean = h * 0.06;
-    var s1 = Math.sin(ph), s2 = Math.sin(ph + Math.PI);
-    ctx.fillStyle = col(INK, A);
-    capsule(0, hipY, s1 * h * 0.17, -h * 0.015, h * 0.052, h * 0.040);
-    capsule(0, hipY, s2 * h * 0.10, -h * 0.22, h * 0.050, h * 0.040);
-    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(s2 * h * 0.10, -h * 0.22);
-    ctx.quadraticCurveTo(s2 * h * 0.17 + h * 0.02, -h * 0.10, s2 * h * 0.19 + h * 0.058, -h * 0.005);
-    ctx.stroke();
-    ctx.fillStyle = col(INK, A);
-    capsule(0, hipY + h * 0.02, lean, shY, h * 0.112, h * 0.096);
-    dot(lean * 1.15, hdY, h * 0.100);
-    capsule(lean, shY + h * 0.035, lean + s2 * h * 0.15, -h * 0.40, h * 0.040, h * 0.032);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.arc(lean * 1.15, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
-  }
-
-  function balloonF(hx, hy, h, A, t, seed){
-    var bob = Math.sin(t * 0.0012 + seed) * 4, sway = Math.sin(t * 0.0009 + seed) * 6;
-    var bx = hx + sway * 0.4, by = hy - h * 0.72 + bob;
-    ctx.strokeStyle = col(TEAL, A * 0.85); ctx.lineWidth = 1.1;
-    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo(hx + sway * 0.25, (hy + by) / 2, bx, by + h * 0.135); ctx.stroke();
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.ellipse(bx, by, h * 0.105, h * 0.13, 0, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(bx - h * 0.02, by + h * 0.132); ctx.lineTo(bx + h * 0.02, by + h * 0.132); ctx.lineTo(bx, by + h * 0.165); ctx.closePath(); ctx.fill();
-  }
-
-  function kiteF(hx, hy, gy, h, A, t, seed, dir){
-    var sway = Math.sin(t * 0.0008 + seed) * 16, lift = Math.sin(t * 0.0011 + seed * 2) * 10;
-    var kx = hx + dir * (h * 1.7 + sway), ky = Math.max(86, gy - H * 0.40 + lift);
-    ctx.strokeStyle = col(TEAL, A * 0.8); ctx.lineWidth = 1.1;
-    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo((hx + kx) / 2 + dir * 24, (hy + ky) / 2 + 26, kx, ky + 12); ctx.stroke();
-    ctx.save(); ctx.translate(kx, ky); ctx.rotate(dir * (0.18 + sway * 0.006));
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(9, 0); ctx.lineTo(0, 12); ctx.lineTo(-9, 0); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = col(INK, A * 0.7); ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(0, 12); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.stroke();
-    ctx.strokeStyle = col(TEAL, A * 0.8);
-    ctx.beginPath(); ctx.moveTo(0, 12); ctx.quadraticCurveTo(-dir * 6, 20, -dir * 3, 27); ctx.stroke();
-    ctx.fillStyle = col(TEAL, A * 0.9);
-    dot(-dir * 1, 18, 1.8); dot(-dir * 4, 24, 1.8);
-    ctx.restore();
-  }
-
-  /* the pause beat: two little dots overhead — the oo, saying hello */
-  function bubbleF(x, y, h, A, k){
-    var a = A * Math.sin(Math.min(1, k) * Math.PI);
-    if(a <= 0.004) return;
-    ctx.fillStyle = col(TEAL, a); dot(x - h * 0.055, y, h * 0.042);
-    ctx.fillStyle = col(AMBER, a); dot(x + h * 0.055, y, h * 0.042);
-  }
-
-  /* ---------- the six scenes ---------- */
-  function drawScene(w, gyf, now){
-    var A = w.alpha * edgeA(w.x);
-    if(A <= 0.004) return;
-    var h = w.h, dir = w.dir, ph = w.ph;
-    function at(ox, fn){
-      ctx.save(); ctx.translate(w.x + dir * ox, gyf); ctx.scale(dir, 1); fn(); ctx.restore();
-    }
-    if(w.scene === 0 || w.scene === 1){
-      at(0, function(){ chairF(h, w.roll, A); });
-      at(-h * 0.62, function(){ personF(h, ph, A, w.scene === 0); });
-      if(w.scene === 0 && w.balloon) balloonF(w.x + dir * h * 0.1, gyf - h * 0.52, h, A, now, w.seed);
-      if(w.scene === 1) kiteF(w.x + dir * h * 0.05, gyf - h * 0.50, w.gy, h, A, now, w.seed, dir);
-    } else if(w.scene === 2){
-      at(0, function(){ caneF(h, ph, A); });
-      at(h * 0.92, function(){ dogF(h, ph, A, w.state === 'pause' ? now * 0.02 : ph * 0.8); });
-      ctx.strokeStyle = col(TEAL, A * 0.9); ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(w.x + dir * h * 0.13, gyf - h * 0.40);
-      ctx.quadraticCurveTo(w.x + dir * h * 0.55, gyf - h * 0.50, w.x + dir * h * 0.86, gyf - h * 0.335);
-      ctx.stroke();
-    } else if(w.scene === 3){
-      at(0, function(){ crutchF(h, ph, A, Math.abs(Math.sin(ph)) * 1.5); });
-      at(-h * 0.60, function(){ personF(h, ph, A, false); });
-    } else if(w.scene === 4){
-      at(0, function(){ frameF(h, ph, A); });
-      at(-h * 0.58, function(){ personF(h, ph * 0.9, A, true); });
-    } else {
-      at(0, function(){ bladeF(h, ph, A); });
-      at(-h * 0.56, function(){ personF(h, ph + 0.6, A, false); });
-    }
-    if(w.state === 'pause' || w.bubbleK > 0){
-      bubbleF(w.x - dir * h * 0.28, gyf - h * 1.06, h, A, w.bubbleK);
-    }
-  }
-
-  function stampScene(w, gyf){
-    if(!w.stamps) return;
-    var dir = w.dir;
-    if(w.scene === 0 || w.scene === 1){
-      track(w.id + 'a', w.x, gyf + 0.6);
-      track(w.id + 'b', w.x + dir * w.h * 0.34, gyf + 0.6);
-      stepStamp(w, w.x - dir * w.h * 0.62, gyf);
-    } else if(w.scene === 2){
-      if(stepStamp(w, w.x, gyf)){
-        paw(w.x + dir * w.h * 0.86, gyf + 1); paw(w.x + dir * w.h * 0.96, gyf + 0.3);
+  {
+    const root = new THREE.Group();
+    const participant = createHuman({
+      skin: 9396294,
+      shirt: 7311810,
+      trousers: 3360082,
+      hair: 2893090,
+      hairStyle: "waves"
+    });
+    participant.root.position.x = -0.55;
+    const worker = createHuman({
+      skin: 7094318,
+      shirt: workerTeal,
+      trousers: 3030088,
+      hair: 1644825,
+      hairStyle: "bun"
+    });
+    worker.root.position.set(0.65, 0, -0.1);
+    const cane = new THREE.Group();
+    cane.position.set(-0.27, 1.22, 0.08);
+    cane.add(
+      cylinderBetween(
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0.12, -1.2, 0.72),
+        0.021,
+        standardMaterial(15987951, 0.38, 0.2),
+        8
+      )
+    );
+    const caneTip = makeSphere(0.04, standardMaterial(14242885, 0.8), 9, 7);
+    caneTip.position.set(0.12, -1.2, 0.72);
+    cane.add(caneTip);
+    root.add(participant.root, worker.root, cane, makeHitbox("white-cane", 2.8, 2.8, 2.4, 1.35));
+    root.add(createContactShadow(1.38, 0.85, 0.08));
+    scene.add(root);
+    clickables.push(root.children[root.children.length - 2]);
+    const path = createPath([
+      [62, -38],
+      [43, -23],
+      [26, -8],
+      [20, 8.2],
+      [13.5, 6.5],
+      [9, 4.1],
+      [5, 1.1],
+      [1.5, 4.3],
+      [-5, 6.1],
+      [-11, 4.2],
+      [-19, 7.2],
+      [-39, 24],
+      [-62, 38]
+    ]);
+    ensembles.push({
+      id: "white-cane",
+      root,
+      path,
+      pathLength: path.getLength(),
+      start: 10,
+      duration: 29,
+      stampEvery: 0.46,
+      lastStamp: -1,
+      wasActive: false,
+      targetQuaternion: new THREE.Quaternion(),
+      motion: edgeMotion,
+      animate(_distance, phase) {
+        participant.animate(phase);
+        worker.animate(phase + 1.5);
+        cane.rotation.y = Math.sin(phase * 0.52) * 0.54;
+      },
+      stamp(trails, distance) {
+        const yaw = yawFromQuaternion(root.quaternion);
+        const left = Math.floor(distance / 0.46) % 2 === 0;
+        trails.emit("foot", localPoint(root, left ? -0.72 : -0.42, -0.32), yaw, 0.18, 0.42, 5.3, left);
+        trails.emit("foot", localPoint(root, left ? 0.5 : 0.8, -0.3), yaw, 0.18, 0.42, 5.3, !left);
+        const sweep = Math.sin(distance * 1.3) > 0 ? -0.96 : 0.12;
+        trails.emit("cane", localPoint(root, sweep, 0.8), yaw, 0.13, 0.13, 2.2);
       }
-      if(Math.cos(w.ph) > 0.995) tap(w.x + dir * w.h * 0.30, gyf + 1);
-    } else if(w.scene === 3){
-      var sgn = Math.sin(w.ph) >= 0 ? 1 : -1;
-      if(sgn !== w.step){
-        w.step = sgn;
-        if(sgn > 0){ tap(w.x + dir * w.h * 0.185, gyf + 1); tap(w.x - dir * w.h * 0.03, gyf + 1.4); }
-        else foot(w.x + dir * 3, gyf + 1.5, 1, dir);
+    });
+  }
+  {
+    const root = new THREE.Group();
+    const participant = createHuman({
+      skin: 13208933,
+      shirt: 8417176,
+      trousers: 3623255,
+      hair: 3746339,
+      hairStyle: "curls",
+      jacket: 10114166
+    });
+    participant.root.position.x = -0.48;
+    participant.root.scale.multiplyScalar(0.97);
+    const worker = createHuman({
+      skin: 14724230,
+      shirt: workerTeal,
+      trousers: 4411740,
+      hair: 10776137,
+      hairStyle: "waves"
+    });
+    worker.root.position.set(0.72, 0, -0.15);
+    const leftCrutch = createCrutch(8417176);
+    const rightCrutch = createCrutch(8417176);
+    leftCrutch.position.set(-0.92, 0, 0.12);
+    rightCrutch.position.set(-0.06, 0, 0.12);
+    root.add(
+      participant.root,
+      worker.root,
+      leftCrutch,
+      rightCrutch,
+      makeHitbox("crutches", 3, 2.8, 2.5, 1.35),
+      createContactShadow(1.45, 0.85, 0.1)
+    );
+    scene.add(root);
+    clickables.push(root.children[4]);
+    const path = createPath([
+      [-62, 38],
+      [-42, 25],
+      [-25, 8],
+      [-20, -0.8],
+      [-14, 0.4],
+      [-11, 4.3],
+      [-6.5, 5.8],
+      [-2.5, 3.6],
+      [0.3, 0.4],
+      [6, 1.3],
+      [12, 4],
+      [20, 5.5],
+      [42, -19],
+      [62, -38]
+    ]);
+    ensembles.push({
+      id: "crutches",
+      root,
+      path,
+      pathLength: path.getLength(),
+      start: 24,
+      duration: 31,
+      stampEvery: 0.48,
+      lastStamp: -1,
+      wasActive: false,
+      targetQuaternion: new THREE.Quaternion(),
+      motion: edgeMotion,
+      animate(_distance, phase) {
+        participant.animate(phase, 0.66);
+        worker.animate(phase + 1.05);
+        leftCrutch.rotation.x = -0.1 + Math.sin(phase) * 0.18;
+        rightCrutch.rotation.x = -0.1 - Math.sin(phase) * 0.18;
+      },
+      stamp(trails, distance) {
+        const yaw = yawFromQuaternion(root.quaternion);
+        const even = Math.floor(distance / 0.48) % 2 === 0;
+        trails.emit("foot", localPoint(root, even ? -0.65 : -0.32, -0.35), yaw, 0.18, 0.42, 5.4, even);
+        trails.emit("foot", localPoint(root, even ? 0.58 : 0.82, -0.34), yaw, 0.18, 0.42, 5.4, !even);
+        trails.emit("crutch", localPoint(root, even ? -0.95 : -0.05, 0.18), yaw, 0.15, 0.15, 5.5);
       }
-      stepStamp2(w, w.x - dir * w.h * 0.60, gyf);
-    } else if(w.scene === 4){
-      track(w.id + 'a', w.x + dir * w.h * 0.245, gyf + 0.6);
-      track(w.id + 'b', w.x + dir * w.h * 0.455, gyf + 0.6);
-      stepStamp(w, w.x - dir * w.h * 0.58, gyf);
-    } else {
-      if(stepStamp(w, w.x, gyf)) tap(w.x + dir * w.h * 0.10, gyf + 1);
-      stepStamp2(w, w.x - dir * w.h * 0.56, gyf);
+    });
+  }
+  {
+    const root = new THREE.Group();
+    const chair = createWheelchair(true, {
+      skin: 14197374,
+      shirt: 4353421,
+      trousers: 3096393,
+      hair: 1514271,
+      hairStyle: "crop"
+    });
+    chair.root.position.x = -0.68;
+    const worker = createHuman({
+      skin: 11038287,
+      shirt: workerTeal,
+      trousers: 4082260,
+      hair: 3022617,
+      hairStyle: "bun"
+    });
+    worker.root.position.set(0.68, 0, -0.28);
+    const dog = createDog();
+    dog.root.position.set(1.62, 0, 0.26);
+    const lead = new THREE.Mesh(
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3([
+          new THREE.Vector3(0.95, 1.08, 0.18),
+          new THREE.Vector3(1.25, 0.92, 0.5),
+          new THREE.Vector3(1.58, 0.72, 0.38)
+        ]),
+        16,
+        0.012,
+        6,
+        false
+      ),
+      standardMaterial(9526591, 0.8)
+    );
+    root.add(chair.root, worker.root, dog.root, lead, makeHitbox("power-chair-dog", 4.2, 3, 2.7, 1.45));
+    scene.add(root);
+    clickables.push(root.children[4]);
+    const path = createPath([
+      [62, -38],
+      [43, -25],
+      [31, -16],
+      [26, -6],
+      [23, 3.5],
+      [20, 9],
+      [15, 12.5],
+      [7, 14],
+      [-16, 21],
+      [-40, 29],
+      [-62, 38]
+    ]);
+    ensembles.push({
+      id: "power-chair-dog",
+      root,
+      path,
+      pathLength: path.getLength(),
+      start: 40,
+      duration: 30,
+      stampEvery: 0.31,
+      lastStamp: -1,
+      wasActive: false,
+      targetQuaternion: new THREE.Quaternion(),
+      motion: edgeMotion,
+      animate(distance, phase) {
+        chair.animate(distance, phase);
+        worker.animate(phase + 0.8);
+        dog.animate(phase * 1.35);
+      },
+      stamp(trails, distance) {
+        const yaw = yawFromQuaternion(root.quaternion);
+        trails.emit("wheel", localPoint(root, -1.35, -0.08), yaw, 0.16, 0.45, 6.5);
+        trails.emit("wheel", localPoint(root, 0.02, -0.08), yaw, 0.16, 0.45, 6.5);
+        const left = Math.floor(distance / 0.31) % 2 === 0;
+        trails.emit("foot", localPoint(root, left ? 0.54 : 0.8, -0.52), yaw, 0.18, 0.42, 5.2, left);
+        trails.emit("paw", localPoint(root, left ? 1.42 : 1.78, 0.1), yaw, 0.16, 0.18, 4.6, left);
+      }
+    });
+  }
+  {
+    const root = new THREE.Group();
+    const participant = createHuman({
+      skin: 7095862,
+      shirt: 13925996,
+      trousers: 4216677,
+      hair: 1907997,
+      hairStyle: "crop",
+      prosthetic: "right"
+    });
+    participant.root.position.x = -0.55;
+    const worker = createHuman({
+      skin: 12682335,
+      shirt: workerTeal,
+      trousers: 3033170,
+      hair: 4993061,
+      hairStyle: "waves"
+    });
+    worker.root.position.set(0.66, 0, -0.08);
+    const tote = makeBox(0.46, 0.58, 0.14, standardMaterial(14066247, 0.9), 0.06);
+    tote.position.set(1.03, 0.86, 0.02);
+    tote.rotation.z = -0.08;
+    root.add(participant.root, worker.root, tote, makeHitbox("prosthetic", 2.8, 2.8, 2.4, 1.35));
+    root.add(createContactShadow(1.4, 0.85, 0.09));
+    scene.add(root);
+    clickables.push(root.children[3]);
+    const path = createPath([
+      [-62, 38],
+      [-42, 27],
+      [-34, 8],
+      [-26, -1.5],
+      [-18, -0.8],
+      [-10, 2],
+      [-3, 5],
+      [5, 7],
+      [14, 5.5],
+      [24, 0.5],
+      [31, -8],
+      [39, -20],
+      [45, -33],
+      [62, -38]
+    ]);
+    ensembles.push({
+      id: "prosthetic",
+      root,
+      path,
+      pathLength: path.getLength(),
+      start: 56,
+      duration: 28,
+      stampEvery: 0.45,
+      lastStamp: -1,
+      wasActive: false,
+      targetQuaternion: new THREE.Quaternion(),
+      motion: edgeMotion,
+      animate(_distance, phase) {
+        participant.animate(phase, 0.94);
+        worker.animate(phase + 1.3);
+        participant.rightLeg.rotation.x *= 0.9;
+      },
+      stamp(trails, distance) {
+        const yaw = yawFromQuaternion(root.quaternion);
+        const left = Math.floor(distance / 0.45) % 2 === 0;
+        trails.emit("foot", localPoint(root, left ? -0.7 : -0.4, -0.34), yaw, 0.18, 0.42, 5.4, left);
+        trails.emit("foot", localPoint(root, left ? 0.52 : 0.82, -0.34), yaw, 0.18, 0.42, 5.4, !left);
+      }
+    });
+  }
+  {
+    const root = new THREE.Group();
+    const worker = createHuman({
+      skin: 9396294,
+      shirt: workerTeal,
+      trousers: 4018784,
+      hair: 2564125,
+      hairStyle: "bun",
+      jacket: 6788218
+    });
+    const wateringCan = createWateringCan();
+    wateringCan.position.set(0.46, 0.92, 0.32);
+    wateringCan.scale.setScalar(0.82);
+    const shears = createGardenShears();
+    shears.root.position.set(-0.38, 0.92, 0.62);
+    shears.root.scale.setScalar(0.72);
+    shears.root.visible = false;
+    const waterDrops = new THREE.Group();
+    const waterMaterial = new THREE.MeshBasicMaterial({
+      color: 8568528,
+      transparent: true,
+      opacity: 0.78,
+      depthWrite: false
+    });
+    const drops = [];
+    for (let index = 0; index < 32; index += 1) {
+      const drop = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 6), waterMaterial);
+      drop.scale.set(0.62, 1.72, 0.62);
+      drops.push(drop);
+      waterDrops.add(drop);
+    }
+    waterDrops.visible = false;
+    const hitbox = makeHitbox("garden-care", 1.9, 2.8, 2.1, 1.35);
+    root.add(
+      worker.root,
+      wateringCan,
+      shears.root,
+      waterDrops,
+      hitbox,
+      createContactShadow(0.9, 0.72, 0.09)
+    );
+    scene.add(root);
+    clickables.push(hitbox);
+    const path = createPath([
+      [-72, 44],
+      [-48, 30],
+      [-33, 19],
+      [-23, 12],
+      [-18.2, 8.5],
+      [-17.5, 8.6],
+      [-13.4, 8.8],
+      [-12.8, 8.9],
+      [-10.1, 8.5],
+      [-8.4, 8.1],
+      [-17, 13.6],
+      [-33, 17.5],
+      [-50, 31.5],
+      [-72, 44]
+    ]);
+    const waterOneStation = new THREE.Vector3(-17.5, 0, 8.6);
+    const waterTwoStation = new THREE.Vector3(-12.8, 0, 8.9);
+    const trimStart = new THREE.Vector3(-10.1, 0, 8.5);
+    const trimEnd = new THREE.Vector3(-8.4, 0, 8.1);
+    const waterOnePath = closestPathProgress(path, waterOneStation);
+    const waterTwoPath = closestPathProgress(path, waterTwoStation);
+    const trimStartPath = closestPathProgress(path, trimStart);
+    const trimEndPath = closestPathProgress(path, trimEnd);
+    const trimTarget = new THREE.Vector3(-9.3, 0, 9.9);
+    ensembles.push({
+      id: "garden-care",
+      root,
+      path,
+      pathLength: path.getLength(),
+      start: GARDEN_START,
+      duration: GARDEN_DURATION,
+      stampEvery: 0.42,
+      lastStamp: -1,
+      wasActive: false,
+      targetQuaternion: new THREE.Quaternion(),
+      motion(progress) {
+        if (progress < 0.21) return travelBetween(progress, 0, 0.21, 0, waterOnePath);
+        if (progress < 0.35) return waterOnePath;
+        if (progress < 0.47) {
+          return travelBetween(progress, 0.35, 0.47, waterOnePath, waterTwoPath);
+        }
+        if (progress < 0.61) return waterTwoPath;
+        if (progress < 0.7) {
+          return travelBetween(progress, 0.61, 0.7, waterTwoPath, trimStartPath);
+        }
+        if (progress < 0.82) {
+          return travelBetween(progress, 0.7, 0.82, trimStartPath, trimEndPath);
+        }
+        return travelBetween(progress, 0.82, 1, trimEndPath, 0.999);
+      },
+      animate(_distance, phase, progress) {
+        const wateringOne = progress >= 0.21 && progress < 0.35;
+        const wateringTwo = progress >= 0.47 && progress < 0.61;
+        const watering = wateringOne || wateringTwo;
+        const trimming = progress >= 0.7 && progress < 0.82;
+        worker.animate(phase, watering ? 0 : trimming ? 0.14 : 0.88);
+        if (watering) {
+          const waterStart = wateringOne ? 0.21 : 0.47;
+          const waterEnd = wateringOne ? 0.35 : 0.61;
+          const waterProgress = smoothStep((progress - waterStart) / (waterEnd - waterStart));
+          const waterTarget = (wateringOne ? GARDEN_BEDS[0] : GARDEN_BEDS[1]).clone();
+          waterTarget.x += THREE.MathUtils.lerp(-1.15, 1.15, waterProgress);
+          facePoint(root, waterTarget, 0.5);
+          worker.leftArm.rotation.x = -0.76;
+          worker.rightArm.rotation.x = -0.94;
+          wateringCan.position.set(0.46, 0.92, 0.32);
+          wateringCan.rotation.set(0, -1.06, -0.42);
+        } else if (trimming) {
+          facePoint(root, trimTarget, 0.32);
+          worker.leftArm.rotation.x = -0.78 + Math.sin(phase * 1.2) * 0.08;
+          worker.rightArm.rotation.x = -0.84 - Math.sin(phase * 1.2) * 0.08;
+          wateringCan.position.set(0.54, 0.69, -0.02);
+          wateringCan.rotation.set(0.08, -0.2, 0.08);
+          shears.animate(phase);
+          grounding.trimGardenEdge((progress - 0.7) / 0.12);
+        } else {
+          wateringCan.position.set(0.46, 0.92, 0.32);
+          wateringCan.rotation.set(0, 0, 0.05);
+        }
+        shears.root.visible = trimming;
+        waterDrops.visible = watering;
+        if (!watering) return;
+        for (let index = 0; index < drops.length; index += 1) {
+          const fall = (progress * GARDEN_DURATION * 1.85 + index / drops.length) % 1;
+          const fan = (index % 7 - 3) / 3;
+          drops[index].position.set(
+            0.58 + fan * (0.06 + fall * 0.24),
+            1.15 + Math.sin(fall * Math.PI) * 0.18 - fall * 0.74,
+            1.02 + fall * 1.62
+          );
+          drops[index].scale.y = 0.85 + fall * 1.45;
+        }
+      },
+      stamp(trails, distance) {
+        const yaw = yawFromQuaternion(root.quaternion);
+        const left = Math.floor(distance / 0.42) % 2 === 0;
+        trails.emit("foot", localPoint(root, left ? -0.17 : 0.17, -0.3), yaw, 0.18, 0.42, 5.5, left);
+      }
+    });
+  }
+  {
+    const root = new THREE.Group();
+    const mower = createLawnMower({
+      skin: 14724487,
+      shirt: workerTeal,
+      trousers: 3426646,
+      hair: 6242351,
+      hairStyle: "crop"
+    });
+    const hitbox = makeHitbox("lawn-care", 2.5, 2.8, 3.4, 1.35);
+    root.add(mower.root, hitbox);
+    scene.add(root);
+    clickables.push(hitbox);
+    const path = createPath([
+      [72, -44],
+      [48, -30],
+      [34, -22],
+      [24, -15],
+      [20, -12.1],
+      [4.5, -12.1],
+      [4.5, -10.7],
+      [19.5, -10.7],
+      [19.5, -9.3],
+      [4.5, -9.3],
+      [4.5, -7.9],
+      [19.5, -7.9],
+      [19.5, -6.5],
+      [4.5, -6.5],
+      [4.5, -5.1],
+      [19.5, -5.1],
+      [19.5, -3.6],
+      [4.5, -3.6],
+      [1, -1],
+      [-12, 7],
+      [-30, 17.5],
+      [-49, 31],
+      [-72, 44]
+    ]);
+    ensembles.push({
+      id: "lawn-care",
+      root,
+      path,
+      pathLength: path.getLength(),
+      start: LAWN_START,
+      duration: LAWN_DURATION,
+      stampEvery: 0.7,
+      lastStamp: -1,
+      wasActive: false,
+      targetQuaternion: new THREE.Quaternion(),
+      motion: smoothStep,
+      animate(distance, phase, progress) {
+        mower.animate(distance, phase);
+        if (progress > 0.12 && progress < 0.82) {
+          grounding.markMowed(root.position.x, root.position.z);
+        }
+      },
+      stamp(trails, distance) {
+        const yaw = yawFromQuaternion(root.quaternion);
+        const left = Math.floor(distance / 0.7) % 2 === 0;
+        trails.emit("foot", localPoint(root, left ? -0.18 : 0.18, -1.92), yaw, 0.18, 0.42, 5.2, left);
+        trails.emit("wheel", localPoint(root, -0.45, 0.1), yaw, 0.1, 0.34, 5.4);
+        trails.emit("wheel", localPoint(root, 0.45, 0.1), yaw, 0.1, 0.34, 5.4);
+      }
+    });
+  }
+  {
+    const root = new THREE.Group();
+    const worker = createHuman({
+      skin: 7292469,
+      shirt: workerTeal,
+      trousers: 3426645,
+      hair: 1644825,
+      hairStyle: "waves"
+    });
+    worker.root.position.x = -0.48;
+    const dog = createDog();
+    dog.root.position.set(0.96, 0, 0.3);
+    dog.root.scale.multiplyScalar(0.9);
+    const lead = new THREE.Mesh(
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3([
+          new THREE.Vector3(-0.1, 1.08, 0.1),
+          new THREE.Vector3(0.42, 0.9, 0.46),
+          new THREE.Vector3(0.92, 0.72, 0.42)
+        ]),
+        14,
+        0.012,
+        6,
+        false
+      ),
+      standardMaterial(9526591, 0.8)
+    );
+    const hitbox = makeHitbox("dog-walk", 3.1, 2.8, 2.5, 1.35);
+    root.add(worker.root, dog.root, lead, hitbox);
+    scene.add(root);
+    clickables.push(hitbox);
+    const path = createPath([
+      [-62, 38],
+      [-44, 24],
+      [-32, 7],
+      [-25, -16],
+      [-17, -12],
+      [-10, -14],
+      [-2, -10],
+      [5, -12.5],
+      [12, -9],
+      [18, -2],
+      [23, 6],
+      [28, 13],
+      [42, -5],
+      [62, -38]
+    ]);
+    ensembles.push({
+      id: "dog-walk",
+      root,
+      path,
+      pathLength: path.getLength(),
+      start: 56,
+      duration: 22,
+      stampEvery: 0.34,
+      lastStamp: -1,
+      wasActive: false,
+      targetQuaternion: new THREE.Quaternion(),
+      motion: edgeMotion,
+      animate(_distance, phase) {
+        worker.animate(phase, 0.92);
+        dog.animate(phase * 1.35);
+        worker.rightArm.rotation.x = -0.42 + Math.sin(phase) * 0.08;
+      },
+      stamp(trails, distance) {
+        const yaw = yawFromQuaternion(root.quaternion);
+        const left = Math.floor(distance / 0.34) % 2 === 0;
+        trails.emit("foot", localPoint(root, left ? -0.63 : -0.34, -0.34), yaw, 0.18, 0.42, 5.2, left);
+        trails.emit("paw", localPoint(root, left ? 0.78 : 1.08, 0.18), yaw, 0.16, 0.18, 4.6, left);
+      }
+    });
+  }
+  return ensembles;
+}
+function addGroundingElements(scene) {
+  const lawnTiles = [];
+  const gardenEdgeGrass = [];
+  let gardenTrimAmount = 0;
+  const groundMaterial = standardMaterial(16052199, 0.98);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(144, 100), groundMaterial);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.035;
+  ground.receiveShadow = true;
+  scene.add(ground);
+  const lawnMaterial = new THREE.MeshStandardMaterial({
+    color: 10401661,
+    roughness: 0.96,
+    transparent: true,
+    opacity: 0.9
+  });
+  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(17, 10.5), lawnMaterial);
+  lawn.rotation.x = -Math.PI / 2;
+  lawn.position.set(12, -8e-3, -7.5);
+  lawn.receiveShadow = true;
+  scene.add(lawn);
+  const grassTileMaterial = standardMaterial(8825197, 0.98);
+  const grassTileGeometry = new THREE.BoxGeometry(1, 1, 1);
+  const lawnColumns = 14;
+  const lawnRows = 8;
+  const tileWidth = 17 / lawnColumns;
+  const tileDepth = 10.5 / lawnRows;
+  const grassTiles = new THREE.InstancedMesh(
+    grassTileGeometry,
+    grassTileMaterial,
+    lawnColumns * lawnRows
+  );
+  grassTiles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  grassTiles.castShadow = true;
+  grassTiles.receiveShadow = true;
+  const grassTransform = new THREE.Object3D();
+  const uncutGrassColor = new THREE.Color(8825197);
+  const cutGrassColor = new THREE.Color(12176526);
+  const grassColor = new THREE.Color();
+  for (let row = 0; row < lawnRows; row += 1) {
+    for (let column = 0; column < lawnColumns; column += 1) {
+      const x = 3.5 + tileWidth * (column + 0.5);
+      const z = -12.75 + tileDepth * (row + 0.5);
+      const baseHeight = 0.14 + (row * 7 + column * 3) % 4 * 0.012;
+      grassTransform.scale.set(tileWidth * 0.94, baseHeight, tileDepth * 0.94);
+      grassTransform.position.set(x, 8e-3 + baseHeight * 0.5, z);
+      grassTransform.updateMatrix();
+      const tileIndex = row * lawnColumns + column;
+      grassTiles.setMatrixAt(tileIndex, grassTransform.matrix);
+      grassTiles.setColorAt(tileIndex, uncutGrassColor);
+      lawnTiles.push({ x, z, baseHeight, cut: 0 });
     }
   }
-  function stepStamp(w, footX, gy){
-    var sgn = Math.sin(w.ph) >= 0 ? 1 : -1;
-    if(sgn !== w.step){ w.step = sgn; foot(footX + w.dir * sgn * 4, gy + 1.5, sgn, w.dir); return true; }
-    return false;
+  grassTiles.instanceMatrix.needsUpdate = true;
+  if (grassTiles.instanceColor) grassTiles.instanceColor.needsUpdate = true;
+  scene.add(grassTiles);
+  const lawnBorder = standardMaterial(7903343, 0.94);
+  for (const [x, z, width, depth] of [
+    [12, -12.68, 17.3, 0.16],
+    [12, -2.32, 17.3, 0.16],
+    [3.42, -7.5, 0.16, 10.5],
+    [20.58, -7.5, 0.16, 10.5]
+  ]) {
+    const edge = makeBox(width, 0.08, depth, lawnBorder, 0.025);
+    edge.position.set(x, 0.01, z);
+    edge.receiveShadow = true;
+    scene.add(edge);
   }
-  function stepStamp2(w, footX, gy){
-    var sgn = Math.sin(w.ph + 1.2) >= 0 ? 1 : -1;
-    if(sgn !== w.step2){ w.step2 = sgn; foot(footX + w.dir * sgn * 4, gy + 1.5, sgn, w.dir); }
+  const islandMaterial = new THREE.MeshStandardMaterial({
+    color: 15130064,
+    roughness: 0.95,
+    transparent: true,
+    opacity: 0.7
+  });
+  for (const [x, z, sx, sz] of [
+    [-21, -13, 4.8, 1.4],
+    [23, 16, 4.2, 1.25],
+    [-14, 10.5, 6.2, 3.2],
+    [17, 16, 2.6, 0.8]
+  ]) {
+    const island = new THREE.Mesh(new THREE.CircleGeometry(1, 48), islandMaterial);
+    island.rotation.x = -Math.PI / 2;
+    island.position.set(x, -0.012, z);
+    island.scale.set(sx, sz, 1);
+    island.receiveShadow = true;
+    scene.add(island);
   }
-
-  /* ---------- walkers ---------- */
-  function mkWalker(scene, dir, gy, band){
-    var near = band === 'near';
-    var h = near ? 52 + Math.random() * 14 : band === 'mid' ? 28 + Math.random() * 8 : 15 + Math.random() * 5;
+  const wood = standardMaterial(10844501, 0.91);
+  const soil = standardMaterial(7951936, 0.98);
+  const leaf = standardMaterial(7315320, 0.94);
+  const flowerColors = [13925996, 14066247, 8417176, 7311810];
+  for (const [index, bedPosition] of GARDEN_BEDS.entries()) {
+    const bedX = bedPosition.x;
+    const bedZ = bedPosition.z;
+    const rotation = index === 0 ? -0.08 : 0.09;
+    const bed = new THREE.Group();
+    const frame = makeBox(3.8, 0.34, 1.72, wood, 0.07);
+    frame.position.y = 0.17;
+    const earth = makeBox(3.42, 0.18, 1.36, soil, 0.05);
+    earth.position.y = 0.37;
+    bed.add(frame, earth);
+    for (let index2 = 0; index2 < 7; index2 += 1) {
+      const plant = new THREE.Group();
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.48, 7), leaf);
+      stem.position.y = 0.24;
+      const bloom = makeSphere(0.13, standardMaterial(flowerColors[index2 % flowerColors.length], 0.9), 10, 7);
+      bloom.scale.set(1.1, 0.7, 1.1);
+      bloom.position.y = 0.51;
+      plant.add(stem, bloom);
+      plant.position.set(-1.35 + index2 % 4 * 0.9, 0.43, index2 % 2 * 0.58 - 0.29);
+      bed.add(plant);
+    }
+    bed.position.set(bedX, 0, bedZ);
+    bed.rotation.y = rotation;
+    scene.add(bed);
+  }
+  const gardenGrassGeometry = new THREE.ConeGeometry(0.12, 0.62, 6);
+  const gardenGrassMaterial = standardMaterial(7313264, 0.98);
+  for (let index = 0; index < 26; index += 1) {
+    const baseHeight = 0.74 + index % 4 * 0.06;
+    const tuft = new THREE.Mesh(gardenGrassGeometry, gardenGrassMaterial);
+    tuft.scale.set(0.72 + index % 3 * 0.08, baseHeight, 0.78);
+    tuft.position.set(
+      -18.2 + index * 0.42,
+      0.31 * baseHeight,
+      9.02 + Math.sin(index * 1.7) * 0.14
+    );
+    tuft.rotation.y = index % 5 * 0.26;
+    tuft.castShadow = true;
+    scene.add(tuft);
+    gardenEdgeGrass.push({ mesh: tuft, baseHeight });
+  }
+  const stone = standardMaterial(13155759, 0.97);
+  for (let index = 0; index < 8; index += 1) {
+    const step = new THREE.Mesh(new THREE.CircleGeometry(0.48 + index % 2 * 0.08, 18), stone);
+    step.rotation.x = -Math.PI / 2;
+    step.position.set(-22 + index * 1.2, 6e-3, 14.4 - index * 0.62);
+    step.scale.y = 0.72;
+    step.receiveShadow = true;
+    scene.add(step);
+  }
+  const shrubMaterial = standardMaterial(7772792, 0.96);
+  for (const [x, z, size] of [
+    [-18.5, 8.4, 0.6],
+    [-16.8, 8.1, 0.74],
+    [-10.1, 9, 0.68],
+    [-8.8, 10.1, 0.58]
+  ]) {
+    const shrub = makeSphere(size, shrubMaterial, 12, 8);
+    shrub.scale.set(1.2, 0.72, 1);
+    shrub.position.set(x, size * 0.58, z);
+    scene.add(shrub);
+  }
+  const trunk = standardMaterial(9860701, 0.9);
+  const foliage = standardMaterial(8365965, 0.92);
+  for (const [x, z, size] of [
+    [-22, -13, 0.94],
+    [23.6, 16, 0.82],
+    [-21.4, 16.6, 0.72],
+    [19.1, 16.2, 0.66]
+  ]) {
+    const tree = new THREE.Group();
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.7, 9), trunk);
+    stem.position.y = 0.85;
+    const crown = makeSphere(0.78, foliage, 12, 8);
+    crown.scale.set(1.08, 1.22, 0.95);
+    crown.position.y = 2.05;
+    tree.add(stem, crown, createContactShadow(0.8, 0.62, 0.08));
+    tree.position.set(x, 0, z);
+    tree.scale.setScalar(size);
+    scene.add(tree);
+  }
+  const fence = new THREE.Group();
+  const fenceMaterial = standardMaterial(14271914, 0.9);
+  const fencePostMaterial = standardMaterial(12095596, 0.88);
+  function addFenceSegment(x1, z1, x2, z2) {
+    const dx = x2 - x1;
+    const dz = z2 - z1;
+    const length = Math.hypot(dx, dz);
+    const yaw = Math.atan2(dx, dz);
+    for (const height of [0.48, 0.98]) {
+      const rail = makeBox(0.12, 0.1, length, fenceMaterial, 0.025);
+      rail.position.set((x1 + x2) * 0.5, height, (z1 + z2) * 0.5);
+      rail.rotation.y = yaw;
+      fence.add(rail);
+    }
+    const posts = Math.max(1, Math.ceil(length / 2.8));
+    for (let index = 0; index <= posts; index += 1) {
+      const t = index / posts;
+      const post = makeBox(0.18, 1.34, 0.18, fencePostMaterial, 0.035);
+      post.position.set(
+        THREE.MathUtils.lerp(x1, x2, t),
+        0.67,
+        THREE.MathUtils.lerp(z1, z2, t)
+      );
+      fence.add(post);
+    }
+  }
+  addFenceSegment(-31, 23, -27, 23);
+  addFenceSegment(-17, 23, 28, 23);
+  addFenceSegment(-31, -20.5, 28, -20.5);
+  addFenceSegment(-31, -20.5, -31, 2);
+  addFenceSegment(-31, 20, -31, 23);
+  addFenceSegment(28, -2, 28, 10);
+  addFenceSegment(28, 16, 28, 23);
+  scene.add(fence);
+  return {
+    markMowed(x, z) {
+      if (x < 3.25 || x > 20.75 || z < -13 || z > -2) return;
+      for (const tile of lawnTiles) {
+        const dx = tile.x - x;
+        const dz = tile.z - z;
+        if (dx * dx + dz * dz <= 1.32) tile.cut = 1;
+      }
+    },
+    trimGardenEdge(amount) {
+      gardenTrimAmount = Math.max(gardenTrimAmount, THREE.MathUtils.clamp(amount, 0, 1));
+    },
+    update(simulationTime, delta) {
+      const lawnTime = cycleLocalTime(simulationTime, LAWN_START);
+      const lawnCanRegrow = lawnTime > LAWN_DURATION + 1.5;
+      lawnTiles.forEach((tile, index) => {
+        if (lawnCanRegrow) tile.cut = Math.max(0, tile.cut - delta / 12);
+        const cut = smoothStep(tile.cut);
+        const height = THREE.MathUtils.lerp(tile.baseHeight, 0.03, cut);
+        grassTransform.scale.set(tileWidth * 0.94, height, tileDepth * 0.94);
+        grassTransform.position.set(tile.x, 8e-3 + height * 0.5, tile.z);
+        grassTransform.updateMatrix();
+        grassTiles.setMatrixAt(index, grassTransform.matrix);
+        grassColor.lerpColors(uncutGrassColor, cutGrassColor, cut);
+        grassTiles.setColorAt(index, grassColor);
+      });
+      grassTiles.instanceMatrix.needsUpdate = true;
+      if (grassTiles.instanceColor) grassTiles.instanceColor.needsUpdate = true;
+      const gardenTime = cycleLocalTime(simulationTime, GARDEN_START);
+      if (gardenTime > GARDEN_DURATION + 1.5) {
+        gardenTrimAmount = Math.max(0, gardenTrimAmount - delta / 10);
+      }
+      gardenEdgeGrass.forEach(({ mesh, baseHeight }, index) => {
+        const sequence = THREE.MathUtils.clamp(
+          gardenTrimAmount * 1.18 - index / Math.max(1, gardenEdgeGrass.length - 1) * 0.18,
+          0,
+          1
+        );
+        const heightScale = THREE.MathUtils.lerp(baseHeight, baseHeight * 0.32, smoothStep(sequence));
+        mesh.scale.y = heightScale;
+        mesh.position.y = 0.31 * heightScale;
+      });
+    }
+  };
+}
+function getCameraGoal(view, aspect) {
+  const portrait = aspect < 0.85;
+  const compact = aspect < 1.2;
+  const wide = aspect > 2;
+  const distance = portrait ? 1.86 : compact ? 1.36 : wide ? 1.1 : 1;
+  if (view === "ground-level") {
     return {
-      id: 'w' + (++uid), scene: scene, dir: dir, gy: gy, band: band,
-      h: h, v: (near ? 34 : band === 'mid' ? 21 : 13) + Math.random() * (near ? 16 : 6),
-      alpha: near ? 0.16 : band === 'mid' ? 0.10 : 0.075,
-      x: dir > 0 ? -110 : W + 110, ph: 0, roll: 0, seed: Math.random() * 9,
-      step: 1, step2: 1, stamps: near,
-      state: 'walk', pauseT: 0, pausedOnce: Math.random() < 0.45, bubbleK: 0,
-      balloon: Math.random() < 0.6
+      position: new THREE.Vector3(0, portrait ? 10.5 : 7.2, 34 * distance),
+      target: new THREE.Vector3(0, 1.05, 0),
+      fov: portrait ? 48 : 40,
+      orthographic: false,
+      orthoHalfHeight: 0
     };
   }
-  function updateWalker(w, dt, now){
-    if(w.state === 'walk'){
-      w.x += w.dir * w.v * dt;
-      w.ph = w.x / (w.h * 0.165);
-      w.roll = w.dir * w.x / (w.h * 0.28);
-      if(!w.pausedOnce && w.band === 'near' && w.x > W * 0.34 && w.x < W * 0.58 && Math.random() < dt * 0.5){
-        w.state = 'pause'; w.pauseT = 1.7; w.pausedOnce = true;
+  if (view === "isometric") {
+    return {
+      position: new THREE.Vector3(48, 54, 48),
+      target: new THREE.Vector3(-1.5, 0.2, 0.5),
+      fov: 34,
+      orthographic: true,
+      orthoHalfHeight: Math.max(27, 40 / Math.max(0.42, aspect))
+    };
+  }
+  return {
+    position: new THREE.Vector3(24 * distance, 19 * distance, 30 * distance),
+    target: new THREE.Vector3(0, 0.8, 0),
+    fov: portrait ? 47 : 40,
+    orthographic: false,
+    orthoHalfHeight: 0
+  };
+}
+
+
+/* ─── the vanilla shell (ported from the React component) ─── */
+const sect = document.getElementById('careScene');
+const host = document.getElementById('csHost');
+const posterMsg = document.getElementById('csPosterMsg');
+const tapPlay = document.getElementById('csTapPlay');
+const pauseBtn = document.getElementById('csPause');
+const pauseLabel = document.getElementById('csPauseLabel');
+const pauseIconEl = pauseBtn.querySelector('span[aria-hidden]');
+const noteEl = document.getElementById('csMotionNote');
+const cardEl = document.getElementById('csCard');
+const viewsBox = document.getElementById('csViews');
+const guideBox = document.getElementById('csGuide');
+const personasBox = document.getElementById('csPersonas');
+
+let view = 'isometric', paused = false, selectedId = null;
+let ready = false, failed = false, visible = false, inited = false, booting = false;
+let api = null; /* set by boot(): { start, stop, dispose, refreshViews } */
+
+const reduceOn = () =>
+  document.documentElement.getAttribute('data-motion') === 'reduce' ||
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const contrastOn = () => document.documentElement.classList.contains('high-contrast');
+const phone = () => window.innerWidth < 700;
+
+function showFallback(msg){
+  failed = true; booting = false;
+  host.classList.remove('is-ready');
+  posterMsg.textContent = msg || 'The motion version could not load, so a still scene is shown.';
+  viewsBox.hidden = guideBox.hidden = pauseBtn.hidden = true;
+}
+
+function setPaused(next){
+  paused = next;
+  pauseBtn.setAttribute('aria-pressed', String(paused));
+  pauseLabel.textContent = paused ? 'Play animation' : 'Pause animation';
+  pauseIconEl.className = paused ? 'play-icon' : 'pause-icon';
+  if(!paused) noteEl.hidden = true;
+}
+
+function openCard(id){
+  const p = PERSONAS.find(x => x.id === id);
+  selectedId = p ? id : null;
+  for(const b of personasBox.querySelectorAll('button'))
+    b.setAttribute('aria-pressed', String(b.dataset.pid === selectedId));
+  if(!p){ cardEl.classList.remove('is-open'); cardEl.setAttribute('aria-hidden', 'true'); return; }
+  cardEl.style.setProperty('--card-accent', p.accent);
+  cardEl.innerHTML = '<button type="button" class="card-close" aria-label="Close character information">×</button>'
+    + '<span></span><h3></h3><p></p>';
+  cardEl.querySelector('span').textContent = p.eyebrow;
+  cardEl.querySelector('h3').textContent = p.names;
+  cardEl.querySelector('p').textContent = p.description;
+  cardEl.classList.add('is-open');
+  cardEl.setAttribute('aria-hidden', 'false');
+}
+cardEl.addEventListener('click', e => { if(e.target.closest('.card-close')) openCard(null); });
+window.addEventListener('keydown', e => { if(e.key === 'Escape') openCard(null); });
+
+function buildUi(){
+  viewsBox.innerHTML = '';
+  for(const id of Object.keys(VIEW_LABELS)){
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = VIEW_LABELS[id]; b.dataset.vid = id;
+    b.setAttribute('aria-pressed', String(view === id));
+    if(view === id) b.classList.add('is-active');
+    b.addEventListener('click', () => { view = id; refreshViewButtons(); });
+    viewsBox.appendChild(b);
+  }
+  personasBox.innerHTML = '';
+  for(const p of PERSONAS){
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.pid = p.id;
+    b.setAttribute('aria-pressed', 'false');
+    b.style.setProperty('--persona-accent', p.accent);
+    const dot = document.createElement('span'); dot.setAttribute('aria-hidden', 'true'); dot.textContent = p.names.charAt(0);
+    const name = document.createElement('b'); name.textContent = p.names;
+    b.append(dot, name);
+    b.addEventListener('click', () => openCard(selectedId === p.id ? null : p.id));
+    personasBox.appendChild(b);
+  }
+  viewsBox.hidden = guideBox.hidden = pauseBtn.hidden = false;
+}
+function refreshViewButtons(){
+  for(const b of viewsBox.querySelectorAll('button')){
+    const on = b.dataset.vid === view;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+}
+pauseBtn.addEventListener('click', () => setPaused(!paused));
+
+function boot(){
+  if(inited || booting || failed) return;
+  booting = true;
+  posterMsg.textContent = 'Building the 3D scene…';
+  tapPlay.hidden = true;
+
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+  } catch (e) { showFallback(); return; }
+  renderer.setClearColor(0x000000, 0);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.96;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.domElement.setAttribute('aria-hidden', 'true');
+  renderer.domElement.setAttribute('tabindex', '-1');
+  host.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0xf4efe7, 0.0048);
+  const perspectiveCamera = new THREE.PerspectiveCamera(38, 1, 0.1, 260);
+  const initialGoal = getCameraGoal('isometric', 1.6);
+  perspectiveCamera.position.copy(initialGoal.position);
+  perspectiveCamera.lookAt(initialGoal.target);
+  const isometricCamera = new THREE.OrthographicCamera(-40, 40, 28, -28, 0.1, 260);
+  isometricCamera.position.copy(initialGoal.position);
+  isometricCamera.lookAt(initialGoal.target);
+  let activeCamera = isometricCamera;
+  let cameraAspect = 1.6;
+  let orthoHalfHeight = initialGoal.orthoHalfHeight;
+
+  const hemisphere = new THREE.HemisphereLight(0xfbf7ee, 0x6e8d87, 2.25);
+  const key = new THREE.DirectionalLight(0xfff0d8, 4.2);
+  key.position.set(-10, 18, 12);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1536, 1536);
+  key.shadow.camera.left = -72; key.shadow.camera.right = 72;
+  key.shadow.camera.top = 52; key.shadow.camera.bottom = -52;
+  key.shadow.camera.near = 0.5; key.shadow.camera.far = 130;
+  key.shadow.bias = -0.00035;
+  const fill = new THREE.DirectionalLight(0x9dc6d4, 1.15);
+  fill.position.set(14, 8, -10);
+  const rim = new THREE.DirectionalLight(0xd8b3c5, 0.72);
+  rim.position.set(3, 10, -15);
+  scene.add(hemisphere, key, fill, rim);
+
+  const grounding = addGroundingElements(scene);
+  const trails = new TrailPool(scene, window.innerWidth < 700 ? 210 : 340);
+  const clickables = [];
+  const ensembles = createEnsembles(scene, clickables, grounding);
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  const clock = new THREE.Clock();
+  const targetMatrix = new THREE.Matrix4();
+  const targetCameraQuaternion = new THREE.Quaternion();
+  let simulationTime = 13; /* start mid-life: people already on the paths (13 is upstream's own parked-frame moment) */
+  let frameId = 0, rafOn = false;
+  let hidden = document.hidden;
+  let disposed = false;
+
+  const resize = () => {
+    const width = Math.max(1, host.clientWidth);
+    const height = Math.max(1, host.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, width < 700 ? 1.2 : 1.5));
+    renderer.setSize(width, height, false);
+    cameraAspect = width / height;
+    perspectiveCamera.aspect = cameraAspect;
+    perspectiveCamera.updateProjectionMatrix();
+    const isoGoal = getCameraGoal('isometric', cameraAspect);
+    orthoHalfHeight = isoGoal.orthoHalfHeight;
+    isometricCamera.left = -orthoHalfHeight * cameraAspect;
+    isometricCamera.right = orthoHalfHeight * cameraAspect;
+    isometricCamera.top = orthoHalfHeight;
+    isometricCamera.bottom = -orthoHalfHeight;
+    isometricCamera.updateProjectionMatrix();
+  };
+  const resizeObserver = new ResizeObserver(resize);
+  resizeObserver.observe(host);
+  resize();
+
+  const pickActor = (event) => {
+    const bounds = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+    pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, activeCamera);
+    return raycaster.intersectObjects(clickables, false)[0];
+  };
+  const selectFromPointer = (event) => {
+    const hit = pickActor(event);
+    if (hit && hit.object.userData.actorId) openCard(String(hit.object.userData.actorId));
+  };
+  const showPointer = (event) => {
+    renderer.domElement.style.cursor = pickActor(event) ? 'pointer' : 'default';
+  };
+  const contextLost = (event) => { event.preventDefault(); showFallback(); };
+  const visibilityChanged = () => { hidden = document.hidden; clock.getDelta(); };
+  renderer.domElement.addEventListener('pointerup', selectFromPointer);
+  renderer.domElement.addEventListener('pointermove', showPointer);
+  renderer.domElement.addEventListener('webglcontextlost', contextLost);
+  document.addEventListener('visibilitychange', visibilityChanged);
+
+  const render = () => {
+    if (disposed) return;
+    if (!visible) { rafOn = false; return; } /* section offscreen: the loop fully stops */
+    frameId = window.requestAnimationFrame(render);
+    const rawDelta = Math.min(clock.getDelta(), 0.05);
+    if (hidden) return;
+    const delta = paused ? 0 : rawDelta;
+    simulationTime += delta;
+
+    for (const ensemble of ensembles) {
+      const localTime = (simulationTime - ensemble.start + CYCLE_SECONDS) % CYCLE_SECONDS;
+      const active = localTime >= 0 && localTime <= ensemble.duration;
+      ensemble.root.visible = true;
+      if (!active) {
+        const parkedProgress = 0.999;
+        const parkedPosition = ensemble.path.getPointAt(parkedProgress);
+        const parkedTangent = ensemble.path.getTangentAt(Math.min(0.9999, parkedProgress + 0.0001)).normalize();
+        ensemble.root.position.copy(parkedPosition);
+        ensemble.root.quaternion.setFromAxisAngle(UP, Math.atan2(parkedTangent.x, parkedTangent.z));
+        ensemble.wasActive = false;
+        ensemble.lastStamp = -1;
+        continue;
       }
+      const progress = THREE.MathUtils.clamp(localTime / ensemble.duration, 0, 1);
+      const pathProgress = THREE.MathUtils.clamp(ensemble.motion ? ensemble.motion(progress) : progress, 0, 0.999);
+      const position = ensemble.path.getPointAt(pathProgress);
+      const tangent = ensemble.path.getTangentAt(Math.min(0.999, pathProgress + 0.001)).normalize();
+      const yaw = Math.atan2(tangent.x, tangent.z);
+      ensemble.targetQuaternion.setFromAxisAngle(UP, yaw);
+      ensemble.root.position.copy(position);
+      if (!ensemble.wasActive) {
+        ensemble.root.quaternion.copy(ensemble.targetQuaternion);
+        ensemble.wasActive = true;
+      } else {
+        ensemble.root.quaternion.slerp(ensemble.targetQuaternion, 1 - Math.exp(-Math.max(rawDelta, 0.016) * 8));
+      }
+      const distance = pathProgress * ensemble.pathLength;
+      const phase = distance * 5.25;
+      ensemble.animate(distance, phase, progress);
+      if (delta > 0 && (ensemble.lastStamp < 0 || distance - ensemble.lastStamp >= ensemble.stampEvery)) {
+        ensemble.stamp(trails, distance);
+        ensemble.lastStamp = distance;
+      }
+    }
+
+    grounding.update(simulationTime, delta);
+    if (delta > 0) trails.update(delta);
+
+    const goal = getCameraGoal(view, cameraAspect);
+    const cameraBlend = 1 - Math.exp(-Math.max(rawDelta, 0.016) * 3.4);
+    activeCamera = goal.orthographic ? isometricCamera : perspectiveCamera;
+    const camera = activeCamera;
+    camera.position.lerp(goal.position, cameraBlend);
+    if (camera === perspectiveCamera) {
+      camera.fov = THREE.MathUtils.lerp(camera.fov, goal.fov, cameraBlend);
     } else {
-      w.pauseT -= dt;
-      w.ph *= Math.pow(0.02, dt);
-      w.bubbleK = Math.min(1, (1.7 - w.pauseT) / 1.7);
-      if(w.pauseT <= 0){ w.state = 'walk'; }
+      orthoHalfHeight = THREE.MathUtils.lerp(orthoHalfHeight, goal.orthoHalfHeight, cameraBlend);
+      camera.left = -orthoHalfHeight * cameraAspect;
+      camera.right = orthoHalfHeight * cameraAspect;
+      camera.top = orthoHalfHeight;
+      camera.bottom = -orthoHalfHeight;
     }
-    if(w.state === 'walk' && w.bubbleK > 0) w.bubbleK = Math.max(0, w.bubbleK - dt * 1.4);
-    var gyf = w.gy + Math.sin(w.x * 0.0045 + w.seed) * (w.band === 'near' ? 5 : 2);
-    if(w.state === 'walk') stampScene(w, gyf);
-    drawScene(w, gyf, now);
-    return !((w.dir > 0 && w.x > W + 300) || (w.dir < 0 && w.x < -300));
-  }
+    targetMatrix.lookAt(camera.position, goal.target, camera.up);
+    targetCameraQuaternion.setFromRotationMatrix(targetMatrix);
+    camera.quaternion.slerp(targetCameraQuaternion, cameraBlend);
+    camera.updateProjectionMatrix();
 
-  /* ---------- birds ---------- */
-  function mkBirds(){
-    var dir = Math.random() < 0.5 ? 1 : -1;
-    var n = 3 + (Math.random() * 3 | 0), offs = [];
-    for(var i = 0; i < n; i++) offs.push([i * 26 + Math.random() * 12, Math.sin(i * 1.7) * 14 + Math.random() * 8, Math.random() * 6]);
-    return { dir: dir, x: dir > 0 ? -80 : W + 80, y: 96 + Math.random() * H * 0.22, v: 26 + Math.random() * 8, offs: offs };
-  }
-  function updateBirds(dt, now){
-    if(!birds) return;
-    birds.x += birds.dir * birds.v * dt;
-    var A = 0.09 * edgeA(birds.x);
-    if(A > 0.004){
-      ctx.strokeStyle = col(INK, A); ctx.lineWidth = 1.3;
-      for(var i = 0; i < birds.offs.length; i++){
-        var o = birds.offs[i];
-        var bx = birds.x - birds.dir * o[0], by = birds.y + o[1] + Math.sin(now * 0.001 + o[2]) * 3;
-        var fl = 2.2 + Math.sin(now * 0.014 + o[2] * 2) * 2.0;
-        ctx.beginPath();
-        ctx.moveTo(bx - 4.6, by);
-        ctx.quadraticCurveTo(bx - 2.2, by - fl, bx, by);
-        ctx.quadraticCurveTo(bx + 2.2, by - fl, bx + 4.6, by);
-        ctx.stroke();
-      }
+    renderer.render(scene, camera);
+  };
+
+  api = {
+    start(){ if(disposed || rafOn) return; rafOn = true; clock.getDelta(); frameId = window.requestAnimationFrame(render); },
+    stop(){ rafOn = false; if(frameId) window.cancelAnimationFrame(frameId); },
+    dispose(){
+      disposed = true; rafOn = false;
+      if(frameId) window.cancelAnimationFrame(frameId);
+      resizeObserver.disconnect();
+      renderer.domElement.removeEventListener('pointerup', selectFromPointer);
+      renderer.domElement.removeEventListener('pointermove', showPointer);
+      renderer.domElement.removeEventListener('webglcontextlost', contextLost);
+      document.removeEventListener('visibilitychange', visibilityChanged);
+      trails.dispose();
+      scene.traverse((object) => {
+        if (!object.isMesh) return;
+        if (object.geometry) object.geometry.dispose();
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach((m) => { if (m) m.dispose(); });
+      });
+      renderer.dispose();
+      renderer.forceContextLoss();
+      renderer.domElement.remove();
+      inited = false; ready = false; api = null;
+      host.classList.remove('is-ready');
+      posterMsg.textContent = '';
     }
-    if((birds.dir > 0 && birds.x > W + 180) || (birds.dir < 0 && birds.x < -180)) birds = null;
-  }
+  };
 
-  /* ---------- loop ---------- */
-  function tick(now){
-    raf = 0;
-    if(off()){ walkers = []; birds = null; marks = []; tracks = {}; ctx.clearRect(0, 0, W, H); return; }
-    var dt = Math.min(0.05, (now - (lastT || now)) / 1000);
-    lastT = now;
-    prune(now);
-    ctx.clearRect(0, 0, W, H);
-    drawTracks(now);
-    drawMarks(now);
-    walkers = walkers.filter(function(w){ return updateWalker(w, dt, now); });
-    updateBirds(dt, now);
-    if(walkers.length || birds || !empty()) raf = requestAnimationFrame(tick);
-  }
-  function ensure(){ if(!raf){ lastT = 0; raf = requestAnimationFrame(tick); } }
-
-  function pick(deep){
-    var pool = deep ? [0, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5];
-    return pool[(Math.random() * pool.length) | 0];
-  }
-  function spawnNear(){
-    clearTimeout(tNear); tNear = setTimeout(spawnNear, 26000 + Math.random() * 18000);
-    if(document.hidden || off()) return;
-    if(walkers.some(function(w){ return w.band === 'near'; })) return;
-    walkers.push(mkWalker(pick(false), Math.random() < 0.5 ? 1 : -1, H - 44 - Math.random() * 62, 'near'));
-    ensure();
-  }
-  function spawnDeep(){
-    clearTimeout(tDeep); tDeep = setTimeout(spawnDeep, 36000 + Math.random() * 26000);
-    if(document.hidden || off()) return;
-    var band = Math.random() < 0.55 ? 'mid' : 'far';
-    if(walkers.some(function(w){ return w.band === band; })) return;
-    var gy = band === 'mid' ? H * (0.58 + Math.random() * 0.12) : H * (0.30 + Math.random() * 0.10);
-    walkers.push(mkWalker(pick(true), Math.random() < 0.5 ? 1 : -1, gy, band));
-    ensure();
-  }
-  function spawnBirds(){
-    clearTimeout(tBirds); tBirds = setTimeout(spawnBirds, 55000 + Math.random() * 50000);
-    if(document.hidden || off() || birds) return;
-    birds = mkBirds(); ensure();
-  }
-  document.addEventListener('visibilitychange', function(){
-    if(document.hidden){ if(raf){ cancelAnimationFrame(raf); raf = 0; } }
-    else if(walkers.length || birds || !empty()) ensure();
+  inited = true; booting = false;
+  buildUi();
+  if (reduceOn()) { setPaused(true); noteEl.hidden = false; }
+  api.start();
+  window.requestAnimationFrame(() => {
+    ready = true;
+    host.classList.add('is-ready');
+    posterMsg.textContent = '';
   });
+}
 
-  /* deterministic hooks for the drives */
-  window.__bgWalk = function(i, dir, gy){
-    clearTimeout(tNear); tNear = setTimeout(spawnNear, 60000);
-    var w = mkWalker((i || 0) % 6, dir || 1, gy || (H - 90), 'near');
-    w.balloon = true; w.pausedOnce = true;
-    walkers = [w]; ensure();
-  };
-  window.__bgWalkState = function(){ return { active: walkers.length > 0, marks: marks.length, raf: !!raf }; };
-  window.__bgWalkStop = function(){
-    walkers = []; birds = null;
-    clearTimeout(tNear); clearTimeout(tDeep); clearTimeout(tBirds);
-    tNear = setTimeout(spawnNear, 300000);
-  };
+function maybeBoot(){
+  if(inited || booting || failed) return;
+  if(contrastOn()) return;               /* poster only — the painterly still IS the high-contrast version */
+  if(phone()){ tapPlay.hidden = false; return; }  /* phones opt in — the mobile page stays light */
+  boot();
+}
+tapPlay.addEventListener('click', () => { tapPlay.hidden = true; boot(); });
 
-  tNear = setTimeout(spawnNear, 4500);
-  tDeep = setTimeout(spawnDeep, 11000);
-  tBirds = setTimeout(spawnBirds, 24000);
-})();
+const io = new IntersectionObserver((entries) => {
+  visible = entries.some(e => e.isIntersecting);
+  if(visible){ maybeBoot(); if(api) api.start(); }
+  else if(api) api.stop();
+}, { rootMargin: '180px' });
+io.observe(sect);
+
+/* live reaction to the accessibility panel */
+new MutationObserver(() => {
+  if(contrastOn() && api){ api.dispose(); return; }
+  if(!contrastOn() && !inited && visible) maybeBoot();
+  if(reduceOn() && inited && !paused){ setPaused(true); noteEl.hidden = false; }
+}).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-motion'] });
+
+/* deterministic hooks for the drives */
+window.__careScene = {
+  state(){ return { inited, ready, failed, paused, visible, view, phone: phone() }; },
+  boot: maybeBoot,
+  setView(v){ if(VIEW_LABELS[v]){ view = v; refreshViewButtons(); } },
+  pick(id){ openCard(id); }
+};
+
+}
 </script>
 </body>
 </html>
