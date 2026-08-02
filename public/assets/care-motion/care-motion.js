@@ -511,34 +511,34 @@ class MiniStage {
 
 class HeroJourneyStage extends MiniStage {
   constructor(canvas){
-    super(canvas,{cameraPosition:new THREE.Vector3(9.5,8.35,10.5),lookAt:new THREE.Vector3(2.85,.45,.1),frustum:7.6,lightPosition:new THREE.Vector3(-6,11,6)});
-    const pathPoints=[new THREE.Vector3(.65,0,3.1),new THREE.Vector3(1.28,0,2.66),new THREE.Vector3(1.96,0,2.2),new THREE.Vector3(2.58,0,1.68),new THREE.Vector3(3.06,0,1.12),new THREE.Vector3(3.42,0,.64),new THREE.Vector3(3.72,0,.18)];
+    super(canvas,{cameraPosition:new THREE.Vector3(9.3,8.2,10.2),lookAt:new THREE.Vector3(4.45,.42,1.0),frustum:5.9,lightPosition:new THREE.Vector3(-6,11,6)});
+    const pathPoints=[new THREE.Vector3(2.2,0,2.75),new THREE.Vector3(2.78,0,2.52),new THREE.Vector3(3.38,0,2.28),new THREE.Vector3(3.95,0,1.98),new THREE.Vector3(4.45,0,1.62),new THREE.Vector3(4.82,0,1.22),new THREE.Vector3(5.02,0,.92)];
     this.path=new THREE.CatmullRomCurve3(pathPoints,false,'centripetal',.22);this.pathLength=this.path.getLength();
-    const edgeMat=new THREE.MeshStandardMaterial({color:C.pathEdge,roughness:.98,transparent:true,opacity:.52});
-    const pathMat=new THREE.MeshStandardMaterial({color:C.path,roughness:.99,transparent:true,opacity:.74});
-    this.scene.add(pathRibbon(this.path,1.08,edgeMat,76,.008),pathRibbon(this.path,.88,pathMat,76,.014));
-    this.pergola=createPergola();this.pergola.root.position.set(4.95,0,-1.26);this.pergola.root.scale.setScalar(.82);this.scene.add(this.pergola.root);
-    this.pair=new THREE.Group();this.chair=createWheelchair();this.worker=createHuman({skin:0x8a553d,shirt:C.tealMid,trousers:0x3c5557,hair:0x2b211e,hairStyle:'curls',scale:.64});
-    this.chair.root.position.x=-.73;this.worker.root.position.x=.66;this.worker.root.position.z=.02;this.pair.add(this.chair.root,this.worker.root,contactShadow(2.02,1.08,.05));this.pair.scale.setScalar(.72);this.scene.add(this.pair);
+    const edgeMat=new THREE.MeshStandardMaterial({color:C.pathEdge,roughness:.98,transparent:true,opacity:.46});
+    const pathMat=new THREE.MeshStandardMaterial({color:C.path,roughness:.99,transparent:true,opacity:.68});
+    this.scene.add(pathRibbon(this.path,.94,edgeMat,72,.008),pathRibbon(this.path,.74,pathMat,72,.014));
+    this.pergola=createPergola();this.pergola.root.position.set(5.68,0,-.36);this.pergola.root.scale.setScalar(.56);this.scene.add(this.pergola.root);
+    this.pair=new THREE.Group();this.chair=createWheelchair();this.worker=createHuman({skin:0x8a553d,shirt:C.tealMid,trousers:0x3c5557,hair:0x2b211e,hairStyle:'curls',scale:.58});
+    this.chair.root.position.x=-.62;this.worker.root.position.x=.54;this.worker.root.position.z=.02;this.pair.add(this.chair.root,this.worker.root,contactShadow(1.7,.96,.05));this.pair.scale.setScalar(.56);this.scene.add(this.pair);
     this.lastDistance=-1;this.footSide=0;this.lastCycle=-1;
   }
   update(dt,t){
     super.update(dt,t);this.pergola.update(t);
     const duration=17.5;const cycle=Math.floor(t/duration);const local=(t%duration)/duration;
     if(cycle!==this.lastCycle){this.lastCycle=cycle;this.lastDistance=-1;}
-    const travel=smoother(invLerp(.055,.91,local));
+    const travel=smoother(invLerp(.06,.9,local));
     const p=this.path.getPointAt(travel),tan=this.path.getTangentAt(travel).normalize(),yaw=Math.atan2(tan.x,tan.z);
     this.pair.position.copy(p);this.pair.rotation.y=yaw;
-    const distance=travel*this.pathLength;const moving=local>.055&&local<.91;
-    this.chair.animate(distance,t*7.2);this.worker.animate(t*7.2,moving?1:.08);
-    const fadeIn=smooth(invLerp(0,.075,local)),fadeOut=1-smooth(invLerp(.9,1,local));this.pair.visible=fadeIn*fadeOut>.01;this.pair.scale.setScalar(.72*(.95+.05*fadeIn*fadeOut));
+    const distance=travel*this.pathLength;const moving=local>.06&&local<.9;
+    this.chair.animate(distance,t*7.1);this.worker.animate(t*7.1,moving?1:.08);
+    const fadeIn=smooth(invLerp(0,.08,local)),fadeOut=1-smooth(invLerp(.89,1,local));this.pair.visible=fadeIn*fadeOut>.01;this.pair.scale.setScalar(.56*(.95+.05*fadeIn*fadeOut));
     this.pair.traverse(o=>{if(o.material&&'opacity'in o.material&&o.material.transparent)o.material.opacity=fadeIn*fadeOut;});
-    if(moving&&distance-this.lastDistance>.3){
+    if(moving&&distance-this.lastDistance>.25){
       this.lastDistance=distance;this.footSide^=1;
       const chairCenter=p.clone();
-      this.trails.emit('wheel',offsetPoint(chairCenter,yaw,-.73-.34,-.18),yaw,.085,.5,5.5,.115);
-      this.trails.emit('wheel',offsetPoint(chairCenter,yaw,-.73+.34,-.18),yaw,.085,.5,5.5,.115);
-      this.trails.emit('foot',offsetPoint(chairCenter,yaw,.66+(this.footSide?-.15:.15),-.24),yaw,.145,.31,4.5,.125,this.footSide===1);
+      this.trails.emit('wheel',offsetPoint(chairCenter,yaw,-.62-.28,-.14),yaw,.07,.38,5.4,.11);
+      this.trails.emit('wheel',offsetPoint(chairCenter,yaw,-.62+.28,-.14),yaw,.07,.38,5.4,.11);
+      this.trails.emit('foot',offsetPoint(chairCenter,yaw,.54+(this.footSide?-.12:.12),-.18),yaw,.12,.25,4.4,.12,this.footSide===1);
     }
   }
 }

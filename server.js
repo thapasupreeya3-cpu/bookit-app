@@ -128,13 +128,6 @@ for (const col of ["photo TEXT DEFAULT ''", "photo_at TEXT DEFAULT ''"]) {
 for (const col of ['is_admin INTEGER DEFAULT 0']) {
   try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
 }
-/* migration (round 4.5): an administrator's explicit sign-off on an
-   exceptional assignment — a worker placed on a shift after its start
-   time. Completion of a late-filled shift is refused without it. */
-for (const col of ['office_ok INTEGER DEFAULT 0', 'accepted_at TEXT']) {
-  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
-}
-
 /* migration (consent-enforcement build): separate evidence that a
    participant consented to health/disability information handling at
    sign-up. Final consent structure is the lawyer's call; the evidence
@@ -4026,10 +4019,9 @@ function holdFutureShifts(workerId, workerName, why, req) {
     detail: `${held} future shift(s) moved to the cover cascade after withdrawal (${why}). Participants keep their slots and are never charged.` +
       (series.size ? ` ${series.size} recurring series flagged for office review — a permanent move to a new worker needs the participant's say-so.` : ''),
     source: 'safety hold' });
-  const laterToday = fut.filter(b => b.date === today && bookingStart(b) > new Date());
-  if (MAIL_FROM && laterToday.length)
-    sendMail(MAIL_FROM, 'A withdrawn worker has a shift later TODAY — BookIt', 'Check today\'s shift now',
-      `<p><b>${escHtml(workerName)}</b> was withdrawn and has ${laterToday.length} shift(s) still to start today. Urgent cover is running; keep an eye on the board in case nobody says yes.</p>`,
+  if (MAIL_FROM && fut.some(b => b.date === today))
+    sendMail(MAIL_FROM, 'A withdrawn worker has a shift TODAY — BookIt', 'Check today\'s shift now',
+      `<p><b>${escHtml(workerName)}</b> was withdrawn and has ${fut.filter(b => b.date === today).length} shift(s) dated today. If one is already underway, handle it directly — cover has been requested, but a shift in progress needs a person.</p>`,
       'Open the cover board', `${(req ? baseUrl(req) : (APP_URL || 'https://bookit.life'))}/#/admin`).catch(() => {});
   return held;
 }
@@ -4045,14 +4037,8 @@ function workerBookingGate(workerId, b) {
   const w = db.prepare("SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(workerId);
   if (!w || !w.visible || !platformEligible(workerId, w.email))
     return { error: "Your profile isn't active on BookIt right now, so booking actions are paused. The office can help you get back on.", read_only: true };
-  const openCover = db.prepare("SELECT id FROM cover WHERE booking_id = ? AND status = 'open'").get(b.id);
-  if (openCover || ['finding','office','uncovered','failed','referred','allied'].includes(String(b.cover_state || ''))) {
-    const office = ['office','uncovered','failed'].includes(String(b.cover_state || ''));
-    return { error: office
-      ? 'This shift is being handled by the office and cannot be accepted or completed from this account.'
-      : "Cover is being arranged for this shift, so it can't be accepted or completed right now — the office will be in touch.",
-      cover_finding: !office, office_review: office };
-  }
+  if (b.cover_state === 'finding' || db.prepare("SELECT id FROM cover WHERE booking_id = ? AND status = 'open'").get(b.id))
+    return { error: "Cover is being arranged for this shift, so it can't be accepted or completed right now — the office will be in touch.", cover_finding: true };
   return null;
 }
 
@@ -4281,10 +4267,6 @@ route('POST', /^\/api\/me\/profile$/, (req, res, m, user, body) => {
   if (Array.isArray(body.days) && body.days.length === 7) { sets.push('days = ?'); vals.push(JSON.stringify(body.days.map(x => (x ? 1 : 0)))); }
   if (body.langs !== undefined) { sets.push('langs = ?'); vals.push(clean(body.langs, 120) || 'English'); }
   if (body.exp !== undefined) { sets.push('exp = ?'); vals.push(clean(body.exp, 40) || 'New to BookIt'); }
-  if (body.services !== undefined) {
-    const svcs = Array.isArray(body.services) ? [...new Set(body.services.filter(x => SERVICES.includes(x)))].slice(0, SERVICES.length) : [];
-    sets.push('services = ?'); vals.push(JSON.stringify(svcs));
-  }
   /* a filter key, so a whitelist: anything else quietly stores as unsaid
      rather than letting the search index fill with free text */
   if (body.gender !== undefined) {
@@ -5198,13 +5180,7 @@ function seriesDates(firstDate, freq, until, count) {
   while (out.length < max) {
     if (stop && d > stop) break;
     out.push(ymd(d));
-    /* Round 4.5, blocker 2: a calendar week is not 168 hours in Sydney.
-       When daylight saving ends the day is 25 hours long, and millisecond
-       arithmetic quietly slid every later occurrence from Monday to Sunday.
-       setDate() is calendar arithmetic — the weekday holds. */
-    const next = new Date(d);
-    next.setDate(next.getDate() + step);
-    d = next;
+    d = new Date(d.getTime() + step * 864e5);
   }
   return out;
 }
@@ -5229,8 +5205,6 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   if (!/^\d{2}:\d{2}$/.test(start)) return json(res, 400, { error: 'Please choose a start time.' });
   const hours = Number(body.hours);
   if (!(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
-  if (bookingStart({ date, start }) <= new Date())
-    return json(res, 409, { error: 'That start time has already passed. Choose a future time.' });
   const sleepover = body.sleepover && ['personal-care', 'daily-tasks'].includes(service) ? 1 : 0;
   const notes = clean(body.notes, 600);
 
@@ -5310,8 +5284,6 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
        never touches a shift already accepted — pulling someone off
        tomorrow's roster is not a safety improvement, it is a gap. */
     if (status === 'accepted') {
-      if (bookingStart(b) <= new Date())
-        return json(res, 409, { error: 'This shift has already started and can no longer be accepted online. Contact the office.' });
       const t = moduleState(user.id);
       if (t.lock === 'hard') return json(res, 400, { error: `Your training is ${t.overdue_days} days overdue (${t.outstanding.join(', ')}). Finish it on the Training page and you can accept shifts again straight away — your existing bookings are unaffected.`, training_lock: 'hard' });
       /* 11. the plan acknowledgement gate. A worker cannot accept a shift
@@ -5327,8 +5299,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
         } catch {}
       }
     }
-    if (status === 'accepted') db.prepare('UPDATE bookings SET status = ?, accepted_at = ? WHERE id = ?').run(status, now(), b.id);
-    else db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status, b.id);
+    db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status, b.id);
     const pu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.participant_id);
     if (pu) notify(pu.id, 'bookings', pu.email, `Booking ${status} — BookIt`,
       status === 'accepted' ? 'Your booking is confirmed 🎉' : 'About your booking request',
@@ -5352,40 +5323,32 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
        short-notice charged — the participant is cancelling a shift we
        could not staff, not standing a worker up. */
     const openCv = db.prepare("SELECT id FROM cover WHERE booking_id = ? AND status = 'open'").get(b.id);
-    const providerUnable = Boolean(openCv) || ['finding','office','uncovered','failed','referred','allied'].includes(String(b.cover_state || ''));
-    const charge = sn.short && b.status === 'accepted' && !providerUnable;
-    /* A provider-failure cancellation is not attributed to the participant and
-       can never create an invoice or worker payment. */
-    const code = providerUnable ? '' : cancelCode(body.reason_code);
-    const cancelledBy = providerUnable ? 'provider' : (pers.self ? 'participant' : `coordinator:${user.name}`);
-    const cancelReason = providerUnable ? 'BookIt could not staff the shift' : clean(body.reason, 300);
+    const charge = sn.short && b.status === 'accepted' && !openCv && b.cover_state !== 'finding';
+    /* The reason code is captured at the moment of cancelling, from four
+       plain-English options, because it has to travel all the way to the NDIA
+       bulk-upload file — and nobody can reconstruct it a fortnight later. */
+    const code = cancelCode(body.reason_code);
     db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = ?,
-        cancel_code = ?, short_notice = ?, notice_hours = ?, cover_state = ? WHERE id = ?`)
-      .run(now(), cancelledBy, cancelReason, code, charge ? 1 : 0, sn.hours, providerUnable ? 'stood-down' : (b.cover_state || ''), b.id);
-    if (providerUnable) {
-      if (openCv) {
-        db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Booking stood down because BookIt could not staff it.' WHERE id = ?").run(now(), openCv.id);
-        db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), openCv.id);
-      }
-      db.prepare(`UPDATE bookings SET rate_category = NULL, unit_price = NULL, worker_share = NULL, total = NULL,
-        claim_status = '', claim_ref = NULL, invoice_no = NULL, support_item = NULL, claimed_at = NULL, paid_at = NULL WHERE id = ?`).run(b.id);
+        cancel_code = ?, short_notice = ?, notice_hours = ? WHERE id = ?`)
+      .run(now(), pers.self ? 'participant' : `coordinator:${user.name}`, clean(body.reason, 300), code, charge ? 1 : 0, sn.hours, b.id);
+    if (openCv) {
+      db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Participant cancelled the booking while cover was open.' WHERE id = ?").run(now(), openCv.id);
+      db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), openCv.id);
+      db.prepare("UPDATE bookings SET cover_state = 'stood-down' WHERE id = ?").run(b.id);
     }
     let inv = null;
     if (charge) inv = applyInvoice(b.id, suggestCategory(b));
-    logDelegate(pers, providerUnable ? 'Stood down an unstaffed shift' : 'Cancelled a shift',
-      `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}${charge ? ' (short notice — charged)' : providerUnable ? ' (provider could not staff)' : ''}`, b.id);
+    logDelegate(pers, 'Cancelled a shift', `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}${charge ? ' (short notice — charged)' : ''}`, b.id);
     const wu2 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
     if (wu2) notify(wu2.id, 'bookings', wu2.email, 'Booking cancelled — BookIt',
       `A booking was cancelled, ${firstName(wu2.name)}`,
-      (providerUnable
-        ? `<p>The booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> has been stood down because BookIt could not staff it.</p><p><b>The participant is not charged and no worker payment is created.</b></p>`
-        : `<p><b>${escHtml(pers.name)}</b> has cancelled the booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>` +
-          (charge
-            ? `<p><b>This was inside the ${sn.window / 24 >= 1 ? Math.round(sn.window / 24) + '-day' : sn.window + '-hour'} notice window</b> (${sn.hours} hours&rsquo; notice), so the shift is charged in full and <b>you are paid in full</b>. You do not need to do anything.</p>`
-            : `<p>That was ${sn.hours === null ? 'outside' : Math.round(sn.hours / 24) + ' days'} ahead — outside the notice window — so there is no charge and no payment. Your calendar for that time is free again.</p>`)),
+      `<p><b>${escHtml(pers.name)}</b> has cancelled the booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>` +
+      (charge
+        ? `<p><b>This was inside the ${sn.window / 24 >= 1 ? Math.round(sn.window / 24) + '-day' : sn.window + '-hour'} notice window</b> (${sn.hours} hours&rsquo; notice), so the shift is charged in full and <b>you are paid in full</b>. You do not need to do anything.</p>`
+        : `<p>That was ${sn.hours === null ? 'outside' : Math.round(sn.hours / 24) + ' days'} ahead — outside the notice window — so there is no charge and no payment. Your calendar for that time is free again.</p>`),
       'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
     return json(res, 200, { ok: true, short_notice: charge, notice_hours: sn.hours, window_hours: sn.window,
-      cancel_code: code, cancel_label: code ? CANCEL_CODES[code] : '', invoice: inv, provider_unable: providerUnable });
+      cancel_code: code, cancel_label: CANCEL_CODES[code], invoice: inv });
   }
 
   /* worker marks an accepted shift as completed (on/after the shift date) → invoice line is born.
@@ -5395,16 +5358,8 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
   if (user.role === 'worker' && b.worker_id === user.id && status === 'completed' && b.status === 'accepted') {
     const gate = workerBookingGate(user.id, b);
     if (gate) return json(res, 409, gate);
-    if (bookingEnd(b) > new Date())
-      return json(res, 409, { error: 'This shift has not finished yet. You can complete it after the scheduled end time.' });
-    /* Round 4.5, blocker 1: someone recorded onto the shift AFTER it began
-       cannot self-certify delivery. The office's own assignment carries its
-       authorisation (office_ok); anything else needs the office to review. */
-    if (b.cover_state === 'covered' && !b.office_ok) {
-      const cvf = db.prepare("SELECT filled_at FROM cover WHERE booking_id = ? AND filled_worker_id = ? ORDER BY id DESC LIMIT 1").get(b.id, user.id);
-      if (cvf && cvf.filled_at && new Date(cvf.filled_at) > bookingStart(b))
-        return json(res, 409, { error: 'This cover was recorded after the shift had started, so completion needs the office to confirm what was actually delivered. Give them a ring.' });
-    }
+    const today = ymd();
+    if (b.date > today) return json(res, 400, { error: 'You can mark a shift completed on the day of the shift or after — this one hasn\'t happened yet.' });
     const note = clean(body.note, NOTE_MAX);
     const noteBad = noteProblem(note);
     if (noteBad) return json(res, 400, { error: noteBad });
@@ -5557,7 +5512,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)\/occurrence$/, (req, res, m, user, body)
   const start = clean(body.start, 5) || b.start;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: 'Please choose a date.' });
   if (!/^\d{2}:\d{2}$/.test(start)) return json(res, 400, { error: 'Please choose a start time.' });
-  if (bookingStart({ date, start }) <= new Date()) return json(res, 409, { error: 'That start time has already passed. Choose a future time.' });
+  if (date < ymd()) return json(res, 400, { error: 'That date is in the past.' });
   const hours = body.hours === undefined ? b.hours : Number(body.hours);
   if (!(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
   db.prepare("UPDATE bookings SET date = ?, start = ?, hours = ?, detached = 1, status = 'requested' WHERE id = ?")
@@ -5590,19 +5545,16 @@ route('POST', /^\/api\/series\/(\d+)\/end$/, (req, res, m, user, body) => {
        short-notice charged, and its open cover closes with it — the same two
        rules the single-shift cancel applies. */
     const openCv = db.prepare("SELECT id FROM cover WHERE booking_id = ? AND status = 'open'").get(b.id);
-    const providerUnable = Boolean(openCv) || ['finding','office','uncovered','failed','referred','allied'].includes(String(b.cover_state || ''));
-    const charge = sn.short && b.status === 'accepted' && !providerUnable;
+    const charge = sn.short && b.status === 'accepted' && !openCv && b.cover_state !== 'finding';
     if (openCv) {
-      db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Repeating booking ended while BookIt was arranging cover.' WHERE id = ?").run(now(), openCv.id);
+      db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Participant ended the repeating booking while cover was open.' WHERE id = ?").run(now(), openCv.id);
       db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), openCv.id);
     }
+    /* Ending a series asks for no reason per shift, so every charged shift is
+       coded NSDO — "other". True, and it does not put words in anybody's mouth. */
     db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = ?,
-      cancel_code = ?, short_notice = ?, notice_hours = ?, cover_state = ? WHERE id = ?`)
-      .run(now(), providerUnable ? 'provider' : (pers.self ? 'participant' : `coordinator:${user.name}`),
-        providerUnable ? 'BookIt could not staff the shift' : 'Repeating booking ended', providerUnable ? '' : 'NSDO',
-        charge ? 1 : 0, sn.hours, providerUnable ? 'stood-down' : (b.cover_state || ''), b.id);
-    if (providerUnable) db.prepare(`UPDATE bookings SET rate_category = NULL, unit_price = NULL, worker_share = NULL, total = NULL,
-      claim_status = '', claim_ref = NULL, invoice_no = NULL, support_item = NULL, claimed_at = NULL, paid_at = NULL WHERE id = ?`).run(b.id);
+      cancel_code = 'NSDO', short_notice = ?, notice_hours = ?${openCv ? ", cover_state = 'stood-down'" : ''} WHERE id = ?`)
+      .run(now(), pers.self ? 'participant' : `coordinator:${user.name}`, 'Repeating booking ended', charge ? 1 : 0, sn.hours, b.id);
     if (charge) { applyInvoice(b.id, suggestCategory(b)); charged++; }
   }
   db.prepare('UPDATE booking_series SET ended_at = ?, ended_by = ? WHERE id = ?').run(now(), user.name, sr.id);
@@ -5619,7 +5571,7 @@ route('GET', /^\/api\/series$/, (req, res, m, user) => {
   for (const r of rows) {
     /* detached = 0: a shift that left the rule is its own booking now, and
        counting it here made an ended rule read "1 still to come". */
-    r.remaining = db.prepare("SELECT COUNT(*) n FROM bookings WHERE series_id = ? AND detached = 0 AND date >= ? AND status IN ('requested','accepted')").get(r.id, ymd()).n;
+    r.remaining = db.prepare("SELECT COUNT(*) n FROM bookings WHERE series_id = ? AND detached = 0 AND date >= date('now') AND status IN ('requested','accepted')").get(r.id).n;
     r.done = db.prepare("SELECT COUNT(*) n FROM bookings WHERE series_id = ? AND status = 'completed'").get(r.id).n;
   }
   json(res, 200, { series: rows, lock_hours: SERIES_LOCK_HOURS });
@@ -8485,7 +8437,6 @@ function coverClock(leadMin) {
   return { win: 15, parallel: 1, label: 'in the next few hours' };
 }
 function bookingStart(b) { return new Date(`${b.date}T${b.start || '00:00'}:00`); }
-function bookingEnd(b) { return new Date(bookingStart(b).getTime() + Number(b.hours || 0) * 3600e3); }
 function leadMinutes(b) { return Math.round((bookingStart(b) - Date.now()) / 60000); }
 function standbyBand(dateIso) {
   const d = new Date(dateIso + 'T00:00:00').getDay();
@@ -8519,7 +8470,7 @@ function workerEligible(workerId, b) {
   if (!platformEligible(workerId, p.email)) return false;
   if (screeningState(workerId) === 'expired') return false;
   const svcs = safeJson(p.services, []);
-  if (!svcs.includes(b.service)) return false;
+  if (svcs.length && !svcs.includes(b.service)) return false;
   const days = safeJson(p.days, [1, 1, 1, 1, 1, 0, 0]);
   const dow = new Date(b.date + 'T00:00:00').getDay();
   const idx = dow === 0 ? 6 : dow - 1;           /* profile days are Mon-first */
@@ -8712,10 +8663,6 @@ function sendCoverOffer(req, cv, b, tier, cand, rank) {
 function coverWave(cv, req) {
   const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
   if (!b) return 0;
-  if (bookingStart(b) <= new Date()) {
-    moveBookingToOfficeReview(b, req, 'The shift start passed before another cover offer could be sent.', cv);
-    return 0;
-  }
   let sent = 0;
   const tiers = cv.parallel ? COVER_TIERS.slice(COVER_TIERS.indexOf(cv.tier)) : [cv.tier];
   for (const tier of tiers) {
@@ -8771,29 +8718,6 @@ function alertOffice(req, cv, b, why, opts) {
     'Open the cover board', `${baseUrl(req) || APP_URL}/#/admin`).catch(() => {});
 }
 
-/* Once a shift has started, no automated or self-serve path may keep treating
-   it as an open slot. Close offers, preserve the booking for review, and put a
-   person on the phone. All callers use this one transition. */
-function moveBookingToOfficeReview(b, req, why, cv) {
-  const current = db.prepare('SELECT cover_state FROM bookings WHERE id = ?').get(b.id) || {};
-  const firstMove = current.cover_state !== 'office';
-  const closedAt = now();
-  if (cv) {
-    db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = ?, office_alerted_at = COALESCE(office_alerted_at, ?), office_alert_why = ? WHERE id = ? AND status = 'open'")
-      .run(closedAt, clean(why, 300), closedAt, clean(why, 300), cv.id);
-    db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(closedAt, cv.id);
-  }
-  db.prepare("UPDATE bookings SET cover_state = 'office' WHERE id = ? AND status IN ('requested','accepted')").run(b.id);
-  if (firstMove) {
-    logCompliance({ worker_id: b.worker_id || null, worker_name: '', kind: 'platform-access', result: 'office-review',
-      detail: `Booking #${b.id} (${b.date} ${b.start}) moved to office review after its start time. ${clean(why, 220)}`,
-      source: 'safety hold' });
-    if (MAIL_FROM) sendMail(MAIL_FROM, 'A shift already underway has no worker — BookIt', 'Ring the participant NOW',
-      `<p>Booking <b>#${b.id}</b> — <b>${prettyDate(b.date)} at ${escHtml(b.start)}</b> — can no longer be filled through automated offers.</p><p><b>${escHtml(why)}</b></p><p>Ring the participant and record any exceptional assignment on the office board.</p>`,
-      'Open the office board', `${(req ? baseUrl(req) : (APP_URL || 'https://bookit.life'))}/#/admin`).catch(() => {});
-  }
-}
-
 /* Open a cover request. The booking is NOT cancelled — it keeps its confirmed
    status and its date, and only the person changes. */
 function openCover(bookingId, fromWorkerId, reason, req) {
@@ -8801,13 +8725,6 @@ function openCover(bookingId, fromWorkerId, reason, req) {
   if (!b) return null;
   const open = db.prepare("SELECT id FROM cover WHERE booking_id = ? AND status = 'open'").get(bookingId);
   if (open) return db.prepare('SELECT * FROM cover WHERE id = ?').get(open.id);
-  /* Round 4.5, blocker 1: once the start time has passed, this is not a
-     cover problem — it is an incident. No offers go out for time nobody
-     can deliver; the office is told NOW and handles it as people. */
-  if (bookingStart(b) <= new Date()) {
-    moveBookingToOfficeReview(b, req, `The booked worker became unavailable after the shift started (${clean(reason, 200)}). No cover offers were sent.`);
-    return null;
-  }
   const lead = leadMinutes(b);
   const clock = coverClock(lead);
   const r = db.prepare(`INSERT INTO cover (booking_id, from_worker_id, reason, opened_at, lead_minutes, window_minutes, parallel, tier, status)
@@ -8869,13 +8786,6 @@ function coverAccept(offerId, req, acceptingWorkerId) {
     db.prepare("UPDATE cover_offers SET response = 'expired', responded_at = ? WHERE id = ?").run(now(), offerId);
     return { error: 'That offer had already timed out and moved on.' };
   }
-  /* Round 4.5, blocker 1: the start time is a hard wall for self-serve
-     acceptance. If the shift has begun, the cover closes to office review
-     instead of locking anyone in. */
-  if (bookingStart(b) <= new Date()) {
-    moveBookingToOfficeReview(b, req, 'The shift start passed before a cover offer was accepted.', cv);
-    return { error: "This shift has already started, so it can't be picked up here any more — the office is arranging it directly." };
-  }
   if (o.tier === 'allied') {
     const a = db.prepare('SELECT * FROM allied_providers WHERE id = ?').get(o.allied_id);
     db.prepare("UPDATE cover_offers SET response = 'accepted', responded_at = ? WHERE id = ?").run(now(), offerId);
@@ -8892,8 +8802,8 @@ function coverAccept(offerId, req, acceptingWorkerId) {
   db.prepare("UPDATE cover_offers SET response = 'accepted', responded_at = ? WHERE id = ?").run(now(), offerId);
   db.prepare("UPDATE cover SET status = 'filled', filled_worker_id = ?, filled_at = ?, closed_at = ? WHERE id = ?")
     .run(workerId, now(), now(), cv.id);
-  db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', accepted_at = ?, swap_count = swap_count + 1 WHERE id = ?")
-    .run(workerId, now(), b.id);
+  db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', swap_count = swap_count + 1 WHERE id = ?")
+    .run(workerId, b.id);
   closeSiblings(cv.id, offerId);
   const w = db.prepare('SELECT name FROM users WHERE id = ?').get(workerId);
   notifyCovered(req, b, w, null);
@@ -8939,9 +8849,12 @@ function coverSweep(req) {
     /* the shift has started and nobody came — close it, flag it, and make sure a
        human knows a participant went without. This is a reportable-quality event,
        not a rostering footnote. */
-    if (bookingStart(b) <= new Date()) {
-      moveBookingToOfficeReview(b, req, 'The shift started before cover was confirmed. Contact the participant now.', cv);
-      acted.push({ cover: cv.id, outcome: 'office' });
+    if (bookingStart(b) < new Date()) {
+      db.prepare("UPDATE cover SET status = 'failed', closed_at = ?, outcome_note = ? WHERE id = ?")
+        .run(now(), 'Shift start passed with no cover found.', cv.id);
+      db.prepare("UPDATE bookings SET cover_state = 'uncovered' WHERE id = ?").run(b.id);
+      alertOffice(req, cv, b, 'A shift started with no cover. Please contact the participant today.', { escalate: true });
+      acted.push({ cover: cv.id, outcome: 'failed' });
       continue;
     }
     /* the lead time has shortened since we opened — tighten the clock */
@@ -9300,12 +9213,7 @@ route('POST', /^\/api\/bookings\/(\d+)\/cant-make-it$/, (req, res, m, user, body
   if (b.cover_state === 'finding') return json(res, 400, { error: 'Cover is already being found for this shift.' });
   const reason = clean(body.reason, 300);
   const cv = openCover(b.id, user.id, reason, req);
-  if (!cv && b.cover_state !== 'office') {
-    const bNow = db.prepare('SELECT cover_state FROM bookings WHERE id = ?').get(b.id);
-    if (!bNow || bNow.cover_state !== 'office') return json(res, 500, { error: 'Couldn\'t open a cover request.' });
-  }
-  if (!cv) return json(res, 200, { ok: true, office: true,
-    message: 'This shift has already started, so it goes straight to the office — someone is on it now. If you\'re with the participant and it\'s safe to stay, please stay until you hear from us.' });
+  if (!cv) return json(res, 500, { error: 'Couldn\'t open a cover request.' });
   const depth = coverDepth(b);
   /* SCHADS cl.25.5(f) belongs to the employer's roster, not to this exchange —
      no penalty is applied to a worker here, deliberately. Punishing a cancellation
@@ -9358,14 +9266,6 @@ route('GET', /^\/api\/bookings\/(\d+)\/cover$/, (req, res, m, user) => {
 
 route('GET', /^\/api\/admin\/cover$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  /* round 4.5: started shifts whose worker was withdrawn — no offers were
-     sent, a person is expected to be on the phone. Yesterday's stay listed
-     so nothing slides off the board unresolved overnight. */
-  const officeQueue = db.prepare(`SELECT b.id, b.date, b.start, b.hours, b.service, b.participant_id,
-      u.name AS participant_name, u.phone AS participant_phone, u.suburb AS participant_suburb
-    FROM bookings b JOIN users u ON u.id = b.participant_id
-    WHERE b.cover_state = 'office' AND b.status IN ('requested','accepted') AND b.date >= ?
-    ORDER BY b.date ASC, b.start ASC`).all(ymd(new Date(Date.now() - 864e5)));
   const base = `SELECT c.*, b.date, b.start, b.hours, b.service, b.participant_id, b.series_id,
       up.name AS participant_name, up.phone AS participant_phone, up.suburb,
       uw.name AS from_worker_name, uf.name AS filled_worker_name, a.name AS allied_name,
@@ -9426,7 +9326,6 @@ route('GET', /^\/api\/admin\/cover$/, (req, res, m, user) => {
   const spend = db.prepare("SELECT COALESCE(SUM(allowance),0) AS s, COUNT(*) AS n FROM standby WHERE status = 'accepted' AND date >= ?")
     .get(ymd(new Date(Date.now() - 90 * 86400e3)));
   json(res, 200, {
-    office: officeQueue.map(b => ({ ...b, service_label: SERVICE_LABELS[b.service] || b.service })),
     open, recent, stats, rates,
     standby: standby.map(s => ({ ...s, services: safeJson(s.services, []) })),
     standby_spend_90d: Number(spend.s.toFixed(2)),
@@ -9458,21 +9357,14 @@ route('POST', /^\/api\/admin\/cover\/(\d+)\/assign$/, (req, res, m, user, body) 
   const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
   if (!b || !['requested', 'accepted'].includes(b.status) || b.cover_state !== 'finding')
     return json(res, 400, { error: 'That booking has changed since — it no longer needs cover.' });
-  if (bookingStart(b) <= new Date()) {
-    moveBookingToOfficeReview(b, req, 'The shift started before the office assignment was recorded.', cv);
-    return json(res, 409, { error: 'This shift has already started. Record any exceptional assignment from the office-review queue.' });
-  }
   const workerId = Number(body.worker_id);
   if (!workerEligible(workerId, b)) return json(res, 400, { error: 'That worker isn\'t free or isn\'t currently screened for this shift.' });
   const r = db.prepare(`INSERT INTO cover_offers (cover_id, tier, worker_id, rank, sent_at, expires_at, response, responded_at)
     VALUES (?,?,?,?,?,?,'accepted',?)`).run(cv.id, cv.tier, workerId, 99, now(), new Date(Date.now() + 60000).toISOString(), now());
   db.prepare("UPDATE cover SET status = 'filled', filled_worker_id = ?, filled_at = ?, closed_at = ?, human_minutes = human_minutes + 5, outcome_note = ? WHERE id = ?")
     .run(workerId, now(), now(), 'Assigned by the office.', cv.id);
-  db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', accepted_at = ?, swap_count = swap_count + 1, office_ok = 0 WHERE id = ?").run(workerId, now(), b.id);
+  db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', swap_count = swap_count + 1 WHERE id = ?").run(workerId, b.id);
   closeSiblings(cv.id, Number(r.lastInsertRowid));
-  logCompliance({ worker_id: workerId, worker_name: (db.prepare('SELECT name FROM users WHERE id = ?').get(workerId) || {}).name || '', kind: 'platform-access', result: 'office-assigned',
-    detail: `Booking #${b.id} (${b.date} ${b.start}) assigned by the office${bookingStart(b) <= new Date() ? ' AFTER the shift start — exceptional assignment, authorised by the assigning administrator' : ''}.`,
-    source: 'safety hold', checked_by: user.name });
   notifyCovered(req, db.prepare('SELECT * FROM bookings WHERE id = ?').get(b.id), db.prepare('SELECT name FROM users WHERE id = ?').get(workerId), null);
   json(res, 200, { ok: true });
 });
@@ -9487,42 +9379,6 @@ route('POST', /^\/api\/admin\/cover\/(\d+)\/close$/, (req, res, m, user, body) =
   db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
   db.prepare("UPDATE bookings SET cover_state = ? WHERE id = ?").run('stood-down', cv.booking_id);
   json(res, 200, { ok: true });
-});
-
-route('GET', /^\/api\/admin\/bookings\/(\d+)\/candidates$/, (req, res, m, user) => {
-  if (!requireAdmin(user, res)) return;
-  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
-  if (!b) return json(res, 404, { error: 'Not found.' });
-  const fake = { id: 0, from_worker_id: b.worker_id };
-  const out = {};
-  for (const t of COVER_TIERS) {
-    if (t === 'allied') continue; /* a started shift is arranged with our own people by phone */
-    out[t] = coverCandidates(fake, b, t).slice(0, 10).map(c => {
-      const u = db.prepare('SELECT name, phone FROM users WHERE id = ?').get(c.id) || {};
-      return { id: c.id, name: u.name || '', phone: u.phone || '' };
-    });
-  }
-  json(res, 200, { candidates: out, labels: TIER_LABELS });
-});
-
-/* Round 4.5: the office-review queue — started shifts with no worker. The
-   office rings, arranges a person, and records the assignment here; that
-   recording IS the authorisation the completion gate looks for. */
-route('POST', /^\/api\/admin\/bookings\/(\d+)\/office-assign$/, (req, res, m, user, body) => {
-  if (!requireAdmin(user, res)) return;
-  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
-  if (!b) return json(res, 404, { error: 'Booking not found.' });
-  if (b.cover_state !== 'office' || !['requested', 'accepted'].includes(b.status))
-    return json(res, 400, { error: 'That booking isn\'t waiting on the office.' });
-  const workerId = Number(body.worker_id);
-  const w = db.prepare("SELECT u.id, u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(workerId);
-  if (!w || !workerEligible(workerId, b)) return json(res, 400, { error: 'That worker is not eligible for this shift — the service, availability, screening or diary does not fit.' });
-  db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', accepted_at = ?, swap_count = swap_count + 1, office_ok = 1, original_worker_id = COALESCE(original_worker_id, worker_id) WHERE id = ?").run(workerId, now(), b.id);
-  logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'office-assigned',
-    detail: `Booking #${b.id} (${b.date} ${b.start}) was in office review (shift had started); ${w.name} recorded onto it by the office. Exceptional assignment authorised by the assigning administrator.`,
-    source: 'safety hold', checked_by: user.name });
-  notifyCovered(req, db.prepare('SELECT * FROM bookings WHERE id = ?').get(b.id), w, null);
-  json(res, 200, { ok: true, worker: w.name });
 });
 
 /* who could take this, right now — the office's answer to "who do I ring?" */
@@ -9547,18 +9403,6 @@ route('GET', /^\/api\/admin\/cover\/(\d+)\/candidates$/, (req, res, m, user) => 
    A withdrawn worker's recurring series is re-homed in two RECORDED steps,
    and nothing moves until both have happened. The participant agrees to a
    person, not to "someone", so propose comes first. */
-/* Round 4.5, blocker 3: "visible and credentialed" is not "can take this
-   series". The candidate must clear the SAME eligibility gate the cover
-   cascade uses — service, weekday, availability — for every remaining
-   non-detached occurrence, and the answer is re-asked at approval because
-   rosters change between the phone calls. */
-function seriesWorkerEligibility(workerId, seriesId) {
-  const occurrences = db.prepare(`SELECT * FROM bookings
-    WHERE series_id = ? AND detached = 0 AND date >= ? AND status IN ('requested','accepted')`).all(seriesId, ymd());
-  const conflicts = occurrences.filter(b => !workerEligible(workerId, b));
-  return { ok: conflicts.length === 0 && occurrences.length > 0, occurrences, conflicts };
-}
-
 route('POST', /^\/api\/admin\/series\/(\d+)\/propose$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
   const sr = db.prepare('SELECT * FROM booking_series WHERE id = ?').get(Number(m[1]));
@@ -9568,13 +9412,6 @@ route('POST', /^\/api\/admin\/series\/(\d+)\/propose$/, (req, res, m, user, body
   const w = db.prepare("SELECT u.id, u.name, u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(workerId);
   if (!w || !w.visible || !platformEligible(workerId, w.email))
     return json(res, 400, { error: "That worker isn't currently available on the platform, so they can't take on a recurring arrangement." });
-  const fit = seriesWorkerEligibility(workerId, sr.id);
-  if (!fit.ok) {
-    const when = fit.conflicts.slice(0, 3).map(b => `${prettyDate(b.date)} ${b.start}`).join(', ');
-    return json(res, 400, { error: fit.occurrences.length === 0
-      ? 'This series has no upcoming occurrences left to move.'
-      : `${w.name} can't take this series as it stands — ${fit.conflicts.length} of ${fit.occurrences.length} upcoming shift${fit.conflicts.length === 1 ? '' : 's'} don't fit (${when}${fit.conflicts.length > 3 ? ', …' : ''}): the service, the day or a clash in their diary.` });
-  }
   db.prepare('UPDATE booking_series SET proposed_worker_id = ?, reviewed_at = ?, reviewed_by = ? WHERE id = ?')
     .run(workerId, now(), user.name, sr.id);
   logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'series-proposed',
@@ -9594,31 +9431,21 @@ route('POST', /^\/api\/admin\/series\/(\d+)\/approve$/, (req, res, m, user, body
   const w = db.prepare("SELECT u.id, u.name, u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(sr.proposed_worker_id);
   if (!w || !w.visible || !platformEligible(w.id, w.email))
     return json(res, 400, { error: 'The proposed worker is no longer available — propose someone else.' });
-  const fit = seriesWorkerEligibility(w.id, sr.id);
-  if (!fit.ok)
-    return json(res, 400, { error: fit.occurrences.length === 0
-      ? 'This series has no upcoming occurrences left to move.'
-      : `${w.name} no longer fits ${fit.conflicts.length} of the remaining shift${fit.conflicts.length === 1 ? '' : 's'} — things have changed since the proposal. Propose again.` });
   const oldWorker = sr.worker_id;
-  /* Only the still-attached occurrences THAT BELONG TO THE WITHDRAWN WORKER
-     move: a detached one-off is the participant's own arrangement and a
-     one-off-covered occurrence already has its person. The ids are
-     collected first so covers and offers close for exactly those shifts. */
-  const ids = fit.occurrences.filter(b => b.worker_id === oldWorker).map(b => b.id);
-  const marks = ids.map(() => '?').join(',');
+  const today = ymd();
   let moved = 0;
+  /* the money-adjacent rule again: the reassignment, the cover closes and
+     the series update land together or not at all. Occurrences someone has
+     already covered one-off keep their cover worker. */
   db.exec('BEGIN IMMEDIATE');
   try {
-    if (ids.length) {
-      /* REQUESTED, not accepted: the participant has agreed to the person;
-         the person still says yes to each shift (round 4.5, blocker 3). */
-      moved = db.prepare(`UPDATE bookings SET worker_id = ?, cover_state = '', status = 'requested', swap_count = swap_count + 1
-        WHERE id IN (${marks})`).run(w.id, ...ids).changes;
-      db.prepare(`UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Series permanently reassigned with the participant''s recorded agreement.'
-        WHERE status = 'open' AND booking_id IN (${marks})`).run(now(), ...ids);
-      db.prepare(`UPDATE cover_offers SET response = 'withdrawn', responded_at = ?
-        WHERE response IS NULL AND cover_id IN (SELECT id FROM cover WHERE booking_id IN (${marks}))`).run(now(), ...ids);
-    }
+    moved = db.prepare(`UPDATE bookings SET worker_id = ?, cover_state = '', status = 'accepted', swap_count = swap_count + 1
+      WHERE series_id = ? AND worker_id = ? AND date >= ? AND status IN ('requested','accepted')`)
+      .run(w.id, sr.id, oldWorker, today).changes;
+    db.prepare(`UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Series permanently reassigned with the participant''s recorded agreement.'
+      WHERE status = 'open' AND booking_id IN (SELECT id FROM bookings WHERE series_id = ?)`).run(now(), sr.id);
+    db.prepare(`UPDATE cover_offers SET response = 'withdrawn', responded_at = ?
+      WHERE response IS NULL AND cover_id IN (SELECT id FROM cover WHERE booking_id IN (SELECT id FROM bookings WHERE series_id = ?))`).run(now(), sr.id);
     db.prepare('UPDATE booking_series SET worker_id = ?, review_required = 0, participant_approved_at = ?, participant_approved_by = ? WHERE id = ?')
       .run(w.id, now(), who, sr.id);
     db.exec('COMMIT');
@@ -9627,14 +9454,14 @@ route('POST', /^\/api\/admin\/series\/(\d+)\/approve$/, (req, res, m, user, body
     return json(res, 500, { error: 'Could not move the series — nothing changed. Try again, and tell the office if it keeps happening.' });
   }
   logCompliance({ worker_id: w.id, worker_name: w.name, kind: 'platform-access', result: 'series-reassigned',
-    detail: `Series #${sr.id}: ${moved} upcoming shift(s) offered to ${w.name} as REQUESTED — they accept each one through their bookings. Participant-side agreement recorded from: ${who}. Detached one-offs untouched; one-off-covered occurrences kept their cover worker.`,
+    detail: `Series #${sr.id}: ${moved} upcoming shift(s) moved to ${w.name}. Agreement recorded from: ${who}. Occurrences already covered one-off kept their cover worker.`,
     source: 'series review', checked_by: user.name });
   const pt = db.prepare('SELECT name, email FROM users WHERE id = ?').get(sr.participant_id);
   if (pt) sendMail(pt.email, 'Your recurring booking has a new regular worker — BookIt', 'Your recurring booking has moved',
-    `<p>Hi ${firstName(pt.name)},</p><p>As agreed, your recurring booking is moving to <b>${escHtml(w.name)}</b>. They'll confirm each upcoming shift from their side — you'll see each one tick over to confirmed on your bookings page, and we chase anything they don't answer. Nothing else about the arrangement has changed.</p>`,
+    `<p>Hi ${firstName(pt.name)},</p><p>As agreed, your recurring booking is now with <b>${escHtml(w.name)}</b> for all upcoming shifts. Nothing else about the arrangement has changed. If anything doesn't look right, reply to this email or call the office.</p>`,
     'See your bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
-  sendMail(w.email, 'A recurring series has been offered to you — BookIt', 'A regular arrangement, if you\'ll take it',
-    `<p>Hi ${firstName(w.name)},</p><p>With the participant's agreement, the office has moved a recurring arrangement to you — <b>${moved} upcoming shift${moved === 1 ? '' : 's'}</b>, now sitting as requests in your bookings. Accept each one you can take; tell the office straight away about any you can't.</p>`,
+  sendMail(w.email, 'A recurring series is now yours — BookIt', 'A recurring series has been assigned to you',
+    `<p>Hi ${firstName(w.name)},</p><p>The office has assigned you a recurring arrangement (${moved} upcoming shift${moved === 1 ? '' : 's'}) with the participant's agreement. The shifts are in your bookings now.</p>`,
     'See your shifts', `${baseUrl(req)}/#/bookings`).catch(() => {});
   json(res, 200, { ok: true, moved, worker: w.name });
 });
@@ -10287,11 +10114,9 @@ route('GET', /^\/api\/coordinator\/clients$/, (req, res, m, user) => {
        still awaiting a worker's answer, and the counter beside it could only
        ever read 0. A request nobody has answered is the first thing a
        coordinator needs to see, not the one thing hidden from them. */
-    /* SQLite's date('now') is UTC — before 10–11am Sydney it reads
-       yesterday. The local date is bound instead (round 4.5). */
     const next = db.prepare(`SELECT date, start, service FROM bookings
-      WHERE participant_id = ? AND status IN ('requested','accepted') AND date >= ?
-      ORDER BY date, start LIMIT 1`).get(c.participant_id, ymd());
+      WHERE participant_id = ? AND status IN ('requested','accepted') AND date >= date('now')
+      ORDER BY date, start LIMIT 1`).get(c.participant_id);
     const counts = db.prepare(`SELECT
         SUM(CASE WHEN status = 'requested' THEN 1 ELSE 0 END) AS pending,
         SUM(CASE WHEN status = 'completed' AND approval_state = 'pending' THEN 1 ELSE 0 END) AS to_approve
@@ -12828,7 +12653,7 @@ route('GET', /^\/api\/cancel-policy$/, (req, res) => {
 });
 
 /* ---------- static files ---------- */
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 function serveStatic(req, res, pathname) {
   let file = pathname === '/' ? '/index.html' : pathname;
   file = path.normalize(file).replace(/^(\.\.[\/\\])+/, '');
