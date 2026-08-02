@@ -1508,6 +1508,163 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
   #homeWorkers > *:nth-child(n+3){display:none;}
 }
 
+
+
+/* ---------- Build 26: curated care-scene backgrounds ----------
+   The full isometric map is deliberately never shown. Instead, a few
+   purpose-built fragments sit in the page margins: one quiet hero journey,
+   a garden-care moment, a mower pass, and a small sensory garden. Existing
+   random doodles are removed from the homepage so the result stays calm. */
+#page-home .decor-sprite,
+#page-home .decor-figure{display:none!important;}
+
+#page-home .hero{
+  isolation:isolate;overflow:hidden;padding:88px 0 76px;
+  background:
+    radial-gradient(780px 460px at 78% 14%,rgba(245,184,65,.16),transparent 66%),
+    radial-gradient(720px 430px at 4% 104%,rgba(14,107,98,.11),transparent 66%),
+    linear-gradient(180deg,#FEFCF8 0%,#FAF6F0 100%);
+}
+#page-home .hero > .container{z-index:3;}
+#page-home .hero-grid{grid-template-columns:minmax(0,1.02fr) minmax(390px,.98fr);gap:clamp(42px,5.5vw,78px);}
+#page-home .hero h1{
+  font-family:var(--font-display);font-optical-sizing:auto;font-weight:520;
+  font-size:clamp(3.05rem,5vw,4.8rem);line-height:.99;letter-spacing:-.042em;
+  max-width:9.6em;
+}
+#page-home .hero .lead{max-width:42em;}
+#page-home .hero .kicker{background:rgba(255,255,255,.72);border:1px solid rgba(14,107,98,.12);}
+
+.care-hero-vignette{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;}
+.care-hero-vignette img{position:absolute;display:block;filter:saturate(.94) contrast(.98);}
+.care-hero-pergola{width:265px;right:-15px;top:54px;opacity:.72;}
+.care-hero-companions{width:125px;right:22px;top:322px;opacity:.82;}
+.care-hero-route{position:absolute;width:min(46vw,620px);height:auto;right:-4px;top:92px;opacity:.85;}
+html.js-fx .care-hero-pergola{animation:carePergolaIn .9s .18s var(--ease-out) both;}
+html.js-fx .care-hero-companions{animation:careCompanionIn 1s .46s var(--ease-out) both, careCompanionDrift 8s 1.5s ease-in-out infinite;}
+html.js-fx .care-hero-route path{stroke-dasharray:10 12;animation:careRouteDraw 1.45s .25s var(--ease-out) both;}
+@keyframes carePergolaIn{from{opacity:0;transform:translate(32px,-12px) scale(.96);}to{opacity:.72;transform:none;}}
+@keyframes careCompanionIn{from{opacity:0;transform:translate(36px,18px) scale(.94);}to{opacity:.82;transform:none;}}
+@keyframes careCompanionDrift{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+@keyframes careRouteDraw{from{stroke-dashoffset:130;opacity:0;}to{stroke-dashoffset:0;opacity:1;}}
+
+.hero-care-art{min-height:570px;display:flex;align-items:center;justify-content:center;}
+.hero-care-frame{
+  position:relative;width:100%;height:548px;overflow:hidden;border-radius:34px;
+  background:#E8E1D7;border:1px solid rgba(23,49,58,.09);
+  box-shadow:0 24px 70px -24px rgba(23,49,58,.30),0 4px 14px rgba(23,49,58,.07);
+  transform:rotate(.35deg);
+}
+.hero-care-frame img{width:100%;height:100%;object-fit:cover;object-position:61% center;display:block;}
+.hero-care-frame::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent 54%,rgba(7,42,37,.16) 100%);
+}
+.hero-care-glow{
+  position:absolute;inset:auto -18% -35% 20%;height:62%;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(245,184,65,.34),transparent 72%);
+  mix-blend-mode:screen;
+}
+.hero-care-proof{
+  position:absolute;left:-22px;bottom:28px;right:34px;display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:13px;
+  padding:15px 17px;background:rgba(255,255,255,.88);backdrop-filter:blur(14px) saturate(1.1);
+  border:1px solid rgba(255,255,255,.9);border-radius:20px;
+  box-shadow:0 18px 44px -18px rgba(23,49,58,.36);
+}
+.hero-care-proof b{display:block;font-size:.92rem;line-height:1.3;color:var(--ink);}
+.hero-care-proof small{display:block;margin-top:2px;font-size:.76rem;color:var(--ink-soft);}
+.proof-avatars{display:flex;align-items:center;padding-left:5px;}
+.proof-avatars span{
+  width:34px;height:34px;margin-left:-7px;display:grid;place-items:center;border-radius:50%;
+  border:3px solid #fff;color:#fff;font-size:.67rem;font-weight:800;background:var(--teal);
+}
+.proof-avatars span:nth-child(2){background:var(--coral);}
+.proof-avatars span:nth-child(3){background:#8A6D00;}
+.proof-tick{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--teal);color:#fff;font-weight:900;}
+
+.care-scene{position:relative;isolation:isolate;overflow:hidden;}
+.care-scene > .container{position:relative;z-index:2;}
+.care-section-decor{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.care-section-decor img{position:absolute;display:block;filter:saturate(.94) contrast(.98);}
+
+.care-services-scene{
+  background:
+    radial-gradient(440px 250px at 98% 8%,rgba(226,241,238,.72),transparent 72%),
+    var(--cream);
+}
+.care-services-garden{width:300px;right:-12px;top:30px;opacity:.72;}
+.care-services-trail{position:absolute;width:390px;right:192px;top:38px;opacity:.9;}
+
+.care-how-scene{
+  background:
+    linear-gradient(155deg,rgba(14,107,98,.025) 25%,transparent 25%,transparent 50%,rgba(14,107,98,.025) 50%,rgba(14,107,98,.025) 75%,transparent 75%) 0 0/40px 40px,
+    var(--card)!important;
+}
+.care-how-scene::after{
+  content:"";position:absolute;inset:auto 0 0 0;height:44%;z-index:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(226,241,238,.26));
+}
+.care-how-mower{width:410px;left:-86px;bottom:-18px;opacity:.64;}
+
+.care-stories-scene{
+  background:
+    radial-gradient(360px 220px at 100% 100%,rgba(245,184,65,.11),transparent 72%),
+    var(--cream);
+}
+.care-stories-garden{width:200px;right:18px;bottom:8px;opacity:.62;}
+.care-stories-trail{position:absolute;width:340px;right:86px;bottom:54px;}
+
+html.js-fx .care-services-garden,
+html.js-fx .care-how-mower,
+html.js-fx .care-stories-garden{transition:opacity .8s var(--ease-out),transform .8s var(--ease-out);}
+.care-services-scene:not(.care-seen) .care-services-garden{opacity:0;transform:translate(28px,-8px);}
+.care-how-scene:not(.care-seen) .care-how-mower{opacity:0;transform:translate(-28px,14px);}
+.care-stories-scene:not(.care-seen) .care-stories-garden{opacity:0;transform:translate(24px,12px);}
+
+html.high-contrast .care-hero-vignette,
+html.high-contrast .care-section-decor{display:none!important;}
+html.high-contrast .hero-care-frame{border:2px solid #000;box-shadow:none;}
+
+@media (max-width:1180px){
+  .care-hero-pergola{right:-72px;opacity:.55;}
+  .care-hero-companions{right:-4px;top:346px;opacity:.68;}
+  .care-hero-route{right:-72px;opacity:.55;}
+  .care-services-garden{right:-88px;opacity:.58;}
+  .care-services-trail{right:80px;}
+}
+@media (max-width:900px){
+  #page-home .hero-grid{grid-template-columns:1fr;}
+  #page-home .hero h1{max-width:12em;}
+  .hero-care-art{min-height:500px;max-width:660px;margin:0 auto;}
+  .hero-care-frame{height:500px;}
+  .care-hero-pergola{right:-92px;top:38px;width:220px;opacity:.46;}
+  .care-hero-companions{right:-18px;top:280px;width:105px;opacity:.56;}
+  .care-hero-route{right:-110px;top:62px;width:480px;opacity:.42;}
+  .care-services-garden{right:-82px;top:38px;width:250px;opacity:.48;}
+  .care-services-trail{right:20px;top:44px;width:320px;}
+  .care-how-mower{left:-125px;width:340px;opacity:.48;}
+  .care-stories-garden{right:-48px;opacity:.46;}
+}
+@media (max-width:640px){
+  #page-home .hero{padding-top:30px;padding-bottom:48px;}
+  #page-home .hero h1{font-size:clamp(2.55rem,12vw,3.35rem);line-height:1.01;}
+  .care-hero-vignette{display:none;}
+  .hero-care-art{display:none;}
+  .care-services-garden{width:185px;right:-75px;top:70px;opacity:.36;}
+  .care-services-trail{display:none;}
+  .care-how-mower{width:270px;left:-150px;bottom:4px;opacity:.34;}
+  .care-stories-garden,.care-stories-trail{display:none;}
+}
+@media (prefers-reduced-motion:reduce){
+  .care-hero-vignette *{animation:none!important;}
+  .care-services-scene:not(.care-seen) .care-services-garden,
+  .care-how-scene:not(.care-seen) .care-how-mower,
+  .care-stories-scene:not(.care-seen) .care-stories-garden{opacity:inherit;transform:none;}
+}
+html[data-motion="reduce"] .care-hero-vignette *,
+html[data-motion="reduce"] .care-section-decor *{animation:none!important;transition:none!important;}
+
 /* ---------- Build 24: the walkers ----------
    A quiet life at the bottom of every page: carers and the people they
    support crossing the screen, tracks fading behind them. The section
@@ -1520,6 +1677,78 @@ html[data-motion="reduce"] #bgWalkers,
 html.high-contrast #bgWalkers{display:none;}
 @media (prefers-reduced-motion: reduce){#bgWalkers{display:none;}}
 @media print{#bgWalkers{display:none;}}
+
+
+/* ---------- Build 27: live, selective care motion ----------
+   The v56 crops remain as accessible/reduced-motion fallbacks. When WebGL
+   is available, each section swaps to one small transparent scene and only
+   the scene in the viewport runs. The full garden map is still never shown. */
+.care-motion-canvas{
+  position:absolute;display:block;pointer-events:none;opacity:0;
+  transition:opacity .8s var(--ease-out);contain:strict;
+  filter:saturate(.93) contrast(.98);
+}
+html.care-motion-ready .care-motion-canvas{opacity:1;}
+html.care-motion-ready .care-motion-hero{opacity:.92;}
+html.care-motion-ready .care-motion-garden{opacity:.76;}
+html.care-motion-ready .care-motion-mower{opacity:.64;}
+html.care-motion-ready .care-motion-story{opacity:.56;}
+html.care-motion-ready .care-static-fallback{
+  opacity:0!important;visibility:hidden;transition:opacity .5s ease,visibility 0s .5s;
+}
+.care-static-fallback{transition:opacity .45s ease;}
+.care-motion-hero{right:-34px;top:-14px;width:min(55vw,760px);height:500px;z-index:2;opacity:0;}
+.care-motion-garden{right:-30px;top:16px;width:510px;height:300px;z-index:1;}
+.care-motion-mower{left:-118px;bottom:-52px;width:560px;height:350px;z-index:1;}
+.care-motion-story{right:-70px;bottom:-36px;width:410px;height:270px;z-index:1;}
+html.care-motion-ready .care-hero-route,
+html.care-motion-ready .care-hero-pergola,
+html.care-motion-ready .care-hero-companions,
+html.care-motion-ready .care-services-trail,
+html.care-motion-ready .care-services-garden,
+html.care-motion-ready .care-how-mower,
+html.care-motion-ready .care-stories-trail,
+html.care-motion-ready .care-stories-garden{opacity:0!important;visibility:hidden;}
+/* The older full-page walkers would compete with the curated scenes. Keep
+   them on inner pages, but quietly retire them while the homepage is open. */
+html.care-home-active #bgWalkers{opacity:0;transition:opacity .4s ease;}
+#bgWalkers{transition:opacity .4s ease;}
+
+@media (max-width:1180px){
+  .care-motion-hero{right:-95px;width:690px;height:475px;opacity:.86;}
+  .care-motion-garden{right:-92px;width:465px;height:280px;}
+  .care-motion-mower{left:-145px;width:500px;height:325px;}
+  .care-motion-story{right:-92px;width:360px;height:245px;}
+  html.care-motion-ready .care-motion-hero{opacity:.82;}
+  html.care-motion-ready .care-motion-garden{opacity:.66;}
+  html.care-motion-ready .care-motion-mower{opacity:.56;}
+  html.care-motion-ready .care-motion-story{opacity:.48;}
+}
+@media (max-width:900px){
+  .care-motion-hero{right:-125px;top:-6px;width:620px;height:430px;opacity:.68;}
+  .care-motion-garden{right:-118px;top:20px;width:430px;height:270px;opacity:.7;}
+  .care-motion-mower{left:-170px;bottom:-18px;width:450px;height:300px;opacity:.62;}
+  .care-motion-story{right:-115px;width:330px;height:225px;opacity:.58;}
+  html.care-motion-ready .care-motion-hero{opacity:.68;}
+  html.care-motion-ready .care-motion-garden{opacity:.56;}
+  html.care-motion-ready .care-motion-mower{opacity:.46;}
+  html.care-motion-ready .care-motion-story{opacity:.42;}
+}
+@media (max-width:640px){
+  .care-motion-hero{display:none;}
+  .care-motion-garden{right:-126px;top:54px;width:320px;height:215px;opacity:.48;}
+  .care-motion-mower{left:-176px;bottom:0;width:360px;height:245px;opacity:.42;}
+  .care-motion-story{display:none;}
+  html.care-motion-ready .care-motion-garden{opacity:.43;}
+  html.care-motion-ready .care-motion-mower{opacity:.38;}
+}
+@media (prefers-reduced-motion:reduce){
+  .care-motion-canvas{display:none!important;}
+}
+html[data-motion="reduce"] .care-motion-canvas,
+html.high-contrast .care-motion-canvas{display:none!important;}
+@media print{.care-motion-canvas{display:none!important;}}
+
 </style>
 </head>
 <body>
@@ -1655,7 +1884,30 @@ html.high-contrast #bgWalkers{display:none;}
 <!-- ================= HOME ================= -->
 <section class="page" id="page-home" data-title="BookIt — Find NDIS support workers who fit your life">
   <div class="hero">
-    <div class="hero-rings" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="care-hero-vignette" aria-hidden="true">
+      <canvas class="care-motion-canvas care-motion-hero" data-care-motion="hero"></canvas>
+      <svg class="care-hero-route care-static-fallback" viewBox="0 0 620 360" focusable="false">
+        <defs>
+          <linearGradient id="careHeroTrackFade" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#0E6B62" stop-opacity="0"/>
+            <stop offset=".34" stop-color="#0E6B62" stop-opacity=".12"/>
+            <stop offset=".72" stop-color="#17313A" stop-opacity=".16"/>
+            <stop offset="1" stop-color="#17313A" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d="M52 28 C214 48 218 132 334 154 C448 176 450 268 578 318" fill="none" stroke="url(#careHeroTrackFade)" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M65 44 C214 60 224 145 338 168 C449 191 454 281 568 330" fill="none" stroke="url(#careHeroTrackFade)" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="3 12"/>
+        <g fill="#17313A" opacity=".12">
+          <ellipse cx="122" cy="60" rx="7" ry="3.5" transform="rotate(24 122 60)"/>
+          <ellipse cx="144" cy="72" rx="7" ry="3.5" transform="rotate(31 144 72)" opacity=".9"/>
+          <ellipse cx="169" cy="88" rx="6.5" ry="3.2" transform="rotate(36 169 88)" opacity=".78"/>
+          <ellipse cx="197" cy="107" rx="6" ry="3" transform="rotate(39 197 107)" opacity=".64"/>
+          <ellipse cx="228" cy="126" rx="5.5" ry="2.7" transform="rotate(34 228 126)" opacity=".48"/>
+        </g>
+      </svg>
+      <img class="care-hero-pergola care-static-fallback" src="assets/care-backgrounds/hero-pergola.webp" alt="" width="265" height="190">
+      <img class="care-hero-companions care-static-fallback" src="assets/care-backgrounds/hero-companions.webp" alt="" width="125" height="120">
+    </div>
     <div class="container hero-grid">
       <div>
         <span class="kicker">NDIS registered provider · Australia wide</span>
@@ -1676,15 +1928,15 @@ html.high-contrast #bgWalkers{display:none;}
           <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Self-, plan- and NDIA-managed welcome</span>
         </div>
       </div>
-      <div class="hero-art" aria-hidden="true">
-        <div class="ill-scene" data-ill="home" aria-hidden="true"></div>
-        <div class="float-card fc1">
-          <div class="avatar" style="background:#0E6B62;">SM</div>
-          <div><b>Sarah M. · Verified ✓</b><small>Community access · Parramatta<br>★ 4.9 (112 shifts)</small></div>
+      <div class="hero-art hero-care-art" aria-hidden="true">
+        <div class="hero-care-frame">
+          <img src="assets/care-backgrounds/hero-home-care.webp" alt="" width="1568" height="980">
+          <div class="hero-care-glow"></div>
         </div>
-        <div class="float-card fc2">
-          <div class="avatar" style="background:#D94F32;">✓</div>
-          <div><b>Shift confirmed 🎉</b><small>Tue 9:00am – 1:00pm · Household tasks</small></div>
+        <div class="hero-care-proof">
+          <div class="proof-avatars" aria-hidden="true"><span>SM</span><span>AK</span><span>JP</span></div>
+          <div><b>Support chosen around your life</b><small>Employed · screened · insured</small></div>
+          <span class="proof-tick" aria-hidden="true">✓</span>
         </div>
       </div>
     </div>
@@ -1721,7 +1973,22 @@ html.high-contrast #bgWalkers{display:none;}
   </div>
 
   <!-- services -->
-  <section class="block" aria-labelledby="svcHead">
+  <section class="block care-scene care-services-scene" aria-labelledby="svcHead">
+    <div class="care-section-decor" aria-hidden="true">
+      <canvas class="care-motion-canvas care-motion-garden" data-care-motion="garden"></canvas>
+      <svg class="care-services-trail care-static-fallback" viewBox="0 0 430 170" focusable="false">
+        <g fill="#17313A">
+          <ellipse cx="36" cy="120" rx="8" ry="4" transform="rotate(-15 36 120)" opacity=".035"/>
+          <ellipse cx="72" cy="111" rx="8" ry="4" transform="rotate(-11 72 111)" opacity=".05"/>
+          <ellipse cx="111" cy="101" rx="7.5" ry="3.7" transform="rotate(-8 111 101)" opacity=".07"/>
+          <ellipse cx="152" cy="90" rx="7" ry="3.5" transform="rotate(-4 152 90)" opacity=".09"/>
+          <ellipse cx="196" cy="80" rx="6.5" ry="3.2" transform="rotate(2 196 80)" opacity=".11"/>
+          <ellipse cx="243" cy="72" rx="6" ry="3" transform="rotate(8 243 72)" opacity=".10"/>
+          <ellipse cx="292" cy="68" rx="5.5" ry="2.8" transform="rotate(12 292 68)" opacity=".07"/>
+        </g>
+      </svg>
+      <img class="care-services-garden care-static-fallback" src="assets/care-backgrounds/services-garden.webp" alt="" width="270" height="165" loading="lazy">
+    </div>
     <div class="container">
       <div class="section-head">
         <span class="kicker">What we support</span>
@@ -1733,7 +2000,11 @@ html.high-contrast #bgWalkers{display:none;}
   </section>
 
   <!-- how it works -->
-  <section class="block" style="background:var(--card);" aria-labelledby="hiwHead">
+  <section class="block care-scene care-how-scene" style="background:var(--card);" aria-labelledby="hiwHead">
+    <div class="care-section-decor" aria-hidden="true">
+      <canvas class="care-motion-canvas care-motion-mower" data-care-motion="mower"></canvas>
+      <img class="care-how-mower care-static-fallback" src="assets/care-backgrounds/how-mower.webp" alt="" width="410" height="245" loading="lazy">
+    </div>
     <div class="container">
       <div class="section-head">
         <span class="kicker">How it works</span>
@@ -1805,7 +2076,20 @@ html.high-contrast #bgWalkers{display:none;}
   </section>
 
   <!-- testimonials -->
-  <section class="block" aria-labelledby="tsHead">
+  <section class="block care-scene care-stories-scene" aria-labelledby="tsHead">
+    <div class="care-section-decor" aria-hidden="true">
+      <canvas class="care-motion-canvas care-motion-story" data-care-motion="story"></canvas>
+      <svg class="care-stories-trail care-static-fallback" viewBox="0 0 360 150" focusable="false">
+        <path d="M10 126 C104 118 160 72 226 80 C280 86 302 58 346 28" fill="none" stroke="#0E6B62" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 12" opacity=".08"/>
+        <g fill="#17313A">
+          <ellipse cx="52" cy="118" rx="7" ry="3.5" transform="rotate(-10 52 118)" opacity=".05"/>
+          <ellipse cx="86" cy="107" rx="6.5" ry="3.2" transform="rotate(-18 86 107)" opacity=".075"/>
+          <ellipse cx="122" cy="93" rx="6" ry="3" transform="rotate(-24 122 93)" opacity=".09"/>
+          <ellipse cx="162" cy="82" rx="5.5" ry="2.8" transform="rotate(-12 162 82)" opacity=".075"/>
+        </g>
+      </svg>
+      <img class="care-stories-garden care-static-fallback" src="assets/care-backgrounds/stories-garden.webp" alt="" width="200" height="145" loading="lazy">
+    </div>
     <div class="container">
       <div class="section-head">
         <span class="kicker">Stories</span>
@@ -8534,7 +8818,7 @@ async function renderAdminPage(){
     + `<h2 class="adm-section">Audit pack — one download, everything in it</h2>` + auditPackHtml(pack)
     + `<h2 class="adm-section">Launch ${ln.demo_accounts || ln.gate ? '' : '— LIVE 🎉'}</h2>` + launchCard
     + `<h2 class="adm-section">Cover — when a worker can't make it ${cvr && cvr.open.length ? `<span style="color:#D94F32;">(${cvr.open.length} open)</span>` : ''}</h2>`
-    + (cvr ? officeQueueHtml(cvr.office) + coverBoardHtml(cvr) : '<p class="adm-empty">The cover board couldn\'t be loaded.</p>')
+    + (cvr ? coverBoardHtml(cvr) : '<p class="adm-empty">The cover board couldn\'t be loaded.</p>')
     + `<h2 class="adm-section">Pay — the ladder and the award floor</h2>`
     + (lad ? ladderBoardHtml(lad) : '<p class="adm-empty">The pay ladder couldn\'t be loaded.</p>')
     + `<h2 class="adm-section">Workers awaiting approval ${c.pending ? `(${c.pending})` : ''}</h2>` + pending
@@ -9249,11 +9533,6 @@ function coverStripHtml(b){
       <b>Covered by a partner provider ✓</b>
       Nobody on BookIt was free, so a provider we hold an agreement with is delivering this one. We stay responsible for it either way.
     </div>`;
-  if(b.cover_state === 'office') return `
-    <div class="cv-strip">
-      <b>The office is arranging this one directly.</b>
-      The shift had already started when the change happened, so instead of automatic offers a person is on it — someone will call you. Nothing is charged unless support was actually delivered.
-    </div>`;
   if(b.cover_state === 'failed') return `
     <div class="cv-strip">
       <b>We couldn't find cover for this one.</b> The office has been told and someone will call you. We're sorry — that's a failure on our side, not yours.
@@ -9733,18 +10012,6 @@ document.addEventListener('click', e => {
   }
 });
 
-function officeQueueHtml(list){
-  if(!list || !list.length) return '';
-  return `<h4 style="margin:26px 0 10px;color:#B3261E;">Office review — started shifts with no worker (${list.length})</h4>` + list.map(b => `
-    <div class="cb-open late" style="border-color:#B3261E;background:#FDF2F0;">
-      <div class="cb-head"><b>${esc(b.participant_name)} · ${esc(b.service_label)} · ${fmtAU(b.date)} ${esc(b.start)} · ${b.hours} hrs</b></div>
-      <p class="cb-who"><b>The shift had already started when its worker was withdrawn — no offers were sent.</b> Ring ${esc(b.participant_name)}${b.participant_phone ? ` on <b>${esc(b.participant_phone)}</b>` : ''} first, then record whoever you arrange.</p>
-      <div class="cb-actions">
-        <button class="adm-btn-sm" data-of-cands="${b.id}">Who could take it?</button>
-      </div>
-      <div class="cb-cands" data-of-cands-out="${b.id}" hidden></div>
-    </div>`).join('');
-}
 function coverBoardHtml(d){
   const s = d.stats || {};
   const tiles = `<div class="adm-tiles">
@@ -9769,7 +10036,7 @@ function coverBoardHtml(d){
           : ''}<span class="cb-tier">${esc(c.tier_label)}</span> ${c.office_alerted_at ? '<b style="color:#D94F32;">needs you</b>' : '<span class="muted-sm">running itself</span>'}</span>
       </div>
       ${c.continuity && c.continuity.tier === 1 ? `<p class="cb-crit">${esc(c.continuity.why || '')}</p>` : ''}
-      ${c.series ? `<p class="cb-who" style="color:#7a4a12;">🔁 <b>Part of a recurring series</b> — ${c.series.remaining} upcoming shift${c.series.remaining === 1 ? '' : 's'} on the same arrangement.${c.series.review_required ? ` <b>Series review required:</b> a permanent replacement needs the participant's agreement.` : ''}${c.series.participant_approved_at ? ` <b style="color:#1C7C43;">Participant has agreed — shifts offered to the new worker to confirm.</b>` : ''}</p>
+      ${c.series ? `<p class="cb-who" style="color:#7a4a12;">🔁 <b>Part of a recurring series</b> — ${c.series.remaining} upcoming shift${c.series.remaining === 1 ? '' : 's'} on the same arrangement.${c.series.review_required ? ` <b>Series review required:</b> a permanent replacement needs the participant's agreement.` : ''}${c.series.participant_approved_at ? ` <b style="color:#1C7C43;">Participant has agreed — series moved.</b>` : ''}</p>
       ${c.series.review_required && !c.series.participant_approved_at ? (c.series.proposed_worker_id
         ? `<p class="cb-who">Proposed replacement: <b>${esc(c.series.proposed_name || 'worker #' + c.series.proposed_worker_id)}</b> · <input type="text" data-sr-who="${c.series.id}" placeholder="Who agreed & how (e.g. Maria, by phone)" style="width:240px;padding:4px 8px;font-size:.85rem;"> <button class="adm-btn-sm" data-sr-approve="${c.series.id}">Record agreement & move the series</button></p>`
         : `<p class="cb-who"><button class="adm-btn-sm" data-sr-propose="${c.id}" data-sr-id="${c.series.id}">Propose permanent replacement…</button> <span class="muted-sm">picks from the same candidates as one-off cover</span></p>`) : ''}` : ''}
@@ -9993,36 +10260,6 @@ document.addEventListener('click', async e => {
   }
 
   /* --- admin board --- */
-  const ofc = e.target.closest('[data-of-cands]');
-  if(ofc){
-    const id = ofc.dataset.ofCands;
-    const box = $(`[data-of-cands-out="${id}"]`);
-    if(!box) return;
-    if(!box.hidden){ box.hidden = true; return; }
-    box.hidden = false;
-    box.innerHTML = '<span class="muted-sm">Looking…</span>';
-    try{
-      const d = await API.call(`/admin/bookings/${id}/candidates`);
-      const blocks = Object.keys(d.candidates).map(t => {
-        const list = d.candidates[t];
-        if(!list.length) return '';
-        return `<h5>${esc(d.labels[t] || t)}</h5>` + list.map(x =>
-          `<span class="cb-cand">${esc(x.name)}${x.phone ? ' · ' + esc(x.phone) : ''}<button class="adm-btn-sm" data-of-assign="${id}" data-of-worker="${x.id}">record assignment</button></span>`).join('');
-      }).join('');
-      box.innerHTML = blocks || '<p class="muted-sm">Nobody is free and screened right now — this one is phone calls.</p>';
-    }catch(err){ box.innerHTML = '<span class="muted-sm">' + esc(err.message) + '</span>'; }
-    return;
-  }
-  const ofa = e.target.closest('[data-of-assign]');
-  if(ofa){
-    ofa.disabled = true;
-    try{
-      const r = await API.call(`/admin/bookings/${ofa.dataset.ofAssign}/office-assign`, {method:'POST', body:{worker_id: Number(ofa.dataset.ofWorker)}});
-      toast(`${r.worker} recorded — the participant has been told.`);
-      renderAdminPage();
-    }catch(err){ toast(err.message); ofa.disabled = false; }
-    return;
-  }
   const cands = e.target.closest('[data-cb-cands]');
   if(cands){
     const id = cands.dataset.cbCands;
@@ -13178,6 +13415,30 @@ document.addEventListener('click', async e => {
   tDeep = setTimeout(spawnDeep, 11000);
   tBirds = setTimeout(spawnBirds, 24000);
 })();
+
+
+/* Build 26: reveal curated care fragments only when their own section arrives. */
+(() => {
+  const scenes = Array.from(document.querySelectorAll('#page-home .care-scene'));
+  if (!scenes.length) return;
+  const reduce = () => document.documentElement.getAttribute('data-motion') === 'reduce'
+    || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  if (!('IntersectionObserver' in window) || reduce()) {
+    scenes.forEach(s => s.classList.add('care-seen'));
+    return;
+  }
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('care-seen');
+      io.unobserve(entry.target);
+    });
+  }, { rootMargin:'0px 0px -12% 0px', threshold:.08 });
+  scenes.forEach(s => io.observe(s));
+})();
+
 </script>
+
+<script type="module" src="assets/care-motion/care-motion.js"></script>
 </body>
 </html>

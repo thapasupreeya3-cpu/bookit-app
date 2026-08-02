@@ -1,0 +1,26 @@
+BookIt v57 — live care-background motion
+========================================
+
+What changed
+- Replaced the v56 still-only care accents with four small, live, transparent WebGL scenes.
+- The complete garden map is still never displayed. Each section receives only one restrained moment:
+  1. Hero: a wheelchair user and support worker travel toward a partial pergola.
+  2. Services: a gardener walks in, waters both raised beds, then leaves.
+  3. How it works: a mower enters through the lower gate, cuts alternating rows, exits through the gate, and the lawn regrows.
+  4. Stories: a quiet dog walk passes a sensory garden.
+- Shoe prints, wheelchair tracks, mower tracks and paw prints are created from the live paths and fade gradually.
+- Only the scene currently near the viewport renders. The older full-page walker layer is paused on the homepage so the result is not busy.
+- Static WebP artwork remains as a fallback if WebGL is unavailable, high contrast is enabled, or reduced motion is requested.
+- Mobile keeps the hero quiet and uses only the smaller garden and mower moments at reduced opacity.
+
+Files added
+- public/assets/care-motion/care-motion.js
+- public/assets/care-motion/three.module.min.js
+- public/assets/care-motion/three.core.min.js
+
+Run locally
+1. Use Node.js 22 or newer.
+2. In this folder, run: node server.js
+3. Open: http://localhost:3000
+
+No npm install or external JavaScript download is required. The Three.js runtime is included locally.
