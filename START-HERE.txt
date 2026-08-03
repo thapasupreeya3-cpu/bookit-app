@@ -1,0 +1,15 @@
+BOOKIT SITE v64 — complete
+===========================
+This folder is the entire site: your v62 with all animations,
+warm photos on the six service pages, and social-preview tags.
+
+Deploy: open github.com/thapasupreeya3-cpu/bookit-app/upload/main
+and drag BOTH items from inside this folder (server.js and the
+public folder) into the page. Commit, then: sudo bookit-update
+
+Safe to delete from the repo whenever you like (nothing uses them):
+  index.html (the one at repo root), DESIGN.md, README-V63.md,
+  get-assets.mjs, CARE_BACKGROUND_UPDATE.txt,
+  public/assets/world/, public/assets/care-backgrounds/,
+  public/assets/care-motion/, public/images/care-poster.webp,
+  public/vendor/oo-scrub.js
