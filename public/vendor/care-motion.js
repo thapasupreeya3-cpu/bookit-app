@@ -134,13 +134,15 @@ const careCastScratchB = new THREE.Vector3();
 /* Crop transparent generation margins while leaving a little room for atlas
    movement. Coordinates are left/top/right/bottom within one frame. */
 const CARE_CAST_META = {
-  'wheelchair-pair': { crop: [.16, .13, .86, .89], atlasCrop: [.05, .08, .94, .97], facesRight: true },
+  'wheelchair-pair': { crop: [.16, .13, .86, .89], atlasCrop: [0, 0, 1, 1], facesRight: true },
   'bench-reader': { crop: [.16, .08, .81, .93], atlasCrop: [.23, .05, .78, .97], facesRight: false },
   'chat-red': { crop: [.25, .14, .75, .92], atlasCrop: [.23, .05, .75, .97], facesRight: true },
   'chat-bob': { crop: [.25, .08, .75, .94], atlasCrop: [.26, .05, .75, .97], facesRight: false },
   gardener: { crop: [.19, .09, .81, .90], atlasCrop: [.14, .05, .86, .98], facesRight: false },
-  'mower-worker': { crop: [.18, .13, .82, .87], atlasCrop: [.15, .05, .85, .97], facesRight: false },
-  'dog-walker': { crop: [.12, .09, .88, .90], atlasCrop: [.05, .10, .95, .97], facesRight: true },
+  'gardener-walk': { crop: [.19, .09, .81, .90], atlasCrop: [0, 0, 1, 1], facesRight: false },
+  'gardener-water': { crop: [.19, .09, .81, .90], atlasCrop: [.14, .05, .86, .98], facesRight: false },
+  'mower-worker': { crop: [.18, .13, .82, .87], atlasCrop: [0, 0, 1, 1], facesRight: false },
+  'dog-walker': { crop: [.12, .09, .88, .90], atlasCrop: [0, 0, 1, 1], facesRight: true },
 };
 
 function loadCareCastTexture(file) {
@@ -196,7 +198,8 @@ class CareCastBillboard {
     this.activeAction = options.defaultAction || Object.keys(options.actions)[0];
     this.proxyRoots = options.proxyRoots || [];
     this.proxyHidden = false;
-    this.lastUpdate = { time: 0, animate: false, direction: null, camera: null, mirror: null };
+    this.lastMirror = false;
+    this.lastUpdate = { time: 0, animate: false, phase: null, direction: null, camera: null, mirror: null };
     this.material = new THREE.SpriteMaterial({
       transparent: true,
       depthTest: true,
@@ -247,6 +250,9 @@ class CareCastBillboard {
       time,
       action,
       animate: options.animate !== false,
+      /* Locomotion can supply travelled-distance phase (cycles). Idle and
+         task atlases deliberately retain the authored 8 fps timeline. */
+      phase: Number.isFinite(options.phase) ? options.phase : null,
       direction: options.direction || null,
       camera: options.camera || null,
       mirror: typeof options.mirror === 'boolean' ? options.mirror : null,
@@ -265,8 +271,11 @@ class CareCastBillboard {
       this.material.needsUpdate = true;
     }
     const atlas = map === state.atlasMap;
+    const cursor = this.lastUpdate.phase === null
+      ? Math.max(0, time) * CARE_CAST_FPS
+      : this.lastUpdate.phase * CARE_CAST_FRAMES;
     const frame = atlas && this.lastUpdate.animate
-      ? Math.floor(Math.max(0, time) * CARE_CAST_FPS) % CARE_CAST_FRAMES
+      ? ((Math.floor(cursor) % CARE_CAST_FRAMES) + CARE_CAST_FRAMES) % CARE_CAST_FRAMES
       : 0;
     const mirror = this.resolveMirror(state.meta.facesRight, this.lastUpdate);
     this.applyFrame(map, atlas && state.meta.atlasCrop ? state.meta.atlasCrop : state.meta.crop, atlas, frame, mirror);
@@ -274,15 +283,22 @@ class CareCastBillboard {
   }
 
   resolveMirror(facesRight, update) {
-    if (update.mirror !== null) return update.mirror;
-    if (!update.direction || !update.camera) return false;
+    if (update.mirror !== null) {
+      this.lastMirror = update.mirror;
+      return this.lastMirror;
+    }
+    if (!update.direction || !update.camera) return this.lastMirror;
     this.parent.getWorldPosition(careCastScratchA);
     careCastScratchB.copy(careCastScratchA).add(update.direction);
     const ax = careCastScratchA.project(update.camera).x;
     const bx = careCastScratchB.project(update.camera).x;
-    if (Math.abs(bx - ax) < .002) return false;
+    /* A camera-facing side profile has no new left/right answer while its
+       route is screen-vertical. Keep the preceding heading through the turn
+       instead of snapping to the source image's default facing. */
+    if (Math.abs(bx - ax) < .002) return this.lastMirror;
     const travellingRight = bx > ax;
-    return travellingRight !== facesRight;
+    this.lastMirror = travellingRight !== facesRight;
+    return this.lastMirror;
   }
 
   applyFrame(map, crop, atlas, frame, mirror) {
@@ -1523,6 +1539,23 @@ class HeroJourneyStage extends MiniStage {
     const yaw = Math.atan2(tan.x, tan.z);
     const distance = u * this.travelLength;
     const gait = distance / Math.max(.05, .52 * this.pairScale) * Math.PI;
+    /* Each authored walk leg lands exactly on an atlas-cycle boundary. This
+       preserves distance-driven foot contact while letting frame 31 flow into
+       frame 0 at the bench/pergola, instead of snapping to frame 0 only after
+       the traveller has already stopped. */
+    const castStride = Math.max(.05, 1.04 * this.pairScale);
+    const benchDistance = this.uBench * this.travelLength;
+    const pergolaDistance = this.uPergola * this.travelLength;
+    const castLegs = [benchDistance, pergolaDistance - benchDistance, this.travelLength - pergolaDistance];
+    const castCycles = castLegs.map(length => Math.max(1, Math.round(length / castStride)));
+    let castPhase;
+    if (distance <= benchDistance) {
+      castPhase = castCycles[0] * distance / Math.max(.0001, castLegs[0]);
+    } else if (distance <= pergolaDistance) {
+      castPhase = castCycles[0] + castCycles[1] * (distance - benchDistance) / Math.max(.0001, castLegs[1]);
+    } else {
+      castPhase = castCycles[0] + castCycles[1] + castCycles[2] * (distance - pergolaDistance) / Math.max(.0001, castLegs[2]);
+    }
     this.pair.position.copy(p);
     let heading = yaw;
     if (!moving && restLen) {
@@ -1539,6 +1572,7 @@ class HeroJourneyStage extends MiniStage {
     traveller.animate(distance, gait, moving, t, this.pairScale);
     this.travellerCasts[this.activeTraveller].update(t, {
       animate: moving,
+      phase: castPhase,
       direction: tan,
       camera: this.camera,
     });
@@ -1583,14 +1617,14 @@ class GardenCareStage extends MiniStage {
     const tree=createTree(.72);tree.root.position.set(4.8,0,-1.05);this.scene.add(tree.root);this.tree=tree;
     this.flowers=addFlowerPatch(this.scene,4.1,-1.4,13);
     this.gardener=createGardener();this.gardener.root.scale.setScalar(.78);this.scene.add(this.gardener.root);
-    this.gardenerCastDirection=new THREE.Vector3(0,0,1);
+    this.gardenerCastDirection=new THREE.Vector3(0,0,1);this.gardenerCastPhase=0;
     this.gardenerCast=new CareCastBillboard(this.gardener.root,{
       height:proxyLocalBounds(this.gardener.root).height,
       proxyRoots:[this.gardener.root],
       defaultAction:'walk',
       actions:{
-        walk:{id:'gardener-walk',staticId:'gardener',frameId:'gardener'},
-        water:{id:'gardener-water',staticId:'gardener',frameId:'gardener'},
+        walk:{id:'gardener-walk',staticId:'gardener',frameId:'gardener-walk'},
+        water:{id:'gardener-water',staticId:'gardener',frameId:'gardener-water'},
       },
     });
     this.waterMaterial=new THREE.MeshBasicMaterial({color:C.blue,transparent:true,opacity:.6,depthWrite:false,toneMapped:false});this.drops=[];
@@ -1613,7 +1647,7 @@ class GardenCareStage extends MiniStage {
       toExit:createNavigationRoute(this.positions.bed2,this.positions.exit,this.obstacles,.38,[guide(5.6,.95),guide(5.85,-.7)]),
     };
   }
-  walkRoute(route,p,phase){const u=Math.min(.9999,easeInOut(p));const pos=route.path.getPointAt(u);const tan=route.path.getTangentAt(u).normalize();const yaw=Math.atan2(tan.x,tan.z);this.gardener.root.position.copy(pos);this.gardener.root.rotation.y=yaw;this.gardener.animateWalk(phase,.9);this.gardenerCastDirection.copy(tan);this.emitFootprints(pos,yaw,u*route.length);return {pos,yaw};}
+  walkRoute(route,p,phase){const u=Math.min(.9999,easeInOut(p)),travelled=u*route.length;const pos=route.path.getPointAt(u);const tan=route.path.getTangentAt(u).normalize();const yaw=Math.atan2(tan.x,tan.z);this.gardener.root.position.copy(pos);this.gardener.root.rotation.y=yaw;this.gardener.animateWalk(phase,.9);this.gardenerCastDirection.copy(tan);this.gardenerCastPhase=travelled/(.33*2);this.emitFootprints(pos,yaw,travelled);return {pos,yaw};}
   emitFootprints(pos,yaw,d){if(d-this.lastStamp>.33){this.lastStamp=d;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,this.footSide?-.15:.15,-.3),yaw,.16,.34,4.2,.13,this.footSide===1);}}
   waterBed(index,t,phase){
     const bed=this.beds[index],target=bed.root.position.clone().add(new THREE.Vector3(0,.62,0));
@@ -1630,7 +1664,7 @@ class GardenCareStage extends MiniStage {
     else if(p<.57){stage='walk2';this.walkRoute(this.routes.toBed2,invLerp(.43,.57,p),t*7.5);}
     else if(p<.76){stage='water2';this.lastStamp=-1;this.waterBed(1,t,t*5);}
     else{stage='exit';this.walkRoute(this.routes.toExit,invLerp(.76,1,p),t*7.5);}
-    this.gardenerCast.update(t,{action:stage.startsWith('water')?'water':'walk',animate:true,direction:this.gardenerCastDirection,camera:this.camera});
+    const watering=stage.startsWith('water');this.gardenerCast.update(t,{action:watering?'water':'walk',animate:true,phase:watering?undefined:this.gardenerCastPhase,direction:this.gardenerCastDirection,camera:this.camera});
     const fade=smooth(invLerp(0,.04,p))*(1-smooth(invLerp(.95,1,p)));this.gardener.root.visible=fade>.01;
     this.tree.crown.rotation.z=Math.sin(t*.55)*.035;this.flowers.forEach(({flower,phase})=>{flower.position.y=flower.userData.baseY+Math.sin(t*1.1+phase)*.012;});
   }
@@ -1682,7 +1716,7 @@ class MowerStage extends MiniStage {
     super.update(dt,t);const duration=31,cycle=Math.floor(t/duration),p=(t%duration)/duration;if(cycle!==this.lastCycle){this.lastCycle=cycle;this.strips.forEach(s=>s.amount=0);this.lastDistance=-1;}
     const moveEnd=.74;const moving=p<moveEnd;const moveP=smoother(invLerp(.015,moveEnd,p));const distance=moveP*this.routeTotal;const sample=this.sample(distance);const yaw=Math.atan2(sample.tangent.x,sample.tangent.z);this.mower.root.position.copy(sample.p);this.mower.root.rotation.y=yaw;this.mower.root.visible=p<.78;
     const cutting=sample.lane!==null&&sample.p.z>this.lawn.laneBottom-.05&&sample.p.z<this.lawn.laneTop+.05;this.mower.animate(distance,t*8.4,cutting);
-    this.mowerCast.update(t,{animate:moving,direction:sample.tangent,camera:this.camera});
+    this.mowerCast.update(t,{animate:moving,phase:distance/(.34*2),direction:sample.tangent,camera:this.camera});
     if(sample.lane!==null)this.strips[sample.lane].amount=Math.max(this.strips[sample.lane].amount,sample.laneProgress);
     const regrow=p<.78?0:smooth(invLerp(.78,1,p));this.updateStrips(regrow);
     if(moving&&distance-this.lastDistance>.34){this.lastDistance=distance;this.footSide^=1;this.trails.emit('wheel',offsetPoint(sample.p,yaw,-.38,.08),yaw,.08,.46,5,.1);this.trails.emit('wheel',offsetPoint(sample.p,yaw,.38,.08),yaw,.08,.46,5,.1);this.trails.emit('foot',offsetPoint(sample.p,yaw,this.footSide?-.14:.14,-1.38),yaw,.15,.32,4.3,.1,this.footSide===1);}
@@ -1697,7 +1731,9 @@ class StoryGardenStage extends MiniStage {
     const path=new THREE.CatmullRomCurve3([new THREE.Vector3(-4,0,1.8),new THREE.Vector3(-1.5,0,.8),new THREE.Vector3(.5,0,.4),new THREE.Vector3(2.4,0,-.8),new THREE.Vector3(4,0,-1.6)],false,'centripetal');this.path=path;this.pathLength=path.getLength();this.scene.add(pathRibbon(path,.78,new THREE.MeshStandardMaterial({color:C.path,roughness:1,transparent:true,opacity:.52}),56,.008));
     this.walker=createHuman({skin:0x9f6547,shirt:C.coral,trousers:0x3f5558,hair:0x2d231f,hairStyle:'waves',scale:.58});this.dog=createDog();this.group=new THREE.Group();this.walker.root.position.x=-.35;this.dog.root.position.set(.55,0,.1);this.group.add(this.walker.root,this.dog.root);this.group.scale.setScalar(.72);this.scene.add(this.group);this.storyCast=new CareCastBillboard(this.group,{height:proxyLocalBounds(this.group).height,proxyRoots:[this.walker.root,this.dog.root],actions:{walk:{id:'dog-walker'}}});this.lastDistance=-1;this.footSide=0;this.lastCycle=-1;
   }
-  update(dt,t){super.update(dt,t);const duration=21,cycle=Math.floor(t/duration),p=(t%duration)/duration;if(cycle!==this.lastCycle){this.lastCycle=cycle;this.lastDistance=-1;}const travel=smoother(invLerp(.12,.88,p));const pos=this.path.getPointAt(travel),tan=this.path.getTangentAt(travel),yaw=Math.atan2(tan.x,tan.z),distance=travel*this.pathLength;this.group.position.copy(pos);this.group.rotation.y=yaw;this.walker.animate(t*7.2,.85);this.dog.animate(t*8.2);this.storyCast.update(t,{animate:p>.12&&p<.88,direction:tan,camera:this.camera});const fade=smooth(invLerp(.08,.16,p))*(1-smooth(invLerp(.86,.94,p)));this.group.visible=fade>.01;if(distance-this.lastDistance>.31&&p>.12&&p<.88){this.lastDistance=distance;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,-.35+(this.footSide?-.12:.12),-.18),yaw,.14,.3,4.1,.1,this.footSide===1);this.trails.emit('paw',offsetPoint(pos,yaw,.56,-.2),yaw,.16,.18,3.8,.09);}
+  update(dt,t){super.update(dt,t);const duration=21,cycle=Math.floor(t/duration),p=(t%duration)/duration;if(cycle!==this.lastCycle){this.lastCycle=cycle;this.lastDistance=-1;}const travel=smoother(invLerp(.12,.88,p));const pos=this.path.getPointAt(travel),tan=this.path.getTangentAt(travel),yaw=Math.atan2(tan.x,tan.z),distance=travel*this.pathLength;this.group.position.copy(pos);this.group.rotation.y=yaw;this.walker.animate(t*7.2,.85);this.dog.animate(t*8.2);/* Fit a whole number of gait cycles to the route. The eased travel still
+       controls cadence, but the final footfall now lands exactly on frame 0
+       before the standing pose takes over instead of snapping there. */const storyCycles=Math.max(1,Math.round(this.pathLength/(.31*2)));this.storyCast.update(t,{animate:p>.12&&p<.88,phase:travel*storyCycles,direction:tan,camera:this.camera});const fade=smooth(invLerp(.08,.16,p))*(1-smooth(invLerp(.86,.94,p)));this.group.visible=fade>.01;if(distance-this.lastDistance>.31&&p>.12&&p<.88){this.lastDistance=distance;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,-.35+(this.footSide?-.12:.12),-.18),yaw,.14,.3,4.1,.1,this.footSide===1);this.trails.emit('paw',offsetPoint(pos,yaw,.56,-.2),yaw,.16,.18,3.8,.09);}
     this.trees.forEach((tr,i)=>{tr.crown.rotation.z=Math.sin(t*.55+i)*.035;});this.flowers.forEach(({flower,phase})=>{flower.position.y=flower.userData.baseY+Math.sin(t*.9+phase)*.012;flower.rotation.z=Math.sin(t*.8+phase)*.1;});}
 }
 
