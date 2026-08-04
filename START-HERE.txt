@@ -1,37 +1,54 @@
-BOOKIT SITE v67 — the homepage cast is now the approved concept ARTWORK
-==============================================================================
-This folder is the entire site. Changed since v65: public/vendor/care-motion.js,
-public/vendor/care-core.local.js, and NEW folder public/assets/characters/
-(seven small .webp cut-outs — make sure it uploads too).
+BOOKIT SITE v65 — animation composition & collision fixes
+==========================================================
+This folder is the entire site: v64 plus the animation overhaul.
 
-What changed in v67
-  • Every homepage character is now the actual approved concept art,
-    cut out and mounted as an upright standee card in the 3D scene:
-    the carer pushing the wheelchair along the hero path, the neighbour
-    reading on the bench, the two friends chatting under the pergola,
-    the gardener watering the beds, the mower worker, and the dog-walker
-    in the stories scene. They mirror to match their direction of travel,
-    bob gently as they walk, and the footprints / wheel tracks, rests,
-    obstacle-aware routes and reduced-motion still frame all still work.
-  • If a character image ever fails to load, that character quietly falls
-    back to the v66 sculpted-3D version — the page never goes empty.
-  • The six service-page dioramas still use the v66 sculpted-3D people
-    (upgraded proportions, faces, uniforms). Swapping those to concept
-    artwork as well is a straightforward follow-up if wanted.
+Realistic animated-character update
+  • The homepage now uses the exact approved Higgsfield cast: the manual-
+    wheelchair pair, bench reader, two pergola friends, gardener, mower
+    worker, and dog walker.
+  • These are genuine transparent frame animations, not static images. The
+    walking, wheel rotation, reading, conversation, watering, mowing and dog
+    gait loops are synchronised to the existing Three.js scene timelines.
+  • All v65 paths, obstacle clearances, footprints, wheelchair tracks, paw
+    prints, task sequencing, grass cutting/regrowth and responsive layout are
+    preserved. If an animation texture cannot load, its exact approved PNG is
+    used as a fallback instead of the old generic person.
 
-Carried over from v66 (also in this folder)
-  • The service-page diorama people were rebuilt in code to the concept
-    style: realistic proportions, warm faces (brows, eyes, smile, blush),
-    uniforms with lanyard and badge, knees that bend, hands that rest.
-  • The homepage keeps that 3D cast too — but only as the automatic
-    fallback behind the artwork standees.
+What changed in v65
+  • Homepage journey has a protected corridor: right half of the hero on
+    desktop (the static illustration cedes its column; the floating cards
+    stay), and a dedicated 300px stage below the CTAs on mobile. The route
+    never runs beneath the headline, buttons or search field.
+  • The pair and bench are larger (with a minimum on small screens), the
+    route line is softer, the pergola now straddles the path as an arbor
+    sized to clear the wheelchair — no more clipping at the frame edge.
+  • The pair walks in from off-screen and fully exits off-screen before the
+    loop resets. Nothing fades except footprints and wheel tracks.
+  • One obstacle-aware navigation system (public/vendor/care-nav.js, NEW
+    FILE) now plans every journey — homepage scenes and all service-page
+    dioramas. Clearance covers the whole travelling body (wheelchair,
+    carried plates, watering can), not just the character's centre.
+  • Shared-living scene: the obstacle map is actually used — the walk to
+    the chairs goes around the dining table, and the walkway clears the
+    island and table by a full body width.
+  • Homepage garden scene: the exit route no longer cuts through the second
+    raised bed; stories scene: trees/flowers moved off the walked path.
+  • The Build 24/25 full-screen walkers are removed entirely — they crossed
+    live copy at arbitrary heights and kept running behind other pages.
+    Paused scenes now do zero GPU work when their page is hidden.
+
+  • Community scene: pair legs are navigator-solved around the pavilion
+    posts, art station, basket and bench; the exit walkway clears the
+    relocated garden planter. Service-page animation windows are smaller
+    (560px, centred). Personal-care entry no longer crosses the bench.
+  • Homepage: the route is a real footpath, the carer pushes from the
+    middle of the chair, a neighbour sits on the bench, two friends chat
+    under the pergola, and the "Shift confirmed" card moved off the route.
 
 Deploy: open github.com/thapasupreeya3-cpu/bookit-app/upload/main
 and drag BOTH items from inside this folder (server.js and the
 public folder) into the page. Commit, then: sudo bookit-update
-(public/assets/characters/ is NEW — check those seven .webp files
-appear in the repo after the upload.) Then hard-refresh the browser
-(Cmd+Shift+R / Ctrl+F5) so the old animation module isn't cached.
+(public/vendor/care-nav.js is new — make sure it uploads too.)
 
 Safe to delete from the repo whenever you like (nothing uses them):
   index.html (the one at repo root), DESIGN.md, README-V63.md,

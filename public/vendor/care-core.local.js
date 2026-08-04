@@ -205,160 +205,124 @@ function cylinderBetween(start, end, radius, material, radialSegments = 10) {
     mesh.receiveShadow = true;
     return mesh;
 }
-/* v66 — rebuilt to the approved "polished stylised 3D" concept: realistic
-   proportions, warm expressive faces, mitten hands, knee-jointed legs and
-   fuller hair. The skeleton contract is unchanged — same pivots, group
-   names and leg children[1] (below-knee unit, bends +.78 seated) — so
-   applySeatBlend, held props and every scene pose keep working. */
 function createHuman(options) {
     const root = new THREE.Group();
     root.scale.setScalar(options.scale ?? 0.78);
-    const skin = standardMaterial(options.skin, 0.72);
+    const skin = standardMaterial(options.skin, 0.82);
     const shirt = standardMaterial(options.shirt, 0.84);
     const trousers = standardMaterial(options.trousers, 0.88);
-    const hair = standardMaterial(options.hair, 0.9);
+    const hair = standardMaterial(options.hair, 0.94);
     const shoes = standardMaterial(options.shoes ?? 0x283844, 0.72);
     const jacket = options.jacket ? standardMaterial(options.jacket, 0.86) : null;
-    const eye = standardMaterial(0x241d1a, 0.5);
-    const white = standardMaterial(0xfffdf6, 0.4);
-    const lip = standardMaterial(0x8e5147, 0.78);
-    const blushMat = standardMaterial(0xd8907e, 0.95);
+    const eye = standardMaterial(0x1e2930, 0.7);
+    const brow = standardMaterial(options.hair, 0.9);
+    const lip = standardMaterial(0x9c594f, 0.86);
+    const white = standardMaterial(0xfffcf5, 0.8);
     const prosthetic = standardMaterial(0x75838d, 0.42, 0.42);
-    const outerwear = jacket ?? shirt;
-    /* badge wearers are the uniformed team — they get the polo look */
-    const shortSleeves = options.shortSleeves ?? (Boolean(options.badge) && !jacket);
-    /* ---- torso: shoulders, tapered chest, hips ---- */
     const torso = new THREE.Group();
-    const chest = makeCapsule(0.31, 0.5, shirt, 16);
-    chest.position.y = 0.04;
-    chest.scale.set(1.04, 1, 0.76);
-    const shoulderBar = makeCapsule(0.15, 0.37, outerwear, 12);
-    shoulderBar.rotation.z = Math.PI / 2;
-    shoulderBar.position.y = 0.34;
-    shoulderBar.scale.set(1, 1, 0.82);
-    const hips = makeCapsule(0.275, 0.14, trousers, 14);
-    hips.position.y = -0.5;
-    hips.scale.set(1.08, 1, 0.8);
-    const waistband = makeBox(0.6, 0.09, 0.45, trousers, 0.025);
-    waistband.position.y = -0.36;
-    torso.add(chest, shoulderBar, hips, waistband);
+    const torsoMesh = makeCapsule(0.39, 0.58, shirt, 14);
+    torsoMesh.scale.set(1, 1, 0.82);
+    torso.add(torsoMesh);
     if (jacket) {
-        /* an open cardigan: two soft front panels over the shirt */
-        for (const side of [-1, 1]) {
-            const panel = makeBox(0.26, 0.62, 0.1, jacket, 0.05);
-            panel.position.set(side * 0.17, 0.02, 0.19);
-            panel.rotation.y = side * 0.06;
-            torso.add(panel);
-        }
-        const backPanel = makeBox(0.56, 0.64, 0.1, jacket, 0.05);
-        backPanel.position.set(0, 0.03, -0.17);
-        torso.add(backPanel);
+        const jacketPanel = makeBox(0.86, 0.7, 0.12, jacket, 0.06);
+        jacketPanel.position.set(0, -0.03, 0.34);
+        torso.add(jacketPanel);
     }
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.118, 0.028, 8, 20, Math.PI * 1.5), outerwear);
-    collar.position.set(0, 0.43, 0.1);
-    collar.rotation.set(Math.PI / 2, 0, Math.PI * 0.75);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.026, 8, 22, Math.PI * 1.45), jacket ?? shirt);
+    collar.position.set(0, 0.34, 0.31);
+    collar.rotation.set(Math.PI / 2, 0, 0.78);
     torso.add(collar);
-    const shirtPocket = makeBox(0.15, 0.13, 0.022, outerwear, 0.014);
-    shirtPocket.position.set(0.17, 0.1, 0.243);
+    const waistband = makeBox(0.7, 0.075, 0.56, trousers, 0.025);
+    waistband.position.set(0, -0.5, 0.02);
+    torso.add(waistband);
+    const shirtPocket = makeBox(0.2, 0.17, 0.025, jacket ?? shirt, 0.018);
+    shirtPocket.position.set(0.2, 0.06, 0.355);
     torso.add(shirtPocket);
     if (options.badge) {
         const lanyardMaterial = standardMaterial(0x486c71, 0.72);
-        const leftLanyard = cylinderBetween(new THREE.Vector3(-0.09, 0.38, 0.2), new THREE.Vector3(0, 0.05, 0.25), 0.012, lanyardMaterial, 6);
-        const rightLanyard = cylinderBetween(new THREE.Vector3(0.09, 0.38, 0.2), new THREE.Vector3(0, 0.05, 0.25), 0.012, lanyardMaterial, 6);
-        const badge = makeBox(0.18, 0.23, 0.03, white, 0.02);
-        badge.position.set(0, -0.07, 0.265);
-        const badgeStripe = makeBox(0.13, 0.03, 0.012, standardMaterial(0x2d847d, 0.72), 0.008);
-        badgeStripe.position.set(0, 0.07, 0.019);
+        const leftLanyard = cylinderBetween(new THREE.Vector3(-0.085, 0.27, 0.36), new THREE.Vector3(0, 0.02, 0.39), 0.012, lanyardMaterial, 6);
+        const rightLanyard = cylinderBetween(new THREE.Vector3(0.085, 0.27, 0.36), new THREE.Vector3(0, 0.02, 0.39), 0.012, lanyardMaterial, 6);
+        const badge = makeBox(0.24, 0.31, 0.035, white, 0.026);
+        badge.position.set(0, -0.11, 0.405);
+        const badgeStripe = makeBox(0.17, 0.035, 0.012, standardMaterial(0x2d847d, 0.72), 0.008);
+        badgeStripe.position.set(0, 0.07, 0.027);
         badge.add(badgeStripe);
         torso.add(leftLanyard, rightLanyard, badge);
     }
-    /* ---- head: a real face ---- */
     const head = new THREE.Group();
-    const face = makeSphere(0.26, skin, 24, 17);
-    face.scale.set(0.94, 1.06, 0.92);
+    const face = makeSphere(0.31, skin, 20, 14);
+    face.scale.set(0.9, 1.08, 0.9);
     head.add(face);
-    const neck = makeCapsule(0.078, 0.12, skin, 10);
-    neck.position.set(0, -0.28, -0.01);
-    head.add(neck);
+    const leftEye = makeSphere(0.032, eye, 10, 8);
+    leftEye.position.set(-0.105, 0.035, 0.272);
+    const rightEye = leftEye.clone();
+    rightEye.position.x = 0.105;
+    head.add(leftEye, rightEye);
     for (const side of [-1, 1]) {
-        const ear = makeSphere(0.053, skin, 10, 8);
-        ear.scale.set(0.55, 0.95, 0.55);
-        ear.position.set(side * 0.243, -0.01, 0.01);
-        head.add(ear);
-        const eyeMesh = makeSphere(0.043, eye, 10, 8);
-        eyeMesh.scale.set(1, 1.22, 0.5);
-        eyeMesh.position.set(side * 0.094, 0.028, 0.218);
-        head.add(eyeMesh);
-        const catchlight = makeSphere(0.0135, white, 6, 5);
-        catchlight.position.set(side * 0.082, 0.052, 0.243);
-        head.add(catchlight);
-        const eyebrow = makeCapsule(0.0145, 0.062, hair, 7);
-        eyebrow.position.set(side * 0.096, 0.118, 0.222);
-        eyebrow.rotation.z = Math.PI / 2 + side * 0.16;
+        const eyebrow = makeCapsule(0.015, 0.09, brow, 7);
+        eyebrow.position.set(side * 0.105, 0.125, 0.283);
+        eyebrow.rotation.z = Math.PI / 2 + side * 0.08;
         head.add(eyebrow);
-        const blush = makeSphere(0.036, blushMat, 8, 6);
-        blush.scale.set(1.3, 0.55, 0.38);
-        blush.position.set(side * 0.148, -0.072, 0.193);
-        head.add(blush);
+        const ear = makeSphere(0.058, skin, 10, 8);
+        ear.scale.set(0.58, 1, 0.55);
+        ear.position.set(side * 0.288, -0.005, 0.005);
+        head.add(ear);
     }
-    const nose = makeSphere(0.032, skin, 10, 8);
-    nose.scale.set(0.82, 1.18, 0.9);
-    nose.position.set(0, -0.028, 0.243);
+    const nose = makeSphere(0.037, skin, 10, 8);
+    nose.scale.set(0.78, 1.2, 0.9);
+    nose.position.set(0, -0.025, 0.305);
     head.add(nose);
-    const smile = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.0125, 7, 18, 2.5), lip);
-    smile.position.set(0, -0.098, 0.222);
-    smile.rotation.z = Math.PI + (Math.PI - 2.5) / 2;
-    smile.scale.set(1, 0.82, 0.5);
-    head.add(smile);
+    const mouth = makeCapsule(0.012, 0.1, lip, 8);
+    mouth.position.set(0, -0.145, 0.302);
+    mouth.rotation.z = Math.PI / 2;
+    mouth.scale.x = 0.82;
+    head.add(mouth);
+    const leftCheek = makeSphere(0.032, standardMaterial(0xd88f82, 0.92), 8, 6);
+    leftCheek.scale.set(1.35, 0.5, 0.42);
+    leftCheek.position.set(-0.17, -0.105, 0.265);
+    const rightCheek = leftCheek.clone();
+    rightCheek.position.x = 0.17;
+    head.add(leftCheek, rightCheek);
+    const hairCap = makeSphere(0.325, hair, 18, 12);
+    hairCap.scale.set(0.94, 0.64, 0.94);
+    hairCap.position.set(0, 0.18, -0.035);
+    head.add(hairCap);
+    if (options.headscarf) {
+        const scarfMaterial = standardMaterial(options.headscarf, 0.9);
+        const scarfCap = makeSphere(0.345, scarfMaterial, 18, 12);
+        scarfCap.scale.set(1, 0.86, 1);
+        scarfCap.position.set(0, 0.1, -0.045);
+        const scarfDrape = makeCapsule(0.22, 0.36, scarfMaterial, 12);
+        scarfDrape.scale.set(1.1, 1, 0.48);
+        scarfDrape.position.set(0, -0.25, -0.19);
+        head.add(scarfCap, scarfDrape);
+        hairCap.visible = false;
+    }
     if (options.glasses) {
         const glassesMaterial = standardMaterial(0x4b5f67, 0.42, 0.42);
         for (const side of [-1, 1]) {
-            const lens = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.011, 6, 18), glassesMaterial);
-            lens.scale.y = 0.8;
-            lens.position.set(side * 0.096, 0.03, 0.238);
+            const lens = new THREE.Mesh(new THREE.TorusGeometry(0.102, 0.012, 6, 18), glassesMaterial);
+            lens.scale.y = 0.75;
+            lens.position.set(side * 0.112, 0.035, 0.296);
             head.add(lens);
         }
-        const bridge = makeBox(0.06, 0.016, 0.014, glassesMaterial, 0.006);
-        bridge.position.set(0, 0.035, 0.248);
+        const bridge = makeBox(0.07, 0.018, 0.016, glassesMaterial, 0.006);
+        bridge.position.set(0, 0.035, 0.307);
         head.add(bridge);
     }
-    /* ---- hair: full cap + fringe, then the style ---- */
-    const hairCap = makeSphere(0.268, hair, 20, 14);
-    hairCap.scale.set(0.97, 0.82, 0.99);
-    hairCap.position.set(0, 0.095, -0.028);
-    const fringe = makeSphere(0.252, hair, 16, 11);
-    fringe.scale.set(0.95, 0.46, 0.88);
-    fringe.position.set(0, 0.215, 0.005);
-    if (!options.headscarf) head.add(hairCap, fringe);
-    if (options.headscarf) {
-        const scarfMaterial = standardMaterial(options.headscarf, 0.9);
-        const scarfCap = makeSphere(0.285, scarfMaterial, 20, 14);
-        scarfCap.scale.set(1, 0.9, 1);
-        scarfCap.position.set(0, 0.075, -0.02);
-        const scarfDrape = makeCapsule(0.19, 0.3, scarfMaterial, 12);
-        scarfDrape.scale.set(1.08, 1, 0.48);
-        scarfDrape.position.set(0, -0.2, -0.17);
-        head.add(scarfCap, scarfDrape);
-    }
-    else if (options.hairStyle === "bun") {
-        const nape = makeSphere(0.17, hair, 12, 9);
-        nape.scale.set(0.92, 0.7, 0.8);
-        nape.position.set(0, -0.03, -0.185);
-        const bun = makeSphere(0.13, hair, 12, 9);
-        bun.position.set(0, 0.275, -0.21);
-        head.add(nape, bun);
+    if (options.hairStyle === "bun") {
+        const bun = makeSphere(0.17, hair, 14, 10);
+        bun.position.set(0, 0.34, -0.18);
+        head.add(bun);
     }
     else if (options.hairStyle === "curls") {
         for (const [x, y, z, scale] of [
-            [-0.19, 0.17, -0.06, 0.1],
-            [0.19, 0.17, -0.06, 0.1],
-            [-0.225, 0.02, -0.075, 0.092],
-            [0.225, 0.02, -0.075, 0.092],
-            [-0.11, 0.275, -0.05, 0.095],
-            [0.11, 0.275, -0.05, 0.095],
-            [0, 0.3, -0.09, 0.1],
-            [-0.19, -0.1, -0.12, 0.08],
-            [0.19, -0.1, -0.12, 0.08],
+            [-0.22, 0.13, -0.08, 0.11],
+            [0.22, 0.13, -0.08, 0.11],
+            [-0.25, -0.03, -0.09, 0.1],
+            [0.25, -0.03, -0.09, 0.1],
+            [-0.15, 0.3, -0.08, 0.1],
+            [0.15, 0.3, -0.08, 0.1],
         ]) {
             const curl = makeSphere(scale, hair, 10, 8);
             curl.position.set(x, y, z);
@@ -366,76 +330,43 @@ function createHuman(options) {
         }
     }
     else if (options.hairStyle === "waves") {
-        const back = makeSphere(0.2, hair, 12, 9);
-        back.scale.set(1, 0.95, 0.62);
-        back.position.set(0, -0.05, -0.155);
-        head.add(back);
-        for (const side of [-1, 1]) {
-            const wave = makeCapsule(0.075, 0.3, hair, 10);
-            wave.position.set(side * 0.215, -0.075, -0.055);
-            wave.rotation.z = -side * 0.12;
-            head.add(wave);
-        }
+        const leftWave = makeCapsule(0.09, 0.36, hair, 10);
+        leftWave.position.set(-0.26, -0.03, -0.08);
+        leftWave.rotation.z = 0.1;
+        const rightWave = leftWave.clone();
+        rightWave.position.x = 0.26;
+        rightWave.rotation.z = -0.1;
+        head.add(leftWave, rightWave);
     }
-    else {
-        const nape = makeSphere(0.185, hair, 12, 9);
-        nape.scale.set(0.9, 0.58, 0.72);
-        nape.position.set(0, -0.015, -0.16);
-        head.add(nape);
-    }
-    /* ---- limbs ---- */
     const leftArm = new THREE.Group();
     const rightArm = new THREE.Group();
     const leftLeg = new THREE.Group();
     const rightLeg = new THREE.Group();
     function addArm(target, side) {
-        const shoulderCap = makeSphere(0.135, outerwear, 12, 9);
-        shoulderCap.scale.set(1, 0.9, 0.82);
-        shoulderCap.position.set(-side * 0.025, 0.015, 0);
-        target.add(shoulderCap);
-        if (shortSleeves) {
-            const sleeve = makeCapsule(0.1, 0.16, outerwear, 10);
-            sleeve.position.y = -0.13;
-            const arm = makeCapsule(0.068, 0.31, skin, 10);
-            arm.position.y = -0.4;
-            target.add(sleeve, arm);
-        }
-        else {
-            const sleeve = makeCapsule(0.096, 0.42, outerwear, 10);
-            sleeve.position.y = -0.26;
-            const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.082, 0.02, 7, 16), outerwear);
-            cuff.position.y = -0.5;
-            cuff.rotation.x = Math.PI / 2;
-            target.add(sleeve, cuff);
-        }
-        const hand = makeSphere(0.083, skin, 10, 8);
-        hand.scale.set(0.88, 1.12, 0.72);
+        const sleeve = makeCapsule(0.105, 0.34, jacket ?? shirt, 10);
+        sleeve.position.y = -0.27;
+        const hand = makeCapsule(0.075, 0.22, skin, 10);
         hand.position.y = -0.62;
-        target.add(hand);
+        hand.scale.set(0.92, 1, 0.72);
+        const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.098, 0.022, 7, 18), jacket ?? shirt);
+        cuff.position.y = -0.47;
+        cuff.rotation.x = Math.PI / 2;
+        target.add(sleeve, cuff, hand);
         target.position.x = side * 0.47;
     }
     function addLeg(target, side) {
         const isProsthetic = options.prosthetic === (side < 0 ? "left" : "right");
-        const upper = new THREE.Group();
-        const hip = makeSphere(0.135, trousers, 12, 9);
-        hip.scale.set(1, 0.9, 0.9);
-        hip.position.y = -0.02;
-        const thigh = makeCapsule(0.125, 0.34, trousers, 11);
-        thigh.position.y = -0.3;
-        thigh.scale.set(1, 1, 0.92);
-        upper.add(hip, thigh);
-        /* below-knee unit — children[1]; bends at the knee, shoe rides along */
-        const lower = new THREE.Group();
-        lower.position.y = -0.55;
-        const knee = makeSphere(0.104, trousers, 11, 8);
-        const shin = makeCapsule(isProsthetic ? 0.058 : 0.088, 0.27, isProsthetic ? prosthetic : trousers, 10);
-        shin.position.y = -0.2;
-        const shoe = makeBox(0.2, 0.13, 0.35, shoes, 0.045);
-        shoe.position.set(0, -0.42, 0.075);
-        const sole = makeBox(0.21, 0.048, 0.37, standardMaterial(0x202d33, 0.78), 0.016);
-        sole.position.set(0, -0.487, 0.08);
-        lower.add(knee, shin, shoe, sole);
-        target.add(upper, lower);
+        const upper = makeCapsule(0.14, 0.38, trousers, 11);
+        upper.position.y = -0.31;
+        const lower = makeCapsule(0.12, 0.34, isProsthetic ? prosthetic : trousers, 11);
+        lower.position.y = -0.74;
+        if (isProsthetic)
+            lower.scale.set(0.78, 1.02, 0.78);
+        const shoe = makeBox(0.26, 0.16, 0.45, shoes, 0.04);
+        shoe.position.set(0, -1.01, 0.11);
+        const sole = makeBox(0.275, 0.045, 0.47, standardMaterial(0x202d33, 0.78), 0.018);
+        sole.position.set(0, -1.105, 0.115);
+        target.add(upper, lower, shoe, sole);
         target.position.x = side * 0.2;
     }
     addArm(leftArm, -1);
@@ -451,8 +382,6 @@ function createHuman(options) {
         rightArm.position.y = 1.52;
         leftArm.rotation.x = -0.25;
         rightArm.rotation.x = -0.25;
-        leftArm.rotation.z = 0.1;
-        rightArm.rotation.z = -0.1;
         leftLeg.position.y = 0.72;
         rightLeg.position.y = 0.72;
         leftLeg.rotation.x = -1.16;
@@ -471,14 +400,11 @@ function createHuman(options) {
     root.add(torso, head, leftArm, rightArm, leftLeg, rightLeg);
     const animate = (phase, intensity = 1) => {
         if (seated) {
-            /* hands rest; the body breathes and looks around — no rowing */
-            const sway = Math.sin(phase * 0.6);
-            leftArm.rotation.x = -0.32 + sway * 0.05 * intensity;
-            rightArm.rotation.x = -0.32 - sway * 0.04 * intensity;
-            torso.rotation.z = Math.sin(phase * 0.36) * 0.022 * intensity;
-            torso.position.y = 1.2 + Math.sin(phase * 0.9) * 0.008 * intensity;
+            const push = Math.sin(phase * 0.72);
+            leftArm.rotation.x = -0.34 + push * 0.18 * intensity;
+            rightArm.rotation.x = -0.34 + push * 0.18 * intensity;
+            torso.rotation.z = Math.sin(phase * 0.36) * 0.025 * intensity;
             head.rotation.y = Math.sin(phase * 0.22) * 0.14 * intensity;
-            head.rotation.z = Math.sin(phase * 0.31) * 0.02 * intensity;
             return;
         }
         const stride = Math.sin(phase);
@@ -487,9 +413,6 @@ function createHuman(options) {
         const lift = Math.max(0, Math.sin(phase * 2)) * 0.055 * intensity;
         leftLeg.rotation.x = stride * 0.56 * intensity;
         rightLeg.rotation.x = -stride * 0.56 * intensity;
-        /* the swinging leg folds at the knee */
-        leftLeg.children[1].rotation.x = Math.max(0, Math.sin(phase)) * 0.55 * intensity;
-        rightLeg.children[1].rotation.x = Math.max(0, -Math.sin(phase)) * 0.55 * intensity;
         leftLeg.position.y = 1.02 + leftStepLift;
         rightLeg.position.y = 1.02 + rightStepLift;
         leftArm.rotation.x = -stride * 0.46 * intensity;
