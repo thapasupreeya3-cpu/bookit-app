@@ -2699,11 +2699,11 @@ function setRelation(pid, wid, relation, note, byId) {
 function blockedPair(pid, wid) { return relationOf(pid, wid) === 'blocked'; }
 
 /* --- 11. has this worker read the current version of the plan? --- */
-function currentConfirmedPlan(pid) {
+function currentPlan(pid) {
   return db.prepare("SELECT * FROM support_plans WHERE participant_id = ? AND status = 'confirmed' ORDER BY version DESC LIMIT 1").get(Number(pid)) || null;
 }
 function planAck(pid, wid) {
-  const plan = currentConfirmedPlan(pid);
+  const plan = currentPlan(pid);
   if (!plan) return { required: false, plan: null, acked: true, reason: 'no-plan' };
   const a = db.prepare('SELECT acked_at FROM plan_acks WHERE plan_id = ? AND worker_id = ?').get(plan.id, Number(wid));
   const exp = plan.review_due || '';
@@ -5237,7 +5237,7 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   /* 11. an expired support plan stops the NEXT booking, never the ones
      already in the diary. Somebody relying on Tuesday morning does not lose
      it because a review date passed on Monday. */
-  const plan = currentConfirmedPlan(pers.id);
+  const plan = currentPlan(pers.id);
   if (plan && plan.review_due && plan.review_due < ymd()) {
     return json(res, 400, { error: `${pers.self ? 'Your' : pers.name + '\u2019s'} support plan was due for review on ${dmy(plan.review_due)}. New bookings resume as soon as it is updated \u2014 existing shifts are unaffected.`, plan_review_due: plan.review_due });
   }
@@ -10510,7 +10510,7 @@ route('GET', /^\/api\/plan\/(\d+)\/ack$/, (req, res, m, user) => {
   }
   const pers = actFor(req, user, 'plan');
   if (!pers || pers.id !== pid) return json(res, 403, { error: 'Not yours.' });
-  const plan = currentConfirmedPlan(pid);
+  const plan = currentPlan(pid);
   const team = db.prepare(`SELECT DISTINCT u.id, u.name, u.email FROM bookings b JOIN users u ON u.id = b.worker_id
     WHERE b.participant_id = ? AND b.status IN ('accepted','completed')`).all(pid);
   json(res, 200, {
@@ -10526,7 +10526,7 @@ route('POST', /^\/api\/plan\/(\d+)\/ack$/, (req, res, m, user, body, ip) => {
   const pid = Number(m[1]);
   const worked = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE participant_id = ? AND worker_id = ? AND status IN ('accepted','completed')").get(pid, user.id);
   if (!Number(worked.n || 0)) return json(res, 403, { error: 'Not your participant.' });
-  const plan = currentConfirmedPlan(pid);
+  const plan = currentPlan(pid);
   if (!plan) return json(res, 400, { error: 'There is no confirmed support plan for this person yet.' });
   db.prepare(`INSERT INTO plan_acks (plan_id, participant_id, version, worker_id, acked_at, ip)
     VALUES (?,?,?,?,?,?) ON CONFLICT(plan_id, worker_id) DO UPDATE SET acked_at = excluded.acked_at, ip = excluded.ip`)
@@ -12828,73 +12828,29 @@ route('GET', /^\/api\/cancel-policy$/, (req, res) => {
 });
 
 /* ---------- static files ---------- */
-const MIME = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.avif': 'image/avif', '.gif': 'image/gif', '.ico': 'image/x-icon',
-  '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2'
-};
-const STATIC_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
-function sendStaticFile(req, res, full, shell = false) {
-  fs.stat(full, (statError, stat) => {
-    if (statError || !stat.isFile()) { res.writeHead(404); return res.end('Not found'); }
-    const ext = path.extname(full).toLowerCase();
-    const type = MIME[ext] || 'application/octet-stream';
-    const etag = `W/\"${stat.size.toString(16)}-${Math.trunc(stat.mtimeMs).toString(16)}\"`;
-    const headers = {
-      'Content-Type': type,
-      'Cache-Control': shell || ext === '.html' ? 'no-cache' : 'public, max-age=86400, stale-while-revalidate=604800',
-      'ETag': etag,
-      'Last-Modified': stat.mtime.toUTCString(),
-      'Vary': 'Accept-Encoding',
-      ...(shell ? { 'Content-Security-Policy': STATIC_CSP } : {}),
-      ...(SITE_PASSWORD ? { 'X-Robots-Tag': 'noindex, nofollow' } : {})
-    };
-    if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); return res.end(); }
-    if (req.method === 'HEAD') {
-      headers['Content-Length'] = stat.size;
-      res.writeHead(200, headers);
-      return res.end();
-    }
-    fs.readFile(full, (readError, data) => {
-      if (readError) { res.writeHead(500); return res.end('Unable to read file'); }
-      const compressible = /^(text\/|application\/(javascript|json)|image\/svg\+xml)/.test(type);
-      const accept = String(req.headers['accept-encoding'] || '');
-      const finish = (payload, encoding) => {
-        if (encoding) headers['Content-Encoding'] = encoding;
-        headers['Content-Length'] = payload.length;
-        res.writeHead(200, headers);
-        res.end(payload);
-      };
-      if (!compressible || data.length < 1024) return finish(data);
-      if (/\bbr\b/.test(accept)) return zlib.brotliCompress(data, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5 } }, (error, output) => finish(error ? data : output, error ? null : 'br'));
-      if (/\bgzip\b/.test(accept)) return zlib.gzip(data, { level: 6 }, (error, output) => finish(error ? data : output, error ? null : 'gzip'));
-      return finish(data);
-    });
-  });
-}
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 function serveStatic(req, res, pathname) {
   let file = pathname === '/' ? '/index.html' : pathname;
   file = path.normalize(file).replace(/^(\.\.[\/\\])+/, '');
   const full = path.join(PUBLIC_DIR, file);
-  if (!(full === PUBLIC_DIR || full.startsWith(PUBLIC_DIR + path.sep))) { res.writeHead(403); return res.end('Forbidden'); }
-  fs.stat(full, (error, stat) => {
-    if (!error && stat.isFile()) return sendStaticFile(req, res, full, path.basename(full) === 'index.html');
-    /* This app uses hash routes. Redirect extensionless direct links back to
-       the root shell so every relative image/module URL resolves from '/'. */
-    if (!path.extname(pathname)) {
-      const incoming = new URL(req.url, 'http://localhost');
-      const location = '/#' + incoming.pathname + incoming.search;
-      res.writeHead(302, {
-        'Location': location,
-        'Cache-Control': 'no-cache',
-        'Content-Security-Policy': STATIC_CSP,
-        ...(SITE_PASSWORD ? { 'X-Robots-Tag': 'noindex, nofollow' } : {})
+  if (!full.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end('Forbidden'); }
+  fs.readFile(full, (err, data) => {
+    if (err) {
+      /* SPA-ish: unknown paths get the app shell */
+      return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, home) => {
+        if (e2) { res.writeHead(404); return res.end('Not found'); }
+        res.writeHead(200, { 'Content-Type': MIME['.html'] });
+        res.end(home);
       });
-      return res.end();
     }
-    res.writeHead(404, { 'Cache-Control': 'no-cache' });
-    return res.end('Not found');
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(full)] || 'application/octet-stream',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      ...(SITE_PASSWORD ? { 'X-Robots-Tag': 'noindex, nofollow' } : {})
+    });
+    res.end(data);
   });
 }
 

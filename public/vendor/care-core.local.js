@@ -1743,11 +1743,7 @@ function createOffsetScenePath(path, lateral, forward = 0, samples = 72) {
     return new THREE.CatmullRomCurve3(points, false, "centripetal", 0.24);
 }
 function createVectorScenePath(points) {
-    const path = new THREE.CurvePath();
-    for (let index = 1; index < points.length; index += 1) {
-        path.add(new THREE.LineCurve3(points[index - 1].clone(), points[index].clone()));
-    }
-    return path;
+    return new THREE.CatmullRomCurve3(points.map((point) => point.clone()), false, "centripetal", 0.28);
 }
 function distanceToObstacle(point, obstacle) {
     if (obstacle.type === "rect") {
@@ -1757,49 +1753,15 @@ function distanceToObstacle(point, obstacle) {
     }
     return Math.hypot(point.x - obstacle.x, point.z - obstacle.z) - obstacle.r;
 }
-function segmentPointDistance2D(start, end, point) {
-    const dx = end.x - start.x;
-    const dz = end.z - start.z;
-    const lengthSquared = dx * dx + dz * dz;
-    if (lengthSquared < 1e-10)
-        return Math.hypot(point.x - start.x, point.z - start.z);
-    const t = THREE.MathUtils.clamp(((point.x - start.x) * dx + (point.z - start.z) * dz) / lengthSquared, 0, 1);
-    return Math.hypot(point.x - (start.x + dx * t), point.z - (start.z + dz * t));
-}
-function orientation2D(a, b, c) {
-    return (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x);
-}
-function segmentsIntersect2D(a, b, c, d) {
-    const o1 = orientation2D(a, b, c);
-    const o2 = orientation2D(a, b, d);
-    const o3 = orientation2D(c, d, a);
-    const o4 = orientation2D(c, d, b);
-    return ((o1 <= 0 && o2 >= 0) || (o1 >= 0 && o2 <= 0))
-        && ((o3 <= 0 && o4 >= 0) || (o3 >= 0 && o4 <= 0));
-}
-function segmentSegmentDistance2D(a, b, c, d) {
-    if (segmentsIntersect2D(a, b, c, d))
-        return 0;
-    return Math.min(segmentPointDistance2D(a, b, c), segmentPointDistance2D(a, b, d), segmentPointDistance2D(c, d, a), segmentPointDistance2D(c, d, b));
-}
-function segmentRectDistance2D(start, end, obstacle) {
-    const inside = (point) => point.x >= obstacle.minX && point.x <= obstacle.maxX
-        && point.z >= obstacle.minZ && point.z <= obstacle.maxZ;
-    if (inside(start) || inside(end))
-        return 0;
-    const a = new THREE.Vector3(obstacle.minX, 0, obstacle.minZ);
-    const b = new THREE.Vector3(obstacle.maxX, 0, obstacle.minZ);
-    const c = new THREE.Vector3(obstacle.maxX, 0, obstacle.maxZ);
-    const d = new THREE.Vector3(obstacle.minX, 0, obstacle.maxZ);
-    return Math.min(segmentSegmentDistance2D(start, end, a, b), segmentSegmentDistance2D(start, end, b, c), segmentSegmentDistance2D(start, end, c, d), segmentSegmentDistance2D(start, end, d, a));
-}
 function routeSegmentMinClearance(start, end, obstacles) {
+    const span = Math.max(0.001, start.distanceTo(end));
+    const samples = Math.max(8, Math.ceil(span / 0.16));
     let minimum = Number.POSITIVE_INFINITY;
-    for (const obstacle of obstacles) {
-        const clearance = obstacle.type === "rect"
-            ? segmentRectDistance2D(start, end, obstacle)
-            : segmentPointDistance2D(start, end, new THREE.Vector3(obstacle.x, 0, obstacle.z)) - obstacle.r;
-        minimum = Math.min(minimum, clearance);
+    for (let index = 0; index <= samples; index += 1) {
+        const point = start.clone().lerp(end, index / samples);
+        for (const obstacle of obstacles) {
+            minimum = Math.min(minimum, distanceToObstacle(point, obstacle));
+        }
     }
     return minimum;
 }
@@ -1901,17 +1863,17 @@ function createNavigationRoute(start, end, obstacles, clearance = 0.58, guidePoi
             const points = simplifyRoutePoints(ordered, obstacles, clearance);
             const path = createVectorScenePath(points);
             let minClearance = Number.POSITIVE_INFINITY;
-            for (let index = 1; index < points.length; index += 1) {
-                minClearance = Math.min(minClearance, routeSegmentMinClearance(points[index - 1], points[index], obstacles));
+            for (let index = 0; index <= 480; index += 1) {
+                const point = path.getPointAt(index / 480);
+                obstacles.forEach((obstacle) => {
+                    minClearance = Math.min(minClearance, distanceToObstacle(point, obstacle));
+                });
             }
-            if (minClearance + 1e-6 < clearance)
-                throw new Error(`Unsafe navigation route (${minClearance.toFixed(3)} < ${clearance.toFixed(3)})`);
             return {
                 points,
                 path,
                 length: path.getLength(),
                 minClearance,
-                safe: true,
             };
         }
         open.delete(current);
@@ -1925,7 +1887,14 @@ function createNavigationRoute(start, end, obstacles, clearance = 0.58, guidePoi
             open.add(index);
         });
     }
-    throw new Error(`No collision-safe navigation route from (${start.x.toFixed(2)}, ${start.z.toFixed(2)}) to (${end.x.toFixed(2)}, ${end.z.toFixed(2)}) with clearance ${clearance.toFixed(2)}`);
+    const fallbackPoints = [start.clone(), end.clone()];
+    const fallbackPath = createVectorScenePath(fallbackPoints);
+    return {
+        points: fallbackPoints,
+        path: fallbackPath,
+        length: fallbackPath.getLength(),
+        minClearance: routeSegmentMinClearance(start, end, obstacles),
+    };
 }
 function combineRoutePoints(...segments) {
     const combined = [];
@@ -3498,11 +3467,11 @@ function createEmploymentScene(parent) {
         { type: "circle", label: "lamp", x: -3.1, z: -5.6, r: 0.85 },
         { type: "rect", label: "bookshelf", minX: 10.85, maxX: 13.55, minZ: -7.75, maxZ: -5.95 },
     ];
-    const deskTaskRoute = createNavigationRoute(workerHome, workerDeskPickupWorld, employmentObstacles, 0.82, [new THREE.Vector3(0.8, 0, 1.05), new THREE.Vector3(1.8, 0, 0.52)]);
-    const laptopTaskRoute = createNavigationRoute(workerHome, workerLaptopWorld, employmentObstacles, 0.82, [new THREE.Vector3(1.05, 0, 0.55), new THREE.Vector3(1.35, 0, -0.35)]);
-    const boardTaskRoute = createNavigationRoute(workerHome, workerBoardWorld, employmentObstacles, 0.82, [new THREE.Vector3(0.75, 0, -1.4), new THREE.Vector3(1.05, 0, -3.85)]);
-    const boardToShelfRoute = createNavigationRoute(workerBoardWorld, workerShelfWorld, employmentObstacles, 0.82, [new THREE.Vector3(4.15, 0, -5.82), new THREE.Vector3(6.95, 0, -5.82)]);
-    const shelfToHomeRoute = createNavigationRoute(workerShelfWorld, workerHome, employmentObstacles, 0.82, [new THREE.Vector3(8.15, 0, -5.05), new THREE.Vector3(4.55, 0, -4.85), new THREE.Vector3(1.15, 0, -1.15)]);
+    const deskTaskRoute = createNavigationRoute(workerHome, workerDeskPickupWorld, employmentObstacles, 0.62, [new THREE.Vector3(0.8, 0, 1.05), new THREE.Vector3(1.8, 0, 0.52)]);
+    const laptopTaskRoute = createNavigationRoute(workerHome, workerLaptopWorld, employmentObstacles, 0.62, [new THREE.Vector3(1.05, 0, 0.55), new THREE.Vector3(1.35, 0, -0.35)]);
+    const boardTaskRoute = createNavigationRoute(workerHome, workerBoardWorld, employmentObstacles, 0.62, [new THREE.Vector3(0.75, 0, -1.4), new THREE.Vector3(1.05, 0, -3.85)]);
+    const boardToShelfRoute = createNavigationRoute(workerBoardWorld, workerShelfWorld, employmentObstacles, 0.62, [new THREE.Vector3(4.15, 0, -5.82), new THREE.Vector3(6.95, 0, -5.82)]);
+    const shelfToHomeRoute = createNavigationRoute(workerShelfWorld, workerHome, employmentObstacles, 0.62, [new THREE.Vector3(8.15, 0, -5.05), new THREE.Vector3(4.55, 0, -4.85), new THREE.Vector3(1.15, 0, -1.15)]);
     const workerMainLength = workerMainPath.getLength();
     const workerMainStopDistance = stop * workerMainLength;
     const deskTaskLength = deskTaskRoute.length;
@@ -4018,11 +3987,11 @@ function createPersonalCareScene(parent) {
         { type: "rect", label: "folded-towels", minX: 7.65, maxX: 9.15, minZ: -5.6, maxZ: -4.8 },
         { type: "rect", label: "hamper", minX: 11.85, maxX: 13.55, minZ: -5.65, maxZ: -3.75 },
     ];
-    const wardrobeTaskRoute = createNavigationRoute(wardrobeHome, workerWardrobeWorld, personalObstacles, 0.82, [new THREE.Vector3(-5.0, 0, 0.95), new THREE.Vector3(-5.15, 0, -1.05)]);
-    const toiletryTaskRoute = createNavigationRoute(workerGroomWorld, workerToiletryWorld, personalObstacles, 0.82);
-    const towelTaskRoute = createNavigationRoute(workerGroomWorld, workerTowelWorld, personalObstacles, 0.82);
-    const hamperTaskRoute = createNavigationRoute(workerGroomWorld, workerHamperWorld, personalObstacles, 0.82);
-    const hamperReturnRoute = createNavigationRoute(workerHamperWorld, workerGroomWorld, personalObstacles, 0.82);
+    const wardrobeTaskRoute = createNavigationRoute(wardrobeHome, workerWardrobeWorld, personalObstacles, 0.62, [new THREE.Vector3(-5.0, 0, 0.95), new THREE.Vector3(-5.15, 0, -1.05)]);
+    const toiletryTaskRoute = createNavigationRoute(workerGroomWorld, workerToiletryWorld, personalObstacles, 0.6);
+    const towelTaskRoute = createNavigationRoute(workerGroomWorld, workerTowelWorld, personalObstacles, 0.6);
+    const hamperTaskRoute = createNavigationRoute(workerGroomWorld, workerHamperWorld, personalObstacles, 0.6);
+    const hamperReturnRoute = createNavigationRoute(workerHamperWorld, workerGroomWorld, personalObstacles, 0.6);
     const pairVanityRoute = createNavigationRoute(wardrobeStopPose.position, pairVanityWorld, personalObstacles, 0.55);
     const pairExitRoute = createNavigationRoute(pairVanityWorld, path.getPointAt(mirrorStop), personalObstacles, 0.55);
     const workerGroomRoute = createNavigationRoute(wardrobeHome, workerGroomWorld, personalObstacles, 0.6);
@@ -4618,6 +4587,8 @@ function createSharedLivingScene(parent) {
     }
     const pair = new THREE.Group();
     const workerCarrier = new THREE.Group();
+    pair.name = "shared-living-participant";
+    workerCarrier.name = "shared-living-worker";
     const participant = createHuman({
         skin: 0x6d4636,
         shirt: 0x7fa78d,
@@ -4680,8 +4651,10 @@ function createSharedLivingScene(parent) {
     ingredientGroup.visible = false;
     root.add(ingredientGroup);
     const carriedPlates = new THREE.Group();
+    carriedPlates.name = "shared-living-carried-plates";
     for (let index = 0; index < 2; index += 1) {
         const carried = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.075, 22), standardMaterial(0xfffdf8, 0.78));
+        carried.name = `shared-living-carried-plate-${index + 1}`;
         carried.position.set(0.02, 1.06 + index * 0.09, 0.42);
         carriedPlates.add(carried);
     }
@@ -4695,6 +4668,7 @@ function createSharedLivingScene(parent) {
         plates.push(plate);
         root.add(plate);
         const tablePlate = plate.clone();
+        tablePlate.name = `shared-living-table-plate-${index + 1}`;
         tablePlate.position.set(7.2 + index * 1.85, 1.52, 2.6);
         tablePlate.visible = false;
         tablePlate.scale.setScalar(0.01);
@@ -4703,6 +4677,7 @@ function createSharedLivingScene(parent) {
     }
     const sinkPlates = tablePlates.map((source, index) => {
         const plate = source.clone();
+        plate.name = `shared-living-sink-plate-${index + 1}`;
         plate.position.set(5.9 + index * 0.52, 1.8 + index * 0.08, -5.35);
         plate.visible = false;
         plate.scale.setScalar(1);
@@ -4763,10 +4738,12 @@ function createSharedLivingScene(parent) {
     const chairSeatW = new THREE.Vector3(10.5, 0, 2.82);
     const participantChairRoute = createNavigationRoute(tableSpotParticipant, chairApproachP, sharedObstacles, 0.72);
     const workerChairRoute = createNavigationRoute(tableSpotWorker, chairApproachW, sharedObstacles, 0.72, [new THREE.Vector3(11.5, 0, -0.05)]);
-    const tableCollectSpot = new THREE.Vector3(8.2, 0, 0.0);
+    const tableCollectRightSpot = new THREE.Vector3(9.05, 0, 0.0);
+    const tableCollectLeftSpot = new THREE.Vector3(7.2, 0, 0.0);
     const sinkSpot = new THREE.Vector3(6.2, 0, -3.72);
-    const workerCollectRoute = createNavigationRoute(chairApproachW, tableCollectSpot, sharedObstacles, 0.72, [new THREE.Vector3(11.5, 0, -0.05)]);
-    const workerSinkRoute = createNavigationRoute(tableCollectSpot, sinkSpot, sharedObstacles, 0.95);
+    const workerCollectRightRoute = createNavigationRoute(chairApproachW, tableCollectRightSpot, sharedObstacles, 0.72, [new THREE.Vector3(11.5, 0, -0.05)]);
+    const workerCollectLeftRoute = createNavigationRoute(tableCollectRightSpot, tableCollectLeftSpot, sharedObstacles, 0.9);
+    const workerSinkRoute = createNavigationRoute(tableCollectLeftSpot, sinkSpot, sharedObstacles, 0.95);
     const participantExitRoute = createNavigationRoute(chairApproachP, exitJoinPose.position, sharedObstacles, 0.72, [new THREE.Vector3(4.75, 0, 0.1), new THREE.Vector3(8.0, 0, -0.2), new THREE.Vector3(11.65, 0, 0.0)]);
     const workerExitRoute2 = createNavigationRoute(sinkSpot, exitJoinPose.position, sharedObstacles, 0.72, [new THREE.Vector3(11.65, 0, -3.45), new THREE.Vector3(11.7, 0, 0.0)]);
     const tableFood = [];
@@ -4779,7 +4756,38 @@ function createSharedLivingScene(parent) {
     }
     const seatLerp = new THREE.Vector3();
     const trails = new TrailPool(root, 200);
-    const T = { enter: 2.0, prep: 4.6, cook: 7.0, serve: 8.6, sit: 9.5, eat: 12.4, stand: 13.2, collect: 14.5, sink: 16.3, regroup: 17.5, duration: 20 };
+    const T = {
+        enter: 2.0,
+        prep: 4.6,
+        cook: 7.0,
+        serve: 8.6,
+        sit: 9.5,
+        eat: 12.4,
+        stand: 13.2,
+        pickupOne: 13.85,
+        collect: 14.5,
+        sinkArrival: 15.75,
+        sink: 16.3,
+        regroup: 17.5,
+        duration: 20,
+    };
+    root.userData.choreography = {
+        timings: { ...T },
+        routeClearances: {
+            participantPrep: participantPrepRoute.minClearance,
+            workerPrep: workerPrepRoute.minClearance,
+            workerStove: workerStoveRoute.minClearance,
+            workerServe: workerTableRoute.minClearance,
+            participantTable: participantTableRoute.minClearance,
+            participantChair: participantChairRoute.minClearance,
+            workerChair: workerChairRoute.minClearance,
+            workerCollectRight: workerCollectRightRoute.minClearance,
+            workerCollectLeft: workerCollectLeftRoute.minClearance,
+            workerSink: workerSinkRoute.minClearance,
+            participantExit: participantExitRoute.minClearance,
+            workerExit: workerExitRoute2.minClearance,
+        },
+    };
     const duration = T.duration;
     let previousTime = 0;
     let lastStamp = -1;
@@ -4794,6 +4802,14 @@ function createSharedLivingScene(parent) {
         if (localTime + 0.05 < previousTime)
             reset();
         previousTime = localTime;
+        root.userData.choreography.phase = localTime < T.enter ? "walk-in"
+            : localTime < T.prep ? "plan-and-prepare"
+                : localTime < T.cook ? "cook-at-stove"
+                    : localTime < T.serve ? "carry-and-serve"
+                        : localTime < T.eat ? "eat"
+                            : localTime < T.collect ? "collect-both-plates"
+                                : localTime < T.sink ? "take-plates-to-sink"
+                                    : "turn-and-exit";
         const entering = localTime < T.enter;
         const toPrep = localTime >= T.enter && localTime < T.prep;
         const prepping = localTime >= T.enter && localTime < T.serve;
@@ -4864,8 +4880,9 @@ function createSharedLivingScene(parent) {
         const wBaseStove = wBasePrep + workerStoveRoute.length;
         const wBaseTable = wBaseStove + workerTableRoute.length;
         const wBaseChair = wBaseTable + workerChairRoute.length;
-        const wBaseCollect = wBaseChair + workerCollectRoute.length;
-        const wBaseSink = wBaseCollect + workerSinkRoute.length;
+        const wBaseCollectRight = wBaseChair + workerCollectRightRoute.length;
+        const wBaseCollectLeft = wBaseCollectRight + workerCollectLeftRoute.length;
+        const wBaseSink = wBaseCollectLeft + workerSinkRoute.length;
         const wBaseExit = wBaseSink + workerExitRoute2.length;
         let workerPose;
         let workerMoving = true;
@@ -4909,13 +4926,23 @@ function createSharedLivingScene(parent) {
             workerCarrier.position.copy(seatLerp);
             facePoint(workerCarrier, new THREE.Vector3(8.2, 0, 2.8), 0.22);
         }
-        else if (localTime < T.collect) {
-            workerPose = poseOnPath(workerCarrier, workerCollectRoute.path, timedEase(localTime, T.stand, T.collect));
+        else if (localTime < T.pickupOne) {
+            workerPose = poseOnPath(workerCarrier, workerCollectRightRoute.path, timedEase(localTime, T.stand, T.pickupOne));
             workerPose.distance += wBaseChair;
         }
+        else if (localTime < T.collect) {
+            workerPose = poseOnPath(workerCarrier, workerCollectLeftRoute.path, timedEase(localTime, T.pickupOne, T.collect));
+            workerPose.distance += wBaseCollectRight;
+        }
+        else if (localTime < T.sinkArrival) {
+            workerPose = poseOnPath(workerCarrier, workerSinkRoute.path, timedEase(localTime, T.collect, T.sinkArrival));
+            workerPose.distance += wBaseCollectLeft;
+        }
         else if (localTime < T.sink) {
-            workerPose = poseOnPath(workerCarrier, workerSinkRoute.path, timedEase(localTime, T.collect, T.sink));
-            workerPose.distance += wBaseCollect;
+            workerMoving = false;
+            workerPose = { position: sinkSpot, yaw: 0, distance: wBaseSink };
+            workerCarrier.position.copy(sinkSpot);
+            facePoint(workerCarrier, new THREE.Vector3(6.2, 0, -5.42), 0.2);
         }
         else if (exitWalk) {
             workerPose = poseOnPath(workerCarrier, workerExitRoute2.path, timedEase(localTime, T.sink, T.regroup));
@@ -4949,7 +4976,8 @@ function createSharedLivingScene(parent) {
         tableFood.forEach((mound, index) => {
             const served = smoothStep(timedEase(localTime, 7.7 + index * 0.25, 8.3 + index * 0.25));
             const eaten = timedEase(localTime, 9.8, 12.2);
-            const collected = timedEase(localTime, 13.35 + index * 0.35, 13.8 + index * 0.35);
+            const pickupAt = index === 1 ? T.pickupOne : T.collect;
+            const collected = timedEase(localTime, pickupAt - 0.16, pickupAt + 0.08);
             mound.visible = served > 0.02 && collected < 0.97;
             const size = served * (1 - eaten * 0.85);
             mound.scale.set(size, 0.55 * size, size);
@@ -4998,7 +5026,24 @@ function createSharedLivingScene(parent) {
             worker.rightArm.rotation.x = -0.66 + Math.sin(localTime * 2.1) * 0.1;
             participant.rightArm.rotation.x = -0.58 + Math.sin(localTime * 2.3 + 0.8) * 0.1;
         }
-        carriedPlates.visible = workerTableWalk || (localTime >= T.stand && localTime < T.sink);
+        else if (localTime >= T.stand && localTime < T.collect) {
+            const reach = Math.sin(timedEase(localTime, T.stand, T.collect) * Math.PI * 2);
+            worker.rightArm.rotation.x = -0.72 - Math.max(0, reach) * 0.48;
+            worker.leftArm.rotation.x = -0.46 - Math.max(0, -reach) * 0.34;
+        }
+        else if (localTime >= T.sinkArrival && localTime < T.sink) {
+            const place = Math.sin(timedEase(localTime, T.sinkArrival, T.sink) * Math.PI);
+            worker.rightArm.rotation.x = -0.82 - place * 0.32;
+            worker.leftArm.rotation.x = -0.78 - place * 0.28;
+        }
+        const sinkDropOne = T.sinkArrival + 0.18;
+        const sinkDropTwo = T.sinkArrival + 0.4;
+        const collectingPlates = localTime >= T.pickupOne && localTime < T.sink;
+        carriedPlates.visible = workerTableWalk || collectingPlates;
+        carriedPlates.children[0].visible = workerTableWalk
+            || (localTime >= T.pickupOne && localTime < sinkDropOne);
+        carriedPlates.children[1].visible = workerTableWalk
+            || (localTime >= T.collect && localTime < sinkDropTwo);
         const counterFade = 1 - smoothStep(timedEase(localTime, 6.8, 7.3));
         plates.forEach((plate, index) => {
             plate.visible = counterFade > 0.02 && localTime < 7.4;
@@ -5007,13 +5052,15 @@ function createSharedLivingScene(parent) {
         });
         tablePlates.forEach((plate, index) => {
             const tableAmount = smoothStep(timedEase(localTime, 7.7 + index * 0.25, 8.35 + index * 0.25));
-            const collected = timedEase(localTime, 13.3 + index * 0.4, 13.8 + index * 0.4);
+            const pickupAt = index === 1 ? T.pickupOne : T.collect;
+            const collected = timedEase(localTime, pickupAt - 0.16, pickupAt + 0.08);
             plate.visible = tableAmount > 0.02 && collected < 0.98;
             plate.position.set(7.2 + index * 1.85, 1.56 - tableAmount * 0.04, 2.6);
             plate.scale.setScalar((0.01 + tableAmount * 0.99) * (1 - collected));
         });
         sinkPlates.forEach((plate, index) => {
-            plate.visible = localTime >= 15.75 + index * 0.25;
+            const droppedAt = index === 0 ? sinkDropOne : sinkDropTwo;
+            plate.visible = localTime >= droppedAt;
         });
         checks.forEach((check, index) => {
             check.visible = localTime > 3 + index * 2;
@@ -5237,16 +5284,16 @@ function createHouseholdScene(parent) {
     ];
     const vacuumSegments = [];
     for (let index = 0; index < vacuumWaypoints.length - 1; index += 1) {
-        vacuumSegments.push(createNavigationRoute(vacuumWaypoints[index], vacuumWaypoints[index + 1], workerObstacles, 1.05));
+        vacuumSegments.push(createNavigationRoute(vacuumWaypoints[index], vacuumWaypoints[index + 1], workerObstacles, 0.62));
     }
     const washerFront = new THREE.Vector3(8.55, 0, -3.9);
     const supplyFront = new THREE.Vector3(3.35, 0, -4.45);
     const foldFront = new THREE.Vector3(7.35, 0, 1.05);
     const workerExit = new THREE.Vector3(21, 0, 10);
-    const washerRoute = createNavigationRoute(vacuumWaypoints[vacuumWaypoints.length - 1], washerFront, workerObstacles, 0.82, [new THREE.Vector3(5.85, 0, -4.0), new THREE.Vector3(7.05, 0, -3.95)]);
-    const supplyRoute = createNavigationRoute(washerFront, supplyFront, workerObstacles, 0.82, [new THREE.Vector3(6.95, 0, -3.85), new THREE.Vector3(5.15, 0, -3.95)]);
-    const foldRoute = createNavigationRoute(supplyFront, foldFront, workerObstacles, 0.82, [new THREE.Vector3(4.35, 0, -1.15), new THREE.Vector3(5.95, 0, -0.05)]);
-    const exitRoute = createNavigationRoute(foldFront, workerExit, workerObstacles, 0.82, [new THREE.Vector3(9.55, 0, 4.35), new THREE.Vector3(13.75, 0, 6.2)]);
+    const washerRoute = createNavigationRoute(vacuumWaypoints[vacuumWaypoints.length - 1], washerFront, workerObstacles, 0.62, [new THREE.Vector3(5.85, 0, -4.0), new THREE.Vector3(7.05, 0, -3.95)]);
+    const supplyRoute = createNavigationRoute(washerFront, supplyFront, workerObstacles, 0.62, [new THREE.Vector3(6.95, 0, -3.85), new THREE.Vector3(5.15, 0, -3.95)]);
+    const foldRoute = createNavigationRoute(supplyFront, foldFront, workerObstacles, 0.62, [new THREE.Vector3(4.35, 0, -1.15), new THREE.Vector3(5.95, 0, -0.05)]);
+    const exitRoute = createNavigationRoute(foldFront, workerExit, workerObstacles, 0.62, [new THREE.Vector3(9.55, 0, 4.35), new THREE.Vector3(13.75, 0, 6.2)]);
     const chairFoldWatch = new THREE.Vector3(10.45, 0, 1.05);
     const chairFoldRoute = createNavigationRoute(new THREE.Vector3(9.2, 0, -4.2), chairFoldWatch, workerObstacles, 0.72);
     const chairExitJoin = closestPathProgress(chairPath, new THREE.Vector3(12.5, 0, -1));

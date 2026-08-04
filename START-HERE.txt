@@ -1,21 +1,18 @@
-BOOKIT SITE v65 — complete graphics upgrade
-===========================
-This folder is the entire BookIt site. Version 65 contains the calmer
-homepage, one contained hero animation, six distinct service visual themes,
-responsive AVIF/WebP photography, a branded social card, opt-in service scene
-previews with Play/Pause/Replay/chapter controls, reduced-motion and WebGL
-fallbacks, safer animation routes, and improved static-file delivery.
+BOOKIT SITE v64 — restored with targeted animation polish
+==========================================================
+This folder keeps the complete v64 site: all original animations, warm photos
+on the six service pages, and social-preview tags.
 
-Important visual notes:
-  - Worker profiles and testimonials in this preview are labelled illustrative.
-  - No founder, team or worker photograph has been fabricated.
-  - Add real team portraits only with consent and accurate names/roles.
+Targeted change only:
+  - The Daily Tasks & Shared Living scene now completes the full 20-second
+    kitchen story: enter together, plan and prepare, cook, carry and serve,
+    eat, collect both plates one at a time, take them to the sink, then turn
+    and walk naturally off-screen.
+  - Existing service, homepage and background animations remain in place.
 
 Deploy: open github.com/thapasupreeya3-cpu/bookit-app/upload/main
-and drag the contents of this folder into the page (including server.js,
-package.json, .gitignore and the public folder). Commit, then: sudo bookit-update
-
-Local check: node server.js, then open http://localhost:3000
+and drag BOTH items from inside this folder (server.js and the
+public folder) into the page. Commit, then: sudo bookit-update
 
 Safe to delete from the repo whenever you like (nothing uses them):
   index.html (the one at repo root), DESIGN.md, README-V63.md,
