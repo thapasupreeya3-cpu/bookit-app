@@ -1,36 +1,37 @@
-BOOKIT SITE v66 — character upgrade (the approved "polished stylised 3D" cast)
+BOOKIT SITE v67 — the homepage cast is now the approved concept ARTWORK
 ==============================================================================
-This folder is the entire site: v65 plus the new characters. Only two files
-changed — public/vendor/care-motion.js and public/vendor/care-core.local.js.
+This folder is the entire site. Changed since v65: public/vendor/care-motion.js,
+public/vendor/care-core.local.js, and NEW folder public/assets/characters/
+(seven small .webp cut-outs — make sure it uploads too).
 
-What changed in v66
-  • Every animated character — the homepage journey pair, the bench
-    neighbour, the pergola friends, the gardener, the mower worker, the
-    story walker, and all six service-page dioramas — is rebuilt to the
-    approved concept style: realistic proportions (smaller head, neck,
-    shoulders, waist), warm faces (brows, eyes with a catchlight, nose, a
-    real smile, blush), mitten hands, fuller hair, and legs that bend at
-    the knee while walking and sitting.
-  • Support workers now wear the uniform across every scene: teal polo,
-    short sleeves, lanyard and ID badge — matching the service dioramas
-    and the concept art.
-  • Seated characters rest their hands in their lap and breathe instead of
-    the old rowing-arm loop; the wheelchair rider on the homepage has her
-    silver hair from the concept.
-  • The bench neighbour actually sits ON the bench slats now (hips at seat
-    height, feet to the ground) instead of sinking into the frame, and
-    wears clearly-clothing colours (teal jumper, amber trousers).
-  • No layout, route, timing or navigation logic was touched: same
-    skeleton pivots, same scene anchors, same obstacle-aware paths, same
-    reduced-motion still frame. The carer's hands still land on the
-    wheelchair push handles; held props (hairbrush, towels, resume,
-    watering can) still sit in the same hands.
+What changed in v67
+  • Every homepage character is now the actual approved concept art,
+    cut out and mounted as an upright standee card in the 3D scene:
+    the carer pushing the wheelchair along the hero path, the neighbour
+    reading on the bench, the two friends chatting under the pergola,
+    the gardener watering the beds, the mower worker, and the dog-walker
+    in the stories scene. They mirror to match their direction of travel,
+    bob gently as they walk, and the footprints / wheel tracks, rests,
+    obstacle-aware routes and reduced-motion still frame all still work.
+  • If a character image ever fails to load, that character quietly falls
+    back to the v66 sculpted-3D version — the page never goes empty.
+  • The six service-page dioramas still use the v66 sculpted-3D people
+    (upgraded proportions, faces, uniforms). Swapping those to concept
+    artwork as well is a straightforward follow-up if wanted.
+
+Carried over from v66 (also in this folder)
+  • The service-page diorama people were rebuilt in code to the concept
+    style: realistic proportions, warm faces (brows, eyes, smile, blush),
+    uniforms with lanyard and badge, knees that bend, hands that rest.
+  • The homepage keeps that 3D cast too — but only as the automatic
+    fallback behind the artwork standees.
 
 Deploy: open github.com/thapasupreeya3-cpu/bookit-app/upload/main
 and drag BOTH items from inside this folder (server.js and the
 public folder) into the page. Commit, then: sudo bookit-update
-(only public/vendor/care-motion.js and public/vendor/care-core.local.js
-actually changed since v65 — but dragging both items as usual is fine.)
+(public/assets/characters/ is NEW — check those seven .webp files
+appear in the repo after the upload.) Then hard-refresh the browser
+(Cmd+Shift+R / Ctrl+F5) so the old animation module isn't cached.
 
 Safe to delete from the repo whenever you like (nothing uses them):
   index.html (the one at repo root), DESIGN.md, README-V63.md,

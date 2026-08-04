@@ -364,6 +364,63 @@ function createHuman(options = {}) {
   };
 }
 
+/* ═══════════ v67 — the cast IS the concept art ═══════════
+   Every homepage character is now a cut-out from the approved concept
+   images, mounted on an upright card that faces the camera (a paper-
+   theatre standee in the 3D set). The 3D `createHuman` cast above stays
+   as the automatic fallback for any card whose texture fails to load. */
+const SPRITES = {
+  /* native: which way the artwork itself faces (−1 left, +1 right) */
+  pair:     { url: '/assets/characters/pair.webp',     aspect: 582 / 640, native: -1 },
+  bench:    { url: '/assets/characters/bench.webp',    aspect: 331 / 640, native: -1 },
+  friendA:  { url: '/assets/characters/friend-a.webp', aspect: 191 / 640, native: 1 },
+  friendB:  { url: '/assets/characters/friend-b.webp', aspect: 192 / 640, native: -1 },
+  gardener: { url: '/assets/characters/gardener.webp', aspect: 314 / 640, native: -1 },
+  mower:    { url: '/assets/characters/mower.webp',    aspect: 365 / 640, native: -1 },
+  walker:   { url: '/assets/characters/walker.webp',   aspect: 588 / 640, native: -1 },
+};
+const spriteTextures = {};
+function loadSpriteTextures() {
+  const loader = new THREE.TextureLoader();
+  return Promise.all(Object.entries(SPRITES).map(([key, def]) => new Promise(resolve => {
+    let settled = false;
+    const done = () => { if (!settled) { settled = true; resolve(); } };
+    /* never hold the homepage hostage to one slow image */
+    setTimeout(done, 7000);
+    loader.load(def.url, texture => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = 4;
+      spriteTextures[key] = texture;
+      done();
+    }, undefined, done);
+  })));
+}
+/* an upright standee: feet at the group origin, flip via setFacing(±1) */
+function createCardCharacter(key, height) {
+  const texture = spriteTextures[key];
+  if (!texture) return null;
+  const aspect = SPRITES[key].aspect;
+  const card = new THREE.Mesh(
+    new THREE.PlaneGeometry(height * aspect, height),
+    new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: .06, toneMapped: false, side: THREE.DoubleSide }),
+  );
+  card.position.y = height / 2;
+  const root = new THREE.Group();
+  root.add(card);
+  const native = SPRITES[key].native;
+  const api = {
+    root, card, height, isCard: true,
+    /* face screen-left (−1) or screen-right (+1); mirrors when needed */
+    setFacing(dir) { card.scale.x = (dir < 0 ? -1 : 1) === native ? 1 : -1; },
+    /* card yaw so the artwork squares up to this stage's camera even
+       inside a rotated parent (bench, pergola, mower) */
+    faceCamera(cameraYaw, parentYaw = 0) { card.rotation.y = cameraYaw - parentYaw; },
+    bob(phase, amount = .015) { card.position.y = height / 2 + Math.abs(Math.sin(phase)) * height * amount; },
+    settle() { card.position.y = height / 2; card.rotation.z = 0; },
+  };
+  return api;
+}
+
 function createWheel(radius = .55, manual = true) {
   const group = new THREE.Group();
   const rubber = standardMaterial(0x27343a, .74);
@@ -440,6 +497,26 @@ function createWateringCan() {
 }
 
 function createGardener() {
+  /* v67: the concept-art gardener (watering can painted in) when her
+     texture is up; the 3D build stays as the fallback */
+  const cardApi = createCardCharacter('gardener', 1.92);
+  if (cardApi) {
+    const spoutTip = new THREE.Object3D();
+    spoutTip.position.set(-cardApi.height * SPRITES.gardener.aspect * .40, -cardApi.height * .08, .02);
+    cardApi.card.add(spoutTip);
+    cardApi.root.add(contactShadow(.86, .66, .08));
+    return {
+      root: cardApi.root, isCard: true, cardApi, can: { spoutTip },
+      animateWalk(phase) {
+        cardApi.bob(phase, .013);
+        cardApi.card.rotation.z = Math.sin(phase) * .015;
+      },
+      animateWater(phase) {
+        cardApi.card.position.y = cardApi.height / 2;
+        cardApi.card.rotation.z = -.045 + Math.sin(phase * .5) * .02;
+      },
+    };
+  }
   const root = new THREE.Group();
   const human = createHuman({ skin: 0x8d563d, shirt: C.tealMid, trousers: 0x355052, hair: 0x241f1e, hairStyle: 'bun', scale: .66, badge: true, shortSleeves: true });
   const can = createWateringCan();
@@ -482,19 +559,24 @@ function createMower() {
   }
   for(const side of [-1,1]) root.add(cylinderBetween(new THREE.Vector3(side*.39,.39,-.28),new THREE.Vector3(side*.29,1.16,-1.02),.03,frame,7));
   root.add(cylinderBetween(new THREE.Vector3(-.29,1.16,-1.02),new THREE.Vector3(.29,1.16,-1.02),.04,frame,7));
-  const worker=createHuman({skin:0x9a6246,shirt:C.tealMid,trousers:0x3f5759,hair:0x32241e,scale:.62,badge:true,shortSleeves:true});
-  worker.root.position.set(0,0,-1.48); root.add(worker.root,contactShadow(1.08,1.3,.08));
+  const workerCard=createCardCharacter('mower',1.85);
+  let worker=null;
+  if(workerCard){workerCard.root.position.set(0,0,-1.48);root.add(workerCard.root,contactShadow(1.08,1.3,.08));}
+  else{worker=createHuman({skin:0x9a6246,shirt:C.tealMid,trousers:0x3f5759,hair:0x32241e,scale:.62,badge:true,shortSleeves:true});
+  worker.root.position.set(0,0,-1.48); root.add(worker.root,contactShadow(1.08,1.3,.08));}
   const clippingMat = new THREE.MeshBasicMaterial({color:0x78986f,transparent:true,opacity:.5,depthWrite:false,toneMapped:false});
   const clippings=[];
   for(let i=0;i<9;i+=1){const c=new THREE.Mesh(new THREE.TetrahedronGeometry(.034,0),clippingMat);root.add(c);clippings.push(c);}
   return {
-    root, worker,
+    root, worker, workerCard,
     animate(distance, phase, cutting=true){
       wheels.forEach(w=>{w.rotation.x=-distance/wheelRadius;});
       blade.rotation.y=distance*8.4;
+      if(workerCard){workerCard.bob(phase*.5,.011);}
+      else{
       worker.animate(phase,.72);
       worker.leftArm.rotation.x=-.9+Math.sin(phase)*.07;
-      worker.rightArm.rotation.x=-.9-Math.sin(phase)*.07;
+      worker.rightArm.rotation.x=-.9-Math.sin(phase)*.07;}
       clippings.forEach((c,i)=>{
         c.visible=cutting;
         const u=(distance*.55+i/clippings.length)%1;
@@ -690,6 +772,8 @@ class MiniStage {
     this.camera.position.copy(options.cameraPosition||new THREE.Vector3(8,7,9));
     this.lookAt=options.lookAt||new THREE.Vector3();
     this.camera.lookAt(this.lookAt);
+    /* v67: the yaw that squares a standee card up to this camera */
+    this.cardYaw=Math.atan2(this.camera.position.x-this.lookAt.x,this.camera.position.z-this.lookAt.z);
     this.frustum=options.frustum||10;
     this.visible=false;this.disposed=false;this.elapsed=0;this.lastTime=0;
     this.trails=new TrailPool(this.scene);
@@ -709,6 +793,8 @@ class MiniStage {
     if(staticMode&&w>1&&h>1)queueStaticRedraw();
   }
   setVisible(v){this.visible=v;if(v)activeStages.add(this);else activeStages.delete(this);ensureLoop();}
+  /* signed screen-x motion of a world direction — decides which way a card faces */
+  screenDx(origin,dir){const a=origin.clone().project(this.camera);const b=origin.clone().add(dir).project(this.camera);return b.x-a.x;}
   update(dt,t){this.elapsed=t;this.trails.update(dt);}
   render(){this.renderer.render(this.scene,this.camera);}
   dispose(){this.disposed=true;this.resizeObserver.disconnect();this.trails.clear();this.renderer.dispose();}
@@ -894,20 +980,40 @@ class HeroJourneyStage extends MiniStage {
     this.pergola = createPergola();
     /* v65.2: the park is lived-in — a neighbour on the bench, two friends
        chatting under the pergola. All three ride their prop's transform, so
-       they scale and place with it on every viewport. */
-    this.benchSitter = createHuman({ seated: true, scale: .62, skin: 0xc98d68, shirt: 0x3f7d76, trousers: 0xbb8a4f, hair: 0x3a2c25, hairStyle: 'waves' });
-    /* v66: seated ON the slats (hips at seat height), not sunk into the frame */
-    this.benchSitter.root.position.set(-.45, .11, .02);
-    this.bench.root.add(this.benchSitter.root);
-    this.pergolaPair = [
-      createHuman({ skin: 0x8a5a40, shirt: 0xc2a14e, trousers: 0x3f5457, hair: 0x241f1d, hairStyle: 'bun', scale: .62 }),
-      createHuman({ skin: 0xd8a67f, shirt: 0x2d847d, trousers: 0x51585a, hair: 0x4a3527, hairStyle: 'curls', scale: .6 }),
-    ];
-    this.pergolaPair[0].root.position.set(-.55, 0, .3);
-    this.pergolaPair[1].root.position.set(.5, 0, -.28);
-    this.pergolaPair[0].root.rotation.y = Math.atan2(1.05, -.58);
-    this.pergolaPair[1].root.rotation.y = Math.atan2(-1.05, .58);
-    this.pergolaPair.forEach(h => { h.root.add(contactShadow(.8, .6, .07)); this.pergola.root.add(h.root); });
+       they scale and place with it on every viewport.
+       v67: all three are concept-art standees when their textures loaded. */
+    this.benchSitterCard = createCardCharacter('bench', 1.34);
+    if (this.benchSitterCard) {
+      /* fully on the seat-front side of the slats, so the card is never
+         sliced by the bench geometry from any camera */
+      this.benchSitterCard.root.position.set(-.42, 0, .34);
+      this.benchSitterCard.root.add(contactShadow(.7, .5, .07));
+      this.bench.root.add(this.benchSitterCard.root);
+      this.benchSitter = null;
+    } else {
+      this.benchSitter = createHuman({ seated: true, scale: .62, skin: 0xc98d68, shirt: 0x3f7d76, trousers: 0xbb8a4f, hair: 0x3a2c25, hairStyle: 'waves' });
+      /* v66: seated ON the slats (hips at seat height), not sunk into the frame */
+      this.benchSitter.root.position.set(-.45, .11, .02);
+      this.bench.root.add(this.benchSitter.root);
+    }
+    this.pergolaCards = [createCardCharacter('friendA', 1.9), createCardCharacter('friendB', 1.84)];
+    if (this.pergolaCards[0] && this.pergolaCards[1]) {
+      this.pergolaCards[0].root.position.set(-.55, 0, .3);
+      this.pergolaCards[1].root.position.set(.5, 0, -.28);
+      this.pergolaCards.forEach(c => { c.root.add(contactShadow(.8, .6, .07)); this.pergola.root.add(c.root); });
+      this.pergolaPair = null;
+    } else {
+      this.pergolaCards = null;
+      this.pergolaPair = [
+        createHuman({ skin: 0x8a5a40, shirt: 0xc2a14e, trousers: 0x3f5457, hair: 0x241f1d, hairStyle: 'bun', scale: .62 }),
+        createHuman({ skin: 0xd8a67f, shirt: 0x2d847d, trousers: 0x51585a, hair: 0x4a3527, hairStyle: 'curls', scale: .6 }),
+      ];
+      this.pergolaPair[0].root.position.set(-.55, 0, .3);
+      this.pergolaPair[1].root.position.set(.5, 0, -.28);
+      this.pergolaPair[0].root.rotation.y = Math.atan2(1.05, -.58);
+      this.pergolaPair[1].root.rotation.y = Math.atan2(-1.05, .58);
+      this.pergolaPair.forEach(h => { h.root.add(contactShadow(.8, .6, .07)); this.pergola.root.add(h.root); });
+    }
     this.trees = HERO_TREES.map(() => createTree(1));
     this.trees.forEach(t => t.crown.material.color.set(0x8ba871));
     this.shrubs = HERO_SHRUBS.map(() => createShrub());
@@ -915,14 +1021,22 @@ class HeroJourneyStage extends MiniStage {
     this.trees.forEach(t => this.scene.add(t.root));
     this.shrubs.forEach(s => this.scene.add(s.root));
 
-    this.chair = createWheelchair();
-    this.carer = createHuman({ skin: 0x8a553d, shirt: 0x2a6e62, trousers: 0x7c7d78, hair: 0x2b211e, hairStyle: 'curls', scale: .66, badge: true, shortSleeves: true });
-    this.chair.root.scale.setScalar(.72);
-    this.chair.root.position.set(-.14, 0, .46);
-    /* centred behind the chair, one hand over each push handle */
-    this.carer.root.position.set(-.14, 0, -.34);
+    this.pairCard = createCardCharacter('pair', 1.95);
     this.pair = new THREE.Group();
-    this.pair.add(this.chair.root, this.carer.root);
+    if (this.pairCard) {
+      this.pairCard.card.rotation.y = this.cardYaw;
+      this.pairCard.root.add(contactShadow(1.15, .8, .09));
+      this.pair.add(this.pairCard.root);
+      this.chair = null; this.carer = null;
+    } else {
+      this.chair = createWheelchair();
+      this.carer = createHuman({ skin: 0x8a553d, shirt: 0x2a6e62, trousers: 0x7c7d78, hair: 0x2b211e, hairStyle: 'curls', scale: .66, badge: true, shortSleeves: true });
+      this.chair.root.scale.setScalar(.72);
+      this.chair.root.position.set(-.14, 0, .46);
+      /* centred behind the chair, one hand over each push handle */
+      this.carer.root.position.set(-.14, 0, -.34);
+      this.pair.add(this.chair.root, this.carer.root);
+    }
     this.scene.add(this.pair);
     this.lastStamp = -1; this.footSide = 0; this.lastCycle = -1;
     this.ready = true;
@@ -1016,6 +1130,25 @@ class HeroJourneyStage extends MiniStage {
 
     HERO_TREES.forEach(([x, y, px], i) => this.placeProp(this.trees[i].root, [x, y], px * this.fit));
     HERO_SHRUBS.forEach(([x, y, px], i) => this.placeProp(this.shrubs[i].root, [x, y], px * this.fit));
+
+    /* v67: square every standee card up to the camera (their props rotate,
+       the artwork must not), and aim people at what they attend to */
+    if (this.benchSitterCard) {
+      this.benchSitterCard.faceCamera(this.cardYaw, this.bench.root.rotation.y);
+      const toPath = benchPoint.clone().sub(benchPos).setY(0).normalize();
+      this.benchSitterCard.setFacing(this.screenDx(benchPos, toPath) >= 0 ? 1 : -1);
+    }
+    if (this.pergolaCards) {
+      const [a, b] = this.pergolaCards;
+      a.faceCamera(this.cardYaw, this.pergola.root.rotation.y);
+      b.faceCamera(this.cardYaw, this.pergola.root.rotation.y);
+      this.pergola.root.updateMatrixWorld(true);
+      const aw = a.root.getWorldPosition(new THREE.Vector3());
+      const bw = b.root.getWorldPosition(new THREE.Vector3());
+      const dxAB = this.screenDx(aw, bw.clone().sub(aw).setY(0).normalize());
+      a.setFacing(dxAB >= 0 ? 1 : -1);
+      b.setFacing(dxAB >= 0 ? -1 : 1);
+    }
   }
 
   closestU(target) {
@@ -1104,11 +1237,18 @@ class HeroJourneyStage extends MiniStage {
     this.wheelMarks.update(dt);
     this.trees.forEach((tree, i) => { tree.crown.rotation.z = Math.sin(t * .5 + i) * .03; });
     /* park life idles on its own clock */
-    this.benchSitter.animate(t * .8, .55);
-    this.pergolaPair[0].animate(t * 1.02, .06);
-    this.pergolaPair[1].animate(t * 1.13 + 2, .06);
-    this.pergolaPair[0].rightArm.rotation.x = -.62 + Math.sin(t * 1.8) * .16;
-    this.pergolaPair[1].leftArm.rotation.x = -.5 + Math.sin(t * 2.1 + 1) * .13;
+    if (this.benchSitter) this.benchSitter.animate(t * .8, .55);
+    if (this.benchSitterCard) this.benchSitterCard.card.rotation.z = Math.sin(t * .5) * .012;
+    if (this.pergolaPair) {
+      this.pergolaPair[0].animate(t * 1.02, .06);
+      this.pergolaPair[1].animate(t * 1.13 + 2, .06);
+      this.pergolaPair[0].rightArm.rotation.x = -.62 + Math.sin(t * 1.8) * .16;
+      this.pergolaPair[1].leftArm.rotation.x = -.5 + Math.sin(t * 2.1 + 1) * .13;
+    }
+    if (this.pergolaCards) {
+      this.pergolaCards[0].card.rotation.z = Math.sin(t * .7) * .014;
+      this.pergolaCards[1].card.rotation.z = Math.sin(t * .8 + 2) * .014;
+    }
 
     const cycle = Math.floor(t / HERO_TIME.cycle);
     const local = t % HERO_TIME.cycle;
@@ -1141,23 +1281,44 @@ class HeroJourneyStage extends MiniStage {
     const distance = u * this.travelLength;
     const gait = distance / Math.max(.05, .52 * this.pairScale) * Math.PI;
     this.pair.position.copy(p);
-    let heading = yaw;
-    if (!moving && restLen) {
-      /* settle into the rest pose, then turn back to the path before leaving */
-      const target = Math.abs(u - this.uPergola) < 1e-6 ? this.restYawPergola : this.restYaw;
-      const turnIn = smooth(invLerp(0, 1.7, resting));
-      const turnOut = smooth(invLerp(restLen - .9, restLen, resting));
-      const delta = Math.atan2(Math.sin(target - yaw), Math.cos(target - yaw));
-      heading = yaw + delta * turnIn * (1 - turnOut);
-    }
-    this.pair.rotation.y = heading;
 
-    this.chair.animate(distance / this.pairScale, moving ? gait : t * 1.4);
-    this.carer.animate(moving ? gait : t * 1.2, moving ? 1 : .08);
-    /* both hands stay on the push handles */
-    const reach = Math.sin(moving ? gait : t * 1.2) * .05;
-    this.carer.leftArm.rotation.x = -.6 + reach;
-    this.carer.rightArm.rotation.x = -.6 - reach;
+    if (this.pairCard) {
+      /* the concept-art pair: the card never yaws with the path — it faces
+         the camera and mirrors to match travel direction (or, at a rest,
+         to look at the bench / the pergola friends) */
+      this.pair.rotation.y = 0;
+      let facing = this.screenDx(p, tan);
+      if (!moving && restLen) {
+        const target = (Math.abs(u - this.uPergola) < 1e-6 ? this.pergolaWorld : this.benchWorld).clone().sub(p).setY(0).normalize();
+        facing = this.screenDx(p, target);
+      }
+      if (Math.abs(facing) > .0004) this.pairCard.setFacing(facing >= 0 ? 1 : -1);
+      if (moving) {
+        this.pairCard.bob(gait, .012);
+        this.pairCard.card.rotation.z = Math.sin(gait) * .016;
+      } else {
+        this.pairCard.card.position.y = this.pairCard.height / 2 + Math.sin(t * 1.1) * .006;
+        this.pairCard.card.rotation.z = Math.sin(t * .6) * .008;
+      }
+    } else {
+      let heading = yaw;
+      if (!moving && restLen) {
+        /* settle into the rest pose, then turn back to the path before leaving */
+        const target = Math.abs(u - this.uPergola) < 1e-6 ? this.restYawPergola : this.restYaw;
+        const turnIn = smooth(invLerp(0, 1.7, resting));
+        const turnOut = smooth(invLerp(restLen - .9, restLen, resting));
+        const delta = Math.atan2(Math.sin(target - yaw), Math.cos(target - yaw));
+        heading = yaw + delta * turnIn * (1 - turnOut);
+      }
+      this.pair.rotation.y = heading;
+
+      this.chair.animate(distance / this.pairScale, moving ? gait : t * 1.4);
+      this.carer.animate(moving ? gait : t * 1.2, moving ? 1 : .08);
+      /* both hands stay on the push handles */
+      const reach = Math.sin(moving ? gait : t * 1.2) * .05;
+      this.carer.leftArm.rotation.x = -.6 + reach;
+      this.carer.rightArm.rotation.x = -.6 - reach;
+    }
 
     if (!moving) return;
     const normal = new THREE.Vector3(tan.z, 0, -tan.x).normalize();
@@ -1219,11 +1380,17 @@ class GardenCareStage extends MiniStage {
       toExit:createNavigationRoute(this.positions.bed2,this.positions.exit,this.obstacles,.38,[guide(5.6,.95),guide(5.85,-.7)]),
     };
   }
-  walkRoute(route,p,phase){const u=Math.min(.9999,easeInOut(p));const pos=route.path.getPointAt(u);const tan=route.path.getTangentAt(u).normalize();const yaw=Math.atan2(tan.x,tan.z);this.gardener.root.position.copy(pos);this.gardener.root.rotation.y=yaw;this.gardener.animateWalk(phase,.9);this.emitFootprints(pos,yaw,u*route.length);return {pos,yaw};}
+  walkRoute(route,p,phase){const u=Math.min(.9999,easeInOut(p));const pos=route.path.getPointAt(u);const tan=route.path.getTangentAt(u).normalize();const yaw=Math.atan2(tan.x,tan.z);this.gardener.root.position.copy(pos);
+    if(this.gardener.isCard){this.gardener.cardApi.faceCamera(this.cardYaw);const dx=this.screenDx(pos,tan);if(Math.abs(dx)>.0004)this.gardener.cardApi.setFacing(dx>=0?1:-1);}
+    else this.gardener.root.rotation.y=yaw;
+    this.gardener.animateWalk(phase,.9);this.emitFootprints(pos,yaw,u*route.length);return {pos,yaw};}
   emitFootprints(pos,yaw,d){if(d-this.lastStamp>.33){this.lastStamp=d;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,this.footSide?-.15:.15,-.3),yaw,.16,.34,4.2,.13,this.footSide===1);}}
   waterBed(index,t,phase){
     const bed=this.beds[index],target=bed.root.position.clone().add(new THREE.Vector3(0,.62,0));
-    const pos=(index===0?this.positions.bed1:this.positions.bed2).clone();this.gardener.root.position.copy(pos);const yaw=Math.atan2(target.x-pos.x,target.z-pos.z);this.gardener.root.rotation.y=yaw;this.gardener.animateWater(phase);
+    const pos=(index===0?this.positions.bed1:this.positions.bed2).clone();this.gardener.root.position.copy(pos);const yaw=Math.atan2(target.x-pos.x,target.z-pos.z);
+    if(this.gardener.isCard){this.gardener.cardApi.faceCamera(this.cardYaw);const toBed=target.clone().sub(pos).setY(0).normalize();const dx=this.screenDx(pos,toBed);if(Math.abs(dx)>.0004)this.gardener.cardApi.setFacing(dx>=0?1:-1);}
+    else this.gardener.root.rotation.y=yaw;
+    this.gardener.animateWater(phase);
     this.gardener.root.updateMatrixWorld(true);const start=new THREE.Vector3();this.gardener.can.spoutTip.getWorldPosition(start);
     this.drops.forEach((drop,i)=>{const u=(t*1.55+i/this.drops.length)%1;const end=target.clone().add(new THREE.Vector3(((i%5)-2)*.09,0,((i%3)-1)*.08));drop.position.copy(start).lerp(end,u);drop.position.y+=Math.sin(u*Math.PI)*.68;drop.scale.setScalar(.72+Math.sin(u*Math.PI)*.45);drop.visible=true;});
     const soil=bed.soil;const wet=new THREE.Color(0x4f3c2f);soil.color.lerp(wet,.035);bed.plants.forEach((p,i)=>{p.rotation.z=Math.sin(t*2+i)*.025;});
@@ -1281,6 +1448,7 @@ class MowerStage extends MiniStage {
   update(dt,t){
     super.update(dt,t);const duration=31,cycle=Math.floor(t/duration),p=(t%duration)/duration;if(cycle!==this.lastCycle){this.lastCycle=cycle;this.strips.forEach(s=>s.amount=0);this.lastDistance=-1;}
     const moveEnd=.74;const moving=p<moveEnd;const moveP=smoother(invLerp(.015,moveEnd,p));const distance=moveP*this.routeTotal;const sample=this.sample(distance);const yaw=Math.atan2(sample.tangent.x,sample.tangent.z);this.mower.root.position.copy(sample.p);this.mower.root.rotation.y=yaw;this.mower.root.visible=p<.78;
+    if(this.mower.workerCard){this.mower.workerCard.faceCamera(this.cardYaw,yaw);const dx=this.screenDx(sample.p,sample.tangent);if(Math.abs(dx)>.0004)this.mower.workerCard.setFacing(dx>=0?1:-1);}
     const cutting=sample.lane!==null&&sample.p.z>this.lawn.laneBottom-.05&&sample.p.z<this.lawn.laneTop+.05;this.mower.animate(distance,t*8.4,cutting);
     if(sample.lane!==null)this.strips[sample.lane].amount=Math.max(this.strips[sample.lane].amount,sample.laneProgress);
     const regrow=p<.78?0:smooth(invLerp(.78,1,p));this.updateStrips(regrow);
@@ -1294,9 +1462,15 @@ class StoryGardenStage extends MiniStage {
     const patch=new THREE.Mesh(new THREE.CircleGeometry(3.4,44),new THREE.MeshStandardMaterial({color:0xf3efe8,roughness:1,transparent:true,opacity:.45}));patch.rotation.x=-Math.PI/2;patch.scale.set(1.5,.68,1);patch.position.y=.001;this.scene.add(patch);
     this.trees=[createTree(.75),createTree(.62)];this.trees[0].root.position.set(1.9,0,.85);this.trees[1].root.position.set(-1.95,0,.3);this.scene.add(this.trees[0].root,this.trees[1].root);this.flowers=addFlowerPatch(this.scene,-.35,-1.35,22);
     const path=new THREE.CatmullRomCurve3([new THREE.Vector3(-4,0,1.8),new THREE.Vector3(-1.5,0,.8),new THREE.Vector3(.5,0,.4),new THREE.Vector3(2.4,0,-.8),new THREE.Vector3(4,0,-1.6)],false,'centripetal');this.path=path;this.pathLength=path.getLength();this.scene.add(pathRibbon(path,.78,new THREE.MeshStandardMaterial({color:C.path,roughness:1,transparent:true,opacity:.52}),56,.008));
-    this.walker=createHuman({skin:0x9f6547,shirt:C.coral,trousers:0x3f5558,hair:0x2d231f,hairStyle:'waves',scale:.58});this.dog=createDog();this.group=new THREE.Group();this.walker.root.position.x=-.35;this.dog.root.position.set(.55,0,.1);this.group.add(this.walker.root,this.dog.root);this.group.scale.setScalar(.72);this.scene.add(this.group);this.lastDistance=-1;this.footSide=0;this.lastCycle=-1;
+    this.walkerCard=createCardCharacter('walker',1.78);this.group=new THREE.Group();
+    if(this.walkerCard){this.walker=null;this.dog=null;this.walkerCard.root.add(contactShadow(1.0,.62,.08));this.group.add(this.walkerCard.root);}
+    else{this.walker=createHuman({skin:0x9f6547,shirt:C.coral,trousers:0x3f5558,hair:0x2d231f,hairStyle:'waves',scale:.58});this.dog=createDog();this.walker.root.position.x=-.35;this.dog.root.position.set(.55,0,.1);this.group.add(this.walker.root,this.dog.root);}
+    this.group.scale.setScalar(.72);this.scene.add(this.group);this.lastDistance=-1;this.footSide=0;this.lastCycle=-1;
   }
-  update(dt,t){super.update(dt,t);const duration=21,cycle=Math.floor(t/duration),p=(t%duration)/duration;if(cycle!==this.lastCycle){this.lastCycle=cycle;this.lastDistance=-1;}const travel=smoother(invLerp(.12,.88,p));const pos=this.path.getPointAt(travel),tan=this.path.getTangentAt(travel),yaw=Math.atan2(tan.x,tan.z),distance=travel*this.pathLength;this.group.position.copy(pos);this.group.rotation.y=yaw;this.walker.animate(t*7.2,.85);this.dog.animate(t*8.2);const fade=smooth(invLerp(.08,.16,p))*(1-smooth(invLerp(.86,.94,p)));this.group.visible=fade>.01;if(distance-this.lastDistance>.31&&p>.12&&p<.88){this.lastDistance=distance;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,-.35+(this.footSide?-.12:.12),-.18),yaw,.14,.3,4.1,.1,this.footSide===1);this.trails.emit('paw',offsetPoint(pos,yaw,.56,-.2),yaw,.16,.18,3.8,.09);}
+  update(dt,t){super.update(dt,t);const duration=21,cycle=Math.floor(t/duration),p=(t%duration)/duration;if(cycle!==this.lastCycle){this.lastCycle=cycle;this.lastDistance=-1;}const travel=smoother(invLerp(.12,.88,p));const pos=this.path.getPointAt(travel),tan=this.path.getTangentAt(travel),yaw=Math.atan2(tan.x,tan.z),distance=travel*this.pathLength;this.group.position.copy(pos);
+    if(this.walkerCard){this.group.rotation.y=0;this.walkerCard.faceCamera(this.cardYaw);const dx=this.screenDx(pos,tan.clone().setY(0).normalize());if(Math.abs(dx)>.0004)this.walkerCard.setFacing(dx>=0?1:-1);this.walkerCard.bob(t*3.6,.013);this.walkerCard.card.rotation.z=Math.sin(t*3.6)*.014;}
+    else{this.group.rotation.y=yaw;this.walker.animate(t*7.2,.85);this.dog.animate(t*8.2);}
+    const fade=smooth(invLerp(.08,.16,p))*(1-smooth(invLerp(.86,.94,p)));this.group.visible=fade>.01;if(distance-this.lastDistance>.31&&p>.12&&p<.88){this.lastDistance=distance;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,-.35+(this.footSide?-.12:.12),-.18),yaw,.14,.3,4.1,.1,this.footSide===1);this.trails.emit('paw',offsetPoint(pos,yaw,.56,-.2),yaw,.16,.18,3.8,.09);}
     this.trees.forEach((tr,i)=>{tr.crown.rotation.z=Math.sin(t*.55+i)*.035;});this.flowers.forEach(({flower,phase})=>{flower.position.y=flower.userData.baseY+Math.sin(t*.9+phase)*.012;flower.rotation.z=Math.sin(t*.8+phase)*.1;});}
 }
 
@@ -1482,4 +1656,8 @@ function startMotion(){
   setTimeout(()=>{allStages.forEach(s=>s.resize&&s.resize());ensureLoop();},600);
 }
 
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+/* v67: the concept-art textures load before the stages build, so every
+   character mounts as artwork; any texture that fails simply leaves that
+   character on the 3D fallback cast. */
+function preBoot(){loadSpriteTextures().then(boot,boot);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',preBoot,{once:true});else preBoot();
