@@ -1,5 +1,6 @@
 import * as THREE from './three.module.min.js';
 import { createNavigationRoute } from './care-nav.js';
+import { createHuman, CAST } from './care-cast.js';
 
 /*
  * BookIt live care-background v57
@@ -117,320 +118,7 @@ function contactShadow(width = 1.25, depth = .85, opacity = .085) {
   return shadow;
 }
 
-/* Realistic homepage cast -------------------------------------------------
-   Each cast member is an appearance-only billboard. The procedural actor
-   below remains the motion/attachment proxy, so routes, timing and marks do
-   not depend on an image having loaded. Optional atlases are 8 x 4 at 8 fps. */
-const CARE_CAST_BASE = new URL('../assets/care-cast/', import.meta.url);
-const CARE_CAST_COLS = 8;
-const CARE_CAST_ROWS = 4;
-const CARE_CAST_FRAMES = CARE_CAST_COLS * CARE_CAST_ROWS;
-const CARE_CAST_FPS = 8;
-const careCastLoader = new THREE.TextureLoader();
-const careCastTexturePromises = new Map();
-const careCastScratchA = new THREE.Vector3();
-const careCastScratchB = new THREE.Vector3();
-
-/* Crop transparent generation margins while leaving a little room for atlas
-   movement. Coordinates are left/top/right/bottom within one frame. */
-const CARE_CAST_META = {
-  'wheelchair-pair': { crop: [.16, .13, .86, .89], atlasCrop: [0, 0, 1, 1], facesRight: true },
-  'bench-reader': { crop: [.16, .08, .81, .93], atlasCrop: [.23, .05, .78, .97], facesRight: false },
-  'chat-red': { crop: [.25, .14, .75, .92], atlasCrop: [.23, .05, .75, .97], facesRight: true },
-  'chat-bob': { crop: [.25, .08, .75, .94], atlasCrop: [.26, .05, .75, .97], facesRight: false },
-  gardener: { crop: [.19, .09, .81, .90], atlasCrop: [.14, .05, .86, .98], facesRight: false },
-  'gardener-walk': { crop: [.19, .09, .81, .90], atlasCrop: [0, 0, 1, 1], facesRight: false },
-  'gardener-water': { crop: [.19, .09, .81, .90], atlasCrop: [.14, .05, .86, .98], facesRight: false },
-  'mower-worker': { crop: [.18, .13, .82, .87], atlasCrop: [0, 0, 1, 1], facesRight: false },
-  'dog-walker': { crop: [.12, .09, .88, .90], atlasCrop: [0, 0, 1, 1], facesRight: true },
-};
-
-function loadCareCastTexture(file) {
-  if (!careCastTexturePromises.has(file)) {
-    const url = new URL(file, CARE_CAST_BASE).href;
-    careCastTexturePromises.set(file, new Promise(resolve => {
-      careCastLoader.load(url, texture => {
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.generateMipmaps = false;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        resolve(texture);
-      }, undefined, () => resolve(null));
-    }));
-  }
-  return careCastTexturePromises.get(file);
-}
-
-function cloneCareCastTexture(source) {
-  if (!source) return null;
-  const texture = source.clone();
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.generateMipmaps = false;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.needsUpdate = true;
-  return texture;
-}
-
-function hideProxyMeshes(root) {
-  root.traverse(object => { if (object.isMesh) object.visible = false; });
-}
-
-/* Dimensions in the supplied root's own coordinate space. Capturing these
-   before adding sprites keeps the hero's responsive Box3 composition stable. */
-function proxyLocalBounds(root) {
-  root.updateWorldMatrix(true, true);
-  const box = new THREE.Box3().setFromObject(root);
-  const size = box.getSize(new THREE.Vector3());
-  root.getWorldScale(careCastScratchA);
-  return {
-    width: size.x / Math.max(.0001, Math.abs(careCastScratchA.x)),
-    height: size.y / Math.max(.0001, Math.abs(careCastScratchA.y)),
-    depth: size.z / Math.max(.0001, Math.abs(careCastScratchA.z)),
-  };
-}
-
-class CareCastBillboard {
-  constructor(parent, options) {
-    this.parent = parent;
-    this.height = options.height;
-    this.actions = new Map();
-    this.activeAction = options.defaultAction || Object.keys(options.actions)[0];
-    this.proxyRoots = options.proxyRoots || [];
-    this.proxyHidden = false;
-    this.lastMirror = false;
-    this.lastUpdate = { time: 0, animate: false, phase: null, direction: null, camera: null, mirror: null };
-    this.material = new THREE.SpriteMaterial({
-      transparent: true,
-      depthTest: true,
-      depthWrite: false,
-      alphaTest: .015,
-      toneMapped: false,
-    });
-    this.sprite = new THREE.Sprite(this.material);
-    this.sprite.center.set(.5, 0); /* feet, not image centre, sit on the route */
-    this.sprite.visible = false;
-    this.sprite.renderOrder = 4;
-    parent.add(this.sprite);
-    Object.entries(options.actions).forEach(([name, action]) => this.loadAction(name, action));
-  }
-
-  loadAction(name, action) {
-    const id = action.id;
-    const staticId = action.staticId || id;
-    const meta = CARE_CAST_META[action.frameId || staticId] || { crop: [0, 0, 1, 1], facesRight: true };
-    const state = { id, meta, staticMap: null, atlasMap: null };
-    this.actions.set(name, state);
-    loadCareCastTexture(`${staticId}.png`).then(source => {
-      state.staticMap = cloneCareCastTexture(source);
-      this.textureArrived();
-    });
-    loadCareCastTexture(`${id}-atlas.webp`).then(source => {
-      state.atlasMap = cloneCareCastTexture(source);
-      this.textureArrived();
-    });
-  }
-
-  textureArrived() {
-    const state = this.actions.get(this.activeAction);
-    if (!state || (!state.staticMap && !state.atlasMap)) return;
-    if (!this.proxyHidden) {
-      this.proxyRoots.forEach(hideProxyMeshes);
-      this.proxyHidden = true;
-    }
-    this.update(this.lastUpdate.time, this.lastUpdate);
-    if (typeof staticMode !== 'undefined' && staticMode) queueStaticRedraw();
-    else ensureLoop();
-  }
-
-  update(time, options = {}) {
-    const action = options.action || this.activeAction;
-    this.activeAction = action;
-    this.lastUpdate = {
-      time,
-      action,
-      animate: options.animate !== false,
-      /* Locomotion can supply travelled-distance phase (cycles). Idle and
-         task atlases deliberately retain the authored 8 fps timeline. */
-      phase: Number.isFinite(options.phase) ? options.phase : null,
-      direction: options.direction || null,
-      camera: options.camera || null,
-      mirror: typeof options.mirror === 'boolean' ? options.mirror : null,
-    };
-    const state = this.actions.get(action);
-    if (!state) return;
-    const staticOnly = reduceMotion() || !state.atlasMap;
-    const map = staticOnly ? (state.staticMap || state.atlasMap) : state.atlasMap;
-    if (!map) return;
-    if (!this.proxyHidden) {
-      this.proxyRoots.forEach(hideProxyMeshes);
-      this.proxyHidden = true;
-    }
-    if (this.material.map !== map) {
-      this.material.map = map;
-      this.material.needsUpdate = true;
-    }
-    const atlas = map === state.atlasMap;
-    const cursor = this.lastUpdate.phase === null
-      ? Math.max(0, time) * CARE_CAST_FPS
-      : this.lastUpdate.phase * CARE_CAST_FRAMES;
-    const frame = atlas && this.lastUpdate.animate
-      ? ((Math.floor(cursor) % CARE_CAST_FRAMES) + CARE_CAST_FRAMES) % CARE_CAST_FRAMES
-      : 0;
-    const mirror = this.resolveMirror(state.meta.facesRight, this.lastUpdate);
-    this.applyFrame(map, atlas && state.meta.atlasCrop ? state.meta.atlasCrop : state.meta.crop, atlas, frame, mirror);
-    this.sprite.visible = true;
-  }
-
-  resolveMirror(facesRight, update) {
-    if (update.mirror !== null) {
-      this.lastMirror = update.mirror;
-      return this.lastMirror;
-    }
-    if (!update.direction || !update.camera) return this.lastMirror;
-    this.parent.getWorldPosition(careCastScratchA);
-    careCastScratchB.copy(careCastScratchA).add(update.direction);
-    const ax = careCastScratchA.project(update.camera).x;
-    const bx = careCastScratchB.project(update.camera).x;
-    /* A camera-facing side profile has no new left/right answer while its
-       route is screen-vertical. Keep the preceding heading through the turn
-       instead of snapping to the source image's default facing. */
-    if (Math.abs(bx - ax) < .002) return this.lastMirror;
-    const travellingRight = bx > ax;
-    this.lastMirror = travellingRight !== facesRight;
-    return this.lastMirror;
-  }
-
-  applyFrame(map, crop, atlas, frame, mirror) {
-    const [left, top, right, bottom] = crop;
-    const cropWidth = Math.max(.001, right - left);
-    const cropHeight = Math.max(.001, bottom - top);
-    const col = atlas ? frame % CARE_CAST_COLS : 0;
-    const row = atlas ? Math.floor(frame / CARE_CAST_COLS) : 0;
-    const cols = atlas ? CARE_CAST_COLS : 1;
-    const rows = atlas ? CARE_CAST_ROWS : 1;
-    map.repeat.set((mirror ? -cropWidth : cropWidth) / cols, cropHeight / rows);
-    map.offset.x = (col + (mirror ? right : left)) / cols;
-    map.offset.y = (rows - 1 - row + (1 - bottom)) / rows;
-    const aspect = map.image
-      ? ((map.image.width / cols) * cropWidth) / Math.max(1, (map.image.height / rows) * cropHeight)
-      : 1;
-    this.sprite.scale.set(this.height * aspect, this.height, 1);
-  }
-}
-
-function createHuman(options = {}) {
-  const root = new THREE.Group();
-  root.scale.setScalar(options.scale ?? .62);
-  const skin = standardMaterial(options.skin ?? 0xb97957, .84);
-  const shirt = standardMaterial(options.shirt ?? C.tealMid, .86);
-  const trousers = standardMaterial(options.trousers ?? 0x344c51, .88);
-  const hair = standardMaterial(options.hair ?? 0x2b2625, .95);
-  const shoes = standardMaterial(options.shoes ?? C.ink, .76);
-  const eye = standardMaterial(0x1e2930, .72);
-
-  const torso = new THREE.Group();
-  const torsoMesh = makeCapsule(.38, .56, shirt, 12);
-  torsoMesh.scale.set(1, 1, .82);
-  torso.add(torsoMesh);
-
-  const head = new THREE.Group();
-  const face = makeSphere(.31, skin, 18, 13);
-  face.scale.set(.9, 1.08, .9);
-  head.add(face);
-  const hairCap = makeSphere(.326, hair, 16, 11);
-  hairCap.scale.set(.95, .64, .95);
-  hairCap.position.set(0, .18, -.035);
-  head.add(hairCap);
-  if (options.hairStyle === 'bun') {
-    const bun = makeSphere(.17, hair, 12, 9);
-    bun.position.set(0, .34, -.18);
-    head.add(bun);
-  } else if (options.hairStyle === 'waves') {
-    for (const side of [-1, 1]) {
-      const wave = makeCapsule(.085, .34, hair, 9);
-      wave.position.set(side * .25, -.03, -.08);
-      wave.rotation.z = -side * .1;
-      head.add(wave);
-    }
-  } else if (options.hairStyle === 'curls') {
-    for (const [x, y] of [[-.22,.13],[.22,.13],[-.24,-.02],[.24,-.02],[-.14,.29],[.14,.29]]) {
-      const curl = makeSphere(.105, hair, 9, 7);
-      curl.position.set(x, y, -.07);
-      head.add(curl);
-    }
-  }
-  for (const side of [-1, 1]) {
-    const eyeMesh = makeSphere(.03, eye, 8, 6);
-    eyeMesh.position.set(side * .105, .035, .272);
-    head.add(eyeMesh);
-  }
-
-  const leftArm = new THREE.Group();
-  const rightArm = new THREE.Group();
-  const leftLeg = new THREE.Group();
-  const rightLeg = new THREE.Group();
-  function addArm(target, side) {
-    const sleeve = makeCapsule(.105, .34, shirt, 9);
-    sleeve.position.y = -.27;
-    const hand = makeCapsule(.072, .2, skin, 9);
-    hand.position.y = -.61;
-    target.add(sleeve, hand);
-    target.position.x = side * .47;
-  }
-  function addLeg(target, side) {
-    const upper = makeCapsule(.14, .38, trousers, 10);
-    upper.position.y = -.31;
-    const lower = makeCapsule(.12, .34, trousers, 10);
-    lower.position.y = -.74;
-    const shoe = makeBox(.25, .15, .43, shoes, .03);
-    shoe.position.set(0, -1, .11);
-    target.add(upper, lower, shoe);
-    target.position.x = side * .2;
-  }
-  addArm(leftArm, -1); addArm(rightArm, 1);
-  addLeg(leftLeg, -1); addLeg(rightLeg, 1);
-
-  const seated = !!options.seated;
-  if (seated) {
-    torso.position.y = 1.2; head.position.y = 2.02;
-    leftArm.position.y = rightArm.position.y = 1.52;
-    leftArm.rotation.x = rightArm.rotation.x = -.25;
-    leftLeg.position.y = rightLeg.position.y = .72;
-    leftLeg.rotation.x = rightLeg.rotation.x = -1.16;
-    leftLeg.children[1].rotation.x = rightLeg.children[1].rotation.x = .78;
-  } else {
-    torso.position.y = 1.78; head.position.y = 2.64;
-    leftArm.position.y = rightArm.position.y = 2.05;
-    leftLeg.position.y = rightLeg.position.y = 1.02;
-  }
-  root.add(torso, head, leftArm, rightArm, leftLeg, rightLeg);
-
-  return {
-    root, torso, head, leftArm, rightArm, leftLeg, rightLeg, seated,
-    animate(phase, intensity = 1) {
-      if (seated) {
-        const push = Math.sin(phase * .74);
-        leftArm.rotation.x = -.34 + push * .18 * intensity;
-        rightArm.rotation.x = -.34 + push * .18 * intensity;
-        torso.rotation.z = Math.sin(phase * .36) * .025 * intensity;
-        head.rotation.y = Math.sin(phase * .22) * .13 * intensity;
-        return;
-      }
-      const stride = Math.sin(phase);
-      const lift = Math.max(0, Math.sin(phase * 2)) * .045 * intensity;
-      leftLeg.rotation.x = stride * .48 * intensity;
-      rightLeg.rotation.x = -stride * .48 * intensity;
-      leftArm.rotation.x = -stride * .4 * intensity;
-      rightArm.rotation.x = stride * .4 * intensity;
-      torso.position.y = 1.78 + lift;
-      torso.rotation.y = stride * .035 * intensity;
-      head.position.y = 2.64 + lift * .65;
-      head.rotation.y = Math.sin(phase * .35) * .1 * intensity;
-    },
-  };
-}
-
+/* v65.7: createHuman moved to the shared care-cast.js (rendered-lineup style). */
 function createWheel(radius = .55, manual = true) {
   const group = new THREE.Group();
   const rubber = standardMaterial(0x27343a, .74);
@@ -478,7 +166,7 @@ function createWheelchair() {
     const casterFork = cylinderBetween(new THREE.Vector3(side * .45, .46, .38), new THREE.Vector3(side * .45, .21, .65), .027, frame, 7);
     const caster = createWheel(.14, false); caster.scale.setScalar(.62); caster.position.set(side * .45, .16, .68); root.add(casterFork, caster);
   }
-  const person = createHuman({ skin: 0x9a5d41, shirt: 0xb98f4d, trousers: 0x40585a, hair: 0x251e1c, hairStyle: 'bun', seated: true, scale: .67 });
+  const person = createHuman({ ...CAST.ruth, seated: true, scale: .67 });
   person.root.position.y = .18;
   root.add(person.root, contactShadow(1.25, 1.05, .1));
   return {
@@ -520,7 +208,7 @@ function createPowerChair() {
   const joyBox = makeBox(.16, .09, .24, frame, .02); joyBox.position.set(.5, 1.3, .42);
   const stick = makeSphere(.05, accent, 8, 6); stick.position.set(.5, 1.4, .44);
   root.add(joyBox, stick);
-  const person = createHuman({ skin: 0x6d4636, shirt: 0x6f91c2, trousers: 0x40585a, hair: 0x1c1c1c, hairStyle: 'bun', seated: true, scale: .67 });
+  const person = createHuman({ ...CAST.ruth, seated: true, scale: .67 });
   person.root.position.y = .24;
   root.add(person.root, contactShadow(1.2, 1.15, .1));
   return {
@@ -560,7 +248,7 @@ function createWalkerUser() {
   tray.position.set(0, .62, .28);
   frame.add(tray);
   frame.position.z = .34;
-  const person = createHuman({ skin: 0xc99772, shirt: 0xb98f4d, trousers: 0x4a5a5e, hair: 0xcfc8bd, hairStyle: 'bun', scale: .62 });
+  const person = createHuman({ skin: 0xc99772, shirt: 0xf1e8d4, jacket: 0xc29a4e, trousers: 0x4a5a5e, hair: 0xcfc8bd, hairStyle: 'bob', shoes: 0x8a6a4f, scale: .62 });
   person.root.position.z = -.3;
   person.torso.rotation.x = .07;
   root.add(frame, person.root, contactShadow(.95, .95, .09));
@@ -596,7 +284,7 @@ function createWateringCan() {
 
 function createGardener() {
   const root = new THREE.Group();
-  const human = createHuman({ skin: 0x8d563d, shirt: C.tealMid, trousers: 0x355052, hair: 0x241f1e, hairStyle: 'bun', scale: .66 });
+  const human = createHuman({ ...CAST.carer, scale: .66 });
   const can = createWateringCan();
   can.root.position.set(.48, .93, .28);
   can.root.scale.setScalar(.82);
@@ -1051,34 +739,18 @@ class HeroJourneyStage extends MiniStage {
     /* v65.2: the park is lived-in — a neighbour on the bench, two friends
        chatting under the pergola. All three ride their prop's transform, so
        they scale and place with it on every viewport. */
-    this.benchSitter = createHuman({ seated: true, scale: .62, skin: 0xc98d68, shirt: 0xb96a4e, trousers: 0x415a5e, hair: 0x3a2c25, hairStyle: 'waves' });
+    this.benchSitter = createHuman({ ...CAST.marcus, seated: true, scale: .62 });
     this.benchSitter.root.position.set(-.45, -.17, -.02);
     this.bench.root.add(this.benchSitter.root);
     this.pergolaPair = [
-      createHuman({ skin: 0x8a5a40, shirt: 0xc2a14e, trousers: 0x3f5457, hair: 0x241f1d, hairStyle: 'bun', scale: .62 }),
-      createHuman({ skin: 0xd8a67f, shirt: 0x2d847d, trousers: 0x51585a, hair: 0x4a3527, hairStyle: 'curls', scale: .6 }),
+      createHuman({ ...CAST.sophie, scale: .62 }),
+      createHuman({ ...CAST.priya, scale: .6 }),
     ];
     this.pergolaPair[0].root.position.set(-.55, 0, .3);
     this.pergolaPair[1].root.position.set(.5, 0, -.28);
     this.pergolaPair[0].root.rotation.y = Math.atan2(1.05, -.58);
     this.pergolaPair[1].root.rotation.y = Math.atan2(-1.05, .58);
     this.pergolaPair.forEach(h => { h.root.add(contactShadow(.8, .6, .07)); this.pergola.root.add(h.root); });
-    /* Lock the original authored prop envelope before billboard geometry is
-       introduced; resize/layout will therefore remain byte-for-byte in the
-       same screen corridor. */
-    this.bench.root.userData.careLayoutBounds = proxyLocalBounds(this.bench.root);
-    this.pergola.root.userData.careLayoutBounds = proxyLocalBounds(this.pergola.root);
-    const benchCastHeight = proxyLocalBounds(this.benchSitter.root).height;
-    this.benchCast = new CareCastBillboard(this.benchSitter.root, {
-      height: benchCastHeight,
-      proxyRoots: [this.benchSitter.root],
-      actions: { idle: { id: 'bench-reader' } },
-    });
-    this.chatCasts = this.pergolaPair.map((person, index) => new CareCastBillboard(person.root, {
-      height: proxyLocalBounds(person.root).height,
-      proxyRoots: [person.root],
-      actions: { idle: { id: index ? 'chat-bob' : 'chat-red' } },
-    }));
     this.flowerBeds = [14, 12].map(count => {
       const g = new THREE.Group();
       const flowers = addFlowerPatch(g, 0, 0, count);
@@ -1110,7 +782,7 @@ class HeroJourneyStage extends MiniStage {
     /* v65.5: the walk is shared around — each loop a different pair travels
        the path. Loop A: a carer walking the dog beside a power-chair user.
        Loop B: a carer strolling with someone using a wheeled walker. */
-    const carerOpts = { skin: 0x8a553d, shirt: 0x2a6e62, trousers: 0x7c7d78, hair: 0x2b211e, hairStyle: 'curls', scale: .66 };
+    const carerOpts = { ...CAST.carer, scale: .66 };
     const groupA = (() => {
       const g = new THREE.Group();
       const chair = createPowerChair();
@@ -1124,6 +796,15 @@ class HeroJourneyStage extends MiniStage {
       g.add(chair.root, carer.root, dog.root);
       return {
         root: g,
+        /* gaze: heads lead, the rider adds a little torso, the carer pivots
+           on the spot at half strength — nobody's feet slide */
+        gaze: (localYaw, amount) => {
+          const look = Math.max(-1.05, Math.min(1.05, localYaw));
+          chair.person.head.rotation.y += look * .65 * amount;
+          chair.person.torso.rotation.y = look * .14 * amount;
+          carer.head.rotation.y += look * .4 * amount;
+          carer.root.rotation.y = look * .5 * amount;
+        },
         animate: (distance, gait, moving, t, s) => {
           chair.animate(distance / s, moving ? gait : t * 1.2);
           carer.animate(moving ? gait : t * 1.2, moving ? .95 : .08);
@@ -1133,6 +814,7 @@ class HeroJourneyStage extends MiniStage {
           mark('wheel', -.92, .3, 6.5, 11, 14, .3);
           mark('wheel', -.12, .3, 6.5, 11, 14, .3);
           mark('foot', .5 + (footSide ? -.12 : .12), -.4, footSide ? 8.5 : -8.5, 14, 12, .38);
+          mark('paw', 1.42, .95, 6.5, 6.5, 9, .3);
         },
       };
     })();
@@ -1145,6 +827,13 @@ class HeroJourneyStage extends MiniStage {
       g.add(walker.root, carer.root);
       return {
         root: g,
+        gaze: (localYaw, amount) => {
+          const look = Math.max(-1.05, Math.min(1.05, localYaw));
+          walker.person.head.rotation.y += look * .6 * amount;
+          walker.person.torso.rotation.y = look * .1 * amount;
+          carer.head.rotation.y += look * .4 * amount;
+          carer.root.rotation.y = look * .5 * amount;
+        },
         animate: (distance, gait, moving, t, s) => {
           walker.animate(distance / s, moving ? gait * .85 : t * 1.1, moving);
           carer.animate(moving ? gait * .85 : t * 1.2, moving ? .8 : .08);
@@ -1152,12 +841,10 @@ class HeroJourneyStage extends MiniStage {
           carer.leftArm.rotation.x = -.42 + Math.sin(moving ? gait * .85 : t * 1.2) * .04;
         },
         marks: (mark, footSide) => {
-          /* The approved cast is the same manual-chair pair on both loops,
-             so its fading trail must remain wheelchair + carer (not the
-             hidden walker's old tracks or a second set of footprints). */
-          mark('wheel', -.92, .3, 6.5, 11, 14, .3);
-          mark('wheel', -.12, .3, 6.5, 11, 14, .3);
-          mark('foot', .5 + (footSide ? -.12 : .12), -.4, footSide ? 8.5 : -8.5, 14, 12, .38);
+          mark('wheel', -.79, .48, 4, 8, 12, .26);
+          mark('wheel', -.11, .48, 4, 8, 12, .26);
+          mark('foot', -.45 + (footSide ? -.11 : .11), -.32, footSide ? 8 : -8, 13, 12, .36);
+          mark('foot', .55 + (footSide ? -.12 : .12), -.38, footSide ? 8.5 : -8.5, 14, 12, .38);
         },
       };
     })();
@@ -1166,12 +853,6 @@ class HeroJourneyStage extends MiniStage {
     this.pair = new THREE.Group();
     this.travellers.forEach((tr, i) => { tr.root.visible = i === 0; this.pair.add(tr.root); });
     this.scene.add(this.pair);
-    this.pairLayoutHeight = proxyLocalBounds(this.pair).height;
-    this.travellerCasts = this.travellers.map(traveller => new CareCastBillboard(traveller.root, {
-      height: proxyLocalBounds(traveller.root).height,
-      proxyRoots: [traveller.root],
-      actions: { travel: { id: 'wheelchair-pair' } },
-    }));
     this.lastStamp = -1; this.footSide = 0; this.lastCycle = -1;
     this.ready = true;
     this.layout();
@@ -1293,7 +974,8 @@ class HeroJourneyStage extends MiniStage {
     this.pair.position.set(0, 0, 0);
     this.pair.rotation.y = 0;
     this.pair.updateMatrixWorld(true);
-    this.pairScale = Math.max(88, 118 * this.fit) / (Math.max(.001, this.pairLayoutHeight) * this.upPx);
+    const pairBox = new THREE.Box3().setFromObject(this.pair);
+    this.pairScale = Math.max(88, 118 * this.fit) / (Math.max(.001, pairBox.max.y - pairBox.min.y) * this.upPx);
     this.pair.scale.setScalar(this.pairScale);
     this.buildInk();
 
@@ -1302,8 +984,8 @@ class HeroJourneyStage extends MiniStage {
     const benchTan = this.travel.getTangentAt(this.uBench).normalize();
     const benchNormal = new THREE.Vector3(benchTan.z, 0, -benchTan.x).normalize();
     this.scaleProp(this.bench.root, Math.max(46, 62 * this.fit));
-    const benchDepth = this.bench.root.userData.careLayoutBounds.depth * this.bench.root.scale.z;
-    const benchOffset = benchDepth * .65 + this.pairScale * 1.3;
+    const benchBox = new THREE.Box3().setFromObject(this.bench.root);
+    const benchOffset = (benchBox.max.z - benchBox.min.z) * .65 + this.pairScale * 1.3;
     const bw = benchPoint.clone().addScaledVector(benchNormal, benchOffset);
     const be = benchPoint.clone().addScaledVector(benchNormal, -benchOffset);
     const benchPos = band ? this.pickSide(bw, be)
@@ -1318,8 +1000,8 @@ class HeroJourneyStage extends MiniStage {
     const pergTan = this.travel.getTangentAt(this.uPergola).normalize();
     const pergNormal = new THREE.Vector3(pergTan.z, 0, -pergTan.x).normalize();
     this.scaleProp(this.pergola.root, Math.max(70, Math.min(100 * this.fit, band ? (x1 - x0) * .26 : 1000)));
-    const pergDepth = this.pergola.root.userData.careLayoutBounds.depth * this.pergola.root.scale.z;
-    const pergOffset = pergDepth * .62 + this.pairScale * 1.25;
+    const pergBox = new THREE.Box3().setFromObject(this.pergola.root);
+    const pergOffset = (pergBox.max.z - pergBox.min.z) * .62 + this.pairScale * 1.25;
     const pw = pergPoint.clone().addScaledVector(pergNormal, pergOffset);
     const pe = pergPoint.clone().addScaledVector(pergNormal, -pergOffset);
     const pergPos = band ? this.pickSide(pw, pe)
@@ -1355,10 +1037,10 @@ class HeroJourneyStage extends MiniStage {
 
     /* flower beds tuck in behind each rest stop; butterflies hover them */
     const benchBack = benchPos.clone().sub(benchPoint).normalize();
-    this.flowerBeds[0].root.position.copy(benchPos).addScaledVector(benchBack, benchDepth * 1.15);
+    this.flowerBeds[0].root.position.copy(benchPos).addScaledVector(benchBack, (benchBox.max.z - benchBox.min.z) * 1.15);
     this.flowerBeds[0].root.scale.setScalar(this.pairScale * .85);
     const pergBack = pergPos.clone().sub(pergPoint).normalize();
-    this.flowerBeds[1].root.position.copy(pergPos).addScaledVector(pergBack, pergDepth * .82);
+    this.flowerBeds[1].root.position.copy(pergPos).addScaledVector(pergBack, (pergBox.max.z - pergBox.min.z) * .82);
     this.flowerBeds[1].root.scale.setScalar(this.pairScale * .9);
     this.butterflies[0].anchor.copy(this.flowerBeds[0].root.position);
     this.butterflies[1].anchor.copy(this.flowerBeds[1].root.position);
@@ -1398,11 +1080,6 @@ class HeroJourneyStage extends MiniStage {
     root.scale.setScalar(1);
     root.position.set(0, 0, 0);
     root.rotation.y = 0;
-    const fixed = root.userData.careLayoutBounds;
-    if (fixed) {
-      root.scale.setScalar(targetPx / (Math.max(.001, fixed.height) * this.upPx));
-      return;
-    }
     root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root);
     root.scale.setScalar(targetPx / (Math.max(.001, box.max.y - box.min.y) * this.upPx));
@@ -1480,9 +1157,6 @@ class HeroJourneyStage extends MiniStage {
     this.benchSitter.animate(t * .8, .55);
     this.pergolaPair[0].animate(t * 1.02, .06);
     this.pergolaPair[1].animate(t * 1.13 + 2, .06);
-    this.benchCast.update(t, { animate: true });
-    this.chatCasts[0].update(t, { animate: true, mirror: false });
-    this.chatCasts[1].update(t, { animate: true, mirror: true });
     this.pergolaPair[0].rightArm.rotation.x = -.62 + Math.sin(t * 1.8) * .16;
     this.pergolaPair[1].leftArm.rotation.x = -.5 + Math.sin(t * 2.1 + 1) * .13;
     this.flowerBeds.forEach(bed => bed.flowers.forEach(({ flower, phase }) => {
@@ -1511,6 +1185,7 @@ class HeroJourneyStage extends MiniStage {
       /* a different pair takes the next loop */
       this.activeTraveller = ((cycle % this.travellers.length) + this.travellers.length) % this.travellers.length;
       this.travellers.forEach((tr, i) => { tr.root.visible = i === this.activeTraveller; });
+      this.heading = undefined;
     }
 
     /* walk in from off-screen, rest at the bench, rest under the pergola,
@@ -1539,43 +1214,36 @@ class HeroJourneyStage extends MiniStage {
     const yaw = Math.atan2(tan.x, tan.z);
     const distance = u * this.travelLength;
     const gait = distance / Math.max(.05, .52 * this.pairScale) * Math.PI;
-    /* Each authored walk leg lands exactly on an atlas-cycle boundary. This
-       preserves distance-driven foot contact while letting frame 31 flow into
-       frame 0 at the bench/pergola, instead of snapping to frame 0 only after
-       the traveller has already stopped. */
-    const castStride = Math.max(.05, 1.04 * this.pairScale);
-    const benchDistance = this.uBench * this.travelLength;
-    const pergolaDistance = this.uPergola * this.travelLength;
-    const castLegs = [benchDistance, pergolaDistance - benchDistance, this.travelLength - pergolaDistance];
-    const castCycles = castLegs.map(length => Math.max(1, Math.round(length / castStride)));
-    let castPhase;
-    if (distance <= benchDistance) {
-      castPhase = castCycles[0] * distance / Math.max(.0001, castLegs[0]);
-    } else if (distance <= pergolaDistance) {
-      castPhase = castCycles[0] + castCycles[1] * (distance - benchDistance) / Math.max(.0001, castLegs[1]);
-    } else {
-      castPhase = castCycles[0] + castCycles[1] + castCycles[2] * (distance - pergolaDistance) / Math.max(.0001, castLegs[2]);
-    }
     this.pair.position.copy(p);
+    /* v65.8: no more statue-swivel at the stops. The group keeps its path
+       heading (drifting a touch toward the prop); the LOOKING is done by
+       heads and a half-pivot from the carer, so feet never slide. */
     let heading = yaw;
+    let gazeAmount = 0, gazeTarget = null;
     if (!moving && restLen) {
-      /* settle into the rest pose, then turn back to the path before leaving */
-      const target = Math.abs(u - this.uPergola) < 1e-6 ? this.restYawPergola : this.restYaw;
+      gazeTarget = Math.abs(u - this.uPergola) < 1e-6 ? this.pergolaWorld : this.benchWorld;
+      const restYaw = Math.abs(u - this.uPergola) < 1e-6 ? this.restYawPergola : this.restYaw;
       const turnIn = smooth(invLerp(0, 1.7, resting));
       const turnOut = smooth(invLerp(restLen - .9, restLen, resting));
-      const delta = Math.atan2(Math.sin(target - yaw), Math.cos(target - yaw));
-      heading = yaw + delta * turnIn * (1 - turnOut);
+      gazeAmount = turnIn * (1 - turnOut);
+      const delta = Math.atan2(Math.sin(restYaw - yaw), Math.cos(restYaw - yaw));
+      heading = yaw + delta * .28 * gazeAmount;
     }
-    this.pair.rotation.y = heading;
+    if (this.heading === undefined) this.heading = heading;
+    const headingDelta = Math.atan2(Math.sin(heading - this.heading), Math.cos(heading - this.heading));
+    const maxTurn = 2.2 * Math.min(dt, .05);
+    this.heading += Math.sign(headingDelta) * Math.min(Math.abs(headingDelta) * .1, maxTurn);
+    this.pair.rotation.y = this.heading;
 
     const traveller = this.travellers[this.activeTraveller];
     traveller.animate(distance, gait, moving, t, this.pairScale);
-    this.travellerCasts[this.activeTraveller].update(t, {
-      animate: moving,
-      phase: castPhase,
-      direction: tan,
-      camera: this.camera,
-    });
+    if (gazeTarget) {
+      const worldYaw = Math.atan2(gazeTarget.x - p.x, gazeTarget.z - p.z);
+      const localYaw = Math.atan2(Math.sin(worldYaw - this.heading), Math.cos(worldYaw - this.heading));
+      traveller.gaze(localYaw, gazeAmount);
+    } else {
+      traveller.gaze(0, 0);
+    }
 
     if (!moving) return;
     const normal = new THREE.Vector3(tan.z, 0, -tan.x).normalize();
@@ -1617,16 +1285,6 @@ class GardenCareStage extends MiniStage {
     const tree=createTree(.72);tree.root.position.set(4.8,0,-1.05);this.scene.add(tree.root);this.tree=tree;
     this.flowers=addFlowerPatch(this.scene,4.1,-1.4,13);
     this.gardener=createGardener();this.gardener.root.scale.setScalar(.78);this.scene.add(this.gardener.root);
-    this.gardenerCastDirection=new THREE.Vector3(0,0,1);this.gardenerCastPhase=0;
-    this.gardenerCast=new CareCastBillboard(this.gardener.root,{
-      height:proxyLocalBounds(this.gardener.root).height,
-      proxyRoots:[this.gardener.root],
-      defaultAction:'walk',
-      actions:{
-        walk:{id:'gardener-walk',staticId:'gardener',frameId:'gardener-walk'},
-        water:{id:'gardener-water',staticId:'gardener',frameId:'gardener-water'},
-      },
-    });
     this.waterMaterial=new THREE.MeshBasicMaterial({color:C.blue,transparent:true,opacity:.6,depthWrite:false,toneMapped:false});this.drops=[];
     for(let i=0;i<18;i+=1){const drop=new THREE.Mesh(new THREE.SphereGeometry(.035+(i%3)*.006,7,5),this.waterMaterial);drop.visible=false;this.scene.add(drop);this.drops.push(drop);}
     this.lastStamp=-1;this.footSide=0;this.lastCycle=-1;
@@ -1647,11 +1305,11 @@ class GardenCareStage extends MiniStage {
       toExit:createNavigationRoute(this.positions.bed2,this.positions.exit,this.obstacles,.38,[guide(5.6,.95),guide(5.85,-.7)]),
     };
   }
-  walkRoute(route,p,phase){const u=Math.min(.9999,easeInOut(p)),travelled=u*route.length;const pos=route.path.getPointAt(u);const tan=route.path.getTangentAt(u).normalize();const yaw=Math.atan2(tan.x,tan.z);this.gardener.root.position.copy(pos);this.gardener.root.rotation.y=yaw;this.gardener.animateWalk(phase,.9);this.gardenerCastDirection.copy(tan);this.gardenerCastPhase=travelled/(.33*2);this.emitFootprints(pos,yaw,travelled);return {pos,yaw};}
+  walkRoute(route,p,phase){const u=Math.min(.9999,easeInOut(p));const pos=route.path.getPointAt(u);const tan=route.path.getTangentAt(u).normalize();const yaw=Math.atan2(tan.x,tan.z);this.gardener.root.position.copy(pos);const cur=this.gardener.root.rotation.y;const d=Math.atan2(Math.sin(yaw-cur),Math.cos(yaw-cur));this.gardener.root.rotation.y=cur+Math.sign(d)*Math.min(Math.abs(d)*.14,.075);this.gardener.animateWalk(phase,.9);this.emitFootprints(pos,yaw,u*route.length);return {pos,yaw};}
   emitFootprints(pos,yaw,d){if(d-this.lastStamp>.33){this.lastStamp=d;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,this.footSide?-.15:.15,-.3),yaw,.16,.34,4.2,.13,this.footSide===1);}}
   waterBed(index,t,phase){
     const bed=this.beds[index],target=bed.root.position.clone().add(new THREE.Vector3(0,.62,0));
-    const pos=(index===0?this.positions.bed1:this.positions.bed2).clone();this.gardener.root.position.copy(pos);this.gardenerCastDirection.copy(target).sub(pos).setY(0).normalize();const yaw=Math.atan2(target.x-pos.x,target.z-pos.z);this.gardener.root.rotation.y=yaw;this.gardener.animateWater(phase);
+    const pos=(index===0?this.positions.bed1:this.positions.bed2).clone();this.gardener.root.position.copy(pos);const yaw=Math.atan2(target.x-pos.x,target.z-pos.z);this.gardener.root.rotation.y=yaw;this.gardener.animateWater(phase);
     this.gardener.root.updateMatrixWorld(true);const start=new THREE.Vector3();this.gardener.can.spoutTip.getWorldPosition(start);
     this.drops.forEach((drop,i)=>{const u=(t*1.55+i/this.drops.length)%1;const end=target.clone().add(new THREE.Vector3(((i%5)-2)*.09,0,((i%3)-1)*.08));drop.position.copy(start).lerp(end,u);drop.position.y+=Math.sin(u*Math.PI)*.68;drop.scale.setScalar(.72+Math.sin(u*Math.PI)*.45);drop.visible=true;});
     const soil=bed.soil;const wet=new THREE.Color(0x4f3c2f);soil.color.lerp(wet,.035);bed.plants.forEach((p,i)=>{p.rotation.z=Math.sin(t*2+i)*.025;});
@@ -1664,7 +1322,6 @@ class GardenCareStage extends MiniStage {
     else if(p<.57){stage='walk2';this.walkRoute(this.routes.toBed2,invLerp(.43,.57,p),t*7.5);}
     else if(p<.76){stage='water2';this.lastStamp=-1;this.waterBed(1,t,t*5);}
     else{stage='exit';this.walkRoute(this.routes.toExit,invLerp(.76,1,p),t*7.5);}
-    const watering=stage.startsWith('water');this.gardenerCast.update(t,{action:watering?'water':'walk',animate:true,phase:watering?undefined:this.gardenerCastPhase,direction:this.gardenerCastDirection,camera:this.camera});
     const fade=smooth(invLerp(0,.04,p))*(1-smooth(invLerp(.95,1,p)));this.gardener.root.visible=fade>.01;
     this.tree.crown.rotation.z=Math.sin(t*.55)*.035;this.flowers.forEach(({flower,phase})=>{flower.position.y=flower.userData.baseY+Math.sin(t*1.1+phase)*.012;});
   }
@@ -1684,11 +1341,6 @@ class MowerStage extends MiniStage {
     this.lanes.forEach((x,i)=>{const mat=new THREE.MeshStandardMaterial({color:i%2?0x527c49:0x5f884f,roughness:.98,transparent:true,opacity:.82});const mesh=makeBox(1.54,.035,3.44,mat,.01);mesh.position.set(x,.03,0);mesh.scale.z=.001;this.scene.add(mesh);this.strips.push({mesh,amount:0,direction:i%2===0?1:-1});});
     this.addFence();
     this.mower=createMower();this.mower.root.scale.setScalar(.73);this.scene.add(this.mower.root);
-    this.mowerCast=new CareCastBillboard(this.mower.worker.root,{
-      height:proxyLocalBounds(this.mower.worker.root).height,
-      proxyRoots:[this.mower.worker.root],
-      actions:{work:{id:'mower-worker'}},
-    });
     this.route=this.buildRoute();this.routeLengths=[];let total=0;for(let i=0;i<this.route.length;i+=1){if(i>0)total+=this.route[i].p.distanceTo(this.route[i-1].p);this.routeLengths.push(total);}this.routeTotal=total;
     this.lastDistance=-1;this.lastCycle=-1;this.footSide=0;
   }
@@ -1716,7 +1368,6 @@ class MowerStage extends MiniStage {
     super.update(dt,t);const duration=31,cycle=Math.floor(t/duration),p=(t%duration)/duration;if(cycle!==this.lastCycle){this.lastCycle=cycle;this.strips.forEach(s=>s.amount=0);this.lastDistance=-1;}
     const moveEnd=.74;const moving=p<moveEnd;const moveP=smoother(invLerp(.015,moveEnd,p));const distance=moveP*this.routeTotal;const sample=this.sample(distance);const yaw=Math.atan2(sample.tangent.x,sample.tangent.z);this.mower.root.position.copy(sample.p);this.mower.root.rotation.y=yaw;this.mower.root.visible=p<.78;
     const cutting=sample.lane!==null&&sample.p.z>this.lawn.laneBottom-.05&&sample.p.z<this.lawn.laneTop+.05;this.mower.animate(distance,t*8.4,cutting);
-    this.mowerCast.update(t,{animate:moving,phase:distance/(.34*2),direction:sample.tangent,camera:this.camera});
     if(sample.lane!==null)this.strips[sample.lane].amount=Math.max(this.strips[sample.lane].amount,sample.laneProgress);
     const regrow=p<.78?0:smooth(invLerp(.78,1,p));this.updateStrips(regrow);
     if(moving&&distance-this.lastDistance>.34){this.lastDistance=distance;this.footSide^=1;this.trails.emit('wheel',offsetPoint(sample.p,yaw,-.38,.08),yaw,.08,.46,5,.1);this.trails.emit('wheel',offsetPoint(sample.p,yaw,.38,.08),yaw,.08,.46,5,.1);this.trails.emit('foot',offsetPoint(sample.p,yaw,this.footSide?-.14:.14,-1.38),yaw,.15,.32,4.3,.1,this.footSide===1);}
@@ -1729,11 +1380,9 @@ class StoryGardenStage extends MiniStage {
     const patch=new THREE.Mesh(new THREE.CircleGeometry(3.4,44),new THREE.MeshStandardMaterial({color:0xf3efe8,roughness:1,transparent:true,opacity:.45}));patch.rotation.x=-Math.PI/2;patch.scale.set(1.5,.68,1);patch.position.y=.001;this.scene.add(patch);
     this.trees=[createTree(.75),createTree(.62)];this.trees[0].root.position.set(1.9,0,.85);this.trees[1].root.position.set(-1.95,0,.3);this.scene.add(this.trees[0].root,this.trees[1].root);this.flowers=addFlowerPatch(this.scene,-.35,-1.35,22);
     const path=new THREE.CatmullRomCurve3([new THREE.Vector3(-4,0,1.8),new THREE.Vector3(-1.5,0,.8),new THREE.Vector3(.5,0,.4),new THREE.Vector3(2.4,0,-.8),new THREE.Vector3(4,0,-1.6)],false,'centripetal');this.path=path;this.pathLength=path.getLength();this.scene.add(pathRibbon(path,.78,new THREE.MeshStandardMaterial({color:C.path,roughness:1,transparent:true,opacity:.52}),56,.008));
-    this.walker=createHuman({skin:0x9f6547,shirt:C.coral,trousers:0x3f5558,hair:0x2d231f,hairStyle:'waves',scale:.58});this.dog=createDog();this.group=new THREE.Group();this.walker.root.position.x=-.35;this.dog.root.position.set(.55,0,.1);this.group.add(this.walker.root,this.dog.root);this.group.scale.setScalar(.72);this.scene.add(this.group);this.storyCast=new CareCastBillboard(this.group,{height:proxyLocalBounds(this.group).height,proxyRoots:[this.walker.root,this.dog.root],actions:{walk:{id:'dog-walker'}}});this.lastDistance=-1;this.footSide=0;this.lastCycle=-1;
+    this.walker=createHuman({ ...CAST.eli, scale:.58 });this.dog=createDog();this.group=new THREE.Group();this.walker.root.position.x=-.35;this.dog.root.position.set(.55,0,.1);this.group.add(this.walker.root,this.dog.root);this.group.scale.setScalar(.72);this.scene.add(this.group);this.lastDistance=-1;this.footSide=0;this.lastCycle=-1;
   }
-  update(dt,t){super.update(dt,t);const duration=21,cycle=Math.floor(t/duration),p=(t%duration)/duration;if(cycle!==this.lastCycle){this.lastCycle=cycle;this.lastDistance=-1;}const travel=smoother(invLerp(.12,.88,p));const pos=this.path.getPointAt(travel),tan=this.path.getTangentAt(travel),yaw=Math.atan2(tan.x,tan.z),distance=travel*this.pathLength;this.group.position.copy(pos);this.group.rotation.y=yaw;this.walker.animate(t*7.2,.85);this.dog.animate(t*8.2);/* Fit a whole number of gait cycles to the route. The eased travel still
-       controls cadence, but the final footfall now lands exactly on frame 0
-       before the standing pose takes over instead of snapping there. */const storyCycles=Math.max(1,Math.round(this.pathLength/(.31*2)));this.storyCast.update(t,{animate:p>.12&&p<.88,phase:travel*storyCycles,direction:tan,camera:this.camera});const fade=smooth(invLerp(.08,.16,p))*(1-smooth(invLerp(.86,.94,p)));this.group.visible=fade>.01;if(distance-this.lastDistance>.31&&p>.12&&p<.88){this.lastDistance=distance;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,-.35+(this.footSide?-.12:.12),-.18),yaw,.14,.3,4.1,.1,this.footSide===1);this.trails.emit('paw',offsetPoint(pos,yaw,.56,-.2),yaw,.16,.18,3.8,.09);}
+  update(dt,t){super.update(dt,t);const duration=21,cycle=Math.floor(t/duration),p=(t%duration)/duration;if(cycle!==this.lastCycle){this.lastCycle=cycle;this.lastDistance=-1;}const travel=smoother(invLerp(.12,.88,p));const pos=this.path.getPointAt(travel),tan=this.path.getTangentAt(travel),yaw=Math.atan2(tan.x,tan.z),distance=travel*this.pathLength;this.group.position.copy(pos);this.group.rotation.y=yaw;this.walker.animate(t*7.2,.85);this.dog.animate(t*8.2);const fade=smooth(invLerp(.08,.16,p))*(1-smooth(invLerp(.86,.94,p)));this.group.visible=fade>.01;if(distance-this.lastDistance>.31&&p>.12&&p<.88){this.lastDistance=distance;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,-.35+(this.footSide?-.12:.12),-.18),yaw,.14,.3,4.1,.1,this.footSide===1);this.trails.emit('paw',offsetPoint(pos,yaw,.56,-.2),yaw,.16,.18,3.8,.09);}
     this.trees.forEach((tr,i)=>{tr.crown.rotation.z=Math.sin(t*.55+i)*.035;});this.flowers.forEach(({flower,phase})=>{flower.position.y=flower.userData.baseY+Math.sin(t*.9+phase)*.012;flower.rotation.z=Math.sin(t*.8+phase)*.1;});}
 }
 
