@@ -1,11 +1,36 @@
-BOOKIT SITE v64 — complete
-===========================
-This folder is the entire site: your v62 with all animations,
-warm photos on the six service pages, and social-preview tags.
+BOOKIT SITE v66 — character upgrade (the approved "polished stylised 3D" cast)
+==============================================================================
+This folder is the entire site: v65 plus the new characters. Only two files
+changed — public/vendor/care-motion.js and public/vendor/care-core.local.js.
+
+What changed in v66
+  • Every animated character — the homepage journey pair, the bench
+    neighbour, the pergola friends, the gardener, the mower worker, the
+    story walker, and all six service-page dioramas — is rebuilt to the
+    approved concept style: realistic proportions (smaller head, neck,
+    shoulders, waist), warm faces (brows, eyes with a catchlight, nose, a
+    real smile, blush), mitten hands, fuller hair, and legs that bend at
+    the knee while walking and sitting.
+  • Support workers now wear the uniform across every scene: teal polo,
+    short sleeves, lanyard and ID badge — matching the service dioramas
+    and the concept art.
+  • Seated characters rest their hands in their lap and breathe instead of
+    the old rowing-arm loop; the wheelchair rider on the homepage has her
+    silver hair from the concept.
+  • The bench neighbour actually sits ON the bench slats now (hips at seat
+    height, feet to the ground) instead of sinking into the frame, and
+    wears clearly-clothing colours (teal jumper, amber trousers).
+  • No layout, route, timing or navigation logic was touched: same
+    skeleton pivots, same scene anchors, same obstacle-aware paths, same
+    reduced-motion still frame. The carer's hands still land on the
+    wheelchair push handles; held props (hairbrush, towels, resume,
+    watering can) still sit in the same hands.
 
 Deploy: open github.com/thapasupreeya3-cpu/bookit-app/upload/main
 and drag BOTH items from inside this folder (server.js and the
 public folder) into the page. Commit, then: sudo bookit-update
+(only public/vendor/care-motion.js and public/vendor/care-core.local.js
+actually changed since v65 — but dragging both items as usual is fine.)
 
 Safe to delete from the repo whenever you like (nothing uses them):
   index.html (the one at repo root), DESIGN.md, README-V63.md,

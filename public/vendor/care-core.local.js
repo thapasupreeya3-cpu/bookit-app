@@ -1,4 +1,5 @@
 import * as THREE from "./three.module.min.js";
+import { createNavigationRoute } from "./care-nav.js";
 const SERVICES = [
     {
         id: "all",
@@ -204,124 +205,160 @@ function cylinderBetween(start, end, radius, material, radialSegments = 10) {
     mesh.receiveShadow = true;
     return mesh;
 }
+/* v66 — rebuilt to the approved "polished stylised 3D" concept: realistic
+   proportions, warm expressive faces, mitten hands, knee-jointed legs and
+   fuller hair. The skeleton contract is unchanged — same pivots, group
+   names and leg children[1] (below-knee unit, bends +.78 seated) — so
+   applySeatBlend, held props and every scene pose keep working. */
 function createHuman(options) {
     const root = new THREE.Group();
     root.scale.setScalar(options.scale ?? 0.78);
-    const skin = standardMaterial(options.skin, 0.82);
+    const skin = standardMaterial(options.skin, 0.72);
     const shirt = standardMaterial(options.shirt, 0.84);
     const trousers = standardMaterial(options.trousers, 0.88);
-    const hair = standardMaterial(options.hair, 0.94);
+    const hair = standardMaterial(options.hair, 0.9);
     const shoes = standardMaterial(options.shoes ?? 0x283844, 0.72);
     const jacket = options.jacket ? standardMaterial(options.jacket, 0.86) : null;
-    const eye = standardMaterial(0x1e2930, 0.7);
-    const brow = standardMaterial(options.hair, 0.9);
-    const lip = standardMaterial(0x9c594f, 0.86);
-    const white = standardMaterial(0xfffcf5, 0.8);
+    const eye = standardMaterial(0x241d1a, 0.5);
+    const white = standardMaterial(0xfffdf6, 0.4);
+    const lip = standardMaterial(0x8e5147, 0.78);
+    const blushMat = standardMaterial(0xd8907e, 0.95);
     const prosthetic = standardMaterial(0x75838d, 0.42, 0.42);
+    const outerwear = jacket ?? shirt;
+    /* badge wearers are the uniformed team — they get the polo look */
+    const shortSleeves = options.shortSleeves ?? (Boolean(options.badge) && !jacket);
+    /* ---- torso: shoulders, tapered chest, hips ---- */
     const torso = new THREE.Group();
-    const torsoMesh = makeCapsule(0.39, 0.58, shirt, 14);
-    torsoMesh.scale.set(1, 1, 0.82);
-    torso.add(torsoMesh);
+    const chest = makeCapsule(0.31, 0.5, shirt, 16);
+    chest.position.y = 0.04;
+    chest.scale.set(1.04, 1, 0.76);
+    const shoulderBar = makeCapsule(0.15, 0.37, outerwear, 12);
+    shoulderBar.rotation.z = Math.PI / 2;
+    shoulderBar.position.y = 0.34;
+    shoulderBar.scale.set(1, 1, 0.82);
+    const hips = makeCapsule(0.275, 0.14, trousers, 14);
+    hips.position.y = -0.5;
+    hips.scale.set(1.08, 1, 0.8);
+    const waistband = makeBox(0.6, 0.09, 0.45, trousers, 0.025);
+    waistband.position.y = -0.36;
+    torso.add(chest, shoulderBar, hips, waistband);
     if (jacket) {
-        const jacketPanel = makeBox(0.86, 0.7, 0.12, jacket, 0.06);
-        jacketPanel.position.set(0, -0.03, 0.34);
-        torso.add(jacketPanel);
+        /* an open cardigan: two soft front panels over the shirt */
+        for (const side of [-1, 1]) {
+            const panel = makeBox(0.26, 0.62, 0.1, jacket, 0.05);
+            panel.position.set(side * 0.17, 0.02, 0.19);
+            panel.rotation.y = side * 0.06;
+            torso.add(panel);
+        }
+        const backPanel = makeBox(0.56, 0.64, 0.1, jacket, 0.05);
+        backPanel.position.set(0, 0.03, -0.17);
+        torso.add(backPanel);
     }
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.026, 8, 22, Math.PI * 1.45), jacket ?? shirt);
-    collar.position.set(0, 0.34, 0.31);
-    collar.rotation.set(Math.PI / 2, 0, 0.78);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.118, 0.028, 8, 20, Math.PI * 1.5), outerwear);
+    collar.position.set(0, 0.43, 0.1);
+    collar.rotation.set(Math.PI / 2, 0, Math.PI * 0.75);
     torso.add(collar);
-    const waistband = makeBox(0.7, 0.075, 0.56, trousers, 0.025);
-    waistband.position.set(0, -0.5, 0.02);
-    torso.add(waistband);
-    const shirtPocket = makeBox(0.2, 0.17, 0.025, jacket ?? shirt, 0.018);
-    shirtPocket.position.set(0.2, 0.06, 0.355);
+    const shirtPocket = makeBox(0.15, 0.13, 0.022, outerwear, 0.014);
+    shirtPocket.position.set(0.17, 0.1, 0.243);
     torso.add(shirtPocket);
     if (options.badge) {
         const lanyardMaterial = standardMaterial(0x486c71, 0.72);
-        const leftLanyard = cylinderBetween(new THREE.Vector3(-0.085, 0.27, 0.36), new THREE.Vector3(0, 0.02, 0.39), 0.012, lanyardMaterial, 6);
-        const rightLanyard = cylinderBetween(new THREE.Vector3(0.085, 0.27, 0.36), new THREE.Vector3(0, 0.02, 0.39), 0.012, lanyardMaterial, 6);
-        const badge = makeBox(0.24, 0.31, 0.035, white, 0.026);
-        badge.position.set(0, -0.11, 0.405);
-        const badgeStripe = makeBox(0.17, 0.035, 0.012, standardMaterial(0x2d847d, 0.72), 0.008);
-        badgeStripe.position.set(0, 0.07, 0.027);
+        const leftLanyard = cylinderBetween(new THREE.Vector3(-0.09, 0.38, 0.2), new THREE.Vector3(0, 0.05, 0.25), 0.012, lanyardMaterial, 6);
+        const rightLanyard = cylinderBetween(new THREE.Vector3(0.09, 0.38, 0.2), new THREE.Vector3(0, 0.05, 0.25), 0.012, lanyardMaterial, 6);
+        const badge = makeBox(0.18, 0.23, 0.03, white, 0.02);
+        badge.position.set(0, -0.07, 0.265);
+        const badgeStripe = makeBox(0.13, 0.03, 0.012, standardMaterial(0x2d847d, 0.72), 0.008);
+        badgeStripe.position.set(0, 0.07, 0.019);
         badge.add(badgeStripe);
         torso.add(leftLanyard, rightLanyard, badge);
     }
+    /* ---- head: a real face ---- */
     const head = new THREE.Group();
-    const face = makeSphere(0.31, skin, 20, 14);
-    face.scale.set(0.9, 1.08, 0.9);
+    const face = makeSphere(0.26, skin, 24, 17);
+    face.scale.set(0.94, 1.06, 0.92);
     head.add(face);
-    const leftEye = makeSphere(0.032, eye, 10, 8);
-    leftEye.position.set(-0.105, 0.035, 0.272);
-    const rightEye = leftEye.clone();
-    rightEye.position.x = 0.105;
-    head.add(leftEye, rightEye);
+    const neck = makeCapsule(0.078, 0.12, skin, 10);
+    neck.position.set(0, -0.28, -0.01);
+    head.add(neck);
     for (const side of [-1, 1]) {
-        const eyebrow = makeCapsule(0.015, 0.09, brow, 7);
-        eyebrow.position.set(side * 0.105, 0.125, 0.283);
-        eyebrow.rotation.z = Math.PI / 2 + side * 0.08;
-        head.add(eyebrow);
-        const ear = makeSphere(0.058, skin, 10, 8);
-        ear.scale.set(0.58, 1, 0.55);
-        ear.position.set(side * 0.288, -0.005, 0.005);
+        const ear = makeSphere(0.053, skin, 10, 8);
+        ear.scale.set(0.55, 0.95, 0.55);
+        ear.position.set(side * 0.243, -0.01, 0.01);
         head.add(ear);
+        const eyeMesh = makeSphere(0.043, eye, 10, 8);
+        eyeMesh.scale.set(1, 1.22, 0.5);
+        eyeMesh.position.set(side * 0.094, 0.028, 0.218);
+        head.add(eyeMesh);
+        const catchlight = makeSphere(0.0135, white, 6, 5);
+        catchlight.position.set(side * 0.082, 0.052, 0.243);
+        head.add(catchlight);
+        const eyebrow = makeCapsule(0.0145, 0.062, hair, 7);
+        eyebrow.position.set(side * 0.096, 0.118, 0.222);
+        eyebrow.rotation.z = Math.PI / 2 + side * 0.16;
+        head.add(eyebrow);
+        const blush = makeSphere(0.036, blushMat, 8, 6);
+        blush.scale.set(1.3, 0.55, 0.38);
+        blush.position.set(side * 0.148, -0.072, 0.193);
+        head.add(blush);
     }
-    const nose = makeSphere(0.037, skin, 10, 8);
-    nose.scale.set(0.78, 1.2, 0.9);
-    nose.position.set(0, -0.025, 0.305);
+    const nose = makeSphere(0.032, skin, 10, 8);
+    nose.scale.set(0.82, 1.18, 0.9);
+    nose.position.set(0, -0.028, 0.243);
     head.add(nose);
-    const mouth = makeCapsule(0.012, 0.1, lip, 8);
-    mouth.position.set(0, -0.145, 0.302);
-    mouth.rotation.z = Math.PI / 2;
-    mouth.scale.x = 0.82;
-    head.add(mouth);
-    const leftCheek = makeSphere(0.032, standardMaterial(0xd88f82, 0.92), 8, 6);
-    leftCheek.scale.set(1.35, 0.5, 0.42);
-    leftCheek.position.set(-0.17, -0.105, 0.265);
-    const rightCheek = leftCheek.clone();
-    rightCheek.position.x = 0.17;
-    head.add(leftCheek, rightCheek);
-    const hairCap = makeSphere(0.325, hair, 18, 12);
-    hairCap.scale.set(0.94, 0.64, 0.94);
-    hairCap.position.set(0, 0.18, -0.035);
-    head.add(hairCap);
-    if (options.headscarf) {
-        const scarfMaterial = standardMaterial(options.headscarf, 0.9);
-        const scarfCap = makeSphere(0.345, scarfMaterial, 18, 12);
-        scarfCap.scale.set(1, 0.86, 1);
-        scarfCap.position.set(0, 0.1, -0.045);
-        const scarfDrape = makeCapsule(0.22, 0.36, scarfMaterial, 12);
-        scarfDrape.scale.set(1.1, 1, 0.48);
-        scarfDrape.position.set(0, -0.25, -0.19);
-        head.add(scarfCap, scarfDrape);
-        hairCap.visible = false;
-    }
+    const smile = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.0125, 7, 18, 2.5), lip);
+    smile.position.set(0, -0.098, 0.222);
+    smile.rotation.z = Math.PI + (Math.PI - 2.5) / 2;
+    smile.scale.set(1, 0.82, 0.5);
+    head.add(smile);
     if (options.glasses) {
         const glassesMaterial = standardMaterial(0x4b5f67, 0.42, 0.42);
         for (const side of [-1, 1]) {
-            const lens = new THREE.Mesh(new THREE.TorusGeometry(0.102, 0.012, 6, 18), glassesMaterial);
-            lens.scale.y = 0.75;
-            lens.position.set(side * 0.112, 0.035, 0.296);
+            const lens = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.011, 6, 18), glassesMaterial);
+            lens.scale.y = 0.8;
+            lens.position.set(side * 0.096, 0.03, 0.238);
             head.add(lens);
         }
-        const bridge = makeBox(0.07, 0.018, 0.016, glassesMaterial, 0.006);
-        bridge.position.set(0, 0.035, 0.307);
+        const bridge = makeBox(0.06, 0.016, 0.014, glassesMaterial, 0.006);
+        bridge.position.set(0, 0.035, 0.248);
         head.add(bridge);
     }
-    if (options.hairStyle === "bun") {
-        const bun = makeSphere(0.17, hair, 14, 10);
-        bun.position.set(0, 0.34, -0.18);
-        head.add(bun);
+    /* ---- hair: full cap + fringe, then the style ---- */
+    const hairCap = makeSphere(0.268, hair, 20, 14);
+    hairCap.scale.set(0.97, 0.82, 0.99);
+    hairCap.position.set(0, 0.095, -0.028);
+    const fringe = makeSphere(0.252, hair, 16, 11);
+    fringe.scale.set(0.95, 0.46, 0.88);
+    fringe.position.set(0, 0.215, 0.005);
+    if (!options.headscarf) head.add(hairCap, fringe);
+    if (options.headscarf) {
+        const scarfMaterial = standardMaterial(options.headscarf, 0.9);
+        const scarfCap = makeSphere(0.285, scarfMaterial, 20, 14);
+        scarfCap.scale.set(1, 0.9, 1);
+        scarfCap.position.set(0, 0.075, -0.02);
+        const scarfDrape = makeCapsule(0.19, 0.3, scarfMaterial, 12);
+        scarfDrape.scale.set(1.08, 1, 0.48);
+        scarfDrape.position.set(0, -0.2, -0.17);
+        head.add(scarfCap, scarfDrape);
+    }
+    else if (options.hairStyle === "bun") {
+        const nape = makeSphere(0.17, hair, 12, 9);
+        nape.scale.set(0.92, 0.7, 0.8);
+        nape.position.set(0, -0.03, -0.185);
+        const bun = makeSphere(0.13, hair, 12, 9);
+        bun.position.set(0, 0.275, -0.21);
+        head.add(nape, bun);
     }
     else if (options.hairStyle === "curls") {
         for (const [x, y, z, scale] of [
-            [-0.22, 0.13, -0.08, 0.11],
-            [0.22, 0.13, -0.08, 0.11],
-            [-0.25, -0.03, -0.09, 0.1],
-            [0.25, -0.03, -0.09, 0.1],
-            [-0.15, 0.3, -0.08, 0.1],
-            [0.15, 0.3, -0.08, 0.1],
+            [-0.19, 0.17, -0.06, 0.1],
+            [0.19, 0.17, -0.06, 0.1],
+            [-0.225, 0.02, -0.075, 0.092],
+            [0.225, 0.02, -0.075, 0.092],
+            [-0.11, 0.275, -0.05, 0.095],
+            [0.11, 0.275, -0.05, 0.095],
+            [0, 0.3, -0.09, 0.1],
+            [-0.19, -0.1, -0.12, 0.08],
+            [0.19, -0.1, -0.12, 0.08],
         ]) {
             const curl = makeSphere(scale, hair, 10, 8);
             curl.position.set(x, y, z);
@@ -329,43 +366,76 @@ function createHuman(options) {
         }
     }
     else if (options.hairStyle === "waves") {
-        const leftWave = makeCapsule(0.09, 0.36, hair, 10);
-        leftWave.position.set(-0.26, -0.03, -0.08);
-        leftWave.rotation.z = 0.1;
-        const rightWave = leftWave.clone();
-        rightWave.position.x = 0.26;
-        rightWave.rotation.z = -0.1;
-        head.add(leftWave, rightWave);
+        const back = makeSphere(0.2, hair, 12, 9);
+        back.scale.set(1, 0.95, 0.62);
+        back.position.set(0, -0.05, -0.155);
+        head.add(back);
+        for (const side of [-1, 1]) {
+            const wave = makeCapsule(0.075, 0.3, hair, 10);
+            wave.position.set(side * 0.215, -0.075, -0.055);
+            wave.rotation.z = -side * 0.12;
+            head.add(wave);
+        }
     }
+    else {
+        const nape = makeSphere(0.185, hair, 12, 9);
+        nape.scale.set(0.9, 0.58, 0.72);
+        nape.position.set(0, -0.015, -0.16);
+        head.add(nape);
+    }
+    /* ---- limbs ---- */
     const leftArm = new THREE.Group();
     const rightArm = new THREE.Group();
     const leftLeg = new THREE.Group();
     const rightLeg = new THREE.Group();
     function addArm(target, side) {
-        const sleeve = makeCapsule(0.105, 0.34, jacket ?? shirt, 10);
-        sleeve.position.y = -0.27;
-        const hand = makeCapsule(0.075, 0.22, skin, 10);
+        const shoulderCap = makeSphere(0.135, outerwear, 12, 9);
+        shoulderCap.scale.set(1, 0.9, 0.82);
+        shoulderCap.position.set(-side * 0.025, 0.015, 0);
+        target.add(shoulderCap);
+        if (shortSleeves) {
+            const sleeve = makeCapsule(0.1, 0.16, outerwear, 10);
+            sleeve.position.y = -0.13;
+            const arm = makeCapsule(0.068, 0.31, skin, 10);
+            arm.position.y = -0.4;
+            target.add(sleeve, arm);
+        }
+        else {
+            const sleeve = makeCapsule(0.096, 0.42, outerwear, 10);
+            sleeve.position.y = -0.26;
+            const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.082, 0.02, 7, 16), outerwear);
+            cuff.position.y = -0.5;
+            cuff.rotation.x = Math.PI / 2;
+            target.add(sleeve, cuff);
+        }
+        const hand = makeSphere(0.083, skin, 10, 8);
+        hand.scale.set(0.88, 1.12, 0.72);
         hand.position.y = -0.62;
-        hand.scale.set(0.92, 1, 0.72);
-        const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.098, 0.022, 7, 18), jacket ?? shirt);
-        cuff.position.y = -0.47;
-        cuff.rotation.x = Math.PI / 2;
-        target.add(sleeve, cuff, hand);
+        target.add(hand);
         target.position.x = side * 0.47;
     }
     function addLeg(target, side) {
         const isProsthetic = options.prosthetic === (side < 0 ? "left" : "right");
-        const upper = makeCapsule(0.14, 0.38, trousers, 11);
-        upper.position.y = -0.31;
-        const lower = makeCapsule(0.12, 0.34, isProsthetic ? prosthetic : trousers, 11);
-        lower.position.y = -0.74;
-        if (isProsthetic)
-            lower.scale.set(0.78, 1.02, 0.78);
-        const shoe = makeBox(0.26, 0.16, 0.45, shoes, 0.04);
-        shoe.position.set(0, -1.01, 0.11);
-        const sole = makeBox(0.275, 0.045, 0.47, standardMaterial(0x202d33, 0.78), 0.018);
-        sole.position.set(0, -1.105, 0.115);
-        target.add(upper, lower, shoe, sole);
+        const upper = new THREE.Group();
+        const hip = makeSphere(0.135, trousers, 12, 9);
+        hip.scale.set(1, 0.9, 0.9);
+        hip.position.y = -0.02;
+        const thigh = makeCapsule(0.125, 0.34, trousers, 11);
+        thigh.position.y = -0.3;
+        thigh.scale.set(1, 1, 0.92);
+        upper.add(hip, thigh);
+        /* below-knee unit — children[1]; bends at the knee, shoe rides along */
+        const lower = new THREE.Group();
+        lower.position.y = -0.55;
+        const knee = makeSphere(0.104, trousers, 11, 8);
+        const shin = makeCapsule(isProsthetic ? 0.058 : 0.088, 0.27, isProsthetic ? prosthetic : trousers, 10);
+        shin.position.y = -0.2;
+        const shoe = makeBox(0.2, 0.13, 0.35, shoes, 0.045);
+        shoe.position.set(0, -0.42, 0.075);
+        const sole = makeBox(0.21, 0.048, 0.37, standardMaterial(0x202d33, 0.78), 0.016);
+        sole.position.set(0, -0.487, 0.08);
+        lower.add(knee, shin, shoe, sole);
+        target.add(upper, lower);
         target.position.x = side * 0.2;
     }
     addArm(leftArm, -1);
@@ -381,6 +451,8 @@ function createHuman(options) {
         rightArm.position.y = 1.52;
         leftArm.rotation.x = -0.25;
         rightArm.rotation.x = -0.25;
+        leftArm.rotation.z = 0.1;
+        rightArm.rotation.z = -0.1;
         leftLeg.position.y = 0.72;
         rightLeg.position.y = 0.72;
         leftLeg.rotation.x = -1.16;
@@ -399,11 +471,14 @@ function createHuman(options) {
     root.add(torso, head, leftArm, rightArm, leftLeg, rightLeg);
     const animate = (phase, intensity = 1) => {
         if (seated) {
-            const push = Math.sin(phase * 0.72);
-            leftArm.rotation.x = -0.34 + push * 0.18 * intensity;
-            rightArm.rotation.x = -0.34 + push * 0.18 * intensity;
-            torso.rotation.z = Math.sin(phase * 0.36) * 0.025 * intensity;
+            /* hands rest; the body breathes and looks around — no rowing */
+            const sway = Math.sin(phase * 0.6);
+            leftArm.rotation.x = -0.32 + sway * 0.05 * intensity;
+            rightArm.rotation.x = -0.32 - sway * 0.04 * intensity;
+            torso.rotation.z = Math.sin(phase * 0.36) * 0.022 * intensity;
+            torso.position.y = 1.2 + Math.sin(phase * 0.9) * 0.008 * intensity;
             head.rotation.y = Math.sin(phase * 0.22) * 0.14 * intensity;
+            head.rotation.z = Math.sin(phase * 0.31) * 0.02 * intensity;
             return;
         }
         const stride = Math.sin(phase);
@@ -412,6 +487,9 @@ function createHuman(options) {
         const lift = Math.max(0, Math.sin(phase * 2)) * 0.055 * intensity;
         leftLeg.rotation.x = stride * 0.56 * intensity;
         rightLeg.rotation.x = -stride * 0.56 * intensity;
+        /* the swinging leg folds at the knee */
+        leftLeg.children[1].rotation.x = Math.max(0, Math.sin(phase)) * 0.55 * intensity;
+        rightLeg.children[1].rotation.x = Math.max(0, -Math.sin(phase)) * 0.55 * intensity;
         leftLeg.position.y = 1.02 + leftStepLift;
         rightLeg.position.y = 1.02 + rightStepLift;
         leftArm.rotation.x = -stride * 0.46 * intensity;
@@ -1745,157 +1823,7 @@ function createOffsetScenePath(path, lateral, forward = 0, samples = 72) {
 function createVectorScenePath(points) {
     return new THREE.CatmullRomCurve3(points.map((point) => point.clone()), false, "centripetal", 0.28);
 }
-function distanceToObstacle(point, obstacle) {
-    if (obstacle.type === "rect") {
-        const dx = Math.max(obstacle.minX - point.x, 0, point.x - obstacle.maxX);
-        const dz = Math.max(obstacle.minZ - point.z, 0, point.z - obstacle.maxZ);
-        return Math.hypot(dx, dz);
-    }
-    return Math.hypot(point.x - obstacle.x, point.z - obstacle.z) - obstacle.r;
-}
-function routeSegmentMinClearance(start, end, obstacles) {
-    const span = Math.max(0.001, start.distanceTo(end));
-    const samples = Math.max(8, Math.ceil(span / 0.16));
-    let minimum = Number.POSITIVE_INFINITY;
-    for (let index = 0; index <= samples; index += 1) {
-        const point = start.clone().lerp(end, index / samples);
-        for (const obstacle of obstacles) {
-            minimum = Math.min(minimum, distanceToObstacle(point, obstacle));
-        }
-    }
-    return minimum;
-}
-function routeSegmentIsClear(start, end, obstacles, clearance) {
-    return routeSegmentMinClearance(start, end, obstacles) >= clearance;
-}
-function createObstacleGuidePoints(obstacle, offset) {
-    const points = [];
-    if (obstacle.type === "rect") {
-        const minX = obstacle.minX - offset;
-        const maxX = obstacle.maxX + offset;
-        const minZ = obstacle.minZ - offset;
-        const maxZ = obstacle.maxZ + offset;
-        points.push(new THREE.Vector3(minX, 0, minZ), new THREE.Vector3(minX, 0, maxZ), new THREE.Vector3(maxX, 0, minZ), new THREE.Vector3(maxX, 0, maxZ), new THREE.Vector3((minX + maxX) * 0.5, 0, minZ), new THREE.Vector3((minX + maxX) * 0.5, 0, maxZ), new THREE.Vector3(minX, 0, (minZ + maxZ) * 0.5), new THREE.Vector3(maxX, 0, (minZ + maxZ) * 0.5));
-    }
-    else {
-        const radius = obstacle.r + offset;
-        for (let index = 0; index < 8; index += 1) {
-            const angle = (index / 8) * Math.PI * 2;
-            points.push(new THREE.Vector3(obstacle.x + Math.cos(angle) * radius, 0, obstacle.z + Math.sin(angle) * radius));
-        }
-    }
-    return points;
-}
-function dedupeRoutePoints(points) {
-    const deduped = [];
-    points.forEach((point) => {
-        const duplicate = deduped.some((existing) => existing.distanceToSquared(point) < 0.0001);
-        if (!duplicate)
-            deduped.push(point.clone());
-    });
-    return deduped;
-}
-function simplifyRoutePoints(points, obstacles, clearance) {
-    if (points.length <= 2)
-        return points.map((point) => point.clone());
-    const simplified = [points[0].clone()];
-    let currentIndex = 0;
-    while (currentIndex < points.length - 1) {
-        let nextIndex = points.length - 1;
-        while (nextIndex > currentIndex + 1
-            && !routeSegmentIsClear(points[currentIndex], points[nextIndex], obstacles, clearance)) {
-            nextIndex -= 1;
-        }
-        simplified.push(points[nextIndex].clone());
-        currentIndex = nextIndex;
-    }
-    return dedupeRoutePoints(simplified);
-}
-function createNavigationRoute(start, end, obstacles, clearance = 0.58, guidePoints = []) {
-    const guideOffset = clearance + 0.34;
-    const seedNodes = [
-        start.clone(),
-        end.clone(),
-        ...guidePoints.map((point) => point.clone()),
-        ...obstacles.flatMap((obstacle) => createObstacleGuidePoints(obstacle, guideOffset)),
-    ];
-    const nodes = dedupeRoutePoints(seedNodes.filter((point, index) => {
-        if (index <= 1)
-            return true;
-        return obstacles.every((obstacle) => distanceToObstacle(point, obstacle) >= clearance - 0.02);
-    }));
-    const neighbors = nodes.map(() => []);
-    for (let left = 0; left < nodes.length; left += 1) {
-        for (let right = left + 1; right < nodes.length; right += 1) {
-            if (!routeSegmentIsClear(nodes[left], nodes[right], obstacles, clearance))
-                continue;
-            const cost = nodes[left].distanceTo(nodes[right]);
-            neighbors[left].push({ index: right, cost });
-            neighbors[right].push({ index: left, cost });
-        }
-    }
-    const startIndex = 0;
-    const endIndex = 1;
-    const open = new Set([startIndex]);
-    const cameFrom = new Map();
-    const gScore = new Array(nodes.length).fill(Number.POSITIVE_INFINITY);
-    const fScore = new Array(nodes.length).fill(Number.POSITIVE_INFINITY);
-    gScore[startIndex] = 0;
-    fScore[startIndex] = nodes[startIndex].distanceTo(nodes[endIndex]);
-    while (open.size > 0) {
-        let current = -1;
-        let best = Number.POSITIVE_INFINITY;
-        open.forEach((candidate) => {
-            if (fScore[candidate] < best) {
-                best = fScore[candidate];
-                current = candidate;
-            }
-        });
-        if (current < 0)
-            break;
-        if (current === endIndex) {
-            const ordered = [nodes[endIndex].clone()];
-            let cursor = current;
-            while (cameFrom.has(cursor)) {
-                cursor = cameFrom.get(cursor);
-                ordered.unshift(nodes[cursor].clone());
-            }
-            const points = simplifyRoutePoints(ordered, obstacles, clearance);
-            const path = createVectorScenePath(points);
-            let minClearance = Number.POSITIVE_INFINITY;
-            for (let index = 0; index <= 480; index += 1) {
-                const point = path.getPointAt(index / 480);
-                obstacles.forEach((obstacle) => {
-                    minClearance = Math.min(minClearance, distanceToObstacle(point, obstacle));
-                });
-            }
-            return {
-                points,
-                path,
-                length: path.getLength(),
-                minClearance,
-            };
-        }
-        open.delete(current);
-        neighbors[current].forEach(({ index, cost }) => {
-            const tentative = gScore[current] + cost;
-            if (tentative + 1e-6 >= gScore[index])
-                return;
-            cameFrom.set(index, current);
-            gScore[index] = tentative;
-            fScore[index] = tentative + nodes[index].distanceTo(nodes[endIndex]);
-            open.add(index);
-        });
-    }
-    const fallbackPoints = [start.clone(), end.clone()];
-    const fallbackPath = createVectorScenePath(fallbackPoints);
-    return {
-        points: fallbackPoints,
-        path: fallbackPath,
-        length: fallbackPath.getLength(),
-        minClearance: routeSegmentMinClearance(start, end, obstacles),
-    };
-}
+/* v65: obstacle-aware routing moved to the shared care-nav.js module. */
 function combineRoutePoints(...segments) {
     const combined = [];
     segments.forEach((segment) => {
@@ -3947,14 +3875,17 @@ function createPersonalCareScene(parent) {
     }
     careSparkles.visible = false;
     root.add(careSparkles);
+    /* v65.3: the entry walkway swings south of the dressing bench instead of
+       running through it */
     const path = createScenePath([
         [-23, 10],
         [-15, 7.6],
-        [-9, 4.5],
+        [-11.6, 4.8],
+        [-10.4, 1.9],
         [-5.2, 1.7],
         [-1.2, 1.3],
         [3.2, 1.2],
-        [7.8, 3.2],
+        [7.6, 3.7],
         [15, 7.1],
         [23, 10.6],
     ]);
@@ -4679,16 +4610,18 @@ function createSharedLivingScene(parent) {
     tableMugs[0].position.set(6.7, 1.5, 3.45);
     tableMugs[1].position.set(9.7, 1.5, 2.15);
     root.add(spoon, recipeLaptop.root, ...tableMugs);
+    /* v65: the walkway clears the island and the dining table by a full body
+       width — the drawn route is also the route people actually walk. */
     const path = createScenePath([
         [-23, 10],
         [-15, 7.6],
         [-8, 4.4],
-        [-3.4, 2],
-        [-0.8, 1.4],
-        [1.8, 1.15],
-        [5.0, 0.92],
-        [8.9, 0.9],
-        [12.2, 1.05],
+        [-3.4, 2.15],
+        [-0.8, 1.9],
+        [1.8, 1.35],
+        [5.3, 0.62],
+        [8.9, 0.42],
+        [12.4, 0.85],
         [15.2, 6.0],
         [23, 10.8],
     ]);
@@ -4706,29 +4639,33 @@ function createSharedLivingScene(parent) {
     const prepSpotParticipant = new THREE.Vector3(-2.15, 0, -2.35);
     const prepSpotWorker = new THREE.Vector3(-0.15, 0, -2.4);
     const stoveSpot = new THREE.Vector3(2.3, 0, -3.7);
-    const tableSpotWorker = new THREE.Vector3(6.35, 0, 0.35);
+    const tableSpotWorker = new THREE.Vector3(6.35, 0, 0.22);
     const tableSpotParticipant = new THREE.Vector3(4.7, 0, 1.7);
-    const exitJoin = closestPathProgress(path, new THREE.Vector3(8.9, 0, 0.9));
+    const exitJoin = closestPathProgress(path, new THREE.Vector3(8.9, 0, 0.42));
     const exitJoinPose = sampleCurvePose(path, exitJoin);
-    void sharedObstacles;
     const workerEntryPath = createOffsetScenePath(path, -1.05, -0.15);
     const workerEntryEnd = workerEntryPath.getPointAt(station).setY(0);
-    const handRoute = (points) => {
-        const curve = createVectorScenePath(points.map(([x, z]) => new THREE.Vector3(x, 0, z)));
-        return { path: curve, length: curve.getLength() };
-    };
+    /* v65: every walking leg is solved by the shared obstacle-aware navigator
+       (care-nav.js) against sharedObstacles. Clearance covers the whole body;
+       the plate-carrying leg gets extra room for the stack held out front. */
+    const gp = (x, z) => new THREE.Vector3(x, 0, z);
+    const bodyClear = 0.55;
+    const carryClear = 0.7;
     const sp = stationPose.position;
-    const participantPrepRoute = handRoute([[sp.x, sp.z], [-3.9, 2.15], [-6.35, 1.0], [-6.45, -1.35], [-4.5, -2.45], [prepSpotParticipant.x, prepSpotParticipant.z]]);
-    const workerPrepRoute = handRoute([[workerEntryEnd.x, workerEntryEnd.z], [-3.3, 3.05], [-7.3, 1.4], [-7.4, -1.7], [-4.9, -3.1], [prepSpotWorker.x, prepSpotWorker.z]]);
-    const workerStoveRoute = handRoute([[prepSpotWorker.x, prepSpotWorker.z], [1.1, -3.0], [stoveSpot.x, stoveSpot.z]]);
-    const workerTableRoute = handRoute([[stoveSpot.x, stoveSpot.z], [4.0, -2.4], [5.6, -0.8], [tableSpotWorker.x, tableSpotWorker.z]]);
-    const participantTableRoute = handRoute([[prepSpotParticipant.x, prepSpotParticipant.z], [0.7, -2.55], [3.15, -2.15], [4.45, -0.55], [tableSpotParticipant.x, tableSpotParticipant.z]]);
+    const participantPrepRoute = createNavigationRoute(sp, prepSpotParticipant, sharedObstacles, bodyClear, [gp(-3.9, 2.35), gp(-6.35, 1.0), gp(-6.45, -1.35), gp(-4.5, -2.6)]);
+    const workerPrepRoute = createNavigationRoute(workerEntryEnd, prepSpotWorker, sharedObstacles, bodyClear, [gp(-3.3, 3.05), gp(-7.3, 1.4), gp(-7.4, -1.7), gp(-4.9, -3.1)]);
+    const workerStoveRoute = createNavigationRoute(prepSpotWorker, stoveSpot, sharedObstacles, bodyClear, [gp(1.1, -3.0)]);
+    const workerTableRoute = createNavigationRoute(stoveSpot, tableSpotWorker, sharedObstacles, carryClear, [gp(4.0, -2.4), gp(5.0, -1.0)]);
+    const participantTableRoute = createNavigationRoute(prepSpotParticipant, tableSpotParticipant, sharedObstacles, bodyClear, [gp(0.7, -2.55), gp(3.15, -2.15), gp(4.45, -0.55)]);
     const chairApproachP = new THREE.Vector3(5.28, 0, 1.58);
     const chairSeatP = new THREE.Vector3(5.9, 0, 2.78);
-    const chairApproachW = new THREE.Vector3(11.05, 0, 1.72);
+    const chairApproachW = new THREE.Vector3(11.3, 0, 1.9);
     const chairSeatW = new THREE.Vector3(10.5, 0, 2.82);
-    const participantExitRoute = handRoute([[chairApproachP.x, chairApproachP.z], [5.15, 0.42], [7.0, 0.12], [exitJoinPose.position.x, exitJoinPose.position.z]]);
-    const workerExitRoute2 = handRoute([[chairApproachW.x, chairApproachW.z], [11.4, 0.55], [9.9, 0.5], [exitJoinPose.position.x, exitJoinPose.position.z]]);
+    /* the walk to each chair goes AROUND the table, never through it */
+    const participantSitRoute = createNavigationRoute(tableSpotParticipant, chairApproachP, sharedObstacles, 0.34);
+    const workerSitRoute = createNavigationRoute(tableSpotWorker, chairApproachW, sharedObstacles, 0.5, [gp(11.55, 0.35)]);
+    const participantExitRoute = createNavigationRoute(chairApproachP, exitJoinPose.position, sharedObstacles, 0.4, [gp(5.05, 0.5), gp(7.0, 0.3)]);
+    const workerExitRoute2 = createNavigationRoute(chairApproachW, exitJoinPose.position, sharedObstacles, 0.4, [gp(11.5, 0.6), gp(9.9, 0.45)]);
     const tableFood = [];
     for (let index = 0; index < 2; index += 1) {
         const mound = makeSphere(0.26, standardMaterial(index ? 0x7fa78d : 0xd6a247, 0.9), 12, 8);
@@ -4760,15 +4697,15 @@ function createSharedLivingScene(parent) {
         const workerTableWalk = localTime >= 14.8 && localTime < 16.4;
         const participantTableWalk = localTime >= 15.2 && localTime < 17.2;
         const together = localTime >= 16.4 && localTime < 18.8;
-        const sitWalk = localTime >= 18.8 && localTime < 19.9;
-        const sitAmount = timedEase(localTime, 19.9, 20.6) - timedEase(localTime, 25.8, 26.4);
-        const eating = localTime >= 20.6 && localTime < 25.8;
+        const sitWalk = localTime >= 18.8 && localTime < 20.15;
+        const sitAmount = timedEase(localTime, 20.15, 20.75) - timedEase(localTime, 25.8, 26.4);
+        const eating = localTime >= 20.75 && localTime < 25.8;
         const exitWalk = localTime >= 26.4 && localTime < 27.8;
         const stationDistance = station * mainLength;
         const pBaseStation = stationDistance;
         const pBasePrep = pBaseStation + participantPrepRoute.length;
         const pBaseTable = pBasePrep + participantTableRoute.length;
-        const pBaseExit = pBaseTable + participantExitRoute.length;
+        const pBaseExit = pBaseTable + participantSitRoute.length + participantExitRoute.length;
         let pose;
         let participantMoving = true;
         if (entering) {
@@ -4795,23 +4732,20 @@ function createSharedLivingScene(parent) {
             facePoint(pair, new THREE.Vector3(7.4, 0, 1.6), 0.16);
         }
         else if (sitWalk) {
-            const t = timedEase(localTime, 18.8, 19.9);
-            seatLerp.lerpVectors(tableSpotParticipant, chairApproachP, t);
-            pose = { position: seatLerp.clone(), yaw: 0, distance: pBaseTable + t * 1.4 };
-            pair.position.copy(pose.position);
-            facePoint(pair, chairApproachP, 0.3);
+            pose = poseOnPath(pair, participantSitRoute.path, timedEase(localTime, 18.8, 20.15));
+            pose.distance += pBaseTable;
         }
         else if (localTime < 26.4) {
             participantMoving = false;
             seatLerp.lerpVectors(chairApproachP, chairSeatP, sitAmount);
             seatLerp.y = 0.24 * sitAmount;
-            pose = { position: seatLerp.clone(), yaw: 0, distance: pBaseTable + 1.4 };
+            pose = { position: seatLerp.clone(), yaw: 0, distance: pBaseTable + participantSitRoute.length };
             pair.position.copy(seatLerp);
             facePoint(pair, new THREE.Vector3(8.2, 0, 2.8), 0.22);
         }
         else if (exitWalk) {
             pose = poseOnPath(pair, participantExitRoute.path, timedEase(localTime, 26.4, 27.8));
-            pose.distance += pBaseTable + 1.4;
+            pose.distance += pBaseTable + participantSitRoute.length;
         }
         else {
             const progress = THREE.MathUtils.lerp(exitJoin, 0.999, timedEase(localTime, 27.8, duration));
@@ -4824,7 +4758,7 @@ function createSharedLivingScene(parent) {
         const wBasePrep = wBaseStation + workerPrepRoute.length;
         const wBaseStove = wBasePrep + workerStoveRoute.length;
         const wBaseTable = wBaseStove + workerTableRoute.length;
-        const wBaseExit = wBaseTable + workerExitRoute2.length;
+        const wBaseExit = wBaseTable + workerSitRoute.length + workerExitRoute2.length;
         let workerPose;
         let workerMoving = true;
         if (entering) {
@@ -4862,23 +4796,20 @@ function createSharedLivingScene(parent) {
             facePoint(workerCarrier, localTime < 17.4 ? new THREE.Vector3(8.2, 0, 2.8) : new THREE.Vector3(4.7, 0, 1.7), 0.16);
         }
         else if (sitWalk) {
-            const t = timedEase(localTime, 18.8, 19.9);
-            seatLerp.lerpVectors(tableSpotWorker, chairApproachW, t);
-            workerPose = { position: seatLerp.clone(), yaw: 0, distance: wBaseTable + t * 4.9 };
-            workerCarrier.position.copy(workerPose.position);
-            facePoint(workerCarrier, chairApproachW, 0.3);
+            workerPose = poseOnPath(workerCarrier, workerSitRoute.path, timedEase(localTime, 18.8, 20.15));
+            workerPose.distance += wBaseTable;
         }
         else if (localTime < 26.4) {
             workerMoving = false;
             seatLerp.lerpVectors(chairApproachW, chairSeatW, sitAmount);
             seatLerp.y = 0.24 * sitAmount;
-            workerPose = { position: seatLerp.clone(), yaw: 0, distance: wBaseTable + 4.9 };
+            workerPose = { position: seatLerp.clone(), yaw: 0, distance: wBaseTable + workerSitRoute.length };
             workerCarrier.position.copy(seatLerp);
             facePoint(workerCarrier, new THREE.Vector3(8.2, 0, 2.8), 0.22);
         }
         else if (exitWalk) {
             workerPose = poseOnPath(workerCarrier, workerExitRoute2.path, timedEase(localTime, 26.4, 27.8));
-            workerPose.distance += wBaseTable + 4.9;
+            workerPose.distance += wBaseTable + workerSitRoute.length;
         }
         else {
             const progress = Math.max(exitJoin, THREE.MathUtils.lerp(exitJoin, 0.999, timedEase(localTime, 27.8, duration)) - 0.022);
@@ -5548,7 +5479,7 @@ function createCommunityScene(parent) {
     leftPlanter.position.set(-9.9, 0, -5.35);
     leftPlanter.rotation.y = 0.18;
     const rightPlanter = createRaisedPlanter(0x6f91c2);
-    rightPlanter.position.set(12.35, 0, 4.95);
+    rightPlanter.position.set(13.7, 0, 2.0);
     rightPlanter.rotation.y = -0.18;
     const treeA = createParkTree(0x7fa78d);
     treeA.position.set(-13.2, 0, -5.2);
@@ -5698,9 +5629,26 @@ function createCommunityScene(parent) {
     const workerHomeLocal = new THREE.Vector3(0.92, 0, -0.18);
     const moveLerp = new THREE.Vector3();
     const workerLocal = new THREE.Vector3();
-    const segLawn = communityStationPose.position.distanceTo(lawnSpot);
-    const segRest = lawnSpot.distanceTo(chairRestSpot);
-    const segBack = chairRestSpot.distanceTo(communityStationPose.position);
+    /* v65.1: the yard's own furniture is the obstacle map — pavilion posts,
+       art station, activity basket, bench — and every pair leg is solved by
+       the shared navigator with wheelchair-wide clearance, so the carer no
+       longer sweeps through the pavilion post on the way to the lawn. */
+    const communityObstacles = [
+        { type: "circle", label: "post-nw", x: -0.65, z: -7.45, r: 0.42 },
+        { type: "circle", label: "post-ne", x: 9.85, z: -7.45, r: 0.42 },
+        { type: "circle", label: "post-sw", x: -0.65, z: 3.05, r: 0.42 },
+        { type: "circle", label: "post-se", x: 9.85, z: 3.05, r: 0.42 },
+        { type: "rect", label: "art-station", minX: 0.35, maxX: 2.95, minZ: -0.85, maxZ: 1.35 },
+        { type: "circle", label: "basket", x: -7.35, z: 2.0, r: 0.85 },
+        { type: "rect", label: "bench", minX: -9.75, maxX: -7.45, minZ: 3.0, maxZ: 4.1 },
+    ];
+    const pairClear = 1.0; /* the whole wheelchair plus the carer beside it */
+    const toLawnRoute = createNavigationRoute(communityStationPose.position, lawnSpot, communityObstacles, pairClear);
+    const toBenchRoute = createNavigationRoute(lawnSpot, chairRestSpot, communityObstacles, pairClear);
+    const regroupRoute = createNavigationRoute(chairRestSpot, communityStationPose.position, communityObstacles, pairClear);
+    const segLawn = toLawnRoute.length;
+    const segRest = toBenchRoute.length;
+    const segBack = regroupRoute.length;
     const trails = new TrailPool(root, 220);
     const duration = 34;
     let previousTime = 0;
@@ -5754,11 +5702,8 @@ function createCommunityScene(parent) {
             pair.position.copy(communityStationPose.position);
         }
         else if (toLawn) {
-            const t = timedEase(localTime, 16.6, 18.4);
-            moveLerp.lerpVectors(communityStationPose.position, lawnSpot, t);
-            pose = { position: moveLerp.clone(), yaw: 0, distance: baseStation + segLawn * t };
-            pair.position.copy(moveLerp);
-            facePoint(pair, lawnSpot.clone().setZ(lawnSpot.z + 0.1), 0.3);
+            pose = poseOnPath(pair, toLawnRoute.path, timedEase(localTime, 16.6, 18.4));
+            pose.distance += baseStation;
         }
         else if (ballGame) {
             pose = { position: lawnSpot, yaw: 0, distance: baseStation + segLawn };
@@ -5766,11 +5711,8 @@ function createCommunityScene(parent) {
             facePoint(pair, friendGameSpot, 0.2);
         }
         else if (toBench) {
-            const t = timedEase(localTime, 23.8, 25.6);
-            moveLerp.lerpVectors(lawnSpot, chairRestSpot, t);
-            pose = { position: moveLerp.clone(), yaw: 0, distance: baseStation + segLawn + segRest * t };
-            pair.position.copy(moveLerp);
-            facePoint(pair, chairRestSpot, 0.3);
+            pose = poseOnPath(pair, toBenchRoute.path, timedEase(localTime, 23.8, 25.6));
+            pose.distance += baseStation + segLawn;
         }
         else if (resting && !regroup) {
             pose = { position: chairRestSpot, yaw: 0, distance: baseStation + segLawn + segRest };
@@ -5778,11 +5720,8 @@ function createCommunityScene(parent) {
             facePoint(pair, benchSeatWorld, 0.2);
         }
         else if (regroup) {
-            const t = timedEase(localTime, 29.8, 30.8);
-            moveLerp.lerpVectors(chairRestSpot, communityStationPose.position, t);
-            pose = { position: moveLerp.clone(), yaw: 0, distance: baseStation + segLawn + segRest + segBack * t };
-            pair.position.copy(moveLerp);
-            facePoint(pair, communityStationPose.position, 0.3);
+            pose = poseOnPath(pair, regroupRoute.path, timedEase(localTime, 29.8, 30.8));
+            pose.distance += baseStation + segLawn + segRest;
         }
         else {
             const progress = THREE.MathUtils.lerp(station, 0.999, timedEase(localTime, 30.8, duration));

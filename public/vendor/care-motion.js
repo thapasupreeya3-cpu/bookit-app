@@ -1,4 +1,5 @@
 import * as THREE from './three.module.min.js';
+import { createNavigationRoute } from './care-nav.js';
 
 /*
  * BookIt live care-background v57
@@ -116,73 +117,199 @@ function contactShadow(width = 1.25, depth = .85, opacity = .085) {
   return shadow;
 }
 
+/* v66 — the cast, rebuilt to the approved "polished stylised 3D" concept:
+   realistic proportions (smaller head, neck, shoulders, waist), warm faces
+   (brows, eyes with a catchlight, nose, a real smile, blush), mitten hands,
+   knee-jointed legs and fuller hair. The skeleton contract is untouched:
+   same pivots (torso 1.78/1.2, head 2.64/2.02, arms ±.47@2.05/1.52, legs
+   ±.2@1.02/.72), same group names, leg children[1] is still the below-knee
+   unit that bends +.78 when seated, and the hand still lands at y≈-.62 so
+   props and push-handle poses keep working. */
 function createHuman(options = {}) {
   const root = new THREE.Group();
   root.scale.setScalar(options.scale ?? .62);
-  const skin = standardMaterial(options.skin ?? 0xb97957, .84);
-  const shirt = standardMaterial(options.shirt ?? C.tealMid, .86);
+  const skin = standardMaterial(options.skin ?? 0xb97957, .72);
+  const shirt = standardMaterial(options.shirt ?? C.tealMid, .84);
   const trousers = standardMaterial(options.trousers ?? 0x344c51, .88);
-  const hair = standardMaterial(options.hair ?? 0x2b2625, .95);
+  const hair = standardMaterial(options.hair ?? 0x2b2625, .9);
   const shoes = standardMaterial(options.shoes ?? C.ink, .76);
-  const eye = standardMaterial(0x1e2930, .72);
+  const eye = standardMaterial(0x241d1a, .5);
+  const white = standardMaterial(0xfffdf6, .4);
+  const lip = standardMaterial(0x8e5147, .78);
+  const blushMat = standardMaterial(0xd8907e, .95);
+  const shortSleeves = !!options.shortSleeves;
 
+  /* ---- torso: shoulders, tapered chest, hips ---- */
   const torso = new THREE.Group();
-  const torsoMesh = makeCapsule(.38, .56, shirt, 12);
-  torsoMesh.scale.set(1, 1, .82);
-  torso.add(torsoMesh);
+  const chest = makeCapsule(.3, .5, shirt, 14);
+  chest.position.y = .04;
+  chest.scale.set(1.04, 1, .76);
+  const shoulderBar = makeCapsule(.148, .36, shirt, 12);
+  shoulderBar.rotation.z = Math.PI / 2;
+  shoulderBar.position.y = .34;
+  shoulderBar.scale.set(1, 1, .82);
+  const hips = makeCapsule(.27, .14, trousers, 14);
+  hips.position.y = -.5;
+  hips.scale.set(1.08, 1, .8);
+  const waistband = makeBox(.58, .09, .44, trousers, .025);
+  waistband.position.y = -.36;
+  torso.add(chest, shoulderBar, hips, waistband);
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(.115, .028, 8, 20, Math.PI * 1.5), shirt);
+  collar.position.set(0, .43, .1);
+  collar.rotation.set(Math.PI / 2, 0, Math.PI * .75);
+  torso.add(collar);
+  if (options.badge) {
+    /* worker lanyard + ID card, same as the service dioramas wear */
+    const lanyardMat = standardMaterial(0x486c71, .72);
+    torso.add(
+      cylinderBetween(new THREE.Vector3(-.09, .38, .2), new THREE.Vector3(0, .05, .245), .012, lanyardMat, 6),
+      cylinderBetween(new THREE.Vector3(.09, .38, .2), new THREE.Vector3(0, .05, .245), .012, lanyardMat, 6),
+    );
+    const badge = makeBox(.17, .22, .03, white, .02);
+    badge.position.set(0, -.06, .26);
+    const stripe = makeBox(.12, .03, .012, standardMaterial(0x2d847d, .72), .006);
+    stripe.position.set(0, .065, .018);
+    badge.add(stripe);
+    torso.add(badge);
+  }
 
+  /* ---- head: a real face ---- */
   const head = new THREE.Group();
-  const face = makeSphere(.31, skin, 18, 13);
-  face.scale.set(.9, 1.08, .9);
+  const face = makeSphere(.26, skin, 22, 16);
+  face.scale.set(.94, 1.06, .92);
   head.add(face);
-  const hairCap = makeSphere(.326, hair, 16, 11);
-  hairCap.scale.set(.95, .64, .95);
-  hairCap.position.set(0, .18, -.035);
+  const neck = makeCapsule(.075, .12, skin, 10);
+  neck.position.set(0, -.28, -.01);
+  head.add(neck);
+  for (const side of [-1, 1]) {
+    const ear = makeSphere(.052, skin, 10, 8);
+    ear.scale.set(.55, .95, .55);
+    ear.position.set(side * .243, -.01, .01);
+    head.add(ear);
+    /* eye: dark oval with a catchlight, under a tilted brow */
+    const eyeMesh = makeSphere(.042, eye, 10, 8);
+    eyeMesh.scale.set(1, 1.22, .5);
+    eyeMesh.position.set(side * .094, .028, .218);
+    head.add(eyeMesh);
+    const catchlight = makeSphere(.0135, white, 6, 5);
+    catchlight.position.set(side * .082, .052, .243);
+    head.add(catchlight);
+    const brow = makeCapsule(.0145, .062, hair, 7);
+    brow.position.set(side * .096, .118, .222);
+    brow.rotation.z = Math.PI / 2 + side * .16;
+    head.add(brow);
+    const blush = makeSphere(.036, blushMat, 8, 6);
+    blush.scale.set(1.3, .55, .38);
+    blush.position.set(side * .148, -.072, .193);
+    head.add(blush);
+  }
+  const nose = makeSphere(.031, skin, 10, 8);
+  nose.scale.set(.82, 1.18, .9);
+  nose.position.set(0, -.028, .243);
+  head.add(nose);
+  const smile = new THREE.Mesh(new THREE.TorusGeometry(.052, .0125, 7, 18, 2.5), lip);
+  smile.position.set(0, -.098, .222);
+  smile.rotation.z = Math.PI + (Math.PI - 2.5) / 2;
+  smile.scale.set(1, .82, .5);
+  head.add(smile);
+
+  /* ---- hair: full cap + fringe, then the style ---- */
+  const hairCap = makeSphere(.268, hair, 18, 13);
+  hairCap.scale.set(.97, .82, .99);
+  hairCap.position.set(0, .095, -.028);
   head.add(hairCap);
+  const fringe = makeSphere(.252, hair, 16, 11);
+  fringe.scale.set(.95, .46, .88);
+  fringe.position.set(0, .215, .005);
+  head.add(fringe);
   if (options.hairStyle === 'bun') {
-    const bun = makeSphere(.17, hair, 12, 9);
-    bun.position.set(0, .34, -.18);
-    head.add(bun);
+    const nape = makeSphere(.17, hair, 12, 9);
+    nape.scale.set(.92, .7, .8);
+    nape.position.set(0, -.03, -.185);
+    const bun = makeSphere(.128, hair, 12, 9);
+    bun.position.set(0, .275, -.21);
+    head.add(nape, bun);
   } else if (options.hairStyle === 'waves') {
+    const back = makeSphere(.2, hair, 12, 9);
+    back.scale.set(1, .95, .62);
+    back.position.set(0, -.05, -.155);
+    head.add(back);
     for (const side of [-1, 1]) {
-      const wave = makeCapsule(.085, .34, hair, 9);
-      wave.position.set(side * .25, -.03, -.08);
-      wave.rotation.z = -side * .1;
+      const wave = makeCapsule(.075, .3, hair, 9);
+      wave.position.set(side * .215, -.075, -.055);
+      wave.rotation.z = -side * .12;
       head.add(wave);
     }
   } else if (options.hairStyle === 'curls') {
-    for (const [x, y] of [[-.22,.13],[.22,.13],[-.24,-.02],[.24,-.02],[-.14,.29],[.14,.29]]) {
-      const curl = makeSphere(.105, hair, 9, 7);
-      curl.position.set(x, y, -.07);
+    for (const [x, y, z, r] of [
+      [-.19, .17, -.06, .1], [.19, .17, -.06, .1],
+      [-.225, .02, -.075, .092], [.225, .02, -.075, .092],
+      [-.11, .275, -.05, .095], [.11, .275, -.05, .095],
+      [0, .3, -.09, .1], [-.19, -.1, -.12, .08], [.19, -.1, -.12, .08],
+    ]) {
+      const curl = makeSphere(r, hair, 9, 7);
+      curl.position.set(x, y, z);
       head.add(curl);
     }
-  }
-  for (const side of [-1, 1]) {
-    const eyeMesh = makeSphere(.03, eye, 8, 6);
-    eyeMesh.position.set(side * .105, .035, .272);
-    head.add(eyeMesh);
+  } else {
+    /* short crop: a neat nape so the back of the head reads groomed */
+    const nape = makeSphere(.185, hair, 12, 9);
+    nape.scale.set(.9, .58, .72);
+    nape.position.set(0, -.015, -.16);
+    head.add(nape);
   }
 
+  /* ---- limbs ---- */
   const leftArm = new THREE.Group();
   const rightArm = new THREE.Group();
   const leftLeg = new THREE.Group();
   const rightLeg = new THREE.Group();
   function addArm(target, side) {
-    const sleeve = makeCapsule(.105, .34, shirt, 9);
-    sleeve.position.y = -.27;
-    const hand = makeCapsule(.072, .2, skin, 9);
-    hand.position.y = -.61;
-    target.add(sleeve, hand);
+    const shoulderCap = makeSphere(.135, shirt, 12, 9);
+    shoulderCap.scale.set(1, .9, .82);
+    shoulderCap.position.set(-side * .025, .015, 0);
+    target.add(shoulderCap);
+    if (shortSleeves) {
+      const sleeve = makeCapsule(.099, .16, shirt, 10);
+      sleeve.position.y = -.13;
+      const arm = makeCapsule(.068, .31, skin, 10);
+      arm.position.y = -.4;
+      target.add(sleeve, arm);
+    } else {
+      const sleeve = makeCapsule(.095, .42, shirt, 10);
+      sleeve.position.y = -.26;
+      const cuff = new THREE.Mesh(new THREE.TorusGeometry(.082, .02, 7, 16), shirt);
+      cuff.position.y = -.5;
+      cuff.rotation.x = Math.PI / 2;
+      target.add(sleeve, cuff);
+    }
+    const hand = makeSphere(.082, skin, 10, 8);
+    hand.scale.set(.88, 1.12, .72);
+    hand.position.y = -.62;
+    target.add(hand);
     target.position.x = side * .47;
   }
   function addLeg(target, side) {
-    const upper = makeCapsule(.14, .38, trousers, 10);
-    upper.position.y = -.31;
-    const lower = makeCapsule(.12, .34, trousers, 10);
-    lower.position.y = -.74;
-    const shoe = makeBox(.25, .15, .43, shoes, .03);
-    shoe.position.set(0, -1, .11);
-    target.add(upper, lower, shoe);
+    const upper = new THREE.Group();
+    const hip = makeSphere(.135, trousers, 12, 9);
+    hip.scale.set(1, .9, .9);
+    hip.position.y = -.02;
+    const thigh = makeCapsule(.125, .34, trousers, 11);
+    thigh.position.y = -.3;
+    thigh.scale.set(1, 1, .92);
+    upper.add(hip, thigh);
+    /* below-knee unit — children[1]; bends at the knee, shoe rides along */
+    const lower = new THREE.Group();
+    lower.position.y = -.55;
+    const knee = makeSphere(.104, trousers, 11, 8);
+    const shin = makeCapsule(.088, .27, trousers, 10);
+    shin.position.y = -.2;
+    const shoe = makeBox(.2, .13, .34, shoes, .045);
+    shoe.position.set(0, -.42, .075);
+    const sole = makeBox(.21, .045, .36, standardMaterial(0x22303a, .8), .015);
+    sole.position.set(0, -.487, .08);
+    lower.add(knee, shin, shoe, sole);
+    target.add(upper, lower);
     target.position.x = side * .2;
   }
   addArm(leftArm, -1); addArm(rightArm, 1);
@@ -193,6 +320,7 @@ function createHuman(options = {}) {
     torso.position.y = 1.2; head.position.y = 2.02;
     leftArm.position.y = rightArm.position.y = 1.52;
     leftArm.rotation.x = rightArm.rotation.x = -.25;
+    leftArm.rotation.z = .1; rightArm.rotation.z = -.1;
     leftLeg.position.y = rightLeg.position.y = .72;
     leftLeg.rotation.x = rightLeg.rotation.x = -1.16;
     leftLeg.children[1].rotation.x = rightLeg.children[1].rotation.x = .78;
@@ -207,19 +335,27 @@ function createHuman(options = {}) {
     root, torso, head, leftArm, rightArm, leftLeg, rightLeg, seated,
     animate(phase, intensity = 1) {
       if (seated) {
-        const push = Math.sin(phase * .74);
-        leftArm.rotation.x = -.34 + push * .18 * intensity;
-        rightArm.rotation.x = -.34 + push * .18 * intensity;
-        torso.rotation.z = Math.sin(phase * .36) * .025 * intensity;
-        head.rotation.y = Math.sin(phase * .22) * .13 * intensity;
+        /* hands rest; the body breathes and looks around — no more rowing */
+        const sway = Math.sin(phase * .6);
+        leftArm.rotation.x = -.32 + sway * .05 * intensity;
+        rightArm.rotation.x = -.32 - sway * .04 * intensity;
+        torso.rotation.z = Math.sin(phase * .36) * .022 * intensity;
+        torso.position.y = 1.2 + Math.sin(phase * .9) * .008 * intensity;
+        head.rotation.y = Math.sin(phase * .22) * .14 * intensity;
+        head.rotation.z = Math.sin(phase * .31) * .02 * intensity;
         return;
       }
       const stride = Math.sin(phase);
       const lift = Math.max(0, Math.sin(phase * 2)) * .045 * intensity;
       leftLeg.rotation.x = stride * .48 * intensity;
       rightLeg.rotation.x = -stride * .48 * intensity;
+      /* the trailing leg folds at the knee as it swings through */
+      leftLeg.children[1].rotation.x = Math.max(0, stride) * .5 * intensity;
+      rightLeg.children[1].rotation.x = Math.max(0, -stride) * .5 * intensity;
       leftArm.rotation.x = -stride * .4 * intensity;
       rightArm.rotation.x = stride * .4 * intensity;
+      leftArm.rotation.z = .04 * intensity;
+      rightArm.rotation.z = -.04 * intensity;
       torso.position.y = 1.78 + lift;
       torso.rotation.y = stride * .035 * intensity;
       head.position.y = 2.64 + lift * .65;
@@ -275,7 +411,7 @@ function createWheelchair() {
     const casterFork = cylinderBetween(new THREE.Vector3(side * .45, .46, .38), new THREE.Vector3(side * .45, .21, .65), .027, frame, 7);
     const caster = createWheel(.14, false); caster.scale.setScalar(.62); caster.position.set(side * .45, .16, .68); root.add(casterFork, caster);
   }
-  const person = createHuman({ skin: 0x9a5d41, shirt: 0xb98f4d, trousers: 0x40585a, hair: 0x251e1c, hairStyle: 'bun', seated: true, scale: .67 });
+  const person = createHuman({ skin: 0x9a5d41, shirt: 0xb98f4d, trousers: 0x40585a, hair: 0xb8b2aa, hairStyle: 'bun', seated: true, scale: .67 });
   person.root.position.y = .18;
   root.add(person.root, contactShadow(1.25, 1.05, .1));
   return {
@@ -305,7 +441,7 @@ function createWateringCan() {
 
 function createGardener() {
   const root = new THREE.Group();
-  const human = createHuman({ skin: 0x8d563d, shirt: C.tealMid, trousers: 0x355052, hair: 0x241f1e, hairStyle: 'bun', scale: .66 });
+  const human = createHuman({ skin: 0x8d563d, shirt: C.tealMid, trousers: 0x355052, hair: 0x241f1e, hairStyle: 'bun', scale: .66, badge: true, shortSleeves: true });
   const can = createWateringCan();
   can.root.position.set(.48, .93, .28);
   can.root.scale.setScalar(.82);
@@ -346,7 +482,7 @@ function createMower() {
   }
   for(const side of [-1,1]) root.add(cylinderBetween(new THREE.Vector3(side*.39,.39,-.28),new THREE.Vector3(side*.29,1.16,-1.02),.03,frame,7));
   root.add(cylinderBetween(new THREE.Vector3(-.29,1.16,-1.02),new THREE.Vector3(.29,1.16,-1.02),.04,frame,7));
-  const worker=createHuman({skin:0x9a6246,shirt:C.tealMid,trousers:0x3f5759,hair:0x32241e,scale:.62});
+  const worker=createHuman({skin:0x9a6246,shirt:C.tealMid,trousers:0x3f5759,hair:0x32241e,scale:.62,badge:true,shortSleeves:true});
   worker.root.position.set(0,0,-1.48); root.add(worker.root,contactShadow(1.08,1.3,.08));
   const clippingMat = new THREE.MeshBasicMaterial({color:0x78986f,transparent:true,opacity:.5,depthWrite:false,toneMapped:false});
   const clippings=[];
@@ -462,6 +598,58 @@ function makeTrailTexture(kind) {
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;return texture;
 }
 
+/* a small seamless paver tile: offset stone courses over warm grout, with a
+   soft top-light on each stone and a little speckle so it reads as pavement */
+function makePaverTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 96; canvas.height = 96;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#c7b79e';
+  ctx.fillRect(0, 0, 96, 96);
+  const tones = ['#ece1c9', '#e6dabf', '#e0d3b6', '#eadfc7', '#e3d6bb'];
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const stone = (x, y) => {
+    const w = 44, h = 20, r = 6;
+    for (const ox of [-96, 0, 96]) for (const oy of [-96, 0, 96]) {
+      const sx = x + ox, sy = y + oy;
+      ctx.fillStyle = ctx.fillStyle;
+      ctx.beginPath();
+      ctx.moveTo(sx + r, sy);
+      ctx.arcTo(sx + w, sy, sx + w, sy + h, r);
+      ctx.arcTo(sx + w, sy + h, sx, sy + h, r);
+      ctx.arcTo(sx, sy + h, sx, sy, r);
+      ctx.arcTo(sx, sy, sx + w, sy, r);
+      ctx.closePath();
+      ctx.fill();
+    }
+  };
+  for (let row = 0; row < 4; row += 1) {
+    const y = row * 24 + 2;
+    const off = (row % 2) * 24;
+    for (let col = 0; col < 2; col += 1) {
+      ctx.fillStyle = tones[Math.floor(rnd() * tones.length)];
+      stone(off + col * 48 + 2, y);
+    }
+  }
+  ctx.fillStyle = 'rgba(120,102,78,.16)';
+  for (let i = 0; i < 70; i += 1) {
+    ctx.beginPath();
+    ctx.arc(rnd() * 96, rnd() * 96, .6 + rnd() * .9, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.12)';
+  for (let i = 0; i < 40; i += 1) {
+    ctx.beginPath();
+    ctx.arc(rnd() * 96, rnd() * 96, .5 + rnd() * .8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  return texture;
+}
+
 class TrailPool {
   constructor(scene){this.scene=scene;this.marks=[];this.textures={foot:makeTrailTexture('foot'),wheel:makeTrailTexture('wheel'),paw:makeTrailTexture('paw')};}
   emit(kind,position,yaw,width=.22,height=.42,lifetime=5,opacity=.16,mirror=false){
@@ -535,6 +723,7 @@ class MiniStage {
    pair all land exactly where the artwork puts them, at any viewport size. */
 const HERO_DESIGN = { w: 1448, h: 1025 };
 const HERO_LINE = [
+  [1620,958],
   [1452,931],[1440,928],[1385,918],[1322,908],[1271,898],[1236,888],[1189,878],
   [1135,866],[1083,878],[1054,888],[1035,898],[1017,908],[1003,918],[984,928],
   [955,937],[920,943],[890,944],[860,938],[830,928],[789,908],[760,898],[733,888],
@@ -548,21 +737,23 @@ const HERO_LINE = [
   [1195,98],[1196,118],[1206,140],[1245,175],[1290,212],[1330,242],[1356,258],
   [1362,268],[1366,278],[1368,288],[1369,308],[1369,338],[1370,368],[1372,378],
   [1377,388],[1385,398],[1398,408],[1417,418],[1441,428],[1452,433],
+  [1620,428],
 ];
-const HERO_STOP = 28;               // first halt — the bench, at the western dip
-const HERO_END = 80;                // second halt — under the pergola, north-east
-const HERO_BENCH = [626, 722];      // where the bench legs meet the ground
-const HERO_PERGOLA = [1345, 194];
-const HERO_TREES = [[1252, 122, 52], [1301, 108, 42]];
-const HERO_SHRUBS = [[578, 724, 26], [692, 720, 22]];
-const HERO_INK = { color: 0x6b6660, opacity: .55, px: 2.2 };
-/* one round: walk to the bench, sit a while, walk on to the pergola, rest, fade */
-const HERO_TIME = { legA: 13, benchRest: 7, legB: 17, pergolaRest: 5.5, fade: 2, gap: 2 };
+const HERO_STOP = 29;               // first halt — the bench, at the western dip
+const HERO_PERGOLA_AT = [1330,242]; // second halt — the pergola, beside the exit slope
+const HERO_TREES = [[1305, 80, 52], [1355, 98, 42]];
+const HERO_SHRUBS = [[500, 640, 26], [820, 560, 22]];
+const HERO_PATH = { grout: 0xc7b79e, opacity: .96, edgeOpacity: .8 };
+/* one round: in from off the bottom corner, a rest at the bench, on to the
+   pergola, a rest under it, then all the way off the top corner. The pair
+   never fades — only footprints and wheel tracks do. */
+const HERO_TIME = { legA: 13, benchRest: 7, legB: 14, pergolaRest: 5, legC: 6, gap: 2 };
 HERO_TIME.tBench = HERO_TIME.legA;
 HERO_TIME.tLegB = HERO_TIME.tBench + HERO_TIME.benchRest;
 HERO_TIME.tPergola = HERO_TIME.tLegB + HERO_TIME.legB;
-HERO_TIME.tFade = HERO_TIME.tPergola + HERO_TIME.pergolaRest;
-HERO_TIME.cycle = HERO_TIME.tFade + HERO_TIME.fade + HERO_TIME.gap;
+HERO_TIME.tLegC = HERO_TIME.tPergola + HERO_TIME.pergolaRest;
+HERO_TIME.tEnd = HERO_TIME.tLegC + HERO_TIME.legC;
+HERO_TIME.cycle = HERO_TIME.tEnd + HERO_TIME.gap;
 
 /* one pooled, single-draw-call field of fading ground marks per kind */
 class MarkField {
@@ -700,9 +891,23 @@ class HeroJourneyStage extends MiniStage {
     this.wheelMarks = new MarkField(this.scene, 'wheel', 0x8a8375, 260);
 
     this.bench = createParkBench();
-    this.bench.root.rotation.y = 1.0;
     this.pergola = createPergola();
-    this.pergola.root.rotation.y = .95;
+    /* v65.2: the park is lived-in — a neighbour on the bench, two friends
+       chatting under the pergola. All three ride their prop's transform, so
+       they scale and place with it on every viewport. */
+    this.benchSitter = createHuman({ seated: true, scale: .62, skin: 0xc98d68, shirt: 0x3f7d76, trousers: 0xbb8a4f, hair: 0x3a2c25, hairStyle: 'waves' });
+    /* v66: seated ON the slats (hips at seat height), not sunk into the frame */
+    this.benchSitter.root.position.set(-.45, .11, .02);
+    this.bench.root.add(this.benchSitter.root);
+    this.pergolaPair = [
+      createHuman({ skin: 0x8a5a40, shirt: 0xc2a14e, trousers: 0x3f5457, hair: 0x241f1d, hairStyle: 'bun', scale: .62 }),
+      createHuman({ skin: 0xd8a67f, shirt: 0x2d847d, trousers: 0x51585a, hair: 0x4a3527, hairStyle: 'curls', scale: .6 }),
+    ];
+    this.pergolaPair[0].root.position.set(-.55, 0, .3);
+    this.pergolaPair[1].root.position.set(.5, 0, -.28);
+    this.pergolaPair[0].root.rotation.y = Math.atan2(1.05, -.58);
+    this.pergolaPair[1].root.rotation.y = Math.atan2(-1.05, .58);
+    this.pergolaPair.forEach(h => { h.root.add(contactShadow(.8, .6, .07)); this.pergola.root.add(h.root); });
     this.trees = HERO_TREES.map(() => createTree(1));
     this.trees.forEach(t => t.crown.material.color.set(0x8ba871));
     this.shrubs = HERO_SHRUBS.map(() => createShrub());
@@ -711,21 +916,14 @@ class HeroJourneyStage extends MiniStage {
     this.shrubs.forEach(s => this.scene.add(s.root));
 
     this.chair = createWheelchair();
-    this.carer = createHuman({ skin: 0x8a553d, shirt: 0x2a6e62, trousers: 0x7c7d78, hair: 0x2b211e, hairStyle: 'curls', scale: .66 });
+    this.carer = createHuman({ skin: 0x8a553d, shirt: 0x2a6e62, trousers: 0x7c7d78, hair: 0x2b211e, hairStyle: 'curls', scale: .66, badge: true, shortSleeves: true });
     this.chair.root.scale.setScalar(.72);
     this.chair.root.position.set(-.14, 0, .46);
-    this.carer.root.position.set(.16, 0, -.3);
+    /* centred behind the chair, one hand over each push handle */
+    this.carer.root.position.set(-.14, 0, -.34);
     this.pair = new THREE.Group();
     this.pair.add(this.chair.root, this.carer.root);
     this.scene.add(this.pair);
-    this.pairMaterials = [];
-    this.pair.traverse(o => {
-      if (!o.material || this.pairMaterials.includes(o.material)) return;
-      o.material.userData.baseOpacity = o.material.opacity;
-      this.pairMaterials.push(o.material);
-    });
-    this.pairFade = 1;
-
     this.lastStamp = -1; this.footSide = 0; this.lastCycle = -1;
     this.ready = true;
     this.layout();
@@ -758,48 +956,87 @@ class HeroJourneyStage extends MiniStage {
     this.needsLayout = false;
     this.viewW = Math.max(1, rect.width);
     this.viewH = Math.max(1, rect.height);
-    /* Everything below is authored against the 1448 x 1025 reference hero box.
-       On a narrower box the route still spans it corner to corner, so the
-       figures and furniture shrink with it instead of overwhelming the frame. */
     this.fit = Math.max(.42, Math.min(1, Math.min(this.viewW / HERO_DESIGN.w, this.viewH / HERO_DESIGN.h)));
     this.camera.updateMatrixWorld();
     const origin = new THREE.Vector3();
     this.upPx = this.screenScale(origin, UP);
 
     const points = HERO_LINE.map(([x, y]) => this.designToGround(x, y));
-    this.line = new THREE.CatmullRomCurve3(points, false, 'centripetal', .3);
-    /* one continuous journey curve; the bench is a waypoint along it */
-    this.travel = new THREE.CatmullRomCurve3(points.slice(0, HERO_END + 1), false, 'centripetal', .3);
+    this.travel = new THREE.CatmullRomCurve3(points, false, 'centripetal', .3);
+    this.line = this.travel;
     this.travelLength = this.travel.getLength();
-    const bench = points[HERO_STOP];
-    let best = Infinity;
-    this.uBench = .35;
-    for (let i = 0; i <= 600; i += 1) {
-      const d = this.travel.getPointAt(i / 600).distanceToSquared(bench);
-      if (d < best) { best = d; this.uBench = i / 600; }
-    }
-    this.buildInk();
+    this.uBench = this.closestU(points[HERO_STOP]);
+    this.uPergola = this.closestU(this.designToGround(HERO_PERGOLA_AT[0], HERO_PERGOLA_AT[1]));
 
-    this.placeProp(this.bench.root, HERO_BENCH, 48 * this.fit);
-    this.benchWorld = this.bench.root.position.clone();
-    /* the pose they settle into at the bench: side-on to the camera */
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).setY(0).normalize();
-    this.restYaw = Math.atan2(-right.x, -right.z) - .3;
-    this.placeProp(this.pergola.root, HERO_PERGOLA, 110 * this.fit);
-    this.pergolaWorld = this.pergola.root.position.clone();
-    HERO_TREES.forEach(([x, y, px], i) => this.placeProp(this.trees[i].root, [x, y], px * this.fit));
-    HERO_SHRUBS.forEach(([x, y, px], i) => this.placeProp(this.shrubs[i].root, [x, y], px * this.fit));
-
+    /* people first — the props are sized and placed around them, with a floor
+       so they stay easy to spot on a small stage */
     this.pair.scale.setScalar(1);
     this.pair.position.set(0, 0, 0);
     this.pair.rotation.y = 0;
     this.pair.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(this.pair);
-    this.pairScale = 106 * this.fit / (Math.max(.001, box.max.y - box.min.y) * this.upPx);
+    const pairBox = new THREE.Box3().setFromObject(this.pair);
+    this.pairScale = Math.max(88, 118 * this.fit) / (Math.max(.001, pairBox.max.y - pairBox.min.y) * this.upPx);
     this.pair.scale.setScalar(this.pairScale);
+    this.buildInk();
+
+    /* The bench and pergola anchor to the route itself, so no viewport can
+       squeeze the path through them. The bench sits one body-width beside its
+       stop; the pergola straddles the path like an arbor, posts clear of the
+       wheelchair on both sides. */
+    const benchPoint = this.travel.getPointAt(this.uBench);
+    const benchTan = this.travel.getTangentAt(this.uBench).normalize();
+    const benchNormal = new THREE.Vector3(benchTan.z, 0, -benchTan.x).normalize();
+    this.scaleProp(this.bench.root, Math.max(46, 62 * this.fit));
+    const benchBox = new THREE.Box3().setFromObject(this.bench.root);
+    const benchOffset = (benchBox.max.z - benchBox.min.z) * .65 + this.pairScale * 1.3;
+    const west = benchPoint.clone().addScaledVector(benchNormal, benchOffset);
+    const east = benchPoint.clone().addScaledVector(benchNormal, -benchOffset);
+    const benchPos = west.clone().project(this.camera).x <= east.clone().project(this.camera).x ? west : east;
+    this.bench.root.position.copy(benchPos);
+    this.bench.root.rotation.y = Math.atan2(benchPoint.x - benchPos.x, benchPoint.z - benchPos.z);
+    this.benchWorld = benchPos.clone();
+    /* the pose they settle into at each stop: turned toward the bench */
+    this.restYaw = Math.atan2(benchPos.x - benchPoint.x, benchPos.z - benchPoint.z);
+
+    const pergPoint = this.travel.getPointAt(this.uPergola);
+    const pergTan = this.travel.getTangentAt(this.uPergola).normalize();
+    const pergNormal = new THREE.Vector3(pergTan.z, 0, -pergTan.x).normalize();
+    this.scaleProp(this.pergola.root, Math.max(76, 100 * this.fit));
+    const pergBox = new THREE.Box3().setFromObject(this.pergola.root);
+    const pergOffset = (pergBox.max.z - pergBox.min.z) * .62 + this.pairScale * 1.25;
+    const pw = pergPoint.clone().addScaledVector(pergNormal, pergOffset);
+    const pe = pergPoint.clone().addScaledVector(pergNormal, -pergOffset);
+    /* like the bench: sit on the screen-interior side of the path, so no
+       viewport ever clips it or squeezes the route through its posts */
+    const pergPos = pw.clone().project(this.camera).x <= pe.clone().project(this.camera).x ? pw : pe;
+    this.pergola.root.position.copy(pergPos);
+    this.pergola.root.rotation.y = Math.atan2(pergPoint.x - pergPos.x, pergPoint.z - pergPos.z);
+    this.pergolaWorld = pergPos.clone();
+    this.restYawPergola = Math.atan2(pergPos.x - pergPoint.x, pergPos.z - pergPoint.z);
+
+    HERO_TREES.forEach(([x, y, px], i) => this.placeProp(this.trees[i].root, [x, y], px * this.fit));
+    HERO_SHRUBS.forEach(([x, y, px], i) => this.placeProp(this.shrubs[i].root, [x, y], px * this.fit));
   }
 
-  placeProp(root, design, targetPx) {
+  closestU(target) {
+    let best = Infinity, u = .35;
+    for (let i = 0; i <= 600; i += 1) {
+      const d = this.travel.getPointAt(i / 600).distanceToSquared(target);
+      if (d < best) { best = d; u = i / 600; }
+    }
+    return u;
+  }
+
+  scaleProp(root, targetPx) {
+    root.scale.setScalar(1);
+    root.position.set(0, 0, 0);
+    root.rotation.y = 0;
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(root);
+    root.scale.setScalar(targetPx / (Math.max(.001, box.max.y - box.min.y) * this.upPx));
+  }
+
+    placeProp(root, design, targetPx) {
     root.scale.setScalar(1);
     root.position.set(0, 0, 0);
     root.updateMatrixWorld(true);
@@ -808,108 +1045,121 @@ class HeroJourneyStage extends MiniStage {
     root.position.copy(this.designToGround(design[0], design[1]));
   }
 
-  /* the ink line: a ground ribbon whose width is held constant in screen px */
+  /* the route is a real paved footpath: offset stone courses laid along the
+     walk (UVs follow arc length, so the pavers turn with every bend), a
+     grout-toned edge kerb, and screen-constant width so the drawing's
+     switchbacks never merge */
   buildInk() {
     if (this.ink) { this.scene.remove(this.ink); this.ink.geometry.dispose(); }
-    const segments = 460, positions = [], indices = [];
-    for (let i = 0; i <= segments; i += 1) {
-      const u = i / segments;
-      const p = this.line.getPointAt(u);
-      const t = this.line.getTangentAt(u).normalize();
-      const n = new THREE.Vector3(t.z, 0, -t.x).normalize();
-      const half = Math.max(1.3, HERO_INK.px * this.fit) / 2 / this.screenScale(p, n);
-      positions.push(
-        p.x + n.x * half, .014, p.z + n.z * half,
-        p.x - n.x * half, .014, p.z - n.z * half,
-      );
-      if (i < segments) { const a = i * 2; indices.push(a, a + 2, a + 1, a + 2, a + 3, a + 1); }
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setIndex(indices);
+    if (this.inkEdge) { this.scene.remove(this.inkEdge); this.inkEdge.geometry.dispose(); }
+    const mainHalfPx = Math.max(7.5, 12 * this.fit);
+    const tilePx = 58; /* one texture repeat per ~58 screen px of path */
+    const ribbon = (halfPx, y, withUv) => {
+      const segments = 460, positions = [], indices = [], uvs = [];
+      let cumPx = 0, prev = null;
+      for (let i = 0; i <= segments; i += 1) {
+        const u = i / segments;
+        const p = this.line.getPointAt(u);
+        const t = this.line.getTangentAt(u).normalize();
+        const n = new THREE.Vector3(t.z, 0, -t.x).normalize();
+        const halfWidth = halfPx / this.screenScale(p, n);
+        if (prev) cumPx += prev.distanceTo(p) * this.screenScale(p, t);
+        prev = p;
+        positions.push(
+          p.x + n.x * halfWidth, y, p.z + n.z * halfWidth,
+          p.x - n.x * halfWidth, y, p.z - n.z * halfWidth,
+        );
+        if (withUv) uvs.push(0, cumPx / tilePx, 1, cumPx / tilePx);
+        if (i < segments) { const a = i * 2; indices.push(a, a + 2, a + 1, a + 2, a + 3, a + 1); }
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      if (withUv) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geometry.setIndex(indices);
+      return geometry;
+    };
     if (!this.inkMaterial) {
+      this.paverTexture = makePaverTexture();
       this.inkMaterial = new THREE.MeshBasicMaterial({
-        color: HERO_INK.color, transparent: true, opacity: HERO_INK.opacity,
+        map: this.paverTexture, transparent: true, opacity: HERO_PATH.opacity,
+        depthWrite: false, toneMapped: false, side: THREE.DoubleSide,
+      });
+      this.inkEdgeMaterial = new THREE.MeshBasicMaterial({
+        color: HERO_PATH.grout, transparent: true, opacity: HERO_PATH.edgeOpacity,
         depthWrite: false, toneMapped: false, side: THREE.DoubleSide,
       });
     }
-    this.ink = new THREE.Mesh(geometry, this.inkMaterial);
+    this.inkEdge = new THREE.Mesh(ribbon(mainHalfPx + 2.2, .01, false), this.inkEdgeMaterial);
+    this.inkEdge.renderOrder = 1;
+    this.ink = new THREE.Mesh(ribbon(mainHalfPx, .014, true), this.inkMaterial);
     this.ink.renderOrder = 1;
-    this.scene.add(this.ink);
+    this.scene.add(this.inkEdge, this.ink);
   }
 
-  setPairFade(fade) {
-    if (Math.abs(fade - this.pairFade) < .004) return;
-    this.pairFade = fade;
-    this.pairMaterials.forEach(m => {
-      const base = m.userData.baseOpacity ?? 1;
-      m.opacity = base * fade;
-      m.transparent = base < 1 || fade < .995;
-      m.depthWrite = fade > .995 && base >= 1;
-    });
-  }
-
-  update(dt, t) {
+    update(dt, t) {
     if (this.needsLayout) { this.layout(); if (this.needsLayout) return; }
     super.update(dt, t);
     this.pergola.update(t);
     this.footMarks.update(dt);
     this.wheelMarks.update(dt);
     this.trees.forEach((tree, i) => { tree.crown.rotation.z = Math.sin(t * .5 + i) * .03; });
+    /* park life idles on its own clock */
+    this.benchSitter.animate(t * .8, .55);
+    this.pergolaPair[0].animate(t * 1.02, .06);
+    this.pergolaPair[1].animate(t * 1.13 + 2, .06);
+    this.pergolaPair[0].rightArm.rotation.x = -.62 + Math.sin(t * 1.8) * .16;
+    this.pergolaPair[1].leftArm.rotation.x = -.5 + Math.sin(t * 2.1 + 1) * .13;
 
     const cycle = Math.floor(t / HERO_TIME.cycle);
     const local = t % HERO_TIME.cycle;
     if (cycle !== this.lastCycle) { this.lastCycle = cycle; this.lastStamp = -1; }
 
-    /* three states: walking the first leg, resting at the bench, walking on to
-       the pergola (then resting there while the pair fades out). */
-    let u, moving, resting;
+    /* walk in from off-screen, rest at the bench, rest under the pergola,
+       then walk fully off-screen; only the ground marks are left to fade */
+    let u, moving, resting = 0, restLen = 0;
     if (local < HERO_TIME.tBench) {
       u = smoother(local / HERO_TIME.legA) * this.uBench;
-      moving = true; resting = 0;
+      moving = true;
     } else if (local < HERO_TIME.tLegB) {
-      u = this.uBench;
-      moving = false; resting = local - HERO_TIME.tBench;
+      u = this.uBench; moving = false;
+      resting = local - HERO_TIME.tBench; restLen = HERO_TIME.benchRest;
     } else if (local < HERO_TIME.tPergola) {
-      u = this.uBench + smoother((local - HERO_TIME.tLegB) / HERO_TIME.legB) * (1 - this.uBench);
-      moving = true; resting = 0;
+      u = this.uBench + smoother((local - HERO_TIME.tLegB) / HERO_TIME.legB) * (this.uPergola - this.uBench);
+      moving = true;
+    } else if (local < HERO_TIME.tLegC) {
+      u = this.uPergola; moving = false;
+      resting = local - HERO_TIME.tPergola; restLen = HERO_TIME.pergolaRest;
+    } else if (local < HERO_TIME.tEnd) {
+      u = this.uPergola + smoother((local - HERO_TIME.tLegC) / HERO_TIME.legC) * (1 - this.uPergola);
+      moving = true;
     } else {
-      u = 1;
-      moving = false; resting = local - HERO_TIME.tPergola;
+      u = 1; moving = false;
     }
     const p = this.travel.getPointAt(u);
-    const tan = this.travel.getTangentAt(u).normalize();
+    const tan = this.travel.getTangentAt(Math.min(.999, Math.max(.001, u))).normalize();
     const yaw = Math.atan2(tan.x, tan.z);
     const distance = u * this.travelLength;
     const gait = distance / Math.max(.05, .52 * this.pairScale) * Math.PI;
     this.pair.position.copy(p);
-    /* arriving at either stop, they come off the line and turn to it */
     let heading = yaw;
-    if (!moving) {
-      let target = this.restYaw;
-      if (u > .99 && this.pergolaWorld) {
-        const toward = this.pergolaWorld.clone().sub(p);
-        target = Math.atan2(toward.x, toward.z);
-      }
-      const delta = target - yaw;
-      heading = yaw + Math.atan2(Math.sin(delta), Math.cos(delta)) * smooth(invLerp(0, 1.7, resting));
+    if (!moving && restLen) {
+      /* settle into the rest pose, then turn back to the path before leaving */
+      const target = Math.abs(u - this.uPergola) < 1e-6 ? this.restYawPergola : this.restYaw;
+      const turnIn = smooth(invLerp(0, 1.7, resting));
+      const turnOut = smooth(invLerp(restLen - .9, restLen, resting));
+      const delta = Math.atan2(Math.sin(target - yaw), Math.cos(target - yaw));
+      heading = yaw + delta * turnIn * (1 - turnOut);
     }
     this.pair.rotation.y = heading;
 
     this.chair.animate(distance / this.pairScale, moving ? gait : t * 1.4);
     this.carer.animate(moving ? gait : t * 1.2, moving ? 1 : .08);
-    void resting;
     /* both hands stay on the push handles */
     const reach = Math.sin(moving ? gait : t * 1.2) * .05;
     this.carer.leftArm.rotation.x = -.6 + reach;
     this.carer.rightArm.rotation.x = -.6 - reach;
 
-    const fade = smooth(invLerp(0, .8, local))
-      * (1 - smooth(invLerp(HERO_TIME.tFade, HERO_TIME.tFade + HERO_TIME.fade, local)));
-    this.pair.visible = fade > .02;
-    this.setPairFade(fade);
-
-    if (!moving || fade < .2) return;
+    if (!moving) return;
     const normal = new THREE.Vector3(tan.z, 0, -tan.x).normalize();
     const alongPx = this.screenScale(p, tan);
     const acrossPx = this.screenScale(p, normal);
@@ -924,17 +1174,20 @@ class HeroJourneyStage extends MiniStage {
         .addScaledVector(tan, lon * s);
       field.emit(center, tan, normal, wPx * markFit / acrossPx, hPx * markFit / alongPx, life, alpha);
     };
-    mark(this.wheelMarks, -.86, .56, 5.5, 11, 14, .3);
-    mark(this.wheelMarks, .54, .56, 5.5, 11, 14, .3);
-    mark(this.footMarks, .2 + (this.footSide ? -.13 : .13), -.66, this.footSide ? 8.5 : -8.5, 14, 12, .38);
+    mark(this.wheelMarks, -.64, .56, 5.5, 11, 14, .3);
+    mark(this.wheelMarks, .36, .56, 5.5, 11, 14, .3);
+    mark(this.footMarks, -.14 + (this.footSide ? -.13 : .13), -.66, this.footSide ? 8.5 : -8.5, 14, 12, .38);
   }
 
-  dispose() {
+    dispose() {
     super.dispose();
     this.footMarks.dispose();
     this.wheelMarks.dispose();
     if (this.ink) this.ink.geometry.dispose();
+    if (this.inkEdge) this.inkEdge.geometry.dispose();
     if (this.inkMaterial) this.inkMaterial.dispose();
+    if (this.inkEdgeMaterial) this.inkEdgeMaterial.dispose();
+    if (this.paverTexture) this.paverTexture.dispose();
   }
 }
 
@@ -949,10 +1202,25 @@ class GardenCareStage extends MiniStage {
     this.waterMaterial=new THREE.MeshBasicMaterial({color:C.blue,transparent:true,opacity:.6,depthWrite:false,toneMapped:false});this.drops=[];
     for(let i=0;i<18;i+=1){const drop=new THREE.Mesh(new THREE.SphereGeometry(.035+(i%3)*.006,7,5),this.waterMaterial);drop.visible=false;this.scene.add(drop);this.drops.push(drop);}
     this.lastStamp=-1;this.footSide=0;this.lastCycle=-1;
-    this.positions={start:new THREE.Vector3(-4.6,0,2.4),bed1:new THREE.Vector3(.25,0,1.25),bed2:new THREE.Vector3(2.65,0,1.15),exit:new THREE.Vector3(5.5,0,-2.4)};
+    this.positions={start:new THREE.Vector3(-4.6,0,2.4),bed1:new THREE.Vector3(.25,0,1.3),bed2:new THREE.Vector3(2.65,0,1.2),exit:new THREE.Vector3(5.9,0,-2.75)};
+    /* v65: the gardener's legs are solved against the same obstacle map the
+       props are built from — beds, tree trunk and flower patch included — so
+       the exit no longer cuts through the second raised bed. */
+    this.obstacles=[
+      {type:'rect',label:'bed1',minX:-.22,maxX:2.42,minZ:-.37,maxZ:.87},
+      {type:'rect',label:'bed2',minX:2.23,maxX:4.87,minZ:-.47,maxZ:.77},
+      {type:'circle',label:'trunk',x:4.8,z:-1.05,r:.3},
+      {type:'circle',label:'flowers',x:4.1,z:-1.4,r:1.0},
+    ];
+    const guide=(x,z)=>new THREE.Vector3(x,0,z);
+    this.routes={
+      toBed1:createNavigationRoute(this.positions.start,this.positions.bed1,this.obstacles,.34),
+      toBed2:createNavigationRoute(this.positions.bed1,this.positions.bed2,this.obstacles,.3),
+      toExit:createNavigationRoute(this.positions.bed2,this.positions.exit,this.obstacles,.38,[guide(5.6,.95),guide(5.85,-.7)]),
+    };
   }
-  walkBetween(a,b,p,phase){const e=easeInOut(p);const pos=a.clone().lerp(b,e);const dir=b.clone().sub(a).normalize();const yaw=Math.atan2(dir.x,dir.z);this.gardener.root.position.copy(pos);this.gardener.root.rotation.y=yaw;this.gardener.animateWalk(phase,.9);this.emitFootprints(pos,yaw,p);return {pos,yaw};}
-  emitFootprints(pos,yaw,progress){const d=progress*6;if(d-this.lastStamp>.33){this.lastStamp=d;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,this.footSide?-.15:.15,-.3),yaw,.16,.34,4.2,.13,this.footSide===1);}}
+  walkRoute(route,p,phase){const u=Math.min(.9999,easeInOut(p));const pos=route.path.getPointAt(u);const tan=route.path.getTangentAt(u).normalize();const yaw=Math.atan2(tan.x,tan.z);this.gardener.root.position.copy(pos);this.gardener.root.rotation.y=yaw;this.gardener.animateWalk(phase,.9);this.emitFootprints(pos,yaw,u*route.length);return {pos,yaw};}
+  emitFootprints(pos,yaw,d){if(d-this.lastStamp>.33){this.lastStamp=d;this.footSide^=1;this.trails.emit('foot',offsetPoint(pos,yaw,this.footSide?-.15:.15,-.3),yaw,.16,.34,4.2,.13,this.footSide===1);}}
   waterBed(index,t,phase){
     const bed=this.beds[index],target=bed.root.position.clone().add(new THREE.Vector3(0,.62,0));
     const pos=(index===0?this.positions.bed1:this.positions.bed2).clone();this.gardener.root.position.copy(pos);const yaw=Math.atan2(target.x-pos.x,target.z-pos.z);this.gardener.root.rotation.y=yaw;this.gardener.animateWater(phase);
@@ -963,11 +1231,11 @@ class GardenCareStage extends MiniStage {
   update(dt,t){
     super.update(dt,t);const duration=18.5,cycle=Math.floor(t/duration),p=(t%duration)/duration;if(cycle!==this.lastCycle){this.lastCycle=cycle;this.lastStamp=-1;this.beds.forEach(b=>b.soil.color.copy(b.baseColor));}
     this.drops.forEach(d=>d.visible=false);let stage='';
-    if(p<.24){stage='walk1';this.walkBetween(this.positions.start,this.positions.bed1,invLerp(0,.24,p),t*7.5);}
+    if(p<.24){stage='walk1';this.walkRoute(this.routes.toBed1,invLerp(0,.24,p),t*7.5);}
     else if(p<.43){stage='water1';this.lastStamp=-1;this.waterBed(0,t,t*5);}
-    else if(p<.57){stage='walk2';this.walkBetween(this.positions.bed1,this.positions.bed2,invLerp(.43,.57,p),t*7.5);}
+    else if(p<.57){stage='walk2';this.walkRoute(this.routes.toBed2,invLerp(.43,.57,p),t*7.5);}
     else if(p<.76){stage='water2';this.lastStamp=-1;this.waterBed(1,t,t*5);}
-    else{stage='exit';this.walkBetween(this.positions.bed2,this.positions.exit,invLerp(.76,1,p),t*7.5);}
+    else{stage='exit';this.walkRoute(this.routes.toExit,invLerp(.76,1,p),t*7.5);}
     const fade=smooth(invLerp(0,.04,p))*(1-smooth(invLerp(.95,1,p)));this.gardener.root.visible=fade>.01;
     this.tree.crown.rotation.z=Math.sin(t*.55)*.035;this.flowers.forEach(({flower,phase})=>{flower.position.y=flower.userData.baseY+Math.sin(t*1.1+phase)*.012;});
   }
@@ -1024,7 +1292,7 @@ class StoryGardenStage extends MiniStage {
   constructor(canvas){
     super(canvas,{cameraPosition:new THREE.Vector3(7.8,7.5,8.8),lookAt:new THREE.Vector3(0,.5,0),frustum:7.2,lightPosition:new THREE.Vector3(-4,9,5)});
     const patch=new THREE.Mesh(new THREE.CircleGeometry(3.4,44),new THREE.MeshStandardMaterial({color:0xf3efe8,roughness:1,transparent:true,opacity:.45}));patch.rotation.x=-Math.PI/2;patch.scale.set(1.5,.68,1);patch.position.y=.001;this.scene.add(patch);
-    this.trees=[createTree(.75),createTree(.62)];this.trees[0].root.position.set(1.5,0,-.3);this.trees[1].root.position.set(-1.7,0,.45);this.scene.add(this.trees[0].root,this.trees[1].root);this.flowers=addFlowerPatch(this.scene,0,0,22);
+    this.trees=[createTree(.75),createTree(.62)];this.trees[0].root.position.set(1.9,0,.85);this.trees[1].root.position.set(-1.95,0,.3);this.scene.add(this.trees[0].root,this.trees[1].root);this.flowers=addFlowerPatch(this.scene,-.35,-1.35,22);
     const path=new THREE.CatmullRomCurve3([new THREE.Vector3(-4,0,1.8),new THREE.Vector3(-1.5,0,.8),new THREE.Vector3(.5,0,.4),new THREE.Vector3(2.4,0,-.8),new THREE.Vector3(4,0,-1.6)],false,'centripetal');this.path=path;this.pathLength=path.getLength();this.scene.add(pathRibbon(path,.78,new THREE.MeshStandardMaterial({color:C.path,roughness:1,transparent:true,opacity:.52}),56,.008));
     this.walker=createHuman({skin:0x9f6547,shirt:C.coral,trousers:0x3f5558,hair:0x2d231f,hairStyle:'waves',scale:.58});this.dog=createDog();this.group=new THREE.Group();this.walker.root.position.x=-.35;this.dog.root.position.set(.55,0,.1);this.group.add(this.walker.root,this.dog.root);this.group.scale.setScalar(.72);this.scene.add(this.group);this.lastDistance=-1;this.footSide=0;this.lastCycle=-1;
   }
@@ -1061,7 +1329,9 @@ function loop(now){
   animationFrame=0;frameCount+=1;
   if(staticMode)return;
   if(reduceMotion()||!homeIsVisible()||document.hidden||!activeStages.size){
-    activeStages.forEach(stage=>{if(!stage.disposed)stage.render();});
+    /* paused (route changed, tab hidden, nothing on screen): keep only the
+       cheap retry heartbeat. No update, no render — each canvas keeps its
+       last painted frame, so nothing burns GPU behind other pages. */
     scheduleRetry();
     return;
   }

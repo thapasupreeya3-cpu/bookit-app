@@ -354,7 +354,7 @@ html.high-contrast .acct-chip{border-color:#000;}
 .float-card b{font-size:.9rem;display:block;line-height:1.25;}
 .float-card small{font-size:.76rem;color:var(--ink-soft);display:block;line-height:1.3;}
 .fc1{top:-18px;right:8px;animation:floaty 5s ease-in-out infinite;}
-.fc2{bottom:-16px;left:-10px;animation:floaty 6s ease-in-out infinite reverse;}
+.fc2{top:45%;left:-10px;animation:floaty 6s ease-in-out infinite reverse;}
 @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 @media (max-width:900px){.fc2{left:0;} .hero{padding-top:48px;}}
 
@@ -1514,18 +1514,6 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
   #homeWorkers > *:nth-child(n+3){display:none;}
 }
 
-/* ---------- Build 24: the walkers ----------
-   A quiet life at the bottom of every page: carers and the people they
-   support crossing the screen, tracks fading behind them. The section
-   surfaces are opaque, so this floats with the decorative doodle layer —
-   above the paper, below every menu/header/modal (z50 < 60+) — at
-   watermark alpha, untouchable, and OFF for reduced motion, high contrast
-   and print. */
-#bgWalkers{position:fixed;inset:0;width:100%;height:100%;z-index:50;pointer-events:none;}
-html[data-motion="reduce"] #bgWalkers,
-html.high-contrast #bgWalkers{display:none;}
-@media (prefers-reduced-motion: reduce){#bgWalkers{display:none;}}
-@media print{#bgWalkers{display:none;}}
 
 /* v64: service-page photography */
 .svc-photo{margin:0;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-lg);
@@ -1560,9 +1548,25 @@ html.care-motion-ready .care-static-fallback{
   opacity:0!important;visibility:hidden;transition:opacity .5s ease,visibility 0s .5s;
 }
 .care-static-fallback{transition:opacity .45s ease;}
-/* The hero scene owns the whole hero box: the drawn route runs from the top
-   right, down past the bench, and off the bottom right corner. */
+/* v65: the hero journey gets a protected corridor instead of the whole hero.
+   Desktop: the right half — the static illustration cedes its column (the
+   floating cards stay). Small screens: a dedicated 300px stage below the
+   CTAs. The route never runs beneath the copy or the search field. */
 .care-motion-hero{inset:0;width:100%;height:100%;z-index:2;opacity:0;}
+@media (min-width:901px){
+  .care-hero-vignette{left:calc(50% + 70px);}
+  #page-home .hero-art .ill-scene{visibility:hidden;}
+  #page-home .hero-art{min-height:480px;}
+}
+@media (min-width:901px) and (max-width:1180px){
+  .care-hero-vignette{left:59%;}
+  /* the corridor is narrow here — the card would sit over the walked route */
+  #page-home .fc2{display:none;}
+}
+@media (max-width:900px){
+  .care-hero-vignette{position:relative;inset:auto;height:300px;margin-top:12px;}
+  #page-home .hero-art{display:none;}
+}
 .care-motion-garden{right:-30px;top:16px;width:510px;height:300px;z-index:1;}
 .care-motion-mower{left:-118px;bottom:-52px;width:560px;height:350px;z-index:1;}
 .care-motion-story{right:-70px;bottom:-36px;width:410px;height:270px;z-index:1;}
@@ -1574,27 +1578,26 @@ html.care-motion-ready .care-services-garden,
 html.care-motion-ready .care-how-mower,
 html.care-motion-ready .care-stories-trail,
 html.care-motion-ready .care-stories-garden{opacity:0!important;visibility:hidden;}
-/* The older full-page walkers would compete with the curated scenes. Keep
-   them on inner pages, but quietly retire them while the homepage is open. */
-html.care-home-active #bgWalkers{opacity:0;transition:opacity .4s ease;}
-#bgWalkers{transition:opacity .4s ease;}
+/* v65: the Build 24/25 full-page walkers are gone — free-roaming figures
+   crossed live copy and kept animating behind other pages. All motion now
+   lives in the clipped, section-owned care scenes. */
 
 @media (max-width:1180px){
-  .care-motion-hero{opacity:.86;}
+  .care-motion-hero{opacity:.9;}
   .care-motion-garden{right:-92px;width:465px;height:280px;}
   .care-motion-mower{left:-145px;width:500px;height:325px;}
   .care-motion-story{right:-92px;width:360px;height:245px;}
-  html.care-motion-ready .care-motion-hero{opacity:.82;}
+  html.care-motion-ready .care-motion-hero{opacity:.9;}
   html.care-motion-ready .care-motion-garden{opacity:.66;}
   html.care-motion-ready .care-motion-mower{opacity:.56;}
   html.care-motion-ready .care-motion-story{opacity:.48;}
 }
 @media (max-width:900px){
-  .care-motion-hero{opacity:.68;}
+  .care-motion-hero{opacity:.95;}
   .care-motion-garden{right:-118px;top:20px;width:430px;height:270px;opacity:.7;}
   .care-motion-mower{left:-170px;bottom:-18px;width:450px;height:300px;opacity:.62;}
   .care-motion-story{right:-115px;width:330px;height:225px;opacity:.58;}
-  html.care-motion-ready .care-motion-hero{opacity:.68;}
+  html.care-motion-ready .care-motion-hero{opacity:.95;}
   html.care-motion-ready .care-motion-garden{opacity:.56;}
   html.care-motion-ready .care-motion-mower{opacity:.46;}
   html.care-motion-ready .care-motion-story{opacity:.42;}
@@ -1602,8 +1605,8 @@ html.care-home-active #bgWalkers{opacity:0;transition:opacity .4s ease;}
 @media (max-width:640px){
   /* The hero scene is the page's main illustration now, not a decorative
      crop, so it stays on at narrow widths — the stage refits itself. */
-  .care-motion-hero{opacity:.6;}
-  html.care-motion-ready .care-motion-hero{opacity:.6;}
+  .care-motion-hero{opacity:.95;}
+  html.care-motion-ready .care-motion-hero{opacity:.95;}
   .care-motion-garden{right:-126px;top:54px;width:320px;height:215px;opacity:.48;}
   .care-motion-mower{left:-176px;bottom:0;width:360px;height:245px;opacity:.42;}
   .care-motion-story{display:none;}
@@ -1624,19 +1627,19 @@ html.care-motion-static .care-motion-garden.care-motion-painted{opacity:.76;}
 html.care-motion-static .care-motion-mower.care-motion-painted{opacity:.64;}
 html.care-motion-static .care-motion-story.care-motion-painted{opacity:.56;}
 @media (max-width:1180px){
-  html.care-motion-static .care-motion-hero.care-motion-painted{opacity:.82;}
+  html.care-motion-static .care-motion-hero.care-motion-painted{opacity:.9;}
   html.care-motion-static .care-motion-garden.care-motion-painted{opacity:.66;}
   html.care-motion-static .care-motion-mower.care-motion-painted{opacity:.56;}
   html.care-motion-static .care-motion-story.care-motion-painted{opacity:.48;}
 }
 @media (max-width:900px){
-  html.care-motion-static .care-motion-hero.care-motion-painted{opacity:.68;}
+  html.care-motion-static .care-motion-hero.care-motion-painted{opacity:.95;}
   html.care-motion-static .care-motion-garden.care-motion-painted{opacity:.56;}
   html.care-motion-static .care-motion-mower.care-motion-painted{opacity:.46;}
   html.care-motion-static .care-motion-story.care-motion-painted{opacity:.42;}
 }
 @media (max-width:640px){
-  html.care-motion-static .care-motion-hero.care-motion-painted{opacity:.6;}
+  html.care-motion-static .care-motion-hero.care-motion-painted{opacity:.95;}
   html.care-motion-static .care-motion-garden.care-motion-painted{opacity:.43;}
   html.care-motion-static .care-motion-mower.care-motion-painted{opacity:.38;}
 }
@@ -1649,13 +1652,13 @@ html.high-contrast .care-motion-canvas{display:none!important;}
    preview viewport's own gradient. */
 .care-stage-block{display:none;}
 html.care-stages-ready .care-stage-block{display:block;}
-.care-stage-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px 22px;flex-wrap:wrap;margin-bottom:16px;}
+.care-stage-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px 22px;flex-wrap:wrap;max-width:560px;margin:0 auto 14px;}
 .care-stage-head p{margin:0;}
-.care-stage{position:relative;width:100%;aspect-ratio:16/9;max-height:560px;border-radius:22px;overflow:hidden;
+.care-stage{position:relative;width:100%;max-width:560px;margin:0 auto;aspect-ratio:16/9;max-height:315px;border-radius:18px;overflow:hidden;
   border:1.5px solid #e7dfd1;box-shadow:0 18px 45px rgba(44,55,56,.10);
   background:radial-gradient(circle at 14% 12%,rgba(255,255,255,.98),rgba(255,255,255,0) 31%),radial-gradient(circle at 86% 16%,rgba(244,235,221,.75),rgba(244,235,221,0) 33%),linear-gradient(145deg,#eef6f3 0%,#f8f4ed 54%,#e9f1ee 100%);}
 .care-stage canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;}
-.care-stage-moments{display:flex;gap:8px 14px;flex-wrap:wrap;margin:12px 0 0;padding:0;list-style:none;}
+.care-stage-moments{display:flex;gap:8px 14px;flex-wrap:wrap;max-width:560px;margin:12px auto 0;padding:0;list-style:none;}
 .care-stage-moments li{font-size:.88rem;color:var(--muted,#536b73);background:rgba(255,255,255,.7);border:1px solid #ece4d6;border-radius:999px;padding:5px 13px;}
 .care-stage-moments li b{color:#0E6B62;font-weight:700;margin-right:6px;}
 html.high-contrast .care-stage-block{display:none!important;}
@@ -1664,7 +1667,6 @@ html.high-contrast .care-stage-block{display:none!important;}
 </style>
 </head>
 <body>
-<canvas id="bgWalkers" aria-hidden="true"></canvas>
 <a class="skip-link" href="#main">Skip to main content</a>
 
 <!-- ============ HEADER ============ -->
@@ -1796,9 +1798,6 @@ html.high-contrast .care-stage-block{display:none!important;}
 <!-- ================= HOME ================= -->
 <section class="page" id="page-home" data-title="BookIt — Find NDIS support workers who fit your life">
   <div class="hero">
-    <div class="care-hero-vignette" aria-hidden="true">
-      <canvas class="care-motion-canvas care-motion-hero" data-care-motion="hero" data-engine="three.js r179" width="1448" height="1025"></canvas>
-    </div>
     <div class="hero-rings" aria-hidden="true"><i></i><i></i><i></i></div>
     <div class="container hero-grid">
       <div>
@@ -1831,6 +1830,9 @@ html.high-contrast .care-stage-block{display:none!important;}
           <div><b>Shift confirmed 🎉</b><small>Tue 9:00am – 1:00pm · Household tasks</small></div>
         </div>
       </div>
+    </div>
+    <div class="care-hero-vignette" aria-hidden="true">
+      <canvas class="care-motion-canvas care-motion-hero" data-care-motion="hero" data-engine="three.js r179" width="1448" height="1025"></canvas>
     </div>
   </div>
 
@@ -2050,7 +2052,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/employment.jpg" alt="A young barista with Down syndrome laughs with his support worker while learning the coffee machine in a bright cafe" loading="lazy" decoding="async"></figure>
+      <figure class="svc-photo"><img src="assets/photos/employment.jpg" alt="A young barista with Down syndrome laughs with his support worker while learning the coffee machine in a bright cafe" loading="lazy" decoding="async"></figure>
       </div>
     </div>
   </div>
@@ -2125,7 +2127,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/personal-care.jpg" alt="A support worker helps an older woman style her hair at a sunlit mirror, both smiling" loading="lazy" decoding="async"></figure>
+      <figure class="svc-photo"><img src="assets/photos/personal-care.jpg" alt="A support worker helps an older woman style her hair at a sunlit mirror, both smiling" loading="lazy" decoding="async"></figure>
       </div>
     </div>
   </div>
@@ -2201,7 +2203,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/transport.jpg" alt="A woman in a power wheelchair boards a van by its ramp in golden afternoon light, her small dog on her lap, her support worker holding the door" loading="lazy" decoding="async"></figure>
+      <figure class="svc-photo"><img src="assets/photos/transport.jpg" alt="A woman in a power wheelchair boards a van by its ramp in golden afternoon light, her small dog on her lap, her support worker holding the door" loading="lazy" decoding="async"></figure>
       </div>
     </div>
   </div>
@@ -2275,7 +2277,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/daily-tasks.jpg" alt="A participant and support worker cook together in a warm kitchen, laughing as vegetables go into the pan" loading="lazy" decoding="async"></figure>
+      <figure class="svc-photo"><img src="assets/photos/daily-tasks.jpg" alt="A participant and support worker cook together in a warm kitchen, laughing as vegetables go into the pan" loading="lazy" decoding="async"></figure>
       </div>
     </div>
   </div>
@@ -2350,7 +2352,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/household.jpg" alt="A support worker and a young man hang laundry on a backyard clothesline in the sunshine" loading="lazy" decoding="async"></figure>
+      <figure class="svc-photo"><img src="assets/photos/household.jpg" alt="A support worker and a young man hang laundry on a backyard clothesline in the sunshine" loading="lazy" decoding="async"></figure>
       </div>
     </div>
   </div>
@@ -2424,7 +2426,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/community.jpg" alt="Friends and a support worker share a picnic in the park, one in a power wheelchair, a kite flying overhead" loading="lazy" decoding="async"></figure>
+      <figure class="svc-photo"><img src="assets/photos/community.jpg" alt="Friends and a support worker share a picnic in the park, one in a power wheelchair, a kite flying overhead" loading="lazy" decoding="async"></figure>
       </div>
     </div>
   </div>
@@ -12922,506 +12924,8 @@ document.addEventListener('click', async e => {
     }, {passive:true});
   }
 })();
-
-/* ═══════════ Build 24/25: the walkers ═══════════
-   Life across the whole page, in the site's own illustration voice: filled
-   two-tone characters — a carer beside a wheelchair user with a balloon, a
-   kite flown from a chair, a guide dog in harness, forearm crutches, a
-   walking frame, a running blade — crossing at three depths (near, mid,
-   far), birds up high, tracks fading like prints on wet sand. Decorative:
-   off under reduced motion / high contrast / print, aria-hidden, untouchable,
-   and the loop fully idles when the stage is empty. */
-(() => {
-  var cv = document.getElementById('bgWalkers');
-  if(!cv || !cv.getContext) return;
-  var ctx = cv.getContext('2d');
-  var W = 0, H = 0, raf = 0, lastT = 0, uid = 0;
-  var walkers = [], birds = null, marks = [], tracks = {};
-  var tNear = 0, tDeep = 0, tBirds = 0;
-  var TTL = 16000;
-  var INK = '18,43,51', TEAL = '14,107,98', AMBER = '245,184,65';
-
-  function size(){
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    W = innerWidth; H = innerHeight;
-    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  }
-  addEventListener('resize', size); size();
-
-  function off(){
-    var de = document.documentElement;
-    return !de.classList.contains('js-fx')
-      || de.getAttribute('data-motion') === 'reduce'
-      || de.classList.contains('high-contrast')
-      || (matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-  }
-  function edgeA(x){ return Math.max(0, Math.min(1, Math.min(x + 70, W + 70 - x) / 150)); }
-
-  /* ---------- fading marks ---------- */
-  function foot(x, y, side, dir){ marks.push({ k:'foot', x:x, y:y, s:side, d:dir, t:performance.now() }); }
-  function paw(x, y){ marks.push({ k:'paw', x:x, y:y, t:performance.now() }); }
-  function tap(x, y){ marks.push({ k:'tap', x:x, y:y, t:performance.now() }); }
-  function track(id, x, y){
-    var tr = tracks[id] || (tracks[id] = { pts: [] });
-    var last = tr.pts[tr.pts.length - 1];
-    if(!last || Math.abs(x - last.x) >= 7) tr.pts.push({ x:x, y:y, t:performance.now() });
-  }
-  function drawMarks(now){
-    for(var i = 0; i < marks.length; i++){
-      var m = marks[i], a = 1 - (now - m.t) / TTL;
-      if(a <= 0) continue;
-      if(m.k === 'foot'){
-        ctx.fillStyle = 'rgba(' + INK + ',' + (0.115 * a).toFixed(3) + ')';
-        ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.s * 0.14 * m.d);
-        ctx.beginPath(); ctx.ellipse(0, m.s * 1.6, 3.1, 1.6, 0, 0, 7); ctx.fill(); ctx.restore();
-      } else if(m.k === 'paw'){
-        ctx.fillStyle = 'rgba(' + INK + ',' + (0.11 * a).toFixed(3) + ')';
-        ctx.beginPath();
-        ctx.arc(m.x, m.y, 1.0, 0, 7);
-        ctx.arc(m.x - 2, m.y - 1.6, 0.7, 0, 7);
-        ctx.arc(m.x + 0.4, m.y - 2.1, 0.7, 0, 7);
-        ctx.arc(m.x + 2.2, m.y - 1.2, 0.7, 0, 7);
-        ctx.fill();
-      } else {
-        ctx.fillStyle = 'rgba(' + TEAL + ',' + (0.13 * a).toFixed(3) + ')';
-        ctx.beginPath(); ctx.arc(m.x, m.y, 1.3, 0, 7); ctx.fill();
-      }
-    }
-  }
-  function drawTracks(now){
-    for(var id in tracks){
-      var pts = tracks[id].pts;
-      for(var i = 1; i < pts.length; i++){
-        var a = 1 - (now - pts[i].t) / TTL;
-        if(a <= 0) continue;
-        ctx.strokeStyle = 'rgba(' + TEAL + ',' + (0.10 * a).toFixed(3) + ')';
-        ctx.lineWidth = 1.1;
-        ctx.beginPath(); ctx.moveTo(pts[i-1].x, pts[i-1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
-      }
-    }
-  }
-  function prune(now){
-    marks = marks.filter(function(m){ return now - m.t < TTL; });
-    for(var id in tracks){
-      tracks[id].pts = tracks[id].pts.filter(function(p){ return now - p.t < TTL; });
-      if(!tracks[id].pts.length) delete tracks[id];
-    }
-  }
-  function empty(){
-    if(marks.length) return false;
-    for(var id in tracks) return false;
-    return true;
-  }
-
-  /* ---------- soft-body drawing kit (filled capsules, not sticks) ---------- */
-  function capsule(x1, y1, x2, y2, r1, r2){
-    var a = Math.atan2(y2 - y1, x2 - x1);
-    ctx.beginPath();
-    ctx.arc(x1, y1, r1, a + 1.5708, a - 1.5708);
-    ctx.arc(x2, y2, r2 == null ? r1 * 0.72 : r2, a - 1.5708, a + 1.5708);
-    ctx.closePath(); ctx.fill();
-  }
-  function dot(x, y, r){ ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
-  function ring(x, y, r, lw){ ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); }
-  function col(c, a){ return 'rgba(' + c + ',' + a.toFixed(3) + ')'; }
-
-  /* a walking companion — soft body, amber beanie, optional tote bag */
-  function personF(h, ph, A, tote){
-    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845, lean = h * 0.05;
-    var s1 = Math.sin(ph), s2 = Math.sin(ph + Math.PI);
-    ctx.fillStyle = col(INK, A);
-    capsule(0, hipY, s1 * h * 0.165, -h * 0.015, h * 0.052, h * 0.040);
-    capsule(0, hipY, s2 * h * 0.165, -h * 0.015, h * 0.052, h * 0.040);
-    capsule(0, hipY + h * 0.02, lean, shY, h * 0.112, h * 0.096);
-    dot(lean * 1.15, hdY, h * 0.100);
-    capsule(lean, shY + h * 0.035, lean + s2 * h * 0.14, -h * 0.40, h * 0.040, h * 0.032);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.arc(lean * 1.15, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
-    if(tote){
-      ctx.fillStyle = col(TEAL, A * 0.9);
-      ctx.beginPath();
-      var bx = lean + s2 * h * 0.14, by = -h * 0.385;
-      ctx.moveTo(bx - h * 0.055, by); ctx.lineTo(bx + h * 0.055, by);
-      ctx.lineTo(bx + h * 0.045, by + h * 0.115); ctx.lineTo(bx - h * 0.045, by + h * 0.115);
-      ctx.closePath(); ctx.fill();
-    }
-  }
-
-  /* wheelchair + rider: teal chair, amber hub (the oo), soft rider */
-  function chairF(h, roll, A){
-    var R = h * 0.295, wy = -R;
-    ctx.strokeStyle = col(TEAL, A);
-    ring(0, wy, R, 2.3);
-    ctx.strokeStyle = col(INK, A * 0.9); ctx.lineWidth = 1.2;
-    for(var i = 0; i < 3; i++){
-      var an = roll + i * 2.094;
-      ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(Math.cos(an) * R * 0.8, wy + Math.sin(an) * R * 0.8); ctx.stroke();
-    }
-    ctx.fillStyle = col(AMBER, A); dot(0, wy, h * 0.045);
-    ctx.strokeStyle = col(TEAL, A);
-    ring(R * 1.14, -h * 0.065, h * 0.062, 2.0);
-    ctx.lineWidth = 2.3;
-    var seatY = wy - R * 0.55;
-    ctx.beginPath();
-    ctx.moveTo(-R * 0.22, seatY); ctx.lineTo(R * 0.72, seatY);
-    ctx.moveTo(-R * 0.22, seatY); ctx.lineTo(-R * 0.34, seatY - R * 0.80);
-    ctx.moveTo(R * 0.72, seatY); ctx.lineTo(R * 1.03, -h * 0.075); ctx.lineTo(R * 1.26, -h * 0.075);
-    ctx.stroke();
-    /* rider */
-    var hipX = R * 0.06, shX = -R * 0.14, shY2 = seatY - h * 0.235, hdY = shY2 - h * 0.115;
-    ctx.fillStyle = col(INK, A);
-    capsule(hipX, seatY - h * 0.01, R * 0.60, seatY - h * 0.02, h * 0.055, h * 0.048);
-    capsule(R * 0.60, seatY - h * 0.02, R * 0.94, -h * 0.085, h * 0.045, h * 0.036);
-    capsule(hipX, seatY - h * 0.02, shX, shY2, h * 0.100, h * 0.088);
-    dot(shX - h * 0.008, hdY, h * 0.095);
-    var ha = 0.9 + Math.sin(roll * 0.9) * 0.5;
-    capsule(shX, shY2 + h * 0.03, Math.cos(ha) * R * 0.8, wy + Math.sin(ha) * R * 0.8, h * 0.038, h * 0.030);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.arc(shX - h * 0.008, hdY - h * 0.010, h * 0.095, Math.PI, 0); ctx.closePath(); ctx.fill();
-  }
-
-  /* guide dog in working harness, trotting proud */
-  function dogF(h, ph, A, wag){
-    var bh = h * 0.30, bl = h * 0.40;
-    var s1 = Math.sin(ph * 1.35), s2 = Math.sin(ph * 1.35 + Math.PI);
-    ctx.fillStyle = col(INK, A);
-    capsule(-bl * 0.42, -bh * 0.95, -bl * 0.42 + s1 * 3.2, -1, h * 0.035, h * 0.026);
-    capsule(-bl * 0.30, -bh * 0.92, -bl * 0.30 + s2 * 3.2, -1, h * 0.035, h * 0.026);
-    capsule(bl * 0.30, -bh * 0.92, bl * 0.30 + s2 * 3.6, -1, h * 0.036, h * 0.027);
-    capsule(bl * 0.42, -bh * 0.95, bl * 0.42 + s1 * 3.6, -1, h * 0.036, h * 0.027);
-    ctx.beginPath();
-    ctx.ellipse(0, -bh * 1.06, bl * 0.52, bh * 0.34, -0.06, 0, 7);
-    ctx.fill();
-    dot(bl * 0.62, -bh * 1.38, h * 0.062);
-    capsule(bl * 0.66, -bh * 1.33, bl * 0.80, -bh * 1.22, h * 0.030, h * 0.020);
-    ctx.beginPath();
-    ctx.moveTo(bl * 0.585, -bh * 1.50); ctx.lineTo(bl * 0.545, -bh * 1.66); ctx.lineTo(bl * 0.66, -bh * 1.545);
-    ctx.closePath(); ctx.fill();
-    capsule(-bl * 0.50, -bh * 1.08, -bl * 0.66, -bh * (1.30 + Math.sin(wag) * 0.10), h * 0.026, h * 0.014);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.ellipse(bl * 0.50, -bh * 1.24, h * 0.026, h * 0.048, -0.5, 0, 7); ctx.fill();
-    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.ellipse(0, -bh * 1.06, bl * 0.30, bh * 0.36, 0, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
-  }
-
-  /* long-cane traveller — the dog is the guide here */
-  function caneF(h, ph, A){
-    personF(h, ph, A, false);
-    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.7;
-    var sway = Math.sin(ph) * h * 0.10;
-    ctx.beginPath();
-    ctx.moveTo(h * 0.10, -h * 0.42);
-    ctx.lineTo(h * 0.30 + sway, -h * 0.01);
-    ctx.stroke();
-  }
-
-  /* forearm crutches, one strong leg, gentle bounce */
-  function crutchF(h, ph, A, bob){
-    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845;
-    var s1 = Math.sin(ph);
-    ctx.fillStyle = col(INK, A);
-    capsule(0, hipY, s1 * h * 0.14, -h * 0.015 + bob, h * 0.052, h * 0.040);
-    capsule(0, hipY, -h * 0.075, -h * 0.24, h * 0.048, h * 0.036);
-    capsule(0, hipY + h * 0.02, h * 0.035, shY, h * 0.112, h * 0.096);
-    dot(h * 0.045, hdY, h * 0.100);
-    capsule(h * 0.035, shY + h * 0.035, h * 0.145 + s1 * h * 0.03, -h * 0.42, h * 0.040, h * 0.032);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.arc(h * 0.045, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 1.9;
-    var c1 = s1 * h * 0.09, c2 = -s1 * h * 0.06;
-    ctx.beginPath();
-    ctx.moveTo(h * 0.14 + c1, -h * 0.46); ctx.lineTo(h * 0.185 + c1 * 1.6, bob);
-    ctx.moveTo(-h * 0.045 + c2, -h * 0.46); ctx.lineTo(-h * 0.03 + c2 * 1.6, bob);
-    ctx.stroke();
-    ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.arc(h * 0.14 + c1, -h * 0.455, h * 0.030, 0, 7); ctx.stroke();
-    ctx.beginPath(); ctx.arc(-h * 0.045 + c2, -h * 0.455, h * 0.030, 0, 7); ctx.stroke();
-  }
-
-  /* four-wheel walker frame, unhurried */
-  function frameF(h, ph, A){
-    var s1 = Math.sin(ph) * 0.5, s2 = Math.sin(ph + Math.PI) * 0.5;
-    var hipY = -h * 0.42, shY = -h * 0.66, hdY = -h * 0.80;
-    ctx.fillStyle = col(INK, A);
-    capsule(0, hipY, s1 * h * 0.11, -h * 0.015, h * 0.050, h * 0.038);
-    capsule(0, hipY, s2 * h * 0.11, -h * 0.015, h * 0.050, h * 0.038);
-    capsule(0, hipY + h * 0.02, h * 0.075, shY, h * 0.108, h * 0.092);
-    dot(h * 0.09, hdY, h * 0.096);
-    capsule(h * 0.075, shY + h * 0.03, h * 0.27, -h * 0.505, h * 0.038, h * 0.030);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.arc(h * 0.09, hdY - h * 0.010, h * 0.096, Math.PI, 0); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 2.1;
-    var fh = h * 0.50;
-    ctx.beginPath();
-    ctx.moveTo(h * 0.26, -fh); ctx.lineTo(h * 0.245, -h * 0.055);
-    ctx.moveTo(h * 0.44, -fh); ctx.lineTo(h * 0.455, -h * 0.055);
-    ctx.moveTo(h * 0.225, -fh); ctx.lineTo(h * 0.475, -fh);
-    ctx.moveTo(h * 0.25, -fh * 0.56); ctx.lineTo(h * 0.45, -fh * 0.56);
-    ctx.stroke();
-    ctx.fillStyle = col(AMBER, A);
-    dot(h * 0.245, -h * 0.038, h * 0.038); dot(h * 0.455, -h * 0.038, h * 0.038);
-  }
-
-  /* running-blade walker — celebration, not apology */
-  function bladeF(h, ph, A){
-    var hipY = -h * 0.44, shY = -h * 0.70, hdY = -h * 0.845, lean = h * 0.06;
-    var s1 = Math.sin(ph), s2 = Math.sin(ph + Math.PI);
-    ctx.fillStyle = col(INK, A);
-    capsule(0, hipY, s1 * h * 0.17, -h * 0.015, h * 0.052, h * 0.040);
-    capsule(0, hipY, s2 * h * 0.10, -h * 0.22, h * 0.050, h * 0.040);
-    ctx.strokeStyle = col(TEAL, A); ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(s2 * h * 0.10, -h * 0.22);
-    ctx.quadraticCurveTo(s2 * h * 0.17 + h * 0.02, -h * 0.10, s2 * h * 0.19 + h * 0.058, -h * 0.005);
-    ctx.stroke();
-    ctx.fillStyle = col(INK, A);
-    capsule(0, hipY + h * 0.02, lean, shY, h * 0.112, h * 0.096);
-    dot(lean * 1.15, hdY, h * 0.100);
-    capsule(lean, shY + h * 0.035, lean + s2 * h * 0.15, -h * 0.40, h * 0.040, h * 0.032);
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.arc(lean * 1.15, hdY - h * 0.012, h * 0.100, Math.PI, 0); ctx.closePath(); ctx.fill();
-  }
-
-  function balloonF(hx, hy, h, A, t, seed){
-    var bob = Math.sin(t * 0.0012 + seed) * 4, sway = Math.sin(t * 0.0009 + seed) * 6;
-    var bx = hx + sway * 0.4, by = hy - h * 0.72 + bob;
-    ctx.strokeStyle = col(TEAL, A * 0.85); ctx.lineWidth = 1.1;
-    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo(hx + sway * 0.25, (hy + by) / 2, bx, by + h * 0.135); ctx.stroke();
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.ellipse(bx, by, h * 0.105, h * 0.13, 0, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(bx - h * 0.02, by + h * 0.132); ctx.lineTo(bx + h * 0.02, by + h * 0.132); ctx.lineTo(bx, by + h * 0.165); ctx.closePath(); ctx.fill();
-  }
-
-  function kiteF(hx, hy, gy, h, A, t, seed, dir){
-    var sway = Math.sin(t * 0.0008 + seed) * 16, lift = Math.sin(t * 0.0011 + seed * 2) * 10;
-    var kx = hx + dir * (h * 1.7 + sway), ky = Math.max(86, gy - H * 0.40 + lift);
-    ctx.strokeStyle = col(TEAL, A * 0.8); ctx.lineWidth = 1.1;
-    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo((hx + kx) / 2 + dir * 24, (hy + ky) / 2 + 26, kx, ky + 12); ctx.stroke();
-    ctx.save(); ctx.translate(kx, ky); ctx.rotate(dir * (0.18 + sway * 0.006));
-    ctx.fillStyle = col(AMBER, A);
-    ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(9, 0); ctx.lineTo(0, 12); ctx.lineTo(-9, 0); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = col(INK, A * 0.7); ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(0, 12); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.stroke();
-    ctx.strokeStyle = col(TEAL, A * 0.8);
-    ctx.beginPath(); ctx.moveTo(0, 12); ctx.quadraticCurveTo(-dir * 6, 20, -dir * 3, 27); ctx.stroke();
-    ctx.fillStyle = col(TEAL, A * 0.9);
-    dot(-dir * 1, 18, 1.8); dot(-dir * 4, 24, 1.8);
-    ctx.restore();
-  }
-
-  /* the pause beat: two little dots overhead — the oo, saying hello */
-  function bubbleF(x, y, h, A, k){
-    var a = A * Math.sin(Math.min(1, k) * Math.PI);
-    if(a <= 0.004) return;
-    ctx.fillStyle = col(TEAL, a); dot(x - h * 0.055, y, h * 0.042);
-    ctx.fillStyle = col(AMBER, a); dot(x + h * 0.055, y, h * 0.042);
-  }
-
-  /* ---------- the six scenes ---------- */
-  function drawScene(w, gyf, now){
-    var A = w.alpha * edgeA(w.x);
-    if(A <= 0.004) return;
-    var h = w.h, dir = w.dir, ph = w.ph;
-    function at(ox, fn){
-      ctx.save(); ctx.translate(w.x + dir * ox, gyf); ctx.scale(dir, 1); fn(); ctx.restore();
-    }
-    if(w.scene === 0 || w.scene === 1){
-      at(0, function(){ chairF(h, w.roll, A); });
-      at(-h * 0.62, function(){ personF(h, ph, A, w.scene === 0); });
-      if(w.scene === 0 && w.balloon) balloonF(w.x + dir * h * 0.1, gyf - h * 0.52, h, A, now, w.seed);
-      if(w.scene === 1) kiteF(w.x + dir * h * 0.05, gyf - h * 0.50, w.gy, h, A, now, w.seed, dir);
-    } else if(w.scene === 2){
-      at(0, function(){ caneF(h, ph, A); });
-      at(h * 0.92, function(){ dogF(h, ph, A, w.state === 'pause' ? now * 0.02 : ph * 0.8); });
-      ctx.strokeStyle = col(TEAL, A * 0.9); ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(w.x + dir * h * 0.13, gyf - h * 0.40);
-      ctx.quadraticCurveTo(w.x + dir * h * 0.55, gyf - h * 0.50, w.x + dir * h * 0.86, gyf - h * 0.335);
-      ctx.stroke();
-    } else if(w.scene === 3){
-      at(0, function(){ crutchF(h, ph, A, Math.abs(Math.sin(ph)) * 1.5); });
-      at(-h * 0.60, function(){ personF(h, ph, A, false); });
-    } else if(w.scene === 4){
-      at(0, function(){ frameF(h, ph, A); });
-      at(-h * 0.58, function(){ personF(h, ph * 0.9, A, true); });
-    } else {
-      at(0, function(){ bladeF(h, ph, A); });
-      at(-h * 0.56, function(){ personF(h, ph + 0.6, A, false); });
-    }
-    if(w.state === 'pause' || w.bubbleK > 0){
-      bubbleF(w.x - dir * h * 0.28, gyf - h * 1.06, h, A, w.bubbleK);
-    }
-  }
-
-  function stampScene(w, gyf){
-    if(!w.stamps) return;
-    var dir = w.dir;
-    if(w.scene === 0 || w.scene === 1){
-      track(w.id + 'a', w.x, gyf + 0.6);
-      track(w.id + 'b', w.x + dir * w.h * 0.34, gyf + 0.6);
-      stepStamp(w, w.x - dir * w.h * 0.62, gyf);
-    } else if(w.scene === 2){
-      if(stepStamp(w, w.x, gyf)){
-        paw(w.x + dir * w.h * 0.86, gyf + 1); paw(w.x + dir * w.h * 0.96, gyf + 0.3);
-      }
-      if(Math.cos(w.ph) > 0.995) tap(w.x + dir * w.h * 0.30, gyf + 1);
-    } else if(w.scene === 3){
-      var sgn = Math.sin(w.ph) >= 0 ? 1 : -1;
-      if(sgn !== w.step){
-        w.step = sgn;
-        if(sgn > 0){ tap(w.x + dir * w.h * 0.185, gyf + 1); tap(w.x - dir * w.h * 0.03, gyf + 1.4); }
-        else foot(w.x + dir * 3, gyf + 1.5, 1, dir);
-      }
-      stepStamp2(w, w.x - dir * w.h * 0.60, gyf);
-    } else if(w.scene === 4){
-      track(w.id + 'a', w.x + dir * w.h * 0.245, gyf + 0.6);
-      track(w.id + 'b', w.x + dir * w.h * 0.455, gyf + 0.6);
-      stepStamp(w, w.x - dir * w.h * 0.58, gyf);
-    } else {
-      if(stepStamp(w, w.x, gyf)) tap(w.x + dir * w.h * 0.10, gyf + 1);
-      stepStamp2(w, w.x - dir * w.h * 0.56, gyf);
-    }
-  }
-  function stepStamp(w, footX, gy){
-    var sgn = Math.sin(w.ph) >= 0 ? 1 : -1;
-    if(sgn !== w.step){ w.step = sgn; foot(footX + w.dir * sgn * 4, gy + 1.5, sgn, w.dir); return true; }
-    return false;
-  }
-  function stepStamp2(w, footX, gy){
-    var sgn = Math.sin(w.ph + 1.2) >= 0 ? 1 : -1;
-    if(sgn !== w.step2){ w.step2 = sgn; foot(footX + w.dir * sgn * 4, gy + 1.5, sgn, w.dir); }
-  }
-
-  /* ---------- walkers ---------- */
-  function mkWalker(scene, dir, gy, band){
-    var near = band === 'near';
-    var h = near ? 52 + Math.random() * 14 : band === 'mid' ? 28 + Math.random() * 8 : 15 + Math.random() * 5;
-    return {
-      id: 'w' + (++uid), scene: scene, dir: dir, gy: gy, band: band,
-      h: h, v: (near ? 34 : band === 'mid' ? 21 : 13) + Math.random() * (near ? 16 : 6),
-      alpha: near ? 0.16 : band === 'mid' ? 0.10 : 0.075,
-      x: dir > 0 ? -110 : W + 110, ph: 0, roll: 0, seed: Math.random() * 9,
-      step: 1, step2: 1, stamps: near,
-      state: 'walk', pauseT: 0, pausedOnce: Math.random() < 0.45, bubbleK: 0,
-      balloon: Math.random() < 0.6
-    };
-  }
-  function updateWalker(w, dt, now){
-    if(w.state === 'walk'){
-      w.x += w.dir * w.v * dt;
-      w.ph = w.x / (w.h * 0.165);
-      w.roll = w.dir * w.x / (w.h * 0.28);
-      if(!w.pausedOnce && w.band === 'near' && w.x > W * 0.34 && w.x < W * 0.58 && Math.random() < dt * 0.5){
-        w.state = 'pause'; w.pauseT = 1.7; w.pausedOnce = true;
-      }
-    } else {
-      w.pauseT -= dt;
-      w.ph *= Math.pow(0.02, dt);
-      w.bubbleK = Math.min(1, (1.7 - w.pauseT) / 1.7);
-      if(w.pauseT <= 0){ w.state = 'walk'; }
-    }
-    if(w.state === 'walk' && w.bubbleK > 0) w.bubbleK = Math.max(0, w.bubbleK - dt * 1.4);
-    var gyf = w.gy + Math.sin(w.x * 0.0045 + w.seed) * (w.band === 'near' ? 5 : 2);
-    if(w.state === 'walk') stampScene(w, gyf);
-    drawScene(w, gyf, now);
-    return !((w.dir > 0 && w.x > W + 300) || (w.dir < 0 && w.x < -300));
-  }
-
-  /* ---------- birds ---------- */
-  function mkBirds(){
-    var dir = Math.random() < 0.5 ? 1 : -1;
-    var n = 3 + (Math.random() * 3 | 0), offs = [];
-    for(var i = 0; i < n; i++) offs.push([i * 26 + Math.random() * 12, Math.sin(i * 1.7) * 14 + Math.random() * 8, Math.random() * 6]);
-    return { dir: dir, x: dir > 0 ? -80 : W + 80, y: 96 + Math.random() * H * 0.22, v: 26 + Math.random() * 8, offs: offs };
-  }
-  function updateBirds(dt, now){
-    if(!birds) return;
-    birds.x += birds.dir * birds.v * dt;
-    var A = 0.09 * edgeA(birds.x);
-    if(A > 0.004){
-      ctx.strokeStyle = col(INK, A); ctx.lineWidth = 1.3;
-      for(var i = 0; i < birds.offs.length; i++){
-        var o = birds.offs[i];
-        var bx = birds.x - birds.dir * o[0], by = birds.y + o[1] + Math.sin(now * 0.001 + o[2]) * 3;
-        var fl = 2.2 + Math.sin(now * 0.014 + o[2] * 2) * 2.0;
-        ctx.beginPath();
-        ctx.moveTo(bx - 4.6, by);
-        ctx.quadraticCurveTo(bx - 2.2, by - fl, bx, by);
-        ctx.quadraticCurveTo(bx + 2.2, by - fl, bx + 4.6, by);
-        ctx.stroke();
-      }
-    }
-    if((birds.dir > 0 && birds.x > W + 180) || (birds.dir < 0 && birds.x < -180)) birds = null;
-  }
-
-  /* ---------- loop ---------- */
-  function tick(now){
-    raf = 0;
-    if(off()){ walkers = []; birds = null; marks = []; tracks = {}; ctx.clearRect(0, 0, W, H); return; }
-    var dt = Math.min(0.05, (now - (lastT || now)) / 1000);
-    lastT = now;
-    prune(now);
-    ctx.clearRect(0, 0, W, H);
-    drawTracks(now);
-    drawMarks(now);
-    walkers = walkers.filter(function(w){ return updateWalker(w, dt, now); });
-    updateBirds(dt, now);
-    if(walkers.length || birds || !empty()) raf = requestAnimationFrame(tick);
-  }
-  function ensure(){ if(!raf){ lastT = 0; raf = requestAnimationFrame(tick); } }
-
-  function pick(deep){
-    var pool = deep ? [0, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5];
-    return pool[(Math.random() * pool.length) | 0];
-  }
-  function spawnNear(){
-    clearTimeout(tNear); tNear = setTimeout(spawnNear, 26000 + Math.random() * 18000);
-    if(document.hidden || off()) return;
-    if(walkers.some(function(w){ return w.band === 'near'; })) return;
-    walkers.push(mkWalker(pick(false), Math.random() < 0.5 ? 1 : -1, H - 44 - Math.random() * 62, 'near'));
-    ensure();
-  }
-  function spawnDeep(){
-    clearTimeout(tDeep); tDeep = setTimeout(spawnDeep, 36000 + Math.random() * 26000);
-    if(document.hidden || off()) return;
-    var band = Math.random() < 0.55 ? 'mid' : 'far';
-    if(walkers.some(function(w){ return w.band === band; })) return;
-    var gy = band === 'mid' ? H * (0.58 + Math.random() * 0.12) : H * (0.30 + Math.random() * 0.10);
-    walkers.push(mkWalker(pick(true), Math.random() < 0.5 ? 1 : -1, gy, band));
-    ensure();
-  }
-  function spawnBirds(){
-    clearTimeout(tBirds); tBirds = setTimeout(spawnBirds, 55000 + Math.random() * 50000);
-    if(document.hidden || off() || birds) return;
-    birds = mkBirds(); ensure();
-  }
-  document.addEventListener('visibilitychange', function(){
-    if(document.hidden){ if(raf){ cancelAnimationFrame(raf); raf = 0; } }
-    else if(walkers.length || birds || !empty()) ensure();
-  });
-
-  /* deterministic hooks for the drives */
-  window.__bgWalk = function(i, dir, gy){
-    clearTimeout(tNear); tNear = setTimeout(spawnNear, 60000);
-    var w = mkWalker((i || 0) % 6, dir || 1, gy || (H - 90), 'near');
-    w.balloon = true; w.pausedOnce = true;
-    walkers = [w]; ensure();
-  };
-  window.__bgWalkState = function(){ return { active: walkers.length > 0, marks: marks.length, raf: !!raf }; };
-  window.__bgWalkStop = function(){
-    walkers = []; birds = null;
-    clearTimeout(tNear); clearTimeout(tDeep); clearTimeout(tBirds);
-    tNear = setTimeout(spawnNear, 300000);
-  };
-
-  tNear = setTimeout(spawnNear, 4500);
-  tDeep = setTimeout(spawnDeep, 11000);
-  tBirds = setTimeout(spawnBirds, 24000);
-})();
 </script>
-<script type="module" src="/vendor/care-motion.js"></script>
-<script type="module" src="/vendor/care-stages.js"></script>
+<script type="module" src="vendor/care-motion.js"></script>
+<script type="module" src="vendor/care-stages.js"></script>
 </body>
 </html>
