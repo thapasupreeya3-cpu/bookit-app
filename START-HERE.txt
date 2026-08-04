@@ -1,11 +1,21 @@
-BOOKIT SITE v64 — complete
+BOOKIT SITE v65 — complete graphics upgrade
 ===========================
-This folder is the entire site: your v62 with all animations,
-warm photos on the six service pages, and social-preview tags.
+This folder is the entire BookIt site. Version 65 contains the calmer
+homepage, one contained hero animation, six distinct service visual themes,
+responsive AVIF/WebP photography, a branded social card, opt-in service scene
+previews with Play/Pause/Replay/chapter controls, reduced-motion and WebGL
+fallbacks, safer animation routes, and improved static-file delivery.
+
+Important visual notes:
+  - Worker profiles and testimonials in this preview are labelled illustrative.
+  - No founder, team or worker photograph has been fabricated.
+  - Add real team portraits only with consent and accurate names/roles.
 
 Deploy: open github.com/thapasupreeya3-cpu/bookit-app/upload/main
-and drag BOTH items from inside this folder (server.js and the
-public folder) into the page. Commit, then: sudo bookit-update
+and drag the contents of this folder into the page (including server.js,
+package.json, .gitignore and the public folder). Commit, then: sudo bookit-update
+
+Local check: node server.js, then open http://localhost:3000
 
 Safe to delete from the repo whenever you like (nothing uses them):
   index.html (the one at repo root), DESIGN.md, README-V63.md,

@@ -1,0 +1,9 @@
+{
+  "name": "bookit-site-v65",
+  "version": "65.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

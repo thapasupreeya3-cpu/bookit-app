@@ -9,9 +9,18 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="BookIt — Support workers who fit your life">
 <meta property="og:description" content="Find, book and manage your own verified NDIS support workers. You choose who, when and how.">
-<meta property="og:image" content="/assets/photos/og.jpg">
+<meta property="og:url" content="https://bookit.life/">
+<meta property="og:image" content="https://bookit.life/assets/photos/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="BookIt — support workers who fit your life">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="/assets/photos/og.jpg">
+<meta name="twitter:title" content="BookIt — Support workers who fit your life">
+<meta name="twitter:description" content="Choose verified NDIS support workers for work, home and community.">
+<meta name="twitter:image" content="https://bookit.life/assets/photos/og.jpg">
+<meta name="twitter:image:alt" content="BookIt — support workers who fit your life">
+<link rel="canonical" href="https://bookit.life/">
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 48"><circle cx="27" cy="24" r="22" fill="%230E6B62"/><circle cx="63" cy="24" r="22" fill="%23F5B841"/><path d="M45 11.35 A22 22 0 0 1 45 36.65 A22 22 0 0 1 45 11.35 Z" fill="%230A544D"/><path d="M52 25 l9 9 17 -18" stroke="%2317313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,7 +34,7 @@
   --teal:#0E6B62;
   --teal-deep:#0A544D;
   --teal-tint:#E2F1EE;
-  --coral:#D94F32;
+  --coral:#B93820;
   --coral-tint:#FCE9E3;
   --amber:#F5B841;
   --amber-tint:#FDF3DC;
@@ -1527,7 +1536,7 @@ html.high-contrast #bgWalkers{display:none;}
 @media (prefers-reduced-motion: reduce){#bgWalkers{display:none;}}
 @media print{#bgWalkers{display:none;}}
 
-/* v64: service-page photography */
+/* v65: responsive service-page photography */
 .svc-photo{margin:0;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-lg);
   aspect-ratio:4/3;background:var(--teal-tint);transform:rotate(.6deg);}
 .svc-photo img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -1661,10 +1670,167 @@ html.care-stages-ready .care-stage-block{display:block;}
 html.high-contrast .care-stage-block{display:none!important;}
 @media print{.care-stage-block{display:none!important;}}
 @media (max-width:699px){.care-stage{aspect-ratio:4/3;border-radius:16px;}}
+
+/* v65 visual system: calmer surfaces, contained motion, and one accent per service. */
+body::after{display:none!important;content:none!important;}
+:focus-visible{outline:3px solid var(--teal-deep)!important;outline-offset:3px!important;box-shadow:0 0 0 2px #fff!important;}
+.stars{color:#7A5C00!important;}
+.star{min-width:44px;min-height:44px;display:inline-grid;place-items:center;}
+.service-card,.worker-card,.info-card,.step,.testi,.faq-item,.path-card,.ph-card,
+.compare-card,.form-card,.table-wrap,.filter-bar,.msg-layout,.er-card,.hero-search,
+.chip,.bubble.them,.fund-box,.er-note,.success-box,.a11y-group{background:var(--card);}
+.breadcrumb{display:flex;flex-wrap:wrap;max-width:100%;line-height:1.55;border-radius:18px;}
+.breadcrumb ol{display:flex;flex-wrap:wrap;gap:4px 7px;list-style:none;margin:0;padding:0;max-width:100%;}
+.breadcrumb li{display:flex;align-items:center;min-width:0;overflow-wrap:anywhere;}
+.breadcrumb li+li::before{content:"/";margin-right:7px;color:var(--ink-soft);}
+.hero{padding:56px 0 64px;}
+#page-home .hero-grid{
+  display:grid;grid-template-columns:minmax(0,1.05fr) minmax(390px,.95fr);
+  grid-template-areas:"copy stage" "search stage" "trust stage";
+  column-gap:48px;row-gap:18px;align-items:start;
+}
+.hero-copy{grid-area:copy;align-self:end;}
+#page-home .hero-search{grid-area:search;margin:0;max-width:none;}
+#page-home .trust-chips{grid-area:trust;margin:0;align-self:start;}
+.hero-stage{
+  grid-area:stage;position:relative;align-self:start;height:clamp(500px,42vw,560px);min-height:500px;overflow:hidden;
+  border:1.5px solid var(--line);border-radius:28px;background:#e5f1ed;
+  box-shadow:var(--shadow-lg);isolation:isolate;
+}
+.hero-stage::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:linear-gradient(180deg,transparent 57%,rgba(10,54,49,.72));}
+.hero-stage-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;transition:opacity .3s ease;}
+html.care-motion-ready .hero-stage-poster{opacity:0;}
+.hero-stage .care-motion-hero{position:absolute;inset:0;width:100%;height:100%;z-index:0;}
+.hero-stage-caption{position:absolute;left:24px;right:24px;bottom:20px;z-index:3;color:#fff;display:grid;gap:2px;}
+.hero-stage-caption b{font-family:var(--font-head);font-size:1.02rem;}
+.hero-stage-caption span{font-size:.86rem;color:rgba(255,255,255,.9);}
+.hero-art,.care-hero-vignette,.oo-marquee,.care-section-decor{display:none!important;}
+
+/* Six distinct service colours replace repeated decorative colour cycling. */
+.service-card{--svc:#0E6B62;--svc-tint:#E2F1EE;border-top:4px solid var(--svc);background:var(--card)!important;}
+.service-card[data-service="employment"]{--svc:#0E6B62;--svc-tint:#E2F1EE;}
+.service-card[data-service="personal-care"]{--svc:#B93820;--svc-tint:#FCE9E3;}
+.service-card[data-service="transport"]{--svc:#9A6500;--svc-tint:#FDF3DC;}
+.service-card[data-service="daily-tasks"]{--svc:#3F6F8F;--svc-tint:#E8F1F7;}
+.service-card[data-service="household"]{--svc:#765080;--svc-tint:#F1E8F3;}
+.service-card[data-service="community"]{--svc:#467348;--svc-tint:#EAF3E8;}
+.service-card .service-icon{background:var(--svc-tint)!important;color:var(--svc)!important;}
+.service-card .go{color:var(--svc);}
+#homeServices .service-card::after{display:none!important;}
+@media (min-width:900px){
+  #homeServices .service-card:nth-child(1),#homeServices .service-card:nth-child(6){
+    grid-column:auto;display:flex;padding:28px;
+  }
+  #homeServices .service-card:nth-child(6) .service-icon,
+  #homeServices .service-card:nth-child(6) h3,
+  #homeServices .service-card:nth-child(6) p,
+  #homeServices .service-card:nth-child(6) .code,
+  #homeServices .service-card:nth-child(6) .go{grid-column:auto;grid-row:auto;}
+}
+#page-services-employment{--svc:#0E6B62;--svc-tint:#E2F1EE;}
+#page-services-personal-care{--svc:#B93820;--svc-tint:#FCE9E3;}
+#page-services-transport{--svc:#9A6500;--svc-tint:#FDF3DC;}
+#page-services-daily-tasks{--svc:#3F6F8F;--svc-tint:#E8F1F7;}
+#page-services-household{--svc:#765080;--svc-tint:#F1E8F3;}
+#page-services-community{--svc:#467348;--svc-tint:#EAF3E8;}
+#page-services-employment .kicker,#page-services-personal-care .kicker,#page-services-transport .kicker,
+#page-services-daily-tasks .kicker,#page-services-household .kicker,#page-services-community .kicker,
+.care-stage-block .kicker{color:var(--svc);background:var(--svc-tint);}
+.svc-photo{transform:none;position:relative;aspect-ratio:4/3;}
+.svc-photo picture,.svc-photo picture img{display:block;width:100%;height:100%;}
+.svc-media{display:grid;gap:12px;align-self:center;}
+.svc-demo-open{justify-self:start;}
+.svc-sector-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;}
+.svc-sector-strip span{font-size:.82rem;font-weight:650;color:var(--svc);background:var(--svc-tint);border-radius:999px;padding:6px 10px;}
+
+/* Service scenes are compact, user-triggered explainers with a photo fallback. */
+.care-stage-block{display:none!important;padding-top:32px!important;padding-bottom:40px!important;background:var(--svc-tint);}
+.care-stage-block.stage-open{display:block!important;}
+.care-stage-block .container{max-width:940px;}
+.care-stage-head{align-items:center;margin-bottom:14px;}
+.care-stage-head h2{font-size:clamp(1.35rem,2.5vw,1.8rem);}
+.care-stage{max-height:430px;background:var(--card);}
+.care-stage-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.82);}
+.care-stage::after{content:"Typical support session";position:absolute;left:18px;bottom:16px;z-index:1;
+  padding:7px 12px;border-radius:999px;background:rgba(23,49,58,.82);color:#fff;font-weight:700;font-size:.8rem;}
+.care-stage.care-stage-live .care-stage-poster,.care-stage.care-stage-live::after{opacity:0;pointer-events:none;}
+.care-stage canvas{z-index:2;}
+.care-stage-controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.care-static-only .care-stage-controls{display:none;}
+.care-stage-controls .btn{padding:8px 15px;font-size:.88rem;}
+.care-stage-moments{gap:8px;margin-top:10px;}
+.care-stage-moments li{padding:0;background:transparent;border:0;}
+.care-stage-moments button{font:inherit;font-size:.86rem;color:var(--ink-soft);background:var(--card);border:1.5px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;}
+.care-stage-moments button b{color:var(--svc);margin-right:6px;}
+.care-stage-moments button[aria-current="step"]{color:var(--ink);border-color:var(--svc);box-shadow:0 0 0 2px var(--svc-tint);}
+html.high-contrast .care-stage-block.stage-open{display:block!important;background:#fff;}
+html.high-contrast .care-stage canvas{display:none!important;}
+html.high-contrast .care-stage-poster{display:block!important;opacity:1!important;filter:grayscale(1) contrast(1.15);}
+html.high-contrast .hero-stage-poster{display:block!important;opacity:1!important;}
+@media print{
+  .care-stage-block{display:block!important;background:transparent!important;}
+  .care-stage,.care-stage-controls{display:none!important;}
+}
+
+/* Static product moments make the three booking steps visually concrete. */
+.product-moment{height:138px;border:1.5px solid var(--line);border-radius:16px;background:#f7faf9;margin-bottom:22px;padding:14px;overflow:hidden;}
+.pm-title{font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);margin-bottom:9px;}
+.pm-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;background:#fff;margin-top:6px;font-size:.76rem;color:var(--ink-soft);border:1px solid #ece6dc;}
+.pm-row i{width:10px;height:10px;border-radius:50%;background:var(--amber);flex:none;}
+.pm-row .pm-avatar{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--teal);color:#fff;font-style:normal;font-size:.58rem;font-weight:800;}
+.pm-confirm{height:100%;display:grid;place-items:center;text-align:center;color:var(--teal);font-weight:800;}
+.pm-confirm svg{width:42px;height:42px;margin:auto auto 8px;}
+
+/* Useful page graphics: verification, rate composition and worker pay preview. */
+.verification-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;list-style:none;counter-reset:verify;padding:0;margin:28px 0;}
+.verification-flow li{counter-increment:verify;background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:20px;position:relative;}
+.verification-flow li::before{content:counter(verify);display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--teal);color:#fff;font-weight:800;margin-bottom:12px;}
+.safety-details .service-card:nth-child(-n+3){display:none;}
+.rate-stack{display:flex;height:52px;border-radius:14px;overflow:hidden;margin:24px 0 16px;box-shadow:inset 0 0 0 1px var(--line);}
+.rate-stack span{display:grid;place-items:center;padding:4px;color:#fff;font-weight:800;font-size:.78rem;text-align:center;}
+.rate-stack .worker{width:72.5%;background:var(--teal);}.rate-stack .compliance{width:14.4%;background:#765080;}.rate-stack .platform{width:13.1%;background:var(--coral);}
+.rate-breakdown{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.rate-breakdown div{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px;}
+.rate-breakdown dt{font-size:.78rem;color:var(--ink-soft);}.rate-breakdown dd{font-family:var(--font-head);font-size:1.12rem;font-weight:800;margin:4px 0 0;}
+.worker-pay-preview{background:var(--ink);color:#fff;border-radius:24px;padding:28px;box-shadow:var(--shadow-lg);}
+.worker-pay-preview p{color:rgba(255,255,255,.78);}.worker-pay-preview .pay-big{font-family:var(--font-head);font-size:2rem;font-weight:800;color:var(--amber);}
+.worker-pay-preview .pay-line{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid rgba(255,255,255,.18);}
+
+/* Operational routes prioritise reading and task completion. */
+html.quiet-route .page.active{animation:none!important;}
+html.quiet-route .rv,html.quiet-route .rv.rv-in{opacity:1!important;transform:none!important;transition:none!important;}
+html.quiet-route .service-card,html.quiet-route .worker-card{transform:none!important;}
+@media (forced-colors:active){
+  .care-stage canvas,.care-motion-canvas{display:none!important;}
+  .care-stage-block.stage-open{display:block!important;}
+  .care-stage-poster,.hero-stage-poster{display:block!important;opacity:1!important;filter:none;}
+  .care-stage.care-stage-live::after{opacity:1!important;}
+}
+
+html[data-fs="130"] nav.main,html[data-fs="150"] nav.main{display:none;position:fixed;inset:0;background:var(--cream);z-index:150;padding:80px 26px 26px;overflow:auto;}
+html[data-fs="130"] nav.main.open,html[data-fs="150"] nav.main.open{display:block;}
+html[data-fs="130"] nav.main>ul,html[data-fs="150"] nav.main>ul{flex-direction:column;align-items:stretch;gap:4px;}
+html[data-fs="130"] .nav-close,html[data-fs="150"] .nav-close{display:flex!important;position:absolute;top:18px;right:20px;}
+html[data-fs="130"] .burger,html[data-fs="150"] .burger{display:block;}
+
+@media (max-width:900px){
+  #page-home .hero-grid{grid-template-columns:1fr;grid-template-areas:"copy" "stage" "search" "trust";row-gap:18px;}
+  .hero-stage{min-height:300px;height:300px;border-radius:22px;}
+  .verification-flow{grid-template-columns:1fr 1fr;}
+  .rate-breakdown{grid-template-columns:1fr;}
+}
+@media (max-width:480px){
+  #page-home .services-grid{grid-template-columns:1fr;}
+  .hero{padding-top:24px;}
+  .hero-stage{height:292px;min-height:292px;}
+  .hero-stage-caption{left:16px;right:16px;bottom:14px;}
+  .verification-flow{grid-template-columns:1fr;}
+  .rate-stack{height:70px;}.rate-stack span{font-size:.68rem;}
+}
 </style>
 </head>
 <body>
-<canvas id="bgWalkers" aria-hidden="true"></canvas>
 <a class="skip-link" href="#main">Skip to main content</a>
 
 <!-- ============ HEADER ============ -->
@@ -1796,46 +1962,34 @@ html.high-contrast .care-stage-block{display:none!important;}
 <!-- ================= HOME ================= -->
 <section class="page" id="page-home" data-title="BookIt — Find NDIS support workers who fit your life">
   <div class="hero">
-    <div class="care-hero-vignette" aria-hidden="true">
-      <canvas class="care-motion-canvas care-motion-hero" data-care-motion="hero" data-engine="three.js r179" width="1448" height="1025"></canvas>
-    </div>
     <div class="hero-rings" aria-hidden="true"><i></i><i></i><i></i></div>
     <div class="container hero-grid">
-      <div>
+      <div class="hero-copy">
         <span class="kicker">NDIS registered provider · Australia wide</span>
-        <h1>Support workers who fit <span class="u rotator" id="heroRotate" aria-hidden="true" data-words="your life|your mornings|your work week|your community|your routine"><span class="rot-word">your life</span></span><span class="sr-only">your life</span>, not the other way around.</h1>
+        <h1>Support workers who fit <span class="u">your life</span>, not the other way around.</h1>
         <p class="lead">Find, book and manage your own team of verified support workers — for work, home, daily living and getting out into your community. You choose who, when and how. We handle the rest.</p>
         <div class="hero-ctas">
           <a href="#/find-workers" class="btn btn-primary btn-lg">Browse support workers</a>
           <a href="#/get-started" class="btn btn-secondary btn-lg">Create a free account</a>
         </div>
-        <form class="hero-search" id="heroSearch" role="search" aria-label="Search support workers by suburb or postcode">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input type="text" id="heroSearchInput" placeholder="Try your suburb or postcode…" aria-label="Suburb or postcode">
-          <button type="submit" class="btn btn-coral btn-sm">Search workers</button>
-        </form>
-        <div class="trust-chips" aria-label="Key facts">
-          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Every worker employed & insured</span>
-          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Never above the NDIA's published maximum prices</span>
-          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Self-, plan- and NDIA-managed welcome</span>
-        </div>
       </div>
-      <div class="hero-art" aria-hidden="true">
-        <div class="ill-scene" data-ill="home" aria-hidden="true"></div>
-        <div class="float-card fc1">
-          <div class="avatar" style="background:#0E6B62;">SM</div>
-          <div><b>Sarah M. · Verified ✓</b><small>Community access · Parramatta<br>★ 4.9 (112 shifts)</small></div>
-        </div>
-        <div class="float-card fc2">
-          <div class="avatar" style="background:#D94F32;">✓</div>
-          <div><b>Shift confirmed 🎉</b><small>Tue 9:00am – 1:00pm · Household tasks</small></div>
-        </div>
+      <div class="hero-stage" aria-describedby="heroStageDescription">
+        <img class="hero-stage-poster" src="assets/photos/community-768.webp" alt="" width="768" height="576" decoding="async">
+        <canvas class="care-motion-canvas care-motion-hero" data-care-motion="hero" data-engine="three.js r179" width="720" height="720" aria-hidden="true"></canvas>
+        <p class="hero-stage-caption" id="heroStageDescription"><b>Your pace. Your route. Your team.</b><span>A participant leads the way with a support worker alongside.</span></p>
+      </div>
+      <form class="hero-search" id="heroSearch" role="search" aria-label="Search support workers by suburb or postcode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="text" id="heroSearchInput" placeholder="Try your suburb or postcode…" aria-label="Suburb or postcode">
+        <button type="submit" class="btn btn-coral btn-sm">Search workers</button>
+      </form>
+      <div class="trust-chips" aria-label="Key facts">
+        <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Every worker employed & insured</span>
+        <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Never above the NDIA's published maximum prices</span>
+        <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Self-, plan- and NDIA-managed welcome</span>
       </div>
     </div>
   </div>
-
-  <!-- support marquee -->
-  <div class="oo-marquee" aria-hidden="true"><div class="mq-track"><span>Employment support <i>0102</i></span><span class="mq-oo"></span><span>Personal care <i>0107</i></span><span class="mq-oo"></span><span>Travel &amp; transport <i>0108</i></span><span class="mq-oo"></span><span>Daily tasks &amp; shared living <i>0115</i></span><span class="mq-oo"></span><span>Household tasks <i>0120</i></span><span class="mq-oo"></span><span>Community participation <i>0125</i></span><span class="mq-oo"></span><span>Employment support <i>0102</i></span><span class="mq-oo"></span><span>Personal care <i>0107</i></span><span class="mq-oo"></span><span>Travel &amp; transport <i>0108</i></span><span class="mq-oo"></span><span>Daily tasks &amp; shared living <i>0115</i></span><span class="mq-oo"></span><span>Household tasks <i>0120</i></span><span class="mq-oo"></span><span>Community participation <i>0125</i></span><span class="mq-oo"></span></div></div>
 
   <!-- value strip -->
   <div class="value-strip" role="region" aria-label="Why choose BookIt">
@@ -1865,10 +2019,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   </div>
 
   <!-- services -->
-  <section class="block care-scene care-services-scene" aria-labelledby="svcHead">
-    <div class="care-section-decor" aria-hidden="true">
-      <canvas class="care-motion-canvas care-motion-garden" data-care-motion="garden" data-engine="three.js r179" width="510" height="300"></canvas>
-    </div>
+  <section class="block" aria-labelledby="svcHead">
     <div class="container">
       <div class="section-head">
         <span class="kicker">What we support</span>
@@ -1880,10 +2031,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 
   <!-- how it works -->
-  <section class="block care-scene care-how-scene" style="background:var(--card);" aria-labelledby="hiwHead">
-    <div class="care-section-decor" aria-hidden="true">
-      <canvas class="care-motion-canvas care-motion-mower" data-care-motion="mower" data-engine="three.js r179" width="560" height="350"></canvas>
-    </div>
+  <section class="block care-how-scene" style="background:var(--card);" aria-labelledby="hiwHead">
     <div class="container">
       <div class="section-head">
         <span class="kicker">How it works</span>
@@ -1891,16 +2039,19 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
       <div class="steps">
         <div class="step">
+          <div class="product-moment" aria-hidden="true"><div class="pm-title">Your profile</div><div class="pm-row"><i></i> Supports and routines</div><div class="pm-row"><i></i> Interests and preferences</div><div class="pm-row"><i></i> Times that work for you</div></div>
           <div class="num">1</div>
           <h3>Tell us about you</h3>
           <p>Create your free profile in minutes — the supports you're after, your interests, and what a great match looks like for you.</p>
         </div>
         <div class="step">
+          <div class="product-moment" aria-hidden="true"><div class="pm-title">Compare your shortlist</div><div class="pm-row"><i class="pm-avatar">AM</i> Aisha · weekday mornings</div><div class="pm-row"><i class="pm-avatar" style="background:#765080;">JL</i> Jordan · cooking &amp; community</div></div>
           <div class="num">2</div>
           <h3>Choose your people</h3>
           <p>Browse verified profiles, post a job, or let us shortlist. Message and meet before you ever book a shift.</p>
         </div>
         <div class="step">
+          <div class="product-moment" aria-hidden="true"><div class="pm-confirm"><div><svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="21" stroke="currentColor" stroke-width="3"/><path d="M14 24l7 7 14-16" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>Booking confirmed<br><small>Tuesday · 9:00am</small></div></div></div>
           <div class="num">3</div>
           <h3>Book, relax, repeat</h3>
           <p>Book online or in the app. We take care of payroll, invoicing, super, insurance and NDIS claiming — automatically.</p>
@@ -1942,9 +2093,9 @@ html.high-contrast .care-stage-block{display:none!important;}
   <section class="block" style="background:var(--card);" aria-labelledby="wkHead">
     <div class="container">
       <div class="section-head">
-        <span class="kicker">Real people, verified</span>
+        <span class="kicker">Example profiles</span>
         <h2 id="wkHead">Meet a few of our support workers</h2>
-        <p class="lead">Every profile is screened, checked and interviewed before it goes live.</p>
+        <p class="lead">These preview profiles are illustrative. Every real profile is screened, checked and interviewed before it goes live.</p>
         <p class="lead demo-note" id="homeWorkersDemo" hidden></p>
       </div>
       <div class="worker-grid" id="homeWorkers"></div>
@@ -1955,14 +2106,12 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 
   <!-- testimonials -->
-  <section class="block care-scene care-stories-scene" aria-labelledby="tsHead">
-    <div class="care-section-decor" aria-hidden="true">
-      <canvas class="care-motion-canvas care-motion-story" data-care-motion="story" data-engine="three.js r179" width="410" height="270"></canvas>
-    </div>
+  <section class="block" aria-labelledby="tsHead">
     <div class="container">
       <div class="section-head">
         <span class="kicker">Stories</span>
         <h2 id="tsHead">Loved by participants, families and workers</h2>
+        <p class="lead">Illustrative stories shown for this preview.</p>
       </div>
       <div class="testi-grid">
         <article class="testi">
@@ -2050,21 +2199,29 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/employment.jpg" alt="A young barista with Down syndrome laughs with his support worker while learning the coffee machine in a bright cafe" loading="lazy" decoding="async"></figure>
+      <div class="svc-media">
+        <figure class="svc-photo"><picture><source type="image/avif" srcset="assets/photos/employment-480.avif 480w, assets/photos/employment-768.avif 768w, assets/photos/employment-1168.avif 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><source type="image/webp" srcset="assets/photos/employment-480.webp 480w, assets/photos/employment-768.webp 768w, assets/photos/employment-1168.webp 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><img src="assets/photos/employment.jpg" alt="Two people smile at a coffee machine while one practises steaming milk." width="1168" height="880" loading="lazy" decoding="async"></picture></figure>
+        <button type="button" class="btn btn-secondary svc-demo-open" aria-controls="stage-employment" aria-expanded="false" data-care-open="employment">See a typical support session</button>
       </div>
+      </div>
+      <div class="svc-sector-strip" aria-label="Employment settings"><span>Office &amp; admin</span><span>Retail &amp; hospitality</span><span>Trades &amp; outdoors</span><span>Self-employment</span></div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="employment" aria-labelledby="csHead-employment">
+  <section class="block care-stage-block" id="stage-employment" data-care-stage="employment" aria-labelledby="csHead-employment" aria-describedby="csDesc-employment">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-employment">Employment support, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
+        <p class="muted" id="csDesc-employment">See what a typical support session can look like.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"></div>
+      <figure class="care-stage" aria-label="Employment support scene"><img class="care-stage-poster" src="assets/photos/employment-768.webp" alt="" width="768" height="576"><figcaption class="sr-only">A participant explores roles, builds a résumé and practises for work with support.</figcaption></figure>
+      <div class="care-stage-controls" role="group" aria-label="Employment animation controls">
+        <button type="button" class="btn btn-secondary" data-care-toggle aria-controls="stage-employment" aria-pressed="false">Play</button>
+        <button type="button" class="btn btn-secondary" data-care-replay aria-controls="stage-employment">Replay</button>
+      </div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
-        <li><b>01</b>Explore roles</li>
-        <li><b>02</b>Build a résumé</li>
-        <li><b>03</b>Practise for work</li>
+        <li><button type="button" data-care-seek="0.65"><b>01</b>Explore roles</button></li>
+        <li><button type="button" data-care-seek="9.5"><b>02</b>Build a résumé</button></li>
+        <li><button type="button" data-care-seek="46.9"><b>03</b>Practise for work</button></li>
       </ul>
     </div>
   </section>
@@ -2125,21 +2282,25 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/personal-care.jpg" alt="A support worker helps an older woman style her hair at a sunlit mirror, both smiling" loading="lazy" decoding="async"></figure>
+      <div class="svc-media">
+        <figure class="svc-photo"><picture><source type="image/avif" srcset="assets/photos/personal-care-480.avif 480w, assets/photos/personal-care-768.avif 768w, assets/photos/personal-care-1168.avif 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><source type="image/webp" srcset="assets/photos/personal-care-480.webp 480w, assets/photos/personal-care-768.webp 768w, assets/photos/personal-care-1168.webp 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><img src="assets/photos/personal-care.jpg" alt="One woman helps another style her hair in front of a sunlit mirror; both are smiling." width="1168" height="880" loading="lazy" decoding="async"></picture></figure>
+        <button type="button" class="btn btn-secondary svc-demo-open" aria-controls="stage-personal-care" aria-expanded="false" data-care-open="personal-care">See a typical support session</button>
+      </div>
       </div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="personal-care" aria-labelledby="csHead-personal-care">
+  <section class="block care-stage-block" id="stage-personal-care" data-care-stage="personal-care" aria-labelledby="csHead-personal-care" aria-describedby="csDesc-personal-care">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-personal-care">Personal care, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
+        <p class="muted" id="csDesc-personal-care">See what a typical support session can look like.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"></div>
+      <figure class="care-stage" aria-label="Personal care scene"><img class="care-stage-poster" src="assets/photos/personal-care-768.webp" alt="" width="768" height="576"><figcaption class="sr-only">A participant chooses their routine, prepares with dignity and leaves feeling ready.</figcaption></figure>
+      <div class="care-stage-controls" role="group" aria-label="Personal care animation controls"><button type="button" class="btn btn-secondary" data-care-toggle aria-controls="stage-personal-care" aria-pressed="false">Play</button><button type="button" class="btn btn-secondary" data-care-replay aria-controls="stage-personal-care">Replay</button></div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
-        <li><b>01</b>Choose the routine</li>
-        <li><b>02</b>Prepare with dignity</li>
-        <li><b>03</b>Leave feeling ready</li>
+        <li><button type="button" data-care-seek="0.65"><b>01</b>Choose the routine</button></li>
+        <li><button type="button" data-care-seek="21"><b>02</b>Prepare with dignity</button></li>
+        <li><button type="button" data-care-seek="51"><b>03</b>Leave feeling ready</button></li>
       </ul>
     </div>
   </section>
@@ -2201,21 +2362,25 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/transport.jpg" alt="A woman in a power wheelchair boards a van by its ramp in golden afternoon light, her small dog on her lap, her support worker holding the door" loading="lazy" decoding="async"></figure>
+      <div class="svc-media">
+        <figure class="svc-photo"><picture><source type="image/avif" srcset="assets/photos/transport-480.avif 480w, assets/photos/transport-768.avif 768w, assets/photos/transport-1168.avif 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><source type="image/webp" srcset="assets/photos/transport-480.webp 480w, assets/photos/transport-768.webp 768w, assets/photos/transport-1168.webp 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><img src="assets/photos/transport.jpg" alt="A wheelchair user with a small dog prepares to board an accessible van while another person holds the door." width="1168" height="880" loading="lazy" decoding="async"></picture></figure>
+        <button type="button" class="btn btn-secondary svc-demo-open" aria-controls="stage-travel-transport" aria-expanded="false" data-care-open="travel-transport">See a typical support session</button>
+      </div>
       </div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="travel-transport" aria-labelledby="csHead-transport">
+  <section class="block care-stage-block" id="stage-travel-transport" data-care-stage="travel-transport" aria-labelledby="csHead-transport" aria-describedby="csDesc-transport">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-transport">A trip, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
+        <p class="muted" id="csDesc-transport">See what a typical support session can look like.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"></div>
+      <figure class="care-stage" aria-label="Accessible transport scene"><img class="care-stage-poster" src="assets/photos/transport-768.webp" alt="" width="768" height="576"><figcaption class="sr-only">A participant plans the trip, boards safely and arrives with support.</figcaption></figure>
+      <div class="care-stage-controls" role="group" aria-label="Transport animation controls"><button type="button" class="btn btn-secondary" data-care-toggle aria-controls="stage-travel-transport" aria-pressed="false">Play</button><button type="button" class="btn btn-secondary" data-care-replay aria-controls="stage-travel-transport">Replay</button></div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
-        <li><b>01</b>Vehicle arrives</li>
-        <li><b>02</b>Ramp lowers</li>
-        <li><b>03</b>Travel safely</li>
+        <li><button type="button" data-care-seek="0.65"><b>01</b>Plan the trip</button></li>
+        <li><button type="button" data-care-seek="3.8"><b>02</b>Board safely</button></li>
+        <li><button type="button" data-care-seek="10.7"><b>03</b>Arrive together</button></li>
       </ul>
     </div>
   </section>
@@ -2275,21 +2440,26 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/daily-tasks.jpg" alt="A participant and support worker cook together in a warm kitchen, laughing as vegetables go into the pan" loading="lazy" decoding="async"></figure>
+      <div class="svc-media">
+        <figure class="svc-photo"><picture><source type="image/avif" srcset="assets/photos/daily-tasks-480.avif 480w, assets/photos/daily-tasks-768.avif 768w, assets/photos/daily-tasks-1168.avif 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><source type="image/webp" srcset="assets/photos/daily-tasks-480.webp 480w, assets/photos/daily-tasks-768.webp 768w, assets/photos/daily-tasks-1168.webp 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><img src="assets/photos/_spare-kitchen.jpg" alt="Two people cook together in a warm kitchen as chopped vegetables slide into a pan." width="1168" height="880" loading="lazy" decoding="async"></picture></figure>
+        <button type="button" class="btn btn-secondary svc-demo-open" aria-controls="stage-shared-living" aria-expanded="false" data-care-open="shared-living">See a typical support session</button>
+      </div>
       </div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="shared-living" aria-labelledby="csHead-daily-tasks">
+  <section class="block care-stage-block" id="stage-shared-living" data-care-stage="shared-living" aria-labelledby="csHead-daily-tasks" aria-describedby="csDesc-daily-tasks">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-daily-tasks">A shared afternoon, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
+        <p class="muted" id="csDesc-daily-tasks">See what a typical support session can look like — including clearing up together.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"></div>
+      <figure class="care-stage" aria-label="Daily living scene"><img class="care-stage-poster" src="assets/photos/daily-tasks-768.webp" alt="" width="768" height="579"><figcaption class="sr-only">A participant and worker plan, cook, eat, clear the table and wash up together.</figcaption></figure>
+      <div class="care-stage-controls" role="group" aria-label="Daily living animation controls"><button type="button" class="btn btn-secondary" data-care-toggle aria-controls="stage-shared-living" aria-pressed="false">Play</button><button type="button" class="btn btn-secondary" data-care-replay aria-controls="stage-shared-living">Replay</button></div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
-        <li><b>01</b>Plan together</li>
-        <li><b>02</b>Cook a meal</li>
-        <li><b>03</b>Sit down & eat</li>
+        <li><button type="button" data-care-seek="0.65"><b>01</b>Plan together</button></li>
+        <li><button type="button" data-care-seek="4.6"><b>02</b>Cook and serve</button></li>
+        <li><button type="button" data-care-seek="9.5"><b>03</b>Eat together</button></li>
+        <li><button type="button" data-care-seek="13.2"><b>04</b>Clear and wash up</button></li>
       </ul>
     </div>
   </section>
@@ -2350,21 +2520,25 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/household.jpg" alt="A support worker and a young man hang laundry on a backyard clothesline in the sunshine" loading="lazy" decoding="async"></figure>
+      <div class="svc-media">
+        <figure class="svc-photo"><picture><source type="image/avif" srcset="assets/photos/household-480.avif 480w, assets/photos/household-768.avif 768w, assets/photos/household-1168.avif 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><source type="image/webp" srcset="assets/photos/household-480.webp 480w, assets/photos/household-768.webp 768w, assets/photos/household-1168.webp 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><img src="assets/photos/household.jpg" alt="Two women smile while hanging clean laundry on a backyard clothesline." width="1168" height="880" loading="lazy" decoding="async"></picture></figure>
+        <button type="button" class="btn btn-secondary svc-demo-open" aria-controls="stage-household" aria-expanded="false" data-care-open="household">See a typical support session</button>
+      </div>
       </div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="household" aria-labelledby="csHead-household">
+  <section class="block care-stage-block" id="stage-household" data-care-stage="household" aria-labelledby="csHead-household" aria-describedby="csDesc-household">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-household">A household visit, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
+        <p class="muted" id="csDesc-household">See what a typical support session can look like.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"></div>
+      <figure class="care-stage" aria-label="Household support scene"><img class="care-stage-poster" src="assets/photos/household-768.webp" alt="" width="768" height="579"><figcaption class="sr-only">A participant and worker agree the checklist, clean, wash, fold and organise.</figcaption></figure>
+      <div class="care-stage-controls" role="group" aria-label="Household animation controls"><button type="button" class="btn btn-secondary" data-care-toggle aria-controls="stage-household" aria-pressed="false">Play</button><button type="button" class="btn btn-secondary" data-care-replay aria-controls="stage-household">Replay</button></div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
-        <li><b>01</b>Tidy in passes</li>
-        <li><b>02</b>Run the laundry</li>
-        <li><b>03</b>Fold and organise</li>
+        <li><button type="button" data-care-seek="0.65"><b>01</b>Agree the checklist</button></li>
+        <li><button type="button" data-care-seek="14"><b>02</b>Clean and wash</button></li>
+        <li><button type="button" data-care-seek="21.3"><b>03</b>Fold and organise</button></li>
       </ul>
     </div>
   </section>
@@ -2424,21 +2598,25 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="/assets/photos/community.jpg" alt="Friends and a support worker share a picnic in the park, one in a power wheelchair, a kite flying overhead" loading="lazy" decoding="async"></figure>
+      <div class="svc-media">
+        <figure class="svc-photo"><picture><source type="image/avif" srcset="assets/photos/community-480.avif 480w, assets/photos/community-768.avif 768w, assets/photos/community-1168.avif 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><source type="image/webp" srcset="assets/photos/community-480.webp 480w, assets/photos/community-768.webp 768w, assets/photos/community-1168.webp 1168w" sizes="(max-width:900px) calc(100vw - 48px), 493px"><img src="assets/photos/community-4x3.jpg" alt="A wheelchair user flies a kite while companions share a picnic in a park." width="1168" height="876" loading="lazy" decoding="async"></picture></figure>
+        <button type="button" class="btn btn-secondary svc-demo-open" aria-controls="stage-community" aria-expanded="false" data-care-open="community">See a typical support session</button>
+      </div>
       </div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="community" aria-labelledby="csHead-community">
+  <section class="block care-stage-block" id="stage-community" data-care-stage="community" aria-labelledby="csHead-community" aria-describedby="csDesc-community">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-community">A day out, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
+        <p class="muted" id="csDesc-community">See what a typical support session can look like.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"></div>
+      <figure class="care-stage" aria-label="Community participation scene"><img class="care-stage-poster" src="assets/photos/community-768.webp" alt="" width="768" height="576"><figcaption class="sr-only">A participant arrives, joins in, rests and connects with others in the community.</figcaption></figure>
+      <div class="care-stage-controls" role="group" aria-label="Community animation controls"><button type="button" class="btn btn-secondary" data-care-toggle aria-controls="stage-community" aria-pressed="false">Play</button><button type="button" class="btn btn-secondary" data-care-replay aria-controls="stage-community">Replay</button></div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
-        <li><b>01</b>Arrive together</li>
-        <li><b>02</b>Create & play</li>
-        <li><b>03</b>Rest & connect</li>
+        <li><button type="button" data-care-seek="0.65"><b>01</b>Arrive together</button></li>
+        <li><button type="button" data-care-seek="6.4"><b>02</b>Join in</button></li>
+        <li><button type="button" data-care-seek="23.8"><b>03</b>Rest and connect</button></li>
       </ul>
     </div>
   </section>
@@ -2498,6 +2676,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="container">
       <div class="steps">
         <div class="step">
+          <div class="product-moment" aria-hidden="true"><div class="pm-title">Your profile</div><div class="pm-row"><i></i> Supports and routines</div><div class="pm-row"><i></i> Interests and preferences</div><div class="pm-row"><i></i> Plan management</div></div>
           <div class="num">1</div>
           <h3>Create your free profile</h3>
           <p>Takes about 10 minutes. No joining fees, no contracts, no obligation.</p>
@@ -2509,6 +2688,7 @@ html.high-contrast .care-stage-block{display:none!important;}
           </ul>
         </div>
         <div class="step">
+          <div class="product-moment" aria-hidden="true"><div class="pm-title">Your shortlist</div><div class="pm-row"><i class="pm-avatar">AM</i> Aisha · verified</div><div class="pm-row"><i class="pm-avatar" style="background:#765080;">JL</i> Jordan · verified</div></div>
           <div class="num">2</div>
           <h3>Find your people</h3>
           <p>Three ways to build your team — use any or all of them.</p>
@@ -2520,6 +2700,7 @@ html.high-contrast .care-stage-block{display:none!important;}
           </ul>
         </div>
         <div class="step">
+          <div class="product-moment" aria-hidden="true"><div class="pm-confirm"><div><svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="21" stroke="currentColor" stroke-width="3"/><path d="M14 24l7 7 14-16" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>Booking confirmed<br><small>Repeats weekly</small></div></div></div>
           <div class="num">3</div>
           <h3>Book and manage everything online</h3>
           <p>One place for your whole support life.</p>
@@ -2637,11 +2818,15 @@ html.high-contrast .care-stage-block{display:none!important;}
         <span class="kicker">Where your money goes</span>
         <h2>Every dollar, accounted for</h2>
         <p class="lead mt-1">Of your $73.58 weekday hour:</p>
-        <ul class="tick-list">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>$53.35 (72.5%)</b> — your worker's pay and super on day one, rising to $56.29 (76.5%). Never below the SCHADS Award.</span></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>$10.60</b> — insurances, workers' comp, screening, training and compliance.</span></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>$9.73</b> — the platform, our support team, payroll and claiming.</span></li>
-        </ul>
+        <div class="rate-stack" role="img" aria-label="72.5 percent worker pay and super, 14.4 percent insurance and compliance, 13.1 percent platform and support">
+          <span class="worker">72.5% worker</span><span class="compliance">14.4%</span><span class="platform">13.1%</span>
+        </div>
+        <dl class="rate-breakdown">
+          <div><dt>Worker pay + super</dt><dd>$53.35 · 72.5%</dd></div>
+          <div><dt>Insurance + compliance</dt><dd>$10.60 · 14.4%</dd></div>
+          <div><dt>Platform + support</dt><dd>$9.63 · 13.1%</dd></div>
+        </dl>
+        <p class="mt-2 muted-sm"><b>$53.35 + $10.60 + $9.63 = $73.58.</b> The worker share rises to $56.29 (76.5%) through the published pay ladder and never falls below the SCHADS Award.</p>
         <p class="mt-2 muted-sm">Compare that with traditional agencies, where workers often see barely 55–60% of what you're charged.</p>
       </div>
       <div>
@@ -2683,7 +2868,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Find workers</nav>
       <h1>Find your kind of support worker</h1>
-      <p class="lead">Every profile below is a real style of worker you'll find on BookIt — verified, insured and interviewed. Narrow by service, day, language, gender, rating or shared interests — no account needed, and the filtered page is a link you can send to anyone.</p>
+      <p class="lead">The profiles below are illustrative previews of the information available on BookIt. Real workers are verified, insured and interviewed before their profiles go live. Narrow by service, day, language, gender, rating or shared interests — no account needed, and the filtered page is a link you can send to anyone.</p>
       <p class="lead demo-note" id="findWorkersDemo" hidden></p>
     </div>
   </div>
@@ -2775,12 +2960,25 @@ html.high-contrast .care-stage-block{display:none!important;}
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / For support workers</nav>
-      <span class="kicker">We're hiring, Australia-wide</span>
-      <h1>Support work that supports you back</h1>
-      <p class="lead">Be employed — not a gig contractor. Choose your clients and hours, get paid above award with super and full insurance, and build real relationships doing work that matters.</p>
-      <div class="hero-ctas mt-3">
-        <a href="#/get-started?type=worker" class="btn btn-coral btn-lg">Apply now — it's free</a>
-        <a href="#/how-it-works" class="btn btn-secondary btn-lg">How the platform works</a>
+      <div class="split">
+        <div>
+          <span class="kicker">We're hiring, Australia-wide</span>
+          <h1>Support work that supports you back</h1>
+          <p class="lead">Be employed — not a gig contractor. Choose your clients and hours, get paid above award with super and full insurance, and build real relationships doing work that matters.</p>
+          <div class="hero-ctas mt-3">
+            <a href="#/get-started?type=worker" class="btn btn-coral btn-lg">Apply now — it's free</a>
+            <a href="#worker-application" class="btn btn-secondary btn-lg">See application steps</a>
+          </div>
+        </div>
+        <aside class="worker-pay-preview" aria-label="Starting weekday pay example">
+          <p class="kicker" style="background:rgba(255,255,255,.12);color:#fff;">Weekday starting rate</p>
+          <div class="pay-big">$53.35/hr incl. super</div>
+          <p>See the exact pay, penalties and super before you accept a shift.</p>
+          <div class="pay-line"><span>Base pay</span><b>$47.63</b></div>
+          <div class="pay-line"><span>Super</span><b>$5.72</b></div>
+          <div class="pay-line"><span>Status</span><b>Employee · insured</b></div>
+          <div class="pay-line"><span>Pay cycle</span><b>Fortnightly</b></div>
+        </aside>
       </div>
     </div>
   </div>
@@ -2843,7 +3041,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     </div>
   </section>
 
-  <section class="block" style="background:var(--card);">
+  <section class="block" id="worker-application" style="background:var(--card);">
     <div class="container split">
       <div>
         <span class="kicker">Why workers stay</span>
@@ -2903,7 +3101,20 @@ html.high-contrast .care-stage-block{display:none!important;}
 
   <section class="block">
     <div class="container">
-      <div class="services-grid">
+      <div class="section-head">
+        <span class="kicker">Verification journey</span>
+        <h2>From evidence to an approved profile</h2>
+        <p>Every check has a source, a status and an expiry. A profile pauses automatically if a required check lapses.</p>
+      </div>
+      <ol class="verification-flow" aria-label="Worker verification journey">
+        <li><b>Screening received</b><p>Identity, work rights, screening, certificates and role-specific evidence are collected.</p></li>
+        <li><b>Source verified</b><p>Our team checks evidence with the issuing source and records the result.</p></li>
+        <li><b>Profile approved</b><p>Only cleared workers can appear in search, message participants or accept bookings.</p></li>
+        <li><b>Expiry monitored</b><p>Renewal reminders start early; an expired required check pauses the profile.</p></li>
+      </ol>
+      <p class="center mb-3"><a href="#/verification" class="btn btn-secondary">See every check in detail</a></p>
+      <h2 class="center mb-2">Protection throughout every booking</h2>
+      <div class="services-grid safety-details">
         <div class="service-card" style="cursor:default;">
           <div class="service-icon ic-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
           <h3>Screened before they start</h3>
@@ -3078,17 +3289,17 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / About us</nav>
       <h1>Support should feel like it's on your side</h1>
-      <p class="lead">BookIt was started by people who'd lived both sides of the roster — participants tired of strangers at the door, and workers tired of being treated like line items.</p>
+      <p class="lead">BookIt brings worker choice, real employment and registered-provider accountability into one place.</p>
     </div>
   </div>
 
   <section class="block">
     <div class="container split">
       <div>
-        <span class="kicker">Our story</span>
-        <h2>Built from lived experience</h2>
-        <p class="mt-2">We watched brilliant, funny, capable people reduced to "shifts to fill". We watched great workers burn out as contractors with no super, no cover and no say. And we watched families spend their evenings chasing invoices instead of living their lives.</p>
-        <p class="mt-2">So we built the platform we wished existed: one where <b>participants choose their people</b>, <b>workers are employed properly</b>, and <b>the boring-but-critical stuff</b> — screening, insurance, payroll, claiming — just happens in the background.</p>
+        <span class="kicker">Why BookIt</span>
+        <h2>Built around choice, continuity and fair work</h2>
+        <p class="mt-2">BookIt is designed around a straightforward promise: <b>participants choose their people</b>, <b>workers are employed properly</b>, and <b>the boring-but-critical stuff</b> — screening, insurance, payroll and claiming — happens in the background.</p>
+        <p class="mt-2">We make our registration, prices, worker pay and verification process visible so people can assess the service on evidence. You can see the accountable company behind BookIt, how every worker is checked and exactly where each booked dollar goes.</p>
         <p class="mt-2">We deliberately do six things, not sixty. Employment support, personal care, transport, daily living, household tasks and community participation — the everyday supports that add up to an ordinary, extraordinary life. We'd rather be the best in the country at those than average at everything.</p>
       </div>
       <div>
@@ -4575,37 +4786,37 @@ html.high-contrast .care-stage-block{display:none!important;}
 /* ============ Data ============ */
 const SERVICES = [
   {
-    slug:'employment', icon:'briefcase', color:'ic-teal',
+    slug:'employment', icon:'briefcase',
     name:'Employment support',
     short:'One-on-one support to find a job, settle in, and thrive at work — from interview prep to on-the-job assistance.',
     code:'0102 · Assist Access/Maintain Employ'
   },
   {
-    slug:'personal-care', icon:'heart', color:'ic-coral',
+    slug:'personal-care', icon:'heart',
     name:'Personal care',
     short:'Respectful help with the personal stuff — showering, dressing, grooming, meals and medication prompts — your way.',
     code:'0107 · Assist-Personal Activities'
   },
   {
-    slug:'transport', icon:'car', color:'ic-amber',
+    slug:'transport', icon:'car',
     name:'Travel & transport',
     short:'Get to appointments, work, study and social plans — with a worker who drives, or support to travel independently.',
     code:'0108 · Assist-Travel/Transport'
   },
   {
-    slug:'daily-tasks', icon:'home', color:'ic-teal',
+    slug:'daily-tasks', icon:'meal',
     name:'Daily tasks & shared living',
     short:'Build routines and life skills at home or in shared living — cooking, budgeting, planning and more.',
     code:'0115/0138 · Daily Tasks/Shared Living'
   },
   {
-    slug:'household', icon:'house', color:'ic-coral',
+    slug:'household', icon:'laundry',
     name:'Household tasks',
     short:'A hand with cleaning, laundry, dishes and meal prep — so home stays a place you love being.',
     code:'0120 · Household Tasks'
   },
   {
-    slug:'community', icon:'people', color:'ic-amber',
+    slug:'community', icon:'people',
     name:'Community participation',
     short:'Do more of what you love — sport, classes, events, faith, friends — with support that opens doors.',
     code:'0125 · Participate Community'
@@ -4618,6 +4829,8 @@ const ICONS = {
   car:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17h16M5 17l1.4-6.2A2 2 0 018.35 9.2h7.3a2 2 0 011.95 1.6L19 17M7 20.5a1.75 1.75 0 100-3.5 1.75 1.75 0 000 3.5zM17 20.5a1.75 1.75 0 100-3.5 1.75 1.75 0 000 3.5z"/></svg>',
   home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v9a1 1 0 001 1h12a1 1 0 001-1v-9M9 21v-6h6v6"/></svg>',
   house:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21h16M6 21V8l6-4 6 4v13M10 12h4M10 16h4"/></svg>',
+  meal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h9M4 10h7M4 15h6M16 4v7a3 3 0 006 0V4M19 4v17M5 19l2 2 4-5"/></svg>',
+  laundry:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2.5" width="18" height="19" rx="2"/><path d="M3 7h18"/><circle cx="8" cy="4.8" r=".7" fill="currentColor" stroke="none"/><circle cx="12" cy="14" r="4.5"/><path d="M9 14c1.2-1 2.3-1 3.5 0s2.3 1 3.5 0"/></svg>',
   people:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="10" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14.5 14.6c2.6.4 4.5 2.7 4.5 5.4"/></svg>',
   shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>',
   chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M8 9h8M8 13h5"/></svg>',
@@ -5120,8 +5333,8 @@ $('#resetForm').addEventListener('submit', async e => {
 
 /* ============ Render: services ============ */
 function serviceCard(s){
-  return `<a href="#/services/${s.slug}" class="service-card">
-    <span class="service-icon ${s.color}">${ICONS[s.icon]}</span>
+  return `<a href="#/services/${s.slug}" class="service-card" data-service="${s.slug}">
+    <span class="service-icon">${ICONS[s.icon]}</span>
     <h3>${s.name}</h3>
     <p>${s.short}</p>
     <span class="code">${s.code}</span>
@@ -6088,7 +6301,7 @@ function addSprite(sec, opts){
 }
 
 /* small shapes + faint doodles in every light section */
-$$('.page').forEach((pg, pi) => {
+[].forEach((pg, pi) => {
   $$('.page-hero, section.block, .hero', pg).forEach((sec, si) => {
     sec.classList.add('has-decor');
     const base = pi * 131 + si * 17;
@@ -6128,7 +6341,7 @@ $$('.page').forEach((pg, pi) => {
 });
 
 /* light shapes on dark bands */
-$$('.value-strip, .banner, footer.site').forEach((sec, i) => {
+[].forEach((sec, i) => {
   sec.classList.add('has-decor');
   const s = 900 + i * 37;
   for(let k = 0; k < 2; k++){
@@ -6245,7 +6458,7 @@ const FIG_PLACEMENTS = [
   {page:'page-get-started', sec:1, fig:'headphones', side:'right', w:225, color:'rgba(14,107,98,.22)'},
   {page:'page-services', sec:1, fig:'walker', side:'left', w:240, color:'rgba(14,107,98,.22)'}
 ];
-FIG_PLACEMENTS.forEach(pl => {
+[].forEach(pl => {
   const pg = document.getElementById(pl.page);
   if(!pg) return;
   const secs = $$('.page-hero, section.block', pg);
@@ -6262,8 +6475,8 @@ FIG_PLACEMENTS.forEach(pl => {
   sec.appendChild(el);
 });
 /* figures on dark bands */
-[{sel:'.banner', fig:'headphones', side:'right', w:210, color:'rgba(255,255,255,.28)', nth:0},
- {sel:'footer.site', fig:'walker', side:'right', w:290, color:'rgba(255,255,255,.16)', nth:0}].forEach(pl => {
+/* Large line figures retired in v65; useful content now owns the page. */
+[].forEach(pl => {
   const sec = $$(pl.sel)[pl.nth];
   if(!sec) return;
   sec.classList.add('has-decor', 'fig-clip');
@@ -6582,6 +6795,28 @@ const ROUTES = {
   '/pay-success': 'page-pay-success',
   '/admin': 'page-admin'
 };
+const QUIET_PAGES = new Set([
+  'page-worker','page-get-started','page-clients','page-access','page-invite','page-calculator',
+  'page-jobs','page-job','page-post-job','page-my-jobs','page-my-applications','page-statements',
+  'page-security','page-earnings','page-training','page-account','page-messages','page-bookings',
+  'page-support-plan','page-reset','page-pay-success','page-verified','page-verify-failed','page-admin'
+]);
+/* Upgrade the repeated visual breadcrumb text to one consistent semantic list. */
+document.querySelectorAll('nav.breadcrumb').forEach(nav => {
+  const items = [];
+  Array.from(nav.childNodes).forEach(node => {
+    if(node.nodeType === Node.ELEMENT_NODE) items.push(node);
+    else node.textContent.split('/').map(part => part.trim()).filter(Boolean).forEach(part => items.push(part));
+  });
+  const list = document.createElement('ol');
+  items.forEach((item,index) => {
+    const li = document.createElement('li');
+    if(typeof item === 'string') li.textContent = item; else li.appendChild(item);
+    if(index === items.length - 1) li.setAttribute('aria-current','page');
+    list.appendChild(li);
+  });
+  nav.replaceChildren(list);
+});
 /* The specialist-supports page is drawn from HI_SUPPORTS and CERT_GROUPS rather than written out,
    so it cannot fall out of step with what the certificate actually says. Runs once at load. */
 (function renderSpecialistSupports(){
@@ -6622,6 +6857,12 @@ function route(){
   if(!ROUTES[path] && !workerMatch && !jobMatch && !acctMatch) path = '/';
   const id = workerMatch ? 'page-worker' : jobMatch ? 'page-job' : acctMatch ? 'page-account' : ROUTES[path];
   const page = document.getElementById(id);
+  document.documentElement.classList.toggle('quiet-route', QUIET_PAGES.has(id));
+  document.querySelectorAll('.svc-photo img').forEach(img => {
+    const active = page.contains(img);
+    img.loading = active ? 'eager' : 'lazy';
+    if(active) img.setAttribute('fetchpriority','high'); else img.removeAttribute('fetchpriority');
+  });
   $$('.page').forEach(p => { if(p !== page) p.classList.remove('active'); });
   const wasActive = page.classList.contains('active');
   if(!wasActive) page.classList.add('active');
@@ -12801,7 +13042,7 @@ document.addEventListener('click', async e => {
   var docEl = document.documentElement;
   var mqReduce = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : {matches:false};
   var mqFine = window.matchMedia ? matchMedia('(pointer: fine)') : {matches:false};
-  function motionOK(){ return !mqReduce.matches && docEl.getAttribute('data-motion') !== 'reduce'; }
+  function motionOK(){ return !mqReduce.matches && docEl.getAttribute('data-motion') !== 'reduce' && !docEl.classList.contains('quiet-route'); }
   function syncFx(){
     docEl.classList.toggle('js-fx', motionOK());
     if (!motionOK()) revealAll();
@@ -13421,7 +13662,38 @@ document.addEventListener('click', async e => {
   tBirds = setTimeout(spawnBirds, 24000);
 })();
 </script>
-<script type="module" src="/vendor/care-motion.js"></script>
-<script type="module" src="/vendor/care-stages.js"></script>
+<script type="module">
+let careHomeLoaded = false;
+const careHomeMedia = matchMedia('(prefers-reduced-motion: reduce)');
+const careForcedColors = matchMedia('(forced-colors: active)');
+let careWebGLSupport;
+function hasCareWebGL(){
+  if(careWebGLSupport !== undefined) return careWebGLSupport;
+  try{ const probe=document.createElement('canvas'); careWebGLSupport=!!(probe.getContext('webgl2')||probe.getContext('webgl')); }
+  catch(error){ careWebGLSupport=false; }
+  return careWebGLSupport;
+}
+function canLoadCareHome(){
+  const path = (location.hash || '#/').replace(/^#/, '').split('?')[0];
+  return !careHomeLoaded && hasCareWebGL() && (path === '' || path === '/') && innerWidth >= 700
+    && !careHomeMedia.matches && document.documentElement.getAttribute('data-motion') !== 'reduce'
+    && !document.documentElement.classList.contains('high-contrast')
+    && !careForcedColors.matches
+    && !(navigator.connection && navigator.connection.saveData);
+}
+async function loadCareHome(){
+  if(!canLoadCareHome()) return;
+  careHomeLoaded = true;
+  try{ await import('./vendor/care-motion.js'); }
+  catch(error){ careHomeLoaded = false; console.warn('BookIt hero stayed on its photo:', error && error.message ? error.message : error); }
+}
+addEventListener('hashchange', loadCareHome);
+addEventListener('resize', loadCareHome, {passive:true});
+if(careHomeMedia.addEventListener) careHomeMedia.addEventListener('change', loadCareHome);
+if(careForcedColors.addEventListener) careForcedColors.addEventListener('change', loadCareHome);
+new MutationObserver(loadCareHome).observe(document.documentElement,{attributes:true,attributeFilter:['data-motion','class']});
+loadCareHome();
+</script>
+<script type="module" src="vendor/care-stages.js"></script>
 </body>
 </html>
