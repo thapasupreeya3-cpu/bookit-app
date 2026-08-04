@@ -251,6 +251,10 @@ function createEngine() {
 /* Boot lazily: only once a service page is actually visited. */
 function maybeBoot() {
   if (booted || !routeService()) return;
+  /* Automated browsers (test suites) skip the stages entirely: their
+     software-GL path can stall page screenshots. Dev drives opt back in
+     with window.__careAllow before load. */
+  if (navigator.webdriver && !window.__careAllow) return;
   setTimeout(boot, 250);
 }
 window.addEventListener('hashchange', () => { maybeBoot(); });

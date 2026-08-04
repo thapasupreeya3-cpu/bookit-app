@@ -1,14 +1,7 @@
-BOOKIT SITE v64 — restored with targeted animation polish
-==========================================================
-This folder keeps the complete v64 site: all original animations, warm photos
-on the six service pages, and social-preview tags.
-
-Targeted change only:
-  - The Daily Tasks & Shared Living scene now completes the full 20-second
-    kitchen story: enter together, plan and prepare, cook, carry and serve,
-    eat, collect both plates one at a time, take them to the sink, then turn
-    and walk naturally off-screen.
-  - Existing service, homepage and background animations remain in place.
+BOOKIT SITE v64 — complete
+===========================
+This folder is the entire site: your v62 with all animations,
+warm photos on the six service pages, and social-preview tags.
 
 Deploy: open github.com/thapasupreeya3-cpu/bookit-app/upload/main
 and drag BOTH items from inside this folder (server.js and the

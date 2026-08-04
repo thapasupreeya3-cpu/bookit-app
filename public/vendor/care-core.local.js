@@ -4587,8 +4587,6 @@ function createSharedLivingScene(parent) {
     }
     const pair = new THREE.Group();
     const workerCarrier = new THREE.Group();
-    pair.name = "shared-living-participant";
-    workerCarrier.name = "shared-living-worker";
     const participant = createHuman({
         skin: 0x6d4636,
         shirt: 0x7fa78d,
@@ -4651,10 +4649,8 @@ function createSharedLivingScene(parent) {
     ingredientGroup.visible = false;
     root.add(ingredientGroup);
     const carriedPlates = new THREE.Group();
-    carriedPlates.name = "shared-living-carried-plates";
     for (let index = 0; index < 2; index += 1) {
         const carried = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.075, 22), standardMaterial(0xfffdf8, 0.78));
-        carried.name = `shared-living-carried-plate-${index + 1}`;
         carried.position.set(0.02, 1.06 + index * 0.09, 0.42);
         carriedPlates.add(carried);
     }
@@ -4668,22 +4664,12 @@ function createSharedLivingScene(parent) {
         plates.push(plate);
         root.add(plate);
         const tablePlate = plate.clone();
-        tablePlate.name = `shared-living-table-plate-${index + 1}`;
         tablePlate.position.set(7.2 + index * 1.85, 1.52, 2.6);
         tablePlate.visible = false;
         tablePlate.scale.setScalar(0.01);
         tablePlates.push(tablePlate);
         root.add(tablePlate);
     }
-    const sinkPlates = tablePlates.map((source, index) => {
-        const plate = source.clone();
-        plate.name = `shared-living-sink-plate-${index + 1}`;
-        plate.position.set(5.9 + index * 0.52, 1.8 + index * 0.08, -5.35);
-        plate.visible = false;
-        plate.scale.setScalar(1);
-        root.add(plate);
-        return plate;
-    });
     const spoon = cylinderBetween(new THREE.Vector3(2.3, 2.2, -5.42), new THREE.Vector3(2.3, 3.05, -5.42), 0.035, standardMaterial(0xd6a247, 0.42, 0.35), 8);
     const recipeLaptop = createLaptop(0x7fa78d);
     recipeLaptop.root.scale.setScalar(0.68);
@@ -4707,7 +4693,7 @@ function createSharedLivingScene(parent) {
         [23, 10.8],
     ]);
     createRouteRibbon(root, path, 0x7fa78d);
-    const station = closestPathProgress(path, new THREE.Vector3(-4.5, 0, 2.45));
+    const station = closestPathProgress(path, new THREE.Vector3(-0.8, 0, 1.4));
     const stationPose = sampleCurvePose(path, station);
     const mainLength = path.getLength();
     const sharedObstacles = [
@@ -4720,32 +4706,29 @@ function createSharedLivingScene(parent) {
     const prepSpotParticipant = new THREE.Vector3(-2.15, 0, -2.35);
     const prepSpotWorker = new THREE.Vector3(-0.15, 0, -2.4);
     const stoveSpot = new THREE.Vector3(2.3, 0, -3.7);
-    const tableSpotWorker = new THREE.Vector3(6.35, 0, -0.05);
+    const tableSpotWorker = new THREE.Vector3(6.35, 0, 0.35);
     const tableSpotParticipant = new THREE.Vector3(4.7, 0, 1.7);
-    const exitJoin = closestPathProgress(path, new THREE.Vector3(12.2, 0, 1.05));
+    const exitJoin = closestPathProgress(path, new THREE.Vector3(8.9, 0, 0.9));
     const exitJoinPose = sampleCurvePose(path, exitJoin);
+    void sharedObstacles;
     const workerEntryPath = createOffsetScenePath(path, -1.05, -0.15);
     const workerEntryEnd = workerEntryPath.getPointAt(station).setY(0);
+    const handRoute = (points) => {
+        const curve = createVectorScenePath(points.map(([x, z]) => new THREE.Vector3(x, 0, z)));
+        return { path: curve, length: curve.getLength() };
+    };
     const sp = stationPose.position;
-    const participantPrepRoute = createNavigationRoute(sp, prepSpotParticipant, sharedObstacles, 0.72, [new THREE.Vector3(-5.7, 0, 2.55), new THREE.Vector3(-6.0, 0, -2.4)]);
-    const workerPrepRoute = createNavigationRoute(workerEntryEnd, prepSpotWorker, sharedObstacles, 0.72, [new THREE.Vector3(-6.0, 0, 2.7), new THREE.Vector3(-6.15, 0, -2.65)]);
-    const workerStoveRoute = createNavigationRoute(prepSpotWorker, stoveSpot, sharedObstacles, 0.82, [new THREE.Vector3(1.15, 0, -2.85)]);
-    const workerTableRoute = createNavigationRoute(stoveSpot, tableSpotWorker, sharedObstacles, 0.95, [new THREE.Vector3(4.1, 0, -2.35), new THREE.Vector3(5.45, 0, -1.05)]);
-    const participantTableRoute = createNavigationRoute(prepSpotParticipant, tableSpotParticipant, sharedObstacles, 0.72, [new THREE.Vector3(0.7, 0, -2.55), new THREE.Vector3(3.4, 0, -1.9), new THREE.Vector3(4.7, 0, 0.15)]);
-    const chairApproachP = new THREE.Vector3(4.95, 0, 1.55);
+    const participantPrepRoute = handRoute([[sp.x, sp.z], [-3.9, 2.15], [-6.35, 1.0], [-6.45, -1.35], [-4.5, -2.45], [prepSpotParticipant.x, prepSpotParticipant.z]]);
+    const workerPrepRoute = handRoute([[workerEntryEnd.x, workerEntryEnd.z], [-3.3, 3.05], [-7.3, 1.4], [-7.4, -1.7], [-4.9, -3.1], [prepSpotWorker.x, prepSpotWorker.z]]);
+    const workerStoveRoute = handRoute([[prepSpotWorker.x, prepSpotWorker.z], [1.1, -3.0], [stoveSpot.x, stoveSpot.z]]);
+    const workerTableRoute = handRoute([[stoveSpot.x, stoveSpot.z], [4.0, -2.4], [5.6, -0.8], [tableSpotWorker.x, tableSpotWorker.z]]);
+    const participantTableRoute = handRoute([[prepSpotParticipant.x, prepSpotParticipant.z], [0.7, -2.55], [3.15, -2.15], [4.45, -0.55], [tableSpotParticipant.x, tableSpotParticipant.z]]);
+    const chairApproachP = new THREE.Vector3(5.28, 0, 1.58);
     const chairSeatP = new THREE.Vector3(5.9, 0, 2.78);
-    const chairApproachW = new THREE.Vector3(11.45, 0, 1.72);
+    const chairApproachW = new THREE.Vector3(11.05, 0, 1.72);
     const chairSeatW = new THREE.Vector3(10.5, 0, 2.82);
-    const participantChairRoute = createNavigationRoute(tableSpotParticipant, chairApproachP, sharedObstacles, 0.72);
-    const workerChairRoute = createNavigationRoute(tableSpotWorker, chairApproachW, sharedObstacles, 0.72, [new THREE.Vector3(11.5, 0, -0.05)]);
-    const tableCollectRightSpot = new THREE.Vector3(9.05, 0, 0.0);
-    const tableCollectLeftSpot = new THREE.Vector3(7.2, 0, 0.0);
-    const sinkSpot = new THREE.Vector3(6.2, 0, -3.72);
-    const workerCollectRightRoute = createNavigationRoute(chairApproachW, tableCollectRightSpot, sharedObstacles, 0.72, [new THREE.Vector3(11.5, 0, -0.05)]);
-    const workerCollectLeftRoute = createNavigationRoute(tableCollectRightSpot, tableCollectLeftSpot, sharedObstacles, 0.9);
-    const workerSinkRoute = createNavigationRoute(tableCollectLeftSpot, sinkSpot, sharedObstacles, 0.95);
-    const participantExitRoute = createNavigationRoute(chairApproachP, exitJoinPose.position, sharedObstacles, 0.72, [new THREE.Vector3(4.75, 0, 0.1), new THREE.Vector3(8.0, 0, -0.2), new THREE.Vector3(11.65, 0, 0.0)]);
-    const workerExitRoute2 = createNavigationRoute(sinkSpot, exitJoinPose.position, sharedObstacles, 0.72, [new THREE.Vector3(11.65, 0, -3.45), new THREE.Vector3(11.7, 0, 0.0)]);
+    const participantExitRoute = handRoute([[chairApproachP.x, chairApproachP.z], [5.15, 0.42], [7.0, 0.12], [exitJoinPose.position.x, exitJoinPose.position.z]]);
+    const workerExitRoute2 = handRoute([[chairApproachW.x, chairApproachW.z], [11.4, 0.55], [9.9, 0.5], [exitJoinPose.position.x, exitJoinPose.position.z]]);
     const tableFood = [];
     for (let index = 0; index < 2; index += 1) {
         const mound = makeSphere(0.26, standardMaterial(index ? 0x7fa78d : 0xd6a247, 0.9), 12, 8);
@@ -4756,120 +4739,82 @@ function createSharedLivingScene(parent) {
     }
     const seatLerp = new THREE.Vector3();
     const trails = new TrailPool(root, 200);
-    const T = {
-        enter: 2.0,
-        prep: 4.6,
-        cook: 7.0,
-        serve: 8.6,
-        sit: 9.5,
-        eat: 12.4,
-        stand: 13.2,
-        pickupOne: 13.85,
-        collect: 14.5,
-        sinkArrival: 15.75,
-        sink: 16.3,
-        regroup: 17.5,
-        duration: 20,
-    };
-    root.userData.choreography = {
-        timings: { ...T },
-        routeClearances: {
-            participantPrep: participantPrepRoute.minClearance,
-            workerPrep: workerPrepRoute.minClearance,
-            workerStove: workerStoveRoute.minClearance,
-            workerServe: workerTableRoute.minClearance,
-            participantTable: participantTableRoute.minClearance,
-            participantChair: participantChairRoute.minClearance,
-            workerChair: workerChairRoute.minClearance,
-            workerCollectRight: workerCollectRightRoute.minClearance,
-            workerCollectLeft: workerCollectLeftRoute.minClearance,
-            workerSink: workerSinkRoute.minClearance,
-            participantExit: participantExitRoute.minClearance,
-            workerExit: workerExitRoute2.minClearance,
-        },
-    };
-    const duration = T.duration;
+    const duration = 31;
     let previousTime = 0;
     let lastStamp = -1;
     let lastWorkerStamp2 = -1;
     const reset = () => {
         previousTime = 0;
         lastStamp = -1;
-        lastWorkerStamp2 = -1;
         trails.clear();
     };
     const update = (localTime, delta) => {
         if (localTime + 0.05 < previousTime)
             reset();
         previousTime = localTime;
-        root.userData.choreography.phase = localTime < T.enter ? "walk-in"
-            : localTime < T.prep ? "plan-and-prepare"
-                : localTime < T.cook ? "cook-at-stove"
-                    : localTime < T.serve ? "carry-and-serve"
-                        : localTime < T.eat ? "eat"
-                            : localTime < T.collect ? "collect-both-plates"
-                                : localTime < T.sink ? "take-plates-to-sink"
-                                    : "turn-and-exit";
-        const entering = localTime < T.enter;
-        const toPrep = localTime >= T.enter && localTime < T.prep;
-        const prepping = localTime >= T.enter && localTime < T.serve;
-        const stoveWalk = localTime >= T.prep && localTime < T.prep + 0.8;
-        const cooking = localTime >= T.prep + 0.8 && localTime < T.cook;
-        const workerTableWalk = localTime >= T.cook && localTime < T.serve;
-        const participantTableWalk = localTime >= T.cook && localTime < T.serve;
-        const together = localTime >= T.serve && localTime < T.sit;
-        const sitWalk = localTime >= T.serve && localTime < T.sit;
-        const sitAmount = timedEase(localTime, T.serve + 0.5, T.sit) - timedEase(localTime, T.eat, T.stand);
-        const eating = localTime >= T.sit && localTime < T.eat;
-        const exitWalk = localTime >= T.sink && localTime < T.regroup;
+        const entering = localTime < 4.4;
+        const toPrep = localTime >= 4.4 && localTime < 6.4;
+        const prepping = localTime >= 6.4 && localTime < 15.2;
+        const stoveWalk = localTime >= 9.4 && localTime < 11.2;
+        const cooking = localTime >= 11.2 && localTime < 14.8;
+        const workerTableWalk = localTime >= 14.8 && localTime < 16.4;
+        const participantTableWalk = localTime >= 15.2 && localTime < 17.2;
+        const together = localTime >= 16.4 && localTime < 18.8;
+        const sitWalk = localTime >= 18.8 && localTime < 19.9;
+        const sitAmount = timedEase(localTime, 19.9, 20.6) - timedEase(localTime, 25.8, 26.4);
+        const eating = localTime >= 20.6 && localTime < 25.8;
+        const exitWalk = localTime >= 26.4 && localTime < 27.8;
         const stationDistance = station * mainLength;
         const pBaseStation = stationDistance;
         const pBasePrep = pBaseStation + participantPrepRoute.length;
         const pBaseTable = pBasePrep + participantTableRoute.length;
-        const pBaseExit = pBaseTable + participantChairRoute.length + participantExitRoute.length;
+        const pBaseExit = pBaseTable + participantExitRoute.length;
         let pose;
         let participantMoving = true;
         if (entering) {
-            pose = poseOnPath(pair, path, THREE.MathUtils.lerp(0, station, timedEase(localTime, 0, T.enter)));
+            pose = poseOnPath(pair, path, THREE.MathUtils.lerp(0, station, timedEase(localTime, 0, 4.4)));
         }
         else if (toPrep) {
-            pose = poseOnPath(pair, participantPrepRoute.path, timedEase(localTime, T.enter, T.prep));
+            pose = poseOnPath(pair, participantPrepRoute.path, timedEase(localTime, 4.4, 6.4));
             pose.distance += pBaseStation;
         }
-        else if (localTime < T.cook) {
+        else if (localTime < 15.2) {
             participantMoving = false;
             pose = { position: prepSpotParticipant, yaw: 0, distance: pBasePrep };
             pair.position.copy(prepSpotParticipant);
             facePoint(pair, new THREE.Vector3(-1.6, 0, -0.1), 0.16);
         }
         else if (participantTableWalk) {
-            pose = poseOnPath(pair, participantTableRoute.path, timedEase(localTime, T.cook, T.serve));
+            pose = poseOnPath(pair, participantTableRoute.path, timedEase(localTime, 15.2, 17.2));
             pose.distance += pBasePrep;
         }
-        else if (localTime < T.serve + 0.5) {
+        else if (localTime < 18.8) {
             participantMoving = false;
             pose = { position: tableSpotParticipant, yaw: 0, distance: pBaseTable };
             pair.position.copy(tableSpotParticipant);
             facePoint(pair, new THREE.Vector3(7.4, 0, 1.6), 0.16);
         }
-        else if (localTime < T.sit) {
-            pose = poseOnPath(pair, participantChairRoute.path, timedEase(localTime, T.serve + 0.5, T.sit));
-            pose.distance += pBaseTable;
+        else if (sitWalk) {
+            const t = timedEase(localTime, 18.8, 19.9);
+            seatLerp.lerpVectors(tableSpotParticipant, chairApproachP, t);
+            pose = { position: seatLerp.clone(), yaw: 0, distance: pBaseTable + t * 1.4 };
+            pair.position.copy(pose.position);
+            facePoint(pair, chairApproachP, 0.3);
         }
-        else if (localTime < T.sink) {
+        else if (localTime < 26.4) {
             participantMoving = false;
             seatLerp.lerpVectors(chairApproachP, chairSeatP, sitAmount);
             seatLerp.y = 0.24 * sitAmount;
-            pose = { position: seatLerp.clone(), yaw: 0, distance: pBaseTable + participantChairRoute.length };
+            pose = { position: seatLerp.clone(), yaw: 0, distance: pBaseTable + 1.4 };
             pair.position.copy(seatLerp);
             facePoint(pair, new THREE.Vector3(8.2, 0, 2.8), 0.22);
         }
         else if (exitWalk) {
-            pose = poseOnPath(pair, participantExitRoute.path, timedEase(localTime, T.sink, T.regroup));
-            pose.distance += pBaseTable + participantChairRoute.length;
+            pose = poseOnPath(pair, participantExitRoute.path, timedEase(localTime, 26.4, 27.8));
+            pose.distance += pBaseTable + 1.4;
         }
         else {
-            const progress = THREE.MathUtils.lerp(exitJoin, 0.999, timedEase(localTime, T.regroup, duration));
+            const progress = THREE.MathUtils.lerp(exitJoin, 0.999, timedEase(localTime, 27.8, duration));
             pose = poseOnPath(pair, path, progress);
             pose.distance = pBaseExit + Math.max(0, pose.distance - exitJoin * mainLength);
         }
@@ -4879,23 +4824,25 @@ function createSharedLivingScene(parent) {
         const wBasePrep = wBaseStation + workerPrepRoute.length;
         const wBaseStove = wBasePrep + workerStoveRoute.length;
         const wBaseTable = wBaseStove + workerTableRoute.length;
-        const wBaseChair = wBaseTable + workerChairRoute.length;
-        const wBaseCollectRight = wBaseChair + workerCollectRightRoute.length;
-        const wBaseCollectLeft = wBaseCollectRight + workerCollectLeftRoute.length;
-        const wBaseSink = wBaseCollectLeft + workerSinkRoute.length;
-        const wBaseExit = wBaseSink + workerExitRoute2.length;
+        const wBaseExit = wBaseTable + workerExitRoute2.length;
         let workerPose;
         let workerMoving = true;
         if (entering) {
-            const progress = THREE.MathUtils.lerp(0, station, timedEase(localTime, 0, T.enter));
+            const progress = THREE.MathUtils.lerp(0, station, timedEase(localTime, 0, 4.4));
             workerPose = poseOnPath(workerCarrier, workerEntryPath, progress);
         }
         else if (toPrep) {
-            workerPose = poseOnPath(workerCarrier, workerPrepRoute.path, timedEase(localTime, T.enter, T.prep));
+            workerPose = poseOnPath(workerCarrier, workerPrepRoute.path, timedEase(localTime, 4.4, 6.4));
             workerPose.distance += wBaseStation;
         }
+        else if (localTime < 9.4) {
+            workerMoving = false;
+            workerPose = { position: prepSpotWorker, yaw: 0, distance: wBasePrep };
+            workerCarrier.position.copy(prepSpotWorker);
+            facePoint(workerCarrier, new THREE.Vector3(-0.4, 0, -0.1), 0.16);
+        }
         else if (stoveWalk) {
-            workerPose = poseOnPath(workerCarrier, workerStoveRoute.path, timedEase(localTime, T.prep, T.prep + 0.8));
+            workerPose = poseOnPath(workerCarrier, workerStoveRoute.path, timedEase(localTime, 9.4, 11.2));
             workerPose.distance += wBasePrep;
         }
         else if (cooking) {
@@ -4905,51 +4852,36 @@ function createSharedLivingScene(parent) {
             facePoint(workerCarrier, new THREE.Vector3(2.3, 0, -5.42), 0.18);
         }
         else if (workerTableWalk) {
-            workerPose = poseOnPath(workerCarrier, workerTableRoute.path, timedEase(localTime, T.cook, T.serve));
+            workerPose = poseOnPath(workerCarrier, workerTableRoute.path, timedEase(localTime, 14.8, 16.4));
             workerPose.distance += wBaseStove;
         }
-        else if (localTime < T.serve + 0.5) {
+        else if (localTime < 18.8) {
             workerMoving = false;
             workerPose = { position: tableSpotWorker, yaw: 0, distance: wBaseTable };
             workerCarrier.position.copy(tableSpotWorker);
-            facePoint(workerCarrier, new THREE.Vector3(8.2, 0, 2.8), 0.16);
+            facePoint(workerCarrier, localTime < 17.4 ? new THREE.Vector3(8.2, 0, 2.8) : new THREE.Vector3(4.7, 0, 1.7), 0.16);
         }
-        else if (localTime < T.sit) {
-            workerPose = poseOnPath(workerCarrier, workerChairRoute.path, timedEase(localTime, T.serve + 0.5, T.sit));
-            workerPose.distance += wBaseTable;
+        else if (sitWalk) {
+            const t = timedEase(localTime, 18.8, 19.9);
+            seatLerp.lerpVectors(tableSpotWorker, chairApproachW, t);
+            workerPose = { position: seatLerp.clone(), yaw: 0, distance: wBaseTable + t * 4.9 };
+            workerCarrier.position.copy(workerPose.position);
+            facePoint(workerCarrier, chairApproachW, 0.3);
         }
-        else if (localTime < T.stand) {
+        else if (localTime < 26.4) {
             workerMoving = false;
             seatLerp.lerpVectors(chairApproachW, chairSeatW, sitAmount);
             seatLerp.y = 0.24 * sitAmount;
-            workerPose = { position: seatLerp.clone(), yaw: 0, distance: wBaseChair };
+            workerPose = { position: seatLerp.clone(), yaw: 0, distance: wBaseTable + 4.9 };
             workerCarrier.position.copy(seatLerp);
             facePoint(workerCarrier, new THREE.Vector3(8.2, 0, 2.8), 0.22);
         }
-        else if (localTime < T.pickupOne) {
-            workerPose = poseOnPath(workerCarrier, workerCollectRightRoute.path, timedEase(localTime, T.stand, T.pickupOne));
-            workerPose.distance += wBaseChair;
-        }
-        else if (localTime < T.collect) {
-            workerPose = poseOnPath(workerCarrier, workerCollectLeftRoute.path, timedEase(localTime, T.pickupOne, T.collect));
-            workerPose.distance += wBaseCollectRight;
-        }
-        else if (localTime < T.sinkArrival) {
-            workerPose = poseOnPath(workerCarrier, workerSinkRoute.path, timedEase(localTime, T.collect, T.sinkArrival));
-            workerPose.distance += wBaseCollectLeft;
-        }
-        else if (localTime < T.sink) {
-            workerMoving = false;
-            workerPose = { position: sinkSpot, yaw: 0, distance: wBaseSink };
-            workerCarrier.position.copy(sinkSpot);
-            facePoint(workerCarrier, new THREE.Vector3(6.2, 0, -5.42), 0.2);
-        }
         else if (exitWalk) {
-            workerPose = poseOnPath(workerCarrier, workerExitRoute2.path, timedEase(localTime, T.sink, T.regroup));
-            workerPose.distance += wBaseSink;
+            workerPose = poseOnPath(workerCarrier, workerExitRoute2.path, timedEase(localTime, 26.4, 27.8));
+            workerPose.distance += wBaseTable + 4.9;
         }
         else {
-            const progress = Math.max(exitJoin, THREE.MathUtils.lerp(exitJoin, 0.999, timedEase(localTime, T.regroup, duration)) - 0.022);
+            const progress = Math.max(exitJoin, THREE.MathUtils.lerp(exitJoin, 0.999, timedEase(localTime, 27.8, duration)) - 0.022);
             workerPose = poseOnPath(workerCarrier, path, progress);
             workerPose.distance = wBaseExit + Math.max(0, workerPose.distance - exitJoin * mainLength);
         }
@@ -4974,16 +4906,14 @@ function createSharedLivingScene(parent) {
             worker.head.rotation.y = -Math.sin(localTime * 0.7 + 0.4) * 0.22;
         }
         tableFood.forEach((mound, index) => {
-            const served = smoothStep(timedEase(localTime, 7.7 + index * 0.25, 8.3 + index * 0.25));
-            const eaten = timedEase(localTime, 9.8, 12.2);
-            const pickupAt = index === 1 ? T.pickupOne : T.collect;
-            const collected = timedEase(localTime, pickupAt - 0.16, pickupAt + 0.08);
-            mound.visible = served > 0.02 && collected < 0.97;
+            const served = smoothStep(timedEase(localTime, 16.9 + index * 0.3, 17.5 + index * 0.3));
+            const eaten = timedEase(localTime, 20.9, 25.5);
+            mound.visible = served > 0.02 && eaten < 0.97;
             const size = served * (1 - eaten * 0.85);
             mound.scale.set(size, 0.55 * size, size);
         });
-        groceryBag.visible = localTime < 2.7;
-        const unpack = timedEase(localTime, 2.3, 4.5);
+        groceryBag.visible = localTime < 6.6;
+        const unpack = timedEase(localTime, 6.6, 9.4);
         groceries.forEach((item, index) => {
             const itemProgress = THREE.MathUtils.clamp(unpack * 1.5 - index * 0.25, 0, 1);
             const settle = smoothStep(itemProgress);
@@ -5007,14 +4937,14 @@ function createSharedLivingScene(parent) {
         kitchen.pendantMaterials.forEach((material, index) => {
             material.emissiveIntensity = 0.42 + Math.sin(localTime * 1.6 + index) * 0.045;
         });
-        recipeLaptop.screenMaterial.emissiveIntensity = localTime >= T.enter && localTime < T.cook ? 0.28 + Math.sin(localTime * 1.9) * 0.04 : 0.08;
+        recipeLaptop.screenMaterial.emissiveIntensity = localTime >= 4.4 && localTime < 15.2 ? 0.28 + Math.sin(localTime * 1.9) * 0.04 : 0.08;
         clock.minute.rotation.z = -localTime * 0.12;
         clock.hour.rotation.z = -localTime * 0.022;
         if (prepping && !participantMoving) {
             participant.rightArm.rotation.x = -0.86 + Math.sin(localTime * 2.9) * 0.14;
             participant.leftArm.rotation.x = -0.44 + Math.sin(localTime * 2.2 + 0.4) * 0.06;
         }
-        if (localTime >= T.enter && localTime < T.prep) {
+        if (localTime >= 6.4 && localTime < 9.4) {
             worker.leftArm.rotation.x = -0.78 + Math.sin(localTime * 2.7) * 0.14;
             worker.rightArm.rotation.x = -0.5 + Math.sin(localTime * 2.4 + 0.6) * 0.1;
         }
@@ -5026,44 +4956,21 @@ function createSharedLivingScene(parent) {
             worker.rightArm.rotation.x = -0.66 + Math.sin(localTime * 2.1) * 0.1;
             participant.rightArm.rotation.x = -0.58 + Math.sin(localTime * 2.3 + 0.8) * 0.1;
         }
-        else if (localTime >= T.stand && localTime < T.collect) {
-            const reach = Math.sin(timedEase(localTime, T.stand, T.collect) * Math.PI * 2);
-            worker.rightArm.rotation.x = -0.72 - Math.max(0, reach) * 0.48;
-            worker.leftArm.rotation.x = -0.46 - Math.max(0, -reach) * 0.34;
-        }
-        else if (localTime >= T.sinkArrival && localTime < T.sink) {
-            const place = Math.sin(timedEase(localTime, T.sinkArrival, T.sink) * Math.PI);
-            worker.rightArm.rotation.x = -0.82 - place * 0.32;
-            worker.leftArm.rotation.x = -0.78 - place * 0.28;
-        }
-        const sinkDropOne = T.sinkArrival + 0.18;
-        const sinkDropTwo = T.sinkArrival + 0.4;
-        const collectingPlates = localTime >= T.pickupOne && localTime < T.sink;
-        carriedPlates.visible = workerTableWalk || collectingPlates;
-        carriedPlates.children[0].visible = workerTableWalk
-            || (localTime >= T.pickupOne && localTime < sinkDropOne);
-        carriedPlates.children[1].visible = workerTableWalk
-            || (localTime >= T.collect && localTime < sinkDropTwo);
-        const counterFade = 1 - smoothStep(timedEase(localTime, 6.8, 7.3));
+        carriedPlates.visible = workerTableWalk;
+        const counterFade = 1 - smoothStep(timedEase(localTime, 14.5, 15.1));
         plates.forEach((plate, index) => {
-            plate.visible = counterFade > 0.02 && localTime < 7.4;
+            plate.visible = counterFade > 0.02 && localTime < 15.2;
             plate.position.set(-0.8 + index * 1.3, 1.78, -0.1);
             plate.scale.setScalar(0.7 + counterFade * 0.3);
         });
         tablePlates.forEach((plate, index) => {
-            const tableAmount = smoothStep(timedEase(localTime, 7.7 + index * 0.25, 8.35 + index * 0.25));
-            const pickupAt = index === 1 ? T.pickupOne : T.collect;
-            const collected = timedEase(localTime, pickupAt - 0.16, pickupAt + 0.08);
-            plate.visible = tableAmount > 0.02 && collected < 0.98;
+            const tableAmount = smoothStep(timedEase(localTime, 16.1 + index * 0.3, 16.8 + index * 0.3));
+            plate.visible = tableAmount > 0.02;
             plate.position.set(7.2 + index * 1.85, 1.56 - tableAmount * 0.04, 2.6);
-            plate.scale.setScalar((0.01 + tableAmount * 0.99) * (1 - collected));
-        });
-        sinkPlates.forEach((plate, index) => {
-            const droppedAt = index === 0 ? sinkDropOne : sinkDropTwo;
-            plate.visible = localTime >= droppedAt;
+            plate.scale.setScalar(0.01 + tableAmount * 0.99);
         });
         checks.forEach((check, index) => {
-            check.visible = localTime > 3 + index * 2;
+            check.visible = localTime > 7 + index * 3.4;
             check.scale.setScalar(check.visible ? 0.9 + Math.sin(localTime * 3 + index) * 0.08 : 0);
             check.scale.z = 0.22;
         });
