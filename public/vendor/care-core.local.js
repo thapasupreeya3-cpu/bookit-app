@@ -1,6 +1,5 @@
 import * as THREE from "./three.module.min.js";
 import { createNavigationRoute } from "./care-nav.js";
-import { createHuman, CAST } from "./care-cast.js";
 const SERVICES = [
     {
         id: "all",
@@ -206,7 +205,240 @@ function cylinderBetween(start, end, radius, material, radialSegments = 10) {
     mesh.receiveShadow = true;
     return mesh;
 }
-/* v65.7: createHuman moved to the shared care-cast.js (rendered-lineup style). */
+function createHuman(options) {
+    const root = new THREE.Group();
+    root.scale.setScalar(options.scale ?? 0.78);
+    const skin = standardMaterial(options.skin, 0.82);
+    const shirt = standardMaterial(options.shirt, 0.84);
+    const trousers = standardMaterial(options.trousers, 0.88);
+    const hair = standardMaterial(options.hair, 0.94);
+    const shoes = standardMaterial(options.shoes ?? 0x283844, 0.72);
+    const jacket = options.jacket ? standardMaterial(options.jacket, 0.86) : null;
+    const eye = standardMaterial(0x1e2930, 0.7);
+    const brow = standardMaterial(options.hair, 0.9);
+    const lip = standardMaterial(0x9c594f, 0.86);
+    const white = standardMaterial(0xfffcf5, 0.8);
+    const prosthetic = standardMaterial(0x75838d, 0.42, 0.42);
+    const torso = new THREE.Group();
+    const torsoMesh = makeCapsule(0.39, 0.58, shirt, 14);
+    torsoMesh.scale.set(1, 1, 0.82);
+    torso.add(torsoMesh);
+    if (jacket) {
+        const jacketPanel = makeBox(0.86, 0.7, 0.12, jacket, 0.06);
+        jacketPanel.position.set(0, -0.03, 0.34);
+        torso.add(jacketPanel);
+    }
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.026, 8, 22, Math.PI * 1.45), jacket ?? shirt);
+    collar.position.set(0, 0.34, 0.31);
+    collar.rotation.set(Math.PI / 2, 0, 0.78);
+    torso.add(collar);
+    const waistband = makeBox(0.7, 0.075, 0.56, trousers, 0.025);
+    waistband.position.set(0, -0.5, 0.02);
+    torso.add(waistband);
+    const shirtPocket = makeBox(0.2, 0.17, 0.025, jacket ?? shirt, 0.018);
+    shirtPocket.position.set(0.2, 0.06, 0.355);
+    torso.add(shirtPocket);
+    if (options.badge) {
+        const lanyardMaterial = standardMaterial(0x486c71, 0.72);
+        const leftLanyard = cylinderBetween(new THREE.Vector3(-0.085, 0.27, 0.36), new THREE.Vector3(0, 0.02, 0.39), 0.012, lanyardMaterial, 6);
+        const rightLanyard = cylinderBetween(new THREE.Vector3(0.085, 0.27, 0.36), new THREE.Vector3(0, 0.02, 0.39), 0.012, lanyardMaterial, 6);
+        const badge = makeBox(0.24, 0.31, 0.035, white, 0.026);
+        badge.position.set(0, -0.11, 0.405);
+        const badgeStripe = makeBox(0.17, 0.035, 0.012, standardMaterial(0x2d847d, 0.72), 0.008);
+        badgeStripe.position.set(0, 0.07, 0.027);
+        badge.add(badgeStripe);
+        torso.add(leftLanyard, rightLanyard, badge);
+    }
+    const head = new THREE.Group();
+    const face = makeSphere(0.31, skin, 20, 14);
+    face.scale.set(0.9, 1.08, 0.9);
+    head.add(face);
+    const leftEye = makeSphere(0.032, eye, 10, 8);
+    leftEye.position.set(-0.105, 0.035, 0.272);
+    const rightEye = leftEye.clone();
+    rightEye.position.x = 0.105;
+    head.add(leftEye, rightEye);
+    for (const side of [-1, 1]) {
+        const eyebrow = makeCapsule(0.015, 0.09, brow, 7);
+        eyebrow.position.set(side * 0.105, 0.125, 0.283);
+        eyebrow.rotation.z = Math.PI / 2 + side * 0.08;
+        head.add(eyebrow);
+        const ear = makeSphere(0.058, skin, 10, 8);
+        ear.scale.set(0.58, 1, 0.55);
+        ear.position.set(side * 0.288, -0.005, 0.005);
+        head.add(ear);
+    }
+    const nose = makeSphere(0.037, skin, 10, 8);
+    nose.scale.set(0.78, 1.2, 0.9);
+    nose.position.set(0, -0.025, 0.305);
+    head.add(nose);
+    const mouth = makeCapsule(0.012, 0.1, lip, 8);
+    mouth.position.set(0, -0.145, 0.302);
+    mouth.rotation.z = Math.PI / 2;
+    mouth.scale.x = 0.82;
+    head.add(mouth);
+    const leftCheek = makeSphere(0.032, standardMaterial(0xd88f82, 0.92), 8, 6);
+    leftCheek.scale.set(1.35, 0.5, 0.42);
+    leftCheek.position.set(-0.17, -0.105, 0.265);
+    const rightCheek = leftCheek.clone();
+    rightCheek.position.x = 0.17;
+    head.add(leftCheek, rightCheek);
+    const hairCap = makeSphere(0.325, hair, 18, 12);
+    hairCap.scale.set(0.94, 0.64, 0.94);
+    hairCap.position.set(0, 0.18, -0.035);
+    head.add(hairCap);
+    if (options.headscarf) {
+        const scarfMaterial = standardMaterial(options.headscarf, 0.9);
+        const scarfCap = makeSphere(0.345, scarfMaterial, 18, 12);
+        scarfCap.scale.set(1, 0.86, 1);
+        scarfCap.position.set(0, 0.1, -0.045);
+        const scarfDrape = makeCapsule(0.22, 0.36, scarfMaterial, 12);
+        scarfDrape.scale.set(1.1, 1, 0.48);
+        scarfDrape.position.set(0, -0.25, -0.19);
+        head.add(scarfCap, scarfDrape);
+        hairCap.visible = false;
+    }
+    if (options.glasses) {
+        const glassesMaterial = standardMaterial(0x4b5f67, 0.42, 0.42);
+        for (const side of [-1, 1]) {
+            const lens = new THREE.Mesh(new THREE.TorusGeometry(0.102, 0.012, 6, 18), glassesMaterial);
+            lens.scale.y = 0.75;
+            lens.position.set(side * 0.112, 0.035, 0.296);
+            head.add(lens);
+        }
+        const bridge = makeBox(0.07, 0.018, 0.016, glassesMaterial, 0.006);
+        bridge.position.set(0, 0.035, 0.307);
+        head.add(bridge);
+    }
+    if (options.hairStyle === "bun") {
+        const bun = makeSphere(0.17, hair, 14, 10);
+        bun.position.set(0, 0.34, -0.18);
+        head.add(bun);
+    }
+    else if (options.hairStyle === "curls") {
+        for (const [x, y, z, scale] of [
+            [-0.22, 0.13, -0.08, 0.11],
+            [0.22, 0.13, -0.08, 0.11],
+            [-0.25, -0.03, -0.09, 0.1],
+            [0.25, -0.03, -0.09, 0.1],
+            [-0.15, 0.3, -0.08, 0.1],
+            [0.15, 0.3, -0.08, 0.1],
+        ]) {
+            const curl = makeSphere(scale, hair, 10, 8);
+            curl.position.set(x, y, z);
+            head.add(curl);
+        }
+    }
+    else if (options.hairStyle === "waves") {
+        const leftWave = makeCapsule(0.09, 0.36, hair, 10);
+        leftWave.position.set(-0.26, -0.03, -0.08);
+        leftWave.rotation.z = 0.1;
+        const rightWave = leftWave.clone();
+        rightWave.position.x = 0.26;
+        rightWave.rotation.z = -0.1;
+        head.add(leftWave, rightWave);
+    }
+    const leftArm = new THREE.Group();
+    const rightArm = new THREE.Group();
+    const leftLeg = new THREE.Group();
+    const rightLeg = new THREE.Group();
+    function addArm(target, side) {
+        const sleeve = makeCapsule(0.105, 0.34, jacket ?? shirt, 10);
+        sleeve.position.y = -0.27;
+        const hand = makeCapsule(0.075, 0.22, skin, 10);
+        hand.position.y = -0.62;
+        hand.scale.set(0.92, 1, 0.72);
+        const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.098, 0.022, 7, 18), jacket ?? shirt);
+        cuff.position.y = -0.47;
+        cuff.rotation.x = Math.PI / 2;
+        target.add(sleeve, cuff, hand);
+        target.position.x = side * 0.47;
+    }
+    function addLeg(target, side) {
+        const isProsthetic = options.prosthetic === (side < 0 ? "left" : "right");
+        const upper = makeCapsule(0.14, 0.38, trousers, 11);
+        upper.position.y = -0.31;
+        const lower = makeCapsule(0.12, 0.34, isProsthetic ? prosthetic : trousers, 11);
+        lower.position.y = -0.74;
+        if (isProsthetic)
+            lower.scale.set(0.78, 1.02, 0.78);
+        const shoe = makeBox(0.26, 0.16, 0.45, shoes, 0.04);
+        shoe.position.set(0, -1.01, 0.11);
+        const sole = makeBox(0.275, 0.045, 0.47, standardMaterial(0x202d33, 0.78), 0.018);
+        sole.position.set(0, -1.105, 0.115);
+        target.add(upper, lower, shoe, sole);
+        target.position.x = side * 0.2;
+    }
+    addArm(leftArm, -1);
+    addArm(rightArm, 1);
+    addLeg(leftLeg, -1);
+    addLeg(rightLeg, 1);
+    const seated = Boolean(options.seated);
+    const baseY = 0;
+    if (seated) {
+        torso.position.y = 1.2;
+        head.position.y = 2.02;
+        leftArm.position.y = 1.52;
+        rightArm.position.y = 1.52;
+        leftArm.rotation.x = -0.25;
+        rightArm.rotation.x = -0.25;
+        leftLeg.position.y = 0.72;
+        rightLeg.position.y = 0.72;
+        leftLeg.rotation.x = -1.16;
+        rightLeg.rotation.x = -1.16;
+        leftLeg.children[1].rotation.x = 0.78;
+        rightLeg.children[1].rotation.x = 0.78;
+    }
+    else {
+        torso.position.y = 1.78;
+        head.position.y = 2.64;
+        leftArm.position.y = 2.05;
+        rightArm.position.y = 2.05;
+        leftLeg.position.y = 1.02;
+        rightLeg.position.y = 1.02;
+    }
+    root.add(torso, head, leftArm, rightArm, leftLeg, rightLeg);
+    const animate = (phase, intensity = 1) => {
+        if (seated) {
+            const push = Math.sin(phase * 0.72);
+            leftArm.rotation.x = -0.34 + push * 0.18 * intensity;
+            rightArm.rotation.x = -0.34 + push * 0.18 * intensity;
+            torso.rotation.z = Math.sin(phase * 0.36) * 0.025 * intensity;
+            head.rotation.y = Math.sin(phase * 0.22) * 0.14 * intensity;
+            return;
+        }
+        const stride = Math.sin(phase);
+        const leftStepLift = Math.max(0, Math.sin(phase)) * 0.06 * intensity;
+        const rightStepLift = Math.max(0, -Math.sin(phase)) * 0.06 * intensity;
+        const lift = Math.max(0, Math.sin(phase * 2)) * 0.055 * intensity;
+        leftLeg.rotation.x = stride * 0.56 * intensity;
+        rightLeg.rotation.x = -stride * 0.56 * intensity;
+        leftLeg.position.y = 1.02 + leftStepLift;
+        rightLeg.position.y = 1.02 + rightStepLift;
+        leftArm.rotation.x = -stride * 0.46 * intensity;
+        rightArm.rotation.x = stride * 0.46 * intensity;
+        leftArm.rotation.z = 0.035 + Math.sin(phase * 0.5) * 0.022 * intensity;
+        rightArm.rotation.z = -0.035 - Math.sin(phase * 0.5) * 0.022 * intensity;
+        torso.position.y = 1.78 + lift;
+        torso.rotation.y = stride * 0.04 * intensity;
+        torso.rotation.z = Math.sin(phase * 0.5) * 0.02 * intensity;
+        head.position.y = 2.64 + lift * 0.65;
+        head.rotation.y = Math.sin(phase * 0.35) * 0.12 * intensity;
+        head.rotation.z = Math.sin(phase * 0.52) * 0.02 * intensity;
+    };
+    return {
+        root,
+        leftArm,
+        rightArm,
+        leftLeg,
+        rightLeg,
+        head,
+        torso,
+        baseY,
+        seated,
+        animate,
+    };
+}
 function applySeatBlend(person, amount) {
     const a = amount;
     person.torso.position.y = THREE.MathUtils.lerp(1.78, 1.2, a);
@@ -867,18 +1099,12 @@ function closestPathProgress(path, target) {
     return closest;
 }
 function facePoint(root, point, blend = 0.18) {
-    /* v65.8: turns are rate-limited with a proportional ease-out — a capped
-       angular speed instead of a per-frame slerp snap, so characters swing
-       round like people instead of turntables. */
     const direction = point.clone().sub(root.position);
     direction.y = 0;
     if (direction.lengthSq() < 0.0001)
         return;
-    const targetYaw = Math.atan2(direction.x, direction.z);
-    const euler = new THREE.Euler().setFromQuaternion(root.quaternion, "YXZ");
-    const delta = Math.atan2(Math.sin(targetYaw - euler.y), Math.cos(targetYaw - euler.y));
-    const step = Math.sign(delta) * Math.min(Math.abs(delta) * blend * .55, .25 * blend);
-    root.quaternion.setFromAxisAngle(UP, euler.y + step);
+    const target = new THREE.Quaternion().setFromAxisAngle(UP, Math.atan2(direction.x, direction.z));
+    root.quaternion.slerp(target, blend);
 }
 function edgeMotion(progress) {
     if (progress < 0.1) {
@@ -3039,7 +3265,13 @@ function createEmploymentScene(parent) {
     root.add(pair);
     const workerCarrier = new THREE.Group();
     const worker = createHuman({
-        ...CAST.carer,
+        skin: 0xe1ae88,
+        shirt: 0x2d847d,
+        trousers: 0x344956,
+        hair: 0x513628,
+        hairStyle: "waves",
+        badge: true,
+        glasses: true,
     });
     worker.root.position.set(0, 0, 0);
     const briefcase = createBriefcase();
@@ -3536,7 +3768,12 @@ function createPersonalCareScene(parent) {
     root.add(pair);
     const workerCarrier = new THREE.Group();
     const worker = createHuman({
-        ...CAST.carer,
+        skin: 0xd6a17c,
+        shirt: 0x2d847d,
+        trousers: 0x354b57,
+        hair: 0x5b3b2e,
+        hairStyle: "bun",
+        badge: true,
     });
     worker.root.position.set(0, 0, 0);
     const towel = makeBox(0.62, 0.18, 0.52, standardMaterial(0xfffdf8, 0.95), 0.05);
@@ -4051,7 +4288,12 @@ function createTravelTransportScene(parent) {
     });
     chair.root.position.x = -0.65;
     const worker = createHuman({
-        ...CAST.carer,
+        skin: 0x7b4b36,
+        shirt: 0x2d847d,
+        trousers: 0x354a55,
+        hair: 0x1d1b1a,
+        hairStyle: "bun",
+        badge: true,
     });
     worker.root.position.set(0.88, 0, -0.2);
     boarding.add(chair.root, worker.root);
@@ -4210,7 +4452,12 @@ function createSharedLivingScene(parent) {
     });
     participant.root.position.x = 0;
     const worker = createHuman({
-        ...CAST.carer,
+        skin: 0xd3a17e,
+        shirt: 0x2d847d,
+        trousers: 0x354956,
+        hair: 0x5b3a2d,
+        hairStyle: "waves",
+        badge: true,
     });
     const apron = makeBox(0.58, 0.72, 0.05, standardMaterial(0xd6a247, 0.86), 0.06);
     apron.position.set(0, -0.1, 0.43);
@@ -4715,7 +4962,12 @@ function createHouseholdScene(parent) {
     root.add(floorBasket);
     const workerRoot = new THREE.Group();
     const worker = createHuman({
-        ...CAST.carer,
+        skin: 0xd5a27e,
+        shirt: 0x2d847d,
+        trousers: 0x354956,
+        hair: 0x5c3b2c,
+        hairStyle: "bun",
+        badge: true,
     });
     worker.root.position.z = -0.86;
     const vacuum = createVacuum(0x806f98);
@@ -5232,7 +5484,12 @@ function createCommunityScene(parent) {
     });
     chair.root.position.x = -0.72;
     const worker = createHuman({
-        ...CAST.carer,
+        skin: 0x81533d,
+        shirt: 0x2d847d,
+        trousers: 0x354956,
+        hair: 0x201b19,
+        hairStyle: "bun",
+        badge: true,
     });
     worker.root.position.set(0.92, 0, -0.18);
     pair.add(chair.root, worker.root);

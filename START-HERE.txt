@@ -1,15 +1,6 @@
-BOOKIT SITE v68 — the v65.8 front page with the approved v66 cast
+BOOKIT SITE v65 — animation composition & collision fixes
 ==========================================================
-This folder is the entire site: the "composition fixes 5" build (full-bleed
-adaptive hero that measures the live copy and routes the walk beside it,
-power wheelchair, rate-limited turns) with ONE change — the character
-factory public/vendor/care-cast.js now builds the approved v66 sculpted
-cast (realistic proportions, warm faces with brows/eyes/smile/blush,
-mitten hands, knee-jointed legs, resting seated pose) wearing the full
-cast wardrobe: locs, bob, crop, beards, headscarves, glasses, badges.
-The concept-art cut-out characters from v67 are gone entirely.
-
-Changed vs "fixes 5" as uploaded: ONLY public/vendor/care-cast.js.
+This folder is the entire site: v64 plus the animation overhaul.
 
 What changed in v65
   • Homepage journey has a protected corridor: right half of the hero on
@@ -41,12 +32,6 @@ What changed in v65
   • Homepage: the route is a real footpath, the carer pushes from the
     middle of the chair, a neighbour sits on the bench, two friends chat
     under the pergola, and the "Shift confirmed" card moved off the route.
-
-  • v65.7: NEW FILE public/vendor/care-cast.js (must upload) — one shared
-    character factory styled to the rendered cast lineup: realistic
-    proportions, painted faces, matte clay look, locs/bob hairstyles,
-    lanyard badges. The same six characters now appear everywhere; every
-    scene carer is the sage-polo carer with locs and a badge.
 
 Deploy: open github.com/thapasupreeya3-cpu/bookit-app/upload/main
 and drag BOTH items from inside this folder (server.js and the

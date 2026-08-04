@@ -1540,7 +1540,7 @@ html.high-contrast .care-section-decor{display:none!important;}
   filter:saturate(.93) contrast(.98);
 }
 html.care-motion-ready .care-motion-canvas{opacity:1;}
-html.care-motion-ready .care-motion-hero{opacity:.8;}
+html.care-motion-ready .care-motion-hero{opacity:.92;}
 html.care-motion-ready .care-motion-garden{opacity:.76;}
 html.care-motion-ready .care-motion-mower{opacity:.64;}
 html.care-motion-ready .care-motion-story{opacity:.56;}
@@ -1554,13 +1554,13 @@ html.care-motion-ready .care-static-fallback{
    CTAs. The route never runs beneath the copy or the search field. */
 .care-motion-hero{inset:0;width:100%;height:100%;z-index:2;opacity:0;}
 @media (min-width:901px){
-  /* v65.4: full-bleed background again — the stage measures the live copy
-     and composes the walk and garden around it, never beneath it */
+  .care-hero-vignette{left:calc(50% + 70px);}
   #page-home .hero-art .ill-scene{visibility:hidden;}
   #page-home .hero-art{min-height:480px;}
 }
 @media (min-width:901px) and (max-width:1180px){
-  /* narrow lane beside the copy — the card would sit over the walked route */
+  .care-hero-vignette{left:59%;}
+  /* the corridor is narrow here — the card would sit over the walked route */
   #page-home .fc2{display:none;}
 }
 @media (max-width:900px){
@@ -1583,11 +1583,11 @@ html.care-motion-ready .care-stories-garden{opacity:0!important;visibility:hidde
    lives in the clipped, section-owned care scenes. */
 
 @media (max-width:1180px){
-  .care-motion-hero{opacity:.8;}
+  .care-motion-hero{opacity:.9;}
   .care-motion-garden{right:-92px;width:465px;height:280px;}
   .care-motion-mower{left:-145px;width:500px;height:325px;}
   .care-motion-story{right:-92px;width:360px;height:245px;}
-  html.care-motion-ready .care-motion-hero{opacity:.8;}
+  html.care-motion-ready .care-motion-hero{opacity:.9;}
   html.care-motion-ready .care-motion-garden{opacity:.66;}
   html.care-motion-ready .care-motion-mower{opacity:.56;}
   html.care-motion-ready .care-motion-story{opacity:.48;}
@@ -1622,12 +1622,12 @@ html.care-motion-ready .care-stories-garden{opacity:0!important;visibility:hidde
    rather than appearing as an empty rectangle. */
 html.care-motion-static .care-motion-canvas{transition:none;}
 html.care-motion-static .care-motion-canvas.care-motion-painted{opacity:1;}
-html.care-motion-static .care-motion-hero.care-motion-painted{opacity:.8;}
+html.care-motion-static .care-motion-hero.care-motion-painted{opacity:.92;}
 html.care-motion-static .care-motion-garden.care-motion-painted{opacity:.76;}
 html.care-motion-static .care-motion-mower.care-motion-painted{opacity:.64;}
 html.care-motion-static .care-motion-story.care-motion-painted{opacity:.56;}
 @media (max-width:1180px){
-  html.care-motion-static .care-motion-hero.care-motion-painted{opacity:.8;}
+  html.care-motion-static .care-motion-hero.care-motion-painted{opacity:.9;}
   html.care-motion-static .care-motion-garden.care-motion-painted{opacity:.66;}
   html.care-motion-static .care-motion-mower.care-motion-painted{opacity:.56;}
   html.care-motion-static .care-motion-story.care-motion-painted{opacity:.48;}
