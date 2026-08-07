@@ -1650,20 +1650,14 @@ html.high-contrast .care-motion-canvas{display:none!important;}
    display:none until the engine's first scene builds (care-stages-ready), so
    environments without WebGL never see an empty stage. The backdrop is the
    preview viewport's own gradient. */
-.care-stage-block{display:block;}
+.care-stage-block{display:none;}
+html.care-stages-ready .care-stage-block{display:block;}
 .care-stage-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px 22px;flex-wrap:wrap;max-width:560px;margin:0 auto 14px;}
 .care-stage-head p{margin:0;}
 .care-stage{position:relative;width:100%;max-width:560px;margin:0 auto;aspect-ratio:16/9;max-height:315px;border-radius:18px;overflow:hidden;
   border:1.5px solid #e7dfd1;box-shadow:0 18px 45px rgba(44,55,56,.10);
   background:radial-gradient(circle at 14% 12%,rgba(255,255,255,.98),rgba(255,255,255,0) 31%),radial-gradient(circle at 86% 16%,rgba(244,235,221,.75),rgba(244,235,221,0) 33%),linear-gradient(145deg,#eef6f3 0%,#f8f4ed 54%,#e9f1ee 100%);}
 .care-stage canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;}
-.care-stage video{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;}
-/* the hero reel: one <video> cycling the seven scenes, driving the kinetic word */
-.hero-reel{position:relative;width:100%;aspect-ratio:16/9;border-radius:34px;overflow:hidden;box-shadow:var(--shadow-lg);background:#f4efe6;}
-.hero-reel video{width:100%;height:100%;display:block;object-fit:cover;}
-/* Reserve the tallest wrapped height of the H1 so a longer word can never
-   push the sentence onto another line and shove the page down. */
-.hero h1{min-height:var(--h1-lock,auto);}
 .care-stage-moments{display:flex;gap:8px 14px;flex-wrap:wrap;max-width:560px;margin:12px auto 0;padding:0;list-style:none;}
 .care-stage-moments li{font-size:.88rem;color:var(--muted,#536b73);background:rgba(255,255,255,.7);border:1px solid #ece4d6;border-radius:999px;padding:5px 13px;}
 .care-stage-moments li b{color:#0E6B62;font-weight:700;margin-right:6px;}
@@ -1808,7 +1802,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="container hero-grid">
       <div>
         <span class="kicker">NDIS registered provider · Australia wide</span>
-        <h1>Support workers who fit <span class="u rotator" id="heroRotate" aria-hidden="true" data-words="your life|your work week|your mornings|your day out|your routine|your home|your community"><span class="rot-word">your life</span></span><span class="sr-only">your life</span>, not the other way around.</h1>
+        <h1>Support workers who fit <span class="u rotator" id="heroRotate" aria-hidden="true" data-words="your life|your mornings|your work week|your community|your routine"><span class="rot-word">your life</span></span><span class="sr-only">your life</span>, not the other way around.</h1>
         <p class="lead">Find, book and manage your own team of verified support workers — for work, home, daily living and getting out into your community. You choose who, when and how. We handle the rest.</p>
         <div class="hero-ctas">
           <a href="#/find-workers" class="btn btn-primary btn-lg">Browse support workers</a>
@@ -1826,7 +1820,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         </div>
       </div>
       <div class="hero-art" aria-hidden="true">
-        <div class="hero-reel" aria-hidden="true"><video id="heroReel" muted playsinline preload="auto" poster="assets/scenes/hero-park.jpg"></video></div>
+        <div class="ill-scene" data-ill="home" aria-hidden="true"></div>
         <div class="float-card fc1">
           <div class="avatar" style="background:#0E6B62;">SM</div>
           <div><b>Sarah M. · Verified ✓</b><small>Community access · Parramatta<br>★ 4.9 (112 shifts)</small></div>
@@ -2062,13 +2056,13 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="employment" data-scene="employment" aria-labelledby="csHead-employment">
+  <section class="block care-stage-block" data-care-stage="employment" aria-labelledby="csHead-employment">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-employment">Employment support, played out</h2>
         <p class="muted">A little animated picture of how this support flows.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/employment.jpg" data-scene-name="employment"></video></div>
+      <div class="care-stage" aria-hidden="true"></div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Explore roles</li>
         <li><b>02</b>Build a résumé</li>
@@ -2137,13 +2131,13 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="personal-care" data-scene="personal-care" aria-labelledby="csHead-personal-care">
+  <section class="block care-stage-block" data-care-stage="personal-care" aria-labelledby="csHead-personal-care">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-personal-care">Personal care, played out</h2>
         <p class="muted">A little animated picture of how this support flows.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/personal-care.jpg" data-scene-name="personal-care"></video></div>
+      <div class="care-stage" aria-hidden="true"></div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Choose the routine</li>
         <li><b>02</b>Prepare with dignity</li>
@@ -2213,13 +2207,13 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="travel-transport" data-scene="transport" aria-labelledby="csHead-transport">
+  <section class="block care-stage-block" data-care-stage="travel-transport" aria-labelledby="csHead-transport">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-transport">A trip, played out</h2>
         <p class="muted">A little animated picture of how this support flows.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/transport.jpg" data-scene-name="transport"></video></div>
+      <div class="care-stage" aria-hidden="true"></div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Vehicle arrives</li>
         <li><b>02</b>Ramp lowers</li>
@@ -2287,13 +2281,13 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="shared-living" data-scene="daily-tasks" aria-labelledby="csHead-daily-tasks">
+  <section class="block care-stage-block" data-care-stage="shared-living" aria-labelledby="csHead-daily-tasks">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-daily-tasks">A shared afternoon, played out</h2>
         <p class="muted">A little animated picture of how this support flows.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/daily-tasks.jpg" data-scene-name="daily-tasks"></video></div>
+      <div class="care-stage" aria-hidden="true"></div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Plan together</li>
         <li><b>02</b>Cook a meal</li>
@@ -2362,13 +2356,13 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="household" data-scene="household" aria-labelledby="csHead-household">
+  <section class="block care-stage-block" data-care-stage="household" aria-labelledby="csHead-household">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-household">A household visit, played out</h2>
         <p class="muted">A little animated picture of how this support flows.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/household.jpg" data-scene-name="household"></video></div>
+      <div class="care-stage" aria-hidden="true"></div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Tidy in passes</li>
         <li><b>02</b>Run the laundry</li>
@@ -2436,13 +2430,13 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
     </div>
   </div>
-  <section class="block care-stage-block" data-care-stage="community" data-scene="community" aria-labelledby="csHead-community">
+  <section class="block care-stage-block" data-care-stage="community" aria-labelledby="csHead-community">
     <div class="container">
       <div class="care-stage-head">
         <h2 class="h2" id="csHead-community">A day out, played out</h2>
         <p class="muted">A little animated picture of how this support flows.</p>
       </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/community.jpg" data-scene-name="community"></video></div>
+      <div class="care-stage" aria-hidden="true"></div>
       <ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Arrive together</li>
         <li><b>02</b>Create & play</li>
@@ -12871,133 +12865,29 @@ document.addEventListener('click', async e => {
   }, {passive:true});
   if (hdr) hdr.classList.toggle('scrolled', scrollY > 8);
 
-  /* ---- kinetic hero word, driven by the hero reel ---------------------
-     The word no longer runs on its own timer. A clip finishing advances the
-     word, and the new word starts the next clip, so the two can never drift
-     apart the way a free-running interval does. -------------------------- */
-  var REEL = [
-    {name:'hero-park',     word:'your life'},
-    {name:'employment',    word:'your work week'},
-    {name:'personal-care', word:'your mornings'},
-    {name:'transport',     word:'your day out'},
-    {name:'daily-tasks',   word:'your routine'},
-    {name:'household',     word:'your home'},
-    {name:'community',     word:'your community'}
-  ];
-  /* VP9 where it is supported (smaller), H.264 everywhere else */
-  var VEXT = (function(){
-    var t = document.createElement('video');
-    return (t.canPlayType && t.canPlayType('video/webm; codecs="vp9"')) ? '.webm' : '.mp4';
-  })();
-  function sceneSrc(name){ return 'assets/scenes/' + name + VEXT; }
-
-  var rot  = document.getElementById('heroRotate');
-  var reel = document.getElementById('heroReel');
-  var heroH1 = rot && rot.closest ? rot.closest('h1') : null;
-
-  /* Reserve the tallest wrapped height the sentence reaches across every
-     word, so going from three lines to four can never shove the page down. */
-  function lockHeroHeight(){
-    if (!heroH1 || !rot) return;
-    var live = rot.querySelector('.rot-word:not(.rot-out)');
-    if (!live) return;
-    var keep = live.textContent, prevW = rot.style.width, tallest = 0;
-    rot.style.width = 'auto';
-    heroH1.style.removeProperty('--h1-lock');
-    for (var i = 0; i < REEL.length; i++){
-      live.textContent = REEL[i].word;
-      tallest = Math.max(tallest, heroH1.getBoundingClientRect().height);
-    }
-    live.textContent = keep;
-    rot.style.width = prevW;
-    heroH1.style.setProperty('--h1-lock', Math.ceil(tallest) + 'px');
+  /* ---- kinetic hero word ---- */
+  var rot = document.getElementById('heroRotate');
+  if (rot){
+    var words = (rot.getAttribute('data-words') || '').split('|').filter(Boolean);
+    var wi = 0, busy = false;
+    var first = rot.querySelector('.rot-word');
+    if (first) rot.style.width = first.offsetWidth + 'px';
+    setInterval(function(){
+      if (!motionOK() || busy || !words.length || document.hidden) return;
+      if (docEl.getAttribute('data-font') === 'readable') return;
+      var cur = rot.querySelector('.rot-word:not(.rot-out)');
+      if (!cur) return;
+      busy = true;
+      wi = (wi + 1) % words.length;
+      var nxt = document.createElement('span');
+      nxt.className = 'rot-word rot-in';
+      nxt.textContent = words[wi];
+      cur.classList.add('rot-out');
+      rot.appendChild(nxt);
+      rot.style.width = nxt.offsetWidth + 'px';
+      setTimeout(function(){ if (cur.parentNode) cur.parentNode.removeChild(cur); nxt.classList.remove('rot-in'); busy = false; }, 560);
+    }, 3600);
   }
-
-  var ri = 0;
-  function showWord(text){
-    if (!rot) return;
-    var cur = rot.querySelector('.rot-word:not(.rot-out)');
-    if (!cur || cur.textContent === text) return;
-    var nxt = document.createElement('span');
-    nxt.className = 'rot-word rot-in';
-    nxt.textContent = text;
-    cur.classList.add('rot-out');
-    rot.appendChild(nxt);
-    rot.style.width = nxt.offsetWidth + 'px';
-    var sr = heroH1 && heroH1.querySelector('.sr-only');
-    if (sr) sr.textContent = text;
-    setTimeout(function(){
-      if (cur.parentNode) cur.parentNode.removeChild(cur);
-      nxt.classList.remove('rot-in');
-    }, 560);
-  }
-
-  function playReel(i){
-    ri = (i + REEL.length) % REEL.length;
-    showWord(REEL[ri].word);                 /* word turns over first ... */
-    if (!reel) return;
-    reel.src = sceneSrc(REEL[ri].name);      /* ... then its animation starts */
-    var pr = reel.play(); if (pr && pr.catch) pr.catch(function(){});
-  }
-
-  if (rot && reel){
-    lockHeroHeight();
-    addEventListener('resize', lockHeroHeight, {passive:true});
-    new MutationObserver(lockHeroHeight).observe(docEl, {attributes:true, attributeFilter:['data-fs','data-font']});
-    reel.addEventListener('ended', function(){ misses = 0; playReel(ri + 1); });
-    /* If a clip will not decode, step past it — but give up after one full
-       pass rather than cycling forever on a device that cannot play any. */
-    var misses = 0, retry = null;
-    reel.addEventListener('error', function(){
-      if (retry) return;
-      if (++misses >= REEL.length){ reel.removeAttribute('src'); reel.load(); return; }
-      retry = setTimeout(function(){ retry = null; playReel(ri + 1); }, 400);
-    });
-    document.addEventListener('visibilitychange', function(){
-      if (document.hidden) reel.pause();
-      else if (motionOK()) { var pr = reel.play(); if (pr && pr.catch) pr.catch(function(){}); }
-    });
-    if (motionOK()) playReel(0);
-    else showWord(REEL[0].word);             /* reduced motion: poster only */
-  }
-
-  /* ---- service page scenes: a still that comes alive once a minute ---- */
-  (function(){
-    var PERIOD = 60000;
-    function onScreen(block){
-      var pg = block.closest('.page');
-      return !!pg && pg.offsetParent !== null;
-    }
-    function playOnce(v){
-      if (!motionOK() || document.hidden) return;
-      if (!v.getAttribute('src')) v.setAttribute('src', sceneSrc(v.getAttribute('data-scene-name')));
-      try { v.currentTime = 0; } catch (e) {}
-      var pr = v.play(); if (pr && pr.catch) pr.catch(function(){});
-    }
-    var blocks = document.querySelectorAll('.care-stage-block[data-scene]');
-    for (var b = 0; b < blocks.length; b++) (function(block){
-      var v = block.querySelector('.stage-video');
-      if (!v || !('IntersectionObserver' in window)) return;
-      /* never loops — it stops and rewinds to the frame the poster shows */
-      v.addEventListener('ended', function(){
-        v.pause(); try { v.currentTime = 0; } catch (e) {}
-      });
-      var timer = null, primed = false;
-      new IntersectionObserver(function(entries){
-        for (var i = 0; i < entries.length; i++){
-          var vis = entries[i].isIntersecting && onScreen(block);
-          if (vis){
-            if (!primed){ primed = true; playOnce(v); }
-            if (!timer) timer = setInterval(function(){
-              if (onScreen(block) && !document.hidden) playOnce(v);
-            }, PERIOD);
-          } else if (timer){
-            clearInterval(timer); timer = null; v.pause();
-          }
-        }
-      }, {threshold: 0.35}).observe(block);
-    })(blocks[b]);
-  })();
 
   /* ---- magnetic buttons + card tilt (fine pointers only) ---- */
   function attachMagnet(btn){
@@ -13036,6 +12926,6 @@ document.addEventListener('click', async e => {
 })();
 </script>
 <script type="module" src="vendor/care-motion.js"></script>
-
+<script type="module" src="vendor/care-stages.js"></script>
 </body>
 </html>
