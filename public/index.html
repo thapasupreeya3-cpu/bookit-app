@@ -1659,8 +1659,24 @@ html.high-contrast .care-motion-canvas{display:none!important;}
 .care-stage canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;}
 .care-stage video{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;}
 /* the hero reel: one <video> cycling the seven scenes, driving the kinetic word */
-.hero-reel{position:relative;width:100%;aspect-ratio:16/9;border-radius:34px;overflow:hidden;box-shadow:var(--shadow-lg);background:#f4efe6;}
-.hero-reel video{width:100%;height:100%;display:block;object-fit:cover;}
+/* embedded, not framed — it sits on the page background with no card edge */
+.hero-reel{position:relative;width:118%;margin:-4% 0 -4% -9%;aspect-ratio:16/9;}
+/* feathered rather than framed: the scene dissolves into the page background
+   instead of sitting in a card, so no rectangle edge is ever visible */
+.hero-reel video{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:contain;
+  opacity:0;transition:opacity .45s var(--ease-out);
+  -webkit-mask-image:radial-gradient(ellipse 74% 74% at 50% 50%,#000 55%,rgba(0,0,0,0) 93%);
+  mask-image:radial-gradient(ellipse 74% 74% at 50% 50%,#000 55%,rgba(0,0,0,0) 93%);}
+.hero-reel video.is-live{opacity:1;}
+/* Each service page leads with its clip, which then dissolves into the
+   photograph that was already sitting in that hero slot. */
+.svc-scene{position:relative;margin:0;}
+.svc-scene img{display:block;width:100%;height:auto;border-radius:22px;}
+.svc-scene video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  border-radius:22px;opacity:1;transition:opacity 1s var(--ease-out);z-index:1;}
+.svc-scene.showing-real video{opacity:0;}
+.svc-scene + .care-stage-moments{margin:14px 0 0;justify-content:flex-start;}
+@media (max-width:699px){.svc-scene img,.svc-scene video{border-radius:16px;}}
 /* Reserve the tallest wrapped height of the H1 so a longer word can never
    push the sentence onto another line and shove the page down. */
 .hero h1{min-height:var(--h1-lock,auto);}
@@ -1826,7 +1842,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         </div>
       </div>
       <div class="hero-art" aria-hidden="true">
-        <div class="hero-reel" aria-hidden="true"><video id="heroReel" muted playsinline preload="auto" poster="assets/scenes/hero-park.jpg"></video></div>
+        <div class="hero-reel" id="heroReel" aria-hidden="true"><video class="reel-v" muted playsinline preload="auto"></video><video class="reel-v" muted playsinline preload="auto"></video></div>
         <div class="float-card fc1">
           <div class="avatar" style="background:#0E6B62;">SM</div>
           <div><b>Sarah M. · Verified ✓</b><small>Community access · Parramatta<br>★ 4.9 (112 shifts)</small></div>
@@ -2058,25 +2074,15 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="assets/photos/employment.jpg" alt="A young barista with Down syndrome laughs with his support worker while learning the coffee machine in a bright cafe" loading="lazy" decoding="async"></figure>
-      </div>
-    </div>
-  </div>
-  <section class="block care-stage-block" data-care-stage="employment" data-scene="employment" aria-labelledby="csHead-employment">
-    <div class="container">
-      <div class="care-stage-head">
-        <h2 class="h2" id="csHead-employment">Employment support, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
-      </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/employment.jpg" data-scene-name="employment"></video></div>
-      <ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="employment"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/employment.jpg" data-scene-name="employment"></video><img src="assets/scenes/employment-real.jpg" alt="A young barista with Down syndrome laughs with his support worker while learning the coffee machine in a bright cafe" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Explore roles</li>
         <li><b>02</b>Build a résumé</li>
         <li><b>03</b>Practise for work</li>
       </ul>
+      </div>
     </div>
-  </section>
-  <section class="block">
+  </div>
+    <section class="block">
     <div class="container svc-layout">
       <div>
         <div class="info-card">
@@ -2133,25 +2139,15 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="assets/photos/personal-care.jpg" alt="A support worker helps an older woman style her hair at a sunlit mirror, both smiling" loading="lazy" decoding="async"></figure>
-      </div>
-    </div>
-  </div>
-  <section class="block care-stage-block" data-care-stage="personal-care" data-scene="personal-care" aria-labelledby="csHead-personal-care">
-    <div class="container">
-      <div class="care-stage-head">
-        <h2 class="h2" id="csHead-personal-care">Personal care, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
-      </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/personal-care.jpg" data-scene-name="personal-care"></video></div>
-      <ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="personal-care"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/personal-care.jpg" data-scene-name="personal-care"></video><img src="assets/scenes/personal-care-real.jpg" alt="A support worker helps an older woman style her hair at a sunlit mirror, both smiling" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Choose the routine</li>
         <li><b>02</b>Prepare with dignity</li>
         <li><b>03</b>Leave feeling ready</li>
       </ul>
+      </div>
     </div>
-  </section>
-  <section class="block">
+  </div>
+    <section class="block">
     <div class="container svc-layout">
       <div>
         <div class="info-card">
@@ -2209,25 +2205,15 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="assets/photos/transport.jpg" alt="A woman in a power wheelchair boards a van by its ramp in golden afternoon light, her small dog on her lap, her support worker holding the door" loading="lazy" decoding="async"></figure>
-      </div>
-    </div>
-  </div>
-  <section class="block care-stage-block" data-care-stage="travel-transport" data-scene="transport" aria-labelledby="csHead-transport">
-    <div class="container">
-      <div class="care-stage-head">
-        <h2 class="h2" id="csHead-transport">A trip, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
-      </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/transport.jpg" data-scene-name="transport"></video></div>
-      <ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="transport"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/transport.jpg" data-scene-name="transport"></video><img src="assets/scenes/transport-real.jpg" alt="A woman in a power wheelchair boards a van by its ramp in golden afternoon light, her small dog on her lap, her support worker holding the door" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Vehicle arrives</li>
         <li><b>02</b>Ramp lowers</li>
         <li><b>03</b>Travel safely</li>
       </ul>
+      </div>
     </div>
-  </section>
-  <section class="block">
+  </div>
+    <section class="block">
     <div class="container svc-layout">
       <div>
         <div class="info-card">
@@ -2283,25 +2269,15 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="assets/photos/daily-tasks.jpg" alt="A participant and support worker cook together in a warm kitchen, laughing as vegetables go into the pan" loading="lazy" decoding="async"></figure>
-      </div>
-    </div>
-  </div>
-  <section class="block care-stage-block" data-care-stage="shared-living" data-scene="daily-tasks" aria-labelledby="csHead-daily-tasks">
-    <div class="container">
-      <div class="care-stage-head">
-        <h2 class="h2" id="csHead-daily-tasks">A shared afternoon, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
-      </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/daily-tasks.jpg" data-scene-name="daily-tasks"></video></div>
-      <ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="daily-tasks"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/daily-tasks.jpg" data-scene-name="daily-tasks"></video><img src="assets/scenes/daily-tasks-real.jpg" alt="A participant and support worker cook together in a warm kitchen, laughing as vegetables go into the pan" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Plan together</li>
         <li><b>02</b>Cook a meal</li>
         <li><b>03</b>Sit down & eat</li>
       </ul>
+      </div>
     </div>
-  </section>
-  <section class="block">
+  </div>
+    <section class="block">
     <div class="container svc-layout">
       <div>
         <div class="info-card">
@@ -2358,25 +2334,15 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="assets/photos/household.jpg" alt="A support worker and a young man hang laundry on a backyard clothesline in the sunshine" loading="lazy" decoding="async"></figure>
-      </div>
-    </div>
-  </div>
-  <section class="block care-stage-block" data-care-stage="household" data-scene="household" aria-labelledby="csHead-household">
-    <div class="container">
-      <div class="care-stage-head">
-        <h2 class="h2" id="csHead-household">A household visit, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
-      </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/household.jpg" data-scene-name="household"></video></div>
-      <ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="household"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/household.jpg" data-scene-name="household"></video><img src="assets/scenes/household-real.jpg" alt="A support worker and a young man hang laundry on a backyard clothesline in the sunshine" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Tidy in passes</li>
         <li><b>02</b>Run the laundry</li>
         <li><b>03</b>Fold and organise</li>
       </ul>
+      </div>
     </div>
-  </section>
-  <section class="block">
+  </div>
+    <section class="block">
     <div class="container svc-layout">
       <div>
         <div class="info-card">
@@ -2432,25 +2398,15 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo"><img src="assets/photos/community.jpg" alt="Friends and a support worker share a picnic in the park, one in a power wheelchair, a kite flying overhead" loading="lazy" decoding="async"></figure>
-      </div>
-    </div>
-  </div>
-  <section class="block care-stage-block" data-care-stage="community" data-scene="community" aria-labelledby="csHead-community">
-    <div class="container">
-      <div class="care-stage-head">
-        <h2 class="h2" id="csHead-community">A day out, played out</h2>
-        <p class="muted">A little animated picture of how this support flows.</p>
-      </div>
-      <div class="care-stage" aria-hidden="true"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/community.jpg" data-scene-name="community"></video></div>
-      <ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="community"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/community.jpg" data-scene-name="community"></video><img src="assets/scenes/community-real.jpg" alt="Friends and a support worker share a picnic in the park, one in a power wheelchair, a kite flying overhead" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Arrive together</li>
         <li><b>02</b>Create & play</li>
         <li><b>03</b>Rest & connect</li>
       </ul>
+      </div>
     </div>
-  </section>
-  <section class="block">
+  </div>
+    <section class="block">
     <div class="container svc-layout">
       <div>
         <div class="info-card">
@@ -12891,8 +12847,9 @@ document.addEventListener('click', async e => {
   })();
   function sceneSrc(name){ return 'assets/scenes/' + name + VEXT; }
 
-  var rot  = document.getElementById('heroRotate');
-  var reel = document.getElementById('heroReel');
+  var rot   = document.getElementById('heroRotate');
+  var reelW = document.getElementById('heroReel');
+  var slots = reelW ? reelW.querySelectorAll('.reel-v') : [];
   var heroH1 = rot && rot.closest ? rot.closest('h1') : null;
 
   /* Reserve the tallest wrapped height the sentence reaches across every
@@ -12913,7 +12870,6 @@ document.addEventListener('click', async e => {
     heroH1.style.setProperty('--h1-lock', Math.ceil(tallest) + 'px');
   }
 
-  var ri = 0;
   function showWord(text){
     if (!rot) return;
     var cur = rot.querySelector('.rot-word:not(.rot-out)');
@@ -12932,71 +12888,96 @@ document.addEventListener('click', async e => {
     }, 560);
   }
 
-  function playReel(i){
-    ri = (i + REEL.length) % REEL.length;
-    showWord(REEL[ri].word);                 /* word turns over first ... */
-    if (!reel) return;
-    reel.src = sceneSrc(REEL[ri].name);      /* ... then its animation starts */
-    var pr = reel.play(); if (pr && pr.catch) pr.catch(function(){});
-  }
+  /* Two stacked <video>s, one live and one already holding the next clip.
+     A single element would drop back to its poster on every src swap — which
+     is what was flashing the journey scene in between each one. */
+  if (rot && slots.length === 2){
+    var live = 0, ri = 0, misses = 0;
 
-  if (rot && reel){
+    function arm(slot, i){                       /* stage a clip, do not show it */
+      slots[slot].src = sceneSrc(REEL[i].name);
+      slots[slot].load();
+    }
+    function go(i){
+      ri = (i + REEL.length) % REEL.length;
+      showWord(REEL[ri].word);                   /* word turns over ... */
+      var v = slots[live];
+      v.classList.add('is-live');
+      var pr = v.play(); if (pr && pr.catch) pr.catch(function(){});
+      slots[1 - live].classList.remove('is-live');
+      arm(1 - live, (ri + 1) % REEL.length);     /* ... next one waits in the wings */
+    }
+    function advance(){
+      misses = 0;
+      live = 1 - live;
+      go(ri + 1);
+    }
+    for (var si = 0; si < 2; si++) (function(v){
+      v.addEventListener('ended', function(){ if (v.classList.contains('is-live')) advance(); });
+      v.addEventListener('error', function(){
+        if (++misses >= REEL.length * 2) return;  /* a device with no codec: stop */
+        setTimeout(advance, 300);
+      });
+    })(slots[si]);
+
     lockHeroHeight();
     addEventListener('resize', lockHeroHeight, {passive:true});
     new MutationObserver(lockHeroHeight).observe(docEl, {attributes:true, attributeFilter:['data-fs','data-font']});
-    reel.addEventListener('ended', function(){ misses = 0; playReel(ri + 1); });
-    /* If a clip will not decode, step past it — but give up after one full
-       pass rather than cycling forever on a device that cannot play any. */
-    var misses = 0, retry = null;
-    reel.addEventListener('error', function(){
-      if (retry) return;
-      if (++misses >= REEL.length){ reel.removeAttribute('src'); reel.load(); return; }
-      retry = setTimeout(function(){ retry = null; playReel(ri + 1); }, 400);
-    });
     document.addEventListener('visibilitychange', function(){
-      if (document.hidden) reel.pause();
-      else if (motionOK()) { var pr = reel.play(); if (pr && pr.catch) pr.catch(function(){}); }
+      var v = slots[live];
+      if (document.hidden) v.pause();
+      else if (motionOK()) { var pr = v.play(); if (pr && pr.catch) pr.catch(function(){}); }
     });
-    if (motionOK()) playReel(0);
-    else showWord(REEL[0].word);             /* reduced motion: poster only */
+
+    if (motionOK()){ arm(0, 0); go(0); }
+    else { arm(0, 0); slots[0].classList.add('is-live'); showWord(REEL[0].word); }
   }
 
-  /* ---- service page scenes: a still that comes alive once a minute ---- */
+  /* ---- service page scenes ------------------------------------------------
+     The clip now leads the page, in the hero slot. It plays once through,
+     dissolves into the photograph that lives in that same slot, and rests
+     there. A minute later it dissolves back and plays again. Scrolling never
+     interrupts a clip that has already started. -------------------------- */
   (function(){
     var PERIOD = 60000;
-    function onScreen(block){
-      var pg = block.closest('.page');
+    function onScreen(fig){
+      var pg = fig.closest('.page');
       return !!pg && pg.offsetParent !== null;
     }
-    function playOnce(v){
-      if (!motionOK() || document.hidden) return;
-      if (!v.getAttribute('src')) v.setAttribute('src', sceneSrc(v.getAttribute('data-scene-name')));
-      try { v.currentTime = 0; } catch (e) {}
-      var pr = v.play(); if (pr && pr.catch) pr.catch(function(){});
-    }
-    var blocks = document.querySelectorAll('.care-stage-block[data-scene]');
-    for (var b = 0; b < blocks.length; b++) (function(block){
-      var v = block.querySelector('.stage-video');
+    var figs = document.querySelectorAll('.svc-scene[data-scene]');
+    for (var b = 0; b < figs.length; b++) (function(fig){
+      var v = fig.querySelector('.stage-video');
       if (!v || !('IntersectionObserver' in window)) return;
-      /* never loops — it stops and rewinds to the frame the poster shows */
+
+      function run(){
+        if (!motionOK() || document.hidden || !onScreen(fig)) return;
+        if (!v.getAttribute('src')) v.setAttribute('src', sceneSrc(v.getAttribute('data-scene-name')));
+        fig.classList.remove('showing-real');
+        try { v.currentTime = 0; } catch (e) {}
+        var pr = v.play(); if (pr && pr.catch) pr.catch(function(){});
+      }
       v.addEventListener('ended', function(){
-        v.pause(); try { v.currentTime = 0; } catch (e) {}
+        v.pause();
+        fig.classList.add('showing-real');   /* settle on the real photograph */
+        try { v.currentTime = 0; } catch (e) {}
       });
+
       var timer = null, primed = false;
       new IntersectionObserver(function(entries){
         for (var i = 0; i < entries.length; i++){
-          var vis = entries[i].isIntersecting && onScreen(block);
-          if (vis){
-            if (!primed){ primed = true; playOnce(v); }
-            if (!timer) timer = setInterval(function(){
-              if (onScreen(block) && !document.hidden) playOnce(v);
-            }, PERIOD);
+          if (entries[i].isIntersecting && onScreen(fig)){
+            if (!primed){ primed = true; run(); }
+            if (!timer) timer = setInterval(run, PERIOD);
           } else if (timer){
-            clearInterval(timer); timer = null; v.pause();
+            clearInterval(timer); timer = null;   /* stop scheduling only */
           }
         }
-      }, {threshold: 0.35}).observe(block);
-    })(blocks[b]);
+      }, {threshold: 0.2}).observe(fig);
+
+      document.addEventListener('visibilitychange', function(){
+        if (document.hidden && !v.paused) v.pause();
+      });
+    })(figs[b]);
   })();
 
   /* ---- magnetic buttons + card tilt (fine pointers only) ---- */
