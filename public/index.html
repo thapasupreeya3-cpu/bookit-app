@@ -1548,24 +1548,16 @@ html.care-motion-ready .care-static-fallback{
   opacity:0!important;visibility:hidden;transition:opacity .5s ease,visibility 0s .5s;
 }
 .care-static-fallback{transition:opacity .45s ease;}
-/* v65: the hero journey gets a protected corridor instead of the whole hero.
-   Desktop: the right half — the static illustration cedes its column (the
-   floating cards stay). Small screens: a dedicated 300px stage below the
-   CTAs. The route never runs beneath the copy or the search field. */
-.care-motion-hero{inset:0;width:100%;height:100%;z-index:2;opacity:0;}
+/* The walked-route canvas that used to occupy this corridor is gone; the hero
+   reel is the only thing in the art column now, on every width. The narrow
+   desktop lane still drops the second float card, which would otherwise sit
+   over the clip. */
 @media (min-width:901px){
-  /* v65.4: full-bleed background again — the stage measures the live copy
-     and composes the walk and garden around it, never beneath it */
   #page-home .hero-art .ill-scene{visibility:hidden;}
   #page-home .hero-art{min-height:480px;}
 }
 @media (min-width:901px) and (max-width:1180px){
-  /* narrow lane beside the copy — the card would sit over the walked route */
   #page-home .fc2{display:none;}
-}
-@media (max-width:900px){
-  .care-hero-vignette{position:relative;inset:auto;height:300px;margin-top:12px;}
-  #page-home .hero-art{display:none;}
 }
 .care-motion-garden{right:-30px;top:16px;width:510px;height:300px;z-index:1;}
 .care-motion-mower{left:-118px;bottom:-52px;width:560px;height:350px;z-index:1;}
@@ -1671,7 +1663,11 @@ html.high-contrast .care-motion-canvas{display:none!important;}
 /* Each service page leads with its clip, which then dissolves into the
    photograph that was already sitting in that hero slot. */
 .svc-scene{position:relative;margin:0;}
-.svc-scene img{display:block;width:100%;height:auto;border-radius:22px;}
+/* The photograph is cropped by the slot exactly as the clip is, so the last
+   frame of the morph and the still it settles on land on the same pixels —
+   height:auto left the 16:9 still short of the 4:3 slot and opened a band
+   of empty tint beneath it. */
+.svc-scene img{display:block;width:100%;height:100%;object-fit:cover;border-radius:22px;}
 .svc-scene video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   border-radius:22px;opacity:1;transition:opacity 1s var(--ease-out);z-index:1;}
 .svc-scene.showing-real video{opacity:0;}
@@ -1853,9 +1849,6 @@ html.high-contrast .care-stage-block{display:none!important;}
         </div>
       </div>
     </div>
-    <div class="care-hero-vignette" aria-hidden="true">
-      <canvas class="care-motion-canvas care-motion-hero" data-care-motion="hero" data-engine="three.js r179" width="1448" height="1025"></canvas>
-    </div>
   </div>
 
   <!-- support marquee -->
@@ -1890,9 +1883,6 @@ html.high-contrast .care-stage-block{display:none!important;}
 
   <!-- services -->
   <section class="block care-scene care-services-scene" aria-labelledby="svcHead">
-    <div class="care-section-decor" aria-hidden="true">
-      <canvas class="care-motion-canvas care-motion-garden" data-care-motion="garden" data-engine="three.js r179" width="510" height="300"></canvas>
-    </div>
     <div class="container">
       <div class="section-head">
         <span class="kicker">What we support</span>
@@ -1905,9 +1895,6 @@ html.high-contrast .care-stage-block{display:none!important;}
 
   <!-- how it works -->
   <section class="block care-scene care-how-scene" style="background:var(--card);" aria-labelledby="hiwHead">
-    <div class="care-section-decor" aria-hidden="true">
-      <canvas class="care-motion-canvas care-motion-mower" data-care-motion="mower" data-engine="three.js r179" width="560" height="350"></canvas>
-    </div>
     <div class="container">
       <div class="section-head">
         <span class="kicker">How it works</span>
@@ -1980,9 +1967,6 @@ html.high-contrast .care-stage-block{display:none!important;}
 
   <!-- testimonials -->
   <section class="block care-scene care-stories-scene" aria-labelledby="tsHead">
-    <div class="care-section-decor" aria-hidden="true">
-      <canvas class="care-motion-canvas care-motion-story" data-care-motion="story" data-engine="three.js r179" width="410" height="270"></canvas>
-    </div>
     <div class="container">
       <div class="section-head">
         <span class="kicker">Stories</span>
@@ -2334,10 +2318,10 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo svc-scene" data-scene="household"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/household.jpg" data-scene-name="household"></video><img src="assets/scenes/household-real.jpg" alt="A support worker and a young man hang laundry on a backyard clothesline in the sunshine" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
-        <li><b>01</b>Tidy in passes</li>
-        <li><b>02</b>Run the laundry</li>
-        <li><b>03</b>Fold and organise</li>
+      <figure class="svc-photo svc-scene" data-scene="household"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/household.jpg" data-scene-name="household"></video><img src="assets/scenes/household-real.jpg" alt="A support worker with the vacuum chats with an older man ironing at his board in a sunlit laundry, folded towels stacked beside him" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
+        <li><b>01</b>Vacuum through</li>
+        <li><b>02</b>Press and iron</li>
+        <li><b>03</b>Fold and put away</li>
       </ul>
       </div>
     </div>
@@ -13016,7 +13000,6 @@ document.addEventListener('click', async e => {
   }
 })();
 </script>
-<script type="module" src="vendor/care-motion.js"></script>
 
 </body>
 </html>
