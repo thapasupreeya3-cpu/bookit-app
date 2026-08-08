@@ -1661,18 +1661,29 @@ html.high-contrast .care-motion-canvas{display:none!important;}
   mask-image:radial-gradient(ellipse 74% 74% at 50% 50%,#000 55%,rgba(0,0,0,0) 93%);}
 .hero-reel video.is-live{opacity:1;}
 /* Each service page leads with its clip, which then dissolves into the
-   photograph that was already sitting in that hero slot. */
-.svc-scene{position:relative;margin:0;}
-/* The photograph is cropped by the slot exactly as the clip is, so the last
-   frame of the morph and the still it settles on land on the same pixels —
-   height:auto left the 16:9 still short of the 4:3 slot and opened a band
-   of empty tint beneath it. */
-.svc-scene img{display:block;width:100%;height:100%;object-fit:cover;border-radius:22px;}
-.svc-scene video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-  border-radius:22px;opacity:1;transition:opacity 1s var(--ease-out);z-index:1;}
+   photograph sitting in the same slot. Presented like the homepage hero:
+   embedded on the page background rather than framed in a card, so the
+   clip keeps its native 16:9 and no rectangle edge is ever visible. The
+   card treatment .svc-photo carries — 4:3 crop, radius, shadow, tilt — is
+   undone here, and `contain` means the whole frame is shown rather than a
+   quarter of its width being cropped away unseen. */
+.svc-scene{position:relative;margin:0;width:112%;margin-left:-6%;
+  aspect-ratio:16/9;background:none;box-shadow:none;transform:none;
+  border-radius:0;overflow:visible;}
+.svc-scene img,
+.svc-scene video{position:absolute;inset:0;display:block;width:100%;height:100%;
+  object-fit:contain;border-radius:0;
+  -webkit-mask-image:radial-gradient(ellipse 74% 74% at 50% 50%,#000 55%,rgba(0,0,0,0) 93%);
+  mask-image:radial-gradient(ellipse 74% 74% at 50% 50%,#000 55%,rgba(0,0,0,0) 93%);}
+.svc-scene video{opacity:1;transition:opacity 1s var(--ease-out);z-index:1;}
 .svc-scene.showing-real video{opacity:0;}
-.svc-scene + .care-stage-moments{margin:14px 0 0;justify-content:flex-start;}
-@media (max-width:699px){.svc-scene img,.svc-scene video{border-radius:16px;}}
+.svc-scene + .care-stage-moments{margin:6px 0 0;justify-content:flex-start;}
+/* no bleed once the figure is centred in its own column */
+@media (max-width:900px){.svc-scene{width:100%;margin-left:0;}}
+/* high contrast wants a hard edge, so the feather comes off and the frame
+   .svc-photo draws is allowed to read as a frame again */
+html.high-contrast .svc-scene img,
+html.high-contrast .svc-scene video{-webkit-mask-image:none;mask-image:none;}
 /* Reserve the tallest wrapped height of the H1 so a longer word can never
    push the sentence onto another line and shove the page down. */
 .hero h1{min-height:var(--h1-lock,auto);}
