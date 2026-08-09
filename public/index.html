@@ -8187,6 +8187,48 @@ function selfTestHtml(t){
 /* --- the AI queue ------------------------------------------------------
    Every row here is a suggestion waiting on a person. Nothing in this list
    has changed anything, and nothing will until somebody presses a button. */
+document.addEventListener('click', async e => {
+  const mode = e.target.closest('[data-ai-mode]');
+  const save = e.target.closest('[data-ai-save]');
+  const on = e.target.closest('[data-ai-consent-on]');
+  const off = e.target.closest('[data-ai-consent-off]');
+  const uc = e.target.matches('[data-ai-uc]') ? e.target : null;
+  if(!(mode || save || on || off)) return;
+  const body = {};
+  const ep = $('#aiEndpoint'), md = $('#aiModel'), rg = $('#aiRegion');
+  if(ep) body.ai_endpoint = ep.value.trim();
+  if(md) body.ai_model = md.value.trim();
+  if(rg) body.ai_region = rg.value.trim();
+  try{
+    if(mode || save){
+      if(mode) body.mode = mode.dataset.aiMode;
+      $$('[data-ai-uc]').forEach(c => { body[c.dataset.aiUc] = c.checked ? 'on' : 'off'; });
+      const r = await API.call('/admin/ai/settings', {method:'POST', body});
+      toast(mode ? (r.mode === 'off' ? 'AI is off.' : r.mode === 'simulate'
+        ? 'Simulate on — nothing leaves this server.' : 'Live. Watch the queue.') : 'Saved.');
+    }
+    if(on){
+      const id = on.dataset.aiConsentOn;
+      const how = ($(`[data-ai-how="${id}"]`) || {}).value || '';
+      await API.call('/admin/ai/consent/' + id, {method:'POST', body:{granted:true, how}});
+      toast('Consent recorded.');
+    }
+    if(off){
+      await API.call('/admin/ai/consent/' + off.dataset.aiConsentOff, {method:'POST', body:{granted:false}});
+      toast('Consent withdrawn.');
+    }
+    renderAdminPage();
+  }catch(err){ toast(err.message); }
+});
+/* ticking a use case without pressing anything else should still stick */
+document.addEventListener('change', async e => {
+  if(!e.target.matches || !e.target.matches('[data-ai-uc]')) return;
+  const body = {};
+  $$('[data-ai-uc]').forEach(c => { body[c.dataset.aiUc] = c.checked ? 'on' : 'off'; });
+  try{ await API.call('/admin/ai/settings', {method:'POST', body}); toast('Saved.'); renderAdminPage(); }
+  catch(err){ toast(err.message); }
+});
+
 function aiQueueHtml(q){
   if(!q) return '<div class="info-card"><p class="adm-empty">The AI queue could not be loaded.</p></div>';
   const modeNote = q.mode === 'off'
@@ -8194,9 +8236,52 @@ function aiQueueHtml(q){
     : q.mode === 'simulate'
       ? 'Simulate — the queue, the review and the log are real; the model is a local stub and nothing leaves this server.'
       : `Live, region ${esc(q.region || 'unset')}${q.onshore ? '' : ' — not onshore, so anything carrying participant data will refuse to run'}.`;
+  const inp = 'font:inherit;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;';
+  const btn = (m, label, note) => `<button type="button" class="btn ${q.mode === m ? 'btn-primary' : 'btn-secondary'} btn-sm" data-ai-mode="${m}" title="${esc(note)}">${label}</button>`;
   return '<div class="info-card">'
     + `<p style="margin:0 0 4px;"><b>Mode:</b> ${esc(modeNote)}</p>`
     + '<p class="muted-sm" style="margin:0 0 12px;">A suggestion is never applied. It sits here until a person reads the source beside it and accepts, changes or rejects it — and a change or a rejection has to carry a reason, because that is the only feedback anyone gets about where the model is wrong.</p>'
+    /* --- the switches. Off is the shipped default and the button is here
+       rather than in a config file because turning this on is a decision
+       somebody should make deliberately and be able to undo in one click. --- */
+    + `<div style="padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:14px;">
+        <b style="font-size:.9rem;">Turn it on</b>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 10px;">
+          ${btn('off', 'Off', 'Nothing runs and nothing is sent anywhere.')}
+          ${btn('simulate', 'Simulate', 'Everything works except the model — a local stub, nothing leaves this server.')}
+          ${btn('live', 'Live', 'Calls the configured endpoint. Needs an endpoint set.')}
+        </div>
+        <p class="muted-sm" style="margin:0 0 10px;">Start with <b>Simulate</b>. The queue, the review, the consent gate and the log are all real; the "model" is twenty lines of keyword matching running here, and no data leaves this server. It needs no endpoint, no key and no contract.</p>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;">
+          ${(q.use_cases || []).map(u => `<label style="display:flex;gap:7px;align-items:center;font-size:.88rem;cursor:pointer;">
+            <input type="checkbox" data-ai-uc="${esc(u.key)}" ${u.on ? 'checked' : ''}> ${esc(u.label)}</label>`).join('')}
+        </div>
+        <details style="margin-top:4px;">
+          <summary class="muted-sm" style="cursor:pointer;">Endpoint settings — only needed for Live</summary>
+          <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-top:9px;">
+            <label style="font-size:.82rem;">Endpoint URL<br><input id="aiEndpoint" value="${esc(q.endpoint || '')}" placeholder="https://…" style="${inp}width:300px;"></label>
+            <label style="font-size:.82rem;">Model<br><input id="aiModel" value="${esc(q.model || '')}" style="${inp}width:170px;"></label>
+            <label style="font-size:.82rem;">Region<br><input id="aiRegion" value="${esc(q.region || '')}" placeholder="au-southeast-2" style="${inp}width:150px;"></label>
+            <button type="button" class="btn btn-secondary btn-sm" data-ai-save="1">Save</button>
+          </div>
+          <p class="muted-sm" style="margin:8px 0 0;">The region has to start with <code>au</code> or anything carrying participant data refuses to run. The API key is an environment variable (<code>AI_API_KEY</code>), never stored here. ${q.key_set ? 'A key is set.' : 'No key is set.'}</p>
+        </details>
+      </div>`
+    /* --- consent, per participant. Shift-note triage will not run without
+       it, so this is where a pilot actually begins. --- */
+    + `<details style="margin-bottom:14px;">
+        <summary style="cursor:pointer;font-size:.9rem;"><b>Consent — ${(q.people || []).filter(x => x.consent).length} of ${(q.people || []).length} participants</b></summary>
+        <p class="muted-sm" style="margin:8px 0 6px;">Shift-note triage refuses outright for anyone without consent recorded here, and the refusal is logged. This is a specific consent to AI processing — not the general privacy consent, which was signed before any of this existed.</p>
+        ${(q.people || []).map(x => `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);">
+          <span style="min-width:170px;font-size:.9rem;">${esc(x.name)}</span>
+          <span class="sec-chip ${x.consent ? 'on' : 'off'}">${x.consent ? 'Consented' : 'Not consented'}</span>
+          ${x.consent
+            ? `<button type="button" class="adm-btn-sm" data-ai-consent-off="${x.id}">Withdraw</button>`
+            : `<input placeholder="how it was given" data-ai-how="${x.id}" maxlength="200" style="${inp}width:210px;font-size:.82rem;">
+               <button type="button" class="adm-btn-sm" data-ai-consent-on="${x.id}">Record consent</button>`}
+          ${x.how ? `<span class="muted-sm" style="font-size:.78rem;">${esc(x.how)}</span>` : ''}
+        </div>`).join('') || '<p class="adm-empty">No participants yet.</p>'}
+      </details>`
     + (q.use_cases || []).map(u => {
         const st = u.stats || {};
         return `<div style="padding:9px 0;border-bottom:1px solid var(--line);">

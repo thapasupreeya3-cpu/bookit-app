@@ -13482,13 +13482,17 @@ route('GET', /^\/api\/admin\/ai$/, (req, res, m, user) => {
       })()
     };
   };
+  const people = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all()
+    .map(u => ({ id: u.id, name: u.name,
+      consent: AI.consentOk(u.id), how: setting('ai_consent_how_' + u.id, '') }));
   json(res, 200, {
-    mode: AI.mode(), region: AI.region(), onshore: AI.onshore(),
-    endpoint_set: !!AI.endpoint(),
+    mode: AI.mode(), region: AI.region(), model: AI.model(),
+    endpoint: AI.endpoint(), onshore: AI.onshore(), endpoint_set: !!AI.endpoint(),
+    key_set: !!AI.key(),
     use_cases: Object.entries(AI_USE_CASES).map(([k, v]) => ({
       key: k, ...v, on: AI.on(k), stats: stat(k)
     })),
-    open
+    people, open
   });
 });
 
@@ -13555,11 +13559,13 @@ route('POST', /^\/api\/admin\/ai\/consent\/(\d+)$/, (req, res, m, user, body) =>
 route('POST', /^\/api\/admin\/ai\/settings$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
   const before = { mode: AI.mode(), region: AI.region() };
+  for (const k of ['ai_endpoint', 'ai_model', 'ai_region'])
+    if (typeof body[k] === 'string') setSetting(k, clean(body[k], 300));
+  if (body.mode === 'live' && !AI.endpoint())
+    return json(res, 400, { error: 'Set an endpoint before going live — there is nothing to call yet. Simulate needs no endpoint at all.' });
   if (['off', 'simulate', 'live'].includes(body.mode)) setSetting('ai_mode', body.mode);
   for (const k of Object.keys(AI_USE_CASES))
     if (body[k] === 'on' || body[k] === 'off') setSetting('ai_' + k, body[k]);
-  for (const k of ['ai_endpoint', 'ai_model', 'ai_region'])
-    if (typeof body[k] === 'string') setSetting(k, clean(body[k], 300));
   logCompliance({ kind: 'ai-settings', result: AI.mode(),
     detail: `AI mode ${before.mode} → ${AI.mode()}, region "${AI.region()}", ${
       Object.keys(AI_USE_CASES).map(k => `${k}=${AI.on(k) ? 'on' : 'off'}`).join(', ')}`,
