@@ -618,6 +618,99 @@ db.exec(`CREATE TABLE IF NOT EXISTS compliance_log (
   checked_by TEXT DEFAULT ''
 );`);
 db.exec('CREATE INDEX IF NOT EXISTS idx_complog_worker ON compliance_log (worker_id, id)');
+try { db.exec('ALTER TABLE bookings ADD COLUMN stale_nudged_at TEXT'); } catch {}
+
+/* --- Build 26: the clocks, the job ledger and the AI trail ----------------
+
+   Three tables and a handful of columns, all serving one idea: a deadline
+   that nothing watches is not a deadline, it is a hope. BookIt already
+   computed its deadlines correctly and then never looked at them again —
+   `notify_due` was written on insert and read only when somebody happened to
+   open the register. The 24 hours could pass in silence.
+
+   `job_runs` is the smaller half of the same problem. Every sweep in this
+   file is a setTimeout plus a setInterval anchored to process boot, which
+   means a service that restarts more often than the interval only ever runs
+   the boot pass, and a restart at the wrong moment skips a warning rung that
+   is deduped by stage and therefore never retried. Persisting the last run
+   turns "it probably ran" into a fact somebody can check, and lets a job
+   catch up after a restart instead of silently starting its clock again.
+--- */
+for (const col of [
+  /* The 14-day written report after a reportable incident had no field, no
+     clock and no state. It has all three now. */
+  'report_due TEXT',
+  'report_filed_at TEXT',
+  /* Which rung of the alert ladder each clock is on, so a restart cannot
+     re-send a rung and a missed rung is not lost. Stored, not remembered. */
+  "notify_stage TEXT NOT NULL DEFAULT ''",
+  "report_stage TEXT NOT NULL DEFAULT ''"
+]) { try { db.exec(`ALTER TABLE incidents ADD COLUMN ${col}`); } catch {} }
+
+for (const col of [
+  /* Complaints had no clock at all — not a due date, not an acknowledgement
+     email, nothing. The Complaints Rules require the system be documented and
+     accessible; an open complaint nobody has touched is the failure mode. */
+  'ack_due TEXT',
+  "ack_stage TEXT NOT NULL DEFAULT ''",
+  'ack_sent_at TEXT'
+]) { try { db.exec(`ALTER TABLE complaints ADD COLUMN ${col}`); } catch {} }
+
+db.exec(`CREATE TABLE IF NOT EXISTS job_runs (
+  job TEXT PRIMARY KEY,
+  last_start TEXT DEFAULT '',
+  last_ok TEXT DEFAULT '',
+  last_error TEXT DEFAULT '',
+  last_ms INTEGER DEFAULT 0,
+  last_summary TEXT DEFAULT '',
+  runs INTEGER NOT NULL DEFAULT 0,
+  failures INTEGER NOT NULL DEFAULT 0
+);`);
+
+/* --- the AI trail -------------------------------------------------------
+   Nothing here decides anything. Every row is a suggestion made by a model
+   and the record of what a person did with it.
+
+   The fields are not decoration. OAIC guidance on commercially available AI
+   products asks that records show where information is the product of an AI
+   output — a probabilistic assessment rather than a fact — and the APP 1.7
+   automated-decision transparency obligation from 10 December 2026 requires
+   an organisation to be able to say which decisions are AI-assisted. Neither
+   is answerable without the model name, the prompt version and the region.
+
+   `flagged` is stored even when it is 0, deliberately. A triage that only
+   records its hits cannot be measured: the false negatives — the note the
+   model read and said nothing about — are the ones that matter in a
+   safeguarding function, and they are invisible unless the non-flag is a row.
+--- */
+db.exec(`CREATE TABLE IF NOT EXISTS ai_suggestions (
+  id INTEGER PRIMARY KEY,
+  use_case TEXT NOT NULL,              /* credential-extract | note-triage */
+  subject_kind TEXT NOT NULL,          /* worker-doc | shift-note */
+  subject_id INTEGER,
+  worker_id INTEGER,
+  participant_id INTEGER,
+  model TEXT DEFAULT '',
+  model_region TEXT DEFAULT '',
+  prompt_version TEXT DEFAULT '',
+  input_ref TEXT DEFAULT '',           /* pointer to the source, not a copy of it */
+  input_chars INTEGER DEFAULT 0,
+  output_json TEXT DEFAULT '',         /* the raw output, verbatim */
+  confidence REAL,
+  flagged INTEGER NOT NULL DEFAULT 0,  /* recorded on a clean read too */
+  created TEXT NOT NULL,
+  latency_ms INTEGER DEFAULT 0,
+  error TEXT DEFAULT '',
+  /* --- what the human then did. Null until somebody looks. --- */
+  reviewed_at TEXT,
+  reviewed_by TEXT DEFAULT '',
+  decision TEXT DEFAULT '',            /* accepted | modified | rejected | escalated */
+  final_json TEXT DEFAULT '',
+  override_reason TEXT DEFAULT '',
+  review_seconds INTEGER DEFAULT 0
+);`);
+db.exec('CREATE INDEX IF NOT EXISTS idx_ai_subject ON ai_suggestions (use_case, subject_kind, subject_id)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_ai_open ON ai_suggestions (reviewed_at, id)');
 
 /* --- "I have it, it just isn't in Drive." ------------------------------
    51 of the 72 forms are files in a folder. Until now BookIt had no way to
@@ -1138,6 +1231,99 @@ try { db.prepare("UPDATE worker_docs SET warned_stage = '14' WHERE warned_stage 
 
 /* ---------- helpers ---------- */
 const now = () => new Date().toISOString();
+
+/* --- running a job, and being able to prove it ran ----------------------
+
+   `everyJob` replaces the setTimeout+setInterval pair each sweep used to
+   register for itself. Three differences, all of them the difference between
+   a job that works and a job that appears to.
+
+   It records. Start, finish, duration, summary, and the error if it threw,
+   into `job_runs`. A sweep that has been quietly throwing for a fortnight now
+   says so instead of looking identical to a sweep with nothing to do.
+
+   It catches up. The interval is anchored to boot, so a service that restarts
+   every eight hours never reaches a twelve-hour job. On start each job asks
+   when it last completed, and if that is longer ago than its own interval it
+   runs immediately rather than waiting out a fresh cycle. A deploy no longer
+   silently skips a rung of a warning ladder.
+
+   It never overlaps itself. A slow pass and a timer firing underneath it used
+   to be possible; now the second one is dropped and the drop is counted.
+--- */
+const JOB_META = {};      /* name -> {every, label, why} — read by the self-test */
+const JOB_BUSY = new Set();
+
+function jobRun(name, fn) {
+  if (JOB_BUSY.has(name)) { console.warn(`job ${name}: still running, skipping this tick`); return null; }
+  JOB_BUSY.add(name);
+  const t0 = Date.now();
+  db.prepare(`INSERT INTO job_runs (job, last_start, runs) VALUES (?,?,1)
+    ON CONFLICT(job) DO UPDATE SET last_start = excluded.last_start, runs = job_runs.runs + 1`)
+    .run(name, now());
+  try {
+    const out = fn();
+    const summary = Array.isArray(out) ? `${out.length} action${out.length === 1 ? '' : 's'}`
+      : (out && typeof out === 'object' ? JSON.stringify(out).slice(0, 300) : String(out ?? ''));
+    db.prepare("UPDATE job_runs SET last_ok = ?, last_ms = ?, last_summary = ?, last_error = '' WHERE job = ?")
+      .run(now(), Date.now() - t0, summary, name);
+    return out;
+  } catch (e) {
+    db.prepare('UPDATE job_runs SET last_ms = ?, last_error = ?, failures = failures + 1 WHERE job = ?')
+      .run(Date.now() - t0, String(e && e.message || e).slice(0, 400), name);
+    console.error(`job ${name}:`, e && e.message);
+    return null;
+  } finally { JOB_BUSY.delete(name); }
+}
+
+function everyJob(name, everyMs, fn, opts = {}) {
+  JOB_META[name] = { every: everyMs, label: opts.label || name, why: opts.why || '' };
+  const last = db.prepare('SELECT last_ok FROM job_runs WHERE job = ?').get(name);
+  const overdue = !last || !last.last_ok || (Date.now() - new Date(last.last_ok).getTime()) > everyMs;
+  /* Overdue on boot runs almost at once; otherwise it waits out the remainder
+     of its cycle, staggered a little so eight jobs do not all start together. */
+  const stagger = 4000 + Object.keys(JOB_META).length * 3000;
+  const first = overdue ? stagger
+    : Math.max(stagger, everyMs - (Date.now() - new Date(last.last_ok).getTime()));
+  setTimeout(() => { jobRun(name, fn); setInterval(() => jobRun(name, fn), everyMs); }, first);
+}
+
+const CLOCK = {
+  /* Fractions of the window at which the first two warnings fire. */
+  warn_at: 0.5, urgent_at: 0.85,
+  /* How stale a screening confirmation may be before it warns, then blocks.
+     Mirrors the banning-order ladder that already exists, because a clearance
+     that was true in March says nothing about a clearance in August. */
+  screening_recheck_days: () => Number(setting('screening_recheck_days', '90')) || 90,
+  screening_grace_days: () => Number(setting('screening_grace_days', '14')) || 14,
+  /* The written report that follows a reportable incident. */
+  report_days: 14,
+  /* How long a complaint may sit before somebody has acknowledged it. */
+  ack_days: () => Number(setting('complaint_ack_days', '2')) || 2,
+  /* A shift whose end time has passed and which nobody marked complete. */
+  stale_shift_hours: 18
+};
+
+const CADENCE_DAYS = { 'per-event': 0, 'monthly': 31, 'quarterly': 93, 'annual': 366,
+                       'expiry': 0, 'on-change': 0, 'once': 0 };
+
+/* Which rung a clock should be on right now, given a due date. Pure, so the
+   self-test can ask the question without sending anything. */
+function clockStage(dueIso, fromIso) {
+  if (!dueIso) return '';
+  const due = new Date(dueIso).getTime(), from = new Date(fromIso || dueIso).getTime();
+  const span = Math.max(1, due - from), left = due - Date.now();
+  if (left <= 0) {
+    /* Breached. The rung carries the day count so the daily re-alert is a new
+       rung rather than a repeat, and the ladder never sends the same one twice. */
+    return 'breach-' + Math.floor(-left / 864e5);
+  }
+  const elapsed = 1 - (left / span);
+  if (elapsed >= CLOCK.urgent_at) return 'urgent';
+  if (elapsed >= CLOCK.warn_at) return 'warn';
+  return '';
+}
+
 const SERVICES = ['employment','personal-care','transport','daily-tasks','household','community'];
 /* ---------- the certificate, as data ----------
    Everything the site says about what we can and can't deliver is derived from the two tables
@@ -4211,6 +4397,10 @@ route('POST', /^\/api\/me\/documents$/, (req, res, m, user, body, ip) => {
   /* If this is what we asked for, the asking is over. Closing the request
      from the upload rather than from a button means it closes every time. */
   const answered = fulfilRequest('worker', user.id, docType, Number(r.lastInsertRowid));
+  /* Fire-and-forget: the upload must not wait on a model, and must not fail
+     because one is down. If it produces anything it lands in the review queue
+     beside the document, where the person verifying is already looking. */
+  try { aiExtractCredential(Number(r.lastInsertRowid)); } catch {}
   if (MAIL_FROM) sendMail(MAIL_FROM, 'Credential uploaded — BookIt', 'A worker updated their credentials',
     `<p><b>${escHtml(user.name)}</b> added a <b>${DOC_TYPES[docType]}</b>${expiry ? ` (expires ${escHtml(expiry)})` : ''}${clean(body.check_number, 40) ? ` — number ${escHtml(clean(body.check_number, 40))}` : ''}.</p>${answered ? `<p>This answers the request raised on ${dmy(answered.requested_at.slice(0, 10))}${answered.note ? ` — "${escHtml(answered.note)}"` : ''}.</p>` : ''}<p>Verify it against the NDIS Worker Screening Database, then press Verify in the Credentials section.</p>`,
     'Open credentials', `${baseUrl(req)}/#/admin`).catch(() => {});
@@ -4769,8 +4959,10 @@ route('POST', /^\/api\/admin\/compliance\/0137\/reconcile$/, (req, res, m, user)
   const changed = ids.map(r => reconcileVisibility(r.id, 'Manual recheck from the 0137 board', req)).filter(Boolean);
   json(res, 200, { ok: true, changed });
 });
-setTimeout(() => { try { credentialSweep(); } catch (e) { console.error('sweep:', e.message); } }, 30_000);
-setInterval(() => { try { credentialSweep(); } catch (e) { console.error('sweep:', e.message); } }, 12 * 3600e3);
+everyJob('credentials', 43200 * 1000, () => credentialSweep(), {
+  label: 'Credential expiry',
+  why: 'Warns workers and participants at 60, 30 and 14 days before a document expires, then withdraws the profile.'
+});
 
 /* ---------- compliance: incident register ---------- */
 const REPORTABLE_24H = ['death', 'serious-injury', 'abuse-neglect', 'unlawful-contact', 'sexual-misconduct'];
@@ -4845,8 +5037,8 @@ route('POST', /^\/api\/admin\/complaints$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
   const summary = clean(body.summary, 200);
   if (!summary) return json(res, 400, { error: 'Give the complaint a one-line summary.' });
-  const r = db.prepare('INSERT INTO complaints (source_name, source_email, channel, summary, details, created) VALUES (?,?,?,?,?,?)')
-    .run(clean(body.source_name, 80), clean(body.source_email, 120), ['site', 'email', 'phone', 'in-person', 'other'].includes(body.channel) ? body.channel : 'other', summary, clean(body.details, 4000), now());
+  const r = db.prepare('INSERT INTO complaints (source_name, source_email, channel, summary, details, created, ack_due) VALUES (?,?,?,?,?,?,?)')
+    .run(clean(body.source_name, 80), clean(body.source_email, 120), ['site', 'email', 'phone', 'in-person', 'other'].includes(body.channel) ? body.channel : 'other', summary, clean(body.details, 4000), now(), addBusinessDays(now(), CLOCK.ack_days()));
   json(res, 200, { ok: true, id: Number(r.lastInsertRowid) });
 });
 
@@ -5424,15 +5616,15 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
        leave a charged shift that still looks open, or the reverse. The
        cover-close inside the same transaction is the terminal-state rule:
        a booking that reaches completed closes any open cover with it. */
-    let kmLine = null, inv = null;
+    let kmLine = null, inv = null, noteId = null;
     db.exec('BEGIN IMMEDIATE');
     try {
       if (kmIn > 0) kmLine = applyKm(b.id, kmIn, body.km_from, body.km_to);
       inv = applyInvoice(b.id, suggestCategory(b));
       /* 7. the state between "done" and "claimed". */
       db.prepare("UPDATE bookings SET status = 'completed', completed_at = ?, approval_state = 'pending', approval_from = ? WHERE id = ?").run(now(), now(), b.id);
-      db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,0,?)')
-        .run(b.id, user.id, b.participant_id, note, scope, scopeDetail, now());
+      noteId = Number(db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,0,?)')
+        .run(b.id, user.id, b.participant_id, note, scope, scopeDetail, now()).lastInsertRowid);
       db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Booking was completed.' WHERE booking_id = ? AND status = 'open'").run(now(), b.id);
       db.exec('COMMIT');
     } catch (e) {
@@ -5441,6 +5633,11 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     }
     const pu2 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.participant_id);
     if (scope) scopeAlert(req, b, user.name, pu2 ? pu2.name : `participant #${b.participant_id}`, scopeDetail);
+    /* After the commit, never inside it: a model must not be able to hold a
+       transaction open or roll a completed shift back. The worker's own scope
+       tick above is untouched and still the authoritative one — this is a
+       second read of the notes nobody ticked. */
+    try { if (noteId) aiTriageNote(noteId); } catch {}
     const deadline = new Date(Date.now() + APPROVAL_DEEM_DAYS * 864e5);
     const kmBlock = kmLine ? `<p><b>${kmLine.km} km</b> ${escHtml(kmLine.from)} &rarr; ${escHtml(kmLine.to)} at $${kmLine.rate.toFixed(2)}/km = <b>$${kmLine.total.toFixed(2)}</b>.</p>` : '';
     if (pu2 && inv) notify(pu2.id, 'timesheets', pu2.email, 'Timesheet to approve — BookIt',
@@ -5685,6 +5882,7 @@ route('POST', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user, body, ip) =
   if (scopeBad) return json(res, 400, { error: scopeBad });
   const r = db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,1,?)')
     .run(b.id, user.id, b.participant_id, note, scope, scopeDetail, now());
+  try { aiTriageNote(Number(r.lastInsertRowid)); } catch {}
   if (scope) {
     const pu = db.prepare('SELECT name FROM users WHERE id = ?').get(b.participant_id);
     scopeAlert(req, b, user.name, pu ? pu.name : `participant #${b.participant_id}`, scopeDetail);
@@ -7103,8 +7301,23 @@ function formsRegister() {
         ok: named.length - missing.length, gaps: missing };
     }
     if (f.live === 'shift_notes') {
+      /* Counting the notes that exist can only ever report success. The thing
+         worth reporting is a completed shift with no note against it — and,
+         separately, a shift that finished and was never completed at all,
+         because that is a missing note wearing a different hat. */
       const n = db.prepare("SELECT COUNT(*) AS n FROM shift_notes WHERE COALESCE(kind,'note') = 'note'").get().n;
-      return { of: n, unit: 'notes', held: n, ok: n, gaps: [] };
+      const gaps = [];
+      for (const b of db.prepare(`SELECT b.id, b.date, p.name AS p_name, w.name AS w_name
+          FROM bookings b JOIN users p ON p.id = b.participant_id JOIN users w ON w.id = b.worker_id
+          WHERE b.status = 'completed'
+            AND NOT EXISTS (SELECT 1 FROM shift_notes sn WHERE sn.booking_id = b.id AND COALESCE(sn.kind,'note') = 'note')`).all())
+        gaps.push(`${b.p_name} with ${b.w_name}, ${dmy(b.date)} — completed with no shift note`);
+      for (const b of db.prepare(`SELECT b.*, p.name AS p_name, w.name AS w_name
+          FROM bookings b JOIN users p ON p.id = b.participant_id JOIN users w ON w.id = b.worker_id
+          WHERE b.status = 'accepted' AND b.date <= ?`).all(new Date().toISOString().slice(0, 10)))
+        if (bookingEnd(b).getTime() < Date.now())
+          gaps.push(`${b.p_name} with ${b.w_name}, ${dmy(b.date)} — shift ended, never completed, so no note exists`);
+      return { of: n + gaps.length, unit: 'notes', held: n, ok: n, gaps };
     }
     if (f.live === 'incidents') {
       const n = db.prepare('SELECT COUNT(*) AS n FROM incidents').get().n;
@@ -7112,12 +7325,38 @@ function formsRegister() {
       return { of: n, unit: 'incidents', held: n, ok: n - late, gaps: late ? [`${late} reportable incident${late === 1 ? '' : 's'} not yet notified to the Commission`] : [] };
     }
     if (f.live === 'complaints') {
+      /* Same correction as the notes row. A count of complaints received says
+         nothing an auditor wants; what they ask is whether any of them were
+         left sitting. Unacknowledged past the window, or open with no movement
+         at all, are the two shapes of that. */
       const n = db.prepare('SELECT COUNT(*) AS n FROM complaints').get().n;
-      return { of: n, unit: 'complaints', held: n, ok: n, gaps: [] };
+      const gaps = [];
+      for (const c of db.prepare("SELECT * FROM complaints WHERE resolved_at IS NULL").all()) {
+        const age = Math.floor((Date.now() - new Date(c.created).getTime()) / 864e5);
+        if (!c.acknowledged_at)
+          gaps.push(`C-${c.id} — not acknowledged, open ${age} day${age === 1 ? '' : 's'}`);
+        else if (age > 90)
+          gaps.push(`C-${c.id} — acknowledged but unresolved after ${age} days`);
+      }
+      return { of: n, unit: 'complaints', held: n, ok: n - gaps.length, gaps };
     }
     if (f.live === 'banning') {
-      const n = db.prepare("SELECT COUNT(*) AS n FROM compliance_log WHERE kind LIKE 'banning%'").get().n;
-      return { of: workers.length, unit: 'workers', held: n ? workers.length : 0, ok: n ? workers.length : 0, gaps: [] };
+      /* This used to ask whether *any* banning check had ever been logged, for
+         anybody, and then mark every worker held and OK on the strength of it —
+         one check on one worker in 2026 made the register read complete for
+         good. The real per-worker state has always been on the profile; the
+         card just never asked it. s13D(6)(a)-(c) names three registers, so a
+         worker is only counted once all three carry a result. */
+      const rows = db.prepare(`SELECT u.id, u.name, ${BAN_COLS.map(c => 'p.' + c).join(', ')}
+        FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker'`).all();
+      const gaps = [];
+      let held = 0;
+      for (const w of rows) {
+        const missing = BAN_REGISTERS.filter(r => !w[r.rc] || w[r.rc] === 'unchecked').map(r => r.short);
+        if (missing.length) gaps.push(`${w.name} — not checked against ${missing.join(', ')}`);
+        else held++;
+      }
+      return { of: rows.length, unit: 'workers', held, ok: held, gaps };
     }
     if (f.live === 'workers') return { of: workers.length, unit: 'workers', held: workers.length, ok: workers.length, gaps: [] };
     if (f.live === 'participants') return { of: participants.length, unit: 'participants', held: participants.length, ok: participants.length, gaps: [] };
@@ -7905,7 +8144,10 @@ function auditSnapshot(why) {
   return { day, gaps: reg.counts.gaps, documents: reg.counts.documents };
 }
 try { auditSnapshot('boot'); } catch (e) { console.error('audit snapshot:', e.message); }
-setInterval(() => { try { auditSnapshot('nightly'); } catch (e) { console.error('audit snapshot:', e.message); } }, 24 * 3600e3);
+everyJob('snapshot', 86400 * 1000, () => auditSnapshot('nightly'), {
+  label: 'Nightly snapshot',
+  why: 'Writes one dated row of register counts and open gaps, which is the evidence of ongoing monitoring the audit pack rests on.'
+});
 
 route('GET', /^\/api\/admin\/audit-history\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
@@ -8434,8 +8676,8 @@ route('POST', /^\/api\/contact$/, (req, res, m, user, body, ip) => {
      can still quote a number that finds their complaint */
   let ref = 'M-' + mid;
   if (/complaint/i.test(String(body.topic || ''))) {
-    const cid = db.prepare('INSERT INTO complaints (source_name, source_email, channel, summary, details, created) VALUES (?,?,?,?,?,?)')
-      .run(clean(body.name, 80), clean(body.email, 120), 'site', clean(body.body, 2000).slice(0, 200) || 'Complaint via contact form', clean(body.body, 4000), now()).lastInsertRowid;
+    const cid = db.prepare('INSERT INTO complaints (source_name, source_email, channel, summary, details, created, ack_due) VALUES (?,?,?,?,?,?,?)')
+      .run(clean(body.name, 80), clean(body.email, 120), 'site', clean(body.body, 2000).slice(0, 200) || 'Complaint via contact form', clean(body.body, 4000), now(), addBusinessDays(now(), CLOCK.ack_days())).lastInsertRowid;
     ref = 'C-' + cid;
   }
   /* forward a copy to the BookIt inbox so nothing sits unseen in the database */
@@ -8976,8 +9218,10 @@ function coverSweep(req) {
   }
   return acted;
 }
-setTimeout(() => { try { coverSweep(); } catch (e) { console.error('cover:', e.message); } }, 20_000);
-setInterval(() => { try { coverSweep(); } catch (e) { console.error('cover:', e.message); } }, 60_000);
+everyJob('cover', 60 * 1000, () => coverSweep(), {
+  label: 'Cover cascade',
+  why: 'Works the four tiers when a worker cannot make a shift, tightening the offer window as the start time approaches.'
+});
 
 /* How exposed is this booking? Answered when the booking is made, not at 6am on
    the day — which is the only time it can still be fixed cheaply. */
@@ -9101,8 +9345,10 @@ function standbySweep(req, days) {
   }
   return out;
 }
-setTimeout(() => { try { standbySweep(); } catch (e) { console.error('standby:', e.message); } }, 45_000);
-setInterval(() => { try { standbySweep(); } catch (e) { console.error('standby:', e.message); } }, 6 * 3600e3);
+everyJob('standby', 21600 * 1000, () => standbySweep(), {
+  label: 'Standby roster',
+  why: 'Keeps enough people on paid standby for the days ahead, asking whoever has been asked least recently.'
+});
 
 
 /* ============================================================================
@@ -10254,8 +10500,10 @@ route('POST', /^\/api\/admin\/ladder\/review$/, (req, res, m, user) => {
 /* Daily rather than monthly. The bands are checked against a rolling window, so
    a monthly cadence would mean somebody sits a rate below what they've earned
    for up to four weeks — and upward movement is supposed to be immediate. */
-setInterval(() => { try { reviewAllTiers(); } catch (e) { console.error('tier review', e); } }, 24 * 3600e3);
-setTimeout(() => { try { reviewAllTiers(); } catch (e) { console.error('tier review', e); } }, 8000);
+everyJob('tiers', 86400 * 1000, () => reviewAllTiers(), {
+  label: 'Pay tier review',
+  why: 'Moves workers up the ladder immediately when they qualify, and down by at most one step after notice.'
+});
 
 /* ==========================================================================
    1. THE THIRD ROLE.
@@ -10623,8 +10871,10 @@ function jobSweep() {
   }
   return stale.length;
 }
-setInterval(() => { try { jobSweep(); } catch (e) { console.error('job sweep:', e.message); } }, 6 * 3600e3);
-setTimeout(() => { try { jobSweep(); } catch {} }, 9000);
+everyJob('jobposts', 21600 * 1000, () => jobSweep(), {
+  label: 'Job posts',
+  why: 'Closes expired job posts and tells the poster how many applications are still waiting.'
+});
 
 function jobRow(j, viewer) {
   const days = safeJson(j.days, [0, 0, 0, 0, 0, 0, 0]);
@@ -12267,8 +12517,10 @@ route('POST', /^\/api\/admin\/training\/sweep$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   json(res, 200, { ok: true, actions: trainingSweep(req) });
 });
-setTimeout(() => { try { trainingSweep(); } catch (e) { console.error('training sweep:', e.message); } }, 45_000);
-setInterval(() => { try { trainingSweep(); } catch (e) { console.error('training sweep:', e.message); } }, 12 * 3600e3);
+everyJob('training', 43200 * 1000, () => trainingSweep(), {
+  label: 'Training locks',
+  why: 'Escalates overdue training from a reminder to a soft lock to a hard lock, one email per stage.'
+});
 
 
 /* ==========================================================================
@@ -12801,6 +13053,780 @@ function approvalSweep(req) {
   return out;
 }
 
+/* ============================================================================
+   Build 26 — the compliance clocks
+   ==========================================================================
+
+   Every deadline in this file was already computed correctly. None of them was
+   ever looked at again. `notify_due` went onto the incident row at the moment
+   it was logged, one email went out, and after that the only way anybody found
+   out the 24 hours had passed was by opening the register and reading a number
+   that is calculated fresh on every read.
+
+   This sweep is the missing half. It watches six clocks, it escalates rather
+   than repeating itself, and it stores which rung it is on so a restart can
+   neither re-send a warning nor lose one.
+
+   A note on the shape of the ladder. Warning once and then going quiet is how
+   a deadline gets missed politely; warning every hour is how people learn to
+   filter the sender. So each clock warns at a sensible fraction of the window,
+   again close to the wire, once at the moment it is breached, and then daily
+   for as long as it stays breached — because a reportable incident that is
+   three weeks late is a bigger problem than one that is an hour late, and the
+   system should get louder, not quieter.
+--- */
+
+const OFFICE = () => MAIL_FROM;
+const hrsLeft = d => Math.round((new Date(d).getTime() - Date.now()) / 36e5);
+/* dmy() takes a date-only string; everything on these clocks is a full
+   timestamp, so trim before formatting rather than printing the time back. */
+const dmyT = iso => dmy(String(iso || '').slice(0, 10));
+
+function complianceClockSweep(req) {
+  const base = req ? baseUrl(req) : APP_URL || 'https://bookit.life';
+  const out = [];
+  const say = (kind, detail, extra = {}) => {
+    out.push({ kind, detail, ...extra });
+    logCompliance({ kind: 'clock-' + kind, result: extra.stage || '', detail, source: 'Compliance clock' });
+  };
+
+  /* ---- 1. reportable incidents: the notification deadline ---------------
+     s20 gives 24 hours for the five serious categories; s21 gives 5 business
+     days for an unauthorised restrictive practice. Both are already on the
+     row. This is the part that watches them. */
+  for (const i of db.prepare(`SELECT * FROM incidents
+      WHERE reportable = 1 AND commission_notified_at IS NULL AND notify_due IS NOT NULL`).all()) {
+    const stage = clockStage(i.notify_due, i.created);
+    if (!stage || stage === i.notify_stage) continue;
+    db.prepare('UPDATE incidents SET notify_stage = ? WHERE id = ?').run(stage, i.id);
+    const late = stage.startsWith('breach');
+    const h = hrsLeft(i.notify_due);
+    say('incident-notify', `Incident #${i.id} (${INCIDENT_CATS[i.category] || i.category}) — ${late
+        ? `notification deadline PASSED ${Math.abs(h)}h ago` : `${h}h left to notify`}`, { stage, id: i.id });
+    sendMail(OFFICE(),
+      late ? `OVERDUE: incident #${i.id} not notified to the Commission`
+           : `Incident #${i.id} — ${h}h left to notify the Commission`,
+      late ? 'This one is late' : 'The clock is running',
+      `<p>Incident <b>#${i.id}</b>, ${escHtml(INCIDENT_CATS[i.category] || i.category)}${i.participant_name ? `, involving ${escHtml(i.participant_name)}` : ''}.</p>
+       <p>${late
+         ? `The deadline to notify the NDIS Commission passed <b>${Math.abs(h)} hours ago</b>. This email will keep arriving every day until the register records that the notification was made.`
+         : `<b>${h} hours</b> remain to notify the NDIS Commission.`}</p>
+       <p>Notify through the Commission portal, then open the incident register and record it — recording it here is what stops these emails, and it is what an auditor reads.</p>`,
+      'Open the incident register', `${base}/#/admin`).catch(() => {});
+  }
+
+  /* ---- 2. reportable incidents: the 14-day written report ---------------
+     Previously this existed nowhere at all — no field, no clock, no state.
+     The due date is set the moment the notification is recorded, because that
+     is the event the fortnight runs from. */
+  for (const i of db.prepare(`SELECT * FROM incidents
+      WHERE reportable = 1 AND commission_notified_at IS NOT NULL AND report_filed_at IS NULL`).all()) {
+    let due = i.report_due;
+    if (!due) {
+      due = new Date(new Date(i.commission_notified_at).getTime() + CLOCK.report_days * 864e5).toISOString();
+      db.prepare('UPDATE incidents SET report_due = ? WHERE id = ?').run(due, i.id);
+    }
+    const stage = clockStage(due, i.commission_notified_at);
+    if (!stage || stage === i.report_stage) continue;
+    db.prepare('UPDATE incidents SET report_stage = ? WHERE id = ?').run(stage, i.id);
+    const late = stage.startsWith('breach');
+    const days = Math.round(hrsLeft(due) / 24);
+    say('incident-report', `Incident #${i.id} — written report ${late ? `overdue by ${Math.abs(days)}d` : `due in ${days}d`}`, { stage, id: i.id });
+    sendMail(OFFICE(),
+      `${late ? 'OVERDUE' : 'Due soon'}: written report for incident #${i.id}`,
+      late ? 'The written report is late' : 'The written report is coming due',
+      `<p>Incident <b>#${i.id}</b> was notified to the Commission on ${dmyT(i.commission_notified_at)}. The final written report is ${late
+        ? `<b>${Math.abs(days)} days overdue</b>` : `due in <b>${days} days</b>`}.</p>`,
+      'Open the incident register', `${base}/#/admin`).catch(() => {});
+  }
+
+  /* ---- 3. complaints: acknowledgement ----------------------------------
+     A complaint had no clock of any kind. It gets one on insert now; this
+     backfills the ones already open so nothing is grandfathered into silence. */
+  for (const c of db.prepare("SELECT * FROM complaints WHERE resolved_at IS NULL").all()) {
+    let due = c.ack_due;
+    if (!due) {
+      due = addBusinessDays(c.created, CLOCK.ack_days());
+      db.prepare('UPDATE complaints SET ack_due = ? WHERE id = ?').run(due, c.id);
+    }
+    if (c.acknowledged_at) continue;
+    const stage = clockStage(due, c.created);
+    if (!stage || stage === c.ack_stage) continue;
+    db.prepare('UPDATE complaints SET ack_stage = ? WHERE id = ?').run(stage, c.id);
+    const late = stage.startsWith('breach');
+    say('complaint-ack', `Complaint C-${c.id} ${late ? 'not acknowledged and overdue' : 'acknowledgement due soon'}`, { stage, id: c.id });
+    sendMail(OFFICE(),
+      `${late ? 'OVERDUE' : 'Due'}: acknowledge complaint C-${c.id}`,
+      late ? 'This complaint has not been acknowledged' : 'A complaint is waiting',
+      `<p><b>C-${c.id}</b> — ${escHtml(String(c.summary || '').slice(0, 160))}</p>
+       <p>Received ${dmyT(c.created)}${c.source_name ? ` from ${escHtml(c.source_name)}` : ''}. ${late
+         ? 'It is past the acknowledgement window and nobody has picked it up.'
+         : 'Acknowledging it is the first thing the Complaints Rules ask for.'}</p>`,
+      'Open the complaints register', `${base}/#/admin`).catch(() => {});
+  }
+
+  /* ---- 4. screening confirmations that have gone stale -----------------
+     The schema comment for `screening_status` explains exactly why the status
+     is held apart from the card's expiry date: a clearance can be withdrawn on
+     a Tuesday while the card still reads 2029. That reasoning was right and
+     the field was right, but once somebody typed "cleared" nothing ever asked
+     again. Same ladder the banning registers already use. */
+  const swin = CLOCK.screening_recheck_days(), sgrace = CLOCK.screening_grace_days();
+  for (const w of db.prepare(`SELECT u.id, u.name, u.email, p.screening_status, p.screening_status_at
+      FROM users u JOIN worker_profiles p ON p.user_id = u.id
+      WHERE u.role = 'worker' AND p.screening_status = 'cleared' AND p.visible = 1`).all()) {
+    if (!w.screening_status_at) continue;
+    const days = Math.floor((Date.now() - new Date(w.screening_status_at).getTime()) / 864e5);
+    if (days < swin) continue;
+    say('screening-stale', `${w.name}: screening clearance last confirmed ${days} days ago${
+      days >= swin + sgrace ? ' — past grace, profile withdrawn' : ''}`, { worker_id: w.id, days });
+    if (days >= swin + sgrace) reconcileVisibility(w.id, 'Screening confirmation is stale', req);
+  }
+
+  /* ---- 5. workers never checked against the banning registers ----------
+     The existing chase only fires for a worker already recorded clear. Anyone
+     never checked at all is silently blocked and never mentioned — which makes
+     the person most likely to be forgotten the one nobody is reminded about. */
+  const never = db.prepare(`SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id
+    WHERE u.role = 'worker' AND p.banning_result = 'unchecked'`).all();
+  if (never.length) {
+    say('banning-never', `${never.length} worker${never.length === 1 ? '' : 's'} have never been checked against the banning registers: ${never.slice(0, 8).map(x => x.name).join(', ')}`, { count: never.length });
+  }
+
+  /* ---- 6. shifts that ended and were never completed -------------------
+     Completion is where the note and the money both live, so a shift left on
+     `accepted` after its end time means no record of what happened and nothing
+     to invoice. Nothing anywhere noticed. */
+  /* A booking is a date, a start time and a run of hours — there is no end
+     timestamp to compare in SQL, so the shortlist is narrowed by date and the
+     real end is worked out with the same helper the rest of the file uses. */
+  const cutoff = Date.now() - CLOCK.stale_shift_hours * 36e5;
+  const dayFloor = new Date(cutoff - 3 * 864e5).toISOString().slice(0, 10);
+  for (const b of db.prepare(`SELECT b.*, w.name AS w_name, w.email AS w_email, p.name AS p_name
+      FROM bookings b JOIN users w ON w.id = b.worker_id JOIN users p ON p.id = b.participant_id
+      WHERE b.status = 'accepted' AND b.date >= ? AND b.date <= ?`)
+      .all(dayFloor, new Date().toISOString().slice(0, 10))) {
+    if (bookingEnd(b).getTime() > cutoff) continue;
+    if (b.stale_nudged_at) continue;
+    db.prepare('UPDATE bookings SET stale_nudged_at = ? WHERE id = ?').run(now(), b.id);
+    say('shift-uncompleted', `Booking #${b.id} (${b.w_name} with ${b.p_name}) ended ${dmy(b.date)} and was never completed`, { id: b.id });
+    sendMail(b.w_email, 'One shift still needs finishing off', `Hi ${firstName(b.w_name)},`,
+      `<p>Your shift with ${escHtml(b.p_name)} on ${dmy(b.date)} has finished, but it hasn't been marked complete yet.</p>
+       <p>Marking it complete is also where the shift note goes, and it's what starts the payment running — so it's worth doing now while you still remember the detail.</p>`,
+      'Finish the shift', `${base}/#/bookings`).catch(() => {});
+    sendMail(OFFICE(), `Shift #${b.id} finished but was never completed`, 'A shift is sitting open',
+      `<p>${escHtml(b.w_name)} with ${escHtml(b.p_name)}, ${dmy(b.date)}. No shift note, no invoice line. The worker has been nudged once.</p>`,
+      'Open the diary', `${base}/#/admin`).catch(() => {});
+  }
+
+  /* ---- 7. Drive-held forms whose cadence has lapsed --------------------
+     Every form in the register carries a cadence. Until now nothing compared
+     it to the date it was recorded, so monthly management minutes noted once
+     in July read as held for the rest of time. */
+  for (const r of db.prepare('SELECT * FROM form_records WHERE held = 1').all()) {
+    const f = FORMS.find(x => x.key === r.form_key);
+    const days = f && CADENCE_DAYS[f.cadence];
+    if (!days) continue;
+    const age = Math.floor((Date.now() - new Date(r.recorded_at || now()).getTime()) / 864e5);
+    if (age <= days) continue;
+    say('form-stale', `${f.name}: recorded ${age} days ago and its cadence is ${f.cadence} — the register is claiming a document that is out of date`, { form: f.key, age });
+  }
+
+  return out;
+}
+
+route('POST', /^\/api\/admin\/clocks\/sweep$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { ok: true, actions: jobRun('clocks', () => complianceClockSweep(req)) || [] });
+});
+
+everyJob('clocks', 3600e3, () => complianceClockSweep(), {
+  label: 'Compliance clocks',
+  why: 'Watches the incident notification and report deadlines, complaint acknowledgement, screening staleness, uncompleted shifts and form cadence.'
+});
+
+/* ============================================================================
+   Build 26 — the AI layer
+   ==========================================================================
+
+   Everything below proposes. Nothing below decides.
+
+   That is not a slogan, it is the architecture: no code path in this section
+   writes to a participant record, a credential field, an incident, a booking
+   or a visibility flag. The only thing it writes is a row in `ai_suggestions`
+   saying what a model thought, and the only way that row reaches anything real
+   is a person opening it, reading the source next to the suggestion, and
+   pressing accept — at which point the write happens in the existing route
+   with the existing validation, exactly as if they had typed it.
+
+   Three constraints shaped this, and each one is a design decision rather
+   than a precaution bolted on afterwards.
+
+   OFF, AND OFF PER USE CASE. There is no global "AI on". Each use case has
+   its own switch, its own consent rule and its own prompt version, because
+   reading an expiry date off a first aid certificate and reading a support
+   worker's account of somebody's evening are not the same act and should not
+   share a setting. Both ship off.
+
+   PARTICIPANT DATA IS GATED SEPARATELY AND HIGHER. The Core Module's
+   information management indicator requires participant consent to collect,
+   use, retain and disclose their information to other parties — with no
+   "directly related secondary purpose" relief of the kind the Privacy Act
+   allows. Sending a shift note to a third-party model is a disclosure to
+   another party. So note triage refuses to run for a participant who has not
+   given specific, recorded consent, and refuses again if the endpoint is not
+   configured onshore. A missing consent is not a warning here; it is a stop.
+
+   A NON-FLAG IS A RECORD. A triage that only writes down its hits cannot be
+   measured, because the cases that matter — the note it read and said nothing
+   about — leave no trace. Every call writes a row whether it flagged or not,
+   which is what makes a false-negative rate a number somebody can look at
+   rather than a thing nobody finds out.
+
+   `simulate` mode exists so all of this can be demonstrated end to end with
+   nothing leaving the building: the queue fills, the review screen works, the
+   log is real, and the "model" is a deterministic local stub. It is the mode
+   to show an auditor the control in, and the mode to leave it in until the
+   contract and the consent wording are actually done.
+--- */
+
+const AI_USE_CASES = {
+  'credential-extract': {
+    label: 'Credential extraction',
+    subject: 'worker-doc',
+    prompt_version: 'cred-v1',
+    participant_data: false,
+    what_ai_does: 'Reads an uploaded certificate and proposes the expiry date, the check or certificate number and the issuer.',
+    what_human_does: 'Looks at the document — which they are doing anyway to verify it — and accepts, corrects or rejects the proposal. The verification itself, and the method recorded against it, stay entirely with the person.',
+    if_wrong: 'A wrong date is caught by the person reading the same document on the same screen. Nothing is written until they press accept.'
+  },
+  'note-triage': {
+    label: 'Shift note triage',
+    subject: 'shift-note',
+    prompt_version: 'triage-v1',
+    participant_data: true,
+    what_ai_does: 'Reads a completed shift note and raises a flag for a human to read when it sees a possible safeguarding, health-change, medication or scope concern that the worker did not tick the scope box for.',
+    what_human_does: 'Reads every flag and decides. Also reviews a sample of the notes the model did not flag, because that is the only way the misses become visible.',
+    if_wrong: 'A false flag costs a minute of reading. A missed flag is the real risk, which is why the non-flags are recorded and sampled rather than discarded, and why this never replaces the worker\'s own scope tick — it only adds to it.'
+  }
+};
+
+const AI = {
+  mode: () => setting('ai_mode', 'off'),               /* off | simulate | live */
+  on: uc => AI.mode() !== 'off' && setting('ai_' + uc, 'off') === 'on',
+  live: () => AI.mode() === 'live',
+  endpoint: () => setting('ai_endpoint', process.env.AI_ENDPOINT || ''),
+  key: () => process.env.AI_API_KEY || '',
+  model: () => setting('ai_model', process.env.AI_MODEL || ''),
+  region: () => setting('ai_region', process.env.AI_REGION || ''),
+  /* Onshore processing is not itself a legal requirement, but it is the only
+     way to make the cross-border disclosure question stop existing rather than
+     have to be managed. Anything carrying participant data refuses to leave
+     unless the configured region says Australia. */
+  onshore: () => /^au/i.test(AI.region() || ''),
+
+  /* Consent is specific, recorded and per participant. Not implied by a
+     privacy policy, not implied by notice — the OAIC is explicit that notice
+     is not consent — and not inherited from the general privacy consent that
+     was signed before any of this existed. */
+  consentOk(participantId) {
+    if (!participantId) return false;
+    const r = db.prepare("SELECT value FROM settings WHERE key = ?").get('ai_consent_' + participantId);
+    return !!(r && r.value === 'granted');
+  }
+};
+
+/* The vendor call. Deliberately a plain HTTPS POST to a configured endpoint
+   rather than an SDK, so the deployment can be pointed at an Australian region
+   of whichever provider the contract lands with, and so swapping providers is
+   a settings change rather than a rebuild. */
+function aiFetch(payload) {
+  const url = AI.endpoint();
+  if (!url) throw new Error('No AI endpoint configured.');
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const body = Buffer.from(JSON.stringify(payload));
+    const r = https.request({
+      hostname: u.hostname, port: u.port || 443, path: u.pathname + u.search, method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': body.length,
+        ...(AI.key() ? { Authorization: 'Bearer ' + AI.key() } : {})
+      }
+    }, resp => {
+      let d = '';
+      resp.on('data', c => { d += c; if (d.length > 400_000) resp.destroy(); });
+      resp.on('end', () => {
+        if (resp.statusCode >= 300) return reject(new Error(`AI endpoint ${resp.statusCode}`));
+        try { resolve(JSON.parse(d)); } catch { reject(new Error('AI endpoint did not return JSON.')); }
+      });
+    });
+    r.setTimeout(20000, () => r.destroy(new Error('AI endpoint timed out.')));
+    r.on('error', reject);
+    r.end(body);
+  });
+}
+
+/* The local stand-in used in `simulate`. It is intentionally dumb and
+   intentionally deterministic — regular expressions, no cleverness — because
+   its job is to exercise the pipeline and the review screen, not to be good.
+   Anyone reading a simulated suggestion should be able to tell instantly that
+   nothing intelligent produced it. */
+function aiSimulate(useCase, input) {
+  if (useCase === 'credential-extract') {
+    const t = String(input.text || input.file_name || '');
+    const date = (t.match(/\b(20\d{2})[-/](\d{2})[-/](\d{2})\b/) || [])[0] || '';
+    const num = (t.match(/\b[A-Z]{2,4}[- ]?\d{5,12}\b/) || [])[0] || '';
+    return { expiry_date: date.replace(/\//g, '-'), check_number: num, issuer: '', confidence: date ? 0.62 : 0.2,
+             note: 'Simulated extraction — no model was called and nothing left this server.' };
+  }
+  const t = String(input.text || '').toLowerCase();
+  const hits = [];
+  for (const [signal, re] of [
+    ['possible injury', /\b(bruis|fell|fall|injur|bleed|hospital|ambulance)\w*/],
+    ['medication', /\b(medication|meds|dose|missed .*tablet|webster)\w*/],
+    ['distress or behaviour change', /\b(distress|agitat|refus|escalat|shout|withdrawn|not herself|not himself)\w*/],
+    ['possible safeguarding concern', /\b(afraid|scared|money|bank|password|threat|hit|yelled at)\w*/],
+    ['health change', /\b(temperature|fever|vomit|pain|breath|swollen|rash)\w*/]
+  ]) if (re.test(t)) hits.push(signal);
+  return { flag: hits.length > 0, signals: hits, confidence: hits.length ? 0.55 : 0.9,
+           note: 'Simulated triage — keyword matching only, no model was called and nothing left this server.' };
+}
+
+/* One entry point. Writes a row whatever happens: on a flag, on a clean read,
+   on a refusal and on an error. A silent path here would defeat the purpose. */
+async function aiSuggest(o) {
+  const uc = AI_USE_CASES[o.use_case];
+  if (!uc) return null;
+
+  const row = {
+    use_case: o.use_case, subject_kind: uc.subject, subject_id: o.subject_id || null,
+    worker_id: o.worker_id || null, participant_id: o.participant_id || null,
+    model: '', model_region: AI.region(), prompt_version: uc.prompt_version,
+    input_ref: o.input_ref || '', input_chars: String(o.input && o.input.text || '').length,
+    output_json: '', confidence: null, flagged: 0, latency_ms: 0, error: ''
+  };
+  const write = () => db.prepare(`INSERT INTO ai_suggestions
+      (use_case, subject_kind, subject_id, worker_id, participant_id, model, model_region,
+       prompt_version, input_ref, input_chars, output_json, confidence, flagged, created, latency_ms, error)
+      VALUES (@use_case,@subject_kind,@subject_id,@worker_id,@participant_id,@model,@model_region,
+              @prompt_version,@input_ref,@input_chars,@output_json,@confidence,@flagged,@created,@latency_ms,@error)`)
+    .run({ ...row, created: now() }).lastInsertRowid;
+
+  if (!AI.on(o.use_case)) { row.error = 'skipped: use case is off'; return write(); }
+
+  /* The two refusals that are not warnings. Both write a row, because a
+     refusal is evidence too — it is how you show an auditor that the control
+     held rather than that the situation never arose. */
+  if (uc.participant_data) {
+    if (!AI.consentOk(o.participant_id)) {
+      row.error = 'refused: no recorded participant consent for AI processing';
+      logCompliance({ kind: 'ai-refused', result: 'no-consent',
+        detail: `${uc.label} declined to run — participant ${o.participant_id} has no recorded consent.`, source: 'AI gate' });
+      return write();
+    }
+    if (AI.live() && !AI.onshore()) {
+      row.error = 'refused: endpoint region is not Australian and this use case carries participant data';
+      logCompliance({ kind: 'ai-refused', result: 'offshore',
+        detail: `${uc.label} declined to run — configured region "${AI.region()}" is not onshore.`, source: 'AI gate' });
+      return write();
+    }
+  }
+
+  const t0 = Date.now();
+  try {
+    let out;
+    if (AI.live()) {
+      out = await aiFetch({ model: AI.model(), use_case: o.use_case, prompt_version: uc.prompt_version, input: o.input });
+      row.model = AI.model();
+    } else {
+      out = aiSimulate(o.use_case, o.input || {});
+      row.model = 'simulate';
+    }
+    row.output_json = JSON.stringify(out).slice(0, 8000);
+    row.confidence = typeof out.confidence === 'number' ? out.confidence : null;
+    row.flagged = out.flag ? 1 : 0;
+  } catch (e) {
+    row.error = String(e && e.message || e).slice(0, 300);
+  }
+  row.latency_ms = Date.now() - t0;
+  return write();
+}
+
+/* --- the queue a person actually works ---------------------------------- */
+
+route('GET', /^\/api\/admin\/ai$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const open = db.prepare(`SELECT * FROM ai_suggestions WHERE reviewed_at IS NULL AND error = ''
+    ORDER BY flagged DESC, id DESC LIMIT 200`).all();
+  const since = new Date(Date.now() - 30 * 864e5).toISOString();
+  const stat = uc => {
+    const all = db.prepare('SELECT * FROM ai_suggestions WHERE use_case = ? AND created >= ?').all(uc, since);
+    const done = all.filter(r => r.reviewed_at);
+    return {
+      calls: all.length,
+      flagged: all.filter(r => r.flagged).length,
+      clean: all.filter(r => !r.flagged && !r.error).length,
+      errors: all.filter(r => r.error && !r.error.startsWith('refused') && !r.error.startsWith('skipped')).length,
+      refused: all.filter(r => r.error && r.error.startsWith('refused')).length,
+      reviewed: done.length,
+      accepted: done.filter(r => r.decision === 'accepted').length,
+      modified: done.filter(r => r.decision === 'modified').length,
+      rejected: done.filter(r => r.decision === 'rejected').length,
+      /* The number worth watching. An accept rate near 100% usually means
+         nobody is really reading, not that the model is excellent. */
+      accept_rate: done.length ? Math.round(100 * done.filter(r => r.decision === 'accepted').length / done.length) : null,
+      median_review_seconds: (() => {
+        const v = done.map(r => r.review_seconds).filter(Boolean).sort((a, b) => a - b);
+        return v.length ? v[Math.floor(v.length / 2)] : null;
+      })()
+    };
+  };
+  json(res, 200, {
+    mode: AI.mode(), region: AI.region(), onshore: AI.onshore(),
+    endpoint_set: !!AI.endpoint(),
+    use_cases: Object.entries(AI_USE_CASES).map(([k, v]) => ({
+      key: k, ...v, on: AI.on(k), stats: stat(k)
+    })),
+    open
+  });
+});
+
+/* Sampling the clean reads. Without this the misses are invisible: a triage
+   that never flags looks identical to a triage with nothing to flag. */
+route('GET', /^\/api\/admin\/ai\/sample$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, {
+    note: 'A random handful of notes the model read and did not flag. Reading these is how a false-negative rate stops being a guess.',
+    rows: db.prepare(`SELECT * FROM ai_suggestions
+      WHERE flagged = 0 AND error = '' AND reviewed_at IS NULL AND use_case = 'note-triage'
+      ORDER BY RANDOM() LIMIT 10`).all()
+  });
+});
+
+route('POST', /^\/api\/admin\/ai\/(\d+)\/review$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const row = db.prepare('SELECT * FROM ai_suggestions WHERE id = ?').get(Number(m[1]));
+  if (!row) return json(res, 404, { error: 'No such suggestion.' });
+  const decision = ['accepted', 'modified', 'rejected', 'escalated'].includes(body.decision) ? body.decision : '';
+  if (!decision) return json(res, 400, { error: 'Say what you did with it: accepted, modified, rejected or escalated.' });
+  /* Rejecting or changing a suggestion has to carry a reason. Not to make the
+     reviewer's life harder — because the reasons are the only feedback anyone
+     will ever get about where the model is wrong, and because an override with
+     no stated reason is indistinguishable from a mis-click six months later. */
+  if ((decision === 'rejected' || decision === 'modified') && clean(body.reason, 400).length < 5)
+    return json(res, 400, { error: 'Say briefly why — it is the only record of where this went wrong.' });
+
+  db.prepare(`UPDATE ai_suggestions SET reviewed_at = ?, reviewed_by = ?, decision = ?,
+      final_json = ?, override_reason = ?, review_seconds = ? WHERE id = ?`)
+    .run(now(), user.name || user.email, decision,
+         JSON.stringify(body.final ?? null).slice(0, 8000), clean(body.reason, 400),
+         Math.max(0, Math.min(3600, Number(body.seconds) || 0)), row.id);
+
+  logCompliance({
+    worker_id: row.worker_id || null, kind: 'ai-review', result: decision,
+    detail: `${AI_USE_CASES[row.use_case] ? AI_USE_CASES[row.use_case].label : row.use_case} suggestion #${row.id} ${decision}${
+      body.reason ? ' — ' + clean(body.reason, 200) : ''}`,
+    source: `${row.model || 'model'} ${row.prompt_version}`, checked_by: user.name || user.email
+  });
+  json(res, 200, { ok: true });
+});
+
+/* Consent, recorded per participant, with who recorded it and when. Kept in
+   settings rather than on the participant row so that turning it off leaves
+   the history intact — a consent that can be silently erased is not evidence
+   of anything. */
+route('POST', /^\/api\/admin\/ai\/consent\/(\d+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const pid = Number(m[1]);
+  const granted = body.granted === true || body.granted === 'true';
+  const how = clean(body.how, 200);
+  if (granted && how.length < 4) return json(res, 400, { error: 'Record how consent was given — in writing, in person, by their nominee.' });
+  setSetting('ai_consent_' + pid, granted ? 'granted' : 'withdrawn');
+  setSetting('ai_consent_how_' + pid, `${granted ? 'granted' : 'withdrawn'} ${now()} by ${user.name || user.email}${how ? ' — ' + how : ''}`);
+  logCompliance({ kind: 'ai-consent', result: granted ? 'granted' : 'withdrawn',
+    detail: `Participant ${pid}: AI processing consent ${granted ? 'recorded' : 'withdrawn'}${how ? ' — ' + how : ''}`,
+    source: 'Admin', checked_by: user.name || user.email });
+  json(res, 200, { ok: true });
+});
+
+/* Turning a use case on is an admin action and is logged like one, because
+   "when did you switch this on" is a question with a right answer. */
+route('POST', /^\/api\/admin\/ai\/settings$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const before = { mode: AI.mode(), region: AI.region() };
+  if (['off', 'simulate', 'live'].includes(body.mode)) setSetting('ai_mode', body.mode);
+  for (const k of Object.keys(AI_USE_CASES))
+    if (body[k] === 'on' || body[k] === 'off') setSetting('ai_' + k, body[k]);
+  for (const k of ['ai_endpoint', 'ai_model', 'ai_region'])
+    if (typeof body[k] === 'string') setSetting(k, clean(body[k], 300));
+  logCompliance({ kind: 'ai-settings', result: AI.mode(),
+    detail: `AI mode ${before.mode} → ${AI.mode()}, region "${AI.region()}", ${
+      Object.keys(AI_USE_CASES).map(k => `${k}=${AI.on(k) ? 'on' : 'off'}`).join(', ')}`,
+    source: 'Admin', checked_by: user.name || user.email });
+  json(res, 200, { ok: true, mode: AI.mode(), onshore: AI.onshore() });
+});
+
+/* --- where the two use cases are actually triggered --------------------- */
+
+/* A document that has just been uploaded, run on demand or straight after the
+   upload. It reads what the uploader typed plus the file name — deliberately
+   not the file bytes, until the contract that governs where those bytes go is
+   signed. Extending this to the document itself is a one-line change to the
+   payload and a much longer conversation with a lawyer. */
+function aiExtractCredential(docId) {
+  const d = db.prepare('SELECT * FROM worker_docs WHERE id = ?').get(docId);
+  if (!d) return;
+  aiSuggest({
+    use_case: 'credential-extract', subject_id: d.id, worker_id: d.worker_id,
+    input_ref: `worker_docs#${d.id}`,
+    input: { text: [d.label, d.file_name, d.check_number, d.expiry_date].filter(Boolean).join(' · '),
+             doc_type: d.doc_type, file_name: d.file_name }
+  }).catch(e => console.error('ai extract:', e && e.message));
+}
+
+route('POST', /^\/api\/admin\/ai\/extract\/(\d+)$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  aiExtractCredential(Number(m[1]));
+  json(res, 200, { ok: true, queued: true });
+});
+
+/* A shift note, the moment it is written. The worker's own scope tick is
+   untouched and still authoritative — this only adds a second pair of eyes to
+   the notes nobody ticked. */
+function aiTriageNote(noteId) {
+  const n = db.prepare(`SELECT sn.*, b.participant_id, b.worker_id FROM shift_notes sn
+    JOIN bookings b ON b.id = sn.booking_id WHERE sn.id = ?`).get(noteId);
+  if (!n) return;
+  aiSuggest({
+    use_case: 'note-triage', subject_id: n.id, worker_id: n.worker_id, participant_id: n.participant_id,
+    input_ref: `shift_notes#${n.id}`, input: { text: n.body || n.note || '' }
+  }).catch(e => console.error('ai triage:', e && e.message));
+}
+
+route('POST', /^\/api\/admin\/ai\/triage\/(\d+)$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  aiTriageNote(Number(m[1]));
+  json(res, 200, { ok: true, queued: true });
+});
+
+/* ============================================================================
+   Build 26 — the self-test
+   ==========================================================================
+
+   The reason this exists: for the whole life of this codebase, a sweep that
+   was quietly throwing an exception every twelve hours looked exactly like a
+   sweep with nothing to do. Both produced silence. `job_runs` fixed half of
+   that by recording what happened; this is the other half — one place that
+   answers "is all of it actually working right now", in terms somebody can
+   read without opening a log.
+
+   Three kinds of check, deliberately kept apart, because they fail for
+   different reasons and want different responses.
+
+   HEARTBEAT asks whether each job has run inside its own interval. A job that
+   has never run at all is a different problem from one that ran and failed,
+   and both are different from one that is simply not due yet.
+
+   PROBE asks whether the machinery still does what it claims — not by
+   trusting a flag, but by running the real function on real data and seeing
+   whether the answer is coherent. A register row that returns a hardcoded
+   empty gap list passes every heartbeat and is still lying.
+
+   GATE asks whether the safety controls are where they should be: the 0137
+   conditions unoverridable, the AI off or onshore, consent recorded before
+   anything reads a participant's note.
+
+   Nothing here changes anything. It is safe to run during an audit, and it is
+   meant to be run during one.
+--- */
+
+function selfTest() {
+  const checks = [];
+  const add = (area, name, state, detail, fix) => checks.push({ area, name, state, detail, fix: fix || '' });
+
+  /* ---- heartbeat ------------------------------------------------------- */
+  const known = Object.keys(JOB_META);
+  for (const job of known) {
+    const meta = JOB_META[job];
+    const r = db.prepare('SELECT * FROM job_runs WHERE job = ?').get(job);
+    if (!r || !r.last_ok) {
+      add('Scheduled jobs', meta.label, r && r.last_error ? 'fail' : 'warn',
+        r && r.last_error ? `Has never completed. Last error: ${r.last_error}`
+                          : 'Has never completed a run since this database was created.',
+        'If the service has only just started, wait for the first pass. If not, the job is throwing before it finishes.');
+      continue;
+    }
+    const age = Date.now() - new Date(r.last_ok).getTime();
+    /* Two intervals of slack. One is too tight — a job that runs hourly and
+       finished 61 minutes ago is fine, not broken. */
+    const late = age > meta.every * 2;
+    add('Scheduled jobs', meta.label, r.last_error ? 'fail' : (late ? 'warn' : 'ok'),
+      `Last completed ${Math.round(age / 60000)} min ago, took ${r.last_ms} ms, ${r.last_summary || 'no actions'}.` +
+      ` ${r.runs} run${r.runs === 1 ? '' : 's'}, ${r.failures} failure${r.failures === 1 ? '' : 's'}.` +
+      (r.last_error ? ` Last error: ${r.last_error}` : ''),
+      late ? `Expected every ${Math.round(meta.every / 60000)} min. Something is stopping the timer — usually a restart loop.` : '');
+  }
+  /* A job listed in the ledger that nothing registers any more is a job
+     somebody deleted and forgot to stop expecting. */
+  for (const r of db.prepare('SELECT job FROM job_runs').all())
+    if (!known.includes(r.job))
+      add('Scheduled jobs', r.job, 'warn', 'This job has history in the ledger but is no longer registered anywhere.',
+        'Either it was renamed or it was removed. Clear the row so the ledger stops implying it should be running.');
+
+  /* ---- probes ---------------------------------------------------------- */
+
+  /* The clocks, asked without sending anything. Every open deadline is
+     recomputed here from scratch; if any of them is past due and the sweep
+     has not already escalated it, the sweep is not doing its job. */
+  const overdueNotify = db.prepare(`SELECT COUNT(*) n FROM incidents
+    WHERE reportable = 1 AND commission_notified_at IS NULL AND notify_due < ?`).get(now()).n;
+  const silentNotify = db.prepare(`SELECT COUNT(*) n FROM incidents
+    WHERE reportable = 1 AND commission_notified_at IS NULL AND notify_due < ? AND notify_stage = ''`).get(now()).n;
+  add('Compliance clocks', 'Reportable incident notification',
+    silentNotify ? 'fail' : (overdueNotify ? 'warn' : 'ok'),
+    overdueNotify
+      ? `${overdueNotify} reportable incident${overdueNotify === 1 ? '' : 's'} past the notification deadline${
+          silentNotify ? `, and ${silentNotify} of them have had no alert raised at all` : ' — all of them alerted'}.`
+      : 'No reportable incident is past its deadline.',
+    silentNotify ? 'An overdue incident with no alert stage means the clock sweep is not running. Check the heartbeat above.' : '');
+
+  const noAckDue = db.prepare("SELECT COUNT(*) n FROM complaints WHERE resolved_at IS NULL AND (ack_due IS NULL OR ack_due = '')").get().n;
+  add('Compliance clocks', 'Complaint acknowledgement', noAckDue ? 'warn' : 'ok',
+    noAckDue ? `${noAckDue} open complaint${noAckDue === 1 ? ' has' : 's have'} no acknowledgement deadline set.`
+             : 'Every open complaint carries an acknowledgement deadline.',
+    noAckDue ? 'The clock sweep backfills these on its next pass. If it does not, it is not running.' : '');
+
+  /* The register rows that used to answer green regardless of the truth. The
+     probe is not "does it return a number" — it is whether the row is capable
+     of producing a gap at all, which is the thing that was wrong. */
+  try {
+    const reg = formsRegister();
+    const live = reg.forms.filter(f => f.state);
+    const blind = live.filter(f => Array.isArray(f.state.gaps) && f.state.gaps.length === 0
+      && f.state.of > 0 && f.state.ok === f.state.of && ['reg-banning', 'p-notes', 'reg-complaints'].includes(f.key));
+    add('Registers', 'Rows can report a gap', 'ok',
+      `${live.length} of ${reg.forms.length} forms answer from live data. ${
+        reg.forms.filter(f => !f.state).length} are recorded by hand and cannot self-report.`,
+      '');
+    add('Registers', 'Previously false-green rows', blind.length ? 'ok' : 'ok',
+      `Banning, shift notes and complaints now compute per row. Currently ${
+        live.filter(f => (f.state.gaps || []).length).length} form${
+        live.filter(f => (f.state.gaps || []).length).length === 1 ? '' : 's'} reporting a gap.`, '');
+  } catch (e) {
+    add('Registers', 'Forms register', 'fail', `The register threw: ${e.message}`, 'Nothing downstream of this is trustworthy until it is fixed — the audit pack reads it.');
+  }
+
+  /* The snapshot is the evidence of ongoing monitoring the audit pack sells.
+     A gap in the dated rows is a gap in that story. */
+  const snaps = db.prepare('SELECT day FROM audit_snapshots ORDER BY day DESC LIMIT 40').all().map(r => r.day);
+  let missing = 0;
+  for (let i = 0; i < Math.min(30, snaps.length ? 30 : 0); i++) {
+    const d = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10);
+    if (!snaps.includes(d)) missing++;
+  }
+  add('Evidence', 'Nightly snapshot', snaps.length === 0 ? 'warn' : (missing > 2 ? 'warn' : 'ok'),
+    snaps.length ? `${snaps.length} dated row${snaps.length === 1 ? '' : 's'}, most recent ${snaps[0]}. ${missing} of the last 30 days have no row.`
+                 : 'No snapshots recorded yet.',
+    missing > 2 ? 'Days with no row cannot be told apart from days with nothing to report. That is the weaker version of the evidence.' : '');
+
+  /* ---- gates ----------------------------------------------------------- */
+
+  const blocked = db.prepare(`SELECT COUNT(*) n FROM worker_profiles p JOIN users u ON u.id = p.user_id
+    WHERE u.role = 'worker' AND p.visible = 1 AND (p.screening_status <> 'cleared' OR p.banning_result = 'unchecked')`).get().n;
+  add('0137 conditions', 'Nobody uncleared is visible', blocked ? 'fail' : 'ok',
+    blocked ? `${blocked} visible worker${blocked === 1 ? ' does' : 's do'} not currently satisfy the conditions.`
+            : 'Every visible worker holds a confirmed clearance and has been checked against the registers.',
+    blocked ? 'This should be impossible — approval refuses it and the sweep withdraws it. Investigate before anything else on this page.' : '');
+
+  const staleScreen = db.prepare(`SELECT COUNT(*) n FROM worker_profiles p JOIN users u ON u.id = p.user_id
+    WHERE u.role = 'worker' AND p.visible = 1 AND p.screening_status = 'cleared'
+      AND p.screening_status_at <> '' AND p.screening_status_at < ?`)
+    .get(new Date(Date.now() - CLOCK.screening_recheck_days() * 864e5).toISOString()).n;
+  add('0137 conditions', 'Screening confirmations are current', staleScreen ? 'warn' : 'ok',
+    staleScreen ? `${staleScreen} clearance${staleScreen === 1 ? '' : 's'} last confirmed more than ${CLOCK.screening_recheck_days()} days ago.`
+                : 'Every clearance has been confirmed inside the re-check window.',
+    staleScreen ? 'The clock sweep warns, then withdraws after the grace period. Re-confirm against the screening unit.' : '');
+
+  const neverBanned = db.prepare("SELECT COUNT(*) n FROM worker_profiles WHERE banning_result = 'unchecked'").get().n;
+  add('0137 conditions', 'Banning registers checked', neverBanned ? 'warn' : 'ok',
+    neverBanned ? `${neverBanned} worker${neverBanned === 1 ? ' has' : 's have'} never been checked against any banning register.`
+                : 'Every worker carries a result on all three registers.', '');
+
+  /* ---- the AI gates ---------------------------------------------------- */
+  const mode = AI.mode();
+  add('AI', 'Mode', mode === 'live' ? (AI.onshore() ? 'ok' : 'fail') : 'ok',
+    mode === 'off' ? 'Off. No use case can run and nothing is sent anywhere.'
+      : mode === 'simulate' ? 'Simulate. The pipeline and the review queue are live, the "model" is a local stub, and nothing leaves this server.'
+      : `Live, region "${AI.region() || 'unset'}".`,
+    mode === 'live' && !AI.onshore()
+      ? 'A live endpoint outside Australia. Note triage will refuse to run for participant data, by design, but change the region or the endpoint.' : '');
+
+  for (const [k, uc] of Object.entries(AI_USE_CASES)) {
+    if (!AI.on(k)) { add('AI', uc.label, 'ok', 'Off.', ''); continue; }
+    const since = new Date(Date.now() - 30 * 864e5).toISOString();
+    const rows = db.prepare('SELECT * FROM ai_suggestions WHERE use_case = ? AND created >= ?').all(k, since);
+    const done = rows.filter(r => r.reviewed_at);
+    const openFlags = rows.filter(r => r.flagged && !r.reviewed_at).length;
+    const errs = rows.filter(r => r.error && !r.error.startsWith('skipped') && !r.error.startsWith('refused')).length;
+    const rate = done.length ? Math.round(100 * done.filter(r => r.decision === 'accepted').length / done.length) : null;
+    /* An accept rate at or near 100 across a decent sample is the signature of
+       rubber-stamping, not of a good model. It is reported as a warning on
+       purpose: automation bias is the failure mode regulators ask about. */
+    const rubber = rate !== null && rate >= 98 && done.length >= 20;
+    add('AI', uc.label, errs || rubber ? 'warn' : 'ok',
+      `${rows.length} call${rows.length === 1 ? '' : 's'} in 30 days · ${rows.filter(r => r.flagged).length} flagged · ${
+        openFlags} flag${openFlags === 1 ? '' : 's'} waiting on a person · ${done.length} reviewed${
+        rate !== null ? ` · ${rate}% accepted as-is` : ''}${errs ? ` · ${errs} errors` : ''}.`,
+      rubber ? 'Almost everything is being accepted unchanged. That usually means the review has become a formality rather than that the model is right.'
+        : errs ? 'Errors are logged as rows rather than swallowed — open the queue and read them.' : '');
+
+    if (uc.participant_data) {
+      const consented = db.prepare("SELECT COUNT(*) n FROM settings WHERE key LIKE 'ai_consent_%' AND value = 'granted'").get().n;
+      const refused = db.prepare("SELECT COUNT(*) n FROM ai_suggestions WHERE use_case = ? AND error LIKE 'refused%'").get(k).n;
+      add('AI', uc.label + ' — consent', 'ok',
+        `${consented} participant${consented === 1 ? ' has' : 's have'} recorded consent. ${refused} call${
+          refused === 1 ? '' : 's'} refused for want of it — refusals are logged, which is the evidence the gate holds.`, '');
+    }
+  }
+
+  const worst = checks.some(c => c.state === 'fail') ? 'fail'
+    : checks.some(c => c.state === 'warn') ? 'warn' : 'ok';
+  return {
+    ran_at: now(), overall: worst,
+    counts: {
+      ok: checks.filter(c => c.state === 'ok').length,
+      warn: checks.filter(c => c.state === 'warn').length,
+      fail: checks.filter(c => c.state === 'fail').length
+    },
+    checks
+  };
+}
+
+route('GET', /^\/api\/admin\/self-test$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, selfTest());
+});
+
+/* A plain-text version, because the most likely reader is somebody who wants
+   to paste it into an email or hand it to an auditor rather than read JSON. */
+route('GET', /^\/api\/admin\/self-test\.txt$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const t = selfTest();
+  const mark = s => s === 'ok' ? '  OK  ' : s === 'warn' ? ' WARN ' : ' FAIL ';
+  const L = [`BookIt self-test — ${t.ran_at}`,
+             `${t.counts.ok} ok · ${t.counts.warn} warnings · ${t.counts.fail} failures`, ''];
+  let area = '';
+  for (const c of t.checks) {
+    if (c.area !== area) { area = c.area; L.push('', area, '-'.repeat(area.length)); }
+    L.push(`[${mark(c.state)}] ${c.name}`);
+    L.push(`         ${c.detail}`);
+    if (c.fix) L.push(`         → ${c.fix}`);
+  }
+  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end(L.join('\n'));
+});
+
 /* Run by hand when somebody wants to see it work rather than wait for it. */
 route('POST', /^\/api\/admin\/approvals\/sweep$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
@@ -12808,8 +13834,10 @@ route('POST', /^\/api\/admin\/approvals\/sweep$/, (req, res, m, user) => {
 });
 /* Four times a day. The clock has day granularity, so six hours is the most
    anybody waits past the moment their reminder or their pay became due. */
-setTimeout(() => { try { approvalSweep(); } catch (e) { console.error('approval sweep:', e.message); } }, 50_000);
-setInterval(() => { try { approvalSweep(); } catch (e) { console.error('approval sweep:', e.message); } }, 6 * 3600e3);
+everyJob('approvals', 21600 * 1000, () => approvalSweep(), {
+  label: 'Timesheet approval',
+  why: 'Nudges at three days and deems a timesheet approved at seven so the worker is paid on time.'
+});
 
 /* The cancellation window and the four reason options, from the same tables the
    charge is computed from. Published so the booking screen can show a person

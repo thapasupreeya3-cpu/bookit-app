@@ -4357,8 +4357,6 @@ html.high-contrast .care-stage-block{display:none!important;}
   </div>
   <section class="block">
     <div class="container" id="adminContent"><div class="info-card"><p>Loading…</p></div></div>
-    <div class="container"><div class="info-card" id="admTrainingCard" style="margin-top:18px;" hidden></div>
-    <div class="info-card" id="admDocReqCard" style="margin-top:18px;" hidden></div></div>
   </section>
 </section>
 
@@ -6578,8 +6576,10 @@ function route(){
   const workerMatch = /^\/worker\/(\d+)$/.exec(path);
   const jobMatch = /^\/jobs\/(\d+)$/.exec(path);
   const acctMatch = /^\/account\/[a-z-]+$/.exec(path);
-  if(!ROUTES[path] && !workerMatch && !jobMatch && !acctMatch) path = '/';
-  const id = workerMatch ? 'page-worker' : jobMatch ? 'page-job' : acctMatch ? 'page-account' : ROUTES[path];
+  const admMatch = /^\/admin\/[a-z-]+$/.exec(path);
+  if(!ROUTES[path] && !workerMatch && !jobMatch && !acctMatch && !admMatch) path = '/';
+  const id = workerMatch ? 'page-worker' : jobMatch ? 'page-job' : acctMatch ? 'page-account'
+    : admMatch ? 'page-admin' : ROUTES[path];
   const page = document.getElementById(id);
   $$('.page').forEach(p => { if(p !== page) p.classList.remove('active'); });
   const wasActive = page.classList.contains('active');
@@ -6626,7 +6626,8 @@ function route(){
   /* moving between settings pages with the list on screen: stay put.
      Everything else scrolls to the top as always. */
   const acctToAcct = ROUTE_LAST && ROUTE_LAST.startsWith('/account') && path.startsWith('/account');
-  if(!(acctToAcct && matchMedia('(min-width:901px)').matches)) window.scrollTo({top:0, behavior:'auto'});
+  const admToAdm = ROUTE_LAST && ROUTE_LAST.startsWith('/admin') && path.startsWith('/admin');
+  if(!((acctToAcct || admToAdm) && matchMedia('(min-width:901px)').matches)) window.scrollTo({top:0, behavior:'auto'});
   ROUTE_LAST = path;
   $('#main').focus({preventScroll:true});
 }
@@ -8157,6 +8158,70 @@ document.addEventListener('click', async e => {
 
 /* ---------- admin dashboard ---------- */
 const svcName = s => { const f = SERVICES.find(x => x.slug === s); return f ? f.name : s; };
+
+/* --- the self-test card ------------------------------------------------
+   Deliberately the first thing on the page. Everything below it is a report
+   about the business; this is a report about whether the reports are true. */
+function selfTestHtml(t){
+  if(!t) return '<div class="info-card"><p class="adm-empty">The self-test could not be loaded.</p></div>';
+  const dot = st => st === 'ok' ? '<span style="color:#0E6B62;font-weight:700;">OK</span>'
+    : st === 'warn' ? '<span style="color:#B4761A;font-weight:700;">LOOK</span>'
+    : '<span style="color:#D94F32;font-weight:700;">FAIL</span>';
+  const areas = [];
+  for(const c of t.checks){ if(!areas.includes(c.area)) areas.push(c.area); }
+  return '<div class="info-card">'
+    + `<p style="margin:0 0 4px;"><b>${t.counts.ok} fine · ${t.counts.warn} worth a look · ${t.counts.fail} failing.</b> Checked ${esc(String(t.ran_at).replace('T',' ').slice(0,16))}.</p>`
+    + '<p class="muted-sm" style="margin:0 0 12px;">Nothing on this card changes anything, so it is safe to run in front of an auditor — and it is meant to be. A job that has been quietly throwing for a fortnight used to look exactly like a job with nothing to do.</p>'
+    + areas.map(a => `<div style="margin-top:14px;"><b style="font-size:.9rem;">${esc(a)}</b>`
+        + t.checks.filter(c => c.area === a).map(c =>
+            `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);align-items:baseline;">
+               <span style="min-width:44px;font-size:.75rem;">${dot(c.state)}</span>
+               <span><b style="font-size:.9rem;">${esc(c.name)}</b><br>
+                 <span class="muted-sm">${esc(c.detail)}</span>
+                 ${c.fix ? `<br><span class="muted-sm" style="color:#B4761A;">&rarr; ${esc(c.fix)}</span>` : ''}</span>
+             </div>`).join('') + '</div>').join('')
+    + `<p style="margin-top:14px;"><a class="adm-btn-sm" href="/api/admin/self-test.txt" target="_blank" style="text-decoration:none;display:inline-block;">Plain text version</a></p>`
+    + '</div>';
+}
+
+/* --- the AI queue ------------------------------------------------------
+   Every row here is a suggestion waiting on a person. Nothing in this list
+   has changed anything, and nothing will until somebody presses a button. */
+function aiQueueHtml(q){
+  if(!q) return '<div class="info-card"><p class="adm-empty">The AI queue could not be loaded.</p></div>';
+  const modeNote = q.mode === 'off'
+    ? 'Off. Nothing runs and nothing is sent anywhere.'
+    : q.mode === 'simulate'
+      ? 'Simulate — the queue, the review and the log are real; the model is a local stub and nothing leaves this server.'
+      : `Live, region ${esc(q.region || 'unset')}${q.onshore ? '' : ' — not onshore, so anything carrying participant data will refuse to run'}.`;
+  return '<div class="info-card">'
+    + `<p style="margin:0 0 4px;"><b>Mode:</b> ${esc(modeNote)}</p>`
+    + '<p class="muted-sm" style="margin:0 0 12px;">A suggestion is never applied. It sits here until a person reads the source beside it and accepts, changes or rejects it — and a change or a rejection has to carry a reason, because that is the only feedback anyone gets about where the model is wrong.</p>'
+    + (q.use_cases || []).map(u => {
+        const st = u.stats || {};
+        return `<div style="padding:9px 0;border-bottom:1px solid var(--line);">
+          <b style="font-size:.92rem;">${esc(u.label)}</b> — ${u.on ? 'on' : 'off'}
+          <br><span class="muted-sm"><b>AI does:</b> ${esc(u.what_ai_does)}</span>
+          <br><span class="muted-sm"><b>A person does:</b> ${esc(u.what_human_does)}</span>
+          <br><span class="muted-sm">${st.calls || 0} calls in 30 days · ${st.flagged || 0} flagged · ${st.reviewed || 0} reviewed${
+            st.accept_rate === null || st.accept_rate === undefined ? '' : ` · ${st.accept_rate}% accepted unchanged`}${
+            st.refused ? ` · ${st.refused} refused for want of consent` : ''}${st.errors ? ` · ${st.errors} errors` : ''}</span>
+        </div>`;
+      }).join('')
+    + (!(q.open || []).length
+        ? '<p class="adm-empty" style="margin-top:12px;">Nothing waiting.</p>'
+        : (q.open || []).slice(0, 40).map(r => {
+            let o = {}; try{ o = JSON.parse(r.output_json || '{}'); }catch(e){}
+            return `<div style="margin-top:12px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:#fff;">
+              <b style="font-size:.88rem;">${r.flagged ? '⚑ ' : ''}${esc(r.use_case)} #${r.id}</b>
+              <span class="muted-sm"> · ${esc(String(r.created).replace('T',' ').slice(0,16))} · ${esc(r.model || '')} ${esc(r.prompt_version || '')}</span>
+              <div class="muted-sm" style="margin-top:5px;font-family:ui-monospace,Menlo,monospace;font-size:.78rem;word-break:break-word;">${esc(JSON.stringify(o))}</div>
+              <div class="muted-sm" style="margin-top:5px;">Source: ${esc(r.input_ref || '')}${r.confidence != null ? ` · model's own confidence ${Math.round(r.confidence * 100)}%` : ''}</div>
+            </div>`;
+          }).join(''))
+    + '</div>';
+}
+
 async function renderAdminPage(){
   const wrap = $('#adminContent');
   if(!wrap) return;
@@ -8197,6 +8262,9 @@ async function renderAdminPage(){
   try{ frm = await API.call('/admin/forms'); }catch(e){}
   let pack = null;
   try{ pack = await API.call('/admin/audit-pack'); }catch(e){}
+  let stest = null, aiq = null;
+  try{ stest = await API.call('/admin/self-test'); }catch(e){}
+  try{ aiq = await API.call('/admin/ai'); }catch(e){}
   let pdx = null;
   try{ pdx = await API.call('/admin/participant-documents'); }catch(e){}
   const credById = {};
@@ -8731,43 +8799,108 @@ async function renderAdminPage(){
       </ol>
       <p class="muted-sm" style="margin:0;">Do step 1 only when you're ready — demo data can't be restored (a fresh database would re-seed it, but your real accounts live in this one).</p>
     </div>`;
-  wrap.innerHTML = tiles
-    + `<h2 class="adm-section">Audit pack — one download, everything in it</h2>` + auditPackHtml(pack)
-    + `<h2 class="adm-section">Launch ${ln.demo_accounts || ln.gate ? '' : '— LIVE 🎉'}</h2>` + launchCard
-    + `<h2 class="adm-section">Cover — when a worker can't make it ${cvr && cvr.open.length ? `<span style="color:#D94F32;">(${cvr.open.length} open)</span>` : ''}</h2>`
-    + (cvr ? officeQueueHtml(cvr.office) + coverBoardHtml(cvr) : '<p class="adm-empty">The cover board couldn\'t be loaded.</p>')
-    + `<h2 class="adm-section">Pay — the ladder and the award floor</h2>`
-    + (lad ? ladderBoardHtml(lad) : '<p class="adm-empty">The pay ladder couldn\'t be loaded.</p>')
-    + `<h2 class="adm-section">Workers awaiting approval ${c.pending ? `(${c.pending})` : ''}</h2>` + pending
-    + `<h2 class="adm-section">High-intensity enquiries ${hiOpenN ? `<span style="color:#D94F32;">(${hiOpenN} to call)</span>` : ''}</h2>` + highIntensity
-    + `<h2 class="adm-section">Out-of-scope register ${srOpen.length ? `<span style="color:#D94F32;">(${srOpen.length} open)</span>` : (srRows.length ? `<span style="color:#2E6B4F;">(${srRows.length} closed)</span>` : '')}</h2>` + scopeRegister
-    + `<h2 class="adm-section">0137 conditions of registration ${cmp && cmp.blocked ? `<span style="color:#D94F32;">(${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform)</span>` : ''}</h2>` + compliance
-    + `<h2 class="adm-section">Credentials — the automatic checker</h2>` + credentials
-    + `<h2 class="adm-section">Participant files ${pMissingN === null ? '' : pMissingN
-        ? `<span style="color:#D94F32;">(${pMissingN} not on file)</span>`
-        : '<span style="color:#2E6B4F;">(complete)</span>'}</h2>` + participantFiles
-    + `<h2 class="adm-section">Incident register ${c.urgent_incidents ? `<span style="color:#D94F32;">(${c.urgent_incidents} awaiting Commission notice!)</span>` : ''}</h2>` + incidents
-    + `<h2 class="adm-section">Complaints register</h2>` + complaints
-    + `<h2 class="adm-section">Support plans ${plans && plans.counts.critical ? `<span style="color:#D94F32;">(${plans.counts.critical} critical)</span>` : ''}</h2>`
-    + (plans ? planBoardHtml(plans) : '<p class="adm-empty">The support-plan board couldn\'t be loaded.</p>')
-    + `<h2 class="adm-section">Forms register — where every document lives</h2>`
-    + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')
-    + `<h2 class="adm-section">Reviews ${revs.reviews.length ? `(${revs.reviews.length})` : ''}</h2>`
-    + (revs.reviews.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Worker</th><th>From</th><th>Rating</th><th>Comment</th><th>Shown?</th></tr></thead><tbody>
+  const reviewsBlock = revs.reviews.length
+    ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Worker</th><th>From</th><th>Rating</th><th>Comment</th><th>Shown?</th></tr></thead><tbody>
         ${revs.reviews.map(r => `<tr style="${r.published ? '' : 'opacity:.55;'}">
           <td>${esc(r.worker_name)}</td><td>${esc(r.participant_name)}</td>
           <td style="color:#F5B841;white-space:nowrap;">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</td>
           <td style="max-width:340px;">${esc(r.comment || '—')}</td>
           <td><button class="adm-btn-sm" data-rev-toggle="${r.id}">${r.published ? 'Hide' : 'Show'}</button>${r.published ? '' : ' <span class="adm-hidden">(hidden)</span>'}</td>
         </tr>`).join('')}</tbody></table></div>`
-      : '<p class="adm-empty">No reviews yet — participants are asked to rate each shift once it\'s completed.</p>')
-    + `<h2 class="adm-section">SIL rosters</h2>` + silSection
-    + `<h2 class="adm-section">Claims &amp; payments</h2>` + claims
-    + `<h2 class="adm-section">Invoicing — completed shifts ${inv.invoices.length ? `(${inv.invoices.length})` : ''}</h2>` + invoicing
-    + `<h2 class="adm-section">Shift notes ${snFlagged.length ? `<span style="color:#D94F32;">(${snFlagged.length} flagged)</span>` : ''}</h2>` + shiftNotes
-    + '<h2 class="adm-section">Recent bookings</h2>' + bookings
-    + '<h2 class="adm-section">Contact-form messages</h2>' + contacts
-    + '<h2 class="adm-section">Everyone (latest 100)</h2>' + users;
+    : '<p class="adm-empty">No reviews yet — participants are asked to rate each shift once it\'s completed.</p>';
+  /* --- Build 26: the admin page, laid out like Settings ------------------
+     Twenty-four sections in one scroll meant the thing you needed was always
+     somewhere below the fold, and the two you needed *daily* sat between a
+     launch checklist and a list of every user. So the same pattern the
+     settings page already uses: a list on the left, one group open beside it,
+     each group its own address at #/admin/<slug>. On a phone it is one thing
+     at a time with a back link, exactly as settings behaves.
+
+     Grouped by when you would actually open them, not by which table they
+     read. "Today" is the shift-work — the queues that go stale in hours.
+     "Compliance" is the material an auditor asks for. The rest is reference.
+
+     Sections are built exactly as before; only the arrangement changed. Each
+     one still carries its own count in the heading, and any group holding
+     something urgent shows that on the nav row too, so nothing hides behind a
+     tab you did not click. --- */
+  const H = (label, badge) => `<h2 class="adm-section">${label}${badge || ''}</h2>`;
+  const red = t => t ? `<span style="color:#D94F32;">(${t})</span>` : '';
+  const G = [];
+  const g = (slug, label, blurb, urgent, html) => G.push({ slug, label, blurb, urgent, html });
+
+  g('overview', 'Overview', 'Is everything running, and the numbers', stest ? stest.counts.fail : 0,
+    tiles + H('Is everything actually running? ', stest && stest.counts.fail ? red(stest.counts.fail + ' failing')
+      : stest && stest.counts.warn ? `<span style="color:#B4761A;">(${stest.counts.warn} to look at)</span>` : '') + selfTestHtml(stest));
+
+  g('today', 'Today', 'The queues that go stale in hours',
+    (cvr ? cvr.open.length : 0) + (c.pending || 0) + hiOpenN + snFlagged.length,
+    H('Cover — when a worker can\'t make it ', cvr && cvr.open.length ? red(cvr.open.length + ' open') : '')
+    + (cvr ? officeQueueHtml(cvr.office) + coverBoardHtml(cvr) : '<p class="adm-empty">The cover board couldn\'t be loaded.</p>')
+    + H('Workers awaiting approval ', c.pending ? `(${c.pending})` : '') + pending
+    + H('High-intensity enquiries ', hiOpenN ? red(hiOpenN + ' to call') : '') + highIntensity
+    + H('Shift notes ', snFlagged.length ? red(snFlagged.length + ' flagged') : '') + shiftNotes
+    + H('Contact-form messages') + contacts);
+
+  g('compliance', 'Compliance', '0137, credentials, incidents, complaints',
+    (cmp ? cmp.blocked : 0) + (c.urgent_incidents || 0) + srOpen.length,
+    H('0137 conditions of registration ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + compliance
+    + H('Credentials — the automatic checker') + credentials
+    + H('Incident register ', c.urgent_incidents ? red(c.urgent_incidents + ' awaiting Commission notice!') : '') + incidents
+    + H('Complaints register') + complaints
+    + H('Out-of-scope register ', srOpen.length ? red(srOpen.length + ' open')
+        : (srRows.length ? `<span style="color:#2E6B4F;">(${srRows.length} closed)</span>` : '')) + scopeRegister
+    + '<div class="info-card" id="admTrainingCard" style="margin-top:18px;" hidden></div>');
+
+  g('documents', 'Documents', 'Files, forms, plans and the audit pack',
+    (pMissingN || 0) + (plans && plans.counts.critical ? plans.counts.critical : 0),
+    H('Audit pack — one download, everything in it') + auditPackHtml(pack)
+    + H('Participant files ', pMissingN === null ? '' : pMissingN ? red(pMissingN + ' not on file')
+        : '<span style="color:#2E6B4F;">(complete)</span>') + participantFiles
+    + H('Forms register — where every document lives')
+    + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')
+    + H('Support plans ', plans && plans.counts.critical ? red(plans.counts.critical + ' critical') : '')
+    + (plans ? planBoardHtml(plans) : '<p class="adm-empty">The support-plan board couldn\'t be loaded.</p>')
+    + '<div class="info-card" id="admDocReqCard" style="margin-top:18px;" hidden></div>');
+
+  g('money', 'Money', 'Claims, invoicing and the pay ladder', 0,
+    H('Claims &amp; payments') + claims
+    + H('Invoicing — completed shifts ', inv.invoices.length ? `(${inv.invoices.length})` : '') + invoicing
+    + H('Pay — the ladder and the award floor')
+    + (lad ? ladderBoardHtml(lad) : '<p class="adm-empty">The pay ladder couldn\'t be loaded.</p>'));
+
+  g('bookings', 'Bookings & rosters', 'Recent shifts and the SIL roster', 0,
+    H('Recent bookings') + bookings + H('SIL rosters') + silSection);
+
+  g('people', 'People', 'Everyone on the platform, and reviews', 0,
+    H('Everyone (latest 100)') + users
+    + H('Reviews ', revs.reviews.length ? `(${revs.reviews.length})` : '') + reviewsBlock);
+
+  g('ai', 'AI suggestions', 'What a model proposed, waiting on a person',
+    aiq && aiq.open ? aiq.open.length : 0,
+    H('AI suggestions ', aiq && aiq.open && aiq.open.length ? `(${aiq.open.length} waiting)` : '') + aiQueueHtml(aiq));
+
+  g('launch', 'Launch', 'Demo data, the password gate, going live', 0,
+    H('Launch ', ln.demo_accounts || ln.gate ? '' : '— LIVE 🎉') + launchCard);
+
+  const sub = (location.hash.split('/')[2] || '').replace(/[^a-z-]/g, '');
+  const cur = G.find(x => x.slug === sub) || null;
+  const pane = cur || G[0];
+  const rows = G.map(x => `<a class="sr-row${x.slug === pane.slug ? ' on' : ''}" href="#/admin/${x.slug}"${
+      cur && x.slug === cur.slug ? ' aria-current="page"' : ''}><span class="sr-txt"><b>${x.label}${
+      x.urgent ? ` <span style="color:#D94F32;">·&nbsp;${x.urgent}</span>` : ''}</b><small>${x.blurb}</small></span><span class="sr-go" aria-hidden="true">›</span></a>`).join('');
+
+  wrap.innerHTML = `
+  <div class="set-layout ${cur ? 'has-sub' : 'no-sub'}">
+    <nav class="set-nav" aria-label="Admin sections">
+      <p class="sn-head">Admin</p>
+      ${rows}
+    </nav>
+    <div class="set-body">
+      <a class="set-back" href="#/admin">‹ All sections</a>
+      ${pane.html}
+    </div>
+  </div>`;
 }
 document.addEventListener('change', async e => {
   const it = e.target.closest('.adm-claim-item');
