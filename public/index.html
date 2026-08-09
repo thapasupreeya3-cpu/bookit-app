@@ -8188,6 +8188,18 @@ function selfTestHtml(t){
    Every row here is a suggestion waiting on a person. Nothing in this list
    has changed anything, and nothing will until somebody presses a button. */
 document.addEventListener('click', async e => {
+  const back = e.target.closest('[data-ai-backfill]');
+  if(back){
+    back.disabled = true; back.textContent = 'Running…';
+    try{
+      const r = await API.call('/admin/ai/backfill', {method:'POST', body:{limit:25}});
+      const n = r.credentials + r.notes;
+      toast(n ? `Looked at ${n} record${n === 1 ? '' : 's'}${r.skipped_done ? `, skipped ${r.skipped_done} already done` : ''}.`
+              : (r.skipped_done ? 'Everything recent has already been looked at.' : 'Nothing to look at yet — no credentials or shift notes on file.'));
+      renderAdminPage();
+    }catch(err){ toast(err.message); back.disabled = false; back.textContent = 'Try it on recent records'; }
+    return;
+  }
   const mode = e.target.closest('[data-ai-mode]');
   const save = e.target.closest('[data-ai-save]');
   const on = e.target.closest('[data-ai-consent-on]');
@@ -8256,6 +8268,11 @@ function aiQueueHtml(q){
           ${(q.use_cases || []).map(u => `<label style="display:flex;gap:7px;align-items:center;font-size:.88rem;cursor:pointer;">
             <input type="checkbox" data-ai-uc="${esc(u.key)}" ${u.on ? 'checked' : ''}> ${esc(u.label)}</label>`).join('')}
         </div>
+        ${q.mode !== 'off' && (q.use_cases || []).some(u => u.on) ? `
+        <div style="margin:12px 0 4px;padding-top:11px;border-top:1px solid var(--line);">
+          <button type="button" class="btn btn-secondary btn-sm" data-ai-backfill="1">Try it on recent records</button>
+          <p class="muted-sm" style="margin:7px 0 0;">Both use cases only fire on something <i>new</i> — a credential being uploaded, a note being written. So switching them on and waiting shows you nothing, which looks exactly like it being broken. This runs them across records you already have, skips anything already looked at, and changes nothing.</p>
+        </div>` : ''}
         <details style="margin-top:4px;">
           <summary class="muted-sm" style="cursor:pointer;">Endpoint settings — only needed for Live</summary>
           <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-top:9px;">

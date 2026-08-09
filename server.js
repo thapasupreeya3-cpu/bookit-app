@@ -13616,6 +13616,73 @@ route('POST', /^\/api\/admin\/ai\/triage\/(\d+)$/, (req, res, m, user) => {
   json(res, 200, { ok: true, queued: true });
 });
 
+/* --- try it on what is already here --------------------------------------
+
+   Both use cases are event-driven: extraction fires when a credential is
+   uploaded, triage when a note is written. Correct in normal running, and
+   completely useless the moment somebody switches the thing on and waits —
+   nothing has happened yet, so nothing appears, and the honest state and the
+   broken state look identical.
+
+   This runs the enabled use cases across records that already exist and have
+   never been looked at. It is capped, it skips anything already carrying a
+   suggestion, and it changes nothing: the output is the same queue of
+   proposals a person still has to read. Refusals count too — running it with
+   no consent recorded is the clearest way to watch the gate hold.
+--- */
+route('POST', /^\/api\/admin\/ai\/backfill$/, async (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  if (AI.mode() === 'off') return json(res, 400, { error: 'Turn on Simulate (or Live) first — right now nothing can run.' });
+  const limit = Math.max(1, Math.min(200, Number(body && body.limit) || 25));
+  const out = { credentials: 0, notes: 0, skipped_done: 0, use_cases: [] };
+
+  /* A refusal is not a result. If triage declined for want of consent, the
+     record has not actually been looked at — so recording the consent and
+     running again has to reach it, rather than the earlier refusal counting
+     as done and locking it out for good. Same for a call that errored. */
+  const seen = k => new Set(db.prepare(`SELECT subject_id FROM ai_suggestions
+    WHERE use_case = ? AND error = ''`).all(k).map(r => r.subject_id));
+
+  if (AI.on('credential-extract')) {
+    out.use_cases.push('credential-extract');
+    const done = seen('credential-extract');
+    for (const d of db.prepare('SELECT id FROM worker_docs ORDER BY id DESC LIMIT ?').all(limit)) {
+      if (done.has(d.id)) { out.skipped_done++; continue; }
+      await aiSuggest({
+        use_case: 'credential-extract', subject_id: d.id,
+        worker_id: db.prepare('SELECT worker_id FROM worker_docs WHERE id = ?').get(d.id).worker_id,
+        input_ref: `worker_docs#${d.id}`,
+        input: (() => { const r = db.prepare('SELECT * FROM worker_docs WHERE id = ?').get(d.id);
+          return { text: [r.label, r.file_name, r.check_number, r.expiry_date].filter(Boolean).join(' · '),
+                   doc_type: r.doc_type, file_name: r.file_name }; })()
+      });
+      out.credentials++;
+    }
+  }
+
+  if (AI.on('note-triage')) {
+    out.use_cases.push('note-triage');
+    const done = seen('note-triage');
+    for (const n of db.prepare(`SELECT sn.id, sn.body, b.participant_id, b.worker_id
+        FROM shift_notes sn JOIN bookings b ON b.id = sn.booking_id
+        ORDER BY sn.id DESC LIMIT ?`).all(limit)) {
+      if (done.has(n.id)) { out.skipped_done++; continue; }
+      await aiSuggest({
+        use_case: 'note-triage', subject_id: n.id, worker_id: n.worker_id,
+        participant_id: n.participant_id, input_ref: `shift_notes#${n.id}`,
+        input: { text: n.body || '' }
+      });
+      out.notes++;
+    }
+  }
+
+  logCompliance({ kind: 'ai-backfill', result: AI.mode(),
+    detail: `Ran ${out.use_cases.join(' and ') || 'nothing'} over existing records: ${out.credentials} credential${
+      out.credentials === 1 ? '' : 's'}, ${out.notes} note${out.notes === 1 ? '' : 's'}, ${out.skipped_done} already done.`,
+    source: 'Admin', checked_by: user.name || user.email });
+  json(res, 200, { ok: true, ...out });
+});
+
 /* ============================================================================
    Build 26 — the self-test
    ==========================================================================
