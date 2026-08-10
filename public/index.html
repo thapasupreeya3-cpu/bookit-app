@@ -8188,6 +8188,54 @@ function selfTestHtml(t){
    Every row here is a suggestion waiting on a person. Nothing in this list
    has changed anything, and nothing will until somebody presses a button. */
 document.addEventListener('click', async e => {
+  const scrParse = e.target.closest('[data-scr-parse]');
+  if(scrParse){
+    const id = scrParse.dataset.scrParse;
+    const ta = document.querySelector(`[data-scr-paste="${id}"]`);
+    applyNwsd(id, parseNwsd(ta ? ta.value : ''));
+    return;
+  }
+  const scrPreset = e.target.closest('[data-scr-preset]');
+  if(scrPreset){
+    /* the overwhelmingly common answer, in one click — it still leaves the
+       expiry, because that is the field that actually varies */
+    const id = scrPreset.dataset.scrPreset;
+    applyNwsd(id, {outcome:'clearance', eligible:'yes'});
+    return;
+  }
+  const scrDoc = e.target.closest('[data-scr-fromdoc]');
+  if(scrDoc){
+    const id = scrDoc.dataset.scrFromdoc;
+    applyNwsd(id, {expiry: scrDoc.dataset.expiry});
+    const note = document.querySelector(`[data-scr-parsed="${id}"]`);
+    if(note) note.innerHTML += ' <b>That date came from the worker\'s own upload, not the register</b> — only keep it if the register agrees.';
+    return;
+  }
+  const scrSave = e.target.closest('[data-scr-save]');
+  if(scrSave){
+    const id = scrSave.dataset.scrSave;
+    const g = k => (document.querySelector(`[data-scr-${k}="${id}"]`) || {}).value || '';
+    const linkedEl = document.querySelector(`[data-scr-linked="${id}"]`);
+    try{
+      const r = await API.call('/admin/screening/' + id, {method:'POST', body:{
+        outcome:g('outcome'), expiry:g('expiry'), eligible:g('elig'), state:g('state'),
+        linked: !!(linkedEl && linkedEl.checked)}});
+      toast(r.pass ? 'Passes all three — cleared to work.' : 'Recorded. Not cleared: ' + r.fails.join('; '));
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  const scrNote = e.target.closest('[data-scr-notified]');
+  if(scrNote){
+    const t = ($('#scrNotice') || {}).value || '';
+    if(t.trim().length < 4){ toast('Paste the notification first.'); return; }
+    try{
+      const r = await API.call('/admin/screening/notified', {method:'POST', body:{text:t}});
+      toast(`${r.name} withdrawn pending a fresh check.`);
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
+    return;
+  }
   const back = e.target.closest('[data-ai-backfill]');
   if(back){
     back.disabled = true; back.textContent = 'Running…';
@@ -8240,6 +8288,190 @@ document.addEventListener('change', async e => {
   try{ await API.call('/admin/ai/settings', {method:'POST', body}); toast('Saved.'); renderAdminPage(); }
   catch(err){ toast(err.message); }
 });
+
+/* --- reading an NWSD record off the clipboard ---------------------------
+
+   The three fields are already on screen in the other tab. Making somebody
+   read them across and retype them is where transcription errors come from,
+   and it is the slowest part of the job. So: select the record, copy, paste.
+
+   The parser is deliberately forgiving, because I could not read the
+   Commission's own pages to learn their exact wording — their site blocks
+   automated fetching. It looks for each field by several plausible labels,
+   accepts dates in Australian or ISO order, and understands the handful of
+   words the register uses for an outcome. What it will not do is guess: a
+   field it cannot find is left alone rather than filled with something
+   probable, and nothing is ever submitted automatically. It fills the form
+   and you look at it. */
+function parseNwsd(text){
+  const t = String(text || '').replace(/\u00a0/g, ' ');
+  const near = labels => {
+    for(const l of labels){
+      /* the value sits after the label, on the same line or the next one —
+         both happen depending on how the page is copied */
+      const re = new RegExp(l + '\\s*[:\\-]?\\s*\\n?\\s*([^\\n]{1,60})', 'i');
+      const m = t.match(re);
+      if(m && m[1] && m[1].trim()) return m[1].trim();
+    }
+    return '';
+  };
+  const out = {};
+
+  const status = near(['worker status', 'screening status', 'check status', 'status', 'outcome']);
+  if(status){
+    const v = status.toLowerCase();
+    if(/exclusion|excluded/.test(v)) out.outcome = 'exclusion';
+    else if(/interim/.test(v)) out.outcome = 'interim-bar';
+    else if(/suspend/.test(v)) out.outcome = 'suspended';
+    else if(/expired/.test(v)) out.outcome = 'expired';
+    else if(/pending|in progress|submitted|application/.test(v)) out.outcome = 'pending';
+    else if(/clearance|cleared|approved|valid/.test(v)) out.outcome = 'clearance';
+  }
+
+  const elig = near(['eligible to work', 'eligible', 'can work', 'eligibility']);
+  if(elig){
+    if(/^\s*(yes|y|true|eligible)\b/i.test(elig)) out.eligible = 'yes';
+    else if(/^\s*(no|n|false|not)\b/i.test(elig)) out.eligible = 'no';
+  }
+
+  /* Dates. Prefer one sitting next to an expiry label; otherwise take the
+     latest future date in the text, because an NWSD record also shows an
+     issue date and grabbing that would quietly shorten the clearance. */
+  const toIso = d => {
+    let m = d.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = d.match(/(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{4})/);
+    if(m) return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+    m = d.match(/(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})/);
+    if(m){
+      const mo = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
+        .indexOf(m[2].slice(0,3).toLowerCase());
+      if(mo >= 0) return `${m[3]}-${String(mo+1).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+    }
+    return '';
+  };
+  const labelled = near(['expiry date', 'expires', 'expiry', 'valid until', 'valid to', 'end date']);
+  let iso = labelled ? toIso(labelled) : '';
+  if(!iso){
+    const today = new Date().toISOString().slice(0,10);
+    const all = (t.match(/\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-. ]\d{1,2}[\/\-. ]\d{4}|\d{1,2}\s+[A-Za-z]{3,}\s+\d{4}/g) || [])
+      .map(toIso).filter(x => x && x > today).sort();
+    if(all.length) iso = all[all.length - 1];
+  }
+  if(iso) out.expiry = iso;
+
+  /* A clearance number, if one is in the text. Left loose on purpose —
+     formats differ by state. */
+  const num = near(['clearance number', 'check number', 'ndis worker screening check number', 'card number']);
+  if(num && /[A-Za-z0-9]/.test(num)) out.check_number = num.replace(/[^A-Za-z0-9\- ]/g, '').trim().slice(0, 40);
+  const app = near(['application number', 'application id', 'reference number']);
+  if(app && /[A-Za-z0-9]/.test(app)) out.app_number = app.replace(/[^A-Za-z0-9\- ]/g, '').trim().slice(0, 40);
+
+  out.found = ['outcome','eligible','expiry','check_number','app_number'].filter(k => out[k]);
+  return out;
+}
+
+/* Put what the parser found into the row's controls. Returns a plain-English
+   account of what it did, so the person can see the parse rather than trust
+   it — including what it could not find. */
+function applyNwsd(id, parsed){
+  const set = (k, v) => { const el = document.querySelector(`[data-scr-${k}="${id}"]`); if(el && v){ el.value = v; return true; } return false; };
+  const did = [];
+  if(parsed.outcome && set('outcome', parsed.outcome)) did.push('status');
+  if(parsed.eligible && set('elig', parsed.eligible)) did.push('eligible to work');
+  if(parsed.expiry && set('expiry', parsed.expiry)) did.push('expiry ' + fmtAU(parsed.expiry));
+  const missing = ['outcome','eligible','expiry'].filter(k => !parsed[k])
+    .map(k => k === 'elig' || k === 'eligible' ? 'eligible to work' : k === 'outcome' ? 'status' : 'expiry');
+  const note = document.querySelector(`[data-scr-parsed="${id}"]`);
+  if(note){
+    note.hidden = false;
+    note.innerHTML = did.length
+      ? `Filled in <b>${did.join('</b>, <b>')}</b>${missing.length ? ` — couldn't find <b>${missing.join('</b>, <b>')}</b>, set ${missing.length > 1 ? 'those' : 'that'} yourself.` : '. Check it matches the register, then Record it.'}`
+      : `Couldn't find any of the three fields in that. Paste the part of the page with Worker Status, expiry and Eligible to work on it — or just set them below.`;
+  }
+  return did.length;
+}
+
+/* --- the NWSD queue -----------------------------------------------------
+   There is no API to call, so this does the next best thing: it says exactly
+   who needs looking at and why, sends you to the right register, and takes
+   the three fields in one form. The rule decides from those three; nobody
+   types "cleared" anywhere. */
+function screeningHtml(d){
+  if(!d) return '<div class="info-card"><p class="adm-empty">The screening queue could not be loaded.</p></div>';
+  const chip = w => w.pass
+    ? '<span class="sec-chip on">Cleared</span>'
+    : `<span class="sec-chip off">${esc(w.outcome_label || 'Not cleared')}</span>`;
+  const inp = 'font:inherit;padding:6px 8px;border-radius:8px;border:1.5px solid #E7DFD4;font-size:.84rem;';
+  const row = w => `
+    <div style="padding:11px 0;border-bottom:1px solid var(--line);">
+      <div style="display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;">
+        <b style="font-size:.94rem;">${esc(w.name)}</b> ${chip(w)}
+        ${w.visible ? '<span class="muted-sm">on the platform</span>' : '<span class="muted-sm">not visible</span>'}
+        ${w.linked ? '<span class="muted-sm">· linked in NWSD</span>' : '<span style="color:#B4761A;font-size:.82rem;">· not linked</span>'}
+      </div>
+      ${w.needs ? `<p class="muted-sm" style="margin:4px 0 0;color:#B4761A;">${esc(w.needs)}</p>` : ''}
+      <p class="muted-sm" style="margin:4px 0 0;">
+        ${w.app_number ? `App ${esc(w.app_number)}` : 'no application number'} ·
+        ${w.check_number ? `Check ${esc(w.check_number)}` : 'no clearance number'}
+        ${w.expiry ? ` · expires ${fmtAU(w.expiry)}` : ''}
+        ${w.eligible ? ` · eligible: ${esc(w.eligible)}` : ''}
+        ${w.confirmed_days_ago !== null ? ` · last confirmed ${w.confirmed_days_ago}d ago` : ''}
+      </p>
+      <details style="margin-top:7px;">
+        <summary class="muted-sm" style="cursor:pointer;">Record what the register says</summary>
+        <p class="muted-sm" style="margin:7px 0;">Open <a href="${esc(w.unit_url)}" target="_blank" rel="noopener">${esc(w.unit || 'the NDIS Commission Portal')}</a> and the <a href="${esc(d.portal)}" target="_blank" rel="noopener">NWSD</a> and find them. ${w.linked ? '' : '<b>Link them to BookIt while you are there</b> — that is what makes the Commission email us about every later change.'}</p>
+        <div style="padding:9px 11px;border:1px dashed var(--line);border-radius:10px;margin:0 0 9px;background:#fbfaf7;">
+          <b style="font-size:.83rem;">Don't retype it — paste it</b>
+          <p class="muted-sm" style="margin:3px 0 6px;">Select the record on the NWSD page, copy, and paste here. It reads the three fields out and fills them in below for you to check.</p>
+          <textarea data-scr-paste="${w.id}" rows="2" placeholder="Paste the NWSD record…" style="${inp}width:100%;"></textarea>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:6px;">
+            <button type="button" class="adm-btn-sm" data-scr-parse="${w.id}">Read it</button>
+            <button type="button" class="adm-btn-sm" data-scr-preset="${w.id}">Clearance · eligible</button>
+            ${w.doc && (w.doc.expiry || w.doc.check_number) ? `<button type="button" class="adm-btn-sm" data-scr-fromdoc="${w.id}" data-expiry="${esc(w.doc.expiry)}">Use the date on their document (${w.doc.expiry ? fmtAU(w.doc.expiry) : '—'})</button>` : ''}
+          </div>
+          <p class="muted-sm" data-scr-parsed="${w.id}" hidden style="margin:7px 0 0;color:#0E6B62;"></p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+          <label style="font-size:.8rem;">Worker Status<br>
+            <select data-scr-outcome="${w.id}" style="${inp}">
+              <option value="">—</option>
+              ${Object.entries(d.outcomes).map(([k,v]) => `<option value="${esc(k)}"${w.outcome===k?' selected':''}>${esc(v)}</option>`).join('')}
+            </select></label>
+          <label style="font-size:.8rem;">Expiry<br><input type="date" data-scr-expiry="${w.id}" value="${esc(w.expiry)}" style="${inp}"></label>
+          <label style="font-size:.8rem;">Eligible to work<br>
+            <select data-scr-elig="${w.id}" style="${inp}">
+              <option value="">—</option>
+              <option value="yes"${w.eligible==='yes'?' selected':''}>Yes</option>
+              <option value="no"${w.eligible==='no'?' selected':''}>No</option>
+            </select></label>
+          <label style="font-size:.8rem;">State<br>
+            <select data-scr-state="${w.id}" style="${inp}">
+              <option value="">—</option>
+              ${d.states.map(x => `<option value="${esc(x)}"${w.state===x?' selected':''}>${esc(x)}</option>`).join('')}
+            </select></label>
+          <label style="font-size:.8rem;display:flex;gap:6px;align-items:center;padding-bottom:6px;">
+            <input type="checkbox" data-scr-linked="${w.id}" ${w.linked?'checked disabled':''}> linked in NWSD</label>
+          <button type="button" class="btn btn-primary btn-sm" data-scr-save="${w.id}">Record it</button>
+        </div>
+      </details>
+    </div>`;
+  const needy = d.workers.filter(w => w.needs), fine = d.workers.filter(w => !w.needs);
+  return '<div class="info-card">'
+    + `<p style="margin:0 0 4px;"><b>${d.waiting} to look at</b> of ${d.workers.length} worker${d.workers.length===1?'':'s'}.</p>`
+    + `<p class="muted-sm" style="margin:0 0 12px;">There is no API for this — the clearance data sits with the screening units and the Commission, and neither publishes a feed. What there is instead is better: <b>link a worker to BookIt in the NWSD once</b> and the Commission emails us every time their status changes. ${esc(d.employer_id_hint)}</p>`
+    + `<p class="muted-sm" style="margin:0 0 12px;">A clearance is three fields, not a tick: <b>Worker Status</b>, <b>expiry</b> and <b>Eligible to work</b>. All three have to pass or the profile stays off — a clearance can sit on the record while eligibility says no, and that is the row a person skims past.</p>`
+    + (needy.length ? needy.map(row).join('') : '<p class="adm-empty">Nobody is waiting.</p>')
+    + (fine.length ? `<details style="margin-top:12px;"><summary class="muted-sm" style="cursor:pointer;">${fine.length} passing and current</summary>${fine.map(row).join('')}</details>` : '')
+    + `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
+        <b style="font-size:.9rem;">A change notification arrived</b>
+        <p class="muted-sm" style="margin:5px 0 8px;">Paste the Commission's email. The worker comes off the platform immediately and goes back in the queue — an email is a prompt to go and look, never a source of truth to act on.</p>
+        <textarea id="scrNotice" rows="2" placeholder="Paste the notification…" style="${inp}width:100%;max-width:520px;"></textarea>
+        <div style="margin-top:7px;"><button type="button" class="btn btn-secondary btn-sm" data-scr-notified="1">Withdraw and re-check</button></div>
+      </div>`
+    + `<p class="muted-sm" style="margin:12px 0 0;">Need to prove who held what on a given day? <a href="/api/admin/screening/on/${new Date().toISOString().slice(0,10)}" target="_blank">Today's position</a> — change the date in the address for any other day. It reads the append-only log, not today's state.</p>`
+    + '</div>';
+}
 
 function aiQueueHtml(q){
   if(!q) return '<div class="info-card"><p class="adm-empty">The AI queue could not be loaded.</p></div>';
@@ -8364,6 +8596,8 @@ async function renderAdminPage(){
   try{ frm = await API.call('/admin/forms'); }catch(e){}
   let pack = null;
   try{ pack = await API.call('/admin/audit-pack'); }catch(e){}
+  let scr = null;
+  try{ scr = await API.call('/admin/screening'); }catch(e){}
   let stest = null, aiq = null;
   try{ stest = await API.call('/admin/self-test'); }catch(e){}
   try{ aiq = await API.call('/admin/ai'); }catch(e){}
@@ -8945,8 +9179,9 @@ async function renderAdminPage(){
     + H('Contact-form messages') + contacts);
 
   g('compliance', 'Compliance', '0137, credentials, incidents, complaints',
-    (cmp ? cmp.blocked : 0) + (c.urgent_incidents || 0) + srOpen.length,
-    H('0137 conditions of registration ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + compliance
+    (cmp ? cmp.blocked : 0) + (c.urgent_incidents || 0) + srOpen.length + (scr ? scr.waiting : 0),
+    H('Worker screening — the NWSD queue ', scr && scr.waiting ? red(scr.waiting + ' to look at') : '') + screeningHtml(scr)
+    +     H('0137 conditions of registration ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + compliance
     + H('Credentials — the automatic checker') + credentials
     + H('Incident register ', c.urgent_incidents ? red(c.urgent_incidents + ' awaiting Commission notice!') : '') + incidents
     + H('Complaints register') + complaints

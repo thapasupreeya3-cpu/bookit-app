@@ -620,6 +620,54 @@ db.exec(`CREATE TABLE IF NOT EXISTS compliance_log (
 db.exec('CREATE INDEX IF NOT EXISTS idx_complog_worker ON compliance_log (worker_id, id)');
 try { db.exec('ALTER TABLE bookings ADD COLUMN stale_nudged_at TEXT'); } catch {}
 
+/* --- Build 27: worker screening, modelled the way the Rules describe it ---
+
+   The old model was one number and one status word. Section 18 of the
+   Worker Screening Rules asks for more than that, by name: the application
+   number AND the check number as separate things, the outcome, any expiry
+   date for that outcome, and any decision to suspend or revoke. They are
+   separate fields here because they are separate facts — an application
+   number identifies a request that may never have been granted, and a check
+   number identifies a clearance that may since have been withdrawn.
+
+   The three-field rule is the other half. A clearance is not a boolean. The
+   NWSD shows Worker Status, an expiry date, and Eligible to work, and all
+   three have to be right: a clearance can sit on the record while
+   eligibility is off, which is exactly the row a person skims past and a
+   rule does not.
+
+   `screening_events` is append-only and never updated. Section 20 requires
+   records in a form that lets an auditor determine which workers were in a
+   risk assessed role on any given day, and section 21 keeps them for seven
+   years — neither of which a column you overwrite can answer. --- */
+for (const col of [
+  "screening_app_number TEXT DEFAULT ''",   /* s18: the application number */
+  "screening_outcome TEXT DEFAULT ''",      /* s18: clearance | exclusion | interim-bar | pending */
+  "screening_expiry TEXT DEFAULT ''",       /* s18: expiry of that outcome */
+  "screening_eligible TEXT DEFAULT ''",     /* the NWSD's third field: yes | no */
+  "screening_state TEXT DEFAULT ''",        /* which unit issued it */
+  "nwsd_linked_at TEXT DEFAULT ''",         /* the day we linked them to our Employer ID */
+  "nwsd_linked_by TEXT DEFAULT ''"
+]) { try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {} }
+
+db.exec(`CREATE TABLE IF NOT EXISTS screening_events (
+  id INTEGER PRIMARY KEY,
+  worker_id INTEGER NOT NULL REFERENCES users(id),
+  worker_name TEXT DEFAULT '',
+  at TEXT NOT NULL,
+  kind TEXT NOT NULL,              /* entered | verified | notified | relink | withdrawn | restored */
+  outcome TEXT DEFAULT '',
+  expiry TEXT DEFAULT '',
+  eligible TEXT DEFAULT '',
+  app_number TEXT DEFAULT '',
+  check_number TEXT DEFAULT '',
+  decision TEXT DEFAULT '',        /* what the platform did as a result */
+  source TEXT DEFAULT '',          /* NWSD portal, worker, notification email */
+  note TEXT DEFAULT '',
+  by TEXT DEFAULT ''
+);`);
+db.exec('CREATE INDEX IF NOT EXISTS idx_scr_worker ON screening_events (worker_id, id)');
+
 /* --- Build 26: the clocks, the job ledger and the AI trail ----------------
 
    Three tables and a handful of columns, all serving one idea: a deadline
@@ -3983,6 +4031,106 @@ function docOut(d) {
 }
 
 /* ============================================================================
+   NDIS Worker Screening — the three-field rule and the record behind it
+   ==========================================================================
+
+   There is no API. The clearance data sits with the state screening units and
+   the Commission, and neither publishes a feed — every commercial "NDIS check"
+   on the market is either a police check wearing the wrong name or a photo of
+   a card, and a revoked worker still has the card.
+
+   What does exist is better than a lookup: a registered provider can LINK a
+   worker to its Employer ID in the NDIS Worker Screening Database, and the
+   Commission then emails on any change to that worker's status. So the model
+   here is link-once-then-listen, not check-and-forget. `nwsd_linked_at` is the
+   field that says whether we are actually subscribed to the truth or merely
+   took somebody's word for it once.
+--- */
+
+const SCREEN_OUTCOMES = {
+  'clearance': 'Clearance', 'exclusion': 'Exclusion', 'interim-bar': 'Interim bar',
+  'suspended': 'Suspended', 'pending': 'Application pending', 'expired': 'Expired'
+};
+
+/* Where a worker's own screening unit lives, so the queue can send whoever is
+   checking to the right place rather than to a search engine. */
+const SCREEN_UNITS = {
+  NSW: ['Office of the Children\'s Guardian', 'https://ocg.nsw.gov.au/ndis-worker-check-ndiswc'],
+  VIC: ['Service Victoria / Dept of Justice', 'https://www.vic.gov.au/ndis-worker-screening-check'],
+  QLD: ['Disability Worker Screening Queensland', 'https://www.workerscreening.qld.gov.au/employers'],
+  SA:  ['DHS Screening Unit', 'https://dhs.sa.gov.au/how-we-help/screening-and-background-checks'],
+  WA:  ['Dept of Communities', 'https://www.wa.gov.au/organisation/department-of-communities'],
+  TAS: ['Consumer, Building & Occupational Services', 'https://www.cbos.tas.gov.au/'],
+  ACT: ['Access Canberra', 'https://www.accesscanberra.act.gov.au/'],
+  NT:  ['NT Police, Fire & Emergency Services', 'https://forms.pfes.nt.gov.au/safent/']
+};
+const NWSD_PORTAL = 'https://www.ndiscommission.gov.au/providers/ndis-worker-screening-check';
+
+/* The whole decision, in one place, so nothing else has to reimplement it.
+   All three must hold. Anything else is not a clearance, whatever the card
+   says. */
+function screeningVerdict(p) {
+  const today = ymd(new Date());
+  const outcome = String(p.screening_outcome || '').toLowerCase();
+  const eligible = String(p.screening_eligible || '').toLowerCase();
+  const expiry = String(p.screening_expiry || '');
+  const fails = [];
+  if (outcome !== 'clearance') fails.push(outcome ? `outcome is "${SCREEN_OUTCOMES[outcome] || outcome}", not a clearance` : 'no outcome recorded');
+  if (!expiry) fails.push('no expiry date recorded');
+  else if (expiry < today) fails.push(`expired ${dmy(expiry)}`);
+  if (eligible !== 'yes') fails.push(eligible ? 'the register says not eligible to work' : 'eligible-to-work was never recorded');
+  return { pass: fails.length === 0, fails, expiry, outcome, eligible };
+}
+
+/* One writer. Every change to a worker's screening position goes through here
+   so that the event log is complete by construction rather than by everybody
+   remembering to append to it. */
+function recordScreening(workerId, o, who) {
+  const u = db.prepare('SELECT id, name FROM users WHERE id = ?').get(workerId);
+  if (!u) return null;
+  const set = [], vals = [];
+  const map = { app_number: 'screening_app_number', check_number: 'screening_ref', outcome: 'screening_outcome',
+                expiry: 'screening_expiry', eligible: 'screening_eligible', state: 'screening_state',
+                source: 'screening_source' };
+  for (const [k, col] of Object.entries(map))
+    if (o[k] !== undefined) { set.push(`${col} = ?`); vals.push(String(o[k] || '')); }
+  if (o.linked) { set.push('nwsd_linked_at = ?', 'nwsd_linked_by = ?'); vals.push(now(), who || 'System'); }
+  if (set.length) db.prepare(`UPDATE worker_profiles SET ${set.join(', ')} WHERE user_id = ?`).run(...vals, workerId);
+
+  const p = db.prepare('SELECT * FROM worker_profiles WHERE user_id = ?').get(workerId);
+  const v = screeningVerdict(p);
+  /* The derived status the rest of the platform already reads. Deriving it
+     rather than letting anyone set it directly means the gate and the record
+     can never disagree. */
+  const status = v.pass ? 'cleared'
+    : p.screening_outcome === 'suspended' ? 'suspended'
+    : p.screening_outcome === 'exclusion' ? 'excluded'
+    /* pending covers both "they have applied" and "the Commission told us
+       something changed and we have not looked yet". Both mean the same
+       thing operationally — not cleared, and not a judgement either. */
+    : (p.screening_outcome === 'pending' || o.kind === 'entered' || o.kind === 'notified') ? 'pending'
+    : p.screening_outcome ? 'revoked' : 'unknown';
+  db.prepare('UPDATE worker_profiles SET screening_status = ?, screening_status_at = ?, screening_status_by = ? WHERE user_id = ?')
+    .run(status, now(), who || 'System', workerId);
+
+  db.prepare(`INSERT INTO screening_events
+      (worker_id, worker_name, at, kind, outcome, expiry, eligible, app_number, check_number, decision, source, note, by)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(workerId, u.name, now(), o.kind || 'verified', p.screening_outcome || '', p.screening_expiry || '',
+         p.screening_eligible || '', p.screening_app_number || '', p.screening_ref || '',
+         v.pass ? 'cleared to work' : 'not cleared — ' + v.fails.join('; '),
+         o.source || '', o.note || '', who || 'System');
+
+  logCompliance({ worker_id: workerId, worker_name: u.name, kind: 'screening-' + (o.kind || 'verified'),
+    result: v.pass ? 'cleared' : 'not-cleared',
+    detail: v.pass
+      ? `NWSD: clearance, eligible to work, expires ${dmy(p.screening_expiry)}.`
+      : `NWSD: ${v.fails.join('; ')}.`,
+    source: o.source || 'NDIS Worker Screening Database', ref: p.screening_ref || '', checked_by: who || 'System' });
+  return { verdict: v, status };
+}
+
+/* ============================================================================
    0137 — NDIS Digital Platform Service: conditions of registration
    ==========================================================================*/
 
@@ -4401,6 +4549,20 @@ route('POST', /^\/api\/me\/documents$/, (req, res, m, user, body, ip) => {
      because one is down. If it produces anything it lands in the review queue
      beside the document, where the person verifying is already looking. */
   try { aiExtractCredential(Number(r.lastInsertRowid)); } catch {}
+
+  /* A screening document is not just a document. The number on it belongs in
+     the screening record too, so the worker appears in the NWSD queue without
+     having to type it anywhere a second time. It clears nobody — the outcome
+     still has to come from the register. */
+  if (docType === 'ndis-screening') {
+    try {
+      recordScreening(user.id, {
+        kind: 'entered', check_number: clean(body.check_number, 40),
+        source: 'Uploaded by the worker',
+        note: 'From the credential upload. Awaiting confirmation against the NWSD.'
+      }, user.name);
+    } catch (e) { console.error('screening record:', e.message); }
+  }
   if (MAIL_FROM) sendMail(MAIL_FROM, 'Credential uploaded — BookIt', 'A worker updated their credentials',
     `<p><b>${escHtml(user.name)}</b> added a <b>${DOC_TYPES[docType]}</b>${expiry ? ` (expires ${escHtml(expiry)})` : ''}${clean(body.check_number, 40) ? ` — number ${escHtml(clean(body.check_number, 40))}` : ''}.</p>${answered ? `<p>This answers the request raised on ${dmy(answered.requested_at.slice(0, 10))}${answered.note ? ` — "${escHtml(answered.note)}"` : ''}.</p>` : ''}<p>Verify it against the NDIS Worker Screening Database, then press Verify in the Credentials section.</p>`,
     'Open credentials', `${baseUrl(req)}/#/admin`).catch(() => {});
@@ -13238,6 +13400,165 @@ function complianceClockSweep(req) {
 route('POST', /^\/api\/admin\/clocks\/sweep$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   json(res, 200, { ok: true, actions: jobRun('clocks', () => complianceClockSweep(req)) || [] });
+});
+
+/* --- the worker's side: two numbers, not one -----------------------------
+   Entering a number does not clear anybody and the copy says so. What it does
+   is put the worker in the queue with everything the person checking needs,
+   so the slow step is a lookup rather than a hunt. */
+route('POST', /^\/api\/me\/screening$/, (req, res, m, user, body) => {
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Support workers only.' });
+  const app = clean(body.app_number, 40), num = clean(body.check_number, 40);
+  const st = String(body.state || '').toUpperCase();
+  if (!app && !num) return json(res, 400, { error: 'Enter your application number, your clearance number, or both — whichever you have.' });
+  if (st && !SCREEN_UNITS[st]) return json(res, 400, { error: 'Pick the state or territory that issued it.' });
+  recordScreening(user.id, {
+    kind: 'entered', app_number: app, check_number: num, state: st,
+    source: 'Entered by the worker', note: 'Awaiting confirmation against the NDIS Worker Screening Database.'
+  }, user.name);
+  if (MAIL_FROM) sendMail(MAIL_FROM, 'A worker entered their screening number', 'One to confirm on the NWSD',
+    `<p><b>${escHtml(user.name)}</b> has entered ${app ? `application number <b>${escHtml(app)}</b>` : ''}${app && num ? ' and ' : ''}${num ? `clearance number <b>${escHtml(num)}</b>` : ''}${st ? ` (${escHtml(st)})` : ''}.</p>
+     <p>Nothing has changed for them yet — a number typed into a form is not a clearance. Link them to BookIt in the NDIS Worker Screening Database and record what it says.</p>`,
+    'Open the screening queue', `${baseUrl(req)}/#/admin/compliance`).catch(() => {});
+  json(res, 200, { ok: true, queued: true });
+});
+
+/* --- the queue a person works -------------------------------------------
+   Everybody who needs looking at, why, and the link to the place that can
+   answer it. Sorted so the ones already working sit above the ones who are
+   not, because a visible worker with an unconfirmed clearance is the one that
+   matters today. */
+route('GET', /^\/api\/admin\/screening$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = db.prepare(`SELECT u.id, u.name, u.email, p.* FROM users u
+    JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker'`).all();
+  const out = rows.map(w => {
+    const v = screeningVerdict(w);
+    const unit = SCREEN_UNITS[String(w.screening_state || '').toUpperCase()];
+    const days = w.screening_status_at
+      ? Math.floor((Date.now() - new Date(w.screening_status_at).getTime()) / 864e5) : null;
+    return {
+      id: w.id, name: w.name, visible: w.visible,
+      app_number: w.screening_app_number || '', check_number: w.screening_ref || '',
+      state: w.screening_state || '', unit: unit ? unit[0] : '', unit_url: unit ? unit[1] : NWSD_PORTAL,
+      outcome: w.screening_outcome || '', outcome_label: SCREEN_OUTCOMES[w.screening_outcome] || '',
+      expiry: w.screening_expiry || '', eligible: w.screening_eligible || '',
+      linked: !!w.nwsd_linked_at, linked_at: w.nwsd_linked_at || '',
+      /* what the worker put on the uploaded screening document, offered as a
+         prefill — never as an answer. It is their typing, not the register. */
+      doc: (() => {
+        const d = db.prepare(`SELECT check_number, expiry_date FROM worker_docs
+          WHERE worker_id = ? AND doc_type = 'ndis-screening' ORDER BY id DESC LIMIT 1`).get(w.id);
+        return d ? { check_number: d.check_number || '', expiry: d.expiry_date || '' } : null;
+      })(),
+      status: w.screening_status, confirmed_days_ago: days,
+      pass: v.pass, fails: v.fails,
+      /* Why this row is in front of you, in one sentence. */
+      needs: !w.nwsd_linked_at ? 'Not linked to BookIt in the NWSD — link them and the Commission tells us about every change from then on.'
+        : !w.screening_outcome ? 'Linked, but nothing recorded from the register yet.'
+        : !v.pass ? 'Recorded and does not pass: ' + v.fails.join('; ')
+        : days !== null && days >= CLOCK.screening_recheck_days() ? `Passing, but last confirmed ${days} days ago.`
+        : ''
+    };
+  });
+  const order = { 0: 0, 1: 1 };
+  out.sort((a, b) => (b.visible - a.visible) || ((a.needs ? 0 : 1) - (b.needs ? 0 : 1)) || a.name.localeCompare(b.name));
+  json(res, 200, {
+    portal: NWSD_PORTAL, recheck_days: CLOCK.screening_recheck_days(),
+    outcomes: SCREEN_OUTCOMES, states: Object.keys(SCREEN_UNITS),
+    employer_id_hint: 'Your Employer ID in the NWSD is BookIt\'s NDIS registration number.',
+    waiting: out.filter(x => x.needs).length, workers: out
+  });
+});
+
+/* --- recording what the register said ------------------------------------
+   Three fields, because the register has three and a clearance is not a
+   boolean. The rule decides; the person supplies the facts. */
+route('POST', /^\/api\/admin\/screening\/(\d+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const id = Number(m[1]);
+  const outcome = String(body.outcome || '').toLowerCase();
+  if (!SCREEN_OUTCOMES[outcome]) return json(res, 400, { error: 'Record what the register actually says under Worker Status.' });
+  const eligible = String(body.eligible || '').toLowerCase();
+  if (!['yes', 'no'].includes(eligible)) return json(res, 400, { error: 'Record the "Eligible to work" field — a clearance can be on the record while that says no.' });
+  const expiry = clean(body.expiry, 10);
+  if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return json(res, 400, { error: 'Expiry date should be YYYY-MM-DD.' });
+  if (outcome === 'clearance' && !expiry) return json(res, 400, { error: 'A clearance has an expiry date — record it, or the renewal clock has nothing to run on.' });
+
+  const r = recordScreening(id, {
+    kind: 'verified', outcome, expiry, eligible,
+    app_number: body.app_number !== undefined ? clean(body.app_number, 40) : undefined,
+    check_number: body.check_number !== undefined ? clean(body.check_number, 40) : undefined,
+    state: body.state !== undefined ? String(body.state || '').toUpperCase() : undefined,
+    linked: body.linked === true || body.linked === 'true',
+    source: 'NDIS Worker Screening Database', note: clean(body.note, 300)
+  }, user.name || user.email);
+  if (!r) return json(res, 404, { error: 'No such worker.' });
+
+  /* The gate re-runs itself rather than being told what to think. A pass
+     restores the profile if nothing else is blocking; a fail withdraws it. */
+  const changed = reconcileVisibility(id, r.verdict.pass ? 'Screening confirmed against the NWSD' : 'Screening does not pass', req);
+  json(res, 200, { ok: true, pass: r.verdict.pass, fails: r.verdict.fails, status: r.status, visibility_changed: !!changed });
+});
+
+/* --- the automatic half ---------------------------------------------------
+   Once a worker is linked, the Commission emails on every change to their
+   status. This is where that lands. It does not try to parse a clearance out
+   of an email and act on it — an email is a prompt, not a source of truth. It
+   withdraws the worker straight away and asks a person to go and look, which
+   is the right way round: wrong-and-safe beats right-and-late.
+
+   Wire it to whatever you can. A forwarding rule into an inbound-email
+   webhook, a Zap, or an admin pasting the email in — all three land here. --- */
+route('POST', /^\/api\/admin\/screening\/notified$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const text = String(body.text || '').slice(0, 4000);
+  let id = Number(body.worker_id) || 0;
+  if (!id && text) {
+    /* Match on the numbers first — a check number is unambiguous where a name
+       is not — then fall back to a name appearing in the text. */
+    for (const w of db.prepare(`SELECT u.id, u.name, p.screening_ref, p.screening_app_number
+        FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker'`).all()) {
+      const hit = (w.screening_ref && text.includes(w.screening_ref))
+        || (w.screening_app_number && text.includes(w.screening_app_number))
+        || (w.name && text.toLowerCase().includes(String(w.name).toLowerCase()));
+      if (hit) { id = w.id; break; }
+    }
+  }
+  if (!id) return json(res, 400, { error: 'Could not tell which worker this is about — pick them from the list, or paste the part of the email with their name or number in it.' });
+
+  recordScreening(id, {
+    kind: 'notified', outcome: 'pending', eligible: '',
+    source: 'NWSD change notification',
+    note: (clean(body.note, 200) || 'The Commission notified a change.') + ' Withdrawn pending a fresh look at the register.'
+  }, user.name || user.email);
+  const w = db.prepare('SELECT name FROM users WHERE id = ?').get(id);
+  reconcileVisibility(id, 'NWSD notified a change to this clearance', req);
+  json(res, 200, { ok: true, worker_id: id, name: w ? w.name : '', withdrawn: true });
+});
+
+/* --- section 20: who was in a risk assessed role on a given day ----------
+   The Rules ask for records in a form that lets an auditor determine this for
+   any day in the last seven years. Answering it from the event log rather
+   than from current state is the only version of the answer that is true. */
+route('GET', /^\/api\/admin\/screening\/on\/(\d{4}-\d{2}-\d{2})$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const day = m[1], end = day + 'T23:59:59.999Z';
+  const rows = db.prepare(`SELECT u.id, u.name FROM users u WHERE u.role = 'worker'`).all().map(w => {
+    const e = db.prepare(`SELECT * FROM screening_events WHERE worker_id = ? AND at <= ?
+      ORDER BY id DESC LIMIT 1`).get(w.id, end);
+    return e ? {
+      worker: w.name, worker_id: w.id, as_at: e.at, outcome: e.outcome,
+      expiry: e.expiry, eligible: e.eligible, check_number: e.check_number,
+      app_number: e.app_number, decision: e.decision, source: e.source, recorded_by: e.by
+    } : { worker: w.name, worker_id: w.id, as_at: '', decision: 'no screening record existed on this date' };
+  });
+  json(res, 200, { day, note: 'The position as it stood at the end of that day, taken from the append-only event log rather than from today\'s state.', workers: rows });
+});
+
+route('GET', /^\/api\/admin\/screening\/(\d+)\/history$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { events: db.prepare('SELECT * FROM screening_events WHERE worker_id = ? ORDER BY id DESC').all(Number(m[1])) });
 });
 
 everyJob('clocks', 3600e3, () => complianceClockSweep(), {
