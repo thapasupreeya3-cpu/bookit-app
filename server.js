@@ -375,7 +375,7 @@ db.exec(`
 try { db.exec('ALTER TABLE bookings ADD COLUMN sil_slot_id INTEGER'); } catch {}
 
 /* ============================================================================
-   COVER — nobody gets left without a shift
+   COVER — nobody has to find their own replacement
    ----------------------------------------------------------------------------
    The problem this solves, stated plainly: when a support worker pulls out of a
    confirmed shift, every platform in this market hands the problem back to the
@@ -4384,7 +4384,7 @@ function workerBookingGate(workerId, b) {
     const office = ['office','uncovered','failed'].includes(String(b.cover_state || ''));
     return { error: office
       ? 'This shift is being handled by the office and cannot be accepted or completed from this account.'
-      : "Cover is being arranged for this shift, so it can't be accepted or completed right now — the office will be in touch.",
+      : "We're looking for cover for this shift, so it can't be accepted or completed right now — the office will be in touch.",
       cover_finding: !office, office_review: office };
   }
   return null;
@@ -6563,7 +6563,7 @@ const FORMS = [
   { key: 'pol-tenancy', name: 'Tenancy and Support Separation statement', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'SIL / SDA module as audited', note: 'Added and signed July 2026.' },
   { key: 'sil-collab', name: 'SDA and SIL Collaboration Agreement', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Both providers', template: 'BookIt', requires: 'SIL module as audited', note: 'Drafted July 2026 — to be filed and added to the Policy Register.' },
   { key: 'sil-info-pack', name: 'SIL Information Pack (participant-facing)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Access to supports' },
-  { key: 'contractor-agreement', name: 'Engagement model — employment or contractor agreement template', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'Unresolved with the lawyer. It decides superannuation, award coverage, workers compensation, insurance response and who carries the duty of care on shift.' },
+  { key: 'contractor-agreement', name: 'Engagement model — employment or contractor agreement template', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'Settled: workers engaged through the platform are employees - SCHADS award, superannuation, penalty rates, payroll export. Direct-delivery workers under existing arrangements remain sole-trader contractors, covered as deemed workers under the icare policy. Employment agreements for platform workers are executed before launch; nothing existing is replaced.' },
 
   /* ---------- registers: living lists, never a snapshot ---------- */
   { key: 'reg-worker', name: 'Worker Register', scope: 'register', track: 'live', live: 'workers', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'BookIt holds the live version. The Drive copy is a quarterly export, not the record.' },
@@ -6589,7 +6589,7 @@ const FORMS = [
   { key: 'w-orientation', name: 'NDIS Worker Orientation Module certificate', scope: 'worker', track: 'live', live: 'doc:ndis-orientation', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
   { key: 'w-firstaid', name: 'First Aid and CPR certificate', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'CPR renews yearly, first aid every three years. The yearly one is what lapses.' },
   { key: 'w-infection', name: 'Infection prevention and control training', scope: 'worker', track: 'live', live: 'doc:infection-control', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment' },
-  { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Nobody has one on file, for a participant needing daily transfers. Largest uncovered risk to both sides.' },
+  { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Certificates held in Drive for every current worker - upload into BookIt worker docs so this register reflects them.' },
   { key: 'w-medication', name: 'Medication administration training', scope: 'worker', track: 'live', live: 'doc:medication-training', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Management of medication' },
   { key: 'w-hi-competency', name: 'High-intensity skills competency sign-off (catheter, stoma, AD)', scope: 'worker', track: 'missing', cadence: 'annual', signed: 'Clinician or supervisor', template: 'none', requires: 'High Intensity Daily Personal Activities module', note: 'The training has been delivered. No certificate or competency sign-off is in any worker folder. The gap is evidence, not care.' },
   { key: 'w-qualification', name: 'Qualification certificates', scope: 'worker', track: 'live', live: 'doc:qualification', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
@@ -9055,7 +9055,7 @@ function handleCoverLink(req, res, url) {
 
   if (kind === 'decline') {
     if (!o.response) db.prepare("UPDATE cover_offers SET response = 'declined', responded_at = ? WHERE id = ?").run(now(), offerId);
-    return send(coverPage('Thanks for telling us', '<p>We\'ve passed it straight to the next person. Knowing quickly is genuinely the most useful thing you can do.</p>',
+    return send(coverPage('Thanks for telling us', '<p>We\'re moving straight on to whoever is next on the list. Knowing quickly is genuinely the most useful thing you can do.</p>',
       'See my shifts', `${baseUrl(req)}/#/bookings`));
   }
 
@@ -9106,7 +9106,7 @@ function sendCoverOffer(req, cv, b, tier, cand, rank) {
         ? `You accepted the on-call standby for today, and a shift has come up.`
         : `A shift near you needs covering and you're a match for it.`}</p>
      <p><b>${escHtml(svc)}</b><br>${when}<br>${escHtml(pt.suburb || '')}</p>
-     <p>The booking is still confirmed — ${escHtml((pt.name || 'they').split(' ')[0])} is expecting somebody. First to accept gets it. This offer is open for <b>${cv.window_minutes} minutes</b>${clock.parallel ? ' and has gone to everyone available at once' : ', then it passes to the next person'}.</p>
+     <p>The booking is still confirmed — ${escHtml((pt.name || 'they').split(' ')[0])} hasn't got a worker for it yet. First to accept gets it. This offer is open for <b>${cv.window_minutes} minutes</b>${clock.parallel ? ' and has gone to everyone available at once' : ', then it passes to the next person'}.</p>
      <p style="font-size:14px;color:#6C7A77">Can't do it? <a href="${coverLink(req, offerId, 'decline')}" style="color:#6C7A77">Tell us now</a> and it moves to the next person immediately. Saying no never counts against you.</p>`,
     'Yes, I can cover it', coverLink(req, offerId, 'accept')).catch(() => {});
   return offerId;
@@ -9223,12 +9223,12 @@ function openCover(bookingId, fromWorkerId, reason, req) {
   /* tell the participant immediately — before they find out from the worker.
      "we are on it" beats "your shift is cancelled" every time. */
   const pt = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
-  if (pt) sendMail(pt.email, `We're finding cover for ${prettyDate(b.date)} — BookIt`,
+  if (pt) sendMail(pt.email, `Looking for cover for ${prettyDate(b.date)} — BookIt`,
     `We're on it, ${firstName(pt.name)}`,
     `<p>The worker booked for your <b>${escHtml(SERVICE_LABELS[b.service] || b.service)}</b> shift on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> can't make it.</p>
      <p><b>Your booking has not been cancelled.</b> ${sent > 0
-       ? `We've already asked ${sent} ${sent === 1 ? 'person' : 'people'}, starting with your own care web, and we'll email you the moment somebody says yes.`
-       : `We're working through who's available now and we'll email you the moment somebody says yes.`}</p>
+       ? `We've already asked ${sent} ${sent === 1 ? 'person' : 'people'}, starting with your own care web, and we'll email you as soon as we know either way.`
+       : `We're working through who's available now and we'll email you as soon as we know either way.`}</p>
      <p>If you'd rather not have cover this time, you can stand it down from your bookings page and nothing is charged.</p>`,
     'See what\'s happening', `${baseUrl(req)}/#/bookings`).catch(() => {});
   /* Tier 1 is the participant whose own support plan says BookIt is their main

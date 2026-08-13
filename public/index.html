@@ -1519,6 +1519,16 @@ header.site .a11y-panel{border-top:1.5px solid var(--line);}
 .svc-photo{margin:0;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-lg);
   aspect-ratio:4/3;background:var(--teal-tint);transform:rotate(.6deg);}
 .svc-photo img{width:100%;height:100%;object-fit:cover;display:block;}
+/* the profile's compliance detail, folded away — present for anyone who wants
+   it, not a wall between the reviews and the booking button */
+.wp-cred-lead{margin:0 0 12px;color:var(--ink-soft);font-size:.95rem;}
+.wp-creds{border-top:1px solid var(--line);padding-top:12px;}
+.wp-creds>summary{cursor:pointer;font-weight:650;font-size:.95rem;color:var(--teal-deep);
+  list-style:none;display:flex;align-items:center;gap:7px;padding:4px 0;}
+.wp-creds>summary::-webkit-details-marker{display:none;}
+.wp-creds>summary::before{content:"›";font-size:1.2rem;line-height:1;transition:transform .18s ease;}
+.wp-creds[open]>summary::before{transform:rotate(90deg);}
+.wp-creds>summary:focus-visible{outline:3px solid var(--amber);outline-offset:3px;border-radius:6px;}
 @media (max-width:900px){.svc-photo{max-width:520px;margin:8px auto 0;}}
 html.high-contrast .svc-photo{box-shadow:none;border:2px solid #000;transform:none;}
 </style>
@@ -2497,7 +2507,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="container split">
       <div>
         <span class="kicker">Works with every plan</span>
-        <h2>However your plan is managed, you're covered</h2>
+        <h2>However your plan is managed, we can work with it</h2>
         <ul class="tick-list">
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>Self-managed</b> — we invoice you (or claim on your behalf), with statements ready for your records.</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><b>Plan-managed</b> — we invoice your plan manager directly after you approve each shift.</span></li>
@@ -2514,7 +2524,7 @@ html.high-contrast .care-stage-block{display:none!important;}
             <li>Worker screening, verification and training records</li>
             <li>Invoicing, claiming and payment chasing</li>
             <li>Incident management with urgent escalation</li>
-            <li>Finding cover when your regular worker is away</li>
+            <li>Looking for cover when your regular worker is away</li>
           </ul>
         </div>
       </div>
@@ -2610,7 +2620,7 @@ html.high-contrast .care-stage-block{display:none!important;}
           <ul>
             <li><b>Plenty of notice:</b> free — the exact window for your support item is shown before you confirm.</li>
             <li><b>Short notice:</b> the shift may be charged, in line with the NDIS Pricing Arrangements — and your worker is still paid.</li>
-            <li><b>We cancel on you?</b> Never charged, and we'll help find cover fast.</li>
+            <li><b>We cancel on you?</b> Never charged, and we start looking for cover straight away.</li>
           </ul>
         </div>
         <div class="info-card">
@@ -5618,22 +5628,6 @@ async function renderWorkerPage(id){
         <p class="muted-sm" style="margin-top:12px;">A guide, not a promise — message ${first} to line up exact times. Meet &amp; greets are always free.</p>
       </div>
       <div class="wp-card">
-        <h2>Checks &amp; credentials</h2>
-        <h3 class="cred-head">What we check for every worker</h3>
-        ${conds}
-        <h3 class="cred-head">${first}'s qualifications and training</h3>
-        ${creds || '<p class="muted-sm">Nothing else on file yet. We only list credentials our team has verified — so this space stays empty until we\'ve checked something ourselves.</p>'}
-        <div class="wp-trustbox"${w.demo ? ' style="background:#FFF8E8;border-color:#F5B841;"' : ''}>${w.demo
-          /* Two separate claims live in this box, and only one of them is about
-             the person on screen. That this profile is invented has to be said
-             plainly. How BookIt treats real workers is true whether or not this
-             particular profile is — and it is the thing a visitor came here to
-             find out — so it stays, worded so it can't be read as a claim about
-             the fictional person above it. */
-          ? `<b>This is a demonstration profile.</b> ${esc(w.name)} is not a real person and none of the credentials above were checked — they exist so you can see how a profile works. Real BookIt workers are <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b> — and nothing appears on a real profile until someone on our team has verified it. `
-          : 'Every BookIt worker is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b>. Nothing appears above until someone on our team has verified it, and a profile is withdrawn automatically the moment a check lapses. '}<a href="#/verification">How we check every worker →</a></div>
-      </div>
-      <div class="wp-card">
         <h2>Feedback</h2>
         ${(w.reviews && w.reviews.length)
           ? `<p style="font-size:1rem;margin-bottom:10px;"><b style="font-family:var(--font-head);font-size:1.55rem;color:var(--teal);">★ ${Number(w.rating).toFixed(1)}</b> &nbsp;from ${w.shifts} review${w.shifts > 1 ? 's' : ''} — written by participants after real shifts.</p>` +
@@ -5645,6 +5639,28 @@ async function renderWorkerPage(id){
           : w.shifts
             ? `<p style="font-size:1rem;"><b style="font-family:var(--font-head);font-size:1.55rem;color:var(--teal);">★ ${Number(w.rating).toFixed(1)}</b> &nbsp;from ${w.shifts} rated shifts.</p><p class="muted-sm" style="margin-top:6px;">Ratings are collected after every completed shift.</p>`
             : `<p><b>No reviews yet — ${first} is new to BookIt.</b> Every great worker starts somewhere. Book a free meet &amp; greet and see if you click.</p>`}
+      </div>
+      <div class="wp-card">
+        <h2>Checks &amp; credentials</h2>
+        <p class="wp-cred-lead">${w.demo
+          ? 'This is a demonstration profile, so nothing here was really checked — but this is the shape of what we hold on every real worker.'
+          : `Every check BookIt requires is current for ${first}, and each one was confirmed by a person on our team. ${first}'s profile comes down automatically if any of them lapses.`}</p>
+        <details class="wp-creds">
+          <summary>See every check and credential</summary>
+          <h3 class="cred-head">What we check for every worker</h3>
+          ${conds}
+          <h3 class="cred-head">${first}'s qualifications and training</h3>
+          ${creds || '<p class="muted-sm">Nothing else on file yet. We only list credentials our team has verified — so this space stays empty until we\'ve checked something ourselves.</p>'}
+        </details>
+        <div class="wp-trustbox"${w.demo ? ' style="background:#FFF8E8;border-color:#F5B841;"' : ''}>${w.demo
+          /* Two separate claims live in this box, and only one of them is about
+             the person on screen. That this profile is invented has to be said
+             plainly. How BookIt treats real workers is true whether or not this
+             particular profile is — and it is the thing a visitor came here to
+             find out — so it stays, worded so it can't be read as a claim about
+             the fictional person above it. */
+          ? `<b>This is a demonstration profile.</b> ${esc(w.name)} is not a real person and none of the credentials above were checked — they exist so you can see how a profile works. Real BookIt workers are <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b> — and nothing appears on a real profile until someone on our team has verified it. `
+          : 'Every BookIt worker is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b>. Nothing appears above until someone on our team has verified it, and a profile is withdrawn automatically the moment a check lapses. '}<a href="#/verification">How we check every worker →</a></div>
       </div>
     </div>
     <aside class="wp-aside">
@@ -7404,7 +7420,7 @@ async function renderBookingsPage(){
   API.apprDays = d.approval_days || 7;
   const wActive = d.worker_active !== false;
   const wdBanner = vrole() === 'worker' && !wActive ? `<div class="info-card" style="margin-bottom:18px;border-left:6px solid #D94F32;">
-    <p style="margin:0;"><b>Your profile isn't active on BookIt right now</b>, so accepting and completing shifts is paused, and cover is being arranged for anything upcoming. <a href="#/contact">Contact the office</a> — they can help you get back on.</p>
+    <p style="margin:0;"><b>Your profile isn't active on BookIt right now</b>, so accepting and completing shifts is paused, and we're looking for cover for anything upcoming. <a href="#/contact">Contact the office</a> — they can help you get back on.</p>
   </div>` : '';
   if(!d.bookings.length){
     wrap.innerHTML = cover.top + wdBanner + billingCard + planCard + pdocCard + hiCard + seriesCard + cover.mid + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (vrole() === 'participant'
@@ -7484,7 +7500,7 @@ async function renderBookingsPage(){
       <span class="bk-status bk-${b.status}">${STATUS_LABEL[b.status] || b.status}</span>
       <div class="bk-actions">
         ${vrole() === 'worker' && b.status === 'requested' && wActive && !bookingProviderLocked(b) && bookingStartLocal(b) > new Date() ? `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="accepted">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined">Decline</button>` : ''}
-        ${vrole() === 'worker' && ['requested','accepted'].includes(b.status) && (!wActive || bookingProviderLocked(b)) ? `<span class="muted-sm" style="color:#7a4a12;"><b>${['office','uncovered','failed'].includes(String(b.cover_state || '')) ? 'The office is handling this shift' : 'Cover is being arranged'}</b> — booking actions are paused.</span>` : ''}
+        ${vrole() === 'worker' && ['requested','accepted'].includes(b.status) && (!wActive || bookingProviderLocked(b)) ? `<span class="muted-sm" style="color:#7a4a12;"><b>${['office','uncovered','failed'].includes(String(b.cover_state || '')) ? 'The office is handling this shift' : 'We\'re looking for cover'}</b> — booking actions are paused.</span>` : ''}
         ${vrole() === 'worker' && b.status === 'requested' && wActive && !bookingProviderLocked(b) && bookingStartLocal(b) <= new Date() ? `<span class="muted-sm" style="color:#7a4a12;"><b>This shift has already started.</b> It can no longer be accepted online — contact the office.</span>` : ''}
         ${vrole() === 'worker' && b.status === 'accepted' && bookingEndLocal(b) <= new Date() && wActive && !bookingProviderLocked(b) ? `<button class="btn btn-primary btn-sm" data-note-open="${b.id}">Mark shift completed</button>` : ''}
         ${vrole() === 'worker' && b.status === 'accepted' && bookingEndLocal(b) > new Date() && wActive && !bookingProviderLocked(b) ? `<span class="muted-sm">Completion opens after the scheduled end time.</span>` : ''}
@@ -7532,7 +7548,7 @@ function spTierPreview(v){
     return { tier: 0, label: 'Not answered yet', why: 'Answer the three questions above and we will show you exactly what happens if a shift falls over.' };
   if(relies && harm && alone) return { tier: 1, label: 'Critical — highest priority', why: 'If a worker pulls out, our office is rung the same minute the search starts, rather than after it fails. Your shift also sorts to the top of the cover board.' };
   if(relies && (harm || alone)) return { tier: 2, label: 'High', why: 'Your shifts sort above everyone else’s on the cover board, and the search runs wider before anybody gives up.' };
-  return { tier: 3, label: 'Standard', why: 'The automatic search covers your shifts. It fills most of them without anybody having to ring around.' };
+  return { tier: 3, label: 'Standard', why: 'The automatic search runs on your shifts. It fills most of them without anybody having to ring around.' };
 }
 
 function spQuestionHtml(q, prev){
@@ -9814,7 +9830,7 @@ function careWebHtml(d){
   return `
   <div class="info-card" id="cardCareWeb" style="margin-bottom:18px;">
     <h3 style="margin:0 0 6px;">My care web</h3>
-    <p class="muted-sm" style="margin:0 0 4px;">The people you're happy to have in your home, in the order <b>you</b> want them asked. If a worker can't make a shift, BookIt asks this list first — top to bottom, automatically, in minutes. Nobody rings around, and your booking is never cancelled out from under you.</p>
+    <p class="muted-sm" style="margin:0 0 4px;">The people you're happy to have in your home, in the order <b>you</b> want them asked. If a worker can't make a shift, BookIt asks this list first — top to bottom, automatically, in minutes. Nobody has to ring around, and the booking stays in place while we look.</p>
     <p class="muted-sm" style="margin:0 0 10px;">Drag to reorder, or use the ▲▼ buttons. Untick <b>auto</b> for anyone you'd rather be asked about first.</p>
     ${web.length ? `<ol class="cw-list" id="cwList">${items}</ol>` : `
       <p class="muted-sm" style="margin:14px 0 0;padding:14px;background:#FFF6E3;border:1.5px solid #F5B841;border-radius:12px;">
@@ -9825,8 +9841,8 @@ function careWebHtml(d){
       : '<p class="muted-sm" style="margin:14px 0 0;">Once you\'ve had a few shifts, the people who turned up will appear here to add in one tap. You can also add anyone from <a href="#/find-workers">Find workers</a>.</p>'}
     <div class="cw-depth">
       ${ready
-        ? `<b>${ready} ${ready === 1 ? 'person is' : 'people are'} ready to step in</b> before we ever look outside your care web. After that we ask whoever is on paid standby that day, then the wider pool, then a partner provider we hold an agreement with — in that order, and only as far down as it needs to go.`
-        : `<b>Nothing in your web is offerable yet.</b> We'd go straight to the paid standby bench, then the wider pool. That still works — it just won't be someone you already know.`}
+        ? `<b>${ready} ${ready === 1 ? 'person' : 'people'} in your web could be asked</b> before we look outside it. After that we ask whoever is on paid standby that day, then the wider pool, then a partner provider we hold an agreement with — in that order, and only as far down as it needs to go.`
+        : `<b>Nothing in your web is offerable yet.</b> We'd go straight to the paid standby bench, then the wider pool. That often works — it just won't be someone you already know.`}
     </div>
   </div>`;
 }
@@ -9906,7 +9922,7 @@ function standbyHtml(d){
 function coverStripHtml(b){
   if(b.cover_state === 'finding') return `
     <div class="cv-strip" data-cv-for="${b.id}">
-      <b>Your worker can't make this shift — we're finding cover now.</b>
+      <b>Your worker can't make this shift — we're looking for cover now.</b>
       This booking has <b>not</b> been cancelled. We're working down your care web first, then the standby bench.
       <div data-cv-chain="${b.id}"><span class="muted-sm">Loading who's being asked…</span></div>
     </div>`;
@@ -9922,7 +9938,7 @@ function coverStripHtml(b){
     </div>`;
   if(b.cover_state === 'office') return `
     <div class="cv-strip">
-      <b>The office is arranging this one directly.</b>
+      <b>The office is working on this one directly.</b>
       The shift had already started when the change happened, so instead of automatic offers a person is on it — someone will call you. Nothing is charged unless support was actually delivered.
     </div>`;
   if(b.cover_state === 'failed' || b.cover_state === 'uncovered') return `
@@ -10454,7 +10470,7 @@ function coverBoardHtml(d){
       </div>
       <div class="cb-cands" data-cb-cands-out="${c.id}" hidden></div>
     </div>`;
-  }).join('') : '<p class="adm-empty">Nothing open — every shift that lost a worker has already been covered. That is what this page looking empty means.</p>';
+  }).join('') : '<p class="adm-empty">Nothing open. Every shift that lost a worker has been closed out one way or another — covered, stood down, or handed to the office. Check the closed list below if you want to know which.</p>';
 
   const byTier = (s.by_tier || []).filter(t => t.n);
   const tierLine = byTier.length
@@ -10645,7 +10661,7 @@ document.addEventListener('click', async e => {
   /* --- a worker who can't make it --- */
   const cant = e.target.closest('[data-cant]');
   if(cant){
-    const why = prompt('What\'s happened? One line is plenty — it goes to the participant so they know it isn\'t personal.\n\nYou are not in trouble for this. Telling us now is what lets us find cover in time.');
+    const why = prompt('What\'s happened? One line is plenty — it goes to the participant so they know it isn\'t personal.\n\nYou are not in trouble for this. Telling us now gives us the best chance of finding cover in time.');
     if(why === null) return;
     cant.disabled = true;
     try{
