@@ -623,6 +623,19 @@ td b{font-variant-numeric:tabular-nums;}
 @media (max-width:940px){.wp-layout{grid-template-columns:1fr;}}
 .wp-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px;box-shadow:var(--shadow);margin-bottom:20px;}
 .wp-card h2{font-size:1.22rem;margin-bottom:14px;}
+/* Profile tabs — one screen, not one long scroll. The header card stays put;
+   everything below it lives behind a tab, so nothing runs off the page. */
+.wp-tabbar{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px;margin-bottom:20px;box-shadow:var(--shadow);overflow-x:auto;scrollbar-width:none;}
+.wp-tabbar::-webkit-scrollbar{display:none;}
+.wp-tab{font:inherit;font-size:.92rem;font-weight:700;color:var(--ink-soft);background:transparent;border:none;border-radius:999px;padding:9px 16px;cursor:pointer;white-space:nowrap;flex:1;transition:background .15s,color .15s;}
+.wp-tab:hover{color:var(--teal-deep);}
+.wp-tab[aria-selected="true"]{background:var(--teal);color:#fff;}
+.wp-tab:focus-visible{outline:3px solid var(--amber);outline-offset:1px;}
+.wp-pane{display:none;}
+.wp-pane.on{display:block;animation:paneIn .18s ease;}
+@keyframes paneIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion:reduce){.wp-pane.on{animation:none;}}
+@media (max-width:560px){.wp-tab{flex:none;padding:9px 14px;}}
 .wp-hero{display:flex;gap:22px;align-items:center;flex-wrap:wrap;}
 .wp-hero .wc-avatar{width:116px;height:116px;font-size:2.2rem;border:4px solid var(--teal-tint);}
 .wp-name{display:flex;align-items:center;gap:9px;font-size:1.75rem;margin:0;flex-wrap:wrap;}
@@ -5604,6 +5617,13 @@ async function renderWorkerPage(id){
         </div>
         <div class="wp-stats">${stats.map(([b, l]) => `<div class="wp-stat"><b>${b}</b><span>${l}</span></div>`).join('')}</div>
       </div>
+      <div class="wp-tabbar" role="tablist" aria-label="Profile sections">
+        <button class="wp-tab" role="tab" id="wpTab-about" data-pane="about" aria-controls="wpPane-about" aria-selected="true">About</button>
+        <button class="wp-tab" role="tab" id="wpTab-support" data-pane="support" aria-controls="wpPane-support" aria-selected="false" tabindex="-1">Support &amp; times</button>
+        <button class="wp-tab" role="tab" id="wpTab-reviews" data-pane="reviews" aria-controls="wpPane-reviews" aria-selected="false" tabindex="-1">Reviews${w.shifts ? ` (${w.shifts})` : ''}</button>
+        <button class="wp-tab" role="tab" id="wpTab-checks" data-pane="checks" aria-controls="wpPane-checks" aria-selected="false" tabindex="-1">Checks</button>
+      </div>
+      <div class="wp-pane on" id="wpPane-about" role="tabpanel" aria-labelledby="wpTab-about">
       <div class="wp-card">
         <h2>About ${first}</h2>
         <p class="wc-bio" style="font-size:1rem;-webkit-line-clamp:unset;display:block;">${esc(w.bio || '').replace(/\n/g, '<br>')}</p>
@@ -5615,6 +5635,8 @@ async function renderWorkerPage(id){
         </div>
         ${(w.interests || []).length ? `<div style="margin-top:14px;"><small style="display:block;font-size:.82rem;color:#7A6E5F;margin-bottom:6px;">Things ${first} loves</small>${w.interests.map(t => `<span class="wp-int">${esc(t)}</span>`).join('')}</div>` : ''}
       </div>
+      </div>
+      <div class="wp-pane" id="wpPane-support" role="tabpanel" aria-labelledby="wpTab-support">
       <div class="wp-card">
         <h2>Support ${first} offers</h2>
         ${(w.services || []).map(s => `<a class="wp-svc" href="#/services/${s}"><span class="mi">${SVC_ICON[s] || ''}</span><span><b>${SVC_NAME[s] || s}</b><small>${SVC_DESC[s] || ''}</small></span></a>`).join('')}
@@ -5627,6 +5649,8 @@ async function renderWorkerPage(id){
         </div>
         <p class="muted-sm" style="margin-top:12px;">A guide, not a promise — message ${first} to line up exact times. Meet &amp; greets are always free.</p>
       </div>
+      </div>
+      <div class="wp-pane" id="wpPane-reviews" role="tabpanel" aria-labelledby="wpTab-reviews">
       <div class="wp-card">
         <h2>Feedback</h2>
         ${(w.reviews && w.reviews.length)
@@ -5640,6 +5664,8 @@ async function renderWorkerPage(id){
             ? `<p style="font-size:1rem;"><b style="font-family:var(--font-head);font-size:1.55rem;color:var(--teal);">★ ${Number(w.rating).toFixed(1)}</b> &nbsp;from ${w.shifts} rated shifts.</p><p class="muted-sm" style="margin-top:6px;">Ratings are collected after every completed shift.</p>`
             : `<p><b>No reviews yet — ${first} is new to BookIt.</b> Every great worker starts somewhere. Book a free meet &amp; greet and see if you click.</p>`}
       </div>
+      </div>
+      <div class="wp-pane" id="wpPane-checks" role="tabpanel" aria-labelledby="wpTab-checks">
       <div class="wp-card">
         <h2>Checks &amp; credentials</h2>
         <p class="wp-cred-lead">${w.demo
@@ -5661,6 +5687,7 @@ async function renderWorkerPage(id){
              the fictional person above it. */
           ? `<b>This is a demonstration profile.</b> ${esc(w.name)} is not a real person and none of the credentials above were checked — they exist so you can see how a profile works. Real BookIt workers are <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b> — and nothing appears on a real profile until someone on our team has verified it. `
           : 'Every BookIt worker is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b>. Nothing appears above until someone on our team has verified it, and a profile is withdrawn automatically the moment a check lapses. '}<a href="#/verification">How we check every worker →</a></div>
+      </div>
       </div>
     </div>
     <aside class="wp-aside">
@@ -5687,6 +5714,29 @@ async function renderWorkerPage(id){
       </div>
     </aside>
   </div>`;
+  /* Tab wiring — ARIA tabs pattern: click or arrow keys, one pane at a time.
+     The profile used to be six cards in one long scroll; now the header stays
+     and each section takes its turn in the same screenful. */
+  const wpTabs = Array.from(body.querySelectorAll('.wp-tab'));
+  const showPane = (name, focus) => {
+    wpTabs.forEach(t => {
+      const on = t.dataset.pane === name;
+      t.setAttribute('aria-selected', on);
+      t.tabIndex = on ? 0 : -1;
+      if(on && focus) t.focus();
+      const pane = body.querySelector('#wpPane-' + t.dataset.pane);
+      if(pane) pane.classList.toggle('on', on);
+    });
+  };
+  wpTabs.forEach((t, i) => {
+    t.addEventListener('click', () => showPane(t.dataset.pane));
+    t.addEventListener('keydown', e => {
+      if(e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault();
+      const next = wpTabs[(i + (e.key === 'ArrowRight' ? 1 : wpTabs.length - 1)) % wpTabs.length];
+      showPane(next.dataset.pane, true);
+    });
+  });
   if(own){
     $('#wpEdit').addEventListener('click', () => { if(window.goEditProfile) goEditProfile(); });
   } else {
