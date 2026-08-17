@@ -12854,12 +12854,43 @@ async function renderAccountPage(){
       aboutCards = card('cardEmergency', 'Emergency contact', `<p class="muted-sm" style="margin:0 0 10px;">${ecLine}</p>${tile('#/support-plan', '', 'Update it in your support plan', 'The one field everyone forgets until the night they need it.')}`) + card('cardPlanLink', 'Support plan & about you', `<p class="muted-sm" style="margin:0 0 10px;">${planLine}</p>${tile('#/support-plan', '', 'Open your support plan', 'Your goals, how you communicate, health notes, home safety and what a great match looks like.')}`) + card('cardSupports', 'Your supports', `${six.length ? `<p class="muted-sm" style="margin:0 0 8px;">From your support plan:</p><p style="margin:0 0 10px;">${six.map(([,l]) => `<span class="wc-tag" style="margin:0 5px 5px 0;display:inline-block;">${l}</span>`).join('')}</p>` : '<p class="muted-sm" style="margin:0 0 10px;">The six kinds of support we’re registered for — tell us which ones are yours in your support plan.</p>'}${tile('#/specialist-supports', '', 'Specialised & high-intensity supports', 'What we can safely take on, and what happens if you need something we don’t hold.')}`);
     }
     const privacyCards = note('Nothing about ' + (me.role === 'worker' ? 'you is public except the profile you choose to show.' : 'you is public — participants don’t have public profiles, full stop.')) + dataCard + `<div class="info-card" style="margin-bottom:18px;" id="cardPrivacyLinks">${tile('#/legal', '', 'Privacy policy & terms', 'What we hold, why, and the promises we’ve made in writing.')}</div>`;
-    const profileBody = identityCard + detailsCard + aboutCards + (me.role === 'worker'
+    const workerCards = me.role === 'worker'
       ? card('cardProfileLink', 'Your public profile', `<p class="muted-sm" style="margin:0 0 10px;">Your bio, photo, services, days and interests — what participants see when they find you.</p>${tile('#/bookings', 'cardProfile', 'Edit my profile & photo', 'Everything on your public card.')}${tile('#/worker/' + me.id, '', 'See my public profile', 'Exactly as participants see it.')}`) + (visCard || '')
-      : '') + privacyCards;
-    wrap.innerHTML = `<div class="set-solo">${profileBody}
+      : '';
+    /* Hireup-style profile: the identity card stays put and everything else
+       takes its turn behind a tab — the page stops running. Tabs only exist
+       for the groups this role actually has. */
+    const apPanes = [
+      ['details', 'Your details', detailsCard],
+      aboutCards ? ['supports', 'Supports & plan', aboutCards] : null,
+      workerCards ? ['public', 'Public profile', workerCards] : null,
+      ['privacy', 'Privacy & data', privacyCards],
+    ].filter(Boolean);
+    wrap.innerHTML = `<div class="set-solo">${identityCard}
+      <div class="wp-tabbar" role="tablist" aria-label="Profile sections">
+        ${apPanes.map(([s, l], i) => `<button class="wp-tab" role="tab" id="apTab-${s}" data-pane="${s}" aria-controls="apPane-${s}" aria-selected="${i === 0}"${i ? ' tabindex="-1"' : ''}>${l}</button>`).join('')}
+      </div>
+      ${apPanes.map(([s, , b], i) => `<div class="wp-pane${i === 0 ? ' on' : ''}" id="apPane-${s}" role="tabpanel" aria-labelledby="apTab-${s}">${b}</div>`).join('')}
       <div class="info-card" style="margin-bottom:18px;" id="cardAllSettings">${tile('#/account', '', 'All settings', 'Everything else about your account.')}</div>
     </div>`;
+    const apTabs = Array.from(wrap.querySelectorAll('.wp-tab'));
+    const apShow = (name, focus) => apTabs.forEach(t => {
+      const on = t.dataset.pane === name;
+      t.setAttribute('aria-selected', on);
+      t.tabIndex = on ? 0 : -1;
+      if(on && focus) t.focus();
+      const p = wrap.querySelector('#apPane-' + t.dataset.pane);
+      if(p) p.classList.toggle('on', on);
+    });
+    apTabs.forEach((t, i) => {
+      t.addEventListener('click', () => apShow(t.dataset.pane));
+      t.addEventListener('keydown', e => {
+        if(e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        e.preventDefault();
+        const n = apTabs[(i + (e.key === 'ArrowRight' ? 1 : apTabs.length - 1)) % apTabs.length];
+        apShow(n.dataset.pane, true);
+      });
+    });
     return;
   }
 
