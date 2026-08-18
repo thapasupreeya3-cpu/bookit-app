@@ -2157,7 +2157,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo svc-scene" data-scene="personal-care"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/personal-care.jpg" data-scene-name="personal-care"></video><img src="assets/scenes/personal-care-real.jpg" alt="A support worker helps an older woman style her hair at a sunlit mirror, both smiling" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="personal-care"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/personal-care.jpg" data-scene-name="personal-care"></video><img src="assets/scenes/personal-care-real.jpg" alt="A support worker helps a young woman with her hair at a sunlit mirror, both smiling" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Choose the routine</li>
         <li><b>02</b>Prepare with dignity</li>
         <li><b>03</b>Leave feeling ready</li>
@@ -2223,7 +2223,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo svc-scene" data-scene="transport"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/transport.jpg" data-scene-name="transport"></video><img src="assets/scenes/transport-real.jpg" alt="A woman in a power wheelchair boards a van by its ramp in golden afternoon light, her small dog on her lap, her support worker holding the door" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="transport"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/transport.jpg" data-scene-name="transport"></video><img src="assets/scenes/transport-real.jpg" alt="A man in his wheelchair and his support worker arrive by van and are greeted by two friends on the footpath, autumn trees behind" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Vehicle arrives</li>
         <li><b>02</b>Ramp lowers</li>
         <li><b>03</b>Travel safely</li>
@@ -2287,7 +2287,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo svc-scene" data-scene="daily-tasks"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/daily-tasks.jpg" data-scene-name="daily-tasks"></video><img src="assets/scenes/daily-tasks-real.jpg" alt="A participant and support worker cook together in a warm kitchen, laughing as vegetables go into the pan" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="daily-tasks"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/daily-tasks.jpg" data-scene-name="daily-tasks"></video><img src="assets/scenes/daily-tasks-real.jpg" alt="A participant and her support worker sit down to the meal they cooked together, steam rising from the pot on the kitchen table" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Plan together</li>
         <li><b>02</b>Cook a meal</li>
         <li><b>03</b>Sit down & eat</li>
@@ -2416,7 +2416,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo svc-scene" data-scene="community"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/community.jpg" data-scene-name="community"></video><img src="assets/scenes/community-real.jpg" alt="Friends and a support worker share a picnic in the park, one in a power wheelchair, a kite flying overhead" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="community"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/community.jpg" data-scene-name="community"></video><img src="assets/scenes/community-real.jpg" alt="A participant in her wheelchair shows her painting to her support worker and friends at an outdoor art table" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Arrive together</li>
         <li><b>02</b>Create & play</li>
         <li><b>03</b>Rest & connect</li>
@@ -13521,7 +13521,9 @@ document.addEventListener('click', async e => {
       v.addEventListener('ended', function(){
         v.pause();
         fig.classList.add('showing-real');   /* settle on the real photograph */
-        try { v.currentTime = 0; } catch (e) {}
+        /* No rewind here: the video is still fading out for a full second,
+           and resetting currentTime mid-fade flashed the opening clay frame
+           over the photograph. run() rewinds right before each replay. */
       });
 
       var timer = null, primed = false;
