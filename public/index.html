@@ -633,6 +633,11 @@ td b{font-variant-numeric:tabular-nums;}
 .wp-tab:focus-visible{outline:3px solid var(--amber);outline-offset:1px;}
 .wp-pane{display:none;}
 .wp-pane.on{display:block;animation:paneIn .18s ease;}
+/* Account profile: identity rail on the left, tabbed content on the right —
+   the page reads across the screen instead of running down it. */
+.ap-layout{display:grid;grid-template-columns:288px minmax(0,1fr);gap:24px;align-items:start;}
+.ap-side{position:sticky;top:86px;}
+@media (max-width:880px){.ap-layout{grid-template-columns:1fr;}.ap-side{position:static;}.ap-side .info-card{margin-bottom:14px;}}
 @keyframes paneIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
 @media (prefers-reduced-motion:reduce){.wp-pane.on{animation:none;}}
 @media (max-width:560px){.wp-tab{flex:none;padding:9px 14px;}}
@@ -12818,18 +12823,18 @@ async function renderAccountPage(){
   const canPhoto = me.role !== 'worker';
   const identityCard = `
   <div class="info-card" style="margin-bottom:18px;" id="cardIdentity">
-    <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;">
-      <span class="wc-avatar" id="profAvatar" style="background:var(--teal);width:96px;height:96px;font-size:1.9rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="Your photo">` : acctInitials(me.name || '')}</span>
-      <div style="min-width:0;flex:1 1 240px;">
-        <b style="font-family:var(--font-head);font-size:1.35rem;display:block;">${esc(me.name || '')}</b>
+    <div style="display:flex;gap:12px;align-items:center;flex-direction:column;text-align:center;">
+      <span class="wc-avatar" id="profAvatar" style="background:var(--teal);width:104px;height:104px;font-size:2rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="Your photo">` : acctInitials(me.name || '')}</span>
+      <div style="min-width:0;">
+        <b style="font-family:var(--font-head);font-size:1.3rem;display:block;">${esc(me.name || '')}</b>
         <span class="muted-sm">${roleLabel}${me.admin ? ' · Admin' : ''}${me.suburb ? ' · ' + esc(me.suburb) : ''}</span>
         ${canPhoto ? `
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;justify-content:center;">
           <input id="profPhotoFile" type="file" accept=".jpg,.jpeg,.png" hidden>
           <button type="button" class="btn btn-secondary btn-sm" id="profPhotoPick">${me.photo ? 'Change photo' : 'Add a photo'}</button>
           ${me.photo ? '<button type="button" class="btn btn-ghost btn-sm" id="profPhotoRemove">Remove photo</button>' : ''}
         </div>
-        <p class="muted-sm" style="margin:9px 0 0;">Your photo is never public — only the people you book or message ever see it, so workers know who's opening the door.</p>` : ''}
+        <p class="muted-sm" style="margin:9px 0 0;font-size:.82rem;">Your photo is never public — only the people you book or message ever see it, so workers know who's opening the door.</p>` : ''}
       </div>
     </div>
   </div>`;
@@ -12866,12 +12871,16 @@ async function renderAccountPage(){
       workerCards ? ['public', 'Public profile', workerCards] : null,
       ['privacy', 'Privacy & data', privacyCards],
     ].filter(Boolean);
-    wrap.innerHTML = `<div class="set-solo">${identityCard}
-      <div class="wp-tabbar" role="tablist" aria-label="Profile sections">
+    wrap.innerHTML = `<div class="ap-layout">
+      <aside class="ap-side">${identityCard}
+        <div class="info-card" style="margin-bottom:18px;" id="cardAllSettings">${tile('#/account', '', 'All settings', 'Everything else about your account.')}</div>
+      </aside>
+      <div class="ap-main">
+      <div class="wp-tabbar" role="tablist" aria-label="Profile sections" style="margin-top:0;">
         ${apPanes.map(([s, l], i) => `<button class="wp-tab" role="tab" id="apTab-${s}" data-pane="${s}" aria-controls="apPane-${s}" aria-selected="${i === 0}"${i ? ' tabindex="-1"' : ''}>${l}</button>`).join('')}
       </div>
       ${apPanes.map(([s, , b], i) => `<div class="wp-pane${i === 0 ? ' on' : ''}" id="apPane-${s}" role="tabpanel" aria-labelledby="apTab-${s}">${b}</div>`).join('')}
-      <div class="info-card" style="margin-bottom:18px;" id="cardAllSettings">${tile('#/account', '', 'All settings', 'Everything else about your account.')}</div>
+      </div>
     </div>`;
     const apTabs = Array.from(wrap.querySelectorAll('.wp-tab'));
     const apShow = (name, focus) => apTabs.forEach(t => {
