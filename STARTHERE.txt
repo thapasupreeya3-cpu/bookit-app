@@ -1,0 +1,216 @@
+BOOKIT — START HERE
+===================
+Current release: v85.3.0
+Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT THIS REPOSITORY IS
+-----------------------
+One Node.js program and one web page, with three small support modules.
+No build step, no framework, no second service to keep in sync.
+
+  server.js                  the entire back end
+  lib/                       REQUIRED — server.js loads these on its first
+                             three lines and will not start without them
+    bookit-hardening.js        security helpers (uploads, CSV, origin checks,
+                               static-path denial, production preflight)
+    migration-runner.js        database migration helpers
+    version.js                 reads package.json — so package.json is also
+                               required at runtime, not just for npm
+  public/index.html          the entire front end
+  public/assets/             videos, photographs, character files, and two
+                             browser scripts (dialog focus, worker-list guard)
+  public/vendor/             the character/animation engine
+  package.json               required at runtime by lib/version.js
+  package-lock.json          lets `npm ci` work
+  .gitignore                 keeps the database, documents, photos and the
+                             signing key out of this PUBLIC repository
+
+
+DEPLOYING A NEW VERSION
+-----------------------
+THE OLD "just upload server.js and public/" INSTRUCTION IS NO LONGER SAFE.
+Since v85.2.0 the server requires lib/. Upload without it and the service
+dies immediately with a module-not-found error.
+
+The minimum deployable set is:
+
+  server.js
+  package.json
+  package-lock.json
+  lib/                       all three files
+  public/index.html
+  public/assets/bookit-a11y-dialogs.js
+  public/assets/bookit-worker-load-guard.js
+
+Videos, photographs, character files and public/vendor/ are unchanged by a
+code release and do NOT need re-uploading. GitHub's upload page adds and
+overwrites; it never deletes what you leave out.
+
+Steps:
+
+  1. Note the commit you are on now, so there is a rollback point:
+         git -C <app dir> rev-parse --short HEAD
+
+  2. Back up the three things a redeploy cannot recreate. Confirm where they
+     actually live first — do not assume:
+         sudo systemctl show bookit -p Environment -p WorkingDirectory -p ExecStart
+     DB_PATH, DOCS_DIR and PHOTOS_DIR in that output are the truth. If unset,
+     the database sits beside server.js wherever ExecStart points.
+
+  3. Upload to github.com/thapasupreeya3-cpu/bookit-app/upload/main, commit.
+
+     Uploading a DOTFILE (.gitignore, .github/): macOS Finder hides files
+     beginning with a dot, so dragging a folder silently skips them. Press
+     Shift + Command + . to reveal them first, or create the file directly
+     with github.com/thapasupreeya3-cpu/bookit-app/new/main
+
+  4. On the server:  sudo bookit-update
+
+  5. Verify, in this order:
+         /api/version                 reports the version you just pushed
+         open one service page        the scene video plays through to its
+                                      ending photograph
+         log in                       (you will re-authenticate once)
+         open the admin boards        they load
+         download one CSV export      it opens
+
+  6. If anything is wrong: check out the commit from step 1 and run
+     sudo bookit-update again.
+
+Verify an upload against raw.githubusercontent.com, never GitHub's file
+page. The blob page caches its line count for a long time and has already
+once shown a stale figure that read as a failed upload when it was fine.
+
+
+BEFORE ANY DEPLOY
+-----------------
+  npm ci --ignore-scripts
+  npm run check
+
+Both must exit 0.
+
+Be clear about what that currently proves: `npm run check` runs SYNTAX
+VALIDATION ONLY on server.js, the three lib/ files and the two browser
+scripts. It is not a test suite, not a security scan, and not a browser
+regression run. The v85.3.0 package contains tests/, scripts/, ops/ and a
+GitHub Actions workflow that would make it a real gate, but those were
+deliberately not uploaded to keep the release minimal.
+
+IF YOU LATER UPLOAD tests/, scripts/, ops/ AND .github/, replace
+package.json AT THE SAME TIME with the fuller version from the v85.3.0
+package. The two halves must travel together — uploading the fuller
+package.json without the folders is what previously left the repository
+advertising commands it could not run.
+
+
+ENVIRONMENT SETTINGS WORTH KNOWING
+----------------------------------
+Full list and defaults are in the site guide; these three are the ones that
+decide whether the server starts at all.
+
+  NODE_ENV=production   turns on a fail-closed preflight. With it set, the
+  or STRICT_PROD=on     server REFUSES TO START unless APP_URL is https, a
+                        persistent secret exists, admin MFA is not disabled,
+                        SEED_DEMO is not on, a mail provider is configured,
+                        BIND_HOST is loopback, and the data folders sit
+                        outside public/. It names the reason and touches
+                        nothing before deciding. If both NODE_ENV=production
+                        and SEED_DEMO=on are set, the boot will fail.
+
+  BIND_HOST             defaults to 127.0.0.1, so port 3000 is unreachable
+                        from the internet even if a firewall rule goes
+                        missing. Caddy is the only intended caller.
+
+  TRUST_PROXY=1         required for per-visitor rate limiting. Without it
+                        every visitor shares one bucket, because behind
+                        Caddy they all arrive from 127.0.0.1.
+
+
+CURRENT STATE — HONEST NOTES
+----------------------------
+* Video SEEKING still jumps back to the start. The server does not serve
+  byte ranges. Normal playback is unaffected; only dragging the scrubber.
+
+* There is no administrator idle timeout. Sessions run 30 days as before.
+  Deliberately deferred so a sole administrator cannot be locked out.
+
+* The numbered migration ledger is NOT active. lib/migration-runner.js
+  contains ensureMigrationTable() and runMigrations(), but server.js calls
+  neither — it uses runLegacyAlter() only. What IS true: unexpected
+  migration errors are now rethrown instead of being silently swallowed.
+  Do not describe this as a completed versioned-migration system.
+
+* package.json is named "bookit-site" while package-lock.json still says
+  "bookit-site-v65". Cosmetic only; npm ci works. Regenerating the lock
+  would tidy it.
+
+* No test suite, CI workflow, backup tooling or operations documentation is
+  on this branch. That is a deliberate minimal-release choice, not an
+  oversight. They exist in the full v85.3.0 package.
+
+
+HISTORICAL BUILD NOTES
+----------------------
+Everything below describes the v65/v66 animation and character work. It is
+useful history and is NOT current deployment instruction.
+
+This folder is the entire site: the "composition fixes 5" build (full-bleed
+adaptive hero that measures the live copy and routes the walk beside it,
+power wheelchair, rate-limited turns) with ONE change — the character
+factory public/vendor/care-cast.js now builds the approved v66 sculpted
+cast (realistic proportions, warm faces with brows/eyes/smile/blush,
+mitten hands, knee-jointed legs, resting seated pose) wearing the full
+cast wardrobe: locs, bob, crop, beards, headscarves, glasses, badges.
+The concept-art cut-out characters from v67 are gone entirely.
+
+Changed vs "fixes 5" as uploaded: ONLY public/vendor/care-cast.js.
+
+What changed in v65
+  • Homepage journey has a protected corridor: right half of the hero on
+    desktop (the static illustration cedes its column; the floating cards
+    stay), and a dedicated 300px stage below the CTAs on mobile. The route
+    never runs beneath the headline, buttons or search field.
+  • The pair and bench are larger (with a minimum on small screens), the
+    route line is softer, the pergola now straddles the path as an arbor
+    sized to clear the wheelchair — no more clipping at the frame edge.
+  • The pair walks in from off-screen and fully exits off-screen before the
+    loop resets. Nothing fades except footprints and wheel tracks.
+  • One obstacle-aware navigation system (public/vendor/care-nav.js, NEW
+    FILE) now plans every journey — homepage scenes and all service-page
+    dioramas. Clearance covers the whole travelling body (wheelchair,
+    carried plates, watering can), not just the character's centre.
+  • Shared-living scene: the obstacle map is actually used — the walk to
+    the chairs goes around the dining table, and the walkway clears the
+    island and table by a full body width.
+  • Homepage garden scene: the exit route no longer cuts through the second
+    raised bed; stories scene: trees/flowers moved off the walked path.
+  • The Build 24/25 full-screen walkers are removed entirely — they crossed
+    live copy at arbitrary heights and kept running behind other pages.
+    Paused scenes now do zero GPU work when their page is hidden.
+
+  • Community scene: pair legs are navigator-solved around the pavilion
+    posts, art station, basket and bench; the exit walkway clears the
+    relocated garden planter. Service-page animation windows are smaller
+    (560px, centred). Personal-care entry no longer crosses the bench.
+  • Homepage: the route is a real footpath, the carer pushes from the
+    middle of the chair, a neighbour sits on the bench, two friends chat
+    under the pergola, and the "Shift confirmed" card moved off the route.
+
+  • v65.7: NEW FILE public/vendor/care-cast.js (must upload) — one shared
+    character factory styled to the rendered cast lineup: realistic
+    proportions, painted faces, matte clay look, locs/bob hairstyles,
+    lanyard badges. The same six characters now appear everywhere; every
+    scene carer is the sage-polo carer with locs and a badge.
+
+Deploy: open github.com/thapasupreeya3-cpu/bookit-app/upload/main
+and drag BOTH items from inside this folder (server.js and the
+public folder) into the page. Commit, then: sudo bookit-update
+(public/vendor/care-nav.js is new — make sure it uploads too.)
+
+Safe to delete from the repo whenever you like (nothing uses them):
+  index.html (the one at repo root), DESIGN.md, README-V63.md,
+  get-assets.mjs, CARE_BACKGROUND_UPDATE.txt,
+  public/assets/world/, public/assets/care-backgrounds/,
+  public/assets/care-motion/, public/images/care-poster.webp,
+  public/vendor/oo-scrub.js
