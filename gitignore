@@ -1,0 +1,49 @@
+
+# Production data and SQLite sidecars
+bookit.db
+bookit.db-*
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+bookit-docs/
+bookit-photos/
+backups/
+audit-packs/
+private-uploads/
+*.zip
+
+# Secrets and deployment configuration
+.secret
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Logs, reports and temporary files
+*.log
+*.bak
+*.backup
+*.old
+*.orig
+*.tmp
+*.temp
+*.swp
+*.swo
+.DS_Store
+coverage/
+.nyc_output/
+
+# Dependencies and editor state
+node_modules/
+.vscode/
+.idea/
+
+# Generated diagnostic output
+security-scan-report.json
+restore-test-output/

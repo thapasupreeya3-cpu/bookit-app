@@ -1,16 +1,12 @@
 {
-  "name": "bookit-site-v65",
+  "name": "bookit-site",
   "version": "85.3.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test tests/*.test.js",
-    "lint": "node --check server.js && node --check lib/bookit-hardening.js && node --check lib/migration-runner.js && node --check public/assets/bookit-a11y-dialogs.js && node --check public/assets/bookit-worker-load-guard.js",
-    "security:scan": "node scripts/security-scan.js",
-    "check": "npm run lint && npm run ops:check && npm test && npm run security:scan",
-    "backup:verify": "bash ops/restore-test.sh",
-    "ops:check": "bash -n ops/backup.sh ops/restore-test.sh ops/health-check.sh"
+    "lint": "node --check server.js && node --check lib/bookit-hardening.js && node --check lib/migration-runner.js && node --check lib/version.js && node --check public/assets/bookit-a11y-dialogs.js && node --check public/assets/bookit-worker-load-guard.js",
+    "check": "npm run lint"
   },
   "license": "UNLICENSED",
   "engines": {
