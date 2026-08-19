@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light">
 <title>BookIt — Find NDIS support workers who fit your life</title>
-<meta name="description" content="BookIt is an NDIS-registered platform for finding, booking and managing your own verified support workers — employment support, personal care, transport, daily tasks, household help and community participation.">
+<meta name="description" content="BookIt is operated by Disability &amp; Mental Health Care Pty Ltd, a registered NDIS provider, for finding, booking and managing verified support workers — employment support, personal care, transport, daily tasks, household help and community participation.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="BookIt — Support workers who fit your life">
 <meta property="og:description" content="Find, book and manage your own verified NDIS support workers. You choose who, when and how.">
@@ -1722,6 +1722,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 @media print{.care-stage-block{display:none!important;}}
 @media (max-width:699px){.care-stage{aspect-ratio:4/3;border-radius:16px;}}
 </style>
+  <script src="/assets/bookit-worker-load-guard.js" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
@@ -1732,12 +1733,12 @@ html.high-contrast .care-stage-block{display:none!important;}
     <a href="#/" class="logo" aria-label="BookIt — home">b<svg class="oo" viewBox="0 0 90 48" aria-hidden="true"><circle class="o1" cx="27" cy="24" r="22" fill="#0E6B62"/><circle class="o2" cx="63" cy="24" r="22" fill="#F5B841"/><path class="lens" d="M45 11.35 A22 22 0 0 1 45 36.65 A22 22 0 0 1 45 11.35 Z" fill="#0A544D"/><path class="tick" d="M52 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>kit</a>
 
     <nav class="main" id="mainNav" aria-label="Main navigation">
-      <button class="nav-close" id="navClose" aria-label="Close menu">
+      <button class="nav-close" id="navClose" aria-label="Close menu" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
       <ul>
         <li class="dropdown" id="ddServices">
-          <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddServicesBtn">Support services <span class="caret">▾</span></button>
+          <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddServicesBtn" type="button">Support services <span class="caret">▾</span></button>
           <div class="dropdown-menu" role="menu" aria-label="Support services">
             <a href="#/services" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span><span><b>All support services</b><small>Six NDIS registration groups, one team</small></span></a>
             <a href="#/services/employment" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></span><span><b>Employment support</b><small>Find & keep a job — 0102</small></span></a>
@@ -1756,7 +1757,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <li><a class="nav-link" href="#/admin" id="navAdmin" hidden>Admin</a></li>
         <li id="navForWorkersLi"><a class="nav-link" href="#/support-workers">For support workers</a></li>
         <li class="dropdown" id="ddAbout">
-          <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddAboutBtn">About <span class="caret">▾</span></button>
+          <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddAboutBtn" type="button">About <span class="caret">▾</span></button>
           <div class="dropdown-menu" role="menu" aria-label="About">
             <a href="#/about" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg></span><span><b>About us</b><small>Our story and values</small></span></a>
             <a href="#/safety" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg></span><span><b>Safety & quality</b><small>Checks, insurance, standards</small></span></a>
@@ -1769,24 +1770,24 @@ html.high-contrast .care-stage-block{display:none!important;}
     </nav>
 
     <div class="nav-cta">
-      <button class="a11y-open" id="a11yOpen" aria-expanded="false" aria-controls="a11yPanel" aria-label="Accessibility options" title="Accessibility options">
+      <button class="a11y-open" id="a11yOpen" aria-expanded="false" aria-controls="a11yPanel" aria-label="Accessibility options" title="Accessibility options" type="button">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm9 5.5c.3 1-.4 1.5-1.2 1.7L15 10.4v2.3l2.4 7.2c.3.8-.1 1.6-.9 1.9-.8.3-1.6-.1-1.9-.9L12.4 15h-.8l-2.2 5.9c-.3.8-1.1 1.2-1.9.9-.8-.3-1.2-1.1-.9-1.9L9 12.7v-2.3L4.2 9.2C3.4 9 2.7 8.5 3 7.5c.2-.8 1-1.2 1.8-1L10 7.7h4l5.2-1.2c.8-.2 1.6.2 1.8 1z"/></svg>
         <span class="a11y-lbl">Accessibility</span>
       </button>
-      <button class="msg-btn" id="btnMessages" aria-label="Messages">
+      <button class="msg-btn" id="btnMessages" aria-label="Messages" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         <span class="msg-badge" id="msgBadge" hidden></span>
       </button>
-      <button class="btn btn-ghost" id="btnLogin">Log in</button>
+      <button class="btn btn-ghost" id="btnLogin" type="button">Log in</button>
       <a href="#/get-started" class="btn btn-primary btn-sm" id="btnGetStarted">Get started</a>
       <div class="acct" id="acctWrap" hidden>
-        <button class="acct-chip" id="acctBtn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
+        <button class="acct-chip" id="acctBtn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu" type="button">
           <span class="acct-avatar" id="acctAvatar"></span>
           <svg class="acct-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="acct-menu" id="acctMenu" role="menu" aria-label="Account" hidden></div>
       </div>
-      <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false">
+      <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
     </div>
@@ -1801,26 +1802,26 @@ html.high-contrast .care-stage-block{display:none!important;}
       <div class="a11y-group">
         <h3>Text size</h3>
         <div class="row">
-          <button class="tool-btn no-tick" id="fsDown" aria-label="Make text smaller">A−</button>
+          <button class="tool-btn no-tick" id="fsDown" aria-label="Make text smaller" type="button">A−</button>
           <span class="fs-readout" id="fsReadout" aria-live="polite">100%</span>
-          <button class="tool-btn no-tick" id="fsUp" aria-label="Make text larger">A+</button>
-          <button class="tool-btn no-tick" id="fsReset">Reset</button>
+          <button class="tool-btn no-tick" id="fsUp" aria-label="Make text larger" type="button">A+</button>
+          <button class="tool-btn no-tick" id="fsReset" type="button">Reset</button>
         </div>
         <p class="a11y-hint">You can also zoom with Ctrl / Cmd and +</p>
       </div>
       <div class="a11y-group">
         <h3>Display</h3>
         <div class="row">
-          <button class="tool-btn" id="tglContrast" aria-pressed="false">High contrast</button>
-          <button class="tool-btn" id="tglFont" aria-pressed="false">Easier-to-read font</button>
-          <button class="tool-btn" id="tglMotion" aria-pressed="false">Reduce motion</button>
+          <button class="tool-btn" id="tglContrast" aria-pressed="false" type="button">High contrast</button>
+          <button class="tool-btn" id="tglFont" aria-pressed="false" type="button">Easier-to-read font</button>
+          <button class="tool-btn" id="tglMotion" aria-pressed="false" type="button">Reduce motion</button>
         </div>
       </div>
       <div class="a11y-group">
         <h3>Listen</h3>
         <div class="row">
-          <button class="tool-btn no-tick" id="readAloud" aria-pressed="false">🔊 Read this page aloud</button>
-          <button class="tool-btn no-tick" id="readStop">Stop</button>
+          <button class="tool-btn no-tick" id="readAloud" aria-pressed="false" type="button">🔊 Read this page aloud</button>
+          <button class="tool-btn no-tick" id="readStop" type="button">Stop</button>
         </div>
         <p class="a11y-hint" id="readHint">Reads the current page using your device's voice.</p>
       </div>
@@ -1831,7 +1832,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/safety">Our accessibility commitments</a>
         <a href="#/contact">Need another format? Ask us</a>
       </div>
-      <button class="tool-btn no-tick" id="a11yClose">Close panel</button>
+      <button class="tool-btn no-tick" id="a11yClose" type="button">Close panel</button>
     </div>
   </div>
 </section>
@@ -1858,7 +1859,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="hero-rings" aria-hidden="true"><i></i><i></i><i></i></div>
     <div class="container hero-grid">
       <div>
-        <span class="kicker">NDIS registered provider · Australia wide</span>
+        <span class="kicker">NDIS registered provider · Available across Australia, with our largest worker pools in Sydney, Melbourne and Brisbane</span>
         <h1>Support workers who fit <span class="u rotator" id="heroRotate" aria-hidden="true" data-words="your life|your work week|your mornings|your day out|your routine|your home|your community"><span class="rot-word">your life</span></span><span class="sr-only">your life</span>, not the other way around.</h1>
         <p class="lead">Find, book and manage your own team of verified support workers — for work, home, daily living and getting out into your community. You choose who, when and how. We handle the rest.</p>
         <div class="hero-ctas">
@@ -2097,7 +2098,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo svc-scene" data-scene="employment"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/employment.jpg" data-scene-name="employment"></video><img src="assets/scenes/employment-real.jpg" alt="A man smiles up from his wheelchair at his support worker as she shares an open book with him at his desk, laptop open in a sunlit home office" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="employment"><video class="stage-video" muted playsinline preload="none" poster="/assets/scenes/employment.jpg" data-scene-name="employment"></video><img src="/assets/scenes/employment-real.jpg" alt="A man smiles up from his wheelchair at his support worker as she shares an open book with him at his desk, laptop open in a sunlit home office" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Explore roles</li>
         <li><b>02</b>Build a résumé</li>
         <li><b>03</b>Practise for work</li>
@@ -2162,7 +2163,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo svc-scene" data-scene="personal-care"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/personal-care.jpg" data-scene-name="personal-care"></video><img src="assets/scenes/personal-care-real.jpg" alt="A support worker helps a young woman with her hair at a sunlit mirror, both smiling" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="personal-care"><video class="stage-video" muted playsinline preload="none" poster="/assets/scenes/personal-care.jpg" data-scene-name="personal-care"></video><img src="/assets/scenes/personal-care-real.jpg" alt="A support worker helps a young woman with her hair at a sunlit mirror, both smiling" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Choose the routine</li>
         <li><b>02</b>Prepare with dignity</li>
         <li><b>03</b>Leave feeling ready</li>
@@ -2228,7 +2229,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo svc-scene" data-scene="transport"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/transport.jpg" data-scene-name="transport"></video><img src="assets/scenes/transport-real.jpg" alt="A man in his wheelchair and his support worker arrive by van and are greeted by two friends on the footpath, autumn trees behind" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="transport"><video class="stage-video" muted playsinline preload="none" poster="/assets/scenes/transport.jpg" data-scene-name="transport"></video><img src="/assets/scenes/transport-real.jpg" alt="A man in his wheelchair and his support worker arrive by van and are greeted by two friends on the footpath, autumn trees behind" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Vehicle arrives</li>
         <li><b>02</b>Ramp lowers</li>
         <li><b>03</b>Travel safely</li>
@@ -2292,7 +2293,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo svc-scene" data-scene="daily-tasks"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/daily-tasks.jpg" data-scene-name="daily-tasks"></video><img src="assets/scenes/daily-tasks-real.jpg" alt="A participant and her support worker sit down to the meal they cooked together, steam rising from the pot on the kitchen table" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="daily-tasks"><video class="stage-video" muted playsinline preload="none" poster="/assets/scenes/daily-tasks.jpg" data-scene-name="daily-tasks"></video><img src="/assets/scenes/daily-tasks-real.jpg" alt="A participant and her support worker sit down to the meal they cooked together, steam rising from the pot on the kitchen table" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Plan together</li>
         <li><b>02</b>Cook a meal</li>
         <li><b>03</b>Sit down & eat</li>
@@ -2357,7 +2358,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo svc-scene" data-scene="household"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/household.jpg" data-scene-name="household"></video><img src="assets/scenes/household-real.jpg" alt="A support worker with the vacuum chats with an older man in his wheelchair ironing at his board in a sunlit laundry, folded towels beside him" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="household"><video class="stage-video" muted playsinline preload="none" poster="/assets/scenes/household.jpg" data-scene-name="household"></video><img src="/assets/scenes/household-real.jpg" alt="A support worker with the vacuum chats with an older man in his wheelchair ironing at his board in a sunlit laundry, folded towels beside him" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Vacuum through</li>
         <li><b>02</b>Press and iron</li>
         <li><b>03</b>Fold and put away</li>
@@ -2421,7 +2422,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <a href="#/get-started" class="btn btn-secondary">Create a free account</a>
       </div>
       </div>
-      <figure class="svc-photo svc-scene" data-scene="community"><video class="stage-video" muted playsinline preload="none" poster="assets/scenes/community.jpg" data-scene-name="community"></video><img src="assets/scenes/community-real.jpg" alt="A participant in her wheelchair shows her painting to her support worker and friends at an outdoor art table" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
+      <figure class="svc-photo svc-scene" data-scene="community"><video class="stage-video" muted playsinline preload="none" poster="/assets/scenes/community.jpg" data-scene-name="community"></video><img src="/assets/scenes/community-real.jpg" alt="A participant in her wheelchair shows her painting to her support worker and friends at an outdoor art table" loading="lazy" decoding="async"></figure><ul class="care-stage-moments" aria-label="Moments in this scene">
         <li><b>01</b>Arrive together</li>
         <li><b>02</b>Create & play</li>
         <li><b>03</b>Rest & connect</li>
@@ -2762,7 +2763,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / For support workers</nav>
-      <span class="kicker">We're hiring, Australia-wide</span>
+      <span class="kicker">We're hiring, available across Australia</span>
       <h1>Support work that supports you back</h1>
       <p class="lead">Be employed — not a gig contractor. Choose your clients and hours, get paid above award with super and full insurance, and build real relationships doing work that matters.</p>
       <div class="hero-ctas mt-3">
@@ -3245,13 +3246,13 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="container">
       <div id="gsChooser">
         <div class="path-cards">
-          <button class="path-card" data-path="participant">
+          <button class="path-card" data-path="participant" type="button">
             <div class="service-icon ic-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.6-9.5-9A5.5 5.5 0 0112 6.7 5.5 5.5 0 0121.5 12c-2.5 4.4-9.5 9-9.5 9z"/></svg></div>
             <h3>I'm looking for support</h3>
             <p>For participants, families, nominees and support coordinators. Build your team of chosen, verified support workers.</p>
             <span class="go mt-2" style="color:var(--teal);font-weight:700;">Start here →</span>
           </button>
-          <button class="path-card" data-path="worker">
+          <button class="path-card" data-path="worker" type="button">
             <div class="service-icon ic-coral"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></div>
             <h3>I want to be a support worker</h3>
             <p>Join as an employee with super, insurance and above-award pay. Choose your clients, hours and services.</p>
@@ -3897,7 +3898,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Locations</nav>
       <h1>Where BookIt works</h1>
-      <p class="lead">Australia-wide by design, deepest where our worker pools are. An honest map beats a marketing one: here is where you'll find the most choice today.</p>
+      <p class="lead">Available across Australia by design, with the deepest coverage where our worker pools are. An honest map beats a marketing one: here is where you'll find the most choice today.</p>
     </div>
   </div>
   <section class="block">
@@ -3920,7 +3921,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         </div>
         <div class="info-card">
           <h3 style="margin:0 0 8px;">Everywhere else</h3>
-          <p>Registered Australia-wide, and honest about depth: outside the three cities, choice is thinner today. <a href="#/find-workers">Search your suburb</a> to see who's near you now, or <a href="#/post-job">post a job</a> — a post reaches workers a search can't.</p>
+          <p>Available across Australia, and honest about depth: outside the three cities, choice is thinner today. <a href="#/find-workers">Search your suburb</a> to see who's near you now, or <a href="#/post-job">post a job</a> — a post reaches workers a search can't.</p>
         </div>
       </div>
       <p class="tbl-note" style="margin-top:18px;">Remote and very remote loadings follow the NDIS Pricing Arrangements. Wherever you are, the published maximum prices, the checks and the record-keeping are identical.</p>
@@ -3976,12 +3977,12 @@ html.high-contrast .care-stage-block{display:none!important;}
           </div>
           <div id="threadContent" hidden style="display:contents;">
             <div class="thread-head">
-              <button class="thread-back" id="threadBack" aria-label="Back to conversations">
+              <button class="thread-back" id="threadBack" aria-label="Back to conversations" type="button">
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
               <div class="wc-avatar" id="threadAvatar"></div>
               <div><b id="threadName"></b><small id="threadMeta"></small></div>
-              <button class="btn btn-secondary btn-sm" id="threadProfileBtn">View profile</button>
+              <button class="btn btn-secondary btn-sm" id="threadProfileBtn" type="button">View profile</button>
             </div>
             <div class="thread-safety">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/></svg>
@@ -4471,7 +4472,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 <!-- ============ MODALS ============ -->
 <div class="modal-overlay" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
   <div class="modal">
-    <button class="close-x" data-close aria-label="Close log in dialog">✕</button>
+    <button class="close-x" data-close aria-label="Close log in dialog" type="button">✕</button>
     <h2 id="loginTitle">Welcome back</h2>
     <p class="muted-sm">Log in to book shifts, message your team and manage your account.</p>
     <form class="form-grid" id="loginForm">
@@ -4486,7 +4487,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 
 <div class="modal-overlay" id="forgotModal" role="dialog" aria-modal="true" aria-labelledby="forgotTitle">
   <div class="modal">
-    <button class="close-x" data-close aria-label="Close password reset dialog">✕</button>
+    <button class="close-x" data-close aria-label="Close password reset dialog" type="button">✕</button>
     <h2 id="forgotTitle">Reset your password</h2>
     <p class="muted-sm">Tell us your account email and we'll send you a link to choose a new password.</p>
     <form class="form-grid" id="forgotForm">
@@ -4503,7 +4504,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 
 <div class="modal-overlay" id="bookingModal" role="dialog" aria-modal="true" aria-labelledby="bkTitle">
   <div class="modal">
-    <button class="close-x" data-close aria-label="Close booking dialog">✕</button>
+    <button class="close-x" data-close aria-label="Close booking dialog" type="button">✕</button>
     <h2 id="bkTitle">Request a booking</h2>
     <p class="muted-sm">with <b id="bkWorkerName"></b> — they'll accept or suggest another time. Nothing is charged until after the shift.</p>
     <form class="form-grid" id="bookingForm">
@@ -4547,7 +4548,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 
 <div class="modal-overlay" id="docPickModal" role="dialog" aria-modal="true" aria-labelledby="dpTitle">
   <div class="modal">
-    <button class="close-x" data-close aria-label="Close">✕</button>
+    <button class="close-x" data-close aria-label="Close" type="button">✕</button>
     <h2 id="dpTitle">Attach a document you hold</h2>
     <p class="muted-sm" id="dpIntro">No uploading — this is a pointer to a document already on BookIt, with its live verification status carried along.</p>
     <div id="dpList" class="dp-list" role="list"></div>
@@ -4556,6 +4557,8 @@ html.high-contrast .care-stage-block{display:none!important;}
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+
+<script src="/assets/bookit-a11y-dialogs.js" defer></script>
 <script>
 /* ============ Data ============ */
 const SERVICES = [
@@ -4692,7 +4695,7 @@ const WORKERS = [
 WORKERS.forEach(w => { w.demo = true; });
 
 const FAQS = [
-  {q:'What is BookIt?', a:'BookIt is an NDIS-registered online platform where you find, book and manage your own support workers. Unlike directories or gig apps, every worker is <b>our employee</b> — screened, insured and paid under the SCHADS Award — while you stay in control of who supports you and when.', home:true},
+  {q:'What is BookIt?', a:'BookIt is operated by <b>Disability &amp; Mental Health Care Pty Ltd</b>, a registered NDIS provider, and lets you find, book and manage your own support workers. Unlike directories or gig apps, every worker is <b>our employee</b> — screened, insured and paid under the SCHADS Award — while you stay in control of who supports you and when.', home:true},
   {q:'Who runs BookIt?', a:'BookIt is built and operated by <b>Disability &amp; Mental Health Care Pty Ltd</b> (ABN 19 658 578 575), an NSW-based registered NDIS provider — NDIS registration <b>4-LO5XNY0</b>, registered to deliver supports throughout Australia (current registration period to January 2029). Registration means we\'re audited against the NDIS Practice Standards, covered by the NDIS Code of Conduct, and accountable to the NDIS Quality and Safeguards Commission.'},
   {q:'Who can use BookIt?', a:'Anyone with an NDIS plan — whether it\'s <b>self-managed, plan-managed or NDIA-managed</b>. Because we\'re a registered provider, all three plan types can book with us. Families, nominees and support coordinators can manage an account on a participant\'s behalf. You can also book privately without NDIS funding.', home:true},
   {q:'What supports can I book?', a:'We focus on six NDIS registration groups: employment support (0102), personal care (0107), travel & transport (0108), daily tasks & shared living (0115/0138), household tasks (0120) and community participation (0125). See <a href="#/services">Support services</a> for what each covers.', home:true},
@@ -4703,7 +4706,7 @@ const FAQS = [
   {q:'What if I need to cancel a booking?', a:'Life happens. Cancellation rules depend on the support item and the current NDIS Pricing Arrangements — the exact window for your booking is shown before you confirm and in your service agreement. With plenty of notice a cancellation is free; short-notice cancellations may be charged, and your worker still gets paid for the shift.'},
   {q:'Can my worker drive me in their car?', a:'Yes. Workers providing transport hold a police check, a valid licence and appropriate insurance. A per-kilometre vehicle allowance applies, which can be claimed from your plan where funded (0108 Assist-Travel/Transport).'},
   {q:'What can\'t I book on BookIt?', a:'We\'re registered for personal care at <b>standard intensity</b> (registration group 0107), not for <b>high intensity daily personal activities</b> (0104) — so complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections and complex wound management are <b>specialist supports</b>: we arrange them rather than deliver them. We don\'t provide nursing either. Tell us and we\'ll introduce you to a provider registered for it who you engage directly, then roster the rest of your plan around them — <a href="#/specialist-supports">how that works</a>. We <b>are</b> registered for Supported Independent Living (Registration Group 138) — SIL is arranged as a package rather than booked shift-by-shift, so <a href="#/contact">talk to us</a> about SIL and shared-living arrangements and we\'ll set it up properly.'},
-  {q:'Where is BookIt available?', a:'We\'re Australia-wide, with the deepest worker pools in greater Sydney, Melbourne and Brisbane. Enter your suburb on <a href="#/find-workers">Find workers</a> to see who\'s nearby.'},
+  {q:'Where is BookIt available?', a:'We\'re available across Australia, with the deepest worker pools in greater Sydney, Melbourne and Brisbane. Enter your suburb on <a href="#/find-workers">Find workers</a> to see who\'s nearby.'},
   {q:'How do workers get paid?', a:'Automatically, fortnightly, straight from your approved shift hours — including super and penalty rates. Workers see their full pay breakdown for every shift before they accept it.'},
   {q:'Is my information safe?', a:'Your data is encrypted in transit and held on Australian servers (AWS Sydney); before launch we are verifying every supporting system — backups, email, monitoring — meets the same bar. It is never sold, and you control what appears on your profile. Our <a href="#/legal">privacy policy</a> sets out how we work to the Privacy Act and the NDIS Practice Standards.'}
 ];
@@ -4734,6 +4737,17 @@ let RATES = [
 const $ = (s, el=document) => el.querySelector(s);
 const $$ = (s, el=document) => [...el.querySelectorAll(s)];
 const money = n => '$' + n.toFixed(2);
+function publicFromRateValue(){
+  const row = RATES.find(r => r.category === 'weekday-day') || RATES.find(r => r.label === 'Weekday daytime') || RATES[0];
+  const value = Number(row && (row.you ?? row.cap));
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+function hydratePublicFromRateNodes(){
+  const value = publicFromRateValue();
+  document.querySelectorAll('[data-public-from-rate]').forEach(node => {
+    node.textContent = value == null ? 'See current rates' : value.toFixed(2);
+  });
+}
 /* Lives up here with the other one-line formatters rather than down in the messaging
    section where it started. `const` is not hoisted, so anything that runs during
    script-init — the public rate tables and the pay ladder both do — hits the temporal
@@ -5196,7 +5210,7 @@ window.CALC_PROMISE = (async () => {
   if(!d) return null;
   if(d.ladder && d.ladder.length) LADDER = d.ladder;
   if(d.rates && d.rates.length) RATES = d.rates.map(r => ({ ...r, cap: r.you }));
-  if((d.rates && d.rates.length) || (d.ladder && d.ladder.length)) renderRateTables();
+  if((d.rates && d.rates.length) || (d.ladder && d.ladder.length)){ renderRateTables(); hydratePublicFromRateNodes(); }
   if(d.calc){ window.CALC = d.calc; renderClaimSection(); }
   return d.calc || null;
 })();
@@ -5370,18 +5384,18 @@ function workerCard(w){
     <div class="wc-top">
       ${avatarHtml(w)}
       <div>
-        <div class="wc-name">${w.name}
+        <div class="wc-name">${esc(w.name)}
           ${w.demo ? '<span class="wc-demo">Demo</span>' : VERIFIED_ROSETTE}
         </div>
-        <div class="wc-meta">${w.suburb} · ${w.exp} · ${w.shifts ? `★ ${w.rating.toFixed(1)} (${w.shifts} shifts)` : 'New to BookIt'}</div>
+        <div class="wc-meta">${esc(w.suburb)} · ${esc(w.exp)} · ${w.shifts ? `★ ${w.rating.toFixed(1)} (${w.shifts} shifts)` : 'New to BookIt'}</div>
       </div>
     </div>
-    <p class="wc-bio">${w.bio}</p>
+    <p class="wc-bio">${esc(w.bio)}</p>
     <div class="wc-tags">${w.services.map(s => `<span class="wc-tag">${SVC_NAME[s]}</span>`).join('')}${(w.interests || []).slice(0, 3).map(t => `<span class="wc-int">${esc(t)}</span>`).join('')}${(w.interests || []).length > 3 ? `<span class="wc-int">+${w.interests.length - 3}</span>` : ''}</div>
     ${String(w.langs || 'English') !== 'English' ? `<p class="muted-sm" style="margin:6px 0 0;">Speaks ${esc(w.langs)}</p>` : ''}
     <div class="wc-foot">
-      <span class="wc-rate">From <b>$73.58</b>/hr${savedIds().includes(w.id) ? ' <span title="Saved" aria-label="Saved worker" style="color:var(--amber);">★</span>' : ''}</span>
-      <button class="btn btn-secondary btn-sm" data-worker="${w.id}">View profile</button>
+      <span class="wc-rate">From <b>$<span data-public-from-rate>${(publicFromRateValue() || 0).toFixed(2)}</span></b>/hr${savedIds().includes(w.id) ? ' <span title="Saved" aria-label="Saved worker" style="color:var(--amber);">★</span>' : ''}</span>
+      <button class="btn btn-secondary btn-sm" data-worker="${w.id}" type="button">View profile</button>
     </div>
   </article>`;
 }
@@ -5623,10 +5637,10 @@ async function renderWorkerPage(id){
         <div class="wp-stats">${stats.map(([b, l]) => `<div class="wp-stat"><b>${b}</b><span>${l}</span></div>`).join('')}</div>
       </div>
       <div class="wp-tabbar" role="tablist" aria-label="Profile sections">
-        <button class="wp-tab" role="tab" id="wpTab-about" data-pane="about" aria-controls="wpPane-about" aria-selected="true">About</button>
-        <button class="wp-tab" role="tab" id="wpTab-support" data-pane="support" aria-controls="wpPane-support" aria-selected="false" tabindex="-1">Support &amp; times</button>
-        <button class="wp-tab" role="tab" id="wpTab-reviews" data-pane="reviews" aria-controls="wpPane-reviews" aria-selected="false" tabindex="-1">Reviews${w.shifts ? ` (${w.shifts})` : ''}</button>
-        <button class="wp-tab" role="tab" id="wpTab-checks" data-pane="checks" aria-controls="wpPane-checks" aria-selected="false" tabindex="-1">Checks</button>
+        <button class="wp-tab" role="tab" id="wpTab-about" data-pane="about" aria-controls="wpPane-about" aria-selected="true" type="button">About</button>
+        <button class="wp-tab" role="tab" id="wpTab-support" data-pane="support" aria-controls="wpPane-support" aria-selected="false" tabindex="-1" type="button">Support &amp; times</button>
+        <button class="wp-tab" role="tab" id="wpTab-reviews" data-pane="reviews" aria-controls="wpPane-reviews" aria-selected="false" tabindex="-1" type="button">Reviews${w.shifts ? ` (${w.shifts})` : ''}</button>
+        <button class="wp-tab" role="tab" id="wpTab-checks" data-pane="checks" aria-controls="wpPane-checks" aria-selected="false" tabindex="-1" type="button">Checks</button>
       </div>
       <div class="wp-pane on" id="wpPane-about" role="tabpanel" aria-labelledby="wpTab-about">
       <div class="wp-card">
@@ -5697,18 +5711,18 @@ async function renderWorkerPage(id){
     </div>
     <aside class="wp-aside">
       <div class="wp-card">
-        <div class="wp-rate"><b>From $73.58</b><span class="muted-sm"> /hr</span><br><small class="muted-sm">The price depends on the support, day and time — pick a support when you book and the exact price shows before you confirm. Employment support is a flat $83.87/hr; household tasks $60.10/hr. <a href="#/pricing">All rates →</a></small></div>
+        <div class="wp-rate"><b>From $<span data-public-from-rate>${(publicFromRateValue() || 0).toFixed(2)}</span></b><span class="muted-sm"> /hr</span><br><small class="muted-sm">The price depends on the support, day and time — pick a support when you book and the exact price shows before you confirm. Employment support is a flat $83.87/hr; household tasks $60.10/hr. <a href="#/pricing">All rates →</a></small></div>
         ${own ? `
         <div class="wp-actions">
           <div class="wp-trustbox" style="margin:0;">This is your profile exactly as participants see it. Nice work${w.photo ? '' : ' — add a photo to really bring it to life'}!</div>
-          <button class="btn btn-primary" id="wpEdit">Edit my profile</button>
+          <button class="btn btn-primary" id="wpEdit" type="button">Edit my profile</button>
         </div>` : `
         <div class="wp-actions">
-          <button class="btn btn-coral" id="wpBook">Request a booking</button>
-          <button class="btn btn-primary" id="wpMessage">Message ${first}</button>
+          <button class="btn btn-coral" id="wpBook" type="button">Request a booking</button>
+          <button class="btn btn-primary" id="wpMessage" type="button">Message ${first}</button>
           <div class="wp-mini">
-            <button class="btn btn-secondary btn-star" id="wpSave" aria-pressed="${savedIds().includes(w.id)}">${savedIds().includes(w.id) ? '★ Saved' : '☆ Save'}</button>
-            <button class="btn btn-secondary" id="wpShare">Share</button>
+            <button class="btn btn-secondary btn-star" id="wpSave" aria-pressed="${savedIds().includes(w.id)}" type="button">${savedIds().includes(w.id) ? '★ Saved' : '☆ Save'}</button>
+            <button class="btn btn-secondary" id="wpShare" type="button">Share</button>
           </div>
         </div>`}
         <ul class="wp-trust">
@@ -5752,7 +5766,7 @@ async function renderWorkerPage(id){
         if(window.openBookingModal) openBookingModal(w);
         return;
       }
-      toast(`Demo only — on the live site you'd book ${w.name.split(' ')[0]} right here.`);
+      toast(`Demo only — on the live site you'd book ${esc(w.name.split(' ')[0])} right here.`);
     });
     $('#wpMessage').addEventListener('click', () => startConvo(w.id));
     $('#wpSave').addEventListener('click', () => {
@@ -6395,10 +6409,10 @@ function convoItem(c){
   const w = WORKERS.find(x => x.id === c.workerId);
   const last = c.messages[c.messages.length - 1] || {from:'them', text:'New conversation — say hi 👋', time:''};
   const initials = w.name.split(' ').map(p => p[0]).join('').slice(0,2);
-  return `<button class="convo-item ${c.unread ? 'ci-unread' : ''} ${c.workerId === activeConvoId ? 'active' : ''}" data-convo="${c.workerId}" role="listitem">
+  return `<button class="convo-item ${c.unread ? 'ci-unread' : ''} ${c.workerId === activeConvoId ? 'active' : ''}" data-convo="${c.workerId}" role="listitem" type="button">
     <div class="wc-avatar" style="background:${w.color};">${initials}</div>
     <div class="ci-main">
-      <div class="ci-top"><b>${w.name}</b><time>${last.time}</time></div>
+      <div class="ci-top"><b>${esc(w.name)}</b><time>${last.time}</time></div>
       <div class="ci-preview">${last.from === 'me' ? 'You: ' : ''}${esc(last.text)}</div>
     </div>
     ${c.unread ? '<span class="ci-dot" aria-label="' + c.unread + ' unread"></span>' : ''}
@@ -6429,7 +6443,7 @@ function renderThread(){
   av.style.background = w.color;
   av.textContent = initials;
   $('#threadName').textContent = w.name;
-  $('#threadMeta').textContent = `${w.suburb} · usually replies within a few hours`;
+  $('#threadMeta').textContent = `${esc(w.suburb)} · usually replies within a few hours`;
   $('#threadProfileBtn').dataset.worker = w.id;
   $('#threadBody').innerHTML = `<div class="day-divider">Meet & greets are always free</div>` + c.messages.map(bubbleHtml).join('');
   $('#threadBody').scrollTop = $('#threadBody').scrollHeight;
@@ -6488,7 +6502,7 @@ function startConvo(workerId){
     const c = getConvo(workerId);
     if(!c.messages.length){
       const w = WORKERS.find(x => x.id === workerId);
-      toast(`Say hi to ${w.name.split(' ')[0]} — meet and greets are always free.`);
+      toast(`Say hi to ${esc(w.name.split(' ')[0])} — meet and greets are always free.`);
     }
   }, 60);
 }
@@ -6554,7 +6568,7 @@ function simulateReply(workerId){
       } else {
         c.unread++;
         updateMsgBadge();
-        toast(`New message from ${w.name}`);
+        toast(`New message from ${esc(w.name)}`);
         if(location.hash.includes('/messages')) renderConvoList();
       }
     }, 1500);
@@ -6760,7 +6774,7 @@ function updateAuthUI(){
       : 'This is a demo — accounts aren\'t connected yet. <a href="#/get-started" data-close>Create a profile instead →</a>';
   }
   const note = $('#workersNote');
-  if(note && API.online) note.textContent = 'Live worker profiles from the BookIt database — new workers appear here the moment they register.';
+  if(note && API.online) note.textContent = 'Live worker profiles from the BookIt database — workers appear here after their required checks, profile photo and office approval are complete.';
 }
 
 /* ---------- account chip + menu ---------- */
@@ -7014,7 +7028,32 @@ async function loadWorkersLive(){
     else renderWorkerGrid();
     $('#homeWorkers').innerHTML = WORKERS.slice(0, 3).map(workerCard).join('');
     demoNote('homeWorkersDemo', WORKERS.slice(0, 3), DEMO_NOTE_HOME);
-  }catch(e){}
+  }catch (error) {
+      console.error('[workers] Unable to load live worker profiles', error);
+      try {
+        if (typeof workers !== 'undefined' && Array.isArray(workers)) workers.length = 0;
+        const grid = document.getElementById('workerGrid') || document.getElementById('workersGrid') || document.querySelector('[data-worker-grid]') || document.querySelector('.workers-grid');
+        if (grid) {
+          grid.replaceChildren();
+          const state = document.createElement('div');
+          state.className = 'empty-state worker-load-error';
+          state.setAttribute('role', 'status');
+          const heading = document.createElement('h3');
+          heading.textContent = 'Worker profiles could not be loaded';
+          const message = document.createElement('p');
+          message.textContent = 'Please try again. No demonstration profiles are being shown as live results.';
+          const retry = document.createElement('button');
+          retry.type = 'button';
+          retry.className = 'btn btn-secondary';
+          retry.textContent = 'Try again';
+          retry.addEventListener('click', () => loadWorkersLive());
+          state.append(heading, message, retry);
+          grid.append(state);
+        }
+      } catch (renderError) {
+        console.error('[workers] Unable to render worker loading error', renderError);
+      }
+    }
 }
 
 async function refreshUnreadBadge(){
@@ -7039,7 +7078,7 @@ async function renderMessagesOnline(){
   LIVE.convos = d.conversations || [];
   setUnread(LIVE.convos.reduce((n, c) => n + c.unread, 0));
   $('#convoList').innerHTML = LIVE.convos.map(c => `
-    <button class="convo-item ${c.unread ? 'ci-unread' : ''} ${c.id === LIVE.activeCid ? 'active' : ''}" data-cid="${c.id}" role="listitem">
+    <button class="convo-item ${c.unread ? 'ci-unread' : ''} ${c.id === LIVE.activeCid ? 'active' : ''}" data-cid="${c.id}" role="listitem" type="button">
       <div class="wc-avatar" style="background:${c.other.color};">${c.other.name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
       <div class="ci-main">
         <div class="ci-top"><b>${esc(c.other.name)}</b><time>${c.last ? fmtStamp(c.last.created) : ''}</time></div>
@@ -7554,15 +7593,15 @@ async function renderBookingsPage(){
       </div>
       <span class="bk-status bk-${b.status}">${STATUS_LABEL[b.status] || b.status}</span>
       <div class="bk-actions">
-        ${vrole() === 'worker' && b.status === 'requested' && wActive && !bookingProviderLocked(b) && bookingStartLocal(b) > new Date() ? `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="accepted">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined">Decline</button>` : ''}
+        ${vrole() === 'worker' && b.status === 'requested' && wActive && !bookingProviderLocked(b) && bookingStartLocal(b) > new Date() ? `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="accepted" type="button">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined" type="button">Decline</button>` : ''}
         ${vrole() === 'worker' && ['requested','accepted'].includes(b.status) && (!wActive || bookingProviderLocked(b)) ? `<span class="muted-sm" style="color:#7a4a12;"><b>${['office','uncovered','failed'].includes(String(b.cover_state || '')) ? 'The office is handling this shift' : 'We\'re looking for cover'}</b> — booking actions are paused.</span>` : ''}
         ${vrole() === 'worker' && b.status === 'requested' && wActive && !bookingProviderLocked(b) && bookingStartLocal(b) <= new Date() ? `<span class="muted-sm" style="color:#7a4a12;"><b>This shift has already started.</b> It can no longer be accepted online — contact the office.</span>` : ''}
-        ${vrole() === 'worker' && b.status === 'accepted' && bookingEndLocal(b) <= new Date() && wActive && !bookingProviderLocked(b) ? `<button class="btn btn-primary btn-sm" data-note-open="${b.id}">Mark shift completed</button>` : ''}
+        ${vrole() === 'worker' && b.status === 'accepted' && bookingEndLocal(b) <= new Date() && wActive && !bookingProviderLocked(b) ? `<button class="btn btn-primary btn-sm" data-note-open="${b.id}" type="button">Mark shift completed</button>` : ''}
         ${vrole() === 'worker' && b.status === 'accepted' && bookingEndLocal(b) > new Date() && wActive && !bookingProviderLocked(b) ? `<span class="muted-sm">Completion opens after the scheduled end time.</span>` : ''}
-        ${vrole() === 'participant' && ['requested','accepted'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" data-cancel-open="${b.id}">Cancel</button>` : ''}
-        ${vrole() === 'participant' && b.series_id && !b.detached && ['requested','accepted'].includes(b.status) && bookingStartLocal(b) > new Date() ? `<button class="btn btn-secondary btn-sm" data-move-one="${b.id}">Move just this one</button>` : ''}
-        ${vrole() === 'worker' && ['requested','accepted'].includes(b.status) && !b.cover_state && wActive && (b.status === 'accepted' || bookingStartLocal(b) > new Date()) ? `<button class="btn btn-secondary btn-sm" data-cant="${b.id}">I can't make it</button>` : ''}
-        ${vrole() === 'participant' && b.cover_state === 'finding' ? `<button class="btn btn-secondary btn-sm" data-standdown="${b.id}">Don't find cover</button>` : ''}
+        ${vrole() === 'participant' && ['requested','accepted'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" data-cancel-open="${b.id}" type="button">Cancel</button>` : ''}
+        ${vrole() === 'participant' && b.series_id && !b.detached && ['requested','accepted'].includes(b.status) && bookingStartLocal(b) > new Date() ? `<button class="btn btn-secondary btn-sm" data-move-one="${b.id}" type="button">Move just this one</button>` : ''}
+        ${vrole() === 'worker' && ['requested','accepted'].includes(b.status) && !b.cover_state && wActive && (b.status === 'accepted' || bookingStartLocal(b) > new Date()) ? `<button class="btn btn-secondary btn-sm" data-cant="${b.id}" type="button">I can't make it</button>` : ''}
+        ${vrole() === 'participant' && b.cover_state === 'finding' ? `<button class="btn btn-secondary btn-sm" data-standdown="${b.id}" type="button">Don't find cover</button>` : ''}
       </div>
     </div>`).join('');
   revealPendingSection();
@@ -8713,8 +8752,8 @@ async function renderAdminPage(){
           ? `<span class="adm-badge" style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;">${r.hi_labels.length ? 'handled' : 'cleared'} ${admDate(r.hi_referred_at)} ✓</span><br><span class="muted-sm">${esc(r.hi_note || '')}</span>`
           : `<input class="adm-hi-note" data-hi-note="${r.id}" placeholder="Called 21/07 — introduced to ___, they'll contact them directly." style="font:inherit;font-size:.85rem;padding:6px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:100%;box-sizing:border-box;">
              <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-               <button class="adm-btn-sm" data-hi-refer="${r.id}">Record introduction</button>
-               <button class="adm-btn-sm" data-hi-clear="${r.id}">Ticked in error</button>
+               <button class="adm-btn-sm" data-hi-refer="${r.id}" type="button">Record introduction</button>
+               <button class="adm-btn-sm" data-hi-clear="${r.id}" type="button">Ticked in error</button>
              </div>`}</td>
       </tr>`).join('')}
     </tbody></table></div>`
@@ -8742,8 +8781,8 @@ async function renderAdminPage(){
           ? `<input class="adm-sr-to" data-sr-to="${r.id}" placeholder="Provider you introduced them to" style="font:inherit;font-size:.85rem;padding:6px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:100%;box-sizing:border-box;">
              <input class="adm-sr-note" data-sr-note="${r.id}" placeholder="Called 21/07, sent their details across, participant to contact them." style="font:inherit;font-size:.85rem;padding:6px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:100%;box-sizing:border-box;margin-top:6px;">
              <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-               <button class="adm-btn-sm" data-sr-refer="${r.id}">Record introduction</button>
-               <button class="adm-btn-sm" data-sr-withdraw="${r.id}">Ticked in error</button>
+               <button class="adm-btn-sm" data-sr-refer="${r.id}" type="button">Record introduction</button>
+               <button class="adm-btn-sm" data-sr-withdraw="${r.id}" type="button">Ticked in error</button>
              </div>`
           : `${r.referred_to ? `<b>${esc(r.referred_to)}</b><br>` : ''}<span class="muted-sm">${esc(r.note || '')}</span>${r.closed_at ? `<br><span class="muted-sm">${admDate(r.closed_at)}${r.closed_by ? ' · ' + esc(r.closed_by) : ''}</span>` : ''}`}</td>
       </tr>`).join('')}
@@ -8764,7 +8803,7 @@ async function renderAdminPage(){
         <b>${esc(r.worker_name)}</b> <span class="muted-sm">with ${esc(r.participant_name)} &middot; ${esc(svcName(r.service))} &middot; ${fmtAU(r.date)}</span>
         <p style="margin:6px 0 0;font-size:.92rem;">&ldquo;${esc(r.scope_detail)}&rdquo;</p>
         <textarea class="adm-sn-note" data-sn-note="${r.id}" rows="2" placeholder="Called ${esc(r.worker_name.split(' ')[0])} today — confirmed it's a 0104 support, told them they were right to decline. Participant to be introduced to ___." style="font:inherit;font-size:.85rem;line-height:1.5;padding:8px 10px;border-radius:8px;border:1.5px solid #E7DFD4;width:100%;box-sizing:border-box;margin-top:8px;resize:vertical;"></textarea>
-        <button class="adm-btn-sm" data-sn-review="${r.id}" style="margin-top:6px;">Record what we did</button>
+        <button class="adm-btn-sm" data-sn-review="${r.id}" style="margin-top:6px;" type="button">Record what we did</button>
       </div>`).join('')}
     </div>` : ''}
     ${snPeople.length ? `
@@ -8851,7 +8890,7 @@ async function renderAdminPage(){
         </div>`;
       })()}
       <div class="adm-actions">
-        <button class="btn btn-primary" data-adm-act="approve" data-uid="${w.user_id}">Approve — make visible</button>
+        <button class="btn btn-primary" data-adm-act="approve" data-uid="${w.user_id}" type="button">Approve — make visible</button>
         <label style="font-size:.82rem;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="ov-${w.user_id}"> approve anyway (profile photo still missing)</label>
       </div>
       <p style="margin:10px 0 0;font-size:.8rem;color:#3E5A64;">The 0137 conditions above <b>can't</b> be overridden — a person without a screening clearance may not use the platform, full stop. The profile-photo requirement is a BookIt rule, so that one is your call and the override is recorded.</p>
@@ -8871,10 +8910,10 @@ async function renderAdminPage(){
       ${dd.status === 'expired' ? '<span style="color:#D94F32;font-weight:700;"> EXPIRED</span>' : dd.status === 'expiring' ? `<span style="color:#8a6d00;"> ${dd.days}d left</span>` : ''}
       ${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">file</a>` : ''}
       ${dd.review === 'rejected' ? ` · <span style="color:#D94F32;font-weight:700;">rejected</span>` : ''}
-      ${dd.verified_at ? ` · <span style="color:#1C7C43;">verified ✓ ${esc(dd.verified_by || '')}</span>` : ` · <button class="adm-btn-sm" data-doc-verify="${dd.id}">Verify (checked NWSD)</button>`}
-      ${dd.review !== 'rejected' ? ` · <button class="adm-btn-sm" data-doc-reject="${dd.id}" style="color:#D94F32;">reject</button>` : ''}
-      · <button class="adm-btn-sm" data-doc-del="${dd.id}">remove</button></div>`).join('') : '<span class="adm-empty">nothing on file</span>'}
-    <div style="margin-top:6px;"><button class="adm-btn-sm" data-req-doc="${w.id}">＋ ask for a document</button></div></td>
+      ${dd.verified_at ? ` · <span style="color:#1C7C43;">verified ✓ ${esc(dd.verified_by || '')}</span>` : ` · <button class="adm-btn-sm" data-doc-verify="${dd.id}" type="button">Verify (checked NWSD)</button>`}
+      ${dd.review !== 'rejected' ? ` · <button class="adm-btn-sm" data-doc-reject="${dd.id}" style="color:#D94F32;" type="button">reject</button>` : ''}
+      · <button class="adm-btn-sm" data-doc-del="${dd.id}" type="button">remove</button></div>`).join('') : '<span class="adm-empty">nothing on file</span>'}
+    <div style="margin-top:6px;"><button class="adm-btn-sm" data-req-doc="${w.id}" type="button">＋ ask for a document</button></div></td>
   </tr>`).join('');
   /* ---------- 0137 conditions board ----------
      BookIt is applying to be registered for 0137 NDIS Digital Platform Service,
@@ -8910,7 +8949,7 @@ async function renderAdminPage(){
               ${Object.keys(SCREEN_LABEL).map(k => `<option value="${k}" ${w.c_screening_status === k ? 'selected' : ''}>${SCREEN_LABEL[k]}</option>`).join('')}
             </select>
             <input class="c37-scr-ref" data-uid="${w.id}" placeholder="ref / clearance no." value="${esc(scr.ref || '')}" style="width:130px;">
-            <button class="adm-btn-sm" data-c37-scr="${w.id}">Record</button>
+            <button class="adm-btn-sm" data-c37-scr="${w.id}" type="button">Record</button>
           </div>
           <span style="font-size:.74rem;color:#3E5A64;">${scr.status_at ? 'Confirmed ' + admDate(scr.status_at) + (scr.source ? ' · ' + esc(scr.source) : '') : 'Look the worker up on the NDIS Worker Check portal, then record what it says.'}</span></td>
         <td>${w.c_banning_result === 'banned' ? '<span class="c37-no">✗ BANNING ORDER</span>'
@@ -8920,21 +8959,21 @@ async function renderAdminPage(){
             `${esc(r.short)}: <b style="color:${r.result === 'clear' ? '#2E6B4F' : '#D94F32'};">${r.result === 'clear' ? 'clear' : r.result === 'banned' ? 'ORDER' : 'not checked'}</b>${r.checked_at ? ' · ' + admDate(r.checked_at) : ''}`
           ).join('<br>')}</div>
           <div class="c37-ctl">
-            <button class="adm-btn-sm" data-c37-ban="${w.id}" data-all="clear">All three checked — clear</button>
+            <button class="adm-btn-sm" data-c37-ban="${w.id}" data-all="clear" type="button">All three checked — clear</button>
           </div>
           <div class="c37-ctl">
             <select class="c37-ban-reg" data-uid="${w.id}" style="font:inherit;font-size:.76rem;">
               ${(w.c_registers || []).map(r => `<option value="${r.key}">${esc(r.short)}</option>`).join('')}
             </select>
-            <button class="adm-btn-sm" data-c37-ban-one="${w.id}" data-result="clear">clear</button>
-            <button class="adm-btn-sm" data-c37-ban-one="${w.id}" data-result="banned" style="border-color:#D94F32;color:#D94F32;">order in force</button>
+            <button class="adm-btn-sm" data-c37-ban-one="${w.id}" data-result="clear" type="button">clear</button>
+            <button class="adm-btn-sm" data-c37-ban-one="${w.id}" data-result="banned" style="border-color:#D94F32;color:#D94F32;" type="button">order in force</button>
           </div></td>
         <td>${yn(w.c_evidence, 'recorded', 'not recorded')}
           ${sd && sd.method ? `<br><span style="font-size:.78rem;color:#3E5A64;">${esc(VERIFY_METHODS[sd.method] || sd.method)}${sd.ref ? ' · ' + esc(sd.ref) : ''}</span>` : ''}</td>
         <td>${yn(w.c_displayed, 'shown', 'nothing to show')}
           <div class="c37-ctl">
             <button class="adm-btn-sm" data-c37-block="${w.id}" data-on="${blk.on ? '0' : '1'}"
-              style="${blk.on ? '' : 'border-color:#D94F32;color:#D94F32;'}">${blk.on ? 'Lift the block' : 'Block from platform'}</button>
+              style="${blk.on ? '' : 'border-color:#D94F32;color:#D94F32;'}" type="button">${blk.on ? 'Lift the block' : 'Block from platform'}</button>
           </div>
           ${blk.on && blk.reason ? `<span style="font-size:.74rem;color:#D94F32;">${esc(blk.reason)}</span>` : ''}</td>
       </tr>`;
@@ -8966,13 +9005,13 @@ async function renderAdminPage(){
           ${demoN ? ` ${demoN} demo profile${demoN === 1 ? ' is' : 's are'} excluded from these counts — they are fictional and are removed at launch.` : ''}</p>
         <div class="c37-grid">${cCards}</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-          <button class="adm-btn-sm" id="c37Recheck">▶ Re-test every worker now</button>
+          <button class="adm-btn-sm" id="c37Recheck" type="button">▶ Re-test every worker now</button>
           <a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/compliance/0137.csv" download>⬇ Conditions register (CSV)</a>
           <a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/compliance/log.csv" download>⬇ Evidence log (CSV)</a>
           <span style="flex:1;"></span>
           <label style="font-size:.8rem;">Re-check banning orders every<br><input id="c37Win" type="number" min="1" max="365" value="${cmp.settings.banning_recheck_days}" style="font:inherit;font-size:.82rem;padding:5px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:80px;"> days</label>
           <label style="font-size:.8rem;">Grace before withdrawal<br><input id="c37Grace" type="number" min="0" max="120" value="${cmp.settings.banning_grace_days}" style="font:inherit;font-size:.82rem;padding:5px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:80px;"> days</label>
-          <button class="adm-btn-sm" id="c37Save">Save</button>
+          <button class="adm-btn-sm" id="c37Save" type="button">Save</button>
         </div>
       </div>
       ${c37Rows ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr>
@@ -8985,7 +9024,7 @@ async function renderAdminPage(){
         : '<p class="adm-empty">Nothing logged yet — verifying a document or recording a check writes the first entry.</p>'}`;
   }
   const credentials = `
-    <p style="margin:0 0 10px;"><button class="adm-btn-sm" id="admSweep">▶ Run the automatic check now</button>
+    <p style="margin:0 0 10px;"><button class="adm-btn-sm" id="admSweep" type="button">▶ Run the automatic check now</button>
     <span style="font-size:.85rem;color:#3E5A64;margin-left:8px;">Runs by itself twice a day: warns workers and you at 30 and 7 days before expiry, chases the banning-order re-check before it falls due, and withdraws — then restores — anyone whose 0137 position changes. "Verify" asks how you satisfied yourself and records it; the screening database has no public connection, so that step is a human one either way.</span></p>
     ${credRows ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Worker</th><th>Screening</th><th>Documents</th></tr></thead><tbody>${credRows}</tbody></table></div>` : '<p class="adm-empty">No real workers yet — credentials appear as workers add them.</p>'}`;
   /* ---------- participant files ----------
@@ -9013,9 +9052,9 @@ async function renderAdminPage(){
           : ' · <span style="color:#8a6d00;">on paper only — no file here</span>'}
         ${d.uploaded_by ? ` · <span style="color:#3E5A64;font-size:.78rem;">filed by ${esc(d.uploaded_by)}</span>` : ''}
         ${d.verified_at ? ` · <span style="color:#1C7C43;">checked ✓ ${esc(d.verified_by || '')}${d.verify_method ? ' · ' + esc((pdx.methods || {})[d.verify_method] || d.verify_method) : ''}</span>`
-          : ` · <button class="adm-btn-sm" data-pdoc-verify="${d.id}">Check it</button>`}
-        ${d.review === 'rejected' ? '<span style="color:#D94F32;font-weight:700;"> rejected</span>' : ` · <button class="adm-btn-sm" data-pdoc-reject="${d.id}" style="color:#D94F32;">reject</button>`}
-        · <button class="adm-btn-sm" data-pdoc-del="${d.id}">remove</button>${d.review === 'rejected' && d.review_note ? `<br><span style="color:#A5301A;font-size:.78rem;"><b>Why:</b> ${esc(d.review_note)}</span>` : ''}</div>`).join('');
+          : ` · <button class="adm-btn-sm" data-pdoc-verify="${d.id}" type="button">Check it</button>`}
+        ${d.review === 'rejected' ? '<span style="color:#D94F32;font-weight:700;"> rejected</span>' : ` · <button class="adm-btn-sm" data-pdoc-reject="${d.id}" style="color:#D94F32;" type="button">reject</button>`}
+        · <button class="adm-btn-sm" data-pdoc-del="${d.id}" type="button">remove</button>${d.review === 'rejected' && d.review_note ? `<br><span style="color:#A5301A;font-size:.78rem;"><b>Why:</b> ${esc(d.review_note)}</span>` : ''}</div>`).join('');
       const pct = p.of ? Math.round(p.held / p.of * 100) : 0;
       return `<div class="info-card" style="margin-bottom:14px;">
         <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;">
@@ -9029,7 +9068,7 @@ async function renderAdminPage(){
         ${(p.outstanding || []).length ? `<p style="margin:10px 0 0;font-size:.86rem;"><b style="color:#D94F32;">Not on file (${p.outstanding.length}):</b>
           ${p.outstanding.map(o => esc(o.label) + (o.requested_at ? ` <span style="color:#8a6d00;font-size:.78rem;">(asked ${fmtAU(o.requested_at.slice(0,10))})</span>` : '')).join(' · ')}</p>
           <p class="muted-sm" style="margin:4px 0 0;">If you hold one of these on paper, file it below — or add the row without a file, which records that it exists and where, without claiming BookIt has a copy.</p>` : ''}
-        <div style="margin-top:8px;"><button class="adm-btn-sm" data-preq-doc="${p.id}">＋ ask for a document</button></div>
+        <div style="margin-top:8px;"><button class="adm-btn-sm" data-preq-doc="${p.id}" type="button">＋ ask for a document</button></div>
         <details style="margin-top:10px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;font-size:.9rem;">＋ File a document for ${esc(p.name)}</summary>
           <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
             <label style="font-size:.82rem;">What is it?<br><select class="pa-type" style="font:inherit;font-size:.85rem;padding:6px 9px;border-radius:9px;border:1.5px solid #E7DFD4;max-width:300px;">${pTypeOpts}</select></label>
@@ -9038,7 +9077,7 @@ async function renderAdminPage(){
             <label style="font-size:.82rem;">Expires<br><input class="pa-expiry" type="date" style="font:inherit;font-size:.85rem;padding:6px 9px;border-radius:9px;border:1.5px solid #E7DFD4;"></label>
             <label style="font-size:.82rem;">File <span style="color:#3E5A64;">(optional)</span><br><input class="pa-file" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.8rem;"></label>
             <label style="font-size:.82rem;">Where it is, if not here<br><input class="pa-note" maxlength="300" placeholder="e.g. signed original in the Illawong folder" style="font:inherit;font-size:.85rem;padding:6px 9px;border-radius:9px;border:1.5px solid #E7DFD4;width:230px;"></label>
-            <button class="btn btn-primary btn-sm pa-add" data-pa-add="${p.id}">File it</button>
+            <button class="btn btn-primary btn-sm pa-add" data-pa-add="${p.id}" type="button">File it</button>
           </div>
         </details>
       </div>`;
@@ -9063,8 +9102,8 @@ async function renderAdminPage(){
       : i.reportable ? (i.hours_left < 0 ? '<span style="color:#D94F32;font-weight:800;">OVERDUE</span>' : `<span style="color:${i.hours_left <= 6 ? '#D94F32' : '#8a6d00'};font-weight:700;">${i.hours_left}h left</span>`)
       : '—'}</td>
     <td>${esc(i.status)}</td>
-    <td>${i.reportable && !i.commission_notified_at ? `<button class="adm-btn-sm" data-inc-act="notified" data-nid="${i.id}">Commission notified</button> ` : ''}
-        ${i.status !== 'closed' ? `<button class="adm-btn-sm" data-inc-act="close" data-nid="${i.id}">Close</button>` : ''}</td>
+    <td>${i.reportable && !i.commission_notified_at ? `<button class="adm-btn-sm" data-inc-act="notified" data-nid="${i.id}" type="button">Commission notified</button> ` : ''}
+        ${i.status !== 'closed' ? `<button class="adm-btn-sm" data-inc-act="close" data-nid="${i.id}" type="button">Close</button>` : ''}</td>
   </tr>`;
   const incidents = `
     <p style="margin:0 0 10px;"><a class="adm-btn-sm" style="text-decoration:none;" href="/api/admin/incidents.csv" download>⬇ Incident register CSV</a>
@@ -9075,8 +9114,8 @@ async function renderAdminPage(){
     <td>${esc(x.source_name || 'Anonymous')}<br><span style="font-size:.8rem;color:#3E5A64;">${esc(x.source_email || '')} · ${esc(x.channel)}</span></td>
     <td>${esc(x.summary)}${x.outcome ? `<br><span style="font-size:.82rem;color:#1C7C43;">outcome: ${esc(x.outcome)}</span>` : ''}</td>
     <td>${esc(x.status)}${x.acknowledged_at ? '<br><span style="font-size:.78rem;color:#3E5A64;">ack ✓</span>' : ''}</td>
-    <td>${!x.acknowledged_at ? `<button class="adm-btn-sm" data-comp-act="acknowledge" data-cid="${x.id}">Acknowledge</button> ` : ''}
-        ${x.status !== 'resolved' ? `<button class="adm-btn-sm" data-comp-act="resolve" data-cid="${x.id}">Resolve</button>` : `<button class="adm-btn-sm" data-comp-act="reopen" data-cid="${x.id}">Reopen</button>`}</td>
+    <td>${!x.acknowledged_at ? `<button class="adm-btn-sm" data-comp-act="acknowledge" data-cid="${x.id}" type="button">Acknowledge</button> ` : ''}
+        ${x.status !== 'resolved' ? `<button class="adm-btn-sm" data-comp-act="resolve" data-cid="${x.id}" type="button">Resolve</button>` : `<button class="adm-btn-sm" data-comp-act="reopen" data-cid="${x.id}" type="button">Reopen</button>`}</td>
   </tr>`;
   const complaints = `
     <p style="margin:0 0 10px;"><a class="adm-btn-sm" style="text-decoration:none;" href="/api/admin/complaints.csv" download>⬇ Complaints register CSV</a>
@@ -9086,7 +9125,7 @@ async function renderAdminPage(){
       <label style="font-size:.82rem;">Email/phone<br><input id="compEmail" style="font:inherit;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;width:160px;"></label>
       <label style="font-size:.82rem;">Channel<br><select id="compChannel" style="font:inherit;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;"><option>phone</option><option>email</option><option>in-person</option><option>site</option><option>other</option></select></label>
       <label style="font-size:.82rem;flex:1;min-width:200px;">Summary<br><input id="compSummary" style="font:inherit;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;width:100%;"></label>
-      <button class="adm-btn-sm" id="compAdd">＋ Log complaint</button>
+      <button class="adm-btn-sm" id="compAdd" type="button">＋ Log complaint</button>
     </div>
     ${comps.complaints.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>#</th><th>From</th><th>Complaint</th><th>Status</th><th></th></tr></thead><tbody>${comps.complaints.map(compRow).join('')}</tbody></table></div>` : '<p class="adm-empty">No complaints on the register.</p>'}`;
   const bookings = d.bookings.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>When</th><th>Participant</th><th>Worker</th><th>Service</th><th>Status</th></tr></thead><tbody>
@@ -9101,8 +9140,8 @@ async function renderAdminPage(){
     ${d.users.map(u => `<tr><td>${u.id}</td><td>${esc(u.role)}</td><td>${esc(u.name)}</td><td>${esc(u.email)}</td>
       <td>${u.role === 'worker' ? (u.visible ? '<span class="adm-live">live</span>' : '<span class="adm-hidden">hidden</span>') : ''} ${u.verified ? '' : '· unverified email'}</td>
       <td>${u.role === 'worker' && !u.email.endsWith('@demo.bookit.life') ? (u.visible
-        ? `<button class="adm-btn-sm" data-adm-act="hide" data-uid="${u.id}">Hide</button>`
-        : `<button class="adm-btn-sm" data-adm-act="approve" data-uid="${u.id}">Approve</button>`) : ''}</td></tr>`).join('')}
+        ? `<button class="adm-btn-sm" data-adm-act="hide" data-uid="${u.id}" type="button">Hide</button>`
+        : `<button class="adm-btn-sm" data-adm-act="approve" data-uid="${u.id}" type="button">Approve</button>`) : ''}</td></tr>`).join('')}
   </tbody></table></div>`;
   const FUND_LABEL = { ndia: 'NDIA-managed', plan: 'Plan-managed', self: 'Self-managed', none: 'No NDIS', '': '—' };
   const claimRow = (r, showActions) => `<tr>
@@ -9114,7 +9153,7 @@ async function renderAdminPage(){
     <td><b>$${Number(r.total || 0).toFixed(2)}</b></td>
     <td>${showActions
       ? (r.flags.length ? `<span style="color:#D94F32;font-size:.78rem;">${esc(r.flags.join(' · '))}</span>` : '<span style="color:#1C7C43;font-size:.78rem;">ready ✓</span>')
-      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `<button class="adm-btn-sm" data-claim-paid="${r.id}">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
+      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `<button class="adm-btn-sm" data-claim-paid="${r.id}" type="button">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
   </tr>`;
   const claimTable = (rows, showActions) => `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Date</th><th>Participant</th><th>Funding</th><th>Shift</th><th>Support item</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(r => claimRow(r, showActions)).join('')}</tbody></table></div>`;
   const claims = `
@@ -9127,7 +9166,7 @@ async function renderAdminPage(){
       <h3 style="margin:14px 0 8px;">Uninvoiced completed shifts (${cl.unclaimed.length})</h3>
       ${claimTable(cl.unclaimed, true)}
       <p style="margin:12px 0 4px;">
-        <button class="btn btn-primary" id="admRunClaims">▶ Run claims &amp; invoices</button>
+        <button class="btn btn-primary" id="admRunClaims" type="button">▶ Run claims &amp; invoices</button>
         <span style="font-size:.85rem;color:#3E5A64;margin-left:10px;">NDIA-managed shifts join the claim file below · plan-managed and self-managed shifts get a PDF invoice emailed automatically from hello@bookit.life. Lines with red notes are skipped until fixed.</span>
       </p>`
       : '<p class="adm-empty">Nothing waiting to be claimed — all completed shifts are processed. 🎉</p>'}
@@ -9152,10 +9191,10 @@ async function renderAdminPage(){
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
         <label style="font-size:.85rem;">House name<br><input id="silHouseName" placeholder="Gosford — Wattle St" style="${inpStyle}width:190px;"></label>
         <label style="font-size:.85rem;">Address<br><input id="silHouseAddr" style="${inpStyle}width:220px;"></label>
-        <button class="btn btn-primary btn-sm" id="silAddHouse">Add house</button>
+        <button class="btn btn-primary btn-sm" id="silAddHouse" type="button">Add house</button>
         <span style="flex:1;"></span>
         <label style="font-size:.85rem;">Week starting (a Monday)<br><input id="silWeek" type="date" value="${nextMon}" style="${inpStyle}"></label>
-        <button class="btn btn-coral btn-sm" id="silGenerate">▶ Generate the week's bookings</button>
+        <button class="btn btn-coral btn-sm" id="silGenerate" type="button">▶ Generate the week's bookings</button>
       </div>
       <p class="muted-sm" style="margin:10px 0 0;">Each house holds a weekly repeating roster. Generating a week turns every filled slot into a real accepted booking tagged with the house name — completion, invoicing and claims then flow exactly like any other shift (0115 shared-living items, sleepovers at the flat night rate). Running it twice never duplicates.</p>
     </div>
@@ -9163,7 +9202,7 @@ async function renderAdminPage(){
     <div class="info-card" style="margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;">
         <h3 style="margin:0;">${esc(h.name)} <span style="font-weight:400;font-size:.85rem;color:#3E5A64;">${esc(h.address || '')}</span></h3>
-        <button class="adm-btn-sm" data-sil-house-del="${h.id}">remove house</button>
+        <button class="adm-btn-sm" data-sil-house-del="${h.id}" type="button">remove house</button>
       </div>
       <div class="sil-grid">
         ${DAYN.map((dn, di) => `
@@ -9173,7 +9212,7 @@ async function renderAdminPage(){
             <b>${esc(s.start)}</b> · ${s.hours}h${s.sleepover ? ' 🌙' : ''}<br>
             <span>${esc((SVC_NAME[s.service] || s.service))}</span><br>
             <span>${s.worker_name ? esc(s.worker_name.split(' ')[0]) : '<b style="color:#D94F32;">no worker</b>'} → ${s.participant_name ? esc(s.participant_name.split(' ')[0]) : '<b style="color:#D94F32;">no participant</b>'}</span><br>
-            <button class="adm-btn-sm" data-sil-slot-del="${s.id}" style="margin-top:4px;">remove</button>
+            <button class="adm-btn-sm" data-sil-slot-del="${s.id}" style="margin-top:4px;" type="button">remove</button>
           </div>`).join('') || '<span style="color:#3E5A64;">—</span>'}
         </div>`).join('')}
       </div>
@@ -9188,7 +9227,7 @@ async function renderAdminPage(){
           <label style="font-size:.82rem;display:flex;align-items:center;gap:5px;padding-bottom:8px;"><input type="checkbox" class="sil-sleep-in"> 🌙 Sleepover</label>
           <label style="font-size:.82rem;">Worker<br><select class="sil-worker-in" style="${inpStyle}"><option value="">— pick —</option>${sil.workers.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('')}</select></label>
           <label style="font-size:.82rem;">Participant<br><select class="sil-part-in" style="${inpStyle}"><option value="">— pick —</option>${sil.participants.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label>
-          <button class="btn btn-primary btn-sm" data-sil-slot-add="${h.id}">Add slot</button>
+          <button class="btn btn-primary btn-sm" data-sil-slot-add="${h.id}" type="button">Add slot</button>
         </div>
       </details>
     </div>`).join('') : '<p class="adm-empty">No SIL houses yet — add your first above. Each house holds a weekly repeating roster of shifts.</p>'}`;
@@ -9200,7 +9239,7 @@ async function renderAdminPage(){
         : '<span style="color:#D94F32;font-weight:700;">OFF — the site is PUBLIC</span>'}
         &nbsp;·&nbsp; <b>Demo data:</b> ${ln.demo_accounts ? `${ln.demo_accounts} demo account${ln.demo_accounts > 1 ? 's' : ''} still in the database` : '<span style="color:#1C7C43;font-weight:700;">clean ✓</span>'}</p>
       <ol style="margin:0 0 10px 20px;font-size:.92rem;line-height:1.7;">
-        <li>${ln.demo_accounts ? '<button class="adm-btn-sm" id="admLaunchSweep">Remove all demo data</button> — deletes the 12 demo workers, the demo participant, and every demo conversation & booking. Permanent.' : 'Demo data removed ✓'}</li>
+        <li>${ln.demo_accounts ? '<button class="adm-btn-sm" id="admLaunchSweep" type="button">Remove all demo data</button> — deletes the 12 demo workers, the demo participant, and every demo conversation & booking. Permanent.' : 'Demo data removed ✓'}</li>
         <li>On the server: <code>sudo nano /etc/bookit.env</code> → delete the <code>SITE_PASSWORD</code> line, add <code>SEED_DEMO=off</code>, save, then <code>sudo systemctl restart bookit</code>.</li>
         <li>That's launch — bookit.life is live and indexable. 🎉</li>
       </ol>
@@ -9212,7 +9251,7 @@ async function renderAdminPage(){
           <td>${esc(r.worker_name)}</td><td>${esc(r.participant_name)}</td>
           <td style="color:#F5B841;white-space:nowrap;">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</td>
           <td style="max-width:340px;">${esc(r.comment || '—')}</td>
-          <td><button class="adm-btn-sm" data-rev-toggle="${r.id}">${r.published ? 'Hide' : 'Show'}</button>${r.published ? '' : ' <span class="adm-hidden">(hidden)</span>'}</td>
+          <td><button class="adm-btn-sm" data-rev-toggle="${r.id}" type="button">${r.published ? 'Hide' : 'Show'}</button>${r.published ? '' : ' <span class="adm-hidden">(hidden)</span>'}</td>
         </tr>`).join('')}</tbody></table></div>`
     : '<p class="adm-empty">No reviews yet — participants are asked to rate each shift once it\'s completed.</p>';
   /* --- Build 26: the admin page, laid out like Settings ------------------
@@ -9678,8 +9717,8 @@ document.addEventListener('click', async e => {
         <input class="vr-ref" placeholder="e.g. NDISWC-123456789" maxlength="120"></label>
       <label>Note <span style="color:#3E5A64;">(optional)</span><br>
         <input class="vr-note" placeholder="e.g. rang the RTO, confirmed with A. Nguyen" maxlength="400"></label>
-      <button class="btn btn-primary btn-sm vr-go" data-doc-verify-go="${dv.dataset.docVerify}" style="margin-top:4px;">Record verification</button>
-      <button class="adm-btn-sm vr-cancel" style="margin-left:6px;">Cancel</button>`;
+      <button class="btn btn-primary btn-sm vr-go" data-doc-verify-go="${dv.dataset.docVerify}" style="margin-top:4px;" type="button">Record verification</button>
+      <button class="adm-btn-sm vr-cancel" style="margin-left:6px;" type="button">Cancel</button>`;
     dv.parentNode.insertBefore(box, dv.nextSibling);
     box.querySelector('.vr-ref').focus();
     return;
@@ -9742,8 +9781,8 @@ document.addEventListener('click', async e => {
         <select class="vr-method">${tpl ? tpl.innerHTML : '<option value="signed-copy">Signed copy on file</option>'}</select></label>
       <label>Note <span style="color:#3E5A64;">(optional)</span><br>
         <input class="vr-note" placeholder="e.g. signed original sighted 12/08/2026, filed in the Illawong folder" maxlength="300"></label>
-      <button class="btn btn-primary btn-sm" data-pdoc-verify-go="${pdv.dataset.pdocVerify}" style="margin-top:4px;">Record the check</button>
-      <button class="adm-btn-sm vr-cancel" style="margin-left:6px;">Cancel</button>`;
+      <button class="btn btn-primary btn-sm" data-pdoc-verify-go="${pdv.dataset.pdocVerify}" style="margin-top:4px;" type="button">Record the check</button>
+      <button class="adm-btn-sm vr-cancel" style="margin-left:6px;" type="button">Cancel</button>`;
     pdv.parentNode.insertBefore(bx, pdv.nextSibling);
     bx.querySelector('.vr-note').focus();
     return;
@@ -9864,7 +9903,7 @@ function careWebHtml(d){
         <b>${esc(w.name)}</b>
         <small>
           ${w.shifts_together ? `${w.shifts_together} shift${w.shifts_together > 1 ? 's' : ''} together` : 'No shifts together yet'}${w.covers_done ? ` · stepped in ${w.covers_done}×` : ''}
-          ${w.suburb ? ' · ' + esc(w.suburb) : ''}
+          ${esc(w.suburb ? ' · ' + esc(w.suburb) : '')}
         </small>
         <small style="margin-top:3px;">
           ${w.screening === 'expired'
@@ -10184,8 +10223,8 @@ function ladderBoardHtml(d){
       <td><select class="lad-lv" style="font:inherit;padding:4px 6px;border-radius:8px;border:1.5px solid #E7DFD4;">
         ${[1,2,3].map(l => `<option value="${l}" ${w.schads_level === l ? 'selected' : ''}>Level ${l}</option>`).join('')}</select></td>
       <td style="white-space:nowrap;">
-        <button class="adm-btn-sm lad-up">Move up</button>
-        <button class="adm-btn-sm lad-pause">${w.tier_paused_until ? 'Resume' : 'Pause'}</button>
+        <button class="adm-btn-sm lad-up" type="button">Move up</button>
+        <button class="adm-btn-sm lad-pause" type="button">${w.tier_paused_until ? 'Resume' : 'Pause'}</button>
       </td>
     </tr>`).join('')}</tbody></table></div>
     <p class="muted-sm" style="margin:9px 0 0;">"Earned" is what their hours say they should be on. Where it differs from their tier, the worker has been moved by hand or is inside a notice period — the sweep never drops anyone without 90 days below the line and 28 days' written notice, and it skips anyone whose clock is paused.</p>`;
@@ -10223,8 +10262,8 @@ function ladderBoardHtml(d){
       <p class="muted-sm" style="margin:2px 0 14px;">A worker must be under the line this many days before notice is even written, then this many days of notice before anything changes. Employee-like worker protections apply to platform care work — these two numbers are the evidence that a pay reduction was handled properly.</p>
 
       <div style="display:flex;gap:11px;flex-wrap:wrap;align-items:center;">
-        <button class="btn btn-primary btn-sm" id="ladSave">Save the ladder</button>
-        <button class="btn btn-secondary btn-sm" id="ladReview">Run the review now</button>
+        <button class="btn btn-primary btn-sm" id="ladSave" type="button">Save the ladder</button>
+        <button class="btn btn-secondary btn-sm" id="ladReview" type="button">Run the review now</button>
         <span class="muted-sm" id="ladMsg"></span>
       </div>
       <p class="muted-sm" style="margin:10px 0 0;">Changes apply to shifts completed from now on. Shifts already completed keep the tier and percentage they were paid at — they are never repriced.</p>
@@ -10277,7 +10316,7 @@ function planBoardHtml(d){
       <td>${r.care_plans.length ? r.care_plans.map(cp => `<div style="margin-bottom:4px;white-space:nowrap;">
           ${cp.on_file ? '<span class="adm-live">on file ✓</span>' : '<b style="color:#D94F32;">not filed</b>'}
           ${esc(cp.name)}
-          <button class="adm-btn-sm" data-cp-part="${r.id}" data-cp-name="${esc(cp.name)}" data-cp-on="${cp.on_file ? 0 : 1}" style="padding:1px 8px;">${cp.on_file ? 'undo' : 'mark filed'}</button>
+          <button class="adm-btn-sm" data-cp-part="${r.id}" data-cp-name="${esc(cp.name)}" data-cp-on="${cp.on_file ? 0 : 1}" style="padding:1px 8px;" type="button">${cp.on_file ? 'undo' : 'mark filed'}</button>
           ${cp.on_file && cp.filed_by ? `<br><span class="muted-sm">${esc(cp.filed_by)}${cp.filed_at ? ' · ' + fmtAU(String(cp.filed_at).slice(0,10)) : ''}</span>` : ''}
         </div>`).join('') : '<span class="muted-sm">none named</span>'}</td>
     </tr>`).join('')}</tbody></table></div>` : '<p class="adm-empty">No participants yet.</p>';
@@ -10354,11 +10393,11 @@ function formRecordHtml(f){
     const covers = (r.covers_from || r.covers_to)
       ? `covering ${r.covers_from ? fmtAU(r.covers_from) : 'unstated'} to ${r.covers_to ? fmtAU(r.covers_to) : 'unstated'}` : '';
     return `<p class="fr-rec"><b>Held.</b> ${esc(covers)}${covers ? ' · ' : ''}recorded ${fmtAU(String(r.recorded_at).slice(0,10))} by ${esc(r.recorded_by || 'an admin')}${r.location ? ` · kept at ${esc(r.location)}` : ''}${r.note ? `<br><span class="muted-sm">${esc(r.note)}</span>` : ''}
-      <button class="adm-btn-sm" data-fr-edit="${esc(f.key)}">Change</button>
-      <button class="adm-btn-sm" data-fr-undo="${esc(f.key)}">Withdraw</button></p>
+      <button class="adm-btn-sm" data-fr-edit="${esc(f.key)}" type="button">Change</button>
+      <button class="adm-btn-sm" data-fr-undo="${esc(f.key)}" type="button">Withdraw</button></p>
       ${formRecordFormHtml(f, true)}`;
   }
-  return `<p class="fr-rec open"><button class="adm-btn-sm" data-fr-edit="${esc(f.key)}">I have this one</button></p>
+  return `<p class="fr-rec open"><button class="adm-btn-sm" data-fr-edit="${esc(f.key)}" type="button">I have this one</button></p>
     ${formRecordFormHtml(f, false)}`;
 }
 
@@ -10371,8 +10410,8 @@ function formRecordFormHtml(f, held){
     <label>Where it is kept<input type="text" data-frf="location" maxlength="200" placeholder="Filing cabinet, Drive folder, participant's home file…" value="${esc(r.location || '')}"></label>
     <label>Anything worth saying about it<textarea data-frf="note" maxlength="600" rows="2" placeholder="e.g. paper originals held at the participant's home, photographed and filed 29/07/2026">${esc(r.note || '')}</textarea></label>
     <div class="fr-form-actions">
-      <button class="btn btn-primary adm-btn-sm" data-fr-save="${esc(f.key)}">Record it</button>
-      <button class="adm-btn-sm" data-fr-cancel="${esc(f.key)}">Cancel</button>
+      <button class="btn btn-primary adm-btn-sm" data-fr-save="${esc(f.key)}" type="button">Record it</button>
+      <button class="adm-btn-sm" data-fr-cancel="${esc(f.key)}" type="button">Cancel</button>
     </div>
   </div>`;
 }
@@ -10389,12 +10428,12 @@ function formsBoardHtml(d){
     <div class="adm-tile"><b style="${c.gaps ? 'color:#D94F32;' : ''}">${c.gaps}</b><span>Live gaps right now</span></div>
   </div>`;
   const filter = `<div class="fr-filter" id="frFilter">
-    <button data-fr="all" aria-pressed="true">Everything (${c.total})</button>
-    <button data-fr="missing" aria-pressed="false">Doesn't exist yet (${c.missing})</button>
-    <button data-fr="drive" aria-pressed="false">Nothing watching it (${c.drive})</button>
-    <button data-fr="live" aria-pressed="false">BookIt tracks it (${c.live})</button>
-    <button data-fr="gaps" aria-pressed="false">Has a gap now (${d.forms.filter(f => f.state && f.state.gaps.length).length})</button>
-    <button data-fr="unrecorded" aria-pressed="false">Nobody has said we hold it (${c.unrecorded})</button>
+    <button data-fr="all" aria-pressed="true" type="button">Everything (${c.total})</button>
+    <button data-fr="missing" aria-pressed="false" type="button">Doesn't exist yet (${c.missing})</button>
+    <button data-fr="drive" aria-pressed="false" type="button">Nothing watching it (${c.drive})</button>
+    <button data-fr="live" aria-pressed="false" type="button">BookIt tracks it (${c.live})</button>
+    <button data-fr="gaps" aria-pressed="false" type="button">Has a gap now (${d.forms.filter(f => f.state && f.state.gaps.length).length})</button>
+    <button data-fr="unrecorded" aria-pressed="false" type="button">Nobody has said we hold it (${c.unrecorded})</button>
   </div>`;
   const trackLabel = { live: 'BookIt tracks it', drive: 'File in Drive', missing: 'Not built yet' };
   const secs = d.scopes.map(sc => {
@@ -10482,7 +10521,7 @@ function officeQueueHtml(list){
       <div class="cb-head"><b>${esc(b.participant_name)} · ${esc(b.service_label)} · ${fmtAU(b.date)} ${esc(b.start)} · ${b.hours} hrs</b></div>
       <p class="cb-who"><b>The shift had already started when its worker was withdrawn — no offers were sent.</b> Ring ${esc(b.participant_name)}${b.participant_phone ? ` on <b>${esc(b.participant_phone)}</b>` : ''} first, then record whoever you arrange.</p>
       <div class="cb-actions">
-        <button class="adm-btn-sm" data-of-cands="${b.id}">Who could take it?</button>
+        <button class="adm-btn-sm" data-of-cands="${b.id}" type="button">Who could take it?</button>
       </div>
       <div class="cb-cands" data-of-cands-out="${b.id}" hidden></div>
     </div>`).join('');
@@ -10513,15 +10552,15 @@ function coverBoardHtml(d){
       ${c.continuity && c.continuity.tier === 1 ? `<p class="cb-crit">${esc(c.continuity.why || '')}</p>` : ''}
       ${c.series ? `<p class="cb-who" style="color:#7a4a12;">🔁 <b>Part of a recurring series</b> — ${c.series.remaining} upcoming shift${c.series.remaining === 1 ? '' : 's'} on the same arrangement.${c.series.review_required ? ` <b>Series review required:</b> a permanent replacement needs the participant's agreement.` : ''}${c.series.participant_approved_at ? ` <b style="color:#1C7C43;">Participant has agreed — shifts offered to the new worker to confirm.</b>` : ''}</p>
       ${c.series.review_required && !c.series.participant_approved_at ? (c.series.proposed_worker_id
-        ? `<p class="cb-who">Proposed replacement: <b>${esc(c.series.proposed_name || 'worker #' + c.series.proposed_worker_id)}</b> · <input type="text" data-sr-who="${c.series.id}" placeholder="Who agreed & how (e.g. Maria, by phone)" style="width:240px;padding:4px 8px;font-size:.85rem;"> <button class="adm-btn-sm" data-sr-approve="${c.series.id}">Record agreement & move the series</button></p>`
-        : `<p class="cb-who"><button class="adm-btn-sm" data-sr-propose="${c.id}" data-sr-id="${c.series.id}">Propose permanent replacement…</button> <span class="muted-sm">picks from the same candidates as one-off cover</span></p>`) : ''}` : ''}
+        ? `<p class="cb-who">Proposed replacement: <b>${esc(c.series.proposed_name || 'worker #' + c.series.proposed_worker_id)}</b> · <input type="text" data-sr-who="${c.series.id}" placeholder="Who agreed & how (e.g. Maria, by phone)" style="width:240px;padding:4px 8px;font-size:.85rem;"> <button class="adm-btn-sm" data-sr-approve="${c.series.id}" type="button">Record agreement & move the series</button></p>`
+        : `<p class="cb-who"><button class="adm-btn-sm" data-sr-propose="${c.id}" data-sr-id="${c.series.id}" type="button">Propose permanent replacement…</button> <span class="muted-sm">picks from the same candidates as one-off cover</span></p>`) : ''}` : ''}
       <p class="cb-who">${esc(c.from_worker_name || 'The worker')} pulled out ${mins < 60 ? mins + ' min' : Math.round(mins / 60) + ' hr'} ago${c.reason ? ` — “${esc(c.reason)}”` : ''}. ${c.offers_sent} ${c.offers_sent === 1 ? 'person has' : 'people have'} been asked.
         ${c.live_offers.length ? '<br>Waiting on: <b>' + c.live_offers.map(o => esc(o.who || 'partner provider')).join(', ') + '</b>' : '<br><b>Nobody is currently being waited on.</b>'}
         ${c.participant_phone ? `<br>Participant: ${esc(c.participant_phone)}` : ''}</p>
       <div class="adm-actions">
-        <button class="adm-btn-sm" data-cb-cands="${c.id}">Who could take it?</button>
-        <button class="adm-btn-sm" data-cb-esc="${c.id}">Push to the next tier</button>
-        <button class="adm-btn-sm" data-cb-close="${c.id}">Close it off</button>
+        <button class="adm-btn-sm" data-cb-cands="${c.id}" type="button">Who could take it?</button>
+        <button class="adm-btn-sm" data-cb-esc="${c.id}" type="button">Push to the next tier</button>
+        <button class="adm-btn-sm" data-cb-close="${c.id}" type="button">Close it off</button>
       </div>
       <div class="cb-cands" data-cb-cands-out="${c.id}" hidden></div>
     </div>`;
@@ -10554,7 +10593,7 @@ function coverBoardHtml(d){
       <b>${fmtAU(dt)}</b>
       ${byDate[dt].map(s => `<div>${esc(s.name)} — <span class="sb-money">$${Number(s.allowance).toFixed(2)}</span>
         ${s.status === 'accepted' ? '✓' : '<span class="muted-sm">asked</span>'}
-        <button class="adm-btn-sm" data-sb-release="${s.id}" style="padding:1px 8px;">release</button></div>`).join('')}
+        <button class="adm-btn-sm" data-sb-release="${s.id}" style="padding:1px 8px;" type="button">release</button></div>`).join('')}
     </div>`).join('');
 
   const allied = d.allied.length ? `<div class="adm-table-wrap"><table class="adm-table">
@@ -10567,7 +10606,7 @@ function coverBoardHtml(d){
       <td>${Math.round(a.share * 100)}%</td>
       <td>${a.agreement_ref ? esc(a.agreement_ref) + (a.agreement_date ? '<br><span class="muted-sm">' + fmtAU(a.agreement_date) + '</span>' : '') : '<b style="color:#D94F32;">none — never offered</b>'}</td>
       <td>${a.insurance_expiry ? (a.insurance_expiry < today ? `<b style="color:#D94F32;">expired ${fmtAU(a.insurance_expiry)}</b>` : fmtAU(a.insurance_expiry)) : '<span class="muted-sm">not recorded</span>'}</td>
-      <td><button class="adm-btn-sm" data-allied-off="${a.id}">${a.active ? 'Deactivate' : 'Deactivated'}</button></td>
+      <td><button class="adm-btn-sm" data-allied-off="${a.id}" type="button">${a.active ? 'Deactivate' : 'Deactivated'}</button></td>
     </tr>`).join('')}</tbody></table></div>` : '<p class="adm-empty">No partner providers on file. Until one is added with a signed agreement reference, the cascade stops at the BookIt pool.</p>';
 
   const alliedForm = `
@@ -10749,7 +10788,7 @@ document.addEventListener('click', async e => {
         const list = d.candidates[t];
         if(!list.length) return '';
         return `<h5>${esc(d.labels[t] || t)}</h5>` + list.map(x =>
-          `<span class="cb-cand">${esc(x.name)}${x.phone ? ' · ' + esc(x.phone) : ''}<button class="adm-btn-sm" data-of-assign="${id}" data-of-worker="${x.id}">record assignment</button></span>`).join('');
+          `<span class="cb-cand">${esc(x.name)}${x.phone ? ' · ' + esc(x.phone) : ''}<button class="adm-btn-sm" data-of-assign="${id}" data-of-worker="${x.id}" type="button">record assignment</button></span>`).join('');
       }).join('');
       box.innerHTML = blocks || '<p class="muted-sm">Nobody is free and screened right now — this one is phone calls.</p>';
     }catch(err){ box.innerHTML = '<span class="muted-sm">' + esc(err.message) + '</span>'; }
@@ -10780,7 +10819,7 @@ document.addEventListener('click', async e => {
         if(!list.length) return '';
         return `<h5>${esc(d.labels[t] || t)}</h5>` + list.map(x => x.allied
           ? `<span class="cb-cand">${esc(x.name)} · ${esc(x.email)}${x.phone ? ' · ' + esc(x.phone) : ''} · ${Math.round(x.share * 100)}%</span>`
-          : `<span class="cb-cand">${esc(x.name)}${x.phone ? ' · ' + esc(x.phone) : ''}<button class="adm-btn-sm" data-cb-assign="${id}" data-cb-worker="${x.id}">assign</button></span>`).join('');
+          : `<span class="cb-cand">${esc(x.name)}${x.phone ? ' · ' + esc(x.phone) : ''}<button class="adm-btn-sm" data-cb-assign="${id}" data-cb-worker="${x.id}" type="button">assign</button></span>`).join('');
       }).join('');
       box.innerHTML = blocks || '<p class="muted-sm">Nobody is free and screened for this shift at any tier. This is the case that needs a phone call.</p>';
     }catch(err){ box.innerHTML = '<span class="muted-sm">' + esc(err.message) + '</span>'; }
@@ -10806,7 +10845,7 @@ document.addEventListener('click', async e => {
     try{
       const d = await API.call(`/admin/cover/${cid}/candidates?series=1`);
       const rows = Object.keys(d.candidates).flatMap(t => d.candidates[t].filter(x => !x.allied).map(x =>
-        `<span class="cb-cand">${esc(x.name)}${x.phone ? ' · ' + esc(x.phone) : ''}<button class="adm-btn-sm" data-sr-pick="${sid}" data-sr-worker="${x.id}">propose for the series</button></span>`));
+        `<span class="cb-cand">${esc(x.name)}${x.phone ? ' · ' + esc(x.phone) : ''}<button class="adm-btn-sm" data-sr-pick="${sid}" data-sr-worker="${x.id}" type="button">propose for the series</button></span>`));
       box.innerHTML = rows.length ? `<h5>Propose a permanent replacement</h5>` + rows.join('')
         : '<p class="muted-sm">No platform worker is free and screened for this shift shape. This is the case that needs a phone call.</p>';
     }catch(err){ box.innerHTML = '<span class="muted-sm">' + esc(err.message) + '</span>'; }
@@ -11351,7 +11390,7 @@ async function renderJobPage(id){
   let action = '';
   if(!API.me){
     action = `<div class="info-card"><p><b>To apply, log in or create a worker profile.</b> Applications carry your verified profile with them, so there is nothing to upload here.</p>
-      <button class="btn btn-primary" id="jobLoginBtn">Log in</button></div>`;
+      <button class="btn btn-primary" id="jobLoginBtn" type="button">Log in</button></div>`;
   } else if(isWorker){
     const mine = j.my_application;
     if(!mine){
@@ -11359,13 +11398,13 @@ async function renderJobPage(id){
         <h3 style="margin:0 0 6px;">Apply for this one</h3>
         <p class="muted-sm" style="margin:0 0 10px;">A few lines about why this suits you. ${jbv(API.me.name.split(' ')[0])} — your profile, checks and reviews travel with the application automatically.</p>
         <textarea id="jobApplyMsg" rows="4" style="font:inherit;width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #E7DFD4;box-sizing:border-box;" placeholder="Why this one suits you — availability, experience with similar support, what you'd bring…"></textarea>
-        <button class="btn btn-primary" id="jobApplyBtn" data-job="${j.id}" style="margin-top:10px;">Send application</button>
+        <button class="btn btn-primary" id="jobApplyBtn" data-job="${j.id}" style="margin-top:10px;" type="button">Send application</button>
       </div>`;
     } else {
       action = `<div class="info-card">
         <p style="margin:0;">Your application ${jbStateChip(mine.status)}</p>
         ${mine.status === 'applied' ? `<p class="muted-sm" style="margin:8px 0 0;">Sent ${fmtStamp(mine.created)}. You'll get an answer either way — nobody is left in silence.</p>
-        <button class="btn btn-secondary btn-sm" id="jobWithdrawBtn" data-app="${mine.id}" style="margin-top:10px;">Withdraw it</button>` : ''}
+        <button class="btn btn-secondary btn-sm" id="jobWithdrawBtn" data-app="${mine.id}" style="margin-top:10px;" type="button">Withdraw it</button>` : ''}
       </div>`;
     }
   } else if(owner){
@@ -11383,17 +11422,17 @@ async function renderJobPage(id){
         <blockquote>${jbv(a.message)}</blockquote>
         ${['applied', 'shortlisted'].includes(a.status) ? `
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          ${a.status === 'applied' ? `<button class="btn btn-secondary btn-sm" data-app-set="shortlisted" data-id="${a.id}">Shortlist</button>` : ''}
-          <button class="btn btn-primary btn-sm" data-app-set="hired" data-id="${a.id}">Go ahead with ${jbv(a.worker.name.split(' ')[0])}</button>
-          <button class="btn btn-secondary btn-sm" data-app-set="declined" data-id="${a.id}">No thank you</button>
+          ${a.status === 'applied' ? `<button class="btn btn-secondary btn-sm" data-app-set="shortlisted" data-id="${a.id}" type="button">Shortlist</button>` : ''}
+          <button class="btn btn-primary btn-sm" data-app-set="hired" data-id="${a.id}" type="button">Go ahead with ${jbv(a.worker.name.split(' ')[0])}</button>
+          <button class="btn btn-secondary btn-sm" data-app-set="declined" data-id="${a.id}" type="button">No thank you</button>
         </div>` : ''}
       </div>`).join('')
       : '<div class="info-card"><p><b>No applications yet.</b> Most arrive in the first week. If it stays quiet, a clearer description or wider days usually helps more than waiting.</p></div>'}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;">
       <a class="btn btn-secondary btn-sm" href="#/post-job?edit=${j.id}">Edit the post</a>
       ${j.status === 'open'
-        ? `<button class="btn btn-secondary btn-sm" data-job-close="${j.id}">Close it</button>`
-        : `<button class="btn btn-primary btn-sm" data-job-reopen="${j.id}">Repost for another 30 days</button>`}
+        ? `<button class="btn btn-secondary btn-sm" data-job-close="${j.id}" type="button">Close it</button>`
+        : `<button class="btn btn-primary btn-sm" data-job-reopen="${j.id}" type="button">Repost for another 30 days</button>`}
     </div>` : '';
   wrap.innerHTML = `
     <h1 style="margin:0 0 4px;">${jbv(j.title)} ${j.status !== 'open' ? jbStateChip('closed') : ''}</h1>
@@ -11583,8 +11622,8 @@ async function renderMyJobs(){
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
         <a class="btn btn-primary btn-sm" href="#/jobs/${j.id}">${j.applications ? 'Read the applications (' + j.applications + ')' : 'Open it'}</a>
         <a class="btn btn-secondary btn-sm" href="#/post-job?edit=${j.id}">Edit</a>
-        ${j.status === 'open' ? `<button class="btn btn-secondary btn-sm" data-job-close="${j.id}">Close</button>`
-          : `<button class="btn btn-secondary btn-sm" data-job-reopen="${j.id}">Repost</button>`}
+        ${j.status === 'open' ? `<button class="btn btn-secondary btn-sm" data-job-close="${j.id}" type="button">Close</button>`
+          : `<button class="btn btn-secondary btn-sm" data-job-reopen="${j.id}" type="button">Repost</button>`}
       </div>
     </div>`).join('')
     : '<div class="info-card"><p><b>You haven\'t posted anything yet.</b> A good post says what a typical week looks like and how many hours it is — workers decide from those two things.</p></div>'}`;
@@ -11606,7 +11645,7 @@ async function renderMyApplications(){
       <h3>${a.job_status === 'open' ? `<a href="#/jobs/${a.job_id}" style="color:inherit;">${jbv(a.title)}</a>` : jbv(a.title)} ${jbStateChip(a.status)}</h3>
       <p class="jb-meta">${jbv(a.suburb)} · ${jbv(a.hours_week)} hrs/week · applied ${fmtStamp(a.created)}${a.job_status !== 'open' ? ' · post closed' : ''}</p>
       <blockquote style="margin:8px 0 0;padding:8px 14px;border-left:3px solid #E7DFD4;color:#4A4237;font-size:.92rem;">${jbv(a.message)}</blockquote>
-      ${a.status === 'applied' ? `<button class="btn btn-secondary btn-sm" id="jobWithdrawBtn" data-app="${a.id}" style="margin-top:10px;">Withdraw</button>` : ''}
+      ${a.status === 'applied' ? `<button class="btn btn-secondary btn-sm" id="jobWithdrawBtn" data-app="${a.id}" style="margin-top:10px;" type="button">Withdraw</button>` : ''}
     </div>`).join('')
     : '<div class="info-card"><p><b>Nothing yet.</b> The <a href="#/jobs">board is here</a> — posts show hours a week up front, so you can tell at a glance whether one is worth rearranging your week for.</p></div>';
 }
@@ -12877,7 +12916,7 @@ async function renderAccountPage(){
       </aside>
       <div class="ap-main">
       <div class="wp-tabbar" role="tablist" aria-label="Profile sections" style="margin-top:0;">
-        ${apPanes.map(([s, l], i) => `<button class="wp-tab" role="tab" id="apTab-${s}" data-pane="${s}" aria-controls="apPane-${s}" aria-selected="${i === 0}"${i ? ' tabindex="-1"' : ''}>${l}</button>`).join('')}
+        ${apPanes.map(([s, l], i) => `<button class="wp-tab" role="tab" id="apTab-${s}" data-pane="${s}" aria-controls="apPane-${s}" aria-selected="${i === 0}"${i ? ' tabindex="-1"' : ''} type="button">${l}</button>`).join('')}
       </div>
       ${apPanes.map(([s, , b], i) => `<div class="wp-pane${i === 0 ? ' on' : ''}" id="apPane-${s}" role="tabpanel" aria-labelledby="apTab-${s}">${b}</div>`).join('')}
       </div>
@@ -13190,7 +13229,7 @@ document.addEventListener('click', async e => {
     const box = document.createElement('span');
     box.className = 'rj-box';
     box.innerHTML = ` <input class="rj-reason" placeholder="Why can't it be accepted? They see these words." maxlength="400" style="font:inherit;font-size:.82rem;padding:4px 8px;border-radius:8px;border:1.5px solid #D94F32;width:280px;">
-      <button class="adm-btn-sm rj-go" data-doc-reject-go="${rj.dataset.docReject}">reject it</button>`;
+      <button class="adm-btn-sm rj-go" data-doc-reject-go="${rj.dataset.docReject}" type="button">reject it</button>`;
     rj.parentNode.insertBefore(box, rj.nextSibling);
     box.querySelector('.rj-reason').focus();
     return;
@@ -13217,7 +13256,7 @@ document.addEventListener('click', async e => {
         ${types.map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}
       </select>
       <input class="ra-note" placeholder="note (optional)" maxlength="300" style="font:inherit;font-size:.82rem;padding:4px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:170px;">
-      <button class="adm-btn-sm ra-go" data-req-doc-go="${ra.dataset.reqDoc}">ask</button>`;
+      <button class="adm-btn-sm ra-go" data-req-doc-go="${ra.dataset.reqDoc}" type="button">ask</button>`;
     ra.parentNode.insertBefore(box, ra.nextSibling);
     return;
   }
@@ -13242,7 +13281,7 @@ document.addEventListener('click', async e => {
     const box = document.createElement('span');
     box.className = 'rj-box';
     box.innerHTML = ` <input class="rj-reason" placeholder="Why can't it go on the file? They see these words." maxlength="400" style="font:inherit;font-size:.82rem;padding:4px 8px;border-radius:8px;border:1.5px solid #D94F32;width:280px;">
-      <button class="adm-btn-sm rj-go" data-pdoc-reject-go="${prj.dataset.pdocReject}">reject it</button>`;
+      <button class="adm-btn-sm rj-go" data-pdoc-reject-go="${prj.dataset.pdocReject}" type="button">reject it</button>`;
     prj.parentNode.insertBefore(box, prj.nextSibling);
     box.querySelector('.rj-reason').focus();
     return;
@@ -13268,7 +13307,7 @@ document.addEventListener('click', async e => {
         ${types.map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}
       </select>
       <input class="ra-note" placeholder="note (optional)" maxlength="300" style="font:inherit;font-size:.82rem;padding:4px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:170px;">
-      <button class="adm-btn-sm ra-go" data-preq-doc-go="${pra.dataset.preqDoc}">ask</button>`;
+      <button class="adm-btn-sm ra-go" data-preq-doc-go="${pra.dataset.preqDoc}" type="button">ask</button>`;
     pra.parentNode.insertBefore(box, pra.nextSibling);
     return;
   }
@@ -13416,7 +13455,7 @@ document.addEventListener('click', async e => {
     var t = document.createElement('video');
     return (t.canPlayType && t.canPlayType('video/webm; codecs="vp9"')) ? '.webm' : '.mp4';
   })();
-  function sceneSrc(name){ return 'assets/scenes/' + name + VEXT; }
+  function sceneSrc(name){ return '/assets/scenes/' + name + VEXT; }
 
   var rot   = document.getElementById('heroRotate');
   var reelW = document.getElementById('heroReel');

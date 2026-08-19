@@ -1,3 +1,12 @@
+const BOOKIT_HARDENING = require('./lib/bookit-hardening');
+const BOOKIT_VERSION = require('./lib/version');
+const BOOKIT_MIGRATIONS = require('./lib/migration-runner');
+try { process.umask(0o077); } catch (_) {}
+BOOKIT_HARDENING.installFsUploadGuards(require('fs'));
+BOOKIT_HARDENING.installConsoleRedaction(console);
+const BOOKIT_BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
+const BOOKIT_STARTUP_CHECK = BOOKIT_HARDENING.assertProductionEnvironment({ rootDir: __dirname });
+
 /* ============================================================
    BookIt — backend server (zero dependencies)
    Node 22+ (uses built-in node:sqlite). Run:  node server.js
@@ -29,8 +38,8 @@ const AUTO_REPLY = (process.env.AUTO_REPLY || 'on') !== 'off';
 const SESSION_DAYS = 30;
 
 /* ---------- secret ---------- */
-const SECRET_FILE = path.join(__dirname, '.secret');
-const SECRET = process.env.SECRET || (() => {
+const SECRET_FILE = process.env.SECRET_FILE || path.join(__dirname, '.secret');
+const SECRET = process.env.SESSION_SECRET || process.env.BOOKIT_SESSION_SECRET || process.env.BOOKIT_SECRET || process.env.SECRET || (() => {
   try { return fs.readFileSync(SECRET_FILE, 'utf8').trim(); }
   catch { const s = crypto.randomBytes(32).toString('hex'); fs.writeFileSync(SECRET_FILE, s, { mode: 0o600 }); return s; }
 })();
@@ -99,40 +108,40 @@ db.exec(`
 `);
 
 /* migration (email build): verification flag on users */
-try { db.exec('ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0'); } catch {}
+BOOKIT_MIGRATIONS.runLegacyAlter(db, 'ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0')
 db.exec("UPDATE users SET verified = 1 WHERE email LIKE '%@demo.bookit.life' AND verified = 0");
 
 /* migration (invoicing build): completion + invoice fields on bookings */
 for (const col of ['completed_at TEXT', 'rate_category TEXT', 'unit_price REAL', 'worker_share REAL', 'total REAL']) {
-  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`)
 }
 /* migration (payments build): billing details + claim tracking */
 for (const col of ['ndis_number TEXT DEFAULT \'\'', 'pm_email TEXT DEFAULT \'\'']) {
-  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE users ADD COLUMN ${col}`)
 }
 /* consent build: which terms version was accepted at sign-up, and when.
    Stored verbatim from the form; empty for accounts made before the box
    existed or created directly through the API. */
 for (const col of ["terms_version TEXT DEFAULT ''", "terms_at TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE users ADD COLUMN ${col}`)
 }
 /* migration (profile-page build): a photo for everyone. Worker photos stay on
    worker_profiles (they gate approval); these columns hold everyone else's —
    shown only to signed-in people they deal with, never the open web. */
 for (const col of ["photo TEXT DEFAULT ''", "photo_at TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE users ADD COLUMN ${col}`)
 }
 /* migration (admin-provisioning build): administrator is a stored fact on
    the account row, set only through provisioning paths that are logged —
    never inferred live from an email list (review round 3, finding 1). */
 for (const col of ['is_admin INTEGER DEFAULT 0']) {
-  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE users ADD COLUMN ${col}`)
 }
 /* migration (round 4.5): an administrator's explicit sign-off on an
    exceptional assignment — a worker placed on a shift after its start
    time. Completion of a late-filled shift is refused without it. */
 for (const col of ['office_ok INTEGER DEFAULT 0', 'accepted_at TEXT']) {
-  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`)
 }
 
 /* migration (consent-enforcement build): separate evidence that a
@@ -140,10 +149,10 @@ for (const col of ['office_ok INTEGER DEFAULT 0', 'accepted_at TEXT']) {
    sign-up. Final consent structure is the lawyer's call; the evidence
    columns exist so nothing is lost in the meantime. */
 for (const col of ["health_consent_version TEXT DEFAULT ''", "health_consent_at TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE users ADD COLUMN ${col}`)
 }
 for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_no TEXT', 'support_item TEXT', 'claimed_at TEXT', 'paid_at TEXT', 'sleepover INTEGER DEFAULT 0']) {
-  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`)
 }
 /* migration (profiles build): worker profile photos */
 for (const col of ['photo TEXT DEFAULT \'\'', 'photo_at TEXT DEFAULT \'\'',
@@ -151,16 +160,16 @@ for (const col of ['photo TEXT DEFAULT \'\'', 'photo_at TEXT DEFAULT \'\'',
      held. Gender is a whitelist because it is a filter key, not a biography;
      the bio is where nuance lives. Interests are free tags, capped. */
   'gender TEXT DEFAULT \'\'', 'interests TEXT DEFAULT \'[]\'']) {
-  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE worker_profiles ADD COLUMN ${col}`)
 }
 /* migration (stripe build): card-payment link per invoiced booking */
 for (const col of ['stripe_session TEXT', 'pay_url TEXT']) {
-  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`)
 }
 /* migration (scope build): what a participant asked for, what they told us about high-intensity
    supports, and how we handled it. Kept on users so it travels with the account, not the booking. */
 for (const col of ["svc_interest TEXT DEFAULT '[]'", "hi_flags TEXT DEFAULT '[]'", "hi_at TEXT DEFAULT ''", "hi_referred_at TEXT DEFAULT ''", "hi_note TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE users ADD COLUMN ${col}`)
 }
 /* scope build v34: the out-of-scope register. One row per participant per support they asked
    for that we are not registered to deliver — opened automatically the moment it is declared,
@@ -349,7 +358,7 @@ for (const [col, type] of [
   ['use_daily', 'INTEGER DEFAULT 0'], ['daily_detail', "TEXT DEFAULT ''"],
   ['use_household', 'INTEGER DEFAULT 0'], ['household_detail', "TEXT DEFAULT ''"],
   ['use_community', 'INTEGER DEFAULT 0'], ['community_detail', "TEXT DEFAULT ''"]
-]) { try { db.exec(`ALTER TABLE support_plans ADD COLUMN ${col} ${type}`); } catch { } }
+]) { BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE support_plans ADD COLUMN ${col} ${type}`) }
 /* SIL rosters build: shared-living houses with weekly repeating shift slots */
 db.exec(`
   CREATE TABLE IF NOT EXISTS sil_houses (
@@ -372,7 +381,7 @@ db.exec(`
     created TEXT NOT NULL
   );
 `);
-try { db.exec('ALTER TABLE bookings ADD COLUMN sil_slot_id INTEGER'); } catch {}
+BOOKIT_MIGRATIONS.runLegacyAlter(db, 'ALTER TABLE bookings ADD COLUMN sil_slot_id INTEGER')
 
 /* ============================================================================
    COVER — nobody has to find their own replacement
@@ -512,13 +521,13 @@ db.exec(`
    rides alongside it, because a participant whose worker pulled out still has a
    confirmed booking. That is the promise. */
 for (const col of ['cover_state TEXT DEFAULT \'\'', 'original_worker_id INTEGER', 'delivered_by_allied INTEGER', 'swap_count INTEGER NOT NULL DEFAULT 0']) {
-  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`)
 }
 
 /* --- who is willing to be on standby at all, and how often. A worker opts in
    once; the roster then fills itself without anybody ringing around. --- */
 for (const col of ['standby_optin INTEGER NOT NULL DEFAULT 0', 'standby_max INTEGER NOT NULL DEFAULT 2', "standby_services TEXT DEFAULT '[]'"]) {
-  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE worker_profiles ADD COLUMN ${col}`)
 }
 
 /* --- 0137 NDIS Digital Platform Service.
@@ -583,14 +592,14 @@ for (const col of [
   "paused_at TEXT DEFAULT ''",
   "pause_note TEXT DEFAULT ''"
 ]) {
-  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE worker_profiles ADD COLUMN ${col}`)
 }
 
 /* --- how a document was verified, not merely that somebody ticked it.
    An auditor's question is never "is it verified" — it is "how did you
    satisfy yourself, and what would you show me". --- */
 for (const col of ["verify_method TEXT DEFAULT ''", "verify_ref TEXT DEFAULT ''", "verify_note TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE worker_docs ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE worker_docs ADD COLUMN ${col}`)
 }
 
 /* --- why the office was rung, not merely that it was. "Needs you" on the
@@ -598,7 +607,7 @@ for (const col of ["verify_method TEXT DEFAULT ''", "verify_ref TEXT DEFAULT ''"
    wants to know in one line whether this is "nobody was free" or "this person
    has nobody else inside 24 hours", because those two calls are made in a
    different order and in a different tone of voice. --- */
-try { db.exec("ALTER TABLE cover ADD COLUMN office_alert_why TEXT DEFAULT ''"); } catch {}
+BOOKIT_MIGRATIONS.runLegacyAlter(db, "ALTER TABLE cover ADD COLUMN office_alert_why TEXT DEFAULT ''")
 
 /* --- the evidence trail itself: append-only, never edited, never deleted.
    Every screening decision, every banning-order check, every document
@@ -618,7 +627,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS compliance_log (
   checked_by TEXT DEFAULT ''
 );`);
 db.exec('CREATE INDEX IF NOT EXISTS idx_complog_worker ON compliance_log (worker_id, id)');
-try { db.exec('ALTER TABLE bookings ADD COLUMN stale_nudged_at TEXT'); } catch {}
+BOOKIT_MIGRATIONS.runLegacyAlter(db, 'ALTER TABLE bookings ADD COLUMN stale_nudged_at TEXT')
 
 /* --- Build 27: worker screening, modelled the way the Rules describe it ---
 
@@ -648,7 +657,7 @@ for (const col of [
   "screening_state TEXT DEFAULT ''",        /* which unit issued it */
   "nwsd_linked_at TEXT DEFAULT ''",         /* the day we linked them to our Employer ID */
   "nwsd_linked_by TEXT DEFAULT ''"
-]) { try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {} }
+]) { BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE worker_profiles ADD COLUMN ${col}`) }
 
 db.exec(`CREATE TABLE IF NOT EXISTS screening_events (
   id INTEGER PRIMARY KEY,
@@ -693,7 +702,7 @@ for (const col of [
      re-send a rung and a missed rung is not lost. Stored, not remembered. */
   "notify_stage TEXT NOT NULL DEFAULT ''",
   "report_stage TEXT NOT NULL DEFAULT ''"
-]) { try { db.exec(`ALTER TABLE incidents ADD COLUMN ${col}`); } catch {} }
+]) { BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE incidents ADD COLUMN ${col}`) }
 
 for (const col of [
   /* Complaints had no clock at all — not a due date, not an acknowledgement
@@ -702,7 +711,7 @@ for (const col of [
   'ack_due TEXT',
   "ack_stage TEXT NOT NULL DEFAULT ''",
   'ack_sent_at TEXT'
-]) { try { db.exec(`ALTER TABLE complaints ADD COLUMN ${col}`); } catch {} }
+]) { BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE complaints ADD COLUMN ${col}`) }
 
 db.exec(`CREATE TABLE IF NOT EXISTS job_runs (
   job TEXT PRIMARY KEY,
@@ -1033,7 +1042,7 @@ CREATE INDEX IF NOT EXISTS idx_series_person ON booking_series (participant_id, 
 for (const col of ['review_required INTEGER DEFAULT 0', "review_reason TEXT DEFAULT ''", "review_opened_at TEXT DEFAULT ''",
                    "reviewed_at TEXT DEFAULT ''", "reviewed_by TEXT DEFAULT ''", 'proposed_worker_id INTEGER',
                    "participant_approved_at TEXT DEFAULT ''", "participant_approved_by TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE booking_series ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE booking_series ADD COLUMN ${col}`)
 }
 
 /* --- 5b/7/8/13: additive columns on bookings.
@@ -1063,7 +1072,7 @@ for (const col of [
   'cancelled_at TEXT', "cancelled_by TEXT DEFAULT ''", "cancel_reason TEXT DEFAULT ''",
   "cancel_code TEXT DEFAULT ''",
   'short_notice INTEGER DEFAULT 0', 'notice_hours REAL'
-]) { try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {} }
+]) { BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`) }
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_bookings_series ON bookings (series_id)'); } catch {}
 try { db.exec("CREATE INDEX IF NOT EXISTS idx_bookings_approval ON bookings (approval_state, completed_at)"); } catch {}
 
@@ -1086,7 +1095,7 @@ for (const col of [
   'km_default REAL DEFAULT 0', "vehicle TEXT DEFAULT ''", "vehicle_rego TEXT DEFAULT ''",
   "vehicle_insured_to TEXT DEFAULT ''", 'drives INTEGER DEFAULT 0',
   'paused INTEGER DEFAULT 0', "paused_at TEXT DEFAULT ''", "paused_reason TEXT DEFAULT ''"
-]) { try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {} }
+]) { BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE worker_profiles ADD COLUMN ${col}`) }
 
 /* --- 9. multi-factor, and a list of where you are signed in.
    The secret is stored base32 and is never returned to the browser after
@@ -1162,7 +1171,7 @@ CREATE INDEX IF NOT EXISTS idx_acks_person ON plan_acks (participant_id, worker_
    people need it sooner. An expired plan blocks NEW bookings and never
    touches a booking already in the diary. --- */
 for (const col of ["review_due TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE support_plans ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE support_plans ADD COLUMN ${col}`)
 }
 try {
   db.prepare(`UPDATE support_plans SET review_due = date(substr(COALESCE(NULLIF(confirmed_at,''), created),1,10), '+12 months')
@@ -1174,7 +1183,7 @@ try {
    message points at a row in worker_docs or participant_docs and inherits
    whatever verification state that row has. --- */
 for (const col of ["doc_kind TEXT DEFAULT ''", 'doc_id INTEGER', "doc_name TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE messages ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE messages ADD COLUMN ${col}`)
 }
 
 /* --- 15. training that locks the roster if it is ignored.
@@ -1212,7 +1221,7 @@ CREATE TABLE IF NOT EXISTS module_completions (
 );
 CREATE INDEX IF NOT EXISTS idx_modcomp_worker ON module_completions (worker_id, module_key);`);
 for (const col of ["training_due TEXT DEFAULT ''", "training_lock TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE worker_profiles ADD COLUMN ${col}`)
 }
 
 /* --- 17. thirty-two emails, none of them optional until now. --- */
@@ -1257,10 +1266,10 @@ try { db.exec('CREATE INDEX IF NOT EXISTS idx_doc_requests_person ON doc_request
    participant_docs never did, so a service agreement could expire in
    silence. --- */
 for (const col of ["warned_stage TEXT DEFAULT ''", "review_state TEXT DEFAULT ''", "review_note TEXT DEFAULT ''", "requested_at TEXT DEFAULT ''", "requested_by TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE participant_docs ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE participant_docs ADD COLUMN ${col}`)
 }
 for (const col of ["review_state TEXT DEFAULT ''", "review_note TEXT DEFAULT ''", "requested_at TEXT DEFAULT ''", "requested_by TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE worker_docs ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE worker_docs ADD COLUMN ${col}`)
 }
 /* Anything already verified is Approved; anything filed and not yet looked
    at is Submitted. Naming the state it is already in is not a backfill. */
@@ -1753,12 +1762,16 @@ function readSession(cookieHeader) {
 }
 function json(res, status, data, headers = {}) {
   const body = JSON.stringify(data);
+  const retryAfter = status === 429 && headers['Retry-After'] == null
+    ? { 'Retry-After': String(Math.max(1, Number(process.env.RATE_LIMIT_RETRY_AFTER_SECONDS || 60))) }
+    : {};
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(body),
     'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff',
     ...(SITE_PASSWORD ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}),
+    ...retryAfter,
     ...headers
   });
   res.end(body);
@@ -2085,7 +2098,7 @@ function sendMail(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo, atta
     .replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&middot;/g, '·').trim()
     + (ctaUrl ? `\n\n${ctaText}: ${ctaUrl}` : '')
     + '\n\n— BookIt · Disability & Mental Health Care Pty Ltd · ABN 19 658 578 575';
-  if (!EMAIL_ON) { console.log(`[email off] '${subject}' → ${dest}${ctaUrl ? ' · link: ' + ctaUrl : ''}${attachments && attachments.length ? ' · attachments: ' + attachments.map(a => a.filename).join(',') : ''}`); return Promise.resolve('skipped-off'); }
+  if (!EMAIL_ON) { console.info('[mail disabled] transactional email suppressed; token and recipient were not logged'); return Promise.resolve('skipped-off'); }
   const transport = RESEND_KEY ? resendSend : smtpSend;
   return transport(dest, subject, html, text, replyTo, attachments).then(
     ok => { console.log(`[email] sent '${subject}' → ${dest}`); return ok; },
@@ -2131,7 +2144,7 @@ function clean(v, max = 300) { return String(v ?? '').trim().slice(0, max); }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /* naive rate limiter for auth endpoints */
-const hits = new Map();
+const hits = BOOKIT_HARDENING.createExpiringMap(30 * 60e3);
 function limited(ip, key, max = 25, windowMs = 10 * 60e3) {
   const k = `${ip}:${key}`;
   const rec = hits.get(k) || { n: 0, reset: Date.now() + windowMs };
@@ -3577,7 +3590,7 @@ route('GET', /^\/api\/admin\/scope-register$/, (req, res, m, user) => {
 });
 route('GET', /^\/api\/admin\/scope-register\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  const q = v => `"${BOOKIT_HARDENING.neutralizeSpreadsheetText(v == null ? '' : v).replace(/"/g, '""')}"`;
   const lines = [['Entry', 'Participant', 'Email', 'Phone', 'Suburb', 'Support requested', 'Schedule 2 clause', 'Declared via', 'Declared', 'Outcome', 'Introduced to', 'Note', 'Closed by', 'Closed'].map(q).join(',')];
   for (const r of scopeRegisterRows()) {
     const day = t => t ? dmy(String(t).slice(0, 10)) : ''; /* dmy() wants a bare date, and these are full timestamps */
@@ -3657,7 +3670,7 @@ route('POST', /^\/api\/admin\/invoices\/(\d+)\/category$/, (req, res, m, user, b
 });
 route('GET', /^\/api\/admin\/invoices\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const lines = [['Shift ID', 'Date', 'Start', 'Hours', 'Service', 'Registration group', 'Participant', 'Participant email', 'Worker', 'Rate category', 'Unit price ($/h)', 'Total billed ($)', 'Worker share incl. super ($)', 'Completed at'].map(q).join(',')];
   for (const r of invoiceRows()) {
     lines.push([r.id, r.date, r.start, r.hours, SERVICE_LABELS[r.service] || r.service, REG_GROUPS[r.service] || '', r.participant_name, r.participant_email, r.worker_name,
@@ -3809,7 +3822,7 @@ route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
 
 route('GET', /^\/api\/admin\/claims\/pace\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const rows = claimRows("AND up.plan = 'ndia' AND b.claim_status = 'claimed'");
   const header = ['RegistrationNumber', 'NDISNumber', 'SupportsDeliveredFrom', 'SupportsDeliveredTo', 'SupportNumber', 'ClaimReference', 'Quantity', 'Hours', 'UnitPrice', 'GSTCode', 'ClaimType', 'CancellationReason', 'ABN', 'InKindFundingProgram', 'ClaimReason', 'RequestedAmount'];
   const lines = [header.join(',')];
@@ -5070,7 +5083,7 @@ route('GET', /^\/api\/admin\/compliance\/log$/, (req, res, m, user) => {
    and the full log behind it. */
 route('GET', /^\/api\/admin\/compliance\/0137\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const b = board0137();
   const lines = [['Worker', 'On the platform', 'Screening check held & verified', 'Screening clearance status',
     'Screening expiry', 'Verified by', 'How verified',
@@ -5100,7 +5113,7 @@ route('GET', /^\/api\/admin\/compliance\/0137\.csv$/, (req, res, m, user) => {
 
 route('GET', /^\/api\/admin\/compliance\/log\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const rows = db.prepare('SELECT * FROM compliance_log ORDER BY id ASC').all();
   const lines = [['Entry', 'When', 'Worker', 'What was checked', 'Result', 'Detail', 'Source', 'Reference', 'Recorded by'].map(q).join(',')];
   for (const r of rows) {
@@ -5185,7 +5198,7 @@ route('POST', /^\/api\/admin\/incidents\/(\d+)$/, (req, res, m, user, body) => {
 
 route('GET', /^\/api\/admin\/incidents\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const lines = [['ID', 'Created', 'Occurred', 'Category', 'Reportable', 'Participant', 'Worker', 'Location', 'Description', 'Immediate action', 'Notify due', 'Commission notified', 'Status', 'Lessons', 'Closed'].map(q).join(',')];
   for (const i of db.prepare('SELECT * FROM incidents ORDER BY id').all()) {
     lines.push([i.id, i.created, i.occurred_at, INCIDENT_CATS[i.category] || i.category, i.reportable ? 'YES' : 'no', i.participant_name, i.worker_name, i.location, i.description, i.immediate_action, i.notify_due || '', i.commission_notified_at || '', i.status, i.lessons, i.closed_at || ''].map(q).join(','));
@@ -5222,7 +5235,7 @@ route('POST', /^\/api\/admin\/complaints\/(\d+)$/, (req, res, m, user, body) => 
 
 route('GET', /^\/api\/admin\/complaints\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const lines = [['ID', 'Received', 'From', 'Email', 'Channel', 'Summary', 'Details', 'Acknowledged', 'Resolved', 'Outcome', 'Status'].map(q).join(',')];
   for (const c of db.prepare('SELECT * FROM complaints ORDER BY id').all()) {
     lines.push([c.id, c.created, c.source_name, c.source_email, c.channel, c.summary, c.details, c.acknowledged_at || '', c.resolved_at || '', c.outcome, c.status].map(q).join(','));
@@ -5233,7 +5246,7 @@ route('GET', /^\/api\/admin\/complaints\.csv$/, (req, res, m, user) => {
 
 route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const rows = db.prepare(`SELECT b.date, b.start, b.hours, b.service, b.rate_category, b.worker_share, b.claim_status,
       b.status, b.notice_hours,
       uw.name AS worker_name, uw.email AS worker_email
@@ -5312,6 +5325,7 @@ route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m) => {
 route('GET', /^\/api\/rates$/, (req, res) => {
   const shares = tierShares(), bands = tierBands();
   json(res, 200, {
+    public_from_rate: INVOICE_RATES['weekday-day'].price,
     rates: publicRates(), super: superRate(),
     ladder: TIERS.map(t => ({ ...t, share: shares[t.key], band: t.key === 'bronze' ? 0 : bands[t.key] })),
     /* Build 3 — everything the public calculator derives, in the one payload
@@ -6025,7 +6039,7 @@ route('GET', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user) => {
    order the three things happened, permanently. A correction with no visible
    question is the shape of a story with a page torn out. */
 for (const col of ["kind TEXT NOT NULL DEFAULT 'note'", 'author_id INTEGER']) {
-  try { db.exec(`ALTER TABLE shift_notes ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE shift_notes ADD COLUMN ${col}`)
 }
 
 route('POST', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user, body, ip) => {
@@ -6475,7 +6489,7 @@ route('GET', /^\/api\/admin\/support-plans\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const people = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
   const today = ymd();
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const lines = [['Participant', 'Plan on file', 'Version', 'Confirmed', 'Review due', 'Overdue', 'Continuity tier', 'Why',
     'Disaster support within 8h', 'Preventative health', 'Care plans named', 'Care plans not on file'].map(q).join(',')];
   for (const u of people) {
@@ -7921,7 +7935,7 @@ route('POST', /^\/api\/admin\/participant-documents\/(\d+)\/delete$/, (req, res,
 
 route('GET', /^\/api\/admin\/participant-documents\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   /* Fifteen. Count them against every row builder below before changing it:
      one extra heading with no cell under it shifts every column to its right
      and the mistake surfaces as a wrong number in somebody else's report. */
@@ -8032,7 +8046,7 @@ route('DELETE', /^\/api\/admin\/forms\/record\/([a-z0-9-]+)$/, (req, res, m, use
 
 route('GET', /^\/api\/admin\/forms\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const scope = { company: 'Company', register: 'Register', worker: 'Per worker', participant: 'Per participant' };
   const track = { live: 'BookIt tracks it', drive: 'File in Drive — nothing watches it', missing: 'Does not exist yet' };
   const reg = formsRegister();
@@ -8240,7 +8254,7 @@ const AUDIT_REPORTS = [
 /* ---------- two registers an auditor asks for that had no export ---------- */
 route('GET', /^\/api\/admin\/worker-credentials\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const today = ymd();
   const lines = [['Worker', 'Email', 'Document', 'Label', 'Number', 'Expires', 'Status today', 'Uploaded', 'Verified', 'Verified by', 'File in pack'].map(q).join(',')];
   const rows = db.prepare(`SELECT d.*, u.name, u.email FROM worker_docs d JOIN users u ON u.id = d.worker_id
@@ -8266,7 +8280,7 @@ route('GET', /^\/api\/admin\/worker-credentials\.csv$/, (req, res, m, user) => {
 
 route('GET', /^\/api\/admin\/participant-register\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const lines = [['Participant', 'Email', 'Suburb', 'Joined', 'Shifts booked', 'Last shift',
     'Support plan', 'Version', 'Continuity tier', 'Confirmed', 'Review due', 'Care plans named', 'Care plans on file'].map(q).join(',')];
   for (const p of db.prepare("SELECT id, name, email, suburb, created FROM users WHERE role = 'participant' ORDER BY name").all()) {
@@ -8313,7 +8327,7 @@ everyJob('snapshot', 86400 * 1000, () => auditSnapshot('nightly'), {
 
 route('GET', /^\/api\/admin\/audit-history\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const lines = [['Date', 'Taken at', 'Forms in the register', 'Documents that implies', 'Forms BookIt tracks live',
     'Open gaps', 'Workers', 'Participants', 'What was open that day'].map(q).join(',')];
   for (const s of db.prepare('SELECT * FROM audit_snapshots ORDER BY day').all()) {
@@ -8462,7 +8476,7 @@ function buildAuditPack(user) {
 
   const reg = formsRegister();
   const gaps = auditGaps(reg);
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   add('gaps/open-items.csv', '﻿' + [['Form', 'Belongs to', 'What is missing', 'What requires it'].map(q).join(',')]
     .concat(gaps.map(g => [g.form, g.scope, g.missing, g.requires].map(q).join(','))).join('\r\n'));
 
@@ -8667,7 +8681,7 @@ route('GET', /^\/api\/admin\/participants\/(\d+)\/notes\.csv$/, (req, res, m, us
   const pid = Number(m[1]);
   const p = db.prepare("SELECT name FROM users WHERE id = ? AND role = 'participant'").get(pid);
   if (!p) return json(res, 404, { error: 'No such participant.' });
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   /* ORDER BY b.date, n.id reads correctly for one shift a day and falls
      apart at two: the morning's note, the afternoon's note, then the
      morning's question. Start and booking_id keep each shift's story whole,
@@ -10153,12 +10167,12 @@ route('POST', /^\/api\/admin\/oncall-rates$/, (req, res, m, user, body) => {
 for (const col of ["tier TEXT DEFAULT 'bronze'", 'schads_level INTEGER DEFAULT 2',
   "tier_below_since TEXT DEFAULT ''", "tier_notice_at TEXT DEFAULT ''", "tier_pending TEXT DEFAULT ''",
   "tier_paused_until TEXT DEFAULT ''", "tier_pause_reason TEXT DEFAULT ''", "tier_reviewed_at TEXT DEFAULT ''"]) {
-  try { db.exec(`ALTER TABLE worker_profiles ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE worker_profiles ADD COLUMN ${col}`)
 }
 /* what was actually applied to this shift, frozen at completion. A tier change
    next month must never silently restate last month's pay. */
 for (const col of ["tier_at_shift TEXT DEFAULT ''", 'share_pct REAL', 'award_floored INTEGER DEFAULT 0']) {
-  try { db.exec(`ALTER TABLE bookings ADD COLUMN ${col}`); } catch {}
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`)
 }
 /* Append-only. Under the Fair Work Act employee-like worker provisions (in force
    26/08/2024) a pay-rate reduction needs a defensible record of when the
@@ -11414,7 +11428,7 @@ route('GET', /^\/api\/statements\.csv$/, (req, res, m, user) => {
   const q = new URL(req.url, 'http://x').searchParams;
   const { from, to } = periodRange(q);
   const rows = statementRows(pers.id, from, to);
-  const qq = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const qq = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const lines = [['Date', 'Start', 'Hours', 'Support', 'Support item', 'Worker', 'Rate category',
     'Unit price', 'Support total', 'Kilometres', 'Travel total', 'Line total', 'Invoice no', 'Approved', 'Delivered'].map(qq).join(',')];
   for (const r of rows) {
@@ -11593,7 +11607,7 @@ route('GET', /^\/api\/me\/earnings\.csv$/, (req, res, m, user) => {
   const q = new URL(req.url, 'http://x').searchParams;
   const { from, to } = periodRange(q);
   const e = earningsFor(user.id, from, to);
-  const qq = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const qq = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const lines = [['Date', 'Start', 'Hours', 'Person supported', 'Support', 'Rate category',
     'Hourly', 'Shift pay', 'Kilometres', 'Travel pay', 'Line total', 'Timesheet'].map(qq).join(',')];
   for (const r of e.lines) {
@@ -12607,7 +12621,7 @@ route('GET', /^\/api\/admin\/training$/, (req, res, m, user) => {
 
 route('GET', /^\/api\/admin\/training\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const mx = trainingMatrix();
   const head = ['Worker', 'Email', 'On the platform', 'Lock', 'Days overdue']
     .concat(mx.modules.flatMap(mo => [`${mo.title}${mo.required ? '' : ' (optional)'} — completed`, `${mo.title} — expires`, `${mo.title} — score`]));
@@ -14250,7 +14264,16 @@ route('GET', /^\/api\/cancel-policy$/, (req, res) => {
 });
 
 /* ---------- static files ---------- */
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml',
+    '.webm': 'video/webm',
+    '.mp4': 'video/mp4',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.avif': 'image/avif',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 function serveStatic(req, res, pathname) {
   let file = pathname === '/' ? '/index.html' : pathname;
   file = path.normalize(file).replace(/^(\.\.[\/\\])+/, '');
@@ -14258,15 +14281,21 @@ function serveStatic(req, res, pathname) {
   if (!full.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end('Forbidden'); }
   fs.readFile(full, (err, data) => {
     if (err) {
-      /* SPA-ish: unknown paths get the app shell */
+      // An asset miss must never return the 900 KB app shell with HTTP 200.
+      if (path.extname(pathname)) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end('Not found');
+      }
+      /* Hash-router compatibility: extensionless direct paths receive the app shell. */
       return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, home) => {
         if (e2) { res.writeHead(404); return res.end('Not found'); }
-        res.writeHead(200, { 'Content-Type': MIME['.html'] });
+        res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-cache, no-store, must-revalidate' });
         res.end(home);
       });
     }
     res.writeHead(200, {
       'Content-Type': MIME[path.extname(full)] || 'application/octet-stream',
+      'Cache-Control': BOOKIT_HARDENING.cacheControl(full),
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'SAMEORIGIN',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -14278,6 +14307,39 @@ function serveStatic(req, res, pathname) {
 
 /* ---------- server ---------- */
 const server = http.createServer((req, res) => {
+  // BookIt v85.3.0 request-boundary hardening. Keep this before route dispatch.
+  for (const [header, value] of Object.entries(BOOKIT_HARDENING.securityHeaders(req))) {
+    if (!res.hasHeader(header)) res.setHeader(header, value);
+  }
+  let bookitPathname = '/';
+  try { bookitPathname = new URL(req.url || '/', 'http://bookit.invalid').pathname; }
+  catch (_) { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }); return res.end(JSON.stringify({ error: 'Malformed request URL' })); }
+  const bookitStaticExtension = require('path').posix.extname(bookitPathname);
+  if (bookitStaticExtension && !res.hasHeader('Cache-Control')) res.setHeader('Cache-Control', BOOKIT_HARDENING.cacheControl(bookitPathname));
+  if (BOOKIT_HARDENING.isBlockedStaticPath(req.url)) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end('Not found');
+  }
+  const bookitRequestCheck = BOOKIT_HARDENING.validateBrowserRequest(req, process.env.APP_URL);
+  if (!bookitRequestCheck.ok) {
+    res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({ error: 'Request blocked', code: 'REQUEST_PROVENANCE_FAILED' }));
+  }
+  if ((req.method === 'GET' || req.method === 'HEAD') && bookitPathname === '/api/version') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(req.method === 'HEAD' ? '' : JSON.stringify(BOOKIT_VERSION));
+  }
+  if ((req.method === 'GET' || req.method === 'HEAD') && (bookitPathname === '/api/health/live' || bookitPathname === '/api/health/ready')) {
+    const ready = bookitPathname.endsWith('/ready');
+    let status = 200;
+    let payload = { ok: true, status: ready ? 'ready' : 'alive', version: BOOKIT_VERSION.APP_VERSION, time: new Date().toISOString() };
+    if (ready) {
+      try { db.prepare('SELECT 1 AS ok').get(); }
+      catch (_) { status = 503; payload = { ...payload, ok: false, status: 'not-ready', database: 'unavailable' }; }
+    }
+    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(req.method === 'HEAD' ? '' : JSON.stringify(payload));
+  }
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
   /* Review round 3, finding 4: the JSON helper already sent no-store, but
@@ -14289,7 +14351,7 @@ const server = http.createServer((req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
   }
-  const ip = req.socket.remoteAddress || 'unknown';
+  const ip = BOOKIT_HARDENING.trustedClientIp(req) || 'unknown';
 
   /* ----- baseline security headers, every response ----- */
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -14341,7 +14403,7 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         const pw = new URLSearchParams(raw).get('pw') || '';
         if (limited(ip, 'gate', 30)) {
-          res.writeHead(429, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.writeHead(429, { 'Content-Type': 'text/html; charset=utf-8' , 'Retry-After': String(Math.max(1, Number(process.env.RATE_LIMIT_RETRY_AFTER_SECONDS || 60)))});
           return res.end(gatePage(true));
         }
         const a = sign('pw:' + pw), b = sign('pw:' + SITE_PASSWORD);
@@ -14431,6 +14493,11 @@ const server = http.createServer((req, res) => {
 
   if (!pathname.startsWith('/api/')) {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+    if (pathname !== '/' && pathname !== '/index.html' && !path.extname(pathname)) {
+      const destination = '/#' + pathname + (url.search || '');
+      res.writeHead(302, { 'Location': destination, 'Cache-Control': 'no-store' });
+      return res.end();
+    }
     return serveStatic(req, res, pathname);
   }
 
@@ -14460,19 +14527,27 @@ const server = http.createServer((req, res) => {
       const m = r.pattern.exec(pathname);
       if (!m) continue;
       try { return r.handler(req, res, m, user, body, ip); }
-      catch (e) { console.error(e); return json(res, 500, { error: 'Something went wrong on our end.' }); }
+      catch (e) {
+        const uploadCodes = new Set(['INVALID_UPLOAD','UNSAFE_UPLOAD','UNSUPPORTED_UPLOAD','UPLOAD_TOO_LARGE','MIME_MISMATCH','IMAGE_TOO_LARGE']);
+        if (e && uploadCodes.has(e.code)) {
+          console.warn('[upload rejected]', e.code, e.message);
+          return json(res, 400, { error: e.message, code: e.code });
+        }
+        console.error(e);
+        return json(res, 500, { error: 'Something went wrong on our end.' });
+      }
     }
     json(res, 404, { error: 'Not found.' });
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, BOOKIT_BIND_HOST, () => {
   console.log(`BookIt server running → http://localhost:${PORT}`);
   console.log(`Database: ${DB_PATH} · auto-reply bot: ${AUTO_REPLY ? 'on' : 'off'}`);
   /* Review round 4: production configuration was load-bearing and silent.
      Now every security-relevant decision is printed at boot, and the unsafe
      combinations shout. */
-  console.log(`Timezone: ${process.env.TZ} · secret: ${process.env.SECRET ? 'from environment' : 'from .secret file'} · demo seed: ${process.env.SEED_DEMO === 'on' ? 'ON' : (process.env.SEED_DEMO === 'off' || COOKIE_SECURE) ? 'off' : 'on (dev default)'} · admin MFA: ${ADMIN_MFA ? 'required' : 'not required'}`);
+  console.log(`Timezone: ${process.env.TZ} · secret: ${(process.env.SESSION_SECRET || process.env.BOOKIT_SESSION_SECRET || process.env.BOOKIT_SECRET || process.env.SECRET) ? 'from environment' : `from ${SECRET_FILE}`} · demo seed: ${process.env.SEED_DEMO === 'on' ? 'ON' : (process.env.SEED_DEMO === 'off' || COOKIE_SECURE) ? 'off' : 'on (dev default)'} · admin MFA: ${ADMIN_MFA ? 'required' : 'not required'}`);
   if (COOKIE_SECURE && !ADMIN_MFA) console.warn('WARNING: ADMIN_MFA_REQUIRED=off on an https deployment — admin accounts are password-only. Turn it back on unless you are mid-recovery.');
   if (COOKIE_SECURE && process.env.SEED_DEMO === 'on') console.warn('WARNING: SEED_DEMO=on behind an https APP_URL — a fresh database will be seeded with demo accounts.');
   if (process.env.ADMIN_BOOTSTRAP) console.warn('NOTE: ADMIN_BOOTSTRAP is set but does nothing — the bootstrap path was removed (review round 4). Provision admins with: node server.js grant-admin <email>');
