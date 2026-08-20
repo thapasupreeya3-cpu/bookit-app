@@ -7424,15 +7424,24 @@ async function renderBookingsPage(){
       : s === 'expiring' ? '<span class="adm-badge">expiring soon</span>'
       : s === 'expired' ? '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">EXPIRED</span>'
       : '<span class="adm-badge">no expiry set</span>';
+    /* A document sitting with us to check is not something the worker still
+       has to do, and telling them it is sends them to upload a second copy of
+       a thing they already sent. So the hint carries the state. */
+    const obHint = (sum, key, base) => {
+      const st = (sum.states || {})[key] || 'missing';
+      if (st === 'pending') return 'uploaded — with us to check';
+      if (st === 'expired') return 'expired — please upload the new one';
+      return base;
+    };
     const obItems = [
       { done: !!prof.photo, label: 'Profile photo', hint: 'required before approval' },
       { done: ['valid', 'expiring'].includes(sum.screening), label: 'NDIS Worker Screening', hint: sum.screening === 'expiring' ? 'expiring soon — renew it' : 'required before approval' },
       { done: !!sum.id_ok, label: '100 points of ID', hint: `${sum.id_points || 0} / 100 pts${sum.has_primary ? ' · primary ✓' : ' · needs a primary (passport, birth or citizenship certificate)'}` },
       { done: !!sum.right_to_work, label: 'Right to work', hint: 'Australian passport, birth or citizenship certificate — or passport + visa' },
-      { done: !!sum.orientation, label: 'NDIS Orientation Module', hint: 'free 90-minute Commission module' },
-      { done: !!sum.first_aid, label: 'First Aid (HLTAID011)', hint: 'needed for direct support work — renews every 3 years' },
-      { done: !!sum.cpr, label: 'CPR (HLTAID009)', hint: 'renews yearly, so it lapses first' },
-      { done: !!sum.resume, label: 'Resume', hint: 'your work history' }
+      { done: !!sum.orientation, label: 'NDIS Orientation Module', hint: obHint(sum, 'ndis-orientation', 'free 90-minute Commission module') },
+      { done: !!sum.first_aid, label: 'First Aid (HLTAID011)', hint: obHint(sum, 'first-aid', 'needed for direct support work — renews every 3 years') },
+      { done: !!sum.cpr, label: 'CPR (HLTAID009)', hint: obHint(sum, 'cpr', 'renews yearly, so it lapses first') },
+      { done: !!sum.resume, label: 'Resume', hint: obHint(sum, 'resume', 'your work history') }
     ];
     const obDone = obItems.filter(i => i.done).length;
     const expRule = {};
@@ -8898,16 +8907,33 @@ async function renderAdminPage(){
         </div>
       </div>
     </div>`).join('') : '<p class="adm-empty">No workers waiting — all caught up. 🎉</p>';
+  /* Four states, not two. A green tick used to mean "a row of this type
+     exists and wasn't rejected", which is not the question anyone is asking
+     when they look at this row before sending somebody out. Now it means the
+     certificate is current AND a person has verified it, and anything short
+     of that says which of the two is missing. */
+  const credBadge = (label, sum, key) => {
+    const st = (sum.states || {})[key] || 'missing';
+    if (st === 'ok') return `<span class="adm-badge" style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;">${label} ✓</span>`;
+    if (st === 'expired') return `<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">${label} — EXPIRED</span>`;
+    if (st === 'pending') return `<span class="adm-badge" style="background:#FDF3DC;border-color:#B4761A;color:#8a6d00;">${label} — to verify</span>`;
+    return `<span class="adm-badge">${label} — none</span>`;
+  };
   const credRows = creds.workers.filter(w => !w.demo).map(w => `<tr>
     <td><div style="display:flex;gap:8px;align-items:center;"><div class="wc-avatar" style="background:#0E6B62;width:34px;height:34px;font-size:.75rem;">${w.photo ? `<img src="${w.photo}" alt="">` : (w.name || '?').split(' ').map(p => p[0]).join('').slice(0,2)}</div><span>${esc(w.name)}${w.visible ? '' : ' <span class="adm-hidden">(hidden)</span>'}${w.photo ? '' : '<br><span style="color:#D94F32;font-size:.75rem;">no photo</span>'}${w.platform && !w.platform.ok ? `<br><span style="color:#D94F32;font-size:.74rem;">off the platform — see the 0137 board</span>` : ''}</span></div></td>
     <td>${scChip(w.screening, w.platform)}</td>
     <td>${w.summary ? `<div style="margin:0 0 6px;">
         <span class="adm-badge" ${w.summary.id_ok ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>ID ${w.summary.id_points || 0} pts${w.summary.has_primary ? ' · primary ✓' : ''}</span>
         <span class="adm-badge" ${w.summary.right_to_work ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Right to work${w.summary.right_to_work ? ' ✓' : ''}</span>
-        <span class="adm-badge" ${w.summary.orientation ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Orientation${w.summary.orientation ? ' ✓' : ''}</span>
-        <span class="adm-badge" ${w.summary.first_aid ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>First aid${w.summary.first_aid ? ' ✓' : ''}</span>
-        <span class="adm-badge" ${w.summary.cpr ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>CPR${w.summary.cpr ? ' ✓' : ''}</span>
-        <span class="adm-badge" ${w.summary.resume ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Resume${w.summary.resume ? ' ✓' : ''}</span>
+        ${credBadge('Orientation', w.summary, 'ndis-orientation')}
+        ${credBadge('First aid', w.summary, 'first-aid')}
+        ${credBadge('CPR', w.summary, 'cpr')}
+        ${credBadge('Resume', w.summary, 'resume')}
+        ${w.summary.modules && w.summary.modules.lock === 'hard'
+          ? `<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">Induction ${w.summary.modules.overdue_days}d overdue — can't accept shifts</span>`
+          : w.summary.modules && w.summary.modules.overdue_days > 0
+            ? `<span class="adm-badge" style="background:#FDF3DC;border-color:#B4761A;color:#8a6d00;">Induction ${w.summary.modules.overdue_days}d overdue</span>`
+            : ''}
       </div>` : ''}${w.documents.length ? w.documents.map(dd => `<div style="margin:3px 0;font-size:.85rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · exp ' + fmtAU(dd.expiry_date) : ''}
       ${dd.status === 'expired' ? '<span style="color:#D94F32;font-weight:700;"> EXPIRED</span>' : dd.status === 'expiring' ? `<span style="color:#8a6d00;"> ${dd.days}d left</span>` : ''}
       ${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">file</a>` : ''}
