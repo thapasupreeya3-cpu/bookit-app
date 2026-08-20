@@ -2163,18 +2163,18 @@ function seed() {
   const count = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
   if (count > 0) return;
   const demoWorkers = [
-    { name: 'Sarah M.', email: 'sarah@demo.bookit.life', suburb: 'Parramatta NSW', color: '#0E6B62', exp: '6 yrs experience', langs: 'English, Auslan (basic)', services: ['community','personal-care','transport'], days: [1,1,1,0,1,0,0], bio: 'Former youth worker who loves footy, board games and getting out and about. Patient, punctual and big on routines that stick.', shifts: 112, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Police check (transport)'] },
-    { name: 'Daniel O.', email: 'daniel@demo.bookit.life', suburb: 'Blacktown NSW', color: '#D94F32', exp: '4 yrs experience', langs: 'English, Samoan', services: ['employment','community','daily-tasks'], days: [1,1,0,1,1,1,0], bio: 'Supports several clients in open employment. Great with interview nerves, workplace routines and building confidence on the job.', shifts: 87, rating: 4.8, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
-    { name: 'Priya S.', email: 'priya@demo.bookit.life', suburb: 'Liverpool NSW', color: '#7A4FBF', exp: '8 yrs experience', langs: 'English, Hindi, Tamil', services: ['personal-care','household','daily-tasks'], days: [1,0,1,1,1,0,1], bio: 'Gentle, thorough and endlessly cheerful. Loves cooking with clients — her butter chicken lesson is legendary.', shifts: 203, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Cert III Individual Support'] },
-    { name: 'Tom H.', email: 'tom@demo.bookit.life', suburb: 'Penrith NSW', color: '#1C7C43', exp: '3 yrs experience', langs: 'English', services: ['transport','community','household'], days: [0,1,1,1,0,1,1], bio: 'Drives a big, comfy wagon and knows every accessible café in the west. Happy to help with errands, gym runs and game day.', shifts: 64, rating: 4.9, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR','Comprehensive car insurance'] },
-    { name: 'Amara W.', email: 'amara@demo.bookit.life', suburb: 'Bankstown NSW', color: '#B0468A', exp: '5 yrs experience', langs: 'English, Arabic', services: ['personal-care','daily-tasks','community'], days: [1,1,1,1,1,0,0], bio: 'Specialises in morning routines and building independence at home. Calm, respectful and a great listener.', shifts: 145, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Manual handling training'] },
-    { name: 'Liam C.', email: 'liam@demo.bookit.life', suburb: 'Chatswood NSW', color: '#3E5A64', exp: '2 yrs experience', langs: 'English, Mandarin', services: ['employment','transport','community'], days: [1,0,1,0,1,1,1], bio: 'Uni student and part-time barista. Brilliant with tech, public transport training and finding free things to do on weekends.', shifts: 41, rating: 4.7, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
-    { name: 'Grace N.', email: 'grace@demo.bookit.life', suburb: 'Newtown NSW', color: '#C2542B', exp: '7 yrs experience', langs: 'English, Vietnamese', services: ['household','daily-tasks','personal-care'], days: [1,1,0,1,1,1,0], bio: 'Runs a tight ship: sparkling kitchens, folded laundry and meal-prepped fridges. Also a certified plant whisperer.', shifts: 178, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR'] },
-    { name: 'Noah B.', email: 'noah@demo.bookit.life', suburb: 'Campbelltown NSW', color: '#0A544D', exp: '5 yrs experience', langs: 'English', services: ['community','employment','daily-tasks'], days: [0,1,1,1,1,0,1], bio: 'Ex-tradie who now supports young blokes into apprenticeships. Practical, straight-up and great on a worksite or at pub trivia.', shifts: 96, rating: 4.8, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','White Card'] },
-    { name: 'Isabella R.', email: 'isabella@demo.bookit.life', suburb: 'Hornsby NSW', color: '#6B8E23', exp: '4 yrs experience', langs: 'English, Spanish', services: ['personal-care','community','household'], days: [1,1,1,0,0,1,1], bio: 'Warm, energetic and music-obsessed. Supports clients to gigs, choir and everything in between.', shifts: 88, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR'] },
-    { name: 'Zoe T.', email: 'zoe@demo.bookit.life', suburb: 'Ryde NSW', color: '#8a6d00', exp: '9 yrs experience', langs: 'English, Auslan (fluent)', services: ['daily-tasks','personal-care','employment'], days: [1,1,1,1,1,1,0], bio: 'Fluent in Auslan with a decade in disability support. Loves teaching cooking, budgeting and travel skills that last a lifetime.', shifts: 260, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Cert IV Disability'] },
-    { name: 'Kai M.', email: 'kai@demo.bookit.life', suburb: 'Brisbane QLD', color: '#2F6690', exp: '3 yrs experience', langs: 'English, Te Reo Māori', services: ['community','transport','household'], days: [0,1,1,1,1,1,0], bio: 'Surf-mad and endlessly upbeat. Supports beach days, park runs and community groups across Brisbane.', shifts: 55, rating: 4.8, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR'] },
-    { name: 'Elena V.', email: 'elena@demo.bookit.life', suburb: 'Melbourne VIC', color: '#5D3FD3', exp: '6 yrs experience', langs: 'English, Greek', services: ['personal-care','daily-tasks','community'], days: [1,1,0,1,1,0,1], bio: 'Melbourne through and through: markets, galleries and the best souvlaki. Experienced with complex routines and hoists.', shifts: 132, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (VIC)','First Aid & CPR','Manual handling training'] }
+    { name: 'Sarah M.', email: 'sarah@demo.bookit.life', suburb: 'Parramatta NSW', color: '#0E6B62', exp: '6 yrs experience', langs: 'English, Auslan (basic)', services: ['community','personal-care','transport'], days: [1,1,1,0,1,0,0], bio: 'Former youth worker who loves footy, board games and getting out and about. Patient, punctual and big on routines that stick.', shifts: 112, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid','Police check (transport)'] },
+    { name: 'Daniel O.', email: 'daniel@demo.bookit.life', suburb: 'Blacktown NSW', color: '#D94F32', exp: '4 yrs experience', langs: 'English, Samoan', services: ['employment','community','daily-tasks'], days: [1,1,0,1,1,1,0], bio: 'Supports several clients in open employment. Great with interview nerves, workplace routines and building confidence on the job.', shifts: 87, rating: 4.8, checks: ['NDIS Worker Screening','First Aid','NDIS Orientation Module'] },
+    { name: 'Priya S.', email: 'priya@demo.bookit.life', suburb: 'Liverpool NSW', color: '#7A4FBF', exp: '8 yrs experience', langs: 'English, Hindi, Tamil', services: ['personal-care','household','daily-tasks'], days: [1,0,1,1,1,0,1], bio: 'Gentle, thorough and endlessly cheerful. Loves cooking with clients — her butter chicken lesson is legendary.', shifts: 203, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid','Cert III Individual Support'] },
+    { name: 'Tom H.', email: 'tom@demo.bookit.life', suburb: 'Penrith NSW', color: '#1C7C43', exp: '3 yrs experience', langs: 'English', services: ['transport','community','household'], days: [0,1,1,1,0,1,1], bio: 'Drives a big, comfy wagon and knows every accessible café in the west. Happy to help with errands, gym runs and game day.', shifts: 64, rating: 4.9, checks: ['NDIS Worker Screening','Police check (transport)','First Aid','Comprehensive car insurance'] },
+    { name: 'Amara W.', email: 'amara@demo.bookit.life', suburb: 'Bankstown NSW', color: '#B0468A', exp: '5 yrs experience', langs: 'English, Arabic', services: ['personal-care','daily-tasks','community'], days: [1,1,1,1,1,0,0], bio: 'Specialises in morning routines and building independence at home. Calm, respectful and a great listener.', shifts: 145, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid','Manual handling training'] },
+    { name: 'Liam C.', email: 'liam@demo.bookit.life', suburb: 'Chatswood NSW', color: '#3E5A64', exp: '2 yrs experience', langs: 'English, Mandarin', services: ['employment','transport','community'], days: [1,0,1,0,1,1,1], bio: 'Uni student and part-time barista. Brilliant with tech, public transport training and finding free things to do on weekends.', shifts: 41, rating: 4.7, checks: ['NDIS Worker Screening','First Aid','NDIS Orientation Module'] },
+    { name: 'Grace N.', email: 'grace@demo.bookit.life', suburb: 'Newtown NSW', color: '#C2542B', exp: '7 yrs experience', langs: 'English, Vietnamese', services: ['household','daily-tasks','personal-care'], days: [1,1,0,1,1,1,0], bio: 'Runs a tight ship: sparkling kitchens, folded laundry and meal-prepped fridges. Also a certified plant whisperer.', shifts: 178, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid'] },
+    { name: 'Noah B.', email: 'noah@demo.bookit.life', suburb: 'Campbelltown NSW', color: '#0A544D', exp: '5 yrs experience', langs: 'English', services: ['community','employment','daily-tasks'], days: [0,1,1,1,1,0,1], bio: 'Ex-tradie who now supports young blokes into apprenticeships. Practical, straight-up and great on a worksite or at pub trivia.', shifts: 96, rating: 4.8, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid','White Card'] },
+    { name: 'Isabella R.', email: 'isabella@demo.bookit.life', suburb: 'Hornsby NSW', color: '#6B8E23', exp: '4 yrs experience', langs: 'English, Spanish', services: ['personal-care','community','household'], days: [1,1,1,0,0,1,1], bio: 'Warm, energetic and music-obsessed. Supports clients to gigs, choir and everything in between.', shifts: 88, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid'] },
+    { name: 'Zoe T.', email: 'zoe@demo.bookit.life', suburb: 'Ryde NSW', color: '#8a6d00', exp: '9 yrs experience', langs: 'English, Auslan (fluent)', services: ['daily-tasks','personal-care','employment'], days: [1,1,1,1,1,1,0], bio: 'Fluent in Auslan with a decade in disability support. Loves teaching cooking, budgeting and travel skills that last a lifetime.', shifts: 260, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid','Cert IV Disability'] },
+    { name: 'Kai M.', email: 'kai@demo.bookit.life', suburb: 'Brisbane QLD', color: '#2F6690', exp: '3 yrs experience', langs: 'English, Te Reo Māori', services: ['community','transport','household'], days: [0,1,1,1,1,1,0], bio: 'Surf-mad and endlessly upbeat. Supports beach days, park runs and community groups across Brisbane.', shifts: 55, rating: 4.8, checks: ['NDIS Worker Screening','Police check (transport)','First Aid'] },
+    { name: 'Elena V.', email: 'elena@demo.bookit.life', suburb: 'Melbourne VIC', color: '#5D3FD3', exp: '6 yrs experience', langs: 'English, Greek', services: ['personal-care','daily-tasks','community'], days: [1,1,0,1,1,0,1], bio: 'Melbourne through and through: markets, galleries and the best souvlaki. Experienced with complex routines and hoists.', shifts: 132, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (VIC)','First Aid','Manual handling training'] }
   ];
   const DEMO_IDENT = {
     'sarah@demo.bookit.life':    ['female', ['Footy', 'Board games', 'Getting outdoors']],
@@ -2199,13 +2199,14 @@ function seed() {
      for a real worker. The verification note says "demo data" in as many words
      — a demonstration should never look like evidence. */
   const CRED_KEY = { 'NDIS Worker Screening': 'ndis-screening', 'WWCC (NSW)': 'wwcc', 'WWCC (VIC)': 'wwcc',
-    'First Aid & CPR': 'first-aid', 'NDIS Orientation Module': 'ndis-orientation', 'Police check (transport)': 'police-check',
+    'First Aid': 'first-aid', 'NDIS Orientation Module': 'ndis-orientation', 'Police check (transport)': 'police-check',
     'Cert III Individual Support': 'cert3-support', 'Cert IV Disability': 'cert4-disability',
     'Manual handling training': 'manual-handling', 'White Card': 'qualification',
     'Comprehensive car insurance': 'other' };
   const insDoc = db.prepare(`INSERT INTO worker_docs (worker_id, doc_type, label, expiry_date, uploaded_at,
     verified_at, verified_by, verify_method, verify_note) VALUES (?,?,?,?,?,?,?,?,?)`);
   const inThreeYears = (() => { const d = new Date(); d.setFullYear(d.getFullYear() + 3); return ymd(d); })();
+  const inOneYear = (() => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return ymd(d); })();
   for (const w of demoWorkers) {
     const r = insUser.run('worker', w.name, w.email, demoPass, w.suburb, now());
     const uid = Number(r.lastInsertRowid);
@@ -2213,6 +2214,15 @@ function seed() {
     for (const label of w.checks) {
       insDoc.run(uid, CRED_KEY[label] || 'other', label, inThreeYears, now(), now(), 'BookIt (demo seed)',
         'sighted-original', 'Demo data — this is a fictional profile, not a real credential.');
+      /* The demo's one job is to show the machinery working. Now that first aid
+         and CPR are filed separately, a demo folder holding a single combined
+         line would demonstrate the old shape, so the combined label seeds both
+         — and on their real clocks, three years and one, so the two-speed
+         problem is visible on the screen rather than only in the help text. */
+      if (label === 'First Aid') {
+        insDoc.run(uid, 'cpr', 'CPR (HLTAID009)', inOneYear, now(), now(), 'BookIt (demo seed)',
+          'sighted-original', 'Demo data — this is a fictional profile, not a real credential.');
+      }
     }
     db.prepare(`UPDATE worker_profiles SET screening_status = 'cleared', screening_status_at = ?, screening_status_by = 'BookIt (demo seed)',
       screening_source = 'Demo data — not a real clearance', banning_result = 'clear', banning_checked_at = ?,
@@ -3910,7 +3920,19 @@ const DOC_CATALOG = [
   /* training certificates */
   { key: 'ndis-orientation', label: 'NDIS Worker Orientation Module', category: 'training', expiry: 'none', numberLabel: 'Certificate ID', aliases: ['quality safety and you', 'orientation module', 'worker orientation'], help: 'The free 90-minute Commission module "Quality, Safety and You".', link: 'https://training.ndiscommission.gov.au/' },
   { key: 'infection-control', label: 'Infection Prevention & Control Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['infection free', 'infection control', 'covid training', 'supporting people to stay infection free'], help: 'e.g. "Supporting People to Stay Infection Free".', link: 'https://teamdsc.com.au/learning/supporting-people-to-stay-infection-free' },
-  { key: 'first-aid', label: 'First Aid / CPR', category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['cpr', 'hltaid011', 'hltaid009', 'first aid certificate'], help: 'Required for direct support work. First aid renews every 3 years, CPR yearly.' },
+  /* Two certificates, two lines. They were one entry called "First Aid / CPR",
+     and that single line could not answer the question an auditor actually
+     asks — not "has this person done a course" but "which one, and is it
+     current today". The two run on different clocks, HLTAID011 for three years
+     and HLTAID009 for one, so a folder holding one current and one lapsed
+     looked identical to a folder holding two current, and the yearly one is
+     always the one that has quietly gone. It also removes the other ambiguity:
+     CPR alone is not first aid, and a line reading "First Aid / CPR" let a
+     CPR-only certificate sit where a first aid certificate was supposed to be.
+     The old key stays with first aid, so every row already on file keeps its
+     home and nothing has to be re-uploaded. */
+  { key: 'first-aid', label: 'First Aid (HLTAID011)', category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['first aid', 'hltaid011', 'hltaid003', 'first aid certificate', 'provide first aid'], help: 'HLTAID011 Provide First Aid, or the equivalent for your setting. Renews every 3 years. A registered nurse or paramedic can give AHPRA registration instead.' },
+  { key: 'cpr', label: 'CPR (HLTAID009)', category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['cpr', 'hltaid009', 'hltaid001', 'resuscitation', 'cardiopulmonary resuscitation'], help: 'HLTAID009 Provide Cardiopulmonary Resuscitation. Renews yearly — a year before the first aid certificate it sits inside, which is exactly why it needs its own line.' },
   { key: 'medication-training', label: 'Medication Administration Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['medication management', 'meds training', 'supporting people to take their medication'], help: 'Required if you assist participants with medication.', link: 'https://teamdsc.com.au/learning/supporting-people-to-take-their-medication' },
   { key: 'manual-handling', label: 'Manual Handling Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['moving and handling', 'hoist training', 'safe lifting'] },
   /* A certificate says somebody attended. This says somebody was watched doing
@@ -3947,6 +3969,7 @@ function onboardingSummary(workerId) {
     right_to_work: rtw,
     screening: screeningState(workerId),
     first_aid: have.has('first-aid'),
+    cpr: have.has('cpr'),
     orientation: have.has('ndis-orientation'),
     infection_control: have.has('infection-control'),
     resume: have.has('resume')
@@ -4882,6 +4905,48 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/platform-block$/, (req, res, m, us
     detail: on ? reason : 'Platform block lifted.', checked_by: user.name });
   const out = reconcileVisibility(uid, on ? 'Platform block applied' : 'Platform block lifted');
   json(res, 200, { ok: true, platform: platformStatus(uid), changed: out });
+});
+
+/* --- filed under the wrong heading -------------------------------------
+
+   Until now the only way to correct a document filed as the wrong type was to
+   delete it and ask the worker to upload it again, which loses the upload
+   date, the verification, and the record that it was ever offered — three
+   things an auditor may want and none of which the worker did anything to
+   deserve losing. Splitting first aid from CPR made that cost immediate:
+   every certificate on file is sitting under the old combined heading and
+   some of them are CPR.
+
+   So the document moves and everything else stays. The verification survives,
+   because re-filing is a correction to where the paper sits and not a claim
+   about whether it was checked — the same person looked at the same document.
+   The move is written to the evidence log with both headings named, so the
+   trail reads as a correction rather than as a gap, and visibility is
+   re-tested, because a worker's position can turn on which heading a
+   certificate is under. */
+route('POST', /^\/api\/admin\/documents\/(\d+)\/retype$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const d = db.prepare(`SELECT wd.*, u.name AS worker_name FROM worker_docs wd
+    JOIN users u ON u.id = wd.worker_id WHERE wd.id = ?`).get(Number(m[1]));
+  if (!d) return json(res, 404, { error: 'No such document.' });
+  const to = DOC_MAP[clean((body || {}).doc_type, 40)];
+  if (!to) return json(res, 400, { error: 'Pick a document type to move it to.' });
+  if (to.key === d.doc_type) return json(res, 400, { error: `It is already filed as ${to.label}.` });
+  /* A type that has to carry an expiry cannot inherit a blank one. Better to
+     refuse here than to create a row the sweep can never reason about. */
+  if (to.expiry === 'required' && !d.expiry_date) {
+    return json(res, 400, { error: `${to.label} needs an expiry date. Add one to this document first, or ask the worker to re-upload it.` });
+  }
+  if (to.needsLabel && !d.label) {
+    return json(res, 400, { error: `${to.label} needs a name — this document doesn't have one.` });
+  }
+  const fromLabel = DOC_TYPES[d.doc_type] || d.doc_type;
+  db.prepare('UPDATE worker_docs SET doc_type = ? WHERE id = ?').run(to.key, d.id);
+  logCompliance({ worker_id: d.worker_id, worker_name: d.worker_name, kind: 'document-refiled', result: 'refiled',
+    detail: `Moved from ${fromLabel} to ${to.label}${d.check_number ? ` — number ${d.check_number}` : ''}${d.expiry_date ? `, expires ${d.expiry_date}` : ''}.${d.verified_at ? ' The existing verification stands: the same document, checked by the same person, filed correctly.' : ''}`,
+    source: 'Re-filed by an administrator', doc_id: d.id, checked_by: user.name });
+  reconcileVisibility(d.worker_id, 'Document re-filed');
+  json(res, 200, { ok: true, doc_type: to.key, label: to.label });
 });
 
 route('POST', /^\/api\/admin\/documents\/(\d+)\/delete$/, (req, res, m, user) => {
@@ -6623,7 +6688,8 @@ const FORMS = [
   { key: 'w-screening', name: 'NDIS Worker Screening Check', scope: 'worker', track: 'live', live: 'doc:ndis-screening', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018', note: 'Blocks bookings on an expired or unverified check. This IS the criminal history check — the NDIS check is a nationally coordinated police check plus a risk assessment, so a separate National Police Certificate is not a second requirement and is not tracked as one. Workers who uploaded one anyway keep it on file.' },
   { key: 'w-wwcc', name: 'Working with Children Check', scope: 'worker', track: 'live', live: 'doc:wwcc', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'State child protection legislation' },
   { key: 'w-orientation', name: 'NDIS Worker Orientation Module certificate', scope: 'worker', track: 'live', live: 'doc:ndis-orientation', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
-  { key: 'w-firstaid', name: 'First Aid and CPR certificate', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'CPR renews yearly, first aid every three years. The yearly one is what lapses.' },
+  { key: 'w-firstaid', name: 'First Aid certificate (HLTAID011)', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Renews every three years.' },
+  { key: 'w-cpr', name: 'CPR certificate (HLTAID009)', scope: 'worker', track: 'live', live: 'doc:cpr', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Renews yearly. This is the one that lapses first, and it is why it is filed separately from the first aid certificate.' },
   { key: 'w-infection', name: 'Infection prevention and control training', scope: 'worker', track: 'live', live: 'doc:infection-control', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment' },
   { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Certificates held in Drive for every current worker - upload into BookIt worker docs so this register reflects them.' },
   { key: 'w-medication', name: 'Medication administration training', scope: 'worker', track: 'live', live: 'doc:medication-training', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Management of medication' },
@@ -11053,6 +11119,7 @@ const JOB_REQUIREMENTS = {
   'hoist':             'Hoist and transfer experience',
   'medication':        'Medication support',
   'first-aid':         'First aid and CPR',
+  'cpr':               'CPR, current within 12 months',
   'ndis-worker-check': 'NDIS Worker Screening Check',
   'covid':             'COVID-19 vaccination',
   'non-smoker':        'Non-smoker',
