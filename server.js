@@ -1956,6 +1956,13 @@ function requireAdmin(user, res) { if (!user || !user.admin) { json(res, 403, { 
 /* The calendar date HERE, in the process timezone — never UTC. On a Sydney
    box, toISOString() answers yesterday until 10am/11am; every "what day is
    it" question below goes through this instead (review round 4, finding 3). */
+/* Local calendar date, not UTC. Declared here rather than beside its first
+   heavy user because it is a `const`: anything that runs during boot and
+   reaches it earlier in the file dies in the temporal dead zone, which is
+   what the boot audit snapshot did the moment the training state started
+   being consulted from further up. */
+const isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 function ymd(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -3918,7 +3925,7 @@ const DOC_CATALOG = [
      contains a nationally coordinated criminal history check. */
   { key: 'police-check', label: 'National Police Check', category: 'checks', expiry: 'optional', numberLabel: 'Reference number', aliases: ['police check', 'afp check', 'criminal history check', 'national police certificate'], help: 'Optional — your NDIS Worker Screening Check already includes a national criminal history check. Only upload this if a host organisation has asked for one separately.' },
   /* training certificates */
-  { key: 'ndis-orientation', label: 'NDIS Worker Orientation Module', category: 'training', expiry: 'none', numberLabel: 'Certificate ID', aliases: ['quality safety and you', 'orientation module', 'worker orientation'], help: 'The free 90-minute Commission module "Quality, Safety and You".', link: 'https://training.ndiscommission.gov.au/' },
+  { key: 'ndis-orientation', label: 'NDIS Worker Orientation Module', required: true, category: 'training', expiry: 'none', numberLabel: 'Certificate ID', aliases: ['quality safety and you', 'orientation module', 'worker orientation'], help: 'The free 90-minute Commission module "Quality, Safety and You".', link: 'https://training.ndiscommission.gov.au/' },
   { key: 'infection-control', label: 'Infection Prevention & Control Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['infection free', 'infection control', 'covid training', 'supporting people to stay infection free'], help: 'e.g. "Supporting People to Stay Infection Free".', link: 'https://teamdsc.com.au/learning/supporting-people-to-stay-infection-free' },
   /* Two certificates, two lines. They were one entry called "First Aid / CPR",
      and that single line could not answer the question an auditor actually
@@ -3931,8 +3938,8 @@ const DOC_CATALOG = [
      CPR-only certificate sit where a first aid certificate was supposed to be.
      The old key stays with first aid, so every row already on file keeps its
      home and nothing has to be re-uploaded. */
-  { key: 'first-aid', label: 'First Aid (HLTAID011)', category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['first aid', 'hltaid011', 'hltaid003', 'first aid certificate', 'provide first aid'], help: 'HLTAID011 Provide First Aid, or the equivalent for your setting. Renews every 3 years. A registered nurse or paramedic can give AHPRA registration instead.' },
-  { key: 'cpr', label: 'CPR (HLTAID009)', category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['cpr', 'hltaid009', 'hltaid001', 'resuscitation', 'cardiopulmonary resuscitation'], help: 'HLTAID009 Provide Cardiopulmonary Resuscitation. Renews yearly — a year before the first aid certificate it sits inside, which is exactly why it needs its own line.' },
+  { key: 'first-aid', label: 'First Aid (HLTAID011)', required: true, category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['first aid', 'hltaid011', 'hltaid003', 'first aid certificate', 'provide first aid'], help: 'HLTAID011 Provide First Aid, or the equivalent for your setting. Renews every 3 years. A registered nurse or paramedic can give AHPRA registration instead.' },
+  { key: 'cpr', label: 'CPR (HLTAID009)', required: true, category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['cpr', 'hltaid009', 'hltaid001', 'resuscitation', 'cardiopulmonary resuscitation'], help: 'HLTAID009 Provide Cardiopulmonary Resuscitation. Renews yearly — a year before the first aid certificate it sits inside, which is exactly why it needs its own line.' },
   { key: 'medication-training', label: 'Medication Administration Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['medication management', 'meds training', 'supporting people to take their medication'], help: 'Required if you assist participants with medication.', link: 'https://teamdsc.com.au/learning/supporting-people-to-take-their-medication' },
   { key: 'manual-handling', label: 'Manual Handling Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['moving and handling', 'hoist training', 'safe lifting'] },
   /* A certificate says somebody attended. This says somebody was watched doing
@@ -3953,8 +3960,30 @@ const DOC_MAP = Object.fromEntries(DOC_CATALOG.map(d => [d.key, d]));
 const DOC_TYPES = Object.fromEntries(DOC_CATALOG.map(d => [d.key, d.label])); /* legacy label map — used by emails/sweep */
 const DOC_MIMES = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png' };
 
+/* --- what a worker actually holds, as opposed to what they have uploaded ---
+
+   These two are not the same thing and the difference was invisible. The old
+   answer was "is there a row of this type that hasn't been rejected", so a
+   certificate that expired last year, or one nobody has checked yet, lit the
+   same green tick as a current verified one. That tick is what the office
+   reads before sending somebody out, which makes an overstatement here worse
+   than no tick at all.
+
+   So there are four answers, not two. `ok` is current and verified by a
+   person. `expired` is on file and out of date. `pending` is on file and
+   waiting on us — not the worker's fault, and it should never be shown to
+   them as a failure. `missing` is nothing on file. Only `ok` counts as held. */
+function docState(workerId, type) {
+  const rows = db.prepare("SELECT * FROM worker_docs WHERE worker_id = ? AND doc_type = ? AND COALESCE(review_state, '') <> 'rejected'").all(workerId, type);
+  if (!rows.length) return 'missing';
+  const live = rows.filter(d => docStatus(d) !== 'expired');
+  if (!live.length) return 'expired';
+  return live.some(d => d.verified_at) ? 'ok' : 'pending';
+}
+const REQUIRED_TRAINING = DOC_CATALOG.filter(d => d.required).map(d => d.key);
+
 /* the onboarding scorecard: 100-point ID tally, right to work, and the key items */
-function onboardingSummary(workerId) {
+function onboardingSummary(workerId, opts) {
   const have = new Set(db.prepare("SELECT DISTINCT doc_type FROM worker_docs WHERE worker_id = ? AND COALESCE(review_state, '') <> 'rejected'").all(workerId).map(d => d.doc_type));
   let points = 0, primary = false, rtw = false;
   for (const key of have) {
@@ -3964,15 +3993,26 @@ function onboardingSummary(workerId) {
     if (c.points && c.primary) primary = true;
     if (c.rtw) rtw = true;
   }
+  /* The identity tally is left counting what is on file rather than what is
+     verified. It is a tally of documents supplied, it is not a claim about
+     safety, and quietly redefining it days before an audit would move a
+     number in the audit pack for reasons that have nothing to do with this. */
+  const st = {};
+  for (const k of ['first-aid', 'cpr', 'ndis-orientation', 'infection-control', 'resume']) st[k] = docState(workerId, k);
+  const training = (opts && opts.modules) ? moduleState(workerId) : null;
   return {
     id_points: points, has_primary: primary, id_ok: primary && points >= 100,
     right_to_work: rtw,
     screening: screeningState(workerId),
-    first_aid: have.has('first-aid'),
-    cpr: have.has('cpr'),
-    orientation: have.has('ndis-orientation'),
-    infection_control: have.has('infection-control'),
-    resume: have.has('resume')
+    first_aid: st['first-aid'] === 'ok',
+    cpr: st['cpr'] === 'ok',
+    orientation: st['ndis-orientation'] === 'ok',
+    infection_control: st['infection-control'] === 'ok',
+    resume: st['resume'] === 'ok',
+    /* the reason behind each tick, so a screen can say "waiting on us" rather
+       than showing the worker a cross for something they already did */
+    states: st,
+    modules: training ? { lock: training.lock, overdue_days: training.overdue_days, outstanding: training.outstanding } : null
   };
 }
 
@@ -4323,6 +4363,49 @@ function platformStatus(workerId) {
   }
   const bage = registers[0].age_days;
 
+  /* ---- the training half, which warns rather than blocks -----------------
+
+     Deliberately amber, and worth saying why out loud, because it is the
+     first question anyone asks looking at this board.
+
+     Registration group 0137 carries two conditions and they are both above:
+     a worker screening clearance, and checking and displaying banning orders.
+     Training currency is not one of them. It is a Human Resource Management
+     obligation under the Practice Standards — workers "competent in relation
+     to their role" — and the remedy the Standards ask for is a record and a
+     provider who acts on it, not a platform that withdraws somebody the
+     morning a certificate lapses.
+
+     But "not a condition of registration" is not the same as "invisible",
+     which is what it was. An expired first aid certificate sent two emails
+     and then nothing appeared anywhere a person looks. So it is named here,
+     in amber, beside the worker it belongs to: the board stops being a
+     screening board and becomes the whole picture, and an auditor asking
+     "how would you know" can be shown the answer rather than told it.
+
+     The induction modules are the same shape with one difference — the hard
+     lock at 14 days overdue really does stop that worker accepting anything
+     new, so this reports a control that is already biting rather than a risk
+     that is only being watched. ---- */
+  for (const key of REQUIRED_TRAINING) {
+    const cat = DOC_MAP[key];
+    const state = docState(workerId, key);
+    if (state === 'expired') warnings.push(`${cat.label} has expired — the worker can't deliver supports on it until it is renewed.`);
+    else if (state === 'missing') warnings.push(`No ${cat.label} on file.`);
+    else if (state === 'pending') warnings.push(`${cat.label} is on file but nobody has verified it yet.`);
+  }
+  const training = moduleState(workerId);
+  if (training.outstanding.length) {
+    /* Seven module titles on one board row is a wall of text nobody reads,
+       which is the same as not showing it. Name one, count the rest, and let
+       the Training page hold the list. */
+    const n = training.outstanding.length;
+    const which = n === 1 ? training.outstanding[0] : `${training.outstanding[0]} and ${n - 1} more`;
+    if (training.lock === 'hard') warnings.push(`Induction training ${training.overdue_days} days overdue — ${which}. Locked out of accepting new shifts.`);
+    else if (training.overdue_days > 0) warnings.push(`Induction training ${training.overdue_days} day${training.overdue_days === 1 ? '' : 's'} overdue — ${which}.`);
+    else warnings.push(`Induction training not finished yet — ${which}.`);
+  }
+
   /* ---- an admin's manual stop, which needs no sweep and no reason to wait ---- */
   if (w.platform_block) blocks.push(w.platform_block_reason || 'Blocked from the platform by an administrator.');
 
@@ -4560,7 +4643,7 @@ route('GET', /^\/api\/me\/documents$/, (req, res, m, user) => {
   json(res, 200, {
     documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(user.id).map(docOut),
     requests: openRequests('worker', user.id),
-    summary: onboardingSummary(user.id)
+    summary: onboardingSummary(user.id, { modules: true })
   });
 });
 
@@ -4740,7 +4823,7 @@ route('GET', /^\/api\/admin\/credentials$/, (req, res, m, user) => {
       demo: isDemoWorker(w.email),
       screening: screeningState(w.id),
       platform: platformStatus(w.id),
-      summary: onboardingSummary(w.id),
+      summary: onboardingSummary(w.id, { modules: true }),
       documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(w.id).map(docOut)
     }));
   json(res, 200, { workers });
@@ -11437,7 +11520,6 @@ route('PATCH', /^\/api\/applications\/(\d+)$/, (req, res, m, user, body) => {
    Greenwich .toISOString() rolls that back to the previous day, so a
    "this month" filter starting on the 1st would silently start on the 31st.
    The box this runs on is UTC today. It does not have to stay that way. */
-const isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 function periodRange(q) {
   const today = new Date();
