@@ -7430,7 +7430,8 @@ async function renderBookingsPage(){
       { done: !!sum.id_ok, label: '100 points of ID', hint: `${sum.id_points || 0} / 100 pts${sum.has_primary ? ' · primary ✓' : ' · needs a primary (passport, birth or citizenship certificate)'}` },
       { done: !!sum.right_to_work, label: 'Right to work', hint: 'Australian passport, birth or citizenship certificate — or passport + visa' },
       { done: !!sum.orientation, label: 'NDIS Orientation Module', hint: 'free 90-minute Commission module' },
-      { done: !!sum.first_aid, label: 'First Aid / CPR', hint: 'needed for direct support work' },
+      { done: !!sum.first_aid, label: 'First Aid (HLTAID011)', hint: 'needed for direct support work — renews every 3 years' },
+      { done: !!sum.cpr, label: 'CPR (HLTAID009)', hint: 'renews yearly, so it lapses first' },
       { done: !!sum.resume, label: 'Resume', hint: 'your work history' }
     ];
     const obDone = obItems.filter(i => i.done).length;
@@ -8905,6 +8906,7 @@ async function renderAdminPage(){
         <span class="adm-badge" ${w.summary.right_to_work ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Right to work${w.summary.right_to_work ? ' ✓' : ''}</span>
         <span class="adm-badge" ${w.summary.orientation ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Orientation${w.summary.orientation ? ' ✓' : ''}</span>
         <span class="adm-badge" ${w.summary.first_aid ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>First aid${w.summary.first_aid ? ' ✓' : ''}</span>
+        <span class="adm-badge" ${w.summary.cpr ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>CPR${w.summary.cpr ? ' ✓' : ''}</span>
         <span class="adm-badge" ${w.summary.resume ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Resume${w.summary.resume ? ' ✓' : ''}</span>
       </div>` : ''}${w.documents.length ? w.documents.map(dd => `<div style="margin:3px 0;font-size:.85rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · exp ' + fmtAU(dd.expiry_date) : ''}
       ${dd.status === 'expired' ? '<span style="color:#D94F32;font-weight:700;"> EXPIRED</span>' : dd.status === 'expiring' ? `<span style="color:#8a6d00;"> ${dd.days}d left</span>` : ''}
@@ -8912,6 +8914,7 @@ async function renderAdminPage(){
       ${dd.review === 'rejected' ? ` · <span style="color:#D94F32;font-weight:700;">rejected</span>` : ''}
       ${dd.verified_at ? ` · <span style="color:#1C7C43;">verified ✓ ${esc(dd.verified_by || '')}</span>` : ` · <button class="adm-btn-sm" data-doc-verify="${dd.id}" type="button">Verify (checked NWSD)</button>`}
       ${dd.review !== 'rejected' ? ` · <button class="adm-btn-sm" data-doc-reject="${dd.id}" style="color:#D94F32;" type="button">reject</button>` : ''}
+      · <button class="adm-btn-sm" data-doc-retype="${dd.id}" type="button">re-file as…</button>
       · <button class="adm-btn-sm" data-doc-del="${dd.id}" type="button">remove</button></div>`).join('') : '<span class="adm-empty">nothing on file</span>'}
     <div style="margin-top:6px;"><button class="adm-btn-sm" data-req-doc="${w.id}" type="button">＋ ask for a document</button></div></td>
   </tr>`).join('');
@@ -8924,7 +8927,13 @@ async function renderAdminPage(){
      construction and provable on any given day, rather than true because
      somebody remembered. */
   const yn = (ok, yes, no) => ok ? `<span class="c37-ok">✓ ${yes}</span>` : `<span class="c37-no">✗ ${no}</span>`;
-  let compliance;
+  /* The evidence log is built here but rendered further down the tab. It runs
+     to sixty rows on a quiet week, and while it sat directly under the 0137
+     board it stood between the person reading "no current verified check" and
+     the credentials table where the documents behind that sentence actually
+     are — a screenful of history in front of the only screen with a Verify
+     button on it. Same content, later position. */
+  let compliance, evidenceLog = '';
   if(!cmp){
     compliance = '<p class="adm-empty">The 0137 board couldn\'t be loaded.</p>';
   } else {
@@ -8979,10 +8988,11 @@ async function renderAdminPage(){
       </tr>`;
     }).join('');
     const demoN = cmp.workers.filter(w => w.demo).length;
-    const LOG_KIND = { 'document-verified': 'Document verified', 'screening-status': 'Screening clearance',
+    const LOG_KIND = { 'document-verified': 'Document verified', 'document-refiled': 'Document re-filed', 'screening-status': 'Screening clearance',
       'banning-check': 'Banning orders register', 'platform-block': 'Platform block', 'platform-access': 'Platform access' };
     const LOG_RESULT = { granted: 'granted', withdrawn: 'withdrawn by an admin', 'auto-withdrawn': 'withdrawn automatically',
       restored: 'restored automatically', blocked: 'blocked', lifted: 'lifted', verified: 'verified',
+      refiled: 'moved to the right heading',
       clear: 'no order in force', banned: 'ORDER IN FORCE', unchecked: 'cleared back to unchecked' };
     const logRows = (clog.entries || []).slice(0, 60).map(r => `<tr>
       <td style="white-space:nowrap;">${fmtStamp(r.checked_at)}</td>
@@ -9017,8 +9027,8 @@ async function renderAdminPage(){
       ${c37Rows ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr>
           <th>Worker</th><th>Screening clearance (a)</th><th>Banning orders (b)</th><th>Evidence</th><th>Displayed</th>
         </tr></thead><tbody>${c37Rows}</tbody></table></div>`
-        : '<p class="adm-empty">No real workers yet — every worker who joins appears here against both conditions.</p>'}
-      <h3 class="adm-sub">Evidence log ${clog.entries && clog.entries.length ? `(latest ${Math.min(60, clog.entries.length)} of ${clog.entries.length})` : ''}</h3>
+        : '<p class="adm-empty">No real workers yet — every worker who joins appears here against both conditions.</p>'}`;
+    evidenceLog = `
       <p class="muted-sm" style="margin:0 0 10px;">Every check, who did it, what they checked it against and what they found — written once and never edited. This is the answer to "show me how you satisfy your conditions".</p>
       ${logRows ? `<div class="adm-table-wrap"><table class="adm-table c37-log"><thead><tr><th>When</th><th>Worker</th><th>What</th><th>Detail</th><th>By</th></tr></thead><tbody>${logRows}</tbody></table></div>`
         : '<p class="adm-empty">Nothing logged yet — verifying a document or recording a check writes the first entry.</p>'}`;
@@ -9292,7 +9302,8 @@ async function renderAdminPage(){
     (cmp ? cmp.blocked : 0) + (c.urgent_incidents || 0) + srOpen.length + (scr ? scr.waiting : 0),
     H('Worker screening — the NWSD queue ', scr && scr.waiting ? red(scr.waiting + ' to look at') : '') + screeningHtml(scr)
     +     H('0137 conditions of registration ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + compliance
-    + H('Credentials — the automatic checker') + credentials
+    + H('Credentials — every document, and the automatic checker') + credentials
+    + H('Evidence log ', clog.entries && clog.entries.length ? `<span style="color:#3E5A64;font-weight:400;">(latest ${Math.min(60, clog.entries.length)} of ${clog.entries.length})</span>` : '') + evidenceLog
     + H('Incident register ', c.urgent_incidents ? red(c.urgent_incidents + ' awaiting Commission notice!') : '') + incidents
     + H('Complaints register') + complaints
     + H('Out-of-scope register ', srOpen.length ? red(srOpen.length + ' open')
@@ -9805,6 +9816,41 @@ document.addEventListener('click', async e => {
   if(pdd){
     try{ await API.call('/admin/participant-documents/' + pdd.dataset.pdocDel + '/delete', {method:'POST'}); toast('Removed from their file.'); renderAdminPage(); }
     catch(err){ toast(err.message); }
+    return;
+  }
+  /* re-file a document under a different heading. The list comes from the same
+     catalogue the worker uploads against, so the two can never drift, and it
+     is fetched on demand rather than assumed — this button is reachable before
+     the waiting-on card has loaded. */
+  const drt = e.target.closest('[data-doc-retype]');
+  if(drt){
+    if(drt.dataset.open) return;
+    drt.dataset.open = '1';
+    if(!ADMREQ.types){
+      try{
+        const cat = await API.call('/doc-catalog', {noFor:true});
+        ADMREQ.types = { worker: (cat.types || []).map(t => ({ key: t.key, label: t.label })), participant: [] };
+      }catch(err){ delete drt.dataset.open; toast('Couldn\'t load the document types.'); return; }
+    }
+    const types = (ADMREQ.types && ADMREQ.types.worker) || [];
+    const box = document.createElement('span');
+    box.className = 'rt-box';
+    box.innerHTML = ` <select class="rt-type" style="font:inherit;font-size:.82rem;padding:4px 8px;border-radius:8px;border:1.5px solid #E7DFD4;max-width:230px;">
+        ${types.map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}
+      </select>
+      <button class="adm-btn-sm rt-go" data-doc-retype-go="${drt.dataset.docRetype}" type="button">move it</button>`;
+    drt.parentNode.insertBefore(box, drt.nextSibling);
+    return;
+  }
+  const drtg = e.target.closest('[data-doc-retype-go]');
+  if(drtg){
+    const bx = drtg.closest('.rt-box');
+    try{
+      const r = await API.call('/admin/documents/' + drtg.dataset.docRetypeGo + '/retype', {method:'POST', noFor:true,
+        body:{ doc_type: bx.querySelector('.rt-type').value }});
+      toast('Moved to ' + r.label + ' — the verification stands and the move is in the evidence log.');
+      renderAdminPage();
+    }catch(err){ toast(err.message); }
     return;
   }
   const dd2 = e.target.closest('[data-doc-del]');
