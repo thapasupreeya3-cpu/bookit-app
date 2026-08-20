@@ -3222,8 +3222,15 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
 });
 
 route('POST', /^\/api\/login$/, (req, res, m, user, body, ip) => {
-  if (limited(ip, 'login', 25)) return json(res, 429, { error: 'Too many attempts — try again later.' });
   const email = clean(body.email, 120).toLowerCase();
+  /* Two buckets, not one. The per-IP bucket stops one visitor hammering the
+     door; the per-ACCOUNT bucket stops an attack spread across many addresses
+     from grinding at a single mailbox, which the IP bucket cannot see. A hot
+     shared IP also cannot lock a neighbour out of their own account, because
+     the bucket that names them is the account one. */
+  if (limited(ip, 'login', 25) || (email && limited('acct:' + email, 'login', 15))) {
+    return json(res, 429, { error: 'Too many attempts — try again later.' });
+  }
   const row = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (!row || !verifyPassword(String(body.password || ''), row.pass)) {
     return json(res, 401, { error: 'Email or password doesn\'t match.' });
@@ -3359,8 +3366,11 @@ route('POST', /^\/api\/me\/high-intensity$/, (req, res, m, user, body) => {
 
 /* ---------- email flows: forgot / reset / verify ---------- */
 route('POST', /^\/api\/forgot$/, (req, res, m, user, body, ip) => {
-  if (limited(ip, 'forgot', 8)) return json(res, 429, { error: 'Too many attempts — try again later.' });
   const email = clean(body.email, 120).toLowerCase();
+  /* same reasoning as login: reset floods target a mailbox, not an address */
+  if (limited(ip, 'forgot', 8) || (email && limited('acct:' + email, 'forgot', 6))) {
+    return json(res, 429, { error: 'Too many attempts — try again later.' });
+  }
   const row = EMAIL_RE.test(email) ? db.prepare('SELECT * FROM users WHERE email = ?').get(email) : null;
   if (row) {
     const token = makeEmailToken('r', row.id, 45 * 60e3, String(row.pass).slice(0, 16));
@@ -4681,7 +4691,19 @@ route('GET', /^\/api\/documents\/(\d+)\/file$/, (req, res, m, user) => {
   if (!d || !d.file_path) return json(res, 404, { error: 'No file.' });
   if (!(user.admin || user.id === d.worker_id)) return json(res, 403, { error: 'Not yours.' });
   if (!fs.existsSync(d.file_path)) return json(res, 404, { error: 'File missing from disk.' });
-  res.writeHead(200, { 'Content-Type': d.file_mime || 'application/octet-stream', 'Content-Disposition': `inline; filename="${d.file_name || 'document'}"` });
+  /* Round 6: the document stays viewable in the browser — an auditor wants to
+       open a certificate, not download twelve of them — but it is served into a
+       sandbox. `sandbox` with no allow-list switches off scripts, forms, popups
+       and same-origin access for this response, so even a PDF that slipped past
+       the upload signature and active-content checks cannot reach the session.
+       nosniff stops the browser second-guessing the declared type. */
+  res.writeHead(200, {
+    'Content-Type': d.file_mime || 'application/octet-stream',
+    'Content-Disposition': `inline; filename="${(d.file_name || 'document').replace(/[^\w.\- ]/g, '')}"`,
+    'Content-Security-Policy': 'sandbox',
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'no-store, private'
+  });
   fs.createReadStream(d.file_path).pipe(res);
 });
 
@@ -7737,7 +7759,19 @@ route('GET', /^\/api\/participant-documents\/(\d+)\/file$/, (req, res, m, user) 
   if (!d || !d.file_path) return json(res, 404, { error: 'No file.' });
   if (!(user.admin || user.id === d.participant_id || linkAllows(user.id, d.participant_id, 'documents'))) return json(res, 403, { error: 'Not yours.' });
   if (!fs.existsSync(d.file_path)) return json(res, 404, { error: 'File missing from disk.' });
-  res.writeHead(200, { 'Content-Type': d.file_mime || 'application/octet-stream', 'Content-Disposition': `inline; filename="${d.file_name || 'document'}"` });
+  /* Round 6: the document stays viewable in the browser — an auditor wants to
+       open a certificate, not download twelve of them — but it is served into a
+       sandbox. `sandbox` with no allow-list switches off scripts, forms, popups
+       and same-origin access for this response, so even a PDF that slipped past
+       the upload signature and active-content checks cannot reach the session.
+       nosniff stops the browser second-guessing the declared type. */
+  res.writeHead(200, {
+    'Content-Type': d.file_mime || 'application/octet-stream',
+    'Content-Disposition': `inline; filename="${(d.file_name || 'document').replace(/[^\w.\- ]/g, '')}"`,
+    'Content-Security-Policy': 'sandbox',
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'no-store, private'
+  });
   fs.createReadStream(d.file_path).pipe(res);
 });
 
@@ -12058,6 +12092,9 @@ route('GET', /^\/api\/messages\/(\d+)\/file$/, (req, res, m, user) => {
   res.writeHead(200, {
     'Content-Type': row.file_mime || 'application/octet-stream',
     'Content-Disposition': `inline; filename="${(row.file_name || 'document').replace(/[^\w.\- ]/g, '')}"`,
+    /* sandboxed for the same reason as the credential routes above */
+    'Content-Security-Policy': 'sandbox',
+    'X-Content-Type-Options': 'nosniff',
     /* a shared document is somebody's medical history often enough that it
        should not sit in a shared proxy cache */
     'Cache-Control': 'no-store, private'
@@ -14140,15 +14177,33 @@ function selfTest() {
 
   /* ---- gates ----------------------------------------------------------- */
 
+  /* Round 6. These three checks used to count demonstration profiles, and the
+     enforcement path does not. The credential sweep skips @demo.bookit.life
+     outright (see the sweep above: `if (w.email.endsWith(...)) continue`),
+     because a fictional person has no clearance to confirm and no register to
+     appear on. So on a seeded database the self-test reported twelve visible
+     workers failing the conditions and told the reader it "should be
+     impossible" — while the thing that would have fixed it had been told to
+     ignore them. The diagnostics now scope to the same population the gate
+     enforces, and SAY SO in the detail line, so an excluded demo profile is
+     never silently counted as a pass. */
+  const DEMO_SQL = "u.email NOT LIKE '%@demo.bookit.life'";
+  const demoProfiles = db.prepare(`SELECT COUNT(*) n FROM worker_profiles p JOIN users u ON u.id = p.user_id
+    WHERE u.role = 'worker' AND u.email LIKE '%@demo.bookit.life'`).get().n;
+  const demoNote = demoProfiles
+    ? ` ${demoProfiles} demonstration profile${demoProfiles === 1 ? ' is' : 's are'} excluded — they carry no real clearance and the launch sweep removes them.`
+    : '';
+
   const blocked = db.prepare(`SELECT COUNT(*) n FROM worker_profiles p JOIN users u ON u.id = p.user_id
-    WHERE u.role = 'worker' AND p.visible = 1 AND (p.screening_status <> 'cleared' OR p.banning_result = 'unchecked')`).get().n;
+    WHERE u.role = 'worker' AND ${DEMO_SQL} AND p.visible = 1
+      AND (p.screening_status <> 'cleared' OR p.banning_result = 'unchecked')`).get().n;
   add('0137 conditions', 'Nobody uncleared is visible', blocked ? 'fail' : 'ok',
-    blocked ? `${blocked} visible worker${blocked === 1 ? ' does' : 's do'} not currently satisfy the conditions.`
-            : 'Every visible worker holds a confirmed clearance and has been checked against the registers.',
+    (blocked ? `${blocked} visible worker${blocked === 1 ? ' does' : 's do'} not currently satisfy the conditions.`
+             : 'Every visible worker holds a confirmed clearance and has been checked against the registers.') + demoNote,
     blocked ? 'This should be impossible — approval refuses it and the sweep withdraws it. Investigate before anything else on this page.' : '');
 
   const staleScreen = db.prepare(`SELECT COUNT(*) n FROM worker_profiles p JOIN users u ON u.id = p.user_id
-    WHERE u.role = 'worker' AND p.visible = 1 AND p.screening_status = 'cleared'
+    WHERE u.role = 'worker' AND ${DEMO_SQL} AND p.visible = 1 AND p.screening_status = 'cleared'
       AND p.screening_status_at <> '' AND p.screening_status_at < ?`)
     .get(new Date(Date.now() - CLOCK.screening_recheck_days() * 864e5).toISOString()).n;
   add('0137 conditions', 'Screening confirmations are current', staleScreen ? 'warn' : 'ok',
@@ -14156,10 +14211,12 @@ function selfTest() {
                 : 'Every clearance has been confirmed inside the re-check window.',
     staleScreen ? 'The clock sweep warns, then withdraws after the grace period. Re-confirm against the screening unit.' : '');
 
-  const neverBanned = db.prepare("SELECT COUNT(*) n FROM worker_profiles WHERE banning_result = 'unchecked'").get().n;
+  /* this one never joined users at all, so it counted every profile row */
+  const neverBanned = db.prepare(`SELECT COUNT(*) n FROM worker_profiles p JOIN users u ON u.id = p.user_id
+    WHERE u.role = 'worker' AND ${DEMO_SQL} AND p.banning_result = 'unchecked'`).get().n;
   add('0137 conditions', 'Banning registers checked', neverBanned ? 'warn' : 'ok',
-    neverBanned ? `${neverBanned} worker${neverBanned === 1 ? ' has' : 's have'} never been checked against any banning register.`
-                : 'Every worker carries a result on all three registers.', '');
+    (neverBanned ? `${neverBanned} worker${neverBanned === 1 ? ' has' : 's have'} never been checked against any banning register.`
+                 : 'Every worker carries a result on all three registers.') + demoNote, '');
 
   /* ---- the AI gates ---------------------------------------------------- */
   const mode = AI.mode();
