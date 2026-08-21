@@ -4342,6 +4342,9 @@ html.high-contrast .care-stage-block{display:none!important;}
     .adm-tile span{font-size:.85rem;color:#3E5A64;}
     .adm-section{margin:34px 0 12px;}
     .adm-sub{margin:24px 0 10px;font-size:1.06rem;letter-spacing:-.2px;}
+    .c37-docs{margin-top:7px;}
+    .c37-docs summary{font-size:.78rem;color:#3E5A64;cursor:pointer;padding:2px 0;}
+    .c37-docs[open] summary{font-weight:600;}
     .adm-table-wrap{overflow-x:auto;}
     .adm-table{width:100%;border-collapse:collapse;font-size:.92rem;background:rgba(255,255,255,.72);border-radius:12px;overflow:hidden;}
     .adm-table th,.adm-table td{padding:9px 12px;border-bottom:1px solid #EFE8DC;text-align:left;vertical-align:top;}
@@ -7424,33 +7427,25 @@ async function renderBookingsPage(){
       : s === 'expiring' ? '<span class="adm-badge">expiring soon</span>'
       : s === 'expired' ? '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">EXPIRED</span>'
       : '<span class="adm-badge">no expiry set</span>';
-    /* A document sitting with us to check is not something the worker still
-       has to do, and telling them it is sends them to upload a second copy of
-       a thing they already sent. So the hint carries the state. */
-    const obHint = (sum, key, base) => {
-      const st = (sum.states || {})[key] || 'missing';
-      if (st === 'pending') return 'uploaded — with us to check';
-      if (st === 'expired') return 'expired — please upload the new one';
-      return base;
-    };
     const obItems = [
       { done: !!prof.photo, label: 'Profile photo', hint: 'required before approval' },
       { done: ['valid', 'expiring'].includes(sum.screening), label: 'NDIS Worker Screening', hint: sum.screening === 'expiring' ? 'expiring soon — renew it' : 'required before approval' },
       { done: !!sum.id_ok, label: '100 points of ID', hint: `${sum.id_points || 0} / 100 pts${sum.has_primary ? ' · primary ✓' : ' · needs a primary (passport, birth or citizenship certificate)'}` },
       { done: !!sum.right_to_work, label: 'Right to work', hint: 'Australian passport, birth or citizenship certificate — or passport + visa' },
-      { done: !!sum.orientation, label: 'NDIS Orientation Module', hint: obHint(sum, 'ndis-orientation', 'free 90-minute Commission module') },
-      { done: !!sum.first_aid, label: 'First Aid (HLTAID011)', hint: obHint(sum, 'first-aid', 'needed for direct support work — renews every 3 years') },
-      { done: !!sum.cpr, label: 'CPR (HLTAID009)', hint: obHint(sum, 'cpr', 'renews yearly, so it lapses first') },
-      { done: !!sum.resume, label: 'Resume', hint: obHint(sum, 'resume', 'your work history') }
+      { done: !!sum.orientation, label: 'NDIS Orientation Module', hint: 'free 90-minute Commission module' },
+      { done: !!sum.first_aid, label: 'First Aid (HLTAID011)', hint: 'renews every 3 years' },
+      { done: !!sum.cpr, label: 'CPR (HLTAID009)', hint: 'renews yearly — required to be on the platform' },
+      { done: !!sum.resume, label: 'Resume', hint: 'your work history' }
     ];
     const obDone = obItems.filter(i => i.done).length;
     const expRule = {};
     (catData.types || []).forEach(t => { expRule[t.key] = t.expiry; });
+    const wdSup = supersededIds(docs);
     const docGroups = (catData.categories || []).map(c => {
       const items = docs.filter(dd => dd.category === c.key);
       if(!items.length) return '';
       return `<div class="doc-group-h">${esc(c.label)}</div>` + items.map(dd =>
-        `<p style="margin:5px 0;font-size:.92rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · expires ' + fmtAU(dd.expiry_date) : ''} ${dd.expiry_date ? stageChip(dd) : (expRule[dd.doc_type] === 'required' ? chip('no-expiry') : '')} ${reviewChip(dd)}${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">view file</a>` : ''}${!dd.verified_at ? ` · <button type="button" class="adm-btn-sm" data-wd-del="${dd.id}">remove</button>` : ''}${dd.review === 'rejected' && dd.review_note ? `<br><span style="color:#A5301A;font-size:.82rem;"><b>Why:</b> ${esc(dd.review_note)} — upload a replacement below and it takes this one's place.</span>` : ''}</p>`).join('');
+        `<p style="margin:5px 0;font-size:.92rem;${wdSup.has(dd.id) ? 'color:#7A8B93;' : ''}"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · expires ' + fmtAU(dd.expiry_date) : ''} ${dd.expiry_date ? stageChip(dd, wdSup.has(dd.id)) : (expRule[dd.doc_type] === 'required' ? chip('no-expiry') : '')} ${reviewChip(dd)}${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">view file</a>` : ''}${!dd.verified_at ? ` · <button type="button" class="adm-btn-sm" data-wd-del="${dd.id}">remove</button>` : ''}${dd.review === 'rejected' && dd.review_note ? `<br><span style="color:#A5301A;font-size:.82rem;"><b>Why:</b> ${esc(dd.review_note)} — upload a replacement below and it takes this one's place.</span>` : ''}</p>`).join('');
     }).join('');
     const reqPanel = (dreqs && dreqs.length) ? `
       <div style="margin:0 0 14px;padding:12px 14px;border:1.5px solid #F5B841;border-radius:12px;background:#FDF9EF;" id="wdRequests">
@@ -8907,35 +8902,17 @@ async function renderAdminPage(){
         </div>
       </div>
     </div>`).join('') : '<p class="adm-empty">No workers waiting — all caught up. 🎉</p>';
-  /* Four states, not two. A green tick used to mean "a row of this type
-     exists and wasn't rejected", which is not the question anyone is asking
-     when they look at this row before sending somebody out. Now it means the
-     certificate is current AND a person has verified it, and anything short
-     of that says which of the two is missing. */
-  const credBadge = (label, sum, key) => {
-    const st = (sum.states || {})[key] || 'missing';
-    if (st === 'ok') return `<span class="adm-badge" style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;">${label} ✓</span>`;
-    if (st === 'expired') return `<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">${label} — EXPIRED</span>`;
-    if (st === 'pending') return `<span class="adm-badge" style="background:#FDF3DC;border-color:#B4761A;color:#8a6d00;">${label} — to verify</span>`;
-    return `<span class="adm-badge">${label} — none</span>`;
-  };
-  const credRows = creds.workers.filter(w => !w.demo).map(w => `<tr>
+  const credRows = creds.workers.filter(w => !w.demo).map(w => { const sup = supersededIds(w.documents); return `<tr>
     <td><div style="display:flex;gap:8px;align-items:center;"><div class="wc-avatar" style="background:#0E6B62;width:34px;height:34px;font-size:.75rem;">${w.photo ? `<img src="${w.photo}" alt="">` : (w.name || '?').split(' ').map(p => p[0]).join('').slice(0,2)}</div><span>${esc(w.name)}${w.visible ? '' : ' <span class="adm-hidden">(hidden)</span>'}${w.photo ? '' : '<br><span style="color:#D94F32;font-size:.75rem;">no photo</span>'}${w.platform && !w.platform.ok ? `<br><span style="color:#D94F32;font-size:.74rem;">off the platform — see the 0137 board</span>` : ''}</span></div></td>
     <td>${scChip(w.screening, w.platform)}</td>
     <td>${w.summary ? `<div style="margin:0 0 6px;">
         <span class="adm-badge" ${w.summary.id_ok ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>ID ${w.summary.id_points || 0} pts${w.summary.has_primary ? ' · primary ✓' : ''}</span>
         <span class="adm-badge" ${w.summary.right_to_work ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Right to work${w.summary.right_to_work ? ' ✓' : ''}</span>
-        ${credBadge('Orientation', w.summary, 'ndis-orientation')}
-        ${credBadge('First aid', w.summary, 'first-aid')}
-        ${credBadge('CPR', w.summary, 'cpr')}
-        ${credBadge('Resume', w.summary, 'resume')}
-        ${w.summary.modules && w.summary.modules.lock === 'hard'
-          ? `<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">Induction ${w.summary.modules.overdue_days}d overdue — can't accept shifts</span>`
-          : w.summary.modules && w.summary.modules.overdue_days > 0
-            ? `<span class="adm-badge" style="background:#FDF3DC;border-color:#B4761A;color:#8a6d00;">Induction ${w.summary.modules.overdue_days}d overdue</span>`
-            : ''}
-      </div>` : ''}${w.documents.length ? w.documents.map(dd => `<div style="margin:3px 0;font-size:.85rem;"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · exp ' + fmtAU(dd.expiry_date) : ''}
-      ${dd.status === 'expired' ? '<span style="color:#D94F32;font-weight:700;"> EXPIRED</span>' : dd.status === 'expiring' ? `<span style="color:#8a6d00;"> ${dd.days}d left</span>` : ''}
+        <span class="adm-badge" ${w.summary.orientation ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Orientation${w.summary.orientation ? ' ✓' : ''}</span>
+        <span class="adm-badge" ${w.summary.first_aid ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>First aid${w.summary.first_aid ? ' ✓' : ''}</span>
+        <span class="adm-badge" ${w.summary.resume ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>Resume${w.summary.resume ? ' ✓' : ''}</span>
+      </div>` : ''}${w.documents.length ? w.documents.map(dd => `<div style="margin:3px 0;font-size:.85rem;${sup.has(dd.id) ? 'color:#7A8B93;' : ''}"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · exp ' + fmtAU(dd.expiry_date) : ''}
+      ${sup.has(dd.id) ? '<span style="color:#7A8B93;"> replaced</span>' : dd.status === 'expired' ? '<span style="color:#D94F32;font-weight:700;"> EXPIRED</span>' : dd.status === 'expiring' ? `<span style="color:#8a6d00;"> ${dd.days}d left</span>` : ''}
       ${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">file</a>` : ''}
       ${dd.review === 'rejected' ? ` · <span style="color:#D94F32;font-weight:700;">rejected</span>` : ''}
       ${dd.verified_at ? ` · <span style="color:#1C7C43;">verified ✓ ${esc(dd.verified_by || '')}</span>` : ` · <button class="adm-btn-sm" data-doc-verify="${dd.id}" type="button">Verify (checked NWSD)</button>`}
@@ -8943,7 +8920,7 @@ async function renderAdminPage(){
       · <button class="adm-btn-sm" data-doc-retype="${dd.id}" type="button">re-file as…</button>
       · <button class="adm-btn-sm" data-doc-del="${dd.id}" type="button">remove</button></div>`).join('') : '<span class="adm-empty">nothing on file</span>'}
     <div style="margin-top:6px;"><button class="adm-btn-sm" data-req-doc="${w.id}" type="button">＋ ask for a document</button></div></td>
-  </tr>`).join('');
+  </tr>`; }).join('');
   /* ---------- 0137 conditions board ----------
      BookIt is applying to be registered for 0137 NDIS Digital Platform Service,
      and that registration carries two conditions: only people holding a worker
@@ -8953,13 +8930,7 @@ async function renderAdminPage(){
      construction and provable on any given day, rather than true because
      somebody remembered. */
   const yn = (ok, yes, no) => ok ? `<span class="c37-ok">✓ ${yes}</span>` : `<span class="c37-no">✗ ${no}</span>`;
-  /* The evidence log is built here but rendered further down the tab. It runs
-     to sixty rows on a quiet week, and while it sat directly under the 0137
-     board it stood between the person reading "no current verified check" and
-     the credentials table where the documents behind that sentence actually
-     are — a screenful of history in front of the only screen with a Verify
-     button on it. Same content, later position. */
-  let compliance, evidenceLog = '';
+  let compliance;
   if(!cmp){
     compliance = '<p class="adm-empty">The 0137 board couldn\'t be loaded.</p>';
   } else {
@@ -8976,7 +8947,20 @@ async function renderAdminPage(){
         <td><b>${esc(w.name)}</b><br>
           ${w.visible ? '<span class="adm-live">on the platform</span>' : `<span class="adm-hidden">off the platform</span>${w.auto_hidden ? '<br><span style="font-size:.74rem;color:#3E5A64;">withdrawn automatically</span>' : ''}`}
           ${p.blocks.length ? `<div class="c37-blocks">${p.blocks.map(b => '• ' + esc(b)).join('<br>')}</div>` : ''}
-          ${p.warnings.length ? `<div class="c37-blocks" style="color:#8a6d00;">${p.warnings.map(b => '• ' + esc(b)).join('<br>')}</div>` : ''}</td>
+          ${p.warnings.length ? `<div class="c37-blocks" style="color:#8a6d00;">${p.warnings.map(b => '• ' + esc(b)).join('<br>')}</div>` : ''}
+          ${(w.documents && w.documents.length) || (w.missing && w.missing.length) ? `
+            <details class="c37-docs"${p.ok ? '' : ' open'}><summary>Everything on file (${(w.documents || []).length})</summary>
+              ${(w.documents || []).map(d => `<div style="${d.superseded ? 'color:#7A8B93;' : ''}font-size:.78rem;margin:2px 0;">
+                ${esc(d.label)}${d.number ? ' · ' + esc(d.number) : ''}${d.expiry ? ' · ' + fmtAU(d.expiry) : ''}
+                ${d.superseded ? '<span style="color:#7A8B93;">replaced</span>'
+                  : d.status === 'expired' ? '<b style="color:#D94F32;">EXPIRED</b>'
+                  : d.status === 'expiring' ? '<span style="color:#8a6d00;">expiring</span>'
+                  : '<span style="color:#2E6B4F;">current</span>'}
+                ${d.verified ? '<span style="color:#2E6B4F;"> · verified ✓</span>' : '<span style="color:#8a6d00;"> · not verified</span>'}
+                ${d.date_problem ? `<br><span style="color:#D94F32;">${esc(d.date_problem)}</span>` : ''}
+              </div>`).join('')}
+              ${(w.missing || []).map(m => `<div style="font-size:.78rem;margin:2px 0;color:#D94F32;">${esc(m)} — <b>nothing on file</b></div>`).join('')}
+            </details>` : ''}</td>
         <td>${yn(w.c_screening_held, 'check held', 'no current verified check')}
           ${sd ? `<br><span style="font-size:.78rem;color:#3E5A64;">${sd.expiry ? 'expires ' + fmtAU(sd.expiry) : 'no expiry'}${sd.verified_by ? ' · verified by ' + esc(sd.verified_by) : ''}</span>` : ''}
           <div class="c37-ctl">
@@ -9014,11 +8998,10 @@ async function renderAdminPage(){
       </tr>`;
     }).join('');
     const demoN = cmp.workers.filter(w => w.demo).length;
-    const LOG_KIND = { 'document-verified': 'Document verified', 'document-refiled': 'Document re-filed', 'screening-status': 'Screening clearance',
+    const LOG_KIND = { 'document-verified': 'Document verified', 'screening-status': 'Screening clearance',
       'banning-check': 'Banning orders register', 'platform-block': 'Platform block', 'platform-access': 'Platform access' };
     const LOG_RESULT = { granted: 'granted', withdrawn: 'withdrawn by an admin', 'auto-withdrawn': 'withdrawn automatically',
       restored: 'restored automatically', blocked: 'blocked', lifted: 'lifted', verified: 'verified',
-      refiled: 'moved to the right heading',
       clear: 'no order in force', banned: 'ORDER IN FORCE', unchecked: 'cleared back to unchecked' };
     const logRows = (clog.entries || []).slice(0, 60).map(r => `<tr>
       <td style="white-space:nowrap;">${fmtStamp(r.checked_at)}</td>
@@ -9053,8 +9036,8 @@ async function renderAdminPage(){
       ${c37Rows ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr>
           <th>Worker</th><th>Screening clearance (a)</th><th>Banning orders (b)</th><th>Evidence</th><th>Displayed</th>
         </tr></thead><tbody>${c37Rows}</tbody></table></div>`
-        : '<p class="adm-empty">No real workers yet — every worker who joins appears here against both conditions.</p>'}`;
-    evidenceLog = `
+        : '<p class="adm-empty">No real workers yet — every worker who joins appears here against both conditions.</p>'}
+      <h3 class="adm-sub">Evidence log ${clog.entries && clog.entries.length ? `(latest ${Math.min(60, clog.entries.length)} of ${clog.entries.length})` : ''}</h3>
       <p class="muted-sm" style="margin:0 0 10px;">Every check, who did it, what they checked it against and what they found — written once and never edited. This is the answer to "show me how you satisfy your conditions".</p>
       ${logRows ? `<div class="adm-table-wrap"><table class="adm-table c37-log"><thead><tr><th>When</th><th>Worker</th><th>What</th><th>Detail</th><th>By</th></tr></thead><tbody>${logRows}</tbody></table></div>`
         : '<p class="adm-empty">Nothing logged yet — verifying a document or recording a check writes the first entry.</p>'}`;
@@ -9328,8 +9311,7 @@ async function renderAdminPage(){
     (cmp ? cmp.blocked : 0) + (c.urgent_incidents || 0) + srOpen.length + (scr ? scr.waiting : 0),
     H('Worker screening — the NWSD queue ', scr && scr.waiting ? red(scr.waiting + ' to look at') : '') + screeningHtml(scr)
     +     H('0137 conditions of registration ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + compliance
-    + H('Credentials — every document, and the automatic checker') + credentials
-    + H('Evidence log ', clog.entries && clog.entries.length ? `<span style="color:#3E5A64;font-weight:400;">(latest ${Math.min(60, clog.entries.length)} of ${clog.entries.length})</span>` : '') + evidenceLog
+    + H('Credentials — the automatic checker') + credentials
     + H('Incident register ', c.urgent_incidents ? red(c.urgent_incidents + ' awaiting Commission notice!') : '') + incidents
     + H('Complaints register') + complaints
     + H('Out-of-scope register ', srOpen.length ? red(srOpen.length + ' open')
@@ -9844,10 +9826,9 @@ document.addEventListener('click', async e => {
     catch(err){ toast(err.message); }
     return;
   }
-  /* re-file a document under a different heading. The list comes from the same
-     catalogue the worker uploads against, so the two can never drift, and it
-     is fetched on demand rather than assumed — this button is reachable before
-     the waiting-on card has loaded. */
+  /* Re-file a document under a different heading. The list comes from the same
+     catalogue the worker uploads against, fetched on demand because this
+     button is reachable before the waiting-on card has loaded. */
   const drt = e.target.closest('[data-doc-retype]');
   if(drt){
     if(drt.dataset.open) return;
@@ -9874,7 +9855,7 @@ document.addEventListener('click', async e => {
     try{
       const r = await API.call('/admin/documents/' + drtg.dataset.docRetypeGo + '/retype', {method:'POST', noFor:true,
         body:{ doc_type: bx.querySelector('.rt-type').value }});
-      toast('Moved to ' + r.label + ' — the verification stands and the move is in the evidence log.');
+      toast('Moved to ' + r.label + (r.changed && r.changed.restored ? ' — and that puts them back on the platform.' : '') + ' The verification stands.');
       renderAdminPage();
     }catch(err){ toast(err.message); }
     return;
@@ -13247,7 +13228,117 @@ document.addEventListener('click', async e => {
 
 
 /* ============ Build 18 — documents that say where they stand ============ */
-function stageChip(dd){
+/* --- an expired certificate that has already been replaced ---------------
+
+   A worker who renews on time ends up with two rows: last year's, which has
+   expired, and this year's, which has not. Shouting EXPIRED in red at the old
+   one is wrong twice over. It is not a problem — the renewal is right there
+   above it — and it trains whoever reads this screen to scroll past red,
+   which is the one thing red is for.
+
+   So an expired document is only a problem when nothing of its type is
+   current. When something is, the old row is history: greyed, labelled for
+   what it is, and kept, because the record of what was held and when is the
+   thing an auditor asks for. --- */
+function supersededIds(docs){
+  const live = new Set((docs || [])
+    .filter(d => d.review !== 'rejected' && d.status !== 'expired')
+    .map(d => d.doc_type));
+  return new Set((docs || [])
+    .filter(d => d.status === 'expired' && live.has(d.doc_type))
+    .map(d => d.id));
+}
+
+/* --- Australian dates, whatever the browser thinks -----------------------
+
+   <input type="date"> renders in the BROWSER's locale, not the page's. This
+   page has said lang="en-AU" since the first build and Chrome ignores it for
+   this widget: a laptop set to US English shows mm/dd/yyyy on every one of the
+   nineteen date fields, and there is no attribute that changes it. On a form
+   where 07/08 means one thing to the person typing and another to the person
+   reading it back, that is not a cosmetic problem.
+
+   So the widget goes, and the field becomes plain text that shows and accepts
+   dd/mm/yyyy. The trick that makes this safe is the accessor below: `.value`
+   still reads and writes ISO, exactly as `type="date"` did, so not one of the
+   nineteen call sites changes and there is no path by which a date starts
+   being stored the wrong way round. The visible text and the stored value are
+   converted at the boundary and nowhere else.
+
+   Two-digit years are read as this century up to '69 and last century after,
+   the usual convention, and an impossible date (31/02) refuses to parse rather
+   than rolling into March. --- */
+const NATIVE_VALUE = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+function isoToAU(v){
+  return /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? `${v.slice(8,10)}/${v.slice(5,7)}/${v.slice(0,4)}` : '';
+}
+function auToISO(t){
+  const m = String(t || '').trim().match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2}|\d{4})$/);
+  if(!m) return '';
+  let d = +m[1], mo = +m[2], y = +m[3];
+  if(y < 100) y += y < 70 ? 2000 : 1900;
+  if(mo < 1 || mo > 12 || d < 1 || d > 31) return '';
+  const dt = new Date(y, mo - 1, d);
+  if(dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return '';
+  return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function auDateField(el){
+  if(el.dataset.auDate) return;
+  const startsWith = NATIVE_VALUE.get.call(el) || el.getAttribute('value') || '';
+  el.dataset.auDate = '1';
+  el.type = 'text';
+  el.setAttribute('inputmode', 'numeric');
+  el.setAttribute('autocomplete', 'off');
+  el.setAttribute('maxlength', '10');
+  el.setAttribute('aria-describedby', el.id ? el.id + '-fmt' : '');
+  if(!el.placeholder) el.placeholder = 'dd/mm/yyyy';
+  Object.defineProperty(el, 'value', {
+    configurable: true,
+    get(){ return auToISO(NATIVE_VALUE.get.call(el)); },
+    set(v){ NATIVE_VALUE.set.call(el, isoToAU(v) || (v ? String(v) : '')); }
+  });
+  el.value = startsWith;
+  /* slashes appear as the digits do, so nobody has to type them and nobody
+     ends up with 1512026 */
+  el.addEventListener('input', () => {
+    const digits = NATIVE_VALUE.get.call(el).replace(/\D/g, '').slice(0, 8);
+    let out = digits.slice(0, 2);
+    if(digits.length > 2) out += '/' + digits.slice(2, 4);
+    if(digits.length > 4) out += '/' + digits.slice(4, 8);
+    if(out !== NATIVE_VALUE.get.call(el)) NATIVE_VALUE.set.call(el, out);
+    el.style.borderColor = '';
+  });
+  /* only complain once they have stopped typing. min and max are still
+     honoured: they stop being native validation the moment the field is text,
+     and the booking form has relied on min to keep people out of last week
+     since the first build. */
+  el.addEventListener('blur', () => {
+    const raw = NATIVE_VALUE.get.call(el);
+    const iso = auToISO(raw);
+    let bad = Boolean(raw) && !iso;
+    if(iso && el.min && iso < el.min) bad = true;
+    if(iso && el.max && iso > el.max) bad = true;
+    el.style.borderColor = bad ? '#D94F32' : '';
+    el.setAttribute('aria-invalid', bad ? 'true' : 'false');
+  });
+}
+function auDatesEverywhere(root){
+  (root || document).querySelectorAll('input[type="date"]').forEach(auDateField);
+}
+/* The screens rebuild themselves constantly, so this cannot run once. */
+if(typeof MutationObserver !== 'undefined'){
+  let queued = false;
+  new MutationObserver(() => {
+    if(queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; auDatesEverywhere(); });
+  }).observe(document.documentElement, { childList: true, subtree: true });
+}
+document.addEventListener('DOMContentLoaded', () => auDatesEverywhere());
+auDatesEverywhere();
+
+function stageChip(dd, superseded){
+  if(superseded) return '<span class="adm-badge" style="color:#7A8B93;border-color:#DCD5C9;">replaced</span>';
   if(dd.status === 'expired') return '<span class="adm-badge" style="background:#FBE3DC;border-color:#D94F32;color:#D94F32;">EXPIRED</span>';
   if(dd.status === 'expiring'){
     /* the 60/30/14 ladder, worn on the badge: the same rungs the reminder
