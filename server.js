@@ -1956,13 +1956,6 @@ function requireAdmin(user, res) { if (!user || !user.admin) { json(res, 403, { 
 /* The calendar date HERE, in the process timezone — never UTC. On a Sydney
    box, toISOString() answers yesterday until 10am/11am; every "what day is
    it" question below goes through this instead (review round 4, finding 3). */
-/* Local calendar date, not UTC. Declared here rather than beside its first
-   heavy user because it is a `const`: anything that runs during boot and
-   reaches it earlier in the file dies in the temporal dead zone, which is
-   what the boot audit snapshot did the moment the training state started
-   being consulted from further up. */
-const isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
 function ymd(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -2170,18 +2163,18 @@ function seed() {
   const count = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
   if (count > 0) return;
   const demoWorkers = [
-    { name: 'Sarah M.', email: 'sarah@demo.bookit.life', suburb: 'Parramatta NSW', color: '#0E6B62', exp: '6 yrs experience', langs: 'English, Auslan (basic)', services: ['community','personal-care','transport'], days: [1,1,1,0,1,0,0], bio: 'Former youth worker who loves footy, board games and getting out and about. Patient, punctual and big on routines that stick.', shifts: 112, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid','Police check (transport)'] },
-    { name: 'Daniel O.', email: 'daniel@demo.bookit.life', suburb: 'Blacktown NSW', color: '#D94F32', exp: '4 yrs experience', langs: 'English, Samoan', services: ['employment','community','daily-tasks'], days: [1,1,0,1,1,1,0], bio: 'Supports several clients in open employment. Great with interview nerves, workplace routines and building confidence on the job.', shifts: 87, rating: 4.8, checks: ['NDIS Worker Screening','First Aid','NDIS Orientation Module'] },
-    { name: 'Priya S.', email: 'priya@demo.bookit.life', suburb: 'Liverpool NSW', color: '#7A4FBF', exp: '8 yrs experience', langs: 'English, Hindi, Tamil', services: ['personal-care','household','daily-tasks'], days: [1,0,1,1,1,0,1], bio: 'Gentle, thorough and endlessly cheerful. Loves cooking with clients — her butter chicken lesson is legendary.', shifts: 203, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid','Cert III Individual Support'] },
-    { name: 'Tom H.', email: 'tom@demo.bookit.life', suburb: 'Penrith NSW', color: '#1C7C43', exp: '3 yrs experience', langs: 'English', services: ['transport','community','household'], days: [0,1,1,1,0,1,1], bio: 'Drives a big, comfy wagon and knows every accessible café in the west. Happy to help with errands, gym runs and game day.', shifts: 64, rating: 4.9, checks: ['NDIS Worker Screening','Police check (transport)','First Aid','Comprehensive car insurance'] },
-    { name: 'Amara W.', email: 'amara@demo.bookit.life', suburb: 'Bankstown NSW', color: '#B0468A', exp: '5 yrs experience', langs: 'English, Arabic', services: ['personal-care','daily-tasks','community'], days: [1,1,1,1,1,0,0], bio: 'Specialises in morning routines and building independence at home. Calm, respectful and a great listener.', shifts: 145, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid','Manual handling training'] },
-    { name: 'Liam C.', email: 'liam@demo.bookit.life', suburb: 'Chatswood NSW', color: '#3E5A64', exp: '2 yrs experience', langs: 'English, Mandarin', services: ['employment','transport','community'], days: [1,0,1,0,1,1,1], bio: 'Uni student and part-time barista. Brilliant with tech, public transport training and finding free things to do on weekends.', shifts: 41, rating: 4.7, checks: ['NDIS Worker Screening','First Aid','NDIS Orientation Module'] },
-    { name: 'Grace N.', email: 'grace@demo.bookit.life', suburb: 'Newtown NSW', color: '#C2542B', exp: '7 yrs experience', langs: 'English, Vietnamese', services: ['household','daily-tasks','personal-care'], days: [1,1,0,1,1,1,0], bio: 'Runs a tight ship: sparkling kitchens, folded laundry and meal-prepped fridges. Also a certified plant whisperer.', shifts: 178, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid'] },
-    { name: 'Noah B.', email: 'noah@demo.bookit.life', suburb: 'Campbelltown NSW', color: '#0A544D', exp: '5 yrs experience', langs: 'English', services: ['community','employment','daily-tasks'], days: [0,1,1,1,1,0,1], bio: 'Ex-tradie who now supports young blokes into apprenticeships. Practical, straight-up and great on a worksite or at pub trivia.', shifts: 96, rating: 4.8, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid','White Card'] },
-    { name: 'Isabella R.', email: 'isabella@demo.bookit.life', suburb: 'Hornsby NSW', color: '#6B8E23', exp: '4 yrs experience', langs: 'English, Spanish', services: ['personal-care','community','household'], days: [1,1,1,0,0,1,1], bio: 'Warm, energetic and music-obsessed. Supports clients to gigs, choir and everything in between.', shifts: 88, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid'] },
-    { name: 'Zoe T.', email: 'zoe@demo.bookit.life', suburb: 'Ryde NSW', color: '#8a6d00', exp: '9 yrs experience', langs: 'English, Auslan (fluent)', services: ['daily-tasks','personal-care','employment'], days: [1,1,1,1,1,1,0], bio: 'Fluent in Auslan with a decade in disability support. Loves teaching cooking, budgeting and travel skills that last a lifetime.', shifts: 260, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid','Cert IV Disability'] },
-    { name: 'Kai M.', email: 'kai@demo.bookit.life', suburb: 'Brisbane QLD', color: '#2F6690', exp: '3 yrs experience', langs: 'English, Te Reo Māori', services: ['community','transport','household'], days: [0,1,1,1,1,1,0], bio: 'Surf-mad and endlessly upbeat. Supports beach days, park runs and community groups across Brisbane.', shifts: 55, rating: 4.8, checks: ['NDIS Worker Screening','Police check (transport)','First Aid'] },
-    { name: 'Elena V.', email: 'elena@demo.bookit.life', suburb: 'Melbourne VIC', color: '#5D3FD3', exp: '6 yrs experience', langs: 'English, Greek', services: ['personal-care','daily-tasks','community'], days: [1,1,0,1,1,0,1], bio: 'Melbourne through and through: markets, galleries and the best souvlaki. Experienced with complex routines and hoists.', shifts: 132, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (VIC)','First Aid','Manual handling training'] }
+    { name: 'Sarah M.', email: 'sarah@demo.bookit.life', suburb: 'Parramatta NSW', color: '#0E6B62', exp: '6 yrs experience', langs: 'English, Auslan (basic)', services: ['community','personal-care','transport'], days: [1,1,1,0,1,0,0], bio: 'Former youth worker who loves footy, board games and getting out and about. Patient, punctual and big on routines that stick.', shifts: 112, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Police check (transport)'] },
+    { name: 'Daniel O.', email: 'daniel@demo.bookit.life', suburb: 'Blacktown NSW', color: '#D94F32', exp: '4 yrs experience', langs: 'English, Samoan', services: ['employment','community','daily-tasks'], days: [1,1,0,1,1,1,0], bio: 'Supports several clients in open employment. Great with interview nerves, workplace routines and building confidence on the job.', shifts: 87, rating: 4.8, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
+    { name: 'Priya S.', email: 'priya@demo.bookit.life', suburb: 'Liverpool NSW', color: '#7A4FBF', exp: '8 yrs experience', langs: 'English, Hindi, Tamil', services: ['personal-care','household','daily-tasks'], days: [1,0,1,1,1,0,1], bio: 'Gentle, thorough and endlessly cheerful. Loves cooking with clients — her butter chicken lesson is legendary.', shifts: 203, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Cert III Individual Support'] },
+    { name: 'Tom H.', email: 'tom@demo.bookit.life', suburb: 'Penrith NSW', color: '#1C7C43', exp: '3 yrs experience', langs: 'English', services: ['transport','community','household'], days: [0,1,1,1,0,1,1], bio: 'Drives a big, comfy wagon and knows every accessible café in the west. Happy to help with errands, gym runs and game day.', shifts: 64, rating: 4.9, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR','Comprehensive car insurance'] },
+    { name: 'Amara W.', email: 'amara@demo.bookit.life', suburb: 'Bankstown NSW', color: '#B0468A', exp: '5 yrs experience', langs: 'English, Arabic', services: ['personal-care','daily-tasks','community'], days: [1,1,1,1,1,0,0], bio: 'Specialises in morning routines and building independence at home. Calm, respectful and a great listener.', shifts: 145, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Manual handling training'] },
+    { name: 'Liam C.', email: 'liam@demo.bookit.life', suburb: 'Chatswood NSW', color: '#3E5A64', exp: '2 yrs experience', langs: 'English, Mandarin', services: ['employment','transport','community'], days: [1,0,1,0,1,1,1], bio: 'Uni student and part-time barista. Brilliant with tech, public transport training and finding free things to do on weekends.', shifts: 41, rating: 4.7, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
+    { name: 'Grace N.', email: 'grace@demo.bookit.life', suburb: 'Newtown NSW', color: '#C2542B', exp: '7 yrs experience', langs: 'English, Vietnamese', services: ['household','daily-tasks','personal-care'], days: [1,1,0,1,1,1,0], bio: 'Runs a tight ship: sparkling kitchens, folded laundry and meal-prepped fridges. Also a certified plant whisperer.', shifts: 178, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR'] },
+    { name: 'Noah B.', email: 'noah@demo.bookit.life', suburb: 'Campbelltown NSW', color: '#0A544D', exp: '5 yrs experience', langs: 'English', services: ['community','employment','daily-tasks'], days: [0,1,1,1,1,0,1], bio: 'Ex-tradie who now supports young blokes into apprenticeships. Practical, straight-up and great on a worksite or at pub trivia.', shifts: 96, rating: 4.8, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','White Card'] },
+    { name: 'Isabella R.', email: 'isabella@demo.bookit.life', suburb: 'Hornsby NSW', color: '#6B8E23', exp: '4 yrs experience', langs: 'English, Spanish', services: ['personal-care','community','household'], days: [1,1,1,0,0,1,1], bio: 'Warm, energetic and music-obsessed. Supports clients to gigs, choir and everything in between.', shifts: 88, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR'] },
+    { name: 'Zoe T.', email: 'zoe@demo.bookit.life', suburb: 'Ryde NSW', color: '#8a6d00', exp: '9 yrs experience', langs: 'English, Auslan (fluent)', services: ['daily-tasks','personal-care','employment'], days: [1,1,1,1,1,1,0], bio: 'Fluent in Auslan with a decade in disability support. Loves teaching cooking, budgeting and travel skills that last a lifetime.', shifts: 260, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Cert IV Disability'] },
+    { name: 'Kai M.', email: 'kai@demo.bookit.life', suburb: 'Brisbane QLD', color: '#2F6690', exp: '3 yrs experience', langs: 'English, Te Reo Māori', services: ['community','transport','household'], days: [0,1,1,1,1,1,0], bio: 'Surf-mad and endlessly upbeat. Supports beach days, park runs and community groups across Brisbane.', shifts: 55, rating: 4.8, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR'] },
+    { name: 'Elena V.', email: 'elena@demo.bookit.life', suburb: 'Melbourne VIC', color: '#5D3FD3', exp: '6 yrs experience', langs: 'English, Greek', services: ['personal-care','daily-tasks','community'], days: [1,1,0,1,1,0,1], bio: 'Melbourne through and through: markets, galleries and the best souvlaki. Experienced with complex routines and hoists.', shifts: 132, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (VIC)','First Aid & CPR','Manual handling training'] }
   ];
   const DEMO_IDENT = {
     'sarah@demo.bookit.life':    ['female', ['Footy', 'Board games', 'Getting outdoors']],
@@ -2206,7 +2199,7 @@ function seed() {
      for a real worker. The verification note says "demo data" in as many words
      — a demonstration should never look like evidence. */
   const CRED_KEY = { 'NDIS Worker Screening': 'ndis-screening', 'WWCC (NSW)': 'wwcc', 'WWCC (VIC)': 'wwcc',
-    'First Aid': 'first-aid', 'NDIS Orientation Module': 'ndis-orientation', 'Police check (transport)': 'police-check',
+    'First Aid & CPR': 'first-aid', 'NDIS Orientation Module': 'ndis-orientation', 'Police check (transport)': 'police-check',
     'Cert III Individual Support': 'cert3-support', 'Cert IV Disability': 'cert4-disability',
     'Manual handling training': 'manual-handling', 'White Card': 'qualification',
     'Comprehensive car insurance': 'other' };
@@ -2221,12 +2214,10 @@ function seed() {
     for (const label of w.checks) {
       insDoc.run(uid, CRED_KEY[label] || 'other', label, inThreeYears, now(), now(), 'BookIt (demo seed)',
         'sighted-original', 'Demo data — this is a fictional profile, not a real credential.');
-      /* The demo's one job is to show the machinery working. Now that first aid
-         and CPR are filed separately, a demo folder holding a single combined
-         line would demonstrate the old shape, so the combined label seeds both
-         — and on their real clocks, three years and one, so the two-speed
-         problem is visible on the screen rather than only in the help text. */
-      if (label === 'First Aid') {
+      /* A demo profile with no CPR row would now be blocked by the same rule
+         as everybody else, and a demonstration that cannot be demonstrated is
+         no use. Seeded on the real one-year clock, so the two speeds show. */
+      if (label === 'First Aid & CPR') {
         insDoc.run(uid, 'cpr', 'CPR (HLTAID009)', inOneYear, now(), now(), 'BookIt (demo seed)',
           'sighted-original', 'Demo data — this is a fictional profile, not a real credential.');
       }
@@ -3563,7 +3554,12 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user, bod
       return json(res, 400, {
         blocked_0137: true,
         blocks: st.blocks,
-        error: `This worker can't be approved yet — it would breach BookIt's conditions of registration for 0137 NDIS Digital Platform Service. ${st.blocks.join(' ')} These can't be overridden.`
+        /* Careful with this sentence. Most of these blocks ARE conditions of
+           registration; the CPR one is BookIt's own rule enforced just as
+           hard. Telling an auditor that a house rule is a condition of
+           registration is a claim they can check and find wrong, so the
+           wording names the effect rather than the source. */
+        error: `This worker can't be approved yet — they don't meet the conditions for being on the platform. ${st.blocks.join(' ')} None of these can be overridden.`
       });
     }
     if (!body.override) {
@@ -3904,13 +3900,13 @@ const DOC_CATEGORIES = [
 ];
 const DOC_CATALOG = [
   /* identity — primary documents (70 points) */
-  { key: 'passport-au', label: 'Australian Passport', category: 'identity', points: 70, primary: true, rtw: true, expiry: 'optional', numberLabel: 'Passport number', aliases: ['passport'], help: 'Current, or expired less than 2 years ago and not cancelled.' },
-  { key: 'passport-foreign', label: 'Foreign Passport', category: 'identity', points: 70, primary: true, expiry: 'optional', numberLabel: 'Passport number', aliases: ['overseas passport', 'international passport'], help: 'Pair it with your visa under Right to work.' },
+  { key: 'passport-au', label: 'Australian Passport', maxYears: 10, category: 'identity', points: 70, primary: true, rtw: true, expiry: 'optional', numberLabel: 'Passport number', aliases: ['passport'], help: 'Current, or expired less than 2 years ago and not cancelled.' },
+  { key: 'passport-foreign', label: 'Foreign Passport', maxYears: 10, category: 'identity', points: 70, primary: true, expiry: 'optional', numberLabel: 'Passport number', aliases: ['overseas passport', 'international passport'], help: 'Pair it with your visa under Right to work.' },
   { key: 'birth-cert', label: 'Australian Birth Certificate', category: 'identity', points: 70, primary: true, rtw: true, expiry: 'none', numberLabel: 'Registration number', aliases: ['birth certificate'] },
   { key: 'citizenship-cert', label: 'Australian Citizenship Certificate', category: 'identity', points: 70, primary: true, rtw: true, expiry: 'none', numberLabel: 'Certificate number', aliases: ['citizenship certificate', 'citizenship'] },
   /* identity — secondary with photo and signature (40 points) */
-  { key: 'driver-licence', label: 'Australian Driver Licence', category: 'identity', points: 40, expiry: 'optional', numberLabel: 'Licence number', aliases: ['drivers licence', 'drivers license', 'driver license', 'licence'], help: 'Also needed for any transport shifts.' },
-  { key: 'proof-of-age', label: 'Photo / Proof of Age Card', category: 'identity', points: 40, expiry: 'optional', numberLabel: 'Card number', aliases: ['photo card', 'proof of age card'] },
+  { key: 'driver-licence', label: 'Australian Driver Licence', maxYears: 10, category: 'identity', points: 40, expiry: 'optional', numberLabel: 'Licence number', aliases: ['drivers licence', 'drivers license', 'driver license', 'licence'], help: 'Also needed for any transport shifts.' },
+  { key: 'proof-of-age', label: 'Photo / Proof of Age Card', maxYears: 10, category: 'identity', points: 40, expiry: 'optional', numberLabel: 'Card number', aliases: ['photo card', 'proof of age card'] },
   /* identity — secondary documents (25 points) */
   { key: 'medicare', label: 'Medicare Card', category: 'identity', points: 25, expiry: 'optional', numberLabel: 'Card number', aliases: ['medicare'] },
   { key: 'bank-card', label: 'Bank or Credit Card', category: 'identity', points: 25, expiry: 'none', numberLabel: null, aliases: ['bank card', 'debit card', 'credit card'], help: 'A photo showing your name — cover the long card number.' },
@@ -3918,30 +3914,24 @@ const DOC_CATALOG = [
   /* right to work */
   { key: 'visa', label: 'Visa Grant Notice / VEVO Check', category: 'right-to-work', rtw: true, expiry: 'optional', numberLabel: 'Visa grant number', aliases: ['vevo', 'visa grant', 'work visa', 'work rights'], help: 'Non-citizens: current visa with work rights, together with your passport.' },
   /* checks & clearances */
-  { key: 'ndis-screening', label: 'NDIS Worker Screening Check', category: 'checks', expiry: 'required', numberLabel: 'Check number', aliases: ['screening', 'worker screening', 'ndiswc', 'ndis check'], help: 'Required before your profile can go live — apply through your state screening unit.' },
-  { key: 'wwcc', label: 'Working with Children Check', category: 'checks', expiry: 'required', numberLabel: 'WWCC number', aliases: ['working with childrens check', 'wwc', 'blue card', 'wwvp', 'ochre card'], help: 'Needed to support participants under 18. State-based (Blue Card in QLD, Ochre Card in NT).' },
+  { key: 'ndis-screening', label: 'NDIS Worker Screening Check', required: true, maxYears: 5, category: 'checks', expiry: 'required', numberLabel: 'Check number', aliases: ['screening', 'worker screening', 'ndiswc', 'ndis check'], help: 'Required before your profile can go live — apply through your state screening unit.' },
+  { key: 'wwcc', label: 'Working with Children Check', maxYears: 5, category: 'checks', expiry: 'required', numberLabel: 'WWCC number', aliases: ['working with childrens check', 'wwc', 'blue card', 'wwvp', 'ochre card'], help: 'Needed to support participants under 18. State-based (Blue Card in QLD, Ochre Card in NT).' },
   /* Kept so existing uploads still have a home and nothing 404s, but no longer
      a form the register asks for: the NDIS Worker Screening Check already
      contains a nationally coordinated criminal history check. */
-  { key: 'police-check', label: 'National Police Check', category: 'checks', expiry: 'optional', numberLabel: 'Reference number', aliases: ['police check', 'afp check', 'criminal history check', 'national police certificate'], help: 'Optional — your NDIS Worker Screening Check already includes a national criminal history check. Only upload this if a host organisation has asked for one separately.' },
+  { key: 'police-check', label: 'National Police Check', maxYears: 3, category: 'checks', expiry: 'optional', numberLabel: 'Reference number', aliases: ['police check', 'afp check', 'criminal history check', 'national police certificate'], help: 'Optional — your NDIS Worker Screening Check already includes a national criminal history check. Only upload this if a host organisation has asked for one separately.' },
   /* training certificates */
   { key: 'ndis-orientation', label: 'NDIS Worker Orientation Module', required: true, category: 'training', expiry: 'none', numberLabel: 'Certificate ID', aliases: ['quality safety and you', 'orientation module', 'worker orientation'], help: 'The free 90-minute Commission module "Quality, Safety and You".', link: 'https://training.ndiscommission.gov.au/' },
-  { key: 'infection-control', label: 'Infection Prevention & Control Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['infection free', 'infection control', 'covid training', 'supporting people to stay infection free'], help: 'e.g. "Supporting People to Stay Infection Free".', link: 'https://teamdsc.com.au/learning/supporting-people-to-stay-infection-free' },
-  /* Two certificates, two lines. They were one entry called "First Aid / CPR",
-     and that single line could not answer the question an auditor actually
-     asks — not "has this person done a course" but "which one, and is it
-     current today". The two run on different clocks, HLTAID011 for three years
-     and HLTAID009 for one, so a folder holding one current and one lapsed
-     looked identical to a folder holding two current, and the yearly one is
-     always the one that has quietly gone. It also removes the other ambiguity:
-     CPR alone is not first aid, and a line reading "First Aid / CPR" let a
-     CPR-only certificate sit where a first aid certificate was supposed to be.
-     The old key stays with first aid, so every row already on file keeps its
-     home and nothing has to be re-uploaded. */
-  { key: 'first-aid', label: 'First Aid (HLTAID011)', required: true, category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['first aid', 'hltaid011', 'hltaid003', 'first aid certificate', 'provide first aid'], help: 'HLTAID011 Provide First Aid, or the equivalent for your setting. Renews every 3 years. A registered nurse or paramedic can give AHPRA registration instead.' },
-  { key: 'cpr', label: 'CPR (HLTAID009)', required: true, category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['cpr', 'hltaid009', 'hltaid001', 'resuscitation', 'cardiopulmonary resuscitation'], help: 'HLTAID009 Provide Cardiopulmonary Resuscitation. Renews yearly — a year before the first aid certificate it sits inside, which is exactly why it needs its own line.' },
-  { key: 'medication-training', label: 'Medication Administration Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['medication management', 'meds training', 'supporting people to take their medication'], help: 'Required if you assist participants with medication.', link: 'https://teamdsc.com.au/learning/supporting-people-to-take-their-medication' },
-  { key: 'manual-handling', label: 'Manual Handling Training', category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['moving and handling', 'hoist training', 'safe lifting'] },
+  { key: 'infection-control', label: 'Infection Prevention & Control Training', maxYears: 3, category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['infection free', 'infection control', 'covid training', 'supporting people to stay infection free'], help: 'e.g. "Supporting People to Stay Infection Free".', link: 'https://teamdsc.com.au/learning/supporting-people-to-stay-infection-free' },
+  /* Two certificates on two clocks, so two lines. HLTAID011 runs three years,
+     HLTAID009 runs one, and under a single heading a folder holding one
+     current and one lapsed looked exactly like a folder holding two current —
+     with the yearly one always being the one that had gone. The old key stays
+     with first aid, so every row already on file keeps its home. */
+  { key: 'first-aid', label: 'First Aid (HLTAID011)', required: true, maxYears: 3, category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['first aid', 'hltaid011', 'hltaid003', 'first aid certificate', 'provide first aid'], help: 'HLTAID011 Provide First Aid, or the equivalent for your setting. Renews every 3 years.' },
+  { key: 'cpr', label: 'CPR (HLTAID009)', required: true, maxYears: 1, category: 'training', expiry: 'required', numberLabel: 'Certificate number', aliases: ['cpr', 'hltaid009', 'hltaid001', 'resuscitation', 'cardiopulmonary resuscitation'], help: 'HLTAID009 Provide Cardiopulmonary Resuscitation. Renews yearly. A current one is required to be on the platform at all.' },
+  { key: 'medication-training', label: 'Medication Administration Training', maxYears: 3, category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['medication management', 'meds training', 'supporting people to take their medication'], help: 'Required if you assist participants with medication.', link: 'https://teamdsc.com.au/learning/supporting-people-to-take-their-medication' },
+  { key: 'manual-handling', label: 'Manual Handling Training', maxYears: 3, category: 'training', expiry: 'optional', numberLabel: 'Certificate ID', aliases: ['moving and handling', 'hoist training', 'safe lifting'] },
   /* A certificate says somebody attended. This says somebody was watched doing
      the task and was safe doing it, which is the thing the High Intensity
      module actually asks for and the thing no worker folder currently holds.
@@ -3957,33 +3947,40 @@ const DOC_CATALOG = [
   { key: 'other', label: 'Other document', category: 'other', expiry: 'optional', numberLabel: 'Reference number', aliases: [] }
 ];
 const DOC_MAP = Object.fromEntries(DOC_CATALOG.map(d => [d.key, d]));
+
+/* --- a date that cannot be true -----------------------------------------
+
+   Nothing checked expiry dates beyond the shape of the string, so a screening
+   clearance could be filed as expiring in 2034. An NDIS worker screening
+   clearance runs five years; there is no such thing as an eight-year one. The
+   date was a typo, and a typo in this field is not cosmetic — it is the field
+   the automatic withdrawal reads, so a wrong year switches the safety net off
+   for as long as the wrong year lasts and nothing anywhere says so.
+
+   Each type carries the longest it can genuinely run. Two months of slack on
+   top, because certificates get issued a few weeks before they start and it
+   is not this function's job to be clever about that. --- */
+const EXPIRY_SLACK_DAYS = 62;
+function expiryProblem(type, expiry) {
+  if (!expiry) return '';
+  const cat = DOC_MAP[type];
+  if (!cat || !cat.maxYears) return '';
+  const cap = new Date();
+  cap.setFullYear(cap.getFullYear() + cat.maxYears);
+  cap.setDate(cap.getDate() + EXPIRY_SLACK_DAYS);
+  if (expiry > ymd(cap)) {
+    return `${cat.label} normally runs ${cat.maxYears} year${cat.maxYears === 1 ? '' : 's'}, and this one is dated ${dmy(expiry)} — worth checking the year.`;
+  }
+  /* and the other direction: a date so far back it cannot be a real expiry,
+     which is usually an issue date typed into the wrong box */
+  if (expiry < '2000-01-01') return `${cat.label} is dated ${dmy(expiry)} — that looks like the wrong box or the wrong year.`;
+  return '';
+}
 const DOC_TYPES = Object.fromEntries(DOC_CATALOG.map(d => [d.key, d.label])); /* legacy label map — used by emails/sweep */
 const DOC_MIMES = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png' };
 
-/* --- what a worker actually holds, as opposed to what they have uploaded ---
-
-   These two are not the same thing and the difference was invisible. The old
-   answer was "is there a row of this type that hasn't been rejected", so a
-   certificate that expired last year, or one nobody has checked yet, lit the
-   same green tick as a current verified one. That tick is what the office
-   reads before sending somebody out, which makes an overstatement here worse
-   than no tick at all.
-
-   So there are four answers, not two. `ok` is current and verified by a
-   person. `expired` is on file and out of date. `pending` is on file and
-   waiting on us — not the worker's fault, and it should never be shown to
-   them as a failure. `missing` is nothing on file. Only `ok` counts as held. */
-function docState(workerId, type) {
-  const rows = db.prepare("SELECT * FROM worker_docs WHERE worker_id = ? AND doc_type = ? AND COALESCE(review_state, '') <> 'rejected'").all(workerId, type);
-  if (!rows.length) return 'missing';
-  const live = rows.filter(d => docStatus(d) !== 'expired');
-  if (!live.length) return 'expired';
-  return live.some(d => d.verified_at) ? 'ok' : 'pending';
-}
-const REQUIRED_TRAINING = DOC_CATALOG.filter(d => d.required).map(d => d.key);
-
 /* the onboarding scorecard: 100-point ID tally, right to work, and the key items */
-function onboardingSummary(workerId, opts) {
+function onboardingSummary(workerId) {
   const have = new Set(db.prepare("SELECT DISTINCT doc_type FROM worker_docs WHERE worker_id = ? AND COALESCE(review_state, '') <> 'rejected'").all(workerId).map(d => d.doc_type));
   let points = 0, primary = false, rtw = false;
   for (const key of have) {
@@ -3993,26 +3990,15 @@ function onboardingSummary(workerId, opts) {
     if (c.points && c.primary) primary = true;
     if (c.rtw) rtw = true;
   }
-  /* The identity tally is left counting what is on file rather than what is
-     verified. It is a tally of documents supplied, it is not a claim about
-     safety, and quietly redefining it days before an audit would move a
-     number in the audit pack for reasons that have nothing to do with this. */
-  const st = {};
-  for (const k of ['first-aid', 'cpr', 'ndis-orientation', 'infection-control', 'resume']) st[k] = docState(workerId, k);
-  const training = (opts && opts.modules) ? moduleState(workerId) : null;
   return {
     id_points: points, has_primary: primary, id_ok: primary && points >= 100,
     right_to_work: rtw,
     screening: screeningState(workerId),
-    first_aid: st['first-aid'] === 'ok',
-    cpr: st['cpr'] === 'ok',
-    orientation: st['ndis-orientation'] === 'ok',
-    infection_control: st['infection-control'] === 'ok',
-    resume: st['resume'] === 'ok',
-    /* the reason behind each tick, so a screen can say "waiting on us" rather
-       than showing the worker a cross for something they already did */
-    states: st,
-    modules: training ? { lock: training.lock, overdue_days: training.overdue_days, outstanding: training.outstanding } : null
+    first_aid: have.has('first-aid'),
+    cpr: have.has('cpr'),
+    orientation: have.has('ndis-orientation'),
+    infection_control: have.has('infection-control'),
+    resume: have.has('resume')
   };
 }
 
@@ -4363,48 +4349,31 @@ function platformStatus(workerId) {
   }
   const bage = registers[0].age_days;
 
-  /* ---- the training half, which warns rather than blocks -----------------
+  /* ---- a current CPR certificate, which is a BookIt rule rather than a
+     condition of registration, and is a block anyway.
 
-     Deliberately amber, and worth saying why out loud, because it is the
-     first question anyone asks looking at this board.
+     0137's two conditions are worker screening and banning orders; training
+     currency sits under Human Resource Management. But the Practice Standards
+     ask for workers competent in relation to their role, this platform's own
+     document catalogue says a current CPR certificate is required, and a rule
+     that is written down and not enforced is worse than no rule — it is a
+     statement an auditor can test and find false in one click.
 
-     Registration group 0137 carries two conditions and they are both above:
-     a worker screening clearance, and checking and displaying banning orders.
-     Training currency is not one of them. It is a Human Resource Management
-     obligation under the Practice Standards — workers "competent in relation
-     to their role" — and the remedy the Standards ask for is a record and a
-     provider who acts on it, not a platform that withdraws somebody the
-     morning a certificate lapses.
-
-     But "not a condition of registration" is not the same as "invisible",
-     which is what it was. An expired first aid certificate sent two emails
-     and then nothing appeared anywhere a person looks. So it is named here,
-     in amber, beside the worker it belongs to: the board stops being a
-     screening board and becomes the whole picture, and an auditor asking
-     "how would you know" can be shown the answer rather than told it.
-
-     The induction modules are the same shape with one difference — the hard
-     lock at 14 days overdue really does stop that worker accepting anything
-     new, so this reports a control that is already biting rather than a risk
-     that is only being watched. ---- */
-  for (const key of REQUIRED_TRAINING) {
-    const cat = DOC_MAP[key];
-    const state = docState(workerId, key);
-    if (state === 'expired') warnings.push(`${cat.label} has expired — the worker can't deliver supports on it until it is renewed.`);
-    else if (state === 'missing') warnings.push(`No ${cat.label} on file.`);
-    else if (state === 'pending') warnings.push(`${cat.label} is on file but nobody has verified it yet.`);
+     CPR rather than first aid because CPR is the one that runs on a one-year
+     clock. HLTAID011 contains HLTAID009, but a two-year-old first aid
+     certificate does not evidence current resuscitation training, which is
+     the whole reason the two are filed apart. ---- */
+  for (const d of db.prepare("SELECT doc_type, expiry_date FROM worker_docs WHERE worker_id = ? AND COALESCE(review_state, '') <> 'rejected'").all(workerId)) {
+    const bad = expiryProblem(d.doc_type, d.expiry_date);
+    if (bad) warnings.push(bad);
   }
-  const training = moduleState(workerId);
-  if (training.outstanding.length) {
-    /* Seven module titles on one board row is a wall of text nobody reads,
-       which is the same as not showing it. Name one, count the rest, and let
-       the Training page hold the list. */
-    const n = training.outstanding.length;
-    const which = n === 1 ? training.outstanding[0] : `${training.outstanding[0]} and ${n - 1} more`;
-    if (training.lock === 'hard') warnings.push(`Induction training ${training.overdue_days} days overdue — ${which}. Locked out of accepting new shifts.`);
-    else if (training.overdue_days > 0) warnings.push(`Induction training ${training.overdue_days} day${training.overdue_days === 1 ? '' : 's'} overdue — ${which}.`);
-    else warnings.push(`Induction training not finished yet — ${which}.`);
-  }
+
+  const cprDocs = db.prepare("SELECT * FROM worker_docs WHERE worker_id = ? AND doc_type = 'cpr' AND COALESCE(review_state, '') <> 'rejected'").all(workerId);
+  const cprLive = cprDocs.filter(d => docStatus(d) !== 'expired');
+  if (!cprDocs.length) blocks.push('No CPR certificate (HLTAID009) on file.');
+  else if (!cprLive.length) blocks.push('CPR certificate (HLTAID009) has expired.');
+  else if (!cprLive.some(d => d.verified_at)) warnings.push('CPR certificate is on file and current, but nobody has verified it yet.');
+  else if (docStatus(cprLive[0]) === 'expiring') warnings.push(`CPR certificate expires in ${docDays(cprLive[0])} days.`);
 
   /* ---- an admin's manual stop, which needs no sweep and no reason to wait ---- */
   if (w.platform_block) blocks.push(w.platform_block_reason || 'Blocked from the platform by an administrator.');
@@ -4643,7 +4612,7 @@ route('GET', /^\/api\/me\/documents$/, (req, res, m, user) => {
   json(res, 200, {
     documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(user.id).map(docOut),
     requests: openRequests('worker', user.id),
-    summary: onboardingSummary(user.id, { modules: true })
+    summary: onboardingSummary(user.id)
   });
 });
 
@@ -4823,7 +4792,7 @@ route('GET', /^\/api\/admin\/credentials$/, (req, res, m, user) => {
       demo: isDemoWorker(w.email),
       screening: screeningState(w.id),
       platform: platformStatus(w.id),
-      summary: onboardingSummary(w.id, { modules: true }),
+      summary: onboardingSummary(w.id),
       documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(w.id).map(docOut)
     }));
   json(res, 200, { workers });
@@ -4990,23 +4959,20 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/platform-block$/, (req, res, m, us
   json(res, 200, { ok: true, platform: platformStatus(uid), changed: out });
 });
 
-/* --- filed under the wrong heading -------------------------------------
+/* --- filed under the wrong heading ---------------------------------------
 
-   Until now the only way to correct a document filed as the wrong type was to
-   delete it and ask the worker to upload it again, which loses the upload
-   date, the verification, and the record that it was ever offered — three
-   things an auditor may want and none of which the worker did anything to
-   deserve losing. Splitting first aid from CPR made that cost immediate:
-   every certificate on file is sitting under the old combined heading and
-   some of them are CPR.
+   Before this the only way to correct a document filed as the wrong type was
+   to delete it and ask the worker to upload it again, losing the upload date,
+   the verification, and the record that it was ever offered. Splitting CPR out
+   of first aid made that cost immediate: every certificate on file sits under
+   the old combined heading, and some of them are CPR.
 
    So the document moves and everything else stays. The verification survives,
    because re-filing is a correction to where the paper sits and not a claim
-   about whether it was checked — the same person looked at the same document.
-   The move is written to the evidence log with both headings named, so the
-   trail reads as a correction rather than as a gap, and visibility is
-   re-tested, because a worker's position can turn on which heading a
-   certificate is under. */
+   about whether it was checked — same person, same document. The move is
+   written to the evidence log with both headings named, and visibility is
+   re-tested straight away, because with the CPR rule in force the heading a
+   certificate is under decides whether its owner is on the platform. --- */
 route('POST', /^\/api\/admin\/documents\/(\d+)\/retype$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
   const d = db.prepare(`SELECT wd.*, u.name AS worker_name FROM worker_docs wd
@@ -5015,8 +4981,6 @@ route('POST', /^\/api\/admin\/documents\/(\d+)\/retype$/, (req, res, m, user, bo
   const to = DOC_MAP[clean((body || {}).doc_type, 40)];
   if (!to) return json(res, 400, { error: 'Pick a document type to move it to.' });
   if (to.key === d.doc_type) return json(res, 400, { error: `It is already filed as ${to.label}.` });
-  /* A type that has to carry an expiry cannot inherit a blank one. Better to
-     refuse here than to create a row the sweep can never reason about. */
   if (to.expiry === 'required' && !d.expiry_date) {
     return json(res, 400, { error: `${to.label} needs an expiry date. Add one to this document first, or ask the worker to re-upload it.` });
   }
@@ -5028,8 +4992,8 @@ route('POST', /^\/api\/admin\/documents\/(\d+)\/retype$/, (req, res, m, user, bo
   logCompliance({ worker_id: d.worker_id, worker_name: d.worker_name, kind: 'document-refiled', result: 'refiled',
     detail: `Moved from ${fromLabel} to ${to.label}${d.check_number ? ` — number ${d.check_number}` : ''}${d.expiry_date ? `, expires ${d.expiry_date}` : ''}.${d.verified_at ? ' The existing verification stands: the same document, checked by the same person, filed correctly.' : ''}`,
     source: 'Re-filed by an administrator', doc_id: d.id, checked_by: user.name });
-  reconcileVisibility(d.worker_id, 'Document re-filed');
-  json(res, 200, { ok: true, doc_type: to.key, label: to.label });
+  const changed = reconcileVisibility(d.worker_id, 'Document re-filed');
+  json(res, 200, { ok: true, doc_type: to.key, label: to.label, changed });
 });
 
 route('POST', /^\/api\/admin\/documents\/(\d+)\/delete$/, (req, res, m, user) => {
@@ -5197,6 +5161,34 @@ function board0137() {
       c_registers: st.registers.map(r => ({ key: r.key, short: r.short, result: r.result,
         checked_at: r.checked_at, age_days: r.age_days })),
       c_evidence: Boolean(sdoc && sdoc.verify_method),
+      /* Every document this worker holds, not only the screening check.
+         The board was answering "is the clearance in order" when the question
+         being asked of it is "is this person in order", and the rest of the
+         folder was two screens away. A summary that leaves things out is not a
+         summary, it is a filter — and the things it left out were the ones
+         nobody was looking at. Superseded rows are marked rather than dropped,
+         because what was held and when is the record. */
+      documents: (() => {
+        const all = db.prepare("SELECT * FROM worker_docs WHERE worker_id = ? AND COALESCE(review_state, '') <> 'rejected' ORDER BY doc_type, expiry_date DESC").all(w.id);
+        const liveTypes = new Set(all.filter(d => docStatus(d) !== 'expired').map(d => d.doc_type));
+        return all.map(d => ({
+          id: d.id,
+          label: DOC_TYPES[d.doc_type] || d.label || d.doc_type,
+          doc_type: d.doc_type,
+          number: d.check_number || '',
+          expiry: d.expiry_date || '',
+          status: docStatus(d),
+          superseded: docStatus(d) === 'expired' && liveTypes.has(d.doc_type),
+          verified: Boolean(d.verified_at),
+          /* an expiry that cannot be true for this kind of document */
+          date_problem: expiryProblem(d.doc_type, d.expiry_date)
+        }));
+      })(),
+      /* and the required ones with nothing on file at all, which a list of
+         what you hold can never show you */
+      missing: DOC_CATALOG.filter(c => c.required
+        && !db.prepare("SELECT 1 FROM worker_docs WHERE worker_id = ? AND doc_type = ? AND COALESCE(review_state, '') <> 'rejected'").get(w.id, c.key))
+        .map(c => c.label),
       c_displayed: pv.checks.length > 0 || pv.screening.cleared,
       screening_doc: sdoc ? { expiry: sdoc.expiry_date || '', verified_at: sdoc.verified_at || '', verified_by: sdoc.verified_by || '', method: sdoc.verify_method || '', ref: sdoc.verify_ref || '' } : null,
       platform: st
@@ -6771,8 +6763,7 @@ const FORMS = [
   { key: 'w-screening', name: 'NDIS Worker Screening Check', scope: 'worker', track: 'live', live: 'doc:ndis-screening', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018', note: 'Blocks bookings on an expired or unverified check. This IS the criminal history check — the NDIS check is a nationally coordinated police check plus a risk assessment, so a separate National Police Certificate is not a second requirement and is not tracked as one. Workers who uploaded one anyway keep it on file.' },
   { key: 'w-wwcc', name: 'Working with Children Check', scope: 'worker', track: 'live', live: 'doc:wwcc', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'State child protection legislation' },
   { key: 'w-orientation', name: 'NDIS Worker Orientation Module certificate', scope: 'worker', track: 'live', live: 'doc:ndis-orientation', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
-  { key: 'w-firstaid', name: 'First Aid certificate (HLTAID011)', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Renews every three years.' },
-  { key: 'w-cpr', name: 'CPR certificate (HLTAID009)', scope: 'worker', track: 'live', live: 'doc:cpr', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Renews yearly. This is the one that lapses first, and it is why it is filed separately from the first aid certificate.' },
+  { key: 'w-firstaid', name: 'First Aid and CPR certificate', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'CPR renews yearly, first aid every three years. The yearly one is what lapses.' },
   { key: 'w-infection', name: 'Infection prevention and control training', scope: 'worker', track: 'live', live: 'doc:infection-control', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment' },
   { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Certificates held in Drive for every current worker - upload into BookIt worker docs so this register reflects them.' },
   { key: 'w-medication', name: 'Medication administration training', scope: 'worker', track: 'live', live: 'doc:medication-training', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Management of medication' },
@@ -11202,7 +11193,6 @@ const JOB_REQUIREMENTS = {
   'hoist':             'Hoist and transfer experience',
   'medication':        'Medication support',
   'first-aid':         'First aid and CPR',
-  'cpr':               'CPR, current within 12 months',
   'ndis-worker-check': 'NDIS Worker Screening Check',
   'covid':             'COVID-19 vaccination',
   'non-smoker':        'Non-smoker',
@@ -11520,6 +11510,7 @@ route('PATCH', /^\/api\/applications\/(\d+)$/, (req, res, m, user, body) => {
    Greenwich .toISOString() rolls that back to the previous day, so a
    "this month" filter starting on the 1st would silently start on the 31st.
    The box this runs on is UTC today. It does not have to stay that way. */
+const isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 function periodRange(q) {
   const today = new Date();
