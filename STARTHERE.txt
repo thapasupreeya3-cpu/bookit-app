@@ -1,7 +1,35 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.2.0
+Current release: v86.2.1
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.2.1 — THE PRIVACY CONSENT IS BACK, AND EVERYTHING IS v1
+--------------------------------------------------------------------------
+  THE PRIVACY AND INFORMATION-SHARING CONSENT IS A REQUIRED CLICK AGAIN
+    v86.2 had folded it into clause 9 of the Service Agreement and made the
+    form optional. It is DMHC's own consent wording and an explicit record
+    of consent is worth having, so it is asked for beside the agreement as
+    before: read it, then I agree. Clause 9 now says the consent is
+    recorded separately in our own words, so the two always match.
+
+  THE SERVICE AGREEMENT'S EDITION READS v1
+    The platform edition is the first edition anyone is asked to accept
+    from here on, so it is labelled "v1, issued 22/08/2026" rather than v3.
+    Any acceptance of the printed PDF or the short-lived personalised
+    edition still reads as "needs a fresh click", because those people did
+    not read this text.
+
+  A RESET SCRIPT FOR THE TEST ACCOUNT — scripts/reset-test-agreements.js
+    The walkthrough account has agreed to three editions in one day, which
+    would show as "2 earlier editions" on Monday. The script clears ONE
+    account's agreement clicks (agreement, privacy consent, old schedule
+    clicks) and nothing else, refuses demo accounts and accounts with a
+    completed booking, and does nothing without --yes. Run on the server
+    with the site stopped, exactly like the conversion script; then run the
+    prefill again and the account shows a single clean acceptance of each.
+
+  No migration. SCHEMA_VERSION stays 86000.
 
 
 WHAT CHANGED IN v86.2.0 — ONE AGREEMENT, NOTHING TO FILL IN
@@ -40,10 +68,8 @@ policy, the person's own supports in their plan and their bookings.
     for everyone with a confirmed plan and a recorded funding arrangement.
     Earlier schedule acceptances remain as documents on the file.
 
-  THE PRIVACY CONSENT IS CLAUSE 9
-    The separate privacy form is optional — for a participant who prefers
-    paper, and for acceptances made before the platform edition. Nobody is
-    asked to consent to the same thing twice.
+  THE PRIVACY CONSENT IS CLAUSE 9 — reversed in v86.2.1, see above
+    (the separate consent is a required click again)
 
   THE DOCUMENTS PAGE IS TIDIER
     One line per agreement, with the newest acceptance and the earlier
