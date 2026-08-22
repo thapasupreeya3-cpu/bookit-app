@@ -7768,20 +7768,16 @@ route('GET', /^\/api\/templates$/, (req, res) => {
    disability to produce eleven documents they cannot produce.
 
    `signed` already knew all of this. Nothing was passing it on. */
+/* v86.3: labels a participant reads, and nothing a participant does not
+   need. The explanations that used to sit under each heading were written
+   for the person building the page; the person using it needs the heading. */
 const PDOC_OWNERS = {
-  participant: { label: 'Yours to read and agree to',
-    blurb: 'These are yours, and each one is a click — read it, then press agree. The ones marked "only if" are only asked for when they apply to you.' },
-  cosigned:    { label: 'We write these, you sign them',
-    blurb: 'We prepare these and bring them to you. Nothing to do until we do.' },
-  clinical:    { label: 'Someone else has to write these',
-    blurb: 'A prescriber or clinician writes these. Ask us and we will chase it with you — a photo of the signed copy is all we need. These are the only documents on this page a booked worker can read.' },
-  office:      { label: 'We look after these',
-    blurb: 'Ours to write and keep current. They are on your file for completeness, not for you to do.' },
-  ndia:        { label: 'A copy of something you already have',
-    blurb: 'Nothing to fill in — a copy is helpful if you have one handy, and nothing waits on it.' },
-  /* v86: the survey is the office asking, not the participant owing */
-  feedback:    { label: 'Optional — tell us how we are doing',
-    blurb: 'We ask once a year. Answer it here when we send it, or not — nothing about your supports depends on it.' }
+  participant: { label: 'For you to read and agree to', blurb: '' },
+  cosigned:    { label: 'We prepare these with you', blurb: '' },
+  clinical:    { label: 'Written by your doctor or clinician', blurb: 'Send us a photo of the signed copy, or ask us to help you get it.' },
+  office:      { label: 'Our records', blurb: '' },
+  ndia:        { label: 'Copies you may already have', blurb: '' },
+  feedback:    { label: 'Optional', blurb: '' }
 };
 function pdocOwner(signed) {
   const sg = String(signed || '');
@@ -8159,7 +8155,7 @@ const GENERATED_DOCS = {
   /* ---- the Service Agreement: the platform agreement, see above ---- */
   'p-agreement': {
     label: 'Service Agreement', accept: true, issued: '2026-08-22',
-    stale_why: 'The Service Agreement has been re-issued and the edition you agreed to is no longer the current one. Read it and agree again; nothing changes about your supports in the meantime.',
+    stale_why: 'We have updated the Service Agreement. Please read the new version and agree to it again. Your supports continue as normal.',
     version: () => `service-agreement ${AGREEMENT_EDITION}`,
     render(u, plan, opts) { return serviceAgreementHtml(opts); }
   },
@@ -8222,7 +8218,7 @@ const GENERATED_DOCS = {
      changed by the prescriber never leaves two documents disagreeing. */
   'p-consent-medication': {
     label: 'Consent to medication assistance', accept: true, issued: '2026-08-22',
-    stale_why: 'The wording of this consent has changed since you agreed to it. Read it again and agree to the new text.',
+    stale_why: 'We have updated this consent. Please read the new version and agree to it again.',
     version: () => `medication-consent ${MED_CONSENT_VERSION}`,
     render(u, plan, opts) {
       const who = u.under_18 || (u.nominee_role && u.nominee_role !== 'none' && u.nominee_role !== 'family' && u.nominee_role !== 'advocate')
@@ -8386,7 +8382,7 @@ function pdocOut(d) {
   const rv = reviewState(d);
   return { ...d, file_path: undefined, status: docStatus(d), days: docDays(d), stage: docStage(d),
     review: rv, review_label: REVIEW_STATES[rv].label, review_hint: REVIEW_STATES[rv].hint,
-    type_label: d.label || cat.label || d.form_key,
+    type_label: d.label || cat.label || (FORMS.find(f => f.key === d.form_key) || {}).name || d.form_key,
     form_name: cat.label || d.form_key,
     requires: cat.requires || '',
     has_file: Boolean(d.file_path) };
@@ -8803,7 +8799,7 @@ function participantFile(pid) {
     }
   }
   const rowOut = c => ({ key: c.key, label: c.label, signed: c.signed, requires: c.requires,
-    owner: c.owner, only_if: c.only_if, sign: c.sign, applies: applies(c), optional: c.optional,
+    owner: c.owner, only_if: c.only_if, sign: c.sign, applies: c.applies_if ? applies(c) : null, optional: c.optional,
     generated: c.generated, template: tplFor(c),
     requested_at: (asked[c.key] || {}).requested_at || '',
     requested_by: (asked[c.key] || {}).requested_by || '',

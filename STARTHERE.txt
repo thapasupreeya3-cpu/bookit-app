@@ -1,7 +1,41 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.2.1
+Current release: v86.2.2
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.2.2 — THE DOCUMENTS PAGE SPEAKS TO THE PARTICIPANT
+----------------------------------------------------------------------
+  Every explanation on the participant's documents page and the bookings-page
+  documents card was written for the person building the page, not the
+  person using it: "2 of 3 of yours on file … most of the rest are ours to
+  write", "each one is a click", "never counted against you", "ours to do,
+  nothing for you to send", "nothing to fill in", and the internal edition
+  strings ("service-agreement v2, on-screen edition, issued …"). All of it
+  is gone or rewritten in the participant's words:
+
+    Agreements card: the document, "agreed <date>", Read. Earlier versions
+      fold under "earlier versions" with the date and Read — no edition
+      strings on the page. (They are still recorded; the office sees them.)
+    A re-issued agreement: "<Document> — We have updated the Service
+      Agreement. Please read the new version and agree to it again. Your
+      supports continue as normal." then "Read the new version · I agree".
+    The file: "Only you and our office can see your documents." then the
+      rows, then "Print any time: Your supports and prices · Intake form ·
+      Emergency plan".
+    Not on file yet: headings only — "For you to read and agree to", "We
+      prepare these with you", "Written by your doctor or clinician", "Our
+      records", "Optional", "Not needed for you (n)". Rows say Read ·
+      I agree, or Blank form.
+    "What a worker can read" and "Who manages this account": shortened to
+      what the participant needs to decide.
+
+  Two bugs fixed on the way: the "applies to you — your plan says so" badge
+  was showing on every row, not only the plan-dependent ones; and a
+  supports-and-prices snapshot was labelled with its internal key
+  ("p-schedule") because the key is no longer in the participant catalogue.
+
+  No migration. SCHEMA_VERSION stays 86000.
 
 
 WHAT CHANGED IN v86.2.1 — THE PRIVACY CONSENT IS BACK, AND EVERYTHING IS v1
