@@ -8,8 +8,8 @@
 
      1. a confirmed support plan (every required question answered)
      2. billing details (self-managed, with an obviously-placeholder NDIS number)
-     3. the click agreements that are published (service agreement, privacy
-        consent, and the Schedule of Supports on v86+)
+     3. the Service Agreement, agreed on screen (and on servers before v86.2,
+        the privacy consent and schedule clicks those versions asked for)
      4. on v86+: "who manages this account" = nobody, I manage my own
 
    It goes through the server's own validation, versioning and compliance log,
@@ -99,7 +99,7 @@ const ANSWERS = {
   ec_email: ''
 };
 const BILLING = { plan: 'self', ndis_number: '430000001', pm_email: '', plan_start: '2026-07-01', plan_end: '2027-06-30' };
-const AGREEMENTS = ['p-agreement', 'p-consent-privacy', 'p-schedule'];   /* p-schedule exists on v86+ only */
+const AGREEMENTS = ['p-agreement', 'p-consent-privacy', 'p-schedule'];   /* on v86.2+ only the agreement is a click; the other two are skipped as 'not outstanding' */
 
 /* ---------- tiny http client with a cookie jar ---------- */
 const jar = {};

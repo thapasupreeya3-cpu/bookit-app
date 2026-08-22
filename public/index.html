@@ -3208,7 +3208,7 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
       <div class="info-card" id="lg-agreement">
         <h3>Participant service agreement</h3>
-        <p>Before support starts you receive a written service agreement: the supports you've chosen, the agreed prices (never above the NDIA's published maximum prices), the cancellation window for each support item, and how to change or end the agreement. Nothing is charged outside what it sets out.</p>
+        <p><a href="/service-agreement" target="_blank" rel="noopener noreferrer">Read the Service Agreement</a> — it is published here, the same for everyone, with nothing to fill in, and you accept it on screen before your first booking. Prices are the Pricing page (never above the NDIA's published limits), the cancellation window for each support is shown before you confirm a booking, and your own supports are documented in your support plan and in each booking. Nothing is charged outside what those set out.</p>
       </div>
       <div class="info-card" id="lg-cancellation">
         <h3>Cancellation policy</h3>
@@ -7361,10 +7361,12 @@ async function renderBookingsPage(){
     try{ pf = await API.call('/me/participant-documents'); }catch(e){}
     try{ pTypes = (await API.call('/participant-doc-catalog')).types || []; }catch(e){}
     if(pf){
-      const rows = (pf.documents || []).map(d => `
+      const clickKeys = new Set(pTypes.filter(t => t.sign === 'click').map(t => t.key));
+      const agreedRows = (pf.documents || []).filter(d => d.accepted_at && clickKeys.has(d.form_key));
+      const rows = (pf.documents || []).filter(d => !(d.accepted_at && clickKeys.has(d.form_key))).map(d => `
         <p style="margin:5px 0;font-size:.92rem;"><b>${esc(d.type_label || '')}</b>${d.doc_date ? ' · dated ' + fmtAU(d.doc_date) : ''}${d.expiry_date ? ' · expires ' + fmtAU(d.expiry_date) : ''} ${d.expiry_date ? stageChip(d) : ''} ${reviewChip(d)}${d.has_file
           ? ` · <a href="/api/participant-documents/${d.id}/file" target="_blank">view file</a>`
-          : ' · <span class="muted-sm">recorded, no file attached</span>'}${!d.verified_at ? ` · <button type="button" class="adm-btn-sm" data-pd-del="${d.id}">remove</button>` : ''}${d.review === 'rejected' && d.review_note ? `<br><span style="color:#A5301A;font-size:.82rem;"><b>Why:</b> ${esc(d.review_note)} — add another copy below and it takes this one's place. Nothing changes about your supports in the meantime.</span>` : ''}</p>`).join('');
+          : (d.accepted_at ? ' · <span class="muted-sm">agreed on screen</span>' : ' · <span class="muted-sm">recorded by the office, no file attached</span>')}${!d.verified_at ? ` · <button type="button" class="adm-btn-sm" data-pd-del="${d.id}">remove</button>` : ''}${d.review === 'rejected' && d.review_note ? `<br><span style="color:#A5301A;font-size:.82rem;"><b>Why:</b> ${esc(d.review_note)} — add another copy below and it takes this one's place. Nothing changes about your supports in the meantime.</span>` : ''}</p>`).join('');
       const missing = (pf.outstanding || []);
       const pReqPanel = (pf.requests || []).length ? `
         <div style="margin:0 0 14px;padding:12px 14px;border:1.5px solid #F5B841;border-radius:12px;background:#FDF9EF;" id="pdRequests">
@@ -7384,7 +7386,8 @@ async function renderBookingsPage(){
           <b style="font-size:.9rem;">${pf.held} of ${pf.of} on file</b>
           <div class="ob-bar" role="img" aria-label="${pf.held} of ${pf.of} documents on file"><i style="width:${pf.of ? Math.round(pf.held / pf.of * 100) : 0}%;"></i></div>
         </div>
-        ${rows || '<p class="muted-sm" style="margin-top:8px;">Nothing on file here yet.</p>'}
+        ${agreedRows.length ? `<p class="muted-sm" style="margin:6px 0 0;">Agreed on screen: ${[...new Set(agreedRows.map(d => d.type_label))].map(esc).join(', ')} — the editions and dates are under <a href="#/account/documents">Account › My documents</a>.</p>` : ''}
+        ${rows || '<p class="muted-sm" style="margin-top:8px;">Nothing added to your file yet.</p>'}
         ${missing.length ? `<details style="margin-top:12px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;">Still to come (${missing.length})</summary>
           <p class="muted-sm" style="margin-top:8px;">The office holds some of these on paper. If one of them matters to you, ask — they can file the copy here so you can read it whenever you like.</p>
           ${missing.map(mm => `<p style="margin:4px 0;font-size:.9rem;">${esc(mm.label)}${mm.applies === true ? ' <span class="pdoc-if" style="background:#DBF2E4;color:#1C7C43;">applies to you</span>' : mm.only_if ? ` <span class="muted-sm">— ${esc(mm.only_if)}</span>` : ''}${mm.signed ? ` <span class="muted-sm">— signed by ${esc(mm.signed)}</span>` : ''}${mm.requested_at ? ` <span style="color:#8a6d00;font-size:.82rem;">— asked for ${fmtAU(mm.requested_at.slice(0,10))}</span>` : ''}</p>`).join('')}
@@ -13163,10 +13166,14 @@ async function renderPdocsMini(){
   try{ pf = await API.call('/me/participant-documents'); }
   catch(e){ wrap.innerHTML = `<div class="info-card"><p>${esc(e.message)}</p></div>`; return; }
   try{ pTypes = (await API.call('/participant-doc-catalog')).types || []; }catch(e){}
-  const rows = (pf.documents || []).map(d => `
+  /* v86.2: an acceptance is an agreement, and agreements have their own
+     card above — listing the same click here a second time as "recorded,
+     no file" read as something missing. Files and office records only. */
+  const clickKeys = new Set(pTypes.filter(t => t.sign === 'click').map(t => t.key));
+  const rows = (pf.documents || []).filter(d => !(d.accepted_at && clickKeys.has(d.form_key))).map(d => `
     <p><b>${esc(d.type_label || '')}</b>${d.doc_date ? ' · ' + fmtAU(d.doc_date) : ''}${d.expiry_date ? ' · expires ' + fmtAU(d.expiry_date) : ''}${d.has_file
       ? ` · <a href="/api/participant-documents/${d.id}/file" target="_blank">view</a>`
-      : ' · <span class="muted-sm">recorded, no file</span>'}${d.stale ? ' · <span style="color:#8a6d00;font-weight:700;">out of date — see below</span>' : ''}${!d.verified_at ? ` · <button type="button" class="adm-btn-sm" data-mpd-del="${d.id}">remove</button>` : ''}${d.review === 'rejected' && d.review_note ? `<br><span style="color:#A5301A;font-size:.82rem;"><b>Why:</b> ${esc(d.review_note)}</span>` : ''}</p>`).join('');
+      : (d.accepted_at ? ' · <span class="muted-sm">agreed on screen</span>' : ' · <span class="muted-sm">recorded by the office, no file attached</span>')}${!d.verified_at ? ` · <button type="button" class="adm-btn-sm" data-mpd-del="${d.id}">remove</button>` : ''}${d.review === 'rejected' && d.review_note ? `<br><span style="color:#A5301A;font-size:.82rem;"><b>Why:</b> ${esc(d.review_note)}</span>` : ''}</p>`).join('');
   const missing = (pf.outstanding || []);
   const reqs = (pf.requests || []);
   /* Sixteen names in one paragraph read as sixteen jobs. Eleven of them are
@@ -13236,17 +13243,24 @@ async function renderPdocsMini(){
      find. */
   let agr = null;
   try{ agr = await API.call('/me/agreements'); }catch(e){}
-  const agreedHtml = agr && agr.agreements && agr.agreements.length ? `
+  /* v86.2: one line per agreement. The newest acceptance is the line; earlier
+     editions fold under it. An agreement whose text has moved on since the
+     click is said so in one phrase, and the fresh-click banner below does the
+     asking. */
+  const groups = agr && agr.grouped ? agr.grouped : [];
+  const readLink = a => a.read_url ? `<a href="${esc(a.read_url)}" target="_blank" rel="noopener noreferrer">read it</a>` : '';
+  const agreedHtml = groups.length ? `
     <div class="info-card" style="margin-bottom:12px;">
       <h3 style="margin:0 0 4px;">Agreements</h3>
-      <p class="mini-note" style="margin:0 0 10px;">What you've agreed to, and the exact version you saw at the time.</p>
-      ${agr.agreements.map(a => `<div class="pdoc-row" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;">
-        <b>${esc(a.label)}</b>
-        <span class="muted-sm">${esc(a.version)}</span>${a.current === false ? ' <span class="pdoc-if" style="background:#FDF0D8;color:#8a6d00;">superseded — see My documents</span>' : ''}
+      <p class="mini-note" style="margin:0 0 10px;">What you've agreed to, the day you did, and the exact text that was on the screen.</p>
+      ${groups.map(g => `<div class="pdoc-row" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;">
+        <b>${esc(g.label)}</b>
+        <span class="muted-sm">agreed ${fmtAU(String(g.latest.accepted_at).slice(0,10))}${g.latest.current === false ? ' — the text has changed since; see below' : ''}</span>
         <span style="flex:1;"></span>
-        <span class="muted-sm">agreed ${fmtAU(String(a.accepted_at).slice(0,10))}</span>
-        ${a.file_url ? `<a href="${esc(a.file_url)}" target="_blank" rel="noopener noreferrer">read the version I agreed to</a>`
-          : a.version_no ? `<a href="/api/form-templates/${esc(a.key)}/v${a.version_no}/file" target="_blank" rel="noopener noreferrer">read the version I agreed to</a>` : ''}
+        ${readLink(g.latest)}
+        ${g.earlier.length ? `<details style="flex-basis:100%;font-size:.82rem;"><summary class="muted-sm" style="cursor:pointer;">${g.earlier.length === 1 ? 'an earlier edition' : g.earlier.length + ' earlier editions'}</summary>
+          ${g.earlier.map(a => `<div class="muted-sm" style="margin:3px 0 0 10px;">agreed ${fmtAU(String(a.accepted_at).slice(0,10))} · ${esc(a.version || 'edition not recorded')} ${readLink(a) ? '· ' + readLink(a) : ''}</div>`).join('')}
+        </details>` : ''}
       </div>`).join('')}
     </div>` : '';
 
@@ -13312,7 +13326,8 @@ async function renderPdocsMini(){
     <p class="mini-note">${pf.held != null ? `<b>${pf.yours_held ?? 0} of ${pf.yours_of ?? 0} of yours on file.</b> ` : ''}Only you and the office see these, except the clinical plans a booked worker must follow — see <i>What a worker can read</i> below.${pf.of != null ? ` Your file holds ${pf.held} of ${pf.of} documents in all; most of the rest are ours to write, or come from someone else.` : ''}</p>
     ${reqs.length ? `<p class="mini-note" style="color:#8a6d00;"><b>The office has asked for:</b> ${reqs.map(r => esc(r.label)).join(', ')} — add it below and the ask closes itself.</p>` : ''}
     ${renewHtml}
-    <div class="mini-rows">${rows || '<p class="muted-sm">Nothing on file yet.</p>'}</div>
+    <div class="mini-rows">${rows || '<p class="muted-sm">Nothing added to your file yet — your agreements are in the card above.</p>'}</div>
+    <p class="muted-sm" style="margin:8px 0 0;">Printed from your file whenever you want them, nothing to fill in: <a href="/api/me/generated/p-schedule" target="_blank" rel="noopener noreferrer">your supports and prices</a> · <a href="/api/me/generated/p-intake" target="_blank" rel="noopener noreferrer">intake form</a> · <a href="/api/me/generated/p-emergency" target="_blank" rel="noopener noreferrer">emergency and disaster plan</a>.</p>
     ${flagsNote}
     ${missing.length ? `<div style="margin-top:12px;"><p class="mini-note" style="margin:0 0 8px;"><b>Not on file yet</b></p>${missingGroups}</div>` : ''}
     ${optionalHtml}${officeHtml}${naHtml}
@@ -13420,7 +13435,7 @@ document.addEventListener('click', async e => {
     const box = document.createElement('div');
     box.className = 'pag-box';
     box.style.cssText = 'margin:8px 0 4px;padding:11px 13px;border:1.5px solid #0E6B62;border-radius:11px;background:rgba(14,107,98,.05);font-size:.88rem;';
-    box.innerHTML = `<p style="margin:0 0 8px;">Please read <b>${esc(pag.dataset.label)}</b> first — the link is beside this button. Agreeing records the date, and which version was on the screen when you did it.</p>
+    box.innerHTML = `<p style="margin:0 0 8px;">Please read <b>${esc(pag.dataset.label)}</b> first — the link is beside this button. There is nothing to fill in or sign: agreeing records your name, the date, and the edition that was on the screen, and keeps a copy of it on your file.</p>
       <label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:9px;"><input type="checkbox" class="pag-tick" style="margin-top:4px;"> <span>I have read it and I agree to it.</span></label>
       <button type="button" class="btn btn-primary btn-sm pag-go" data-pdoc-agree-go="${esc(pag.dataset.pdocAgree)}">Record my agreement</button>
       <button type="button" class="adm-btn-sm pag-cancel" style="margin-left:6px;">Not yet</button>`;

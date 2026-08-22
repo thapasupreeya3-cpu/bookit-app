@@ -1,7 +1,68 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.1.0
+Current release: v86.2.0
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.2.0 — ONE AGREEMENT, NOTHING TO FILL IN
+-----------------------------------------------------------
+v86.1 rewrote the Service Agreement for the person, with their name, NDIS
+number and funding arrangement filled in from the file. That still made
+the agreement depend on fields, and it still read as a document about one
+participant that somebody had to complete. The established platforms do
+not do that: one agreement, the same for everyone, prices in a pricing
+policy, the person's own supports in their plan and their bookings.
+
+  THE SERVICE AGREEMENT IS NOW A PLATFORM AGREEMENT
+    Twelve clauses and a glossary: how BookIt works; access (agree on
+    screen, 18+ or a recorded parent/guardian, representatives); shared,
+    your and our responsibilities (verification and clearances, workers
+    are our employees, incidents, continuity, emergencies); consent to
+    supports; bookings (availability, making, cancellation windows,
+    location and travel, removal of a worker, offline arrangements);
+    feedback, complaints and the Commission; fees (the Pricing page is the
+    Pricing Policy; seven days' notice of a change; continued use is
+    acceptance; timesheet approval; payment by funding arrangement;
+    disputed fees; GST); ending; information management (privacy consent
+    is clause 9); risk allocation; general; the policies table.
+    Nothing on it belongs to one participant. Published without a login at
+    /service-agreement and linked from the Privacy & terms page. Accepted
+    by click on the documents page; the click records who, when and which
+    edition and keeps a copy of the page. Edition: "service-agreement v3,
+    platform edition, issued 22/08/2026". Anyone who agreed to the PDF (v1)
+    or the personalised edition (v2) is asked for a fresh click; their
+    earlier acceptances stay on file and stay readable.
+
+  THE SCHEDULE OF SUPPORTS IS A PRINTOUT, NOT A SIGNATURE
+    "Your supports and prices": the supports the person uses, the item each
+    is claimed against and today's price limit, printed from the file on
+    request (participant and admin). No click. Register row is live: held
+    for everyone with a confirmed plan and a recorded funding arrangement.
+    Earlier schedule acceptances remain as documents on the file.
+
+  THE PRIVACY CONSENT IS CLAUSE 9
+    The separate privacy form is optional — for a participant who prefers
+    paper, and for acceptances made before the platform edition. Nobody is
+    asked to consent to the same thing twice.
+
+  THE DOCUMENTS PAGE IS TIDIER
+    One line per agreement, with the newest acceptance and the earlier
+    editions folded underneath; acceptances no longer repeat in the
+    documents list as "recorded, no file"; a "printed from your file" line
+    links the supports-and-prices printout, the intake form and the
+    emergency plan; the bookings-page card names what has been agreed and
+    points to the account page for the editions.
+
+  The Service Agreement's text is DMHC's substance in the platforms'
+  structure, and a few positions in it are DMHC's to confirm with its
+  legal reviewer before launch — the Privacy & terms page already says the
+  legal wording is being settled: clause 10 (transport incidents not
+  covered by insurance; excluded liability), clause 8.1 (grounds for
+  suspension), and clause 8.2 (28 days' notice from us; immediate grounds).
+  Change the text in serviceAgreementBody() in server.js and bump
+  AGREEMENT_EDITION; every participant is then asked again.
+
+  No migration. SCHEMA_VERSION stays 86000.
 
 
 WHAT CHANGED IN v86.1.0 — THE SERVICE AGREEMENT IS NOT A FORM
