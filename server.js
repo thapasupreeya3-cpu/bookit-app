@@ -171,6 +171,24 @@ for (const col of ['stripe_session TEXT', 'pay_url TEXT']) {
 for (const col of ["svc_interest TEXT DEFAULT '[]'", "hi_flags TEXT DEFAULT '[]'", "hi_at TEXT DEFAULT ''", "hi_referred_at TEXT DEFAULT ''", "hi_note TEXT DEFAULT ''"]) {
   BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE users ADD COLUMN ${col}`)
 }
+/* migration (participant file build, v86): three paper forms became fields.
+   The intake form, the advocate/nominee form and the "copy of the NDIS plan"
+   row each asked for things BookIt did not hold; these are those things, and
+   only those things, collected as fields rather than documents. Deliberately
+   no date of birth: the account page promises not
+   to ask for one, and nothing here needs it — "under 18" is a declaration,
+   which is all the nominee rule needs. */
+for (const col of ["atsi TEXT DEFAULT ''", "contact_pref TEXT DEFAULT ''",
+  "plan_start TEXT DEFAULT ''", "plan_end TEXT DEFAULT ''",
+  "nominee_role TEXT DEFAULT ''", "nominee_name TEXT DEFAULT ''", "nominee_relationship TEXT DEFAULT ''",
+  "nominee_phone TEXT DEFAULT ''", "nominee_email TEXT DEFAULT ''", "nominee_paid INTEGER DEFAULT 0",
+  "under_18 INTEGER DEFAULT 0", "nominee_at TEXT DEFAULT ''",
+  /* A participant's clinical plans are shared with the workers who take their
+     shifts; a participant who opts out confirms in writing how the worker will
+     get at them during the booking. */
+  "share_plans INTEGER DEFAULT 1", "share_plans_note TEXT DEFAULT ''", "share_plans_at TEXT DEFAULT ''"]) {
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE users ADD COLUMN ${col}`)
+}
 /* scope build v34: the out-of-scope register. One row per participant per support they asked
    for that we are not registered to deliver — opened automatically the moment it is declared,
    and closable only by recording who they were introduced to. The old hi_note column held one
@@ -359,6 +377,20 @@ for (const [col, type] of [
   ['use_household', 'INTEGER DEFAULT 0'], ['household_detail', "TEXT DEFAULT ''"],
   ['use_community', 'INTEGER DEFAULT 0'], ['community_detail', "TEXT DEFAULT ''"]
 ]) { BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE support_plans ADD COLUMN ${col} ${type}`) }
+/* v86 — the intake form's questions that the plan did not already ask, and
+   the yes/no flags that decide which clinical plan the file needs: a yes on
+   the plan asks for the matching document, a no means it is never asked for.
+   `plan_schema` says which set of questions a row was
+   written against: a plan confirmed before v86 never heard these questions,
+   and a 0 on it must read as "not asked" rather than "no". */
+for (const [col, type] of [
+  ['living_situation', "TEXT DEFAULT ''"], ['diagnosis', "TEXT DEFAULT ''"],
+  ['interpreter', 'INTEGER DEFAULT 0'], ['interpreter_detail', "TEXT DEFAULT ''"],
+  ['need_medication', 'INTEGER DEFAULT 0'], ['need_mealtime', 'INTEGER DEFAULT 0'],
+  ['need_seizure', 'INTEGER DEFAULT 0'], ['need_diabetes', 'INTEGER DEFAULT 0'],
+  ['need_allergy', 'INTEGER DEFAULT 0'], ['need_manual', 'INTEGER DEFAULT 0'],
+  ['has_pbs', 'INTEGER DEFAULT 0'], ['plan_schema', 'INTEGER DEFAULT 1']
+]) { BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE support_plans ADD COLUMN ${col} ${type}`) }
 /* SIL rosters build: shared-living houses with weekly repeating shift slots */
 db.exec(`
   CREATE TABLE IF NOT EXISTS sil_houses (
@@ -388,11 +420,8 @@ BOOKIT_MIGRATIONS.runLegacyAlter(db, 'ALTER TABLE bookings ADD COLUMN sil_slot_i
    ----------------------------------------------------------------------------
    The problem this solves, stated plainly: when a support worker pulls out of a
    confirmed shift, every platform in this market hands the problem back to the
-   participant. Hireup says so in writing — "Hireup does not provide 'back up'
-   workers for coverage if a shift is cancelled by a Support Worker" — and tells
-   clients to go build "relationships with service providers who can assist with
-   'on call support'" themselves. Mable's own sample agreement says "It is your
-   responsibility to find alternative support options if I am unavailable."
+   participant: the platforms say so in their own terms, and tell clients to go
+   build relationships with other providers for on-call support themselves.
 
    The NDIS price rules make the asymmetry worse: when a PARTICIPANT cancels late
    the provider can claim up to 100% of the fee. When a WORKER cancels there is no
@@ -823,10 +852,9 @@ db.exec(`CREATE TABLE IF NOT EXISTS form_records (
    one per participant, and why it can be served to anyone signed in. --- */
 /* --- every version, kept -------------------------------------------------
 
-   Hireup publishes its client Service Agreement as numbered versions with the
-   dates each was current — version 5 from 17 March 2026, version 4 from
-   4 March 2024, back to version 2 in 2018 — and each account records which one
-   it accepted and when. That is not bureaucracy. It is the only way an
+   A service agreement has to be published as numbered versions with the dates
+   each was current, and each account has to record which one it accepted and
+   when. That is not bureaucracy. It is the only way an
    acceptance means anything: "they agreed" is a claim about a document, and if
    the document has been replaced the claim cannot be checked.
 
@@ -889,6 +917,35 @@ CREATE INDEX IF NOT EXISTS idx_pdocs_person ON participant_docs (participant_id,
 for (const col of ['accepted_at TEXT', 'accepted_ip TEXT', 'accepted_version TEXT']) {
   BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE participant_docs ADD COLUMN ${col}`);
 }
+
+/* --- the satisfaction survey, in the app -----------------------------------
+
+   It sat on the participant's file as a document they owed us, which is the
+   wrong way round: seeking feedback is the provider's obligation under the
+   Quality Management outcome, not a form the participant has to produce.
+   So: the office sends an invitation, the participant answers on
+   screen, and the office tracks sent and answered. Two tables because an
+   answer can be anonymous — the invitation is marked answered so the
+   register can say "done this year", while the response row carries no
+   participant id if the person asked for that. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS survey_invites (
+  id INTEGER PRIMARY KEY,
+  participant_id INTEGER NOT NULL REFERENCES users(id),
+  invited_at TEXT NOT NULL,
+  invited_by TEXT DEFAULT '',
+  answered_at TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_survey_invites_person ON survey_invites (participant_id, answered_at);
+CREATE TABLE IF NOT EXISTS survey_responses (
+  id INTEGER PRIMARY KEY,
+  invite_id INTEGER,
+  participant_id INTEGER,
+  answered_at TEXT NOT NULL,
+  answers TEXT NOT NULL DEFAULT '{}',
+  contact_me INTEGER DEFAULT 0,
+  contact_detail TEXT DEFAULT '',
+  anon INTEGER DEFAULT 0
+);`);
 
 /* --- a tiny key/value store so award figures aren't welded into the source.
    SCHADS rates move every 1 July; an admin should be able to change one number
@@ -1022,8 +1079,8 @@ CREATE TABLE IF NOT EXISTS delegate_log (
 CREATE INDEX IF NOT EXISTS idx_delegate_person ON delegate_log (participant_id, id);`);
 
 /* --- 4. the job board.
-   Hireup lets a participant describe the job and wait. Three things
-   theirs cannot do and this can: say how many hours a week the job is,
+   A participant describes the job and waits. Three things the job boards
+   elsewhere cannot do and this can: say how many hours a week the job is,
    set a date after which it closes itself, and edit or withdraw a post
    without ringing anyone. other_qualities stays free text on purpose —
    the things that actually decide a match ("likes dogs", "doesn't mind
@@ -1785,7 +1842,7 @@ function stampLegacyCutoff(uid) {
 /* the user object handed to routes and returned by /api/me — includes the worker's
    photo url + live (visible) flag so the front-end account menu can show them */
 function sessionUser(uid) {
-  const u = db.prepare('SELECT id, role, name, email, phone, suburb, plan, verified, created, ndis_number, pm_email, hi_flags, hi_at, hi_referred_at, photo, photo_at, is_admin FROM users WHERE id = ?').get(Number(uid));
+  const u = db.prepare('SELECT id, role, name, email, phone, suburb, plan, verified, created, ndis_number, pm_email, hi_flags, hi_at, hi_referred_at, photo, photo_at, is_admin, atsi, contact_pref, plan_start, plan_end, under_18, nominee_role, nominee_name, nominee_at, share_plans FROM users WHERE id = ?').get(Number(uid));
   if (!u) return null;
   u.hi_flags = safeJson(u.hi_flags, []);
   if (u.role === 'worker') {
@@ -2401,8 +2458,8 @@ function applyKm(bookingId, km, from, to) {
 }
 
 /* --- 7. the approval clock.
-   Hireup publishes no deadline at all, so a worker's pay depends on a
-   participant remembering. One published number, in one place, used by the
+   Without a published deadline a worker's pay depends on a participant
+   remembering. One published number, in one place, used by the
    email, the screen and the sweep, so all three can never disagree. --- */
 const APPROVAL_NUDGE_DAYS = 3;
 const APPROVAL_DEEM_DAYS  = 7;
@@ -3382,6 +3439,15 @@ route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
   const nextPlan = plan || user.plan;
   if (nextPlan === 'plan' && !pm) return json(res, 400, { error: 'Plan-managed accounts need your plan manager\'s email address, or invoices have nowhere to go.' });
   if (nextPlan === 'ndia' && !/^\d{9}$/.test(nd)) return json(res, 400, { error: 'Agency-managed accounts need your 9-digit NDIS number, or BookIt can\'t claim.' });
+  /* v86: the dates of the plan being claimed against. The copy of the plan
+     was never the point; the end date was. A claim outside the plan dates is
+     rejected by the NDIA,
+     and a plan that has ended while supports continue is a finding. */
+  const ps = clean(body.plan_start, 10), pe = clean(body.plan_end, 10);
+  for (const [v, what] of [[ps, 'plan start date'], [pe, 'plan end date']]) {
+    if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return json(res, 400, { error: `The ${what} looks wrong — it is on the front page of your NDIS plan.` });
+  }
+  if (ps && pe && pe < ps) return json(res, 400, { error: 'The plan end date is before its start date.' });
 
   const was = db.prepare('SELECT plan, ndis_number, pm_email FROM users WHERE id = ?').get(user.id) || {};
   const changedPayer = (was.plan || '') !== nextPlan || (was.pm_email || '') !== pm;
@@ -3396,7 +3462,7 @@ route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
     });
   }
 
-  db.prepare('UPDATE users SET plan = ?, ndis_number = ?, pm_email = ? WHERE id = ?').run(nextPlan, nd, pm, user.id);
+  db.prepare('UPDATE users SET plan = ?, ndis_number = ?, pm_email = ?, plan_start = ?, plan_end = ? WHERE id = ?').run(nextPlan, nd, pm, ps, pe, user.id);
   if (changedPayer) {
     /* Who pays is the single most disputed fact in NDIS billing. It gets a
        dated line in the participant's own access log, written by the person
@@ -5834,8 +5900,10 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
      support plan, because sending a worker to someone whose needs nobody has
      written down is the thing this whole platform exists to prevent.
 
-     Not the other thirteen. Most are ours to write, several may never apply,
-     and a gate that waits on the office is a gate on the wrong person.
+     Not the other documents on the file. Most are ours to write, several may
+     never apply, and a gate that waits on the office is a gate on the wrong
+     person. The one conditional fourth, below: anyone under 18 must have an
+     adult named as managing the account.
 
      Everything here stops the NEXT booking and never the ones already in the
      diary — somebody relying on Tuesday morning does not lose it because a
@@ -5848,10 +5916,19 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
     missing.push({ what: 'how the support is funded', where: '#/bookings', key: 'billing',
       why: 'An invoice has to have somewhere to go before a shift is worth booking.' });
   }
-  const agreed = db.prepare("SELECT id FROM participant_docs WHERE participant_id = ? AND form_key = 'p-agreement'").get(pers.id);
+  const agreed = db.prepare("SELECT id FROM participant_docs WHERE participant_id = ? AND form_key = 'p-agreement' AND COALESCE(review_state,'') <> 'rejected'").get(pers.id);
   if (!agreed) {
     missing.push({ what: 'the service agreement', where: '#/account/documents', key: 'p-agreement',
       why: 'Read it and press agree — it takes a moment, and the terms have to be agreed before supports start.' });
+  }
+  /* v86: anyone under 18 must have an adult managing the account before the
+     first shift. Only fires for a participant who has told us
+     they are under 18, because BookIt does not hold a date of birth. It is
+     theirs to do and it takes a minute, which is the test for a gate. */
+  const acct = db.prepare('SELECT under_18, nominee_name FROM users WHERE id = ?').get(pers.id) || {};
+  if (acct.under_18 && !acct.nominee_name) {
+    missing.push({ what: 'who manages the account', where: '#/account/documents', key: 'nominee',
+      why: 'You have told us the person receiving support is under 18, so an adult — a parent or guardian — has to be named as managing this account before the first shift.' });
   }
   if (!plan || plan.status !== 'confirmed') {
     missing.push({ what: 'a support plan', where: '#/support-plan', key: 'support-plan',
@@ -6371,6 +6448,8 @@ const PLAN_SECTIONS = [
     intro: 'These five answers are the only part of this plan the roster acts on by itself. They decide how hard BookIt chases a replacement when a worker pulls out, and how early it starts. Worth a minute of thought.' },
   { key: 'about', title: 'What a worker needs to know',
     intro: 'Written for somebody who has never met you and is about to walk in the door. Only workers whose booking with you has already been accepted ever see this — nobody browsing the site does.' },
+  { key: 'specialised', title: 'Specialised support',
+    intro: 'Seven yes-or-no questions. Say yes to one and we ask for the plan that goes with it, written by the right clinician, and that plan is shared with the workers who take your shifts. Nothing here stops a booking — it tells us which document to chase, and which ones never to ask you for.' },
   { key: 'safety', title: 'Your home and your community',
     intro: 'The hazards and the habits a stranger would not guess. This is where a shift goes wrong or does not.' },
   { key: 'emergency', title: 'Who we ring',
@@ -6473,6 +6552,48 @@ const PLAN_QUESTIONS = [
     q: 'Anything else before the first shift (optional)',
     help: 'Triggers, phobias, pets, house rules, the thing everybody gets wrong the first time.', worker_brief: true },
 
+  /* v86 — the three things the paper intake form asked that nothing live
+     did. They sit here, in the plan, because the plan is the one document
+     the participant already reviews every year, so nobody is handed an
+     intake form. */
+  { key: 'living_situation', section: 'about', type: 'text', required: true, worker_brief: true,
+    q: 'Where you live, and who with', brief_title: 'Living situation',
+    help: 'Your own home alone, your own home with family, supported accommodation, staying with relatives or friends for now — and who is usually there when a worker arrives. If you are at risk of losing where you live, say so; it changes how we plan.' },
+  { key: 'diagnosis', section: 'about', type: 'text', required: false,
+    q: 'Your disability or diagnosis, in your words (optional)',
+    help: 'Only what you want on your file. The office needs it for the NDIS; a worker gets what to do from the sections above, not a label.' },
+  { key: 'interpreter', section: 'about', type: 'yn', required: true,
+    q: 'Do you need an interpreter — for a language or for Auslan?',
+    help: 'Say yes and we book one for anything that matters: reviews, agreements, complaints. TIS National is free for the phone.' },
+  { key: 'interpreter_detail', section: 'about', type: 'text', required: false, showIf: 'interpreter', worker_brief: true,
+    q: 'Which language, and what works best', brief_title: 'Interpreter',
+    help: 'The language or service, and whether a family member usually interprets day to day.' },
+
+  /* v86 — the specialised-support flags. Each yes switches on one clinical
+     document in the participant's file (see FORMS, appliesIf) and the office
+     stops asking about the rest. The register names the clinician for each. */
+  { key: 'need_medication', section: 'specialised', type: 'yn', required: true,
+    q: 'Medication — do you want a worker to prompt you or give you your medication?',
+    help: 'Yes means we ask your GP or prescriber for a medication plan, and ask you to agree to workers helping with it. Keeping your own tablets somewhere a worker never touches is a no.' },
+  { key: 'need_mealtime', section: 'specialised', type: 'yn', required: true,
+    q: 'Mealtimes — do you have swallowing difficulties, a modified diet or thickened fluids?',
+    help: 'Yes means we ask your speech pathologist for a mealtime management plan before a worker helps you eat or drink.' },
+  { key: 'need_seizure', section: 'specialised', type: 'yn', required: true,
+    q: 'Seizures — do you have epilepsy, or seizures a worker might have to respond to?',
+    help: 'Yes means we ask your doctor or neurologist for an epilepsy management plan, including any emergency medication.' },
+  { key: 'need_diabetes', section: 'specialised', type: 'yn', required: true,
+    q: 'Diabetes — do you have diabetes a worker might need to help you manage?',
+    help: 'Yes means we ask your doctor or diabetes educator for a diabetes management plan.' },
+  { key: 'need_allergy', section: 'specialised', type: 'yn', required: true,
+    q: 'Allergies, anaphylaxis or asthma — do you have an action plan a worker must follow?',
+    help: 'Yes means we ask for a copy of the action plan your doctor signed — the ASCIA or asthma plan on your fridge is exactly the thing.' },
+  { key: 'need_manual', section: 'specialised', type: 'yn', required: true,
+    q: 'Transfers — do you use a hoist, a slide sheet, or need two people to move safely?',
+    help: 'Yes means we ask your occupational therapist or physiotherapist for a manual handling or transfer plan, so every worker moves you the same way.' },
+  { key: 'has_pbs', section: 'specialised', type: 'yn', required: true,
+    q: 'Behaviour support — do you have a Behaviour Support Plan?',
+    help: 'Yes means we ask your behaviour support practitioner for a copy, because a worker cannot follow a plan they have never read.' },
+
   { key: 'home_safety', section: 'safety', type: 'text', required: true,
     q: 'Safety in your home',
     help: 'Slips, trips and falls; smoking, drugs or alcohol in the home; where the exits are; manual handling; pets; and what a worker should do if something goes wrong while they are there alone with you.', worker_brief: true },
@@ -6491,6 +6612,18 @@ const PLAN_QUESTIONS = [
 const PLAN_KEYS = PLAN_QUESTIONS.map(q => q.key);
 const PLAN_YN = PLAN_QUESTIONS.filter(q => q.type === 'yn').map(q => q.key);
 const PLAN_TEXT = PLAN_QUESTIONS.filter(q => q.type === 'text').map(q => q.key);
+/* Which set of questions a plan row answered. Bump it when a yes/no question
+   is added, so a plan written before the question existed reads as "not
+   asked" and never as "no". 1 = everything before v86; 2 = v86. */
+const PLAN_SCHEMA = 2;
+/* The specialised-support flags, read off a confirmed plan: true, false, or
+   null when the plan predates the question. Null is the honest answer and the
+   file treats it exactly as it did before — the only-if hint, and no nagging. */
+function planFlag(plan, key) {
+  if (!plan || !key) return null;
+  if (Number(plan.plan_schema || 1) < PLAN_SCHEMA) return null;
+  return !!plan[key];
+}
 
 /* The standing safety notice — the one instruction that applies to every home
    regardless of what the participant writes. It is here because a worker in
@@ -6515,8 +6648,8 @@ function planDue(confirmed_at) {
 
 /* THE MECHANISM.
 
-   Hireup asks these three questions and files the answers. That is where the
-   value leaks out: a form that only produces prose produces nothing an on-call
+   Asking these questions and filing the answers is where the value leaks
+   out: a form that only produces prose produces nothing an on-call
    phone at 6am can act on. Here the same three answers resolve to one tier, and
    the tier is what the cover board sorts by and what decides whether the office
    is rung before the offer round or after it.
@@ -6621,7 +6754,10 @@ function planFieldsFrom(body, prior) {
   return f;
 }
 function planWrite(participantId, f, status, byName) {
-  const cols = [...PLAN_YN, ...PLAN_TEXT, 'care_plans'];
+  const cols = [...PLAN_YN, ...PLAN_TEXT, 'care_plans', 'plan_schema'];
+  /* stamped here, never read from the body: it records which questions this
+     row was written against, and only this code knows that */
+  f.plan_schema = PLAN_SCHEMA;
   const cur = currentPlan(participantId);
   const t = now();
   if (cur && cur.status === 'draft') {
@@ -6652,6 +6788,13 @@ function workerBrief(participantId) {
   }
   out.care_plans = safeJson(p.care_plans, []);
   out.emergency = { name: p.ec_name, relationship: p.ec_relationship, phone: p.ec_phone };
+  /* v86: the clinician-written plans the worker must follow, as links. The
+     access rule is enforced again on the file route; this only lists them. */
+  out.plans = sharedPlans(participantId);
+  /* and the specialised-support answers in one line, so a "no" is visible too */
+  if (planFlag(p, 'need_medication') !== null) {
+    out.specialised = PLAN_QUESTIONS.filter(q => q.section === 'specialised').map(q => ({ key: q.key, label: q.q.split(' \u2014 ')[0], yes: !!p[q.key] }));
+  }
   return out;
 }
 
@@ -6870,24 +7013,46 @@ const FORMS = [
   { key: 'w-supervision', name: 'Supervision and performance review record', scope: 'worker', track: 'drive', cadence: 'annual', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
 
   /* ---------- one per participant ---------- */
-  { key: 'p-intake', name: 'Intake / referral form', scope: 'participant', track: 'drive', cadence: 'once', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Access to supports' },
-  { key: 'p-agreement', sign: 'click', name: 'Service Agreement', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Service agreements with participants', note: 'On file at 2025–26 limits, which have ceased. New figures must be agreed in writing before invoicing at them.' },
-  { key: 'p-schedule', name: 'Schedule of Supports', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Service agreements with participants' },
+  /* v86 — the file, read against what a participant can actually be asked
+     for: the facts about them as fields, the agreement on screen, and then only
+     the clinical plans their support actually needs. Everything DMHC used to
+     put in front of a participant as paper beyond that is now one of three
+     things: derived from data BookIt already
+     holds (track: 'live'), accepted by click (sign: 'click'), or optional. The
+     file the office holds is the same size. The page the participant sees is
+     not.
+
+     Field guide:  appliesIf   a yes/no on the support plan that switches the row
+                               on; a no means the row is never asked for
+                   optional    filed if offered, never counted as a gap
+                   upload      a live row that may still carry a filed copy
+                   generated   the text is rendered by BookIt, not a PDF on a shelf
+                   showStatus  office-only, but the participant sees it exists */
+  { key: 'p-intake', name: 'Intake / referral form', scope: 'participant', track: 'live', live: 'intake', cadence: 'once', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Access to supports', note: 'Printed from the account, the billing card and the confirmed support plan — the three places the participant already answered every question on it. The registration form is the intake form.' },
+  { key: 'p-agreement', sign: 'click', name: 'Service Agreement', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Service agreements with participants', note: 'Accepted on screen, version recorded. Prices live in the Schedule of Supports, which asks for a fresh click when they move.' },
+  { key: 'p-schedule', sign: 'click', generated: true, name: 'Schedule of Supports', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'BookIt', requires: 'Core Module — Service agreements with participants', note: 'Generated from the certificate and the current NDIS price limits and accepted on screen, so it cannot go stale in a folder. When the limits move, the file says so and asks for a fresh click before anything is invoiced at the new figures. Published on the platform, with a record of who agreed to which version.' },
   { key: 'p-support-plan', name: 'Support Plan', scope: 'participant', track: 'live', live: 'support_plan', cadence: 'annual', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Support planning', note: 'BookIt holds this now. The participant confirms it themselves and the review clock runs from their confirmation.' },
-  { key: 'p-risk', officeOnly: true, name: 'Risk Assessment', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management' },
-  { key: 'p-emergency', name: 'Participant Emergency and Disaster Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Continuity of supports', note: 'The support plan asks whether essential safety support is needed within 8 hours of a disaster. That answer belongs in this plan.' },
-  { key: 'p-consent-privacy', sign: 'click', name: 'Privacy and information-sharing consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
+  { key: 'p-risk', officeOnly: true, showStatus: true, name: 'Risk Assessment', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management', note: 'Written by the office. The participant sees that it exists and when it was last done, but is never asked to produce it.' },
+  { key: 'p-emergency', name: 'Participant Emergency and Disaster Plan', scope: 'participant', track: 'live', live: 'emergency_plan', cadence: 'annual', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Continuity of supports', note: 'Derived from the support plan: the emergency contact, home and community safety, the 8-hour disaster question and the 24-hour backup answer. Printed on demand for the file. The emergency contact and the safety answers live in the support plan, so the plan is the record.' },
+  { key: 'p-consent-privacy', sign: 'click', name: 'Privacy and information-sharing consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity', note: 'Re-asked when the words change, not every year. A consent stands until it is withdrawn or the text it was given to is replaced — and replacing the blank already re-arms it.' },
   { key: 'p-consent-media', sign: 'click', onlyIf: 'only if photos or video of you might be used', name: 'Photo and media consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
-  { key: 'p-advocate', onlyIf: 'only if someone helps you make decisions', name: 'Advocate / nominee / decision-maker form', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Independence and informed choice' },
+  { key: 'p-advocate', track: 'live', live: 'nominee', upload: true, optional: true, onlyIf: 'only if someone helps you make decisions', name: 'Advocate / nominee / decision-maker form', scope: 'participant', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Independence and informed choice', note: 'A nomination on the account — who, their relationship, whether they are paid — with two rules attached: anyone under 18 must have one, and a paid worker cannot be it. The signed form stays on the shelf for arrangements that need a signature, such as a guardianship order or an NDIS nominee; it is optional otherwise.' },
   { key: 'p-money', onlyIf: 'only if we handle any of your money or property', name: 'Money and Property Declaration', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Participant money and property' },
-  { key: 'p-medication', onlyIf: 'only if we support you with medication', name: 'Medication Plan and Administration Form + consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + prescriber', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'The Drive copy is on file but entirely blank per-medication. If a completed copy is held elsewhere, record it here with the date it was filed rather than completing the blank one.' },
-  { key: 'p-mealtime', onlyIf: 'only if there is a mealtime or swallowing risk', name: 'Mealtime Management Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'DMHC', requires: 'Recorded as met on DMHC\'s 2025 Core Module audit sheet', note: 'The two 2025 audit sheets contradict each other — one ticks it as met, the participant file records it was declined. Both cannot be true.' },
-  { key: 'p-care-plans', name: 'Clinical care plans named in the support plan', scope: 'participant', track: 'live', live: 'care_plans', cadence: 'on-change', signed: 'Clinician', template: 'none', requires: 'Core Module — Support planning', note: 'The support plan asks the participant to name every care plan they have. Any name with no document behind it shows up here.' },
-  { key: 'p-ndis-plan', name: 'Copy of the current NDIS plan + plan dates', scope: 'participant', track: 'drive', cadence: 'expiry', signed: 'NDIA', template: 'none', requires: 'Core Module — Service agreements with participants', note: 'The plan on file expired 24/06/2026 while supports continued.' },
+  { key: 'p-medication', appliesIf: 'need_medication', onlyIf: 'only if we support you with medication', name: 'Medication plan / authority form', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Prescriber', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'Written by the GP or prescriber and reviewed at least every 12 months. The participant\'s own consent is the separate click in the next row, because one of the two is theirs to give and one is not. The Drive copy is blank per-medication; if a completed copy is held elsewhere, record it here with the date it was filed.' },
+  { key: 'p-consent-medication', sign: 'click', generated: true, appliesIf: 'need_medication', onlyIf: 'only if we support you with medication', name: 'Consent to medication assistance', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Management of medication', note: 'DMHC\'s own consent wording, rendered with the participant\'s name and accepted on screen. It refers to the medications in the prescriber\'s plan rather than repeating them, so a changed dose never leaves two documents disagreeing.' },
+  { key: 'p-mealtime', appliesIf: 'need_mealtime', onlyIf: 'only if there is a mealtime or swallowing risk', name: 'Mealtime Management Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'DMHC', requires: 'Recorded as met on DMHC\'s 2025 Core Module audit sheet', note: 'The two 2025 audit sheets contradict each other — one ticks it as met, the participant file records it was declined. Both cannot be true.' },
+  { key: 'p-epilepsy', appliesIf: 'need_seizure', onlyIf: 'only if you have epilepsy or seizures', name: 'Epilepsy / seizure management plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'none', requires: 'Core Module — Safe environment', note: 'Including the emergency medication plan where one exists. It is the plan a worker reads before the first shift, not after the first seizure.' },
+  { key: 'p-diabetes', appliesIf: 'need_diabetes', onlyIf: 'only if you have diabetes', name: 'Diabetes management plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'none', requires: 'Core Module — Safe environment' },
+  { key: 'p-allergy', appliesIf: 'need_allergy', onlyIf: 'only if you have an allergy, anaphylaxis or asthma action plan', name: 'Allergy, anaphylaxis or asthma action plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'none', requires: 'Core Module — Safe environment', note: 'The ASCIA or asthma action plan the doctor signed. A photo of the one on the fridge is the document.' },
+  { key: 'p-manual', appliesIf: 'need_manual', onlyIf: 'only if you use a hoist or need help with transfers', name: 'Manual handling / transfer plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'OT or physiotherapist', template: 'none', requires: 'Core Module — Safe environment' },
+  { key: 'p-pbs', appliesIf: 'has_pbs', onlyIf: 'only if you have a Behaviour Support Plan', name: 'Positive Behaviour Support Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Behaviour support practitioner', template: 'none', requires: 'Core Module — Support planning', note: 'A copy of a plan someone else wrote. Any restrictive practice in it has its own obligations with the Commission — this row only evidences that the workers can read the plan they are meant to follow.' },
+  { key: 'p-care-plans', name: 'Any other care plan named in the support plan', scope: 'participant', track: 'live', live: 'care_plans', cadence: 'on-change', signed: 'Clinician', template: 'none', requires: 'Core Module — Support planning', note: 'The seven plans above are asked for by name. This row is for anything else the participant names — a wound care plan, a continence plan — and any name with no document behind it shows up here. A filed clinical plan ticks a matching name automatically.' },
+  { key: 'p-ndis-plan', optional: true, name: 'Copy of the current NDIS plan', scope: 'participant', track: 'drive', cadence: 'expiry', signed: 'NDIA', template: 'none', requires: 'Core Module — Service agreements with participants', note: 'Helpful, not required — the goals are already in the support plan. The dates are what matter, and they live on the billing card; see the next row.' },
+  { key: 'p-plan-dates', name: 'Current NDIS plan dates', scope: 'participant', track: 'live', live: 'plan_dates', cadence: 'expiry', signed: 'NDIA', template: 'BookIt', requires: 'Core Module — Service agreements with participants', note: 'Start and end date of the plan being claimed against, recorded on the billing card. A plan that has ended while supports continue is named here the day it happens — which is the finding the old paper copy missed for two months.' },
   { key: 'p-notes', name: 'Progress notes / shift notes', scope: 'participant', track: 'live', live: 'shift_notes', cadence: 'per-event', signed: 'Worker', template: 'BookIt', requires: 'Core Module — Responsive support provision', note: 'Append-only in BookIt. A note that can be quietly rewritten is not evidence of anything.' },
-  { key: 'p-satisfaction', name: 'Participant Satisfaction Survey', scope: 'participant', track: 'missing', cadence: 'annual', signed: 'Participant', template: 'none', requires: 'Core Module — Quality management', note: 'Never run. Due annually.' },
-  { key: 'p-annual-review', name: 'Annual review record', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'none', requires: 'Core Module — Support planning' },
-  { key: 'p-living-arrangement', officeOnly: true, onlyIf: 'only where the s73G condition applies', name: 'Living Arrangement Determination (s73G)', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'NDIS Act s73G condition on this registration', note: 'Settles the contradiction between "lives with parents" in the support plan and the sole-worker clause in the agreement.' },
+  { key: 'p-satisfaction', owner: 'feedback', track: 'live', live: 'survey', upload: true, optional: true, name: 'Participant Satisfaction Survey', scope: 'participant', cadence: 'annual', signed: 'Participant', template: 'none', requires: 'Core Module — Quality management', note: 'Sent from the office, answered in BookIt, tracked as sent and answered. Seeking feedback is our obligation under the quality management outcome, not a document the participant owes the file — so it is never counted against them, and a paper copy can still be filed.' },
+  { key: 'p-annual-review', officeOnly: true, upload: true, track: 'live', live: 'annual_review', name: 'Annual review record', scope: 'participant', cadence: 'annual', signed: 'Participant + DMHC', template: 'none', requires: 'Core Module — Support planning', note: 'Derived: the support plan confirmed within the last 12 months and every clinical plan that applies on file and in date. That is the annual review, on a 12-month clock, and the printable record is for the office\'s file, not the participant\'s to-do list.' },
+  { key: 'p-living-arrangement', officeOnly: true, onlyIf: 'only where the s73G condition applies', name: 'Living Arrangement Determination (s73G)', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'NDIS Act s73G condition on this registration', note: 'Settles the contradiction between "lives with parents" in the support plan and the sole-worker clause in the agreement. The plan now asks the living situation outright.' },
   { key: 'p-exit', onlyIf: 'only when supports end', name: 'Exit / transition record', scope: 'participant', track: 'drive', cadence: 'per-event', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Transitions to or from the provider' }
 ];
 const FORM_SCOPES = [
@@ -7603,34 +7768,54 @@ route('GET', /^\/api\/templates$/, (req, res) => {
 
    `signed` already knew all of this. Nothing was passing it on. */
 const PDOC_OWNERS = {
-  participant: { label: 'Yours to fill in and send back',
-    blurb: 'These are yours. Fill them in, take a photo or attach the PDF, and add them below.' },
+  participant: { label: 'Yours to read and agree to',
+    blurb: 'These are yours, and each one is a click — read it, then press agree. The ones marked "only if" are only asked for when they apply to you.' },
   cosigned:    { label: 'We write these, you sign them',
     blurb: 'We prepare these and bring them to you. Nothing to do until we do.' },
   clinical:    { label: 'Someone else has to write these',
-    blurb: 'A prescriber or clinician writes these. Ask us and we will chase it with you.' },
+    blurb: 'A prescriber or clinician writes these. Ask us and we will chase it with you — a photo of the signed copy is all we need. These are the only documents on this page a booked worker can read.' },
   office:      { label: 'We look after these',
     blurb: 'Ours to write and keep current. They are on your file for completeness, not for you to do.' },
   ndia:        { label: 'A copy of something you already have',
-    blurb: 'Nothing to fill in — we just need a copy on file.' }
+    blurb: 'Nothing to fill in — a copy is helpful if you have one handy, and nothing waits on it.' },
+  /* v86: the survey is the office asking, not the participant owing */
+  feedback:    { label: 'Optional — tell us how we are doing',
+    blurb: 'We ask once a year. Answer it here when we send it, or not — nothing about your supports depends on it.' }
 };
 function pdocOwner(signed) {
   const sg = String(signed || '');
   if (sg === 'Participant') return 'participant';
   if (sg === 'NDIA') return 'ndia';
   if (sg === 'Clinician') return 'clinical';
-  if (/prescriber|clinician/i.test(sg)) return 'clinical';
+  /* every clinician DMHC's forms name, so a new row cannot silently fall into
+     "office" because it said "physiotherapist" instead of "clinician" */
+  if (/prescriber|clinician|physio|therapist|practitioner|doctor|nurse|\bGP\b|dietitian|dietician|pathologist/i.test(sg)) return 'clinical';
   if (/^Participant \+/.test(sg)) return 'cosigned';
   return 'office';
 }
 
-const PDOC_CATALOG = FORMS.filter(f => f.scope === 'participant' && f.track !== 'live').map(f => ({
+/* v86: a live row may still carry a filed copy (upload: true) — the advocate
+   form for arrangements that need a signature, the survey on paper, the signed
+   annual review record — so those stay in the catalogue as optional slots.
+   The three records BookIt *is* (support plan, care plans, shift notes) stay
+   out, for the reason given above. */
+const PDOC_CATALOG = FORMS.filter(f => f.scope === 'participant' && (f.track !== 'live' || f.upload)).map(f => ({
   key: f.key,
   label: f.name,
   cadence: f.cadence,
   signed: f.signed || '',
-  owner: pdocOwner(f.signed),
+  owner: f.owner || pdocOwner(f.signed),
   only_if: f.onlyIf || '',
+  /* the yes/no on the support plan that decides whether this row is asked
+     for at all. Empty means it is always part of the file. */
+  applies_if: f.appliesIf || '',
+  /* filed if offered, never demanded, never counted against the person */
+  optional: Boolean(f.optional),
+  /* the text is rendered by BookIt for this participant rather than kept as a
+     blank on the shelf — see GENERATED_DOCS */
+  generated: Boolean(f.generated),
+  /* office-only, but the participant sees that it exists and when it was done */
+  show_status: Boolean(f.showStatus),
   /* An agreement is a thing you accept, not a page you print. Three of these
      are pure consent — you read them and you say yes or you don't — and
      posting a scanned signature back is a worse record than a dated, versioned
@@ -7654,6 +7839,303 @@ const PDOC_METHODS = {
   'issuer-confirmed': 'Confirmed with the issuer',
   'participant-confirmed': 'Confirmed with the participant'
 };
+
+/* ============================================================================
+   v86 — DOCUMENTS BOOKIT WRITES ITSELF
+   ----------------------------------------------------------------------------
+   Four of the participant's documents are now rendered from data rather than
+   kept as blanks on a shelf. Two of them are agreements accepted on screen
+   (the Schedule of Supports and the consent to medication assistance); two are
+   records printed on demand for the file (the intake form and the emergency and
+   disaster plan). The rule for all four: nothing on the page is typed twice.
+   Every figure comes from the constant that bills it, every answer from the
+   plan that holds it, so the printed document cannot disagree with the system.
+
+   An accepted agreement is snapshotted at the moment of the click — the
+   rendered HTML is written beside the acceptance row — because "they agreed"
+   is a claim about a text, and a text generated from live prices is a
+   different text next July. version() is the string stored on the acceptance;
+   when it no longer matches, the file says so and asks again.
+   ========================================================================== */
+const PRICING = {
+  label: 'NDIS Pricing Arrangements and Price Limits 2026\u201327',
+  schedule: 'Pricing Schedule v1.2',
+  from: '2026-07-01'
+};
+const SCHEDULE_FORMAT = 1;   /* bump when the layout or wording of the schedule changes */
+const MED_CONSENT_VERSION = 'v1, issued 22/08/2026';
+
+const NOMINEE_ROLES = [
+  { key: 'none',     label: 'Nobody — I manage my own account and make my own decisions' },
+  { key: 'family',   label: 'A family member or friend who helps me, unpaid' },
+  { key: 'parent',   label: 'My parent or guardian — I am under 18' },
+  { key: 'guardian', label: 'A guardian, financial manager or attorney appointed for me' },
+  { key: 'nominee',  label: 'My NDIS plan nominee' },
+  { key: 'advocate', label: 'An advocate or support person who speaks with me or for me' }
+];
+const nomineeLabel = k => (NOMINEE_ROLES.find(r => r.key === k) || {}).label || '';
+
+const FUNDING_LABELS = { self: 'Self-managed', plan: 'Plan-managed', ndia: 'NDIA-managed', none: 'No NDIS funding / private' };
+const PLAN_SERVICE_FLAGS = { use_personal: 'personal-care', use_daily: 'daily-tasks', use_transport: 'transport',
+  use_household: 'household', use_community: 'community', use_employ: 'employment' };
+
+function genPerson(pid) {
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(pid));
+  if (!u) return null;
+  u.svc_interest = safeJson(u.svc_interest, []);
+  return u;
+}
+/* the supports this person uses — the plan's answer if there is one, their
+   sign-up interest if not, everything on the certificate if neither */
+function genServices(u, plan) {
+  if (plan) {
+    const used = Object.keys(PLAN_SERVICE_FLAGS).filter(k => plan[k]).map(k => PLAN_SERVICE_FLAGS[k]);
+    if (used.length) return used;
+  }
+  const si = (u.svc_interest || []).filter(k => SERVICES.includes(k));
+  return si.length ? si : SERVICES.slice();
+}
+const genRow = (l, v) => `<div class="fld half"><label>${escHtml(l)}</label><span class="rule"><span class="pre">${escHtml(v || '\u2014')}</span></span></div>`;
+const genPara = (l, v) => `<div class="fld"><label>${escHtml(l)}</label><p class="say" style="white-space:pre-wrap;margin:4px 0 0;">${escHtml(v || '\u2014')}</p></div>`;
+
+function genPage(t, body, opts = {}) {
+  const base = opts.base || '';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>${escHtml(t.title)} \u2014 DMHC</title><style>${TPL_CSS}</style></head><body>
+<div class="bar no-print">
+  <button type="button" onclick="window.print()">Print, or save as PDF</button>
+  <span>${escHtml(opts.barNote || 'Generated from your BookIt file \u00b7 nothing on this page is typed twice')}</span>
+  ${base ? `<a href="${escHtml(base)}/#/account/documents">Back to My documents</a>` : ''}
+</div>
+<div class="sheet">
+  <p class="mark">BookIt</p>
+  <p class="org">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; registered NDIS provider ${escHtml(NDIS_REG_NO)}</p>
+  <h1>${escHtml(t.title)}</h1>
+  <p class="lede">${t.lede}</p>
+  <div class="meta">${t.meta.map(m => `<div><b>${escHtml(m[0])}:</b> ${escHtml(m[1])}</div>`).join('')}</div>
+  ${body}
+  <p class="foot">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; NDIS provider ${escHtml(NDIS_REG_NO)} &middot; 0488 114 368 &middot; hello@bookit.life<br>
+  ${escHtml(t.footer || '')}</p>
+</div></body></html>`;
+}
+
+const GENERATED_DOCS = {
+  /* ---- the Schedule of Supports ------------------------------------------
+     A registered provider on a certificate has to say which supports at what
+     price, in writing, before
+     invoicing — so this is that, generated from CERT_GROUPS and INVOICE_RATES
+     and accepted by click. The old signed PDF was on file at 2025\u201326 limits
+     that had ceased, which is exactly the failure a generated one cannot have. */
+  'p-schedule': {
+    label: 'Schedule of Supports', accept: true, issued: PRICING.from,
+    stale_why: 'The NDIS price limits this schedule is based on have changed since you agreed to it. Read the new one and agree again \u2014 nothing is invoiced at the new figures until you do.',
+    version: () => `schedule f${SCHEDULE_FORMAT} \u00b7 ${PRICING.schedule} \u00b7 ${PRICING.label} \u00b7 certificate ${NDIS_REG_NO}`,
+    render(u, plan, opts) {
+      const used = genServices(u, plan);
+      const km = KM_RATE_CHARGE();
+      const catOrder = ['weekday-day', 'weekday-evening', 'weekday-night', 'saturday', 'sunday', 'public-holiday', 'sleepover', 'household', 'employment'];
+      const tables = used.map(svc => {
+        const items = SUPPORT_ITEMS[svc] || {};
+        const cats = items['*'] ? [svc === 'household' ? 'household' : 'employment'] : catOrder.filter(c => items[c]);
+        const group = CERT_GROUPS.find(g => g.service === svc) || {};
+        const rows = cats.map(c => {
+          const r = INVOICE_RATES[c] || {};
+          const item = items[c] || items['*'] || '';
+          return `<tr><td class="lb">${escHtml(r.label || c)}</td><td>${escHtml(item)}</td><td>$${Number(r.price || 0).toFixed(2)} ${r.perNight ? 'per night' : 'per hour'}</td></tr>`;
+        }).join('');
+        return `<h2>${escHtml(SERVICE_LABELS[svc] || svc)} <span class="tag">registration group ${escHtml(REG_GROUPS[svc] || group.code || '')} \u2014 ${escHtml(group.name || '')}</span></h2>
+          ${ITEM_CONFIRM[svc] ? '<p class="say">Transport has no hourly labour item of its own. The worker\u2019s time is claimed under the community participation items below and the kilometres under activity-based transport; your plan manager confirms the line before the first claim.</p>' : ''}
+          <table><thead><tr><th>When</th><th>NDIS support item</th><th>Price to you</th></tr></thead><tbody>${rows}</tbody></table>`;
+      }).join('');
+      const notUsed = SERVICES.filter(k => !used.includes(k)).map(k => SERVICE_LABELS[k]);
+      const cancel = [...new Set(used.map(k => CANCEL_HOURS[k] || 48))].sort((a, b) => b - a)
+        .map(h => `${h >= 24 ? h / 24 + ' days' : h + ' hours'} for ${used.filter(k => (CANCEL_HOURS[k] || 48) === h).map(k => SERVICE_LABELS[k].toLowerCase()).join(', ')}`).join('; ');
+      const body = `
+        ${tables}
+        ${notUsed.length ? `<p class="help">Not in this schedule because you told us you do not use them: ${escHtml(notUsed.join(', '))}. Tick one on your support plan and it appears here the same day.</p>` : ''}
+        <h2>How a shift is priced</h2>
+        <p class="say">Every price above is the NDIS price limit for that item, and we invoice at the limit. A weekday shift that starts at or after 8pm, or runs past 8pm, is charged at the evening rate for the whole shift; one that starts before 6am at the night rate. Saturday, Sunday and public holiday rates apply to the whole of a shift on that day. A sleepover is an inactive overnight and is charged per night, not per hour. Bookings run from 2 to 10 hours.</p>
+        <p class="say">When a worker drives you in their own car, the kilometres are charged at <b>$${km.toFixed(2)} per km</b> under activity-based transport (04_590_0125_6_1), on top of the worker\u2019s time.</p>
+        <h2>Cancellations</h2>
+        <p class="say">A booking cancelled inside the notice window is charged in full and the worker is paid in full, which is the NDIS short-notice position and the only reason a worker can afford to hold the slot. The window is ${escHtml(cancel)}. Outside the window, nothing is charged. When we or the worker cancel, nothing is charged either.</p>
+        <h2>When these figures change</h2>
+        <p class="say">The NDIA publishes new price limits each 1 July. When they do, this schedule is regenerated, your file shows it has changed, and you are asked to read and agree to the new one before anything is invoiced at the new figures. You can read every version you agreed to, with the date, from <b>My documents &rsaquo; Agreements</b>.</p>
+        <div class="box note"><b>What agreeing means</b><p>Pressing <i>I agree to this</i> records your name, the date, and the exact version shown \u2014 <i>${escHtml(GENERATED_DOCS['p-schedule'].version())}</i>. It is the part of your Service Agreement that says what supports, at what price. It does not book anything, and it does not commit you to any hours.</p></div>`;
+      return genPage({
+        title: 'Schedule of Supports',
+        lede: 'The supports DMHC may deliver to you under its certificate of registration, the NDIS support item each is claimed against, and the price. Part of your Service Agreement.',
+        meta: [['Participant', u.name], ['NDIS number', u.ndis_number || 'not recorded'],
+          ['Funding', `${FUNDING_LABELS[u.plan] || 'not recorded'}${u.plan === 'plan' && u.pm_email ? ` \u2014 invoices to ${u.pm_email}` : ''}`],
+          ['Plan dates', u.plan_start || u.plan_end ? `${u.plan_start ? dmy(u.plan_start) : '?'} to ${u.plan_end ? dmy(u.plan_end) : '?'}` : 'not recorded'],
+          ['Prices', `${PRICING.label}, ${PRICING.schedule}, effective ${dmy(PRICING.from)}`],
+          ['Certificate', `${NDIS_REG_NO}, registration groups ${CERT_GROUPS.map(g => g.code).join(', ')}`]],
+        footer: `Schedule of Supports, format ${SCHEDULE_FORMAT}, generated ${dmy(ymd())}. Version: ${GENERATED_DOCS['p-schedule'].version()}.`
+      }, body, opts);
+    }
+  },
+
+  /* ---- consent to medication assistance ---------------------------------
+     DMHC's own Medication Consent Form, as a click. It refers to the
+     medications in the prescriber's plan rather than listing them, so a dose
+     changed by the prescriber never leaves two documents disagreeing. */
+  'p-consent-medication': {
+    label: 'Consent to medication assistance', accept: true, issued: '2026-08-22',
+    stale_why: 'The wording of this consent has changed since you agreed to it. Read it again and agree to the new text.',
+    version: () => `medication-consent ${MED_CONSENT_VERSION}`,
+    render(u, plan, opts) {
+      const who = u.under_18 || (u.nominee_role && u.nominee_role !== 'none' && u.nominee_role !== 'family' && u.nominee_role !== 'advocate')
+        ? `${u.name}, or ${u.nominee_name || 'the person who makes decisions with or for them'} on their behalf` : u.name;
+      const body = `
+        <p class="say">Disability and Mental Health Care Pty Ltd keeps a current, accurate and reliable record of every medication it assists with, so that medication is managed safely at home and in the community. This consent, together with the medication plan or authority form written by your prescriber, is that record.</p>
+        <h2>What you are agreeing to</h2>
+        <p class="say"><b>I, ${escHtml(who)},</b> give my permission and my full consent for Disability and Mental Health Care Pty Ltd workers who are appropriately trained and qualified to assist me with my medication as set out in my current medication plan or authority form, following my pharmacist\u2019s or medical practitioner\u2019s instructions and the directions on the medication packaging.</p>
+        <p class="say">I understand that:</p>
+        <div class="ticks">
+          <div class="tick"><span class="bx"></span><span>The medications, doses, times and routes a worker may help with are the ones in the plan my prescriber wrote. If a medication is added or changed, my prescriber updates the plan and I am asked to agree again. Workers will not give anything that is not on it.</span></div>
+          <div class="tick"><span class="bx"></span><span>Workers give medication from its labelled pharmacy container, a pharmacy-packed blister pack or a dosing box, never from an unlabelled or expired container, and never change a dose.</span></div>
+          <div class="tick"><span class="bx"></span><span>Every dose a worker gives is written in the shift note, and any dose refused, missed or vomited is reported to me or the person who makes decisions with me, and to DMHC.</span></div>
+          <div class="tick"><span class="bx"></span><span>If I refuse a medication, or choose to take my own, I do so at my own risk, and a worker may let my medical practitioner know.</span></div>
+          <div class="tick"><span class="bx"></span><span>I can withdraw this consent at any time by telling DMHC, and nothing about my other supports changes if I do.</span></div>
+        </div>
+        <h2>What DMHC agrees to</h2>
+        <p class="say">Only workers whose medication administration training is current on their file will be rostered to assist with medication. DMHC keeps the prescriber\u2019s plan on your file, asks for it to be reviewed at least every 12 months, and shares it with the workers who take your shifts so that they are working from the same page as your prescriber.</p>
+        <div class="box note"><b>What agreeing means</b><p>Pressing <i>I agree to this</i> records your name, the date and the version of this text \u2014 <i>${escHtml(MED_CONSENT_VERSION)}</i>. It stands until you withdraw it or the text changes. Adapted from DMHC\u2019s Medication Consent Form; the per-medication table on that form lives in your prescriber\u2019s plan instead.</p></div>`;
+      return genPage({
+        title: 'Consent to medication assistance',
+        lede: 'Your agreement to DMHC workers prompting, assisting with or giving your medication, as set out in the plan your prescriber wrote.',
+        meta: [['Participant', u.name], ['NDIS number', u.ndis_number || 'not recorded'],
+          ['Decision-maker on file', u.nominee_role && u.nominee_role !== 'none' ? `${u.nominee_name || ''} (${nomineeLabel(u.nominee_role)})` : 'none \u2014 the participant decides for themselves'],
+          ['Medication plan', plan && planFlag(plan, 'need_medication') === false ? 'the support plan says medication help is not needed' : 'the prescriber\u2019s plan on file, or to come'],
+          ['Version', MED_CONSENT_VERSION]],
+        footer: `Consent to medication assistance, ${MED_CONSENT_VERSION}. Generated ${dmy(ymd())}.`
+      }, body, opts);
+    }
+  },
+
+  /* ---- the intake form, printed from the account -------------------------
+     Every question on DMHC's paper intake form is now answered somewhere live:
+     the account, the billing card, the nominee card or the support plan. This
+     prints those answers in the old form's order so the office file still
+     holds an intake form, without anyone filling one in. */
+  'p-intake': {
+    label: 'Intake / referral form', accept: false,
+    render(u, plan, opts) {
+      const consents = db.prepare(`SELECT form_key, accepted_at, accepted_version, doc_date, verified_at FROM participant_docs
+        WHERE participant_id = ? AND COALESCE(review_state,'') <> 'rejected' ORDER BY id DESC`).all(u.id);
+      const consentLine = key => {
+        const d = consents.find(x => x.form_key === key);
+        if (!d) return 'not yet';
+        return d.accepted_at ? `agreed on screen ${dmy(String(d.accepted_at).slice(0, 10))} (${d.accepted_version || 'version not recorded'})`
+          : `on file${d.doc_date ? ', dated ' + dmy(d.doc_date) : ''}${d.verified_at ? ', checked' : ', awaiting check'}`;
+      };
+      const flags = plan && planFlag(plan, 'need_medication') !== null
+        ? PLAN_QUESTIONS.filter(q => q.section === 'specialised').map(q => `${q.q.split(' \u2014 ')[0]}: ${plan[q.key] ? 'yes' : 'no'}`).join(' \u00b7 ')
+        : 'not yet asked \u2014 the support plan predates these questions';
+      const used = genServices(u, plan).map(k => SERVICE_LABELS[k]).join(', ');
+      const body = `
+        <h2>Participant</h2>
+        ${genRow('Name', u.name)}${genRow('Email', u.email)}
+        ${genRow('Mobile', u.phone)}${genRow('Suburb', u.suburb)}
+        ${genRow('Preferred contact', ({ phone: 'Phone', sms: 'SMS', email: 'Email', mail: 'Post' })[u.contact_pref] || 'not stated')}
+        ${genRow('Aboriginal or Torres Strait Islander', ({ yes: 'Yes', no: 'No' })[u.atsi] || 'prefer not to say / not asked')}
+        ${genRow('Date of birth', 'not collected \u2014 BookIt does not ask for one')}
+        <h2>Funding</h2>
+        ${genRow('NDIS number', u.ndis_number)}${genRow('Funding type', FUNDING_LABELS[u.plan] || 'not recorded')}
+        ${genRow('Plan manager', u.pm_email)}${genRow('Plan dates', u.plan_start || u.plan_end ? `${u.plan_start ? dmy(u.plan_start) : '?'} to ${u.plan_end ? dmy(u.plan_end) : '?'}` : '')}
+        ${genRow('Supports requested', used)}${genRow('Joined BookIt', u.created ? dmy(String(u.created).slice(0, 10)) : '')}
+        <h2>Representative, nominee or decision-maker</h2>
+        ${genRow('Arrangement', u.nominee_at ? nomineeLabel(u.nominee_role) : 'not yet answered')}${genRow('Under 18', u.under_18 ? 'Yes' : 'No')}
+        ${genRow('Name', u.nominee_name)}${genRow('Relationship', u.nominee_relationship)}
+        ${genRow('Phone', u.nominee_phone)}${genRow('Email', u.nominee_email)}
+        ${genRow('Paid to support the participant', u.nominee_role && u.nominee_role !== 'none' ? (u.nominee_paid ? 'Yes' : 'No') : '')}${genRow('Recorded', u.nominee_at ? dmy(String(u.nominee_at).slice(0, 10)) : '')}
+        <h2>From the support plan${plan ? ` <span class="tag">version ${plan.version}, confirmed ${dmy(String(plan.confirmed_at).slice(0, 10))}</span>` : ''}</h2>
+        ${plan ? `
+          ${genPara('Living situation', plan.living_situation)}
+          ${genPara('Disability or diagnosis, in their words', plan.diagnosis)}
+          ${genPara('Communication', plan.communication)}
+          ${genRow('Interpreter', planFlag(plan, 'interpreter') === null ? 'not asked' : (plan.interpreter ? `Yes \u2014 ${plan.interpreter_detail || ''}` : 'No'))}
+          ${genRow('Behaviour Support Plan', planFlag(plan, 'has_pbs') === null ? 'not asked' : (plan.has_pbs ? 'Yes' : 'No'))}
+          ${genPara('Specialised support', flags)}
+          ${genPara('Health things a worker must know', plan.health_supports)}
+          ${genPara('Care plans named', safeJson(plan.care_plans, []).map(c => `${c.name}${c.on_file ? ' (on file)' : ' (not yet filed)'}`).join('; '))}
+          <h2>Emergency contact</h2>
+          ${genRow('Name', plan.ec_name)}${genRow('Relationship', plan.ec_relationship)}
+          ${genRow('Phone', plan.ec_phone)}${genRow('Email', plan.ec_email)}`
+          : '<p class="say">No confirmed support plan yet \u2014 the rest of the intake is answered there.</p>'}
+        <h2>Agreements and consents</h2>
+        ${genRow('Service Agreement', consentLine('p-agreement'))}${genRow('Schedule of Supports', consentLine('p-schedule'))}
+        ${genRow('Privacy consent', consentLine('p-consent-privacy'))}${genRow('Photo and media consent', consentLine('p-consent-media'))}
+        ${genRow('Medication consent', consentLine('p-consent-medication'))}${genRow('Terms accepted at sign-up', u.terms_at ? `${dmy(String(u.terms_at).slice(0, 10))} (${u.terms_version || ''})` : 'not recorded')}`;
+      return genPage({
+        title: 'Participant Intake Form',
+        lede: 'Printed from the account, the billing card, the nominee card and the confirmed support plan. Nobody filled this in; everything on it was answered once, where it lives.',
+        meta: [['Participant', u.name], ['NDIS number', u.ndis_number || 'not recorded'], ['Printed', dmy(ymd())],
+          ['Source', plan ? `support plan v${plan.version} and the account as at today` : 'the account as at today; no confirmed support plan']],
+        footer: `Intake form generated ${dmy(ymd())} from BookIt. Replaces DMHC Participant Intake Form v1.`
+      }, body, Object.assign({}, opts, { barNote: 'Printed from the file \u00b7 nothing on this page was filled in by hand' }));
+    }
+  },
+
+  /* ---- the emergency and disaster plan, printed from the support plan ------ */
+  'p-emergency': {
+    label: 'Participant Emergency and Disaster Plan', accept: false,
+    render(u, plan, opts) {
+      if (!plan) return genPage({ title: 'Participant Emergency and Disaster Plan', lede: 'There is no confirmed support plan yet, so there is nothing to print. The emergency and disaster plan is the safety and emergency sections of the support plan.', meta: [['Participant', u.name]], footer: '' }, '', opts);
+      const tier = continuityTier(plan);
+      const body = `
+        <h2>Who we ring</h2>
+        ${genRow('Emergency contact', plan.ec_name)}${genRow('Relationship', plan.ec_relationship)}
+        ${genRow('Phone', plan.ec_phone)}${genRow('Email', plan.ec_email)}
+        ${genRow('Decision-maker on file', u.nominee_role && u.nominee_role !== 'none' ? `${u.nominee_name || ''} \u2014 ${u.nominee_phone || ''}` : 'none')}${genRow('Interpreter needed', planFlag(plan, 'interpreter') ? `Yes \u2014 ${plan.interpreter_detail || ''}` : 'No')}
+        <h2>If a shift falls over</h2>
+        ${genRow('BookIt is the main source of daily support', plan.main_source ? 'Yes' : 'No')}${genRow('Health or safety affected without it', plan.health_safety ? 'Yes' : 'No')}
+        ${genPara('How, and how fast', plan.impact_detail)}
+        ${genRow('Other support within 24 hours', plan.backup_24h ? 'Yes' : 'No')}${genRow('Who, and how to reach them', plan.backup_detail)}
+        <div class="box ${tier.tier <= 1 ? 'stop' : tier.tier === 2 ? 'warn' : 'note'}"><b>Continuity tier: ${escHtml(tier.label)}</b><p>${escHtml(tier.why)}</p><p>When a worker pulls out, BookIt works down four tiers \u2014 the participant\u2019s own care web, paid standby workers, the matched pool, then partner providers \u2014 and emails the office when cover reaches the last tier or runs out. The on-call line is 0488 114 368.</p></div>
+        <h2>In a flood, fire or heatwave</h2>
+        ${genRow('Needs essential support within 8 hours of a disaster', plan.disaster_8h ? 'YES \u2014 on the priority list' : 'No')}${genRow('Living situation', plan.living_situation)}
+        <p class="say">${plan.disaster_8h
+          ? 'When a disaster is declared in this person\u2019s area, the office works down the 8-hour list first: confirm they are safe, confirm the next shift is covered or the backup above is activated, and record the call in the shift notes.'
+          : 'Not on the 8-hour list. The office still confirms safety and the next shift when a disaster is declared in the area.'}</p>
+        <h2>Safety at home</h2>
+        ${genPara('Hazards and what to do', plan.home_safety)}
+        <h2>Safety in the community</h2>
+        ${genPara('Hazards and what to do', plan.community_safety)}
+        <h2>Health things a worker must know</h2>
+        ${genPara('', plan.health_supports || 'None recorded')}
+        ${genPara('Care plans named', safeJson(plan.care_plans, []).map(c => `${c.name}${c.on_file ? ' (on file)' : ' (not yet filed)'}`).join('; ') || 'None named')}
+        <div class="box note"><b>Standing notice for every home</b><p>${escHtml(PLAN_HOME_NOTICE)}</p></div>`;
+      return genPage({
+        title: 'Participant Emergency and Disaster Plan',
+        lede: 'The emergency, continuity and safety sections of the support plan, printed as one document for the file. The plan is the record; this is a view of it.',
+        meta: [['Participant', u.name], ['NDIS number', u.ndis_number || 'not recorded'],
+          ['Support plan', `version ${plan.version}, confirmed ${dmy(String(plan.confirmed_at).slice(0, 10))} by ${plan.confirmed_by || 'the participant'}`],
+          ['Next review', planDue(plan.confirmed_at) ? dmy(planDue(plan.confirmed_at)) : ''], ['Printed', dmy(ymd())]],
+        footer: `Emergency and disaster plan printed ${dmy(ymd())} from support plan v${plan.version}. Replaces DMHC Participant Emergency Plan v1.`
+      }, body, Object.assign({}, opts, { barNote: 'Printed from the support plan \u00b7 edit the plan, not this page' }));
+    }
+  }
+};
+
+/* the shelf and the renderer, asked the same question: what is the current
+   text of this form, and what version is it. A DB row wins (the office put a
+   PDF up); a generated document answers for itself when there is none. */
+function templateFor(key) {
+  const t = formTemplate(key);
+  if (t && (t.file_path || t.link)) return t;
+  const g = GENERATED_DOCS[key];
+  if (g && g.accept) return { form_key: key, generated: true, version: g.version(), effective_from: g.issued || '', link: `/api/me/generated/${key}`, file_path: '', file_name: '' };
+  return t;
+}
+
+function renderGenerated(key, pid, req) {
+  const g = GENERATED_DOCS[key];
+  if (!g) return null;
+  const u = genPerson(pid);
+  if (!u) return null;
+  return g.render(u, confirmedPlan(pid), { base: req ? baseUrl(req) : '' });
+}
 
 function pdocOut(d) {
   const cat = PDOC_MAP[d.form_key] || {};
@@ -7727,7 +8209,13 @@ function raiseRequest(scope, personId, docKey, note, byWho, dueDate) {
 /* which participants have a file on record against each form key */
 function pdocHolders() {
   const out = {};
-  for (const r of db.prepare("SELECT DISTINCT form_key, participant_id FROM participant_docs WHERE file_path <> ''").all()) {
+  /* v86: an acceptance made on screen counts as holding the document — the
+     acceptance IS the record — and a rejected copy does not. Until now this
+     counted files only, so every participant who had clicked "I agree" on the
+     Service Agreement showed in the register as "nothing on file". */
+  for (const r of db.prepare(`SELECT DISTINCT form_key, participant_id FROM participant_docs
+      WHERE (file_path <> '' OR (accepted_at IS NOT NULL AND accepted_at <> ''))
+        AND COALESCE(review_state, '') <> 'rejected'`).all()) {
     (out[r.form_key] = out[r.form_key] || new Set()).add(r.participant_id);
   }
   return out;
@@ -7741,6 +8229,12 @@ function formsRegister() {
   const today = ymd();
   const workers = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id ORDER BY u.name").all();
   const participants = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
+  /* v86: twenty-odd participant rows each walk every participant, so the plan
+     and the account row are read once per person per call rather than once
+     per row per person */
+  const planCache = new Map(), userCache = new Map();
+  const planOf = pid => { if (!planCache.has(pid)) planCache.set(pid, confirmedPlan(pid)); return planCache.get(pid); };
+  const userRow = pid => { if (!userCache.has(pid)) userCache.set(pid, db.prepare('SELECT * FROM users WHERE id = ?').get(pid) || {}); return userCache.get(pid); };
 
   /* what BookIt can actually answer for itself. Everything not in here is a file
      in a folder, and the register says so rather than implying coverage. */
@@ -7839,6 +8333,75 @@ function formsRegister() {
     }
     if (f.live === 'workers') return { of: workers.length, unit: 'workers', held: workers.length, ok: workers.length, gaps: [] };
     if (f.live === 'participants') return { of: participants.length, unit: 'participants', held: participants.length, ok: participants.length, gaps: [] };
+
+    /* ---- v86: the rows that used to be paper and are now derived ---------
+       Each walks every participant and answers held/ok/gap from the data the
+       form would have been filled in from. The shape is the same as the
+       per-worker rows above so the board, the pack and the snapshot need no
+       new case. */
+    const perPerson = test => {
+      const gaps = [];
+      let held = 0, ok = 0;
+      for (const p of participants) {
+        const r = test(p);      /* { held, ok, gap } */
+        if (r.held) held++;
+        if (r.ok) ok++;
+        if (r.gap) gaps.push(`${p.name} \u2014 ${r.gap}`);
+      }
+      return { of: participants.length, unit: 'participants', held, ok, gaps };
+    };
+    if (f.live === 'intake') return perPerson(p => {
+      const u = userRow(p.id), plan = planOf(p.id);
+      if (!u.plan) return { held: !!plan, ok: false, gap: 'funding type not recorded on the billing card' };
+      if (!plan) return { held: false, ok: false, gap: 'no confirmed support plan \u2014 the intake is printed from it' };
+      return { held: true, ok: true };
+    });
+    if (f.live === 'emergency_plan') return perPerson(p => {
+      const plan = planOf(p.id);
+      if (!plan) return { held: false, ok: false, gap: 'no confirmed support plan' };
+      if (!plan.ec_name || !plan.ec_phone) return { held: true, ok: false, gap: 'emergency contact missing from the plan' };
+      if (!plan.home_safety || !plan.community_safety) return { held: true, ok: false, gap: 'safety sections of the plan are empty' };
+      return { held: true, ok: true };
+    });
+    if (f.live === 'nominee') return perPerson(p => {
+      const u = userRow(p.id);
+      if (!u.nominee_at) return { held: false, ok: false, gap: 'not yet answered on the account' };
+      if (u.under_18 && !u.nominee_name) return { held: true, ok: false, gap: 'under 18 with no account manager recorded' };
+      if (u.nominee_role !== 'none' && !u.nominee_name) return { held: true, ok: false, gap: 'a decision-maker is named by role but not by name' };
+      return { held: true, ok: true };
+    });
+    if (f.live === 'plan_dates') return perPerson(p => {
+      const u = userRow(p.id);
+      if (u.plan === 'none') return { held: true, ok: true };   /* no NDIS plan to have dates */
+      if (!u.plan_end) return { held: false, ok: false, gap: 'NDIS plan dates not recorded' };
+      if (u.plan_end < today) return { held: true, ok: false, gap: `NDIS plan ended ${dmy(u.plan_end)} \u2014 supports continuing past it` };
+      return { held: true, ok: true };
+    });
+    if (f.live === 'survey') return perPerson(p => {
+      const year = ymd(new Date(Date.now() - 366 * 864e5));
+      const answered = db.prepare("SELECT id FROM survey_invites WHERE participant_id = ? AND answered_at <> '' AND answered_at >= ? LIMIT 1").get(p.id, year);
+      if (answered) return { held: true, ok: true };
+      const open = db.prepare("SELECT invited_at FROM survey_invites WHERE participant_id = ? AND answered_at = '' ORDER BY id DESC LIMIT 1").get(p.id);
+      const paper = db.prepare("SELECT id FROM participant_docs WHERE participant_id = ? AND form_key = 'p-satisfaction' AND doc_date >= ? AND COALESCE(review_state,'') <> 'rejected' LIMIT 1").get(p.id, year);
+      if (paper) return { held: true, ok: true };
+      return { held: false, ok: false, gap: open ? `survey sent ${dmy(String(open.invited_at).slice(0, 10))}, not answered` : 'no survey sent in the last 12 months' };
+    });
+    if (f.live === 'annual_review') return perPerson(p => {
+      const plan = planOf(p.id);
+      if (!plan) return { held: false, ok: false, gap: 'no confirmed support plan' };
+      const due = planDue(plan.confirmed_at);
+      if (due && due < today) return { held: true, ok: false, gap: `support plan review overdue since ${dmy(due)}` };
+      /* and the clinical plans that apply: each one on file, not expired */
+      const missing = [];
+      for (const c of PDOC_CATALOG) {
+        if (!c.applies_if || c.optional || planFlag(plan, c.applies_if) !== true) continue;
+        const rows = db.prepare("SELECT * FROM participant_docs WHERE participant_id = ? AND form_key = ? AND COALESCE(review_state,'') <> 'rejected'").all(p.id, c.key);
+        const good = rows.some(d => (d.file_path || d.accepted_at) && (!d.expiry_date || d.expiry_date >= today));
+        if (!good) missing.push(c.label.toLowerCase());
+      }
+      if (missing.length) return { held: true, ok: false, gap: `plan reviewed, but still waiting on: ${missing.join(', ')}` };
+      return { held: true, ok: true };
+    });
     return null;
   }
 
@@ -7869,10 +8432,18 @@ function formsRegister() {
     const today2 = today;
     const expired = db.prepare(`SELECT COUNT(DISTINCT participant_id) AS n FROM participant_docs
       WHERE form_key = ? AND expiry_date <> '' AND expiry_date < ?`).get(f.key, today2).n;
-    return { of: participants.length, unit: 'participants',
-      held: held.size, ok: recorded ? participants.length : held.size,
-      files: held.size, expired, recorded,
-      gaps: recorded ? [] : participants.filter(p => !held.has(p.id)).map(p => `${p.name} — nothing on file`) };
+    /* v86: a row with an appliesIf is only part of the file of the people
+       whose plan said yes; an optional row is part of nobody's to-do list.
+       "Bernard — nothing on file" for a mealtime plan Bernard does not need
+       was the noise that buried the gaps worth reading. */
+    const applicable = f.appliesIf ? participants.filter(p => planFlag(planOf(p.id), f.appliesIf) !== false) : participants;
+    const gaps = (recorded || f.optional) ? [] : applicable.filter(p => !held.has(p.id))
+      .map(p => `${p.name} — nothing on file${f.appliesIf && planFlag(planOf(p.id), f.appliesIf) === null ? ' (plan has not said whether this applies)' : ''}`);
+    return { of: applicable.length, unit: 'participants',
+      held: [...held].filter(id => applicable.some(p => p.id === id)).length,
+      ok: recorded ? applicable.length : [...held].filter(id => applicable.some(p => p.id === id)).length,
+      files: held.size, expired, recorded, optional: Boolean(f.optional),
+      gaps };
   }
 
   const forms = FORMS.map(f => {
@@ -7944,6 +8515,50 @@ function participantFile(pid) {
   const noted = new Set(live.map(d => d.form_key));
   const reqs = openRequests('participant', pid);
   const asked = Object.fromEntries(reqs.map(r => [r.doc_key, r]));
+  const plan = confirmedPlan(pid);
+  const u = db.prepare(`SELECT id, name, plan, ndis_number, pm_email, plan_start, plan_end, under_18, nominee_role, nominee_name,
+      nominee_relationship, nominee_phone, nominee_email, nominee_paid, nominee_at, share_plans, share_plans_note, share_plans_at
+      FROM users WHERE id = ?`).get(pid) || {};
+  /* v86 — which rows are part of THIS person's file. A row with an applies_if
+     is switched on by a yes on the support plan, off by a no, and left as it
+     always was (only-if hint, no nagging) when the plan predates the question. */
+  const applies = c => c.applies_if ? planFlag(plan, c.applies_if) : true;
+  const rows = PDOC_CATALOG.filter(c => c.key !== 'p-other');
+  /* counted in "held of": never the optional rows, and a clinical row only
+     once the plan has said it applies. Before the plan answers, the row is
+     still listed with its only-if hint — but "0 of 17" for someone who may
+     need none of the seven is a number that punishes, not informs. */
+  const counted = c => !c.optional && (c.applies_if ? applies(c) === true : true);
+  const tplFor = c => {
+    if (c.generated) return { has_file: false, link: `/api/me/generated/${c.key}`, file_name: '', generated: true };
+    const t = formTemplate(c.key);
+    return t ? { has_file: Boolean(t.file_path), link: t.link || '', file_name: t.file_name || '' } : null;
+  };
+  /* A generated agreement the person accepted at a version that has since
+     moved — the price limits changed, the consent wording changed — needs a
+     fresh click before it counts as current. Named here so the page can ask. */
+  const renew = [];
+  for (const d of docs) {
+    const c = PDOC_MAP[d.form_key];
+    if (!c || !c.generated || !d.accepted_at) continue;
+    const g = GENERATED_DOCS[c.key];
+    if (!g || !g.accept) continue;
+    const latest = live.filter(x => x.form_key === c.key && x.accepted_at)
+      .sort((a, b) => String(b.accepted_at).localeCompare(String(a.accepted_at)))[0];
+    if (latest && latest.id === d.id && d.accepted_version !== g.version()) {
+      d.stale = true;
+      d.stale_why = g.stale_why;
+      if (!renew.find(r => r.key === c.key)) renew.push({ key: c.key, label: c.label, why: g.stale_why,
+        template: tplFor(c), accepted_version: d.accepted_version, accepted_at: d.accepted_at });
+    }
+  }
+  const rowOut = c => ({ key: c.key, label: c.label, signed: c.signed, requires: c.requires,
+    owner: c.owner, only_if: c.only_if, sign: c.sign, applies: applies(c), optional: c.optional,
+    generated: c.generated, template: tplFor(c),
+    requested_at: (asked[c.key] || {}).requested_at || '',
+    requested_by: (asked[c.key] || {}).requested_by || '',
+    requested_note: (asked[c.key] || {}).note || '',
+    waiting_days: (asked[c.key] || {}).waiting_days ?? null });
   return {
     documents: docs,
     requests: reqs,
@@ -7956,23 +8571,35 @@ function participantFile(pid) {
     /* office_only forms are still counted in `of` and still appear on the
        admin side and in the audit pack — the file is not less complete for
        being described honestly. They are simply not put in front of the
-       participant as though they were waiting on them. */
-    outstanding: PDOC_CATALOG.filter(c => c.key !== 'p-other' && !c.office_only && !noted.has(c.key))
-      .map(c => ({ key: c.key, label: c.label, signed: c.signed, requires: c.requires,
-        owner: c.owner, only_if: c.only_if, sign: c.sign,
-        template: (() => { const t = formTemplate(c.key);
-          return t ? { has_file: Boolean(t.file_path), link: t.link || '', file_name: t.file_name || '' } : null; })(),
-        requested_at: (asked[c.key] || {}).requested_at || '',
-        requested_by: (asked[c.key] || {}).requested_by || '',
-        requested_note: (asked[c.key] || {}).note || '',
-        waiting_days: (asked[c.key] || {}).waiting_days ?? null })),
-    held: have.size,
-    of: PDOC_CATALOG.filter(c => c.key !== 'p-other').length,
+       participant as though they were waiting on them. A row that does not
+       apply to this person is not outstanding for anyone. */
+    outstanding: rows.filter(c => !c.office_only && !c.optional && applies(c) !== false && !noted.has(c.key)).map(rowOut),
+    /* filed if they have one handy; never chased */
+    optional: rows.filter(c => c.optional && !c.office_only && !noted.has(c.key) && applies(c) !== false).map(rowOut),
+    /* never asked for, because the plan said no */
+    not_applicable: rows.filter(c => c.applies_if && applies(c) === false).map(c => ({ key: c.key, label: c.label })),
+    /* office-only rows the participant is allowed to know the state of */
+    office: rows.filter(c => c.show_status).map(c => {
+      const d = live.filter(x => x.form_key === c.key).sort((a, b) => b.id - a.id)[0];
+      return { key: c.key, label: c.label, held: Boolean(d && (d.has_file || d.accepted_at)),
+        doc_date: d ? d.doc_date || '' : '', verified_at: d ? d.verified_at || '' : '', has_file: Boolean(d && d.has_file), id: d ? d.id : null };
+    }),
+    renew,
+    /* whether the plan has answered the seven specialised-support questions
+       yet — before it has, the page shows the only-if hints as it always did */
+    flags_asked: plan ? planFlag(plan, 'need_medication') !== null : false,
+    nominee: { role: u.nominee_role || '', name: u.nominee_name || '', relationship: u.nominee_relationship || '',
+      phone: u.nominee_phone || '', email: u.nominee_email || '', paid: !!u.nominee_paid,
+      under_18: !!u.under_18, at: u.nominee_at || '', options: NOMINEE_ROLES },
+    sharing: { on: u.share_plans == null ? true : !!u.share_plans, note: u.share_plans_note || '', at: u.share_plans_at || '' },
+    plan_dates: { start: u.plan_start || '', end: u.plan_end || '', ended: Boolean(u.plan_end && u.plan_end < ymd()), funding: u.plan || '' },
+    held: rows.filter(c => counted(c) && have.has(c.key)).length,
+    of: rows.filter(counted).length,
     /* The office needs the whole-file number; the participant needs to know
        how much of it is theirs. Sending only the first turned a five-item ask
        into a sixteen-item one, on their own settings page. */
-    yours_held: PDOC_CATALOG.filter(c => c.key !== 'p-other' && !c.office_only && c.owner === 'participant' && have.has(c.key)).length,
-    yours_of: PDOC_CATALOG.filter(c => c.key !== 'p-other' && !c.office_only && c.owner === 'participant').length
+    yours_held: rows.filter(c => !c.office_only && c.owner === 'participant' && counted(c) && have.has(c.key)).length,
+    yours_of: rows.filter(c => !c.office_only && c.owner === 'participant' && counted(c)).length
   };
 }
 
@@ -8135,7 +8762,7 @@ route('GET', /^\/api\/form-templates\/([a-z0-9-]+)\/v(\d+)\/file$/, (req, res, m
   res.end(buf);
 });
 
-/* the whole history of one form, the way Hireup publishes theirs */
+/* the whole history of one form, every version with its dates */
 route('GET', /^\/api\/form-templates\/([a-z0-9-]+)\/versions$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const key = String(m[1]);
@@ -8245,9 +8872,7 @@ route('POST', /^\/api\/me\/participant-documents\/([a-z0-9-]+)\/accept$/, (req, 
   const cat = PDOC_MAP[String(m[1])];
   if (!cat || cat.sign !== 'click') return json(res, 400, { error: 'That one is not an agreement you can accept here.' });
   if (body && body.agree !== true) return json(res, 400, { error: 'Tick the box to say you agree.' });
-  const held = db.prepare('SELECT id FROM participant_docs WHERE participant_id = ? AND form_key = ?').get(pers.id, cat.key);
-  if (held) return json(res, 400, { error: `${cat.label} is already on your file.` });
-  const tpl = formTemplate(cat.key);
+  const tpl = templateFor(cat.key);
   /* You cannot agree to a document nobody can show you. Without a blank on the
      shelf there is no text, no version and nothing to read back later — the
      acceptance would be a record of a click and nothing else. */
@@ -8256,21 +8881,212 @@ route('POST', /^\/api\/me\/participant-documents\/([a-z0-9-]+)\/accept$/, (req, 
   }
   /* A version number, not a file timestamp. "Version 3" is a thing a person
      can say in a room; a modification time is a thing that changes when
-     somebody fixes a typo, which is not the same event as the terms changing. */
-  const version = tpl ? `v${tpl.version || 1}${tpl.effective_from ? `, current from ${dmy(tpl.effective_from)}` : ''}` : 'no version on file';
-  const versionNo = tpl ? (tpl.version || 1) : 0;
+     somebody fixes a typo, which is not the same event as the terms changing.
+     A generated document carries its own version string — the price schedule
+     and certificate it was rendered from — and that is what is stored. */
+  const version = tpl.generated ? tpl.version
+    : `v${tpl.version || 1}${tpl.effective_from ? `, current from ${dmy(tpl.effective_from)}` : ''}`;
+  const versionNo = tpl.generated ? 0 : (tpl.version || 1);
+  const held = db.prepare(`SELECT * FROM participant_docs WHERE participant_id = ? AND form_key = ?
+      AND accepted_at IS NOT NULL AND accepted_at <> '' ORDER BY accepted_at DESC LIMIT 1`).get(pers.id, cat.key)
+    || db.prepare('SELECT * FROM participant_docs WHERE participant_id = ? AND form_key = ?').get(pers.id, cat.key);
+  /* Agreeing twice to the same text is a no-op. Agreeing again because the
+     text moved — new price limits, new consent wording — is the whole point of
+     keeping the version, so it is allowed and the old acceptance stays. */
+  if (held && (!tpl.generated || held.accepted_version === version)) return json(res, 400, { error: `${cat.label} is already on your file.` });
   const who = pers.self ? pers.name : `${user.name} for ${pers.name}`;
+  /* v86: a generated agreement is snapshotted at the click. The rendered page
+     is written beside the acceptance, so "read the version I agreed to" opens
+     the actual text rather than whatever today's prices would render. */
+  let fileName = '', fileMime = '', filePath = '';
+  if (tpl.generated) {
+    const html = renderGenerated(cat.key, pers.id, req);
+    if (!html) return json(res, 500, { error: 'That document could not be generated right now.' });
+    filePath = path.join(DOCS_DIR, `p${pers.id}-accepted-${cat.key}-${Date.now()}.html`);
+    fs.writeFileSync(filePath, html);
+    fileName = `${cat.label.replace(/[^\w.\- ]/g, '').trim()} (accepted ${dmy(ymd())}).html`;
+    fileMime = 'text/html; charset=utf-8';
+  }
   const r = db.prepare(`INSERT INTO participant_docs
-      (participant_id, form_key, label, doc_date, note, uploaded_at, uploaded_by,
-       accepted_at, accepted_ip, accepted_version, verified_at, verified_by, verify_method, verify_note)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(pers.id, cat.key, '', ymd(), `Agreed in BookIt by ${who}.`, now(), who,
+      (participant_id, form_key, label, doc_date, note, uploaded_at, uploaded_by, file_name, file_mime, file_path,
+       accepted_at, accepted_ip, accepted_version, verified_at, verified_by, verify_method, verify_note, review_state)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved')`)
+    .run(pers.id, cat.key, '', ymd(), `Agreed in BookIt by ${who}.${held ? ` Replaces the acceptance of ${held.accepted_version || 'an earlier version'}.` : ''}`, now(), who,
+         fileName, fileMime, filePath,
          now(), String(ip || ''), version, now(), 'BookIt', 'other',
          `Accepted on screen. The version shown was ${version}, and that version is kept so it can be read back.`);
   logCompliance({ worker_id: null, worker_name: pers.name, kind: 'agreement-accepted', result: 'accepted',
-    detail: `${cat.label} accepted in the platform by ${who}. Version on screen: ${version}.`,
+    detail: `${cat.label} accepted in the platform by ${who}. Version on screen: ${version}.${held ? ' Re-acceptance after the text changed.' : ''}`,
     source: 'Participant agreement', checked_by: who });
-  json(res, 200, { ok: true, id: Number(r.lastInsertRowid), label: cat.label, version: versionNo });
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid), label: cat.label, version: versionNo, version_label: version, renewed: Boolean(held) });
+});
+
+/* --- v86: the documents BookIt writes itself, served to the person ------- */
+route('GET', /^\/api\/me\/generated\/([a-z0-9-]+)$/, (req, res, m, user) => {
+  const pers = actFor(req, user, 'documents');
+  if (!pers) return json(res, 403, { error: 'Participants only.' });
+  const html = renderGenerated(String(m[1]), pers.id, req);
+  if (!html) return json(res, 404, { error: 'No such document.' });
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, private', 'X-Content-Type-Options': 'nosniff' });
+  res.end(html);
+});
+route('GET', /^\/api\/admin\/participants\/(\d+)\/generated\/([a-z0-9-]+)$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const html = renderGenerated(String(m[2]), Number(m[1]), req);
+  if (!html) return json(res, 404, { error: 'No such document or participant.' });
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, private', 'X-Content-Type-Options': 'nosniff' });
+  res.end(html);
+});
+/* the list, so the admin board and the participant page can link without
+   keeping their own copy of which documents are generated */
+route('GET', /^\/api\/generated-docs$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  json(res, 200, { docs: Object.keys(GENERATED_DOCS).map(k => ({ key: k, label: GENERATED_DOCS[k].label, accept: GENERATED_DOCS[k].accept,
+    version: GENERATED_DOCS[k].accept ? GENERATED_DOCS[k].version() : '' })) });
+});
+
+/* --- v86: who manages the account ----------------------------------------
+   A nomination rather than a form: who, how they know the person, whether
+   they are paid, and two rules — anyone under 18 must have one, and a support
+   worker who works with the person cannot be it. The signed advocate form stays on the shelf for arrangements
+   that need a signature; this is the record for everyone else. --- */
+route('POST', /^\/api\/me\/nominee$/, (req, res, m, user, body) => {
+  const pers = actFor(req, user, 'documents');
+  if (!pers) return json(res, 403, { error: 'Participants only.' });
+  body = body || {};
+  const role = NOMINEE_ROLES.some(r => r.key === body.role) ? body.role : '';
+  if (!role) return json(res, 400, { error: 'Say who, if anyone, helps you manage this account.' });
+  const under18 = body.under_18 === true;
+  const name = clean(body.name, 80), rel = clean(body.relationship, 80), phone = clean(body.phone, 25), email = clean(body.email, 120).toLowerCase();
+  const paid = body.paid === true;
+  if (under18 && role === 'none') return json(res, 400, { error: 'Someone under 18 needs an adult managing the account \u2014 a parent or guardian, usually. Choose who.' });
+  if (role !== 'none' && name.length < 2) return json(res, 400, { error: 'Give their name.' });
+  if (role !== 'none' && !phone && !email) return json(res, 400, { error: 'A phone number or an email for them, so we can reach them.' });
+  if (phone && !/^[0-9+ ()-]+$/.test(phone)) return json(res, 400, { error: 'That phone number looks wrong.' });
+  if (email && !EMAIL_RE.test(email)) return json(res, 400, { error: 'That email address looks wrong.' });
+  /* a worker who takes this person's shifts cannot also speak for them */
+  if (email) {
+    const w = db.prepare("SELECT id, name FROM users WHERE email = ? AND role = 'worker'").get(email);
+    if (w && workerLinked(w.id, pers.id)) return json(res, 400, { error: `${w.name} is a support worker on your shifts. A worker cannot also be the person who manages your account or makes decisions for you \u2014 it is a conflict of interest. Name someone who is not paid to support you.` });
+  }
+  db.prepare(`UPDATE users SET nominee_role = ?, nominee_name = ?, nominee_relationship = ?, nominee_phone = ?, nominee_email = ?,
+      nominee_paid = ?, under_18 = ?, nominee_at = ? WHERE id = ?`)
+    .run(role, role === 'none' ? '' : name, role === 'none' ? '' : rel, role === 'none' ? '' : phone, role === 'none' ? '' : email,
+         role === 'none' ? 0 : (paid ? 1 : 0), under18 ? 1 : 0, now(), pers.id);
+  logAccess(pers.id, user, 'nominee-recorded', role === 'none'
+    ? 'Recorded that nobody manages the account on their behalf.'
+    : `Recorded ${name} (${rel || nomineeLabel(role)}) as the person who manages the account or makes decisions with them${paid ? ', paid' : ', unpaid'}${under18 ? '; participant is under 18' : ''}.`, 'nominee');
+  const asWhat = { family: 'the family member or friend who helps you', parent: 'your parent or guardian', guardian: 'your appointed guardian, financial manager or attorney', nominee: 'your NDIS plan nominee', advocate: 'your advocate or support person' }[role] || 'your nominated person';
+  json(res, 200, { ok: true, note: role === 'none' ? 'Recorded. You manage your own account.' : `Recorded. ${name} is on your file as ${asWhat}.`,
+    warn: paid ? 'You said they are paid to support you. That is allowed for getting started, but the person who manages your account long-term should be someone with no financial interest in your supports.' : '' });
+});
+
+/* --- v86: sharing clinical plans with workers ---------------------------
+   On by default, because a worker who cannot read the plan is the risk. Off
+   is allowed, but only with a written note saying how the worker will get at
+   the plan during the shift. --- */
+route('POST', /^\/api\/me\/plan-sharing$/, (req, res, m, user, body) => {
+  const pers = actFor(req, user, 'documents');
+  if (!pers) return json(res, 403, { error: 'Participants only.' });
+  body = body || {};
+  const on = body.share !== false;
+  const note = clean(body.note, 400);
+  if (!on && note.length < 10) return json(res, 400, { error: 'If workers are not to read your plans in BookIt, say in a sentence how they will get them on the day \u2014 a folder in the kitchen, a family member present. We record that sentence.' });
+  db.prepare('UPDATE users SET share_plans = ?, share_plans_note = ?, share_plans_at = ? WHERE id = ?').run(on ? 1 : 0, on ? '' : note, now(), pers.id);
+  logAccess(pers.id, user, 'plan-sharing', on ? 'Clinical plans are shared with booked workers in BookIt.' : `Clinical plans are NOT shared in BookIt. Arrangement recorded: ${note}`, 'sharing');
+  logCompliance({ worker_id: null, worker_name: pers.name, kind: 'plan-sharing', result: on ? 'on' : 'off',
+    detail: on ? `${pers.name}: clinical plans shared with booked workers.` : `${pers.name} opted out of sharing clinical plans in BookIt. Written arrangement: ${note}`,
+    source: 'Participant file', checked_by: pers.self ? pers.name : user.name });
+  json(res, 200, { ok: true, on, note: on ? '' : note });
+});
+
+/* --- v86: the satisfaction survey, in the app ------------------------------ */
+function surveyQuestions() {
+  const t = CLINICAL_TEMPLATES.find(x => x.key === 'p-satisfaction');
+  const out = [];
+  let i = 0, office = false;
+  for (const f of (t ? t.fields : [])) {
+    if (f.k === 'h' && /office use/i.test(f.text || '')) office = true;
+    if (office) continue;
+    if (f.k === 'scale') for (const r of (f.rows || [])) out.push({ key: 's' + (++i), type: 'scale', q: r.q, tag: r.tag || '' });
+    else if (f.k === 'check') out.push({ key: 'c' + (++i), type: 'check', q: f.label, options: (f.rows || []).map(r => typeof r === 'string' ? r : r.label) });
+    else if (f.k === 'long') out.push({ key: 'l' + (++i), type: 'long', q: f.label, help: f.help || '' });
+  }
+  return { scale: TPL_SCALE, questions: out, version: t ? `${t.version}, issued ${dmy(t.issued)}` : '' };
+}
+function openInvite(pid) {
+  return db.prepare("SELECT * FROM survey_invites WHERE participant_id = ? AND answered_at = '' ORDER BY id DESC LIMIT 1").get(Number(pid)) || null;
+}
+route('GET', /^\/api\/me\/survey$/, (req, res, m, user) => {
+  const pers = actFor(req, user, 'documents');
+  if (!pers) return json(res, 403, { error: 'Participants only.' });
+  const inv = openInvite(pers.id);
+  const last = db.prepare("SELECT answered_at FROM survey_invites WHERE participant_id = ? AND answered_at <> '' ORDER BY answered_at DESC LIMIT 1").get(pers.id);
+  json(res, 200, Object.assign(surveyQuestions(), { invite: inv ? { id: inv.id, invited_at: inv.invited_at } : null,
+    last_answered: last ? last.answered_at : '' }));
+});
+route('POST', /^\/api\/me\/survey$/, (req, res, m, user, body, ip) => {
+  const pers = actFor(req, user, 'documents');
+  if (!pers) return json(res, 403, { error: 'Participants only.' });
+  if (limited(ip, 'survey', 10)) return json(res, 429, { error: 'Too many submissions \u2014 try again later.' });
+  body = body || {};
+  const qs = surveyQuestions();
+  const a = body.answers && typeof body.answers === 'object' ? body.answers : {};
+  const answers = {};
+  let answered = 0;
+  for (const q of qs.questions) {
+    const v = a[q.key];
+    if (v == null || v === '') continue;
+    if (q.type === 'scale' && !qs.scale.includes(v)) continue;
+    if (q.type === 'check' && !q.options.includes(v)) continue;
+    answers[q.key] = q.type === 'long' ? clean(v, 2000) : v;
+    answered++;
+  }
+  if (!answered) return json(res, 400, { error: 'Answer at least one question \u2014 even one line is worth having.' });
+  const anon = body.anon === true;
+  const contact = body.contact_me === true;
+  const inv = openInvite(pers.id);
+  const t = now();
+  db.prepare('INSERT INTO survey_responses (invite_id, participant_id, answered_at, answers, contact_me, contact_detail, anon) VALUES (?,?,?,?,?,?,?)')
+    .run(inv ? inv.id : null, anon && !contact ? null : pers.id, t, JSON.stringify(answers), contact ? 1 : 0, contact ? clean(body.contact_detail, 300) : '', anon ? 1 : 0);
+  /* the invitation is marked answered even for an anonymous reply, so the
+     register can say "done this year" without knowing what was said */
+  if (inv) db.prepare('UPDATE survey_invites SET answered_at = ? WHERE id = ?').run(t, inv.id);
+  else db.prepare('INSERT INTO survey_invites (participant_id, invited_at, invited_by, answered_at) VALUES (?,?,?,?)').run(pers.id, t, 'unsolicited', t);
+  logCompliance({ worker_id: null, worker_name: anon ? 'A participant' : pers.name, kind: 'survey', result: 'answered',
+    detail: `Satisfaction survey answered in BookIt${anon ? ' (anonymous)' : ''}: ${answered} question${answered === 1 ? '' : 's'}.${contact ? ' Asked to be contacted.' : ''}`,
+    source: 'Participant survey', checked_by: anon ? 'participant' : pers.name });
+  if (contact && MAIL_FROM) sendMail(MAIL_FROM, `Survey: ${anon ? 'a participant' : pers.name} asked to be contacted \u2014 BookIt`, 'A survey answer asks for a call',
+    `<p>${anon ? 'A participant who answered anonymously' : `<b>${escHtml(pers.name)}</b>`} ticked <b>I would like someone to contact me</b> on the satisfaction survey.</p><p>${escHtml(clean(body.contact_detail, 300) || 'No detail given.')}</p>`,
+    'Open the admin page', `${baseUrl(req)}/#/admin`).catch(() => {});
+  json(res, 200, { ok: true, note: 'Thank you. It has gone to the office' + (anon ? ' without your name on it.' : '.') });
+});
+route('POST', /^\/api\/admin\/participants\/(\d+)\/survey-invite$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const p = db.prepare("SELECT id, name, email FROM users WHERE id = ? AND role = 'participant'").get(Number(m[1]));
+  if (!p) return json(res, 404, { error: 'No such participant.' });
+  const open = openInvite(p.id);
+  if (open) return json(res, 400, { error: `Already sent on ${dmy(String(open.invited_at).slice(0, 10))} and not answered yet. Sending it twice reads as a nag.` });
+  db.prepare('INSERT INTO survey_invites (participant_id, invited_at, invited_by, answered_at) VALUES (?,?,?,?)').run(p.id, now(), user.name, '');
+  notify(p.id, 'compliance', p.email, 'How are we doing? \u2014 BookIt', 'Two minutes, once a year',
+    `<p>Hi ${firstName(p.name)},</p><p>Once a year we ask how your supports are actually going, rather than assume. It is eleven tick-boxes and a few lines, on your own BookIt page, and you can leave your name off it.</p><p>Nothing about your supports depends on what you say \u2014 but what you say is how we find out what to fix.</p>`,
+    'Answer the survey', `${baseUrl(req)}/#/account/documents`).catch(() => {});
+  logCompliance({ worker_id: null, worker_name: p.name, kind: 'survey', result: 'sent',
+    detail: `Satisfaction survey sent to ${p.name} by ${user.name}.`, source: 'admin', checked_by: user.name });
+  json(res, 200, { ok: true });
+});
+route('GET', /^\/api\/admin\/surveys\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
+  const qs = surveyQuestions();
+  const lines = [['Answered', 'Participant', 'Contact me', 'Contact detail', ...qs.questions.map(x => x.q)].map(q).join(',')];
+  for (const r of db.prepare('SELECT r.*, u.name FROM survey_responses r LEFT JOIN users u ON u.id = r.participant_id ORDER BY r.answered_at DESC').all()) {
+    const a = (() => { try { return JSON.parse(r.answers || '{}'); } catch { return {}; } })();
+    lines.push([dmy(String(r.answered_at).slice(0, 10)), r.anon ? 'Anonymous' : (r.name || ''), r.contact_me ? 'yes' : '', r.contact_detail || '',
+      ...qs.questions.map(x => a[x.key] || '')].map(q).join(','));
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-survey-responses.csv"' });
+  res.end('\ufeff' + lines.join('\r\n'));
 });
 
 /* --- what this person has agreed to, and to which version ----------------
@@ -8287,12 +9103,14 @@ route('GET', /^\/api\/me\/agreements$/, (req, res, m, user) => {
       const cat = PDOC_MAP[r.form_key] || {};
       const n = Number(String(r.accepted_version || '').replace(/^v(\d+).*/, '$1')) || 0;
       return { key: r.form_key, label: cat.label || r.form_key, version: r.accepted_version || '',
-        version_no: n, accepted_at: r.accepted_at, accepted_by: r.uploaded_by || '' };
+        version_no: n, accepted_at: r.accepted_at, accepted_by: r.uploaded_by || '',
+        /* a generated agreement keeps its snapshot beside the row; a shelf
+           agreement links to the archived blank of that version */
+        file_url: r.file_path ? `/api/participant-documents/${r.id}/file` : '',
+        current: !(cat.generated && GENERATED_DOCS[r.form_key] && r.accepted_version !== GENERATED_DOCS[r.form_key].version()) };
     }),
-    /* and the agreements still waiting on them */
-    outstanding: PDOC_CATALOG.filter(c => c.sign === 'click'
-      && !db.prepare('SELECT 1 FROM participant_docs WHERE participant_id = ? AND form_key = ?').get(pers.id, c.key))
-      .map(c => ({ key: c.key, label: c.label }))
+    /* and the agreements still waiting on them — only the ones that apply */
+    outstanding: (() => { const pf = participantFile(pers.id); return pf.outstanding.filter(c => c.sign === 'click').map(c => ({ key: c.key, label: c.label })); })()
   });
 });
 
@@ -8309,12 +9127,62 @@ route('POST', /^\/api\/me\/participant-documents\/(\d+)\/delete$/, (req, res, m,
   json(res, 200, { ok: true });
 });
 
+/* --- v86: the clinical plans a booked worker may read ---------------------
+
+   Until now BookIt shared nothing from the participant's file with a worker — the epilepsy plan was a
+   name in the brief and "ask the office for a copy". A worker following a
+   mealtime plan from a two-line brief is the risk an auditor asks about first.
+
+   Three conditions, all required: the document is a clinician-written plan
+   (owner 'clinical'), the office has checked it, and the participant has not
+   switched sharing off. The worker must be requested, booked or have worked
+   with the person — the same linkage the brief itself uses, because reading
+   the plan is a precondition of accepting. Nothing else on the file — the
+   agreement, the consents, the money declaration, the NDIS plan — is ever
+   readable by a worker. --- */
+function workerLinked(workerId, participantId) {
+  return db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE worker_id = ? AND participant_id = ? AND status IN ('requested','accepted','completed')").get(workerId, participantId).n > 0;
+}
+function participantShares(pid) {
+  const u = db.prepare('SELECT share_plans FROM users WHERE id = ?').get(Number(pid));
+  return !u || u.share_plans == null || !!u.share_plans;
+}
+function workerMayRead(user, d) {
+  if (!user || user.role !== 'worker') return false;
+  const cat = PDOC_MAP[d.form_key];
+  if (!cat || cat.owner !== 'clinical') return false;
+  if (reviewState(d) !== 'approved') return false;
+  if (!participantShares(d.participant_id)) return false;
+  return workerLinked(user.id, d.participant_id);
+}
+/* the list the brief carries: every readable plan, with its date and whether
+   it has lapsed, so the worker sees "mealtime plan, reviewed 3 months ago"
+   rather than a name */
+function sharedPlans(pid) {
+  const today = ymd();
+  const u = db.prepare('SELECT share_plans, share_plans_note, share_plans_at FROM users WHERE id = ?').get(Number(pid)) || {};
+  const on = u.share_plans == null || !!u.share_plans;
+  const plans = db.prepare(`SELECT * FROM participant_docs WHERE participant_id = ? AND file_path <> ''
+      AND COALESCE(review_state,'') = 'approved' ORDER BY form_key, id DESC`).all(pid)
+    .filter(d => (PDOC_MAP[d.form_key] || {}).owner === 'clinical')
+    .filter((d, i, arr) => arr.findIndex(x => x.form_key === d.form_key) === i)   /* newest per type */
+    .map(d => ({ id: d.id, key: d.form_key, label: d.label || (PDOC_MAP[d.form_key] || {}).label || d.form_key,
+      doc_date: d.doc_date || '', expiry_date: d.expiry_date || '', expired: Boolean(d.expiry_date && d.expiry_date < today),
+      url: `/api/participant-documents/${d.id}/file` }));
+  return { on, note: on ? '' : (u.share_plans_note || ''), plans: on ? plans : [], withheld: on ? 0 : plans.length };
+}
+
 route('GET', /^\/api\/participant-documents\/(\d+)\/file$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const d = db.prepare('SELECT * FROM participant_docs WHERE id = ?').get(Number(m[1]));
   if (!d || !d.file_path) return json(res, 404, { error: 'No file.' });
-  if (!(user.admin || user.id === d.participant_id || linkAllows(user.id, d.participant_id, 'documents'))) return json(res, 403, { error: 'Not yours.' });
+  if (!(user.admin || user.id === d.participant_id || linkAllows(user.id, d.participant_id, 'documents') || workerMayRead(user, d))) return json(res, 403, { error: 'Not yours.' });
   if (!fs.existsSync(d.file_path)) return json(res, 404, { error: 'File missing from disk.' });
+  /* a worker opening a clinical plan is written into the participant's own
+     access log, in words they can read back: who, what, when */
+  if (user.role === 'worker' && user.id !== d.participant_id) {
+    logAccess(d.participant_id, user, 'plan-read', `${user.name} opened ${d.label || (PDOC_MAP[d.form_key] || {}).label || d.form_key} before a shift`, `pdoc:${d.id}`);
+  }
   /* Round 6: the document stays viewable in the browser — an auditor wants to
        open a certificate, not download twelve of them — but it is served into a
        sandbox. `sandbox` with no allow-list switches off scripts, forms, popups
@@ -8334,8 +9202,13 @@ route('GET', /^\/api\/participant-documents\/(\d+)\/file$/, (req, res, m, user) 
 route('GET', /^\/api\/admin\/participant-documents$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const people = db.prepare("SELECT id, name, email, suburb FROM users WHERE role = 'participant' ORDER BY name").all()
-    .map(p => ({ ...p, ...participantFile(p.id) }));
-  json(res, 200, { participants: people, types: PDOC_CATALOG, methods: PDOC_METHODS });
+    .map(p => {
+      const inv = openInvite(p.id);
+      const last = db.prepare("SELECT answered_at FROM survey_invites WHERE participant_id = ? AND answered_at <> '' ORDER BY answered_at DESC LIMIT 1").get(p.id);
+      return { ...p, ...participantFile(p.id), survey: { open_since: inv ? inv.invited_at : '', last_answered: last ? last.answered_at : '' } };
+    });
+  json(res, 200, { participants: people, types: PDOC_CATALOG, methods: PDOC_METHODS,
+    generated: Object.keys(GENERATED_DOCS).map(k => ({ key: k, label: GENERATED_DOCS[k].label, accept: GENERATED_DOCS[k].accept })) });
 });
 
 route('POST', /^\/api\/admin\/participants\/(\d+)\/documents$/, (req, res, m, user, body, ip) => {
@@ -8344,6 +9217,31 @@ route('POST', /^\/api\/admin\/participants\/(\d+)\/documents$/, (req, res, m, us
   if (!p) return json(res, 404, { error: 'No such participant.' });
   savePdoc(res, p.id, body || {}, user.email, ip);
 });
+
+const CARE_PLAN_WORDS = {
+  'p-medication': /medic/i, 'p-consent-medication': null,
+  'p-mealtime': /meal|swallow|dysphag|texture|thicken|fluid/i,
+  'p-epilepsy': /epilep|seizure/i, 'p-diabetes': /diabet|insulin|glucose/i,
+  'p-allergy': /allerg|anaphyl|asthma|epipen/i, 'p-manual': /manual|transfer|hoist|handling|mobility/i,
+  'p-pbs': /behaviou?r|\bpbs\b/i
+};
+function tickCarePlansFor(pid, formKey, docId) {
+  const re = CARE_PLAN_WORDS[formKey];
+  if (!re) return 0;
+  const p = confirmedPlan(pid);
+  if (!p) return 0;
+  const list = safeJson(p.care_plans, []);
+  let n = 0;
+  for (const c of list) {
+    if (!c || !c.name || c.on_file || !re.test(c.name)) continue;
+    c.on_file = true; c.filed_by = `document #${docId}`; c.filed_at = now(); n++;
+  }
+  if (n) {
+    db.prepare('UPDATE support_plans SET care_plans = ?, updated = ? WHERE id = ?').run(JSON.stringify(list), now(), p.id);
+    logCompliance({ kind: 'care-plan', result: 'on-file', detail: `${n} named care plan${n === 1 ? '' : 's'} ticked by document #${docId} (${(PDOC_MAP[formKey] || {}).label || formKey}) for participant #${pid}`, source: 'admin', checked_by: 'BookIt' });
+  }
+  return n;
+}
 
 route('POST', /^\/api\/admin\/participant-documents\/(\d+)\/verify$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
@@ -8357,6 +9255,11 @@ route('POST', /^\/api\/admin\/participant-documents\/(\d+)\/verify$/, (req, res,
   db.prepare(`UPDATE participant_docs SET verified_at = ?, verified_by = ?, verify_method = ?, verify_note = ?,
     review_state = 'approved', review_note = '' WHERE id = ?`)
     .run(when, user.email, method, note, d.id);
+  /* v86: a checked clinical plan ticks the matching name the participant put
+     on their support plan, so "epilepsy plan — not yet filed" does not sit in
+     the worker's brief beside the filed epilepsy plan. Recorded with the
+     document's id as the filer, because that is what the tick is evidence of. */
+  try { tickCarePlansFor(d.participant_id, d.form_key, d.id); } catch (e) { console.error('care plan tick:', e.message); }
   /* the same evidence trail the worker checks land in, so one export answers
      "show me everything you checked and when" for both halves of the file */
   logCompliance({
@@ -8562,13 +9465,20 @@ route('GET', /^\/api\/admin\/participant-documents\.csv$/, (req, res, m, user) =
     /* the rows worth having: a form this person's file should contain and does
        not. A register that only lists what you hold cannot be read for what
        you are missing, which is the only question anyone asks it. */
+    /* v86: the same applicability the screen uses. A row the plan switched
+       off is not missing from anyone's file; an optional row is named as
+       optional; a row the plan has not yet answered says so. */
+    const pf = participantFile(p.id);
+    const off = new Set(pf.not_applicable.map(x => x.key));
+    const unknown = new Set(pf.outstanding.filter(x => x.applies === null).map(x => x.key));
     for (const c of PDOC_CATALOG) {
-      if (c.key === 'p-other' || noted.has(c.key)) continue;
+      if (c.key === 'p-other' || noted.has(c.key) || off.has(c.key)) continue;
       /* Blank means nobody has asked yet, which is a different finding from
          "asked and still waiting" and the auditor is entitled to tell them
          apart. Same four words as the screen. */
       const a = asked[c.key];
-      lines.push([p.name, p.ndis_number || '', c.label, c.requires || '', '', '', 'NOTHING ON FILE',
+      const state = c.optional ? 'OPTIONAL \u2014 not held' : unknown.has(c.key) ? 'NOTHING ON FILE \u2014 plan has not said whether this applies' : 'NOTHING ON FILE';
+      lines.push([p.name, p.ndis_number || '', c.label, c.requires || '', '', '', state,
         a ? `Requested ${dmy(String(a.requested_at).slice(0, 10))} by ${a.requested_by}` : '',
         'no', '', '', '', '', '', ''].map(q).join(','));
     }
@@ -8832,6 +9742,7 @@ const AUDIT_REPORTS = [
   { path: 'registers/03a-participant-documents.csv', url: '/api/admin/participant-documents.csv', title: 'Every document on each participant file, what requires it, and what is still missing' },
   { path: 'registers/04-incident-register.csv', url: '/api/admin/incidents.csv', title: 'Incident register — Practice Standards, incident management' },
   { path: 'registers/05-complaints-register.csv', url: '/api/admin/complaints.csv', title: 'Complaints register — Practice Standards, feedback and complaints' },
+  { path: 'registers/05a-survey-responses.csv', url: '/api/admin/surveys.csv', title: 'Participant satisfaction survey responses — Practice Standards, quality management' },
   { path: 'registers/06-out-of-scope-register.csv', url: '/api/admin/scope-register.csv', title: 'Requests for supports outside the certificate, and how each was closed' },
   { path: 'registers/07-conditions-of-registration.csv', url: '/api/admin/compliance/0137.csv', title: 'Platform conditions of registration, evidenced condition by condition' },
   { path: 'registers/08-support-plans.csv', url: '/api/admin/support-plans.csv', title: 'Support plans — version, continuity tier, confirmation and review dates' },
@@ -8872,8 +9783,9 @@ route('GET', /^\/api\/admin\/participant-register\.csv$/, (req, res, m, user) =>
   if (!requireAdmin(user, res)) return;
   const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const lines = [['Participant', 'Email', 'Suburb', 'Joined', 'Shifts booked', 'Last shift',
-    'Support plan', 'Version', 'Continuity tier', 'Confirmed', 'Review due', 'Care plans named', 'Care plans on file'].map(q).join(',')];
-  for (const p of db.prepare("SELECT id, name, email, suburb, created FROM users WHERE role = 'participant' ORDER BY name").all()) {
+    'Support plan', 'Version', 'Continuity tier', 'Confirmed', 'Review due', 'Care plans named', 'Care plans on file',
+    'Funding', 'NDIS plan start', 'NDIS plan end', 'Account managed by', 'Under 18', 'Plans shared with workers'].map(q).join(',')];
+  for (const p of db.prepare("SELECT id, name, email, suburb, created, plan, plan_start, plan_end, nominee_role, nominee_name, under_18, share_plans FROM users WHERE role = 'participant' ORDER BY name").all()) {
     const plan = db.prepare("SELECT * FROM support_plans WHERE participant_id = ? AND current = 1").get(p.id);
     const b = db.prepare("SELECT COUNT(*) n, MAX(date) last FROM bookings WHERE participant_id = ?").get(p.id) || {};
     /* care plans are a JSON column on the plan itself, not a table — the
@@ -8885,7 +9797,11 @@ route('GET', /^\/api\/admin\/participant-register\.csv$/, (req, res, m, user) =>
       plan ? plan.version : '', plan ? continuityTier(plan).label : '',
       plan && plan.confirmed_at ? dmy(plan.confirmed_at.slice(0, 10)) : '',
       due ? dmy(due) + (due < ymd() ? ' — OVERDUE' : '') : '',
-      cps.length, cps.filter(c => c && c.on_file).length].map(q).join(','));
+      cps.length, cps.filter(c => c && c.on_file).length,
+      FUNDING_LABELS[p.plan] || '', p.plan_start ? dmy(p.plan_start) : '',
+      p.plan_end ? dmy(p.plan_end) + (p.plan_end < ymd() ? ' — ENDED' : '') : (p.plan === 'none' ? 'n/a' : 'NOT RECORDED'),
+      p.nominee_role === 'none' ? 'self' : (p.nominee_name ? `${p.nominee_name} (${nomineeLabel(p.nominee_role)})` : ''),
+      p.under_18 ? 'YES' : '', p.share_plans == null || p.share_plans ? 'yes' : 'NO — written arrangement on file'].map(q).join(','));
   }
   res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="bookit-participant-register.csv"' });
   res.end('﻿' + lines.join('\r\n'));
@@ -11273,8 +12189,8 @@ everyJob('tiers', 86400 * 1000, () => reviewAllTiers(), {
 
 /* ==========================================================================
    1. THE THIRD ROLE.
-   Hireup has exactly two kinds of account, so a support coordinator managing
-   six clients keeps six sets of login details in a spreadsheet and every
+   With only two kinds of account, a support coordinator managing six clients
+   keeps six sets of login details in a spreadsheet and every
    action any of them takes is recorded as the participant. That is not a
    convenience problem, it is an audit problem: there is no way afterwards to
    say who actually made a booking.
@@ -11587,7 +12503,7 @@ route('GET', /^\/api\/plan\/(\d+)\/diff\/(\d+)\/(\d+)$/, (req, res, m, user) => 
    4. THE JOB BOARD.
    Search finds people who are already listed. A job post finds people who
    would have said yes if anybody had asked &mdash; which is most of the market at
-   any given moment. Hireup has this; we did not.
+   any given moment. The big platforms have this; we did not.
 
    Three things theirs does not do, all of them the sort of thing you only
    notice after a month of live posts:
@@ -12529,7 +13445,7 @@ function sweepOrphans(maxPasses = 8) {
 
 /* ---------- 12. attachments that are documents we already hold ----------
 
-   Hireup lets you send a photo in a message; it becomes a new file, in a new
+   A photo sent in a message on most platforms becomes a new file, in a new
    place, with no status attached to it, and nobody ever checks it again. The
    version here refuses to make a second copy. A message stores a kind and an
    id and nothing more, and every read resolves that pointer live.
@@ -13311,7 +14227,7 @@ everyJob('training', 43200 * 1000, () => trainingSweep(), {
    they have turned everything off and then gets an email. */
 /* ---------- Build 19: personal details, self-service ----------
 
-   Hireup makes a payment-method change a phone call and a five-day wait;
+   Elsewhere a payment-method change is a phone call and a five-day wait;
    the settings hub's promise is that everything on it is a button. Name,
    mobile and suburb are the participant's own facts to correct. Email is
    deliberately NOT here: it is the sign-in identity and the address every
@@ -13327,8 +14243,13 @@ route('POST', /^\/api\/me\/details$/, (req, res, m, user, body) => {
   if (phone.length > 25) return json(res, 400, { error: 'That mobile number looks too long.' });
   if (phone && !/^[0-9+ ()-]+$/.test(phone)) return json(res, 400, { error: 'Mobile numbers can only hold digits, spaces and + ( ) -.' });
   if (suburb.length > 80) return json(res, 400, { error: 'That suburb looks too long.' });
-  db.prepare('UPDATE users SET name = ?, phone = ?, suburb = ? WHERE id = ?').run(name, phone, suburb, user.id);
-  json(res, 200, { ok: true, name, phone, suburb, note: 'Saved.' });
+  /* v86: two intake-form questions, both optional, both the participant's own
+     to answer or not. ATSI status is an NDIS reporting field; "prefer not to
+     say" is stored as blank and read back as exactly that. */
+  const atsi = ['yes', 'no', ''].includes(b.atsi) ? b.atsi : (user.atsi || '');
+  const contactPref = ['phone', 'sms', 'email', 'mail', ''].includes(b.contact_pref) ? b.contact_pref : (user.contact_pref || '');
+  db.prepare('UPDATE users SET name = ?, phone = ?, suburb = ?, atsi = ?, contact_pref = ? WHERE id = ?').run(name, phone, suburb, atsi, contactPref, user.id);
+  json(res, 200, { ok: true, name, phone, suburb, atsi, contact_pref: contactPref, note: 'Saved.' });
 });
 
 route('GET', /^\/api\/me\/notifications$/, (req, res, m, user) => {

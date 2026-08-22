@@ -1,7 +1,89 @@
 BOOKIT — START HERE
 ===================
-Current release: v85.3.0
+Current release: v86.0.0
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.0.0 — THE PARTICIPANT'S FILE
+------------------------------------------------
+A participant should be asked for the facts about them as fields, for the
+agreement on screen, and then only for the clinical plans their support
+needs. DMHC's file asked for the same things as sixteen documents. v86
+keeps the office file the same size and makes the participant's page
+honest.
+
+  DERIVED FROM DATA (no longer on anyone's to-do list; printed on demand)
+    Intake form           from the account, billing card, nominee card and
+                          the confirmed support plan
+    Emergency & disaster  from the plan's emergency, continuity and safety
+    plan                  sections
+    Annual review         = plan confirmed within 12 months + every clinical
+                          plan that applies on file and in date
+    Advocate / nominee    = "who manages this account" on the documents page
+                          (role, name, relationship, paid or not, under 18).
+                          Under 18 with nobody named blocks the first
+                          booking. A worker who takes the
+                          person's shifts cannot be named. Signed form still
+                          on the shelf, optional, for arrangements that need
+                          a signature.
+    NDIS plan dates       on the billing card (start/end). A plan that has
+                          ended while supports continue is named in the
+                          register that day. The plan COPY is now optional.
+    Satisfaction survey   sent from the admin board, answered in BookIt,
+                          anonymous if the person wants, tracked as
+                          sent/answered, exported as 05a in the audit pack.
+                          Never counted against the participant.
+
+  GENERATED AND ACCEPTED BY CLICK
+    Schedule of Supports  rendered from the certificate and the 2026-27
+                          price limits for the supports the person uses.
+                          The click snapshots the page beside the
+                          acceptance. When the limits move, the file shows
+                          it and asks for a fresh click — old acceptances
+                          are kept.
+    Medication consent    DMHC's own wording, split from the prescriber's
+                          plan, accepted on screen.
+
+  THE SUPPORT PLAN ASKS SEVEN YES/NO QUESTIONS ("Specialised support")
+    medication · mealtimes · seizures · diabetes · allergy/asthma plan ·
+    transfers · behaviour support plan. A yes switches on the matching
+    clinical document (epilepsy, diabetes, allergy, manual handling and PBS
+    rows are new; medication and mealtime gained the switch); a no means
+    the row is never asked for. Plans confirmed before v86 read "not asked"
+    — the page shows the only-if hints exactly as before until the person
+    reviews their plan. Also added to the plan: living situation (required),
+    diagnosis (optional), interpreter (required).
+
+  WORKERS CAN READ THE CLINICAL PLANS
+    A worker who is requested, booked or has worked with the participant
+    can open the office-checked clinical plans (and only those) before the
+    shift; the brief links them and every opening lands in the
+    participant's access log. The participant can switch sharing off, but
+    only with a written line saying how the worker gets the plan on the day
+    Nothing else on the file is ever readable by a worker.
+
+  SMALLER
+    Privacy consent re-asked on change, not yearly. Medication plan on a
+    12-month clock (was on-change). Risk assessment shown to the participant
+    as status only ("on file, done 3/3/26" / "not written yet"). A checked
+    clinical plan ticks the matching care plan the participant named. ATSI
+    status and preferred contact on Your details (optional). Forms register
+    counts acceptances made on screen as held — clicked agreements used to
+    show as "nothing on file" in the register, which was a bug.
+    Participant register CSV gained funding, plan dates, nominee, under-18
+    and sharing columns.
+
+  NOT BUILT, ON PURPOSE
+    No booking gate on high-intensity plans. DMHC does not hold any
+    Schedule 2 support and is not offering high-intensity supports yet.
+    No date of birth — the account page promises not to ask for one.
+
+  MIGRATION
+    Columns are added by runLegacyAlter on first boot; nothing is
+    backfilled. Two new tables: survey_invites, survey_responses. Existing
+    form_templates rows for p-intake and p-emergency stay in the database
+    but no longer appear anywhere, because those keys left the catalogue.
+    SCHEMA_VERSION 86000.
 
 
 WHAT THIS REPOSITORY IS

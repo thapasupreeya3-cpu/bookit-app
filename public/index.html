@@ -3191,7 +3191,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <p class="muted-sm">In plain language, structured to the Australian Privacy Principles — the formal wording is being settled with our legal reviewer before launch.</p>
         <p><b>Who we are.</b> BookIt is operated by Disability &amp; Mental Health Care Pty Ltd (ABN 19 658 578 575), a registered NDIS provider. Privacy contact: <b>privacy@bookit.life</b> or 0488 114 368.</p>
         <p><b>What we collect.</b> Account details (name, email, phone, suburb); NDIS details you choose to give (NDIS number, how your plan is managed, plan-manager contact); your support plan and the supports you're seeking — which can include health and disability information; documents you or the office add to your file; booking, message, payment and statement records; and for workers, credentials, screening checks, qualifications and payroll details. Security logs are kept to protect accounts.</p>
-        <p><b>How we collect and hold it.</b> Directly from you through forms and bookings, from your authorised representative, or from workers and staff recording the support they deliver. It is held on servers in Australia (primary hosting: AWS Sydney) with access restricted by role — workers never see your file, only the short brief from your support plan.</p>
+        <p><b>How we collect and hold it.</b> Directly from you through forms and bookings, from your authorised representative, or from workers and staff recording the support they deliver. It is held on servers in Australia (primary hosting: AWS Sydney) with access restricted by role — a worker never sees your file, only the short brief from your support plan and, if you allow it, the clinical plans they must follow on a shift.</p>
         <p><b>Why we use it.</b> To create and run your account, match and roster workers safely, deliver and record supports, process NDIS or private payments, meet our obligations as a registered provider (worker screening, incidents, complaints), and improve the service.</p>
         <p><b>Who we share it with.</b> The workers you book (the short brief only); your authorised representative, nominee or plan manager; the NDIA where claiming requires; the NDIS Commission and other bodies where the law requires; and the service providers that operate BookIt (hosting, email, payments). We never sell personal information.</p>
         <p><b>Overseas disclosure.</b> We aim to keep all personal information in Australia and are verifying every supporting system (backups, email, monitoring) before launch. If any provider holds data overseas, this policy will name the countries before that happens.</p>
@@ -7300,6 +7300,8 @@ async function renderBookingsPage(){
         </select></label>
         <label style="font-size:.85rem;">NDIS number<br><input id="bdNdis" maxlength="9" inputmode="numeric" value="${esc(API.me.ndis_number || '')}" placeholder="430123456" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:130px;"></label>
         <label style="font-size:.85rem;" id="bdPmWrap" ${API.me.plan === 'plan' ? '' : 'hidden'}>Plan manager email<br><input id="bdPm" type="email" value="${esc(API.me.pm_email || '')}" placeholder="accounts@planmanager.com.au" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:230px;"></label>
+        <label style="font-size:.85rem;">Plan starts<br><input id="bdStart" type="date" value="${esc(API.me.plan_start || '')}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
+        <label style="font-size:.85rem;">Plan ends<br><input id="bdEnd" type="date" value="${esc(API.me.plan_end || '')}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
         <button type="button" class="btn btn-primary btn-sm" id="bdSave">Save</button>
       </div>
     </div>` : '';
@@ -7376,7 +7378,7 @@ async function renderBookingsPage(){
       pdocCard = `
       <div class="info-card" id="cardPdocs" style="margin-bottom:18px;">
         <h3 style="margin:0 0 6px;">My documents</h3>
-        <p class="muted-sm" style="margin:0 0 12px;">Your file — the agreement, the consents, your plan and the assessments that go with it. You can read anything here at any time, and add a copy of something yourself. Nothing here is shared with workers; the only thing a worker sees is the short brief from your support plan.</p>
+        <p class="muted-sm" style="margin:0 0 12px;">Your file — the agreement, the consents, your plan and the assessments that go with it. You can read anything here at any time, and add a copy of something yourself. Nothing here reaches a worker — except the plans a clinician writes, which a worker whose booking with you is confirmed can read before the shift (you can switch that off under <a href="#/account/documents">Account &rsaquo; My documents</a>). Everything else a worker sees is the short brief from your support plan.</p>
         ${pReqPanel}
         <div class="ob-head">
           <b style="font-size:.9rem;">${pf.held} of ${pf.of} on file</b>
@@ -7385,12 +7387,12 @@ async function renderBookingsPage(){
         ${rows || '<p class="muted-sm" style="margin-top:8px;">Nothing on file here yet.</p>'}
         ${missing.length ? `<details style="margin-top:12px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;">Still to come (${missing.length})</summary>
           <p class="muted-sm" style="margin-top:8px;">The office holds some of these on paper. If one of them matters to you, ask — they can file the copy here so you can read it whenever you like.</p>
-          ${missing.map(mm => `<p style="margin:4px 0;font-size:.9rem;">${esc(mm.label)}${mm.signed ? ` <span class="muted-sm">— signed by ${esc(mm.signed)}</span>` : ''}${mm.requested_at ? ` <span style="color:#8a6d00;font-size:.82rem;">— asked for ${fmtAU(mm.requested_at.slice(0,10))}</span>` : ''}</p>`).join('')}
+          ${missing.map(mm => `<p style="margin:4px 0;font-size:.9rem;">${esc(mm.label)}${mm.applies === true ? ' <span class="pdoc-if" style="background:#DBF2E4;color:#1C7C43;">applies to you</span>' : mm.only_if ? ` <span class="muted-sm">— ${esc(mm.only_if)}</span>` : ''}${mm.signed ? ` <span class="muted-sm">— signed by ${esc(mm.signed)}</span>` : ''}${mm.requested_at ? ` <span style="color:#8a6d00;font-size:.82rem;">— asked for ${fmtAU(mm.requested_at.slice(0,10))}</span>` : ''}</p>`).join('')}
         </details>` : ''}
         <details style="margin-top:12px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;">＋ Add a document</summary>
           <div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
             <label style="font-size:.85rem;">What is it?<br><select id="pdType" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;max-width:320px;">
-              ${pTypes.map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}
+              ${pTypes.filter(t => !t.office_only && !t.generated && !(pf.not_applicable || []).some(n => n.key === t.key)).map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}
             </select></label>
             <label style="font-size:.85rem;">Name it (if "Other")<br><input id="pdLabel" maxlength="90" placeholder="e.g. OT seating report" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:210px;"></label>
             <label style="font-size:.85rem;">Date on it<br><input id="pdDate" type="date" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;"></label>
@@ -7697,7 +7699,7 @@ function spQuestionHtml(q, prev){
     field = `<textarea rows="4" maxlength="6000" data-sp-text="${q.key}">${esc(v || '')}</textarea>`;
   }
   /* step 1 of the review is "read your previous answers and check they still
-     hold". Hireup asks you to do that; here the previous answer is sitting
+     hold". Most platforms make you go and find them; here the previous answer is sitting
      underneath the box, because a review you have to go hunting for is a review
      that gets skipped. */
   let prevHtml = '';
@@ -7812,7 +7814,7 @@ function spPaint(){
         <p>${esc(tp.why)}</p>
       </div>`;
     }
-    if(sec.key === 'about') inner += spCareHtml();
+    if(sec.key === 'specialised') inner += spCareHtml();
     if(sec.key === 'safety') inner = `<div class="sp-notice">${esc(cat.home_notice)}</div>` + inner;
     return `<div class="sp-sec"><h2>${esc(sec.title)}</h2><p class="sp-intro">${esc(sec.intro)}</p>${inner}</div>`;
   }).join('');
@@ -7988,8 +7990,13 @@ async function paintBrief(bookingId, participantId){
         <span class="muted-sm">Confirmed by them on ${fmtAU(String(b.confirmed_at).slice(0,10))} · v${b.version}</span>
       </div>
       ${b.sections.map(sc => `<h4>${esc(sc.title)}</h4><p>${esc(sc.body)}</p>`).join('')}
-      ${b.care_plans && b.care_plans.length ? `<h4>Care plans</h4><p>${b.care_plans.map(c =>
-        esc(c.name) + (c.on_file ? ' — on file, ask the office for a copy' : ' — not yet filed')).join('\n')}</p>` : ''}
+      ${b.specialised && b.specialised.length ? `<h4>Specialised support</h4><p>${b.specialised.map(x => `${esc(x.label)}: <b>${x.yes ? 'yes' : 'no'}</b>`).join(' · ')}</p>` : ''}
+      ${b.plans && (b.plans.plans.length || b.plans.withheld) ? `<h4>Plans you must follow</h4>${b.plans.plans.length
+        ? `<p>${b.plans.plans.map(pl => `<a href="${esc(pl.url)}" target="_blank" rel="noopener noreferrer">${esc(pl.label)}</a>${pl.doc_date ? ' — dated ' + fmtAU(pl.doc_date) : ''}${pl.expired ? ' <b style="color:#A5301A;">— past its review date; check with the office before you rely on it</b>' : ''}`).join('<br>')}</p>
+           <p class="muted-sm">Read these before the shift. Opening one is recorded in the participant's access log with your name.</p>` : ''}${b.plans.withheld
+        ? `<p class="muted-sm">${b.plans.withheld} clinical plan${b.plans.withheld === 1 ? '' : 's'} on file but not shared in BookIt. The participant's arrangement for the day: <i>${esc(b.plans.note || 'ask the office')}</i></p>` : ''}` : ''}
+      ${b.care_plans && b.care_plans.length ? `<h4>Other care plans named</h4><p>${b.care_plans.map(c =>
+        esc(c.name) + (c.on_file ? ' — on file; if it is not linked above, ask the office for a copy' : ' — not yet filed')).join('<br>')}</p>` : ''}
       <h4>Emergency contact</h4><p>${esc(b.emergency.name || 'Not recorded')}${b.emergency.relationship ? ' (' + esc(b.emergency.relationship) + ')' : ''}${b.emergency.phone ? ' — ' + esc(b.emergency.phone) : ''}</p>
       <h4>Before you start</h4><p>${esc(b.home_notice)}</p>
       <p class="muted-sm" style="margin-top:12px;">This is health information about someone else. Read it, work from it, don't forward it.</p>
@@ -8280,7 +8287,8 @@ document.addEventListener('click', async e => {
   }
   if(e.target && e.target.id === 'bdSave'){
     try{
-      const d = await API.call('/me/billing', {method:'POST', body:{plan:$('#bdPlan').value, ndis_number:$('#bdNdis').value.trim(), pm_email:($('#bdPm') ? $('#bdPm').value.trim() : '')}});
+      const d = await API.call('/me/billing', {method:'POST', body:{plan:$('#bdPlan').value, ndis_number:$('#bdNdis').value.trim(), pm_email:($('#bdPm') ? $('#bdPm').value.trim() : ''),
+        plan_start: $('#bdStart') ? $('#bdStart').value : '', plan_end: $('#bdEnd') ? $('#bdEnd').value : ''}});
       API.me = d.user;
       toast('Billing details saved. 👍');
     }catch(err){ toast(err.message); }
@@ -9119,6 +9127,13 @@ async function renderAdminPage(){
         ${(p.outstanding || []).length ? `<p style="margin:10px 0 0;font-size:.86rem;"><b style="color:#D94F32;">Not on file (${p.outstanding.length}):</b>
           ${p.outstanding.map(o => esc(o.label) + (o.requested_at ? ` <span style="color:#8a6d00;font-size:.78rem;">(asked ${fmtAU(o.requested_at.slice(0,10))})</span>` : '')).join(' · ')}</p>
           <p class="muted-sm" style="margin:4px 0 0;">If you hold one of these on paper, file it below — or add the row without a file, which records that it exists and where, without claiming BookIt has a copy.</p>` : ''}
+        ${(p.not_applicable || []).length ? `<p class="muted-sm" style="margin:4px 0 0;">Not asked for — their plan says these don't apply: ${p.not_applicable.map(o => esc(o.label)).join(', ')}.</p>` : ''}
+        ${(p.renew || []).length ? `<p style="margin:6px 0 0;font-size:.86rem;color:#8a6d00;"><b>Needs a fresh click:</b> ${p.renew.map(r => esc(r.label)).join(', ')} — accepted at an earlier version; they have been asked on their page.</p>` : ''}
+        <p style="margin:8px 0 0;font-size:.82rem;color:#3E5A64;line-height:1.7;">Printed from the file: <a href="/api/admin/participants/${p.id}/generated/p-intake" target="_blank">intake form</a> · <a href="/api/admin/participants/${p.id}/generated/p-emergency" target="_blank">emergency &amp; disaster plan</a> · <a href="/api/admin/participants/${p.id}/generated/p-schedule" target="_blank">schedule of supports (current)</a><br>
+          NDIS plan: ${p.plan_dates && p.plan_dates.end ? `${p.plan_dates.start ? fmtAU(p.plan_dates.start) : '?'} – ${fmtAU(p.plan_dates.end)}${p.plan_dates.ended ? ' <b style="color:#D94F32;">ENDED — supports continuing</b>' : ''}` : (p.plan_dates && p.plan_dates.funding === 'none' ? 'no NDIS plan' : '<span style="color:#8a6d00;">dates not recorded</span>')}
+          · account managed by: ${p.nominee && p.nominee.role === 'none' ? 'self' : p.nominee && p.nominee.name ? esc(p.nominee.name) + (p.nominee.under_18 ? ' (participant under 18)' : '') + (p.nominee.paid ? ' (paid)' : '') : (p.nominee && p.nominee.under_18 ? '<b style="color:#D94F32;">under 18, nobody named</b>' : '<span style="color:#8a6d00;">not answered</span>')}
+          · plans shared with workers: ${p.sharing && p.sharing.on === false ? '<b style="color:#D94F32;">no</b> — ' + esc(p.sharing.note || '') : 'yes'}<br>
+          Survey: ${p.survey && p.survey.open_since ? `sent ${fmtAU(p.survey.open_since.slice(0,10))}, not answered` : p.survey && p.survey.last_answered ? `answered ${fmtAU(p.survey.last_answered.slice(0,10))}` : 'not sent in the last year'} <button class="adm-btn-sm" data-svy-invite="${p.id}" type="button">send the survey</button> · <a href="/api/admin/surveys.csv" download>responses (CSV)</a></p>
         <div style="margin-top:8px;"><button class="adm-btn-sm" data-preq-doc="${p.id}" type="button">＋ ask for a document</button></div>
         <details style="margin-top:10px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;font-size:.9rem;">＋ File a document for ${esc(p.name)}</summary>
           <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
@@ -12938,13 +12953,15 @@ async function renderAccountPage(){
     payCard = `
     <div class="info-card" style="margin-bottom:18px;" id="cardPayer">
       <h3 style="margin:0 0 6px;">How your supports are paid</h3>
-      <p class="muted-sm" style="margin:0 0 10px;">Claimed shifts keep their payer; unclaimed ones move with this setting — we name the money before anything changes.</p>
+      <p class="muted-sm" style="margin:0 0 10px;">Claimed shifts keep their payer; unclaimed ones move with this setting — we name the money before anything changes. The plan dates are on the front page of your NDIS plan; we need them, not a copy of the plan.${API.me.plan_end && API.me.plan_end < ymd() ? ' <b style="color:#A5301A;">Your plan end date has passed — if you have a new plan, update the dates.</b>' : ''}</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <label style="font-size:.85rem;">Managed<br><select id="payPlan" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;">
           ${fundOpts.map(([v, l]) => `<option value="${v}" ${API.me.plan === v ? 'selected' : ''}>${l}</option>`).join('')}
         </select></label>
         <label style="font-size:.85rem;">NDIS number<br><input id="payNdis" maxlength="12" value="${esc(API.me.ndis_number || '')}" placeholder="9 digits" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;width:130px;"></label>
         <label style="font-size:.85rem;">Plan manager email<br><input id="payPm" maxlength="120" value="${esc(API.me.pm_email || '')}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;width:220px;"></label>
+        <label style="font-size:.85rem;">NDIS plan starts<br><input id="payStart" type="date" value="${esc(API.me.plan_start || '')}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;"></label>
+        <label style="font-size:.85rem;">Plan ends<br><input id="payEnd" type="date" value="${esc(API.me.plan_end || '')}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;"></label>
         <button type="button" class="btn btn-primary btn-sm" id="payGo">Save</button>
       </div>
       <div id="payConfirm" hidden style="margin-top:12px;padding:12px 14px;border:1.5px solid #F5B841;border-radius:12px;background:#FDF9EF;"></div>
@@ -12962,11 +12979,18 @@ async function renderAccountPage(){
   const detailsCard = `
   <div class="info-card" style="margin-bottom:18px;" id="cardDetails">
     <h3 style="margin:0 0 6px;">Your details</h3>
-    <p class="muted-sm" style="margin:0 0 10px;">${me.role === 'worker' ? 'Your name is on your public profile, so change it here and it changes there. ' : ''}We only ask for what the service needs — no date of birth, no gender question, nothing extra.</p>
+    <p class="muted-sm" style="margin:0 0 10px;">${me.role === 'worker' ? 'Your name is on your public profile, so change it here and it changes there. ' : ''}We only ask for what the service needs — no date of birth, no gender question, nothing extra.${me.role === 'participant' ? ' The two optional questions below are the last two from the old intake form; answer them or not.' : ''}</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
       <label style="font-size:.85rem;">Name<br><input id="detName" maxlength="80" value="${esc(me.name || '')}" autocomplete="name" style="${inputCss}width:200px;"></label>
       <label style="font-size:.85rem;">Mobile<br><input id="detPhone" maxlength="25" value="${esc(me.phone || '')}" autocomplete="tel" placeholder="04xx xxx xxx" style="${inputCss}width:150px;"></label>
       <label style="font-size:.85rem;">Suburb<br><input id="detSuburb" maxlength="80" value="${esc(me.suburb || '')}" autocomplete="address-level2" style="${inputCss}width:170px;"></label>
+      ${me.role === 'participant' ? `
+      <label style="font-size:.85rem;">Best way to reach you<br><select id="detContact" style="${inputCss}">
+        ${[['', 'No preference'], ['phone', 'Phone call'], ['sms', 'Text message'], ['email', 'Email'], ['mail', 'Post']].map(([v, l]) => `<option value="${v}" ${(me.contact_pref || '') === v ? 'selected' : ''}>${l}</option>`).join('')}
+      </select></label>
+      <label style="font-size:.85rem;">Aboriginal or Torres Strait Islander? <span class="muted-sm">(optional)</span><br><select id="detAtsi" style="${inputCss}">
+        ${[['', 'Prefer not to say'], ['yes', 'Yes'], ['no', 'No']].map(([v, l]) => `<option value="${v}" ${(me.atsi || '') === v ? 'selected' : ''}>${l}</option>`).join('')}
+      </select></label>` : ''}
       <button type="button" class="btn btn-primary btn-sm" id="detGo">Save</button>
     </div>
     <p id="detErr" class="muted-sm" style="color:#A5301A;margin:8px 0 0;" hidden></p>
@@ -13015,7 +13039,7 @@ async function renderAccountPage(){
   if(pageH1) pageH1.textContent = subRaw === 'profile' ? 'Profile' : 'Settings';
   document.title = (subRaw === 'profile' ? 'Profile' : 'Settings') + ' — BookIt';
   if(subRaw === 'profile'){
-    /* Build 21 — everything about *you* lives here, Hireup-style: photo up
+    /* Build 21 — everything about *you* lives here, profile-style: photo up
        top, then your details, emergency contact, support plan, supports and
        your data. Settings keeps the machinery. */
     let aboutCards = '';
@@ -13032,7 +13056,7 @@ async function renderAccountPage(){
     const workerCards = me.role === 'worker'
       ? card('cardProfileLink', 'Your public profile', `<p class="muted-sm" style="margin:0 0 10px;">Your bio, photo, services, days and interests — what participants see when they find you.</p>${tile('#/bookings', 'cardProfile', 'Edit my profile & photo', 'Everything on your public card.')}${tile('#/worker/' + me.id, '', 'See my public profile', 'Exactly as participants see it.')}`) + (visCard || '')
       : '';
-    /* Hireup-style profile: the identity card stays put and everything else
+    /* Tabbed profile: the identity card stays put and everything else
        takes its turn behind a tab — the page stops running. Tabs only exist
        for the groups this role actually has. */
     const apPanes = [
@@ -13142,28 +13166,23 @@ async function renderPdocsMini(){
   const rows = (pf.documents || []).map(d => `
     <p><b>${esc(d.type_label || '')}</b>${d.doc_date ? ' · ' + fmtAU(d.doc_date) : ''}${d.expiry_date ? ' · expires ' + fmtAU(d.expiry_date) : ''}${d.has_file
       ? ` · <a href="/api/participant-documents/${d.id}/file" target="_blank">view</a>`
-      : ' · <span class="muted-sm">recorded, no file</span>'}${!d.verified_at ? ` · <button type="button" class="adm-btn-sm" data-mpd-del="${d.id}">remove</button>` : ''}${d.review === 'rejected' && d.review_note ? `<br><span style="color:#A5301A;font-size:.82rem;"><b>Why:</b> ${esc(d.review_note)} — add another copy and it takes this one's place.</span>` : ''}</p>`).join('');
+      : ' · <span class="muted-sm">recorded, no file</span>'}${d.stale ? ' · <span style="color:#8a6d00;font-weight:700;">out of date — see below</span>' : ''}${!d.verified_at ? ` · <button type="button" class="adm-btn-sm" data-mpd-del="${d.id}">remove</button>` : ''}${d.review === 'rejected' && d.review_note ? `<br><span style="color:#A5301A;font-size:.82rem;"><b>Why:</b> ${esc(d.review_note)}</span>` : ''}</p>`).join('');
   const missing = (pf.outstanding || []);
   const reqs = (pf.requests || []);
   /* Sixteen names in one paragraph read as sixteen jobs. Eleven of them are
      somebody else's, and several only apply in circumstances that may not be
      this person's, so the list is grouped by whose job it is and each row says
      when it applies and where the blank is. Same data, four fewer wrong
-     impressions. */
+     impressions. v86: a row the support plan switched on says "applies to
+     you"; one it switched off is not on this list at all. */
   const OWNERS = pf.owners || {};
-  const ORDER = ['participant', 'cosigned', 'clinical', 'ndia', 'office'];
-  const missingGroups = ORDER.map(o => {
-    const items = missing.filter(x => (x.owner || 'participant') === o);
-    if(!items.length) return '';
-    const meta = OWNERS[o] || { label: o, blurb: '' };
-    return `<div class="pdoc-grp${o === 'participant' ? ' mine' : ''}">
-      <div class="pdoc-grp-h">${esc(meta.label)} <span>${items.length}</span></div>
-      ${meta.blurb ? `<p class="muted-sm" style="margin:0 0 7px;">${esc(meta.blurb)}</p>` : ''}
-      ${items.map(x => `<div class="pdoc-row">
-        <b>${esc(x.label)}</b>${x.only_if ? ` <span class="pdoc-if">${esc(x.only_if)}</span>` : ''}
+  const ORDER = ['participant', 'cosigned', 'clinical', 'ndia', 'office', 'feedback'];
+  const blankLink = x => x.template && x.template.has_file ? `/api/form-templates/${esc(x.key)}/file`
+    : x.template && x.template.link ? esc(x.template.link) : '';
+  const rowHtml = (x, optional) => `<div class="pdoc-row">
+        <b>${esc(x.label)}</b>${x.applies === true ? ' <span class="pdoc-if" style="background:#DBF2E4;color:#1C7C43;">applies to you — your plan says so</span>' : x.only_if ? ` <span class="pdoc-if">${esc(x.only_if)}</span>` : ''}${optional ? ' <span class="pdoc-if">optional</span>' : ''}
         ${(() => {
-          const url = x.template && x.template.has_file ? `/api/form-templates/${esc(x.key)}/file`
-            : x.template && x.template.link ? esc(x.template.link) : '';
+          const url = blankLink(x);
           /* An agreement is read then accepted, so the link says "read it" and
              the button next to it is the whole of the signing. */
           if(x.sign === 'click'){
@@ -13176,9 +13195,40 @@ async function renderPdocsMini(){
             : (x.owner === 'participant' ? ' · <span class="muted-sm">ask us for a blank</span>' : '');
         })()}
         ${x.requested_at ? ` · <span style="color:#8a6d00;">we asked ${x.waiting_days === 0 ? 'today' : x.waiting_days + 'd ago'}</span>` : ''}
-      </div>`).join('')}
+      </div>`;
+  const missingGroups = ORDER.map(o => {
+    const items = missing.filter(x => (x.owner || 'participant') === o);
+    if(!items.length) return '';
+    const meta = OWNERS[o] || { label: o, blurb: '' };
+    return `<div class="pdoc-grp${o === 'participant' ? ' mine' : ''}">
+      <div class="pdoc-grp-h">${esc(meta.label)} <span>${items.length}</span></div>
+      ${meta.blurb ? `<p class="muted-sm" style="margin:0 0 7px;">${esc(meta.blurb)}</p>` : ''}
+      ${items.map(x => rowHtml(x, false)).join('')}
     </div>`;
   }).join('');
+  /* v86: three quieter lists under the loud one */
+  const optionalHtml = (pf.optional || []).length ? `<div class="pdoc-grp">
+      <div class="pdoc-grp-h">If you have one handy <span>${pf.optional.length}</span></div>
+      <p class="muted-sm" style="margin:0 0 7px;">Nothing waits on these and they are never counted against you.</p>
+      ${pf.optional.map(x => rowHtml(x, true)).join('')}
+    </div>` : '';
+  const officeHtml = (pf.office || []).length ? `<div class="pdoc-grp">
+      <div class="pdoc-grp-h">We look after these <span>${pf.office.length}</span></div>
+      ${pf.office.map(x => `<div class="pdoc-row"><b>${esc(x.label)}</b> · ${x.held
+        ? `<span style="color:#1C7C43;">on file${x.doc_date ? ', done ' + fmtAU(x.doc_date) : ''}</span>${x.has_file && x.id ? ` · <a href="/api/participant-documents/${x.id}/file" target="_blank">read it</a>` : ''}`
+        : '<span class="muted-sm">not written yet — ours to do, nothing for you to send</span>'}</div>`).join('')}
+    </div>` : '';
+  const naHtml = (pf.not_applicable || []).length ? `<details style="margin-top:8px;"><summary class="muted-sm" style="cursor:pointer;">Not asked for, because your plan says they don't apply (${pf.not_applicable.length})</summary>
+      <p class="muted-sm" style="margin:6px 0 0;">${pf.not_applicable.map(x => esc(x.label)).join(' · ')}. Change an answer on your <a href="#/support-plan">support plan</a> and the matching plan is asked for the same day.</p></details>` : '';
+  const flagsNote = pf.flags_asked === false ? `<p class="mini-note" style="color:#8a6d00;">Your support plan has not yet answered the seven specialised-support questions, so the clinical plans below all show as "only if". <a href="#/support-plan">Review your plan</a> and the ones that don't apply to you disappear from this list.</p>` : '';
+  /* a generated agreement accepted at a version that has since moved */
+  const renewHtml = (pf.renew || []).length ? pf.renew.map(r => `<div style="margin:0 0 12px;padding:11px 13px;border:1.5px solid #F5B841;border-radius:12px;background:#FDF9EF;font-size:.9rem;">
+      <b>${esc(r.label)} needs a fresh click.</b> ${esc(r.why)}
+      <div class="pdoc-row" style="margin-top:6px;"><span class="muted-sm">You agreed ${fmtAU(String(r.accepted_at).slice(0,10))} to: ${esc(r.accepted_version || '')}</span>
+        ${r.template && r.template.link ? ` · <a href="${esc(r.template.link)}" target="_blank" rel="noopener noreferrer">read the new one</a>` : ''}
+        · <button type="button" class="adm-btn-sm" data-pdoc-agree="${esc(r.key)}" data-label="${esc(r.label)}" style="border-color:#0E6B62;color:#0E6B62;">I agree to this</button></div>
+    </div>`).join('') : '';
+
   /* Their own account-agreements list: what they agreed to, which version, the
      day they did it, and a link to THAT text rather than to whatever is
      current now. Nothing here is new information — it is the same rows the
@@ -13192,30 +13242,99 @@ async function renderPdocsMini(){
       <p class="mini-note" style="margin:0 0 10px;">What you've agreed to, and the exact version you saw at the time.</p>
       ${agr.agreements.map(a => `<div class="pdoc-row" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;">
         <b>${esc(a.label)}</b>
-        <span class="muted-sm">${esc(a.version)}</span>
+        <span class="muted-sm">${esc(a.version)}</span>${a.current === false ? ' <span class="pdoc-if" style="background:#FDF0D8;color:#8a6d00;">superseded — see My documents</span>' : ''}
         <span style="flex:1;"></span>
         <span class="muted-sm">agreed ${fmtAU(String(a.accepted_at).slice(0,10))}</span>
-        ${a.version_no ? `<a href="/api/form-templates/${esc(a.key)}/v${a.version_no}/file" target="_blank" rel="noopener noreferrer">read the version I agreed to</a>` : ''}
+        ${a.file_url ? `<a href="${esc(a.file_url)}" target="_blank" rel="noopener noreferrer">read the version I agreed to</a>`
+          : a.version_no ? `<a href="/api/form-templates/${esc(a.key)}/v${a.version_no}/file" target="_blank" rel="noopener noreferrer">read the version I agreed to</a>` : ''}
       </div>`).join('')}
     </div>` : '';
 
-  wrap.innerHTML = agreedHtml + `
+  /* v86: who manages the account, as a nomination rather than a form */
+  const nm = pf.nominee || {};
+  const nomineeHtml = `
+  <div class="info-card" style="margin-bottom:12px;" id="cardNominee">
+    <h3 style="margin:0 0 4px;">Who manages this account</h3>
+    <p class="mini-note" style="margin:0 0 10px;">${nm.at ? `Recorded ${fmtAU(String(nm.at).slice(0,10))}: <b>${nm.role === 'none' ? 'you manage your own account' : esc(nm.name || '') + (nm.relationship ? ' (' + esc(nm.relationship) + ')' : '')}</b>. Change it any time.`
+      : 'Most people manage their own. If a parent, guardian, nominee or advocate makes decisions with you or for you, say who — it is a minute, and it replaces the advocate form for everyone who doesn\'t need a signature.'}</p>
+    <div style="display:flex;gap:8px 10px;flex-wrap:wrap;align-items:flex-end;">
+      <label style="font-size:.82rem;flex:1 1 100%;">Who helps you decide?<br><select id="nomRole" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;max-width:100%;">
+        ${(nm.options || []).map(o => `<option value="${esc(o.key)}" ${nm.role === o.key ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+      </select></label>
+      <div id="nomWho" style="display:${nm.role && nm.role !== 'none' ? 'flex' : 'none'};gap:8px 10px;flex-wrap:wrap;align-items:flex-end;flex:1 1 100%;">
+        <label style="font-size:.82rem;">Their name<br><input id="nomName" maxlength="80" value="${esc(nm.name || '')}" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;width:180px;"></label>
+        <label style="font-size:.82rem;">Relationship to you<br><input id="nomRel" maxlength="80" value="${esc(nm.relationship || '')}" placeholder="e.g. mother, guardian" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;width:160px;"></label>
+        <label style="font-size:.82rem;">Phone<br><input id="nomPhone" maxlength="25" value="${esc(nm.phone || '')}" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;width:140px;"></label>
+        <label style="font-size:.82rem;">Email<br><input id="nomEmail" maxlength="120" value="${esc(nm.email || '')}" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;width:200px;"></label>
+        <label style="font-size:.82rem;display:flex;gap:6px;align-items:center;"><input type="checkbox" id="nomPaid" ${nm.paid ? 'checked' : ''}> They are paid to support me (a coordinator, for example)</label>
+      </div>
+      <label style="font-size:.82rem;display:flex;gap:6px;align-items:center;"><input type="checkbox" id="nomU18" ${nm.under_18 ? 'checked' : ''}> The person receiving support is under 18</label>
+      <button type="button" class="btn btn-primary btn-sm" id="nomGo">Save</button>
+    </div>
+    <p class="muted-sm" style="margin:8px 0 0;">A support worker who takes your shifts cannot be the person who manages your account — that is a conflict of interest. Anyone under 18 needs a parent or guardian named here before the first booking.</p>
+  </div>`;
+
+  /* v86: sharing clinical plans with booked workers */
+  const sh = pf.sharing || { on: true };
+  const sharingHtml = `
+  <div class="info-card" style="margin-bottom:12px;" id="cardSharing">
+    <h3 style="margin:0 0 4px;">What a worker can read</h3>
+    <p class="mini-note" style="margin:0 0 10px;">Nothing on your file reaches a worker — not the agreement, not the consents, not your NDIS plan — with one exception: the plans a clinician writes (medication, seizures, mealtimes, transfers, behaviour support). A worker whose booking with you is confirmed can read those before the shift, and every time one is opened it is written in your access log.</p>
+    <label style="font-size:.88rem;display:flex;gap:8px;align-items:flex-start;"><input type="checkbox" id="shareOn" ${sh.on ? 'checked' : ''} style="margin-top:3px;"> <span>Let my booked workers read my clinical plans in BookIt <span class="muted-sm">(recommended — a worker who can't read the plan is the risk)</span></span></label>
+    <div id="shareNoteWrap" style="margin-top:8px;display:${sh.on ? 'none' : 'block'};">
+      <label style="font-size:.82rem;">If not, how will a worker get the plan on the day?<br><input id="shareNote" maxlength="400" value="${esc(sh.note || '')}" placeholder="e.g. the red folder on the kitchen bench; Mum is home for every shift" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;width:min(100%,420px);"></label>
+      <p class="muted-sm" style="margin:4px 0 0;">We record that sentence on your file.</p>
+    </div>
+    <button type="button" class="btn btn-secondary btn-sm" id="shareGo" style="margin-top:8px;">Save</button>
+  </div>`;
+
+  /* v86: the survey, when the office has sent one */
+  let svy = null;
+  try{ svy = await API.call('/me/survey'); }catch(e){}
+  const scaleOpts = q => (svy.scale || []).map(v => `<label style="display:inline-flex;gap:4px;align-items:center;margin-right:10px;font-size:.82rem;"><input type="radio" name="svy_${esc(q.key)}" value="${esc(v)}"> ${esc(v)}</label>`).join('');
+  const surveyHtml = svy && svy.invite ? `
+  <div class="info-card" style="margin-bottom:12px;" id="cardSurvey">
+    <h3 style="margin:0 0 4px;">How are we doing?</h3>
+    <p class="mini-note" style="margin:0 0 10px;">The office sent this on ${fmtAU(String(svy.invite.invited_at).slice(0,10))}. Skip anything you like, leave your name off if you like, and nothing about your supports depends on it. If you would rather say it out loud, call 0488 114 368.</p>
+    ${(svy.questions || []).map(q => q.type === 'scale' ? `<div style="margin:0 0 10px;font-size:.9rem;"><div>${esc(q.q)}${q.tag ? ` <span class="muted-sm" style="font-size:.76rem;">${esc(q.tag)}</span>` : ''}</div><div style="margin-top:3px;">${scaleOpts(q)}</div></div>`
+      : q.type === 'check' ? `<div style="margin:0 0 10px;font-size:.9rem;"><div>${esc(q.q)}</div>${q.options.map(o => `<label style="display:block;font-size:.84rem;"><input type="radio" name="svy_${esc(q.key)}" value="${esc(o)}"> ${esc(o)}</label>`).join('')}</div>`
+      : `<div style="margin:0 0 10px;font-size:.9rem;"><label>${esc(q.q)}${q.help ? `<br><span class="muted-sm" style="font-size:.78rem;">${esc(q.help)}</span>` : ''}<br><textarea data-svy="${esc(q.key)}" rows="2" maxlength="2000" style="font:inherit;width:100%;max-width:560px;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;"></textarea></label></div>`).join('')}
+    <label style="font-size:.88rem;display:block;margin:6px 0;"><input type="checkbox" id="svyAnon"> Leave my name off this</label>
+    <label style="font-size:.88rem;display:block;margin:6px 0;"><input type="checkbox" id="svyContact"> I would like someone to contact me about what I have written</label>
+    <input id="svyContactDetail" maxlength="300" placeholder="How, and when suits" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin:0 0 8px;width:min(100%,360px);display:none;">
+    <p class="muted-sm" style="margin:0 0 8px;">If something has gone wrong and you would rather not raise it with us: the NDIS Commission takes complaints about any provider on 1800 035 544, and an advocate is free — 1800 643 787.</p>
+    <button type="button" class="btn btn-primary btn-sm" id="svyGo">Send it</button>
+  </div>` : '';
+
+  wrap.innerHTML = surveyHtml + agreedHtml + `
   <div class="info-card" style="margin-bottom:12px;" id="cardDocsMini">
     <h3 style="margin:0 0 6px;">My documents</h3>
-    <p class="mini-note">${pf.held != null ? `<b>${pf.yours_held ?? 0} of ${pf.yours_of ?? 0} of yours on file.</b> ` : ''}Only you and the office see these — workers never do.${pf.of != null ? ` Your file holds ${pf.held} of ${pf.of} documents in all; most of the rest are ours to write, or come from someone else.` : ''}</p>
+    <p class="mini-note">${pf.held != null ? `<b>${pf.yours_held ?? 0} of ${pf.yours_of ?? 0} of yours on file.</b> ` : ''}Only you and the office see these, except the clinical plans a booked worker must follow — see <i>What a worker can read</i> below.${pf.of != null ? ` Your file holds ${pf.held} of ${pf.of} documents in all; most of the rest are ours to write, or come from someone else.` : ''}</p>
     ${reqs.length ? `<p class="mini-note" style="color:#8a6d00;"><b>The office has asked for:</b> ${reqs.map(r => esc(r.label)).join(', ')} — add it below and the ask closes itself.</p>` : ''}
+    ${renewHtml}
     <div class="mini-rows">${rows || '<p class="muted-sm">Nothing on file yet.</p>'}</div>
+    ${flagsNote}
     ${missing.length ? `<div style="margin-top:12px;"><p class="mini-note" style="margin:0 0 8px;"><b>Not on file yet</b></p>${missingGroups}</div>` : ''}
+    ${optionalHtml}${officeHtml}${naHtml}
     <div style="display:flex;gap:8px 10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;">
-      <label style="font-size:.82rem;">Add a document<br><select id="mpdType" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;max-width:210px;">${pTypes.map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}</select></label>
+      <label style="font-size:.82rem;">Add a document<br><select id="mpdType" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;max-width:210px;">${pTypes.filter(t => !t.office_only && !t.generated && !(pf.not_applicable || []).some(n => n.key === t.key)).map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}</select></label>
       <label style="font-size:.82rem;">Name it <span class="muted-sm">(if "Other")</span><br><input id="mpdLabel" maxlength="90" placeholder="e.g. OT seating report" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;width:170px;"></label>
       <label style="font-size:.82rem;">Dated<br><input id="mpdDate" type="date" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;"></label>
       <label style="font-size:.82rem;">Expires <span class="muted-sm">(if it does)</span><br><input id="mpdExpiry" type="date" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;"></label>
       <label style="font-size:.82rem;">File (photo or PDF ≤ 4 MB)<br><input id="mpdFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.82rem;margin-top:4px;max-width:210px;"></label>
       <button type="button" class="btn btn-primary btn-sm" id="mpdAdd">Add</button>
     </div>
-  </div>`;
+  </div>` + nomineeHtml + sharingHtml;
 }
+
+/* v86: the three show/hide switches on the documents page */
+document.addEventListener('change', e => {
+  const t = e.target;
+  if(!t || !t.id) return;
+  if(t.id === 'nomRole'){ const w = $('#nomWho'); if(w) w.style.display = t.value && t.value !== 'none' ? 'flex' : 'none'; }
+  if(t.id === 'shareOn'){ const w = $('#shareNoteWrap'); if(w) w.style.display = t.checked ? 'none' : 'block'; }
+  if(t.id === 'svyContact'){ const w = $('#svyContactDetail'); if(w) w.style.display = t.checked ? 'block' : 'none'; }
+});
 
 /* the worker's credentials mini — what's on file and its state, dense */
 async function renderCredsMini(){
@@ -13334,12 +13453,50 @@ document.addEventListener('click', async e => {
     catch(err){ toast(err.message); }
     return;
   }
+  /* v86: who manages the account */
+  if(id === 'nomGo'){
+    try{
+      const r = await API.call('/me/nominee', {method:'POST', body:{ role: $('#nomRole').value, under_18: $('#nomU18').checked,
+        name: $('#nomName') ? $('#nomName').value.trim() : '', relationship: $('#nomRel') ? $('#nomRel').value.trim() : '',
+        phone: $('#nomPhone') ? $('#nomPhone').value.trim() : '', email: $('#nomEmail') ? $('#nomEmail').value.trim() : '',
+        paid: !!($('#nomPaid') && $('#nomPaid').checked) }});
+      toast(r.note || 'Saved.');
+      if(r.warn) setTimeout(() => toast(r.warn), 1800);
+      renderPdocsMini();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  /* v86: sharing clinical plans with booked workers */
+  if(id === 'shareGo'){
+    try{
+      const r = await API.call('/me/plan-sharing', {method:'POST', body:{ share: $('#shareOn').checked, note: $('#shareNote') ? $('#shareNote').value.trim() : '' }});
+      toast(r.on ? 'Saved — your booked workers can read your clinical plans in BookIt.' : 'Saved — plans are not shared in BookIt; your arrangement is on file.');
+      renderPdocsMini();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  /* v86: the survey */
+  if(id === 'svyGo'){
+    const answers = {};
+    $$('#cardSurvey input[type="radio"]:checked').forEach(i => { answers[i.name.replace(/^svy_/, '')] = i.value; });
+    $$('#cardSurvey textarea[data-svy]').forEach(t => { if(t.value.trim()) answers[t.dataset.svy] = t.value.trim(); });
+    e.target.disabled = true;
+    try{
+      const r = await API.call('/me/survey', {method:'POST', body:{ answers, anon: $('#svyAnon').checked, contact_me: $('#svyContact').checked, contact_detail: $('#svyContactDetail').value.trim() }});
+      toast(r.note || 'Sent. Thank you.');
+      renderPdocsMini();
+    }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
   if(id === 'detGo'){
     const errEl = $('#detErr');
     try{
-      const r = await API.call('/me/details', {method:'POST', noFor:true, body:{ name: $('#detName').value, phone: $('#detPhone').value, suburb: $('#detSuburb').value }});
+      const r = await API.call('/me/details', {method:'POST', noFor:true, body:{ name: $('#detName').value, phone: $('#detPhone').value, suburb: $('#detSuburb').value,
+        atsi: $('#detAtsi') ? $('#detAtsi').value : undefined, contact_pref: $('#detContact') ? $('#detContact').value : undefined }});
       if(errEl) errEl.hidden = true;
       API.me.name = r.name; API.me.phone = r.phone; API.me.suburb = r.suburb;
+      if(r.atsi !== undefined) API.me.atsi = r.atsi;
+      if(r.contact_pref !== undefined) API.me.contact_pref = r.contact_pref;
       updateAuthUI();
       toast(r.note || 'Saved.');
     }catch(err){ if(errEl){ errEl.textContent = err.message; errEl.hidden = false; } else toast(err.message); }
@@ -13375,12 +13532,14 @@ document.addEventListener('click', async e => {
   }
   if(id === 'payGo'){
     try{
-      const body = { plan: $('#payPlan').value, ndis_number: $('#payNdis').value, pm_email: $('#payPm').value };
+      const body = { plan: $('#payPlan').value, ndis_number: $('#payNdis').value, pm_email: $('#payPm').value,
+        plan_start: $('#payStart') ? $('#payStart').value : '', plan_end: $('#payEnd') ? $('#payEnd').value : '' };
       if(ACCT.pendingBilling) body.confirm = true;
       const r = await API.call('/me/billing', {method:'POST', noFor:true, body});
       ACCT.pendingBilling = null;
       $('#payConfirm').hidden = true;
       API.me.plan = body.plan; API.me.ndis_number = body.ndis_number; API.me.pm_email = body.pm_email;
+      API.me.plan_start = body.plan_start; API.me.plan_end = body.plan_end;
       toast('Saved. ' + (r.note || ''));
     }catch(err){
       if(err.data && err.data.needs_confirm){
@@ -13664,6 +13823,14 @@ document.addEventListener('click', async e => {
       toast('Not accepted — they\'ve been told why, gently, and asked for another copy in the same breath.');
       renderAdminPage(); renderDocRequestsCard();
     }catch(err){ toast(err.message); }
+    return;
+  }
+  /* v86: send the satisfaction survey */
+  const svi = e.target.closest('[data-svy-invite]');
+  if(svi){
+    svi.disabled = true;
+    try{ await API.call('/admin/participants/' + svi.dataset.svyInvite + '/survey-invite', {method:'POST', noFor:true}); toast('Survey sent — it is on their documents page now.'); renderAdminPage(); }
+    catch(err){ toast(err.message); svi.disabled = false; }
     return;
   }
   const pra = e.target.closest('[data-preq-doc]');
