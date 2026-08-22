@@ -1,7 +1,47 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.0.0
+Current release: v86.1.0
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.1.0 — THE SERVICE AGREEMENT IS NOT A FORM
+-------------------------------------------------------------
+The Service Agreement a participant was asked to agree to on screen was
+the printed PDF: dotted lines for the name and address, a "fromdate"
+placeholder, three signature blocks and two blank annexure tables. Pressing
+"I agree" under a page of blanks and signature boxes was a contradiction.
+
+  The agreement is now generated for the person, like the Schedule of
+  Supports: DMHC's fifteen clauses in the same order, with the parties, the
+  NDIS number, the funding arrangement (clause 9 states theirs), the
+  representative and the cancellation windows filled in from the file, and
+  the signature page replaced by the click record. The page is snapshotted
+  beside the acceptance. Edition string: "service-agreement v2, on-screen
+  edition, issued 22/08/2026".
+
+  Anyone who agreed to the PDF sees "Service Agreement needs a fresh click"
+  on their documents page, with the new one to read and an I agree button.
+  The earlier acceptance is kept and still links to the archived PDF. Until
+  they click, nothing about their supports changes and the booking gate
+  still passes on the earlier acceptance.
+
+  The PDF stays on the blank-forms shelf as the text of earlier acceptances.
+  Uploading a new version of it no longer changes what anyone is asked to
+  agree to — a generated document wins over a shelf copy for every key that
+  has one (agreement, schedule, medication consent). To change the
+  agreement's wording, edit GENERATED_DOCS['p-agreement'] in server.js and
+  bump AGREEMENT_EDITION; every participant is then asked again.
+
+  Wording changes from the PDF, for the record: the complaints clause gives
+  hello@bookit.life, the phone number and the Contact page (the PDF gave a
+  personal Gmail address and "by post to" a web address); the cancellation
+  clause states the windows the platform actually publishes (7 days for
+  personal care, daily tasks and community; 48 hours for employment,
+  household and transport) instead of a flat seven days; clause 4 no longer
+  refers to an intake form, because there isn't one. Nothing else changed
+  in substance. Read it once before Monday.
+
+  No migration. SCHEMA_VERSION stays 86000.
 
 
 WHAT CHANGED IN v86.0.0 — THE PARTICIPANT'S FILE

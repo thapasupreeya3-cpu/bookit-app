@@ -7029,7 +7029,7 @@ const FORMS = [
                    generated   the text is rendered by BookIt, not a PDF on a shelf
                    showStatus  office-only, but the participant sees it exists */
   { key: 'p-intake', name: 'Intake / referral form', scope: 'participant', track: 'live', live: 'intake', cadence: 'once', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Access to supports', note: 'Printed from the account, the billing card and the confirmed support plan — the three places the participant already answered every question on it. The registration form is the intake form.' },
-  { key: 'p-agreement', sign: 'click', name: 'Service Agreement', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Service agreements with participants', note: 'Accepted on screen, version recorded. Prices live in the Schedule of Supports, which asks for a fresh click when they move.' },
+  { key: 'p-agreement', sign: 'click', generated: true, name: 'Service Agreement', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'BookIt', requires: 'Core Module — Service agreements with participants', note: 'Written for the person, not a form: DMHC\'s fifteen clauses rendered with their name, NDIS number, funding arrangement and representative filled in, read on screen and accepted by click. The acceptance records who, when and which edition, and the page is snapshotted beside it. The old PDF stays on the shelf as the text of acceptances made before this edition. Prices live in the Schedule of Supports, which is Annexure A and asks for its own click.' },
   { key: 'p-schedule', sign: 'click', generated: true, name: 'Schedule of Supports', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'BookIt', requires: 'Core Module — Service agreements with participants', note: 'Generated from the certificate and the current NDIS price limits and accepted on screen, so it cannot go stale in a folder. When the limits move, the file says so and asks for a fresh click before anything is invoiced at the new figures. Published on the platform, with a record of who agreed to which version.' },
   { key: 'p-support-plan', name: 'Support Plan', scope: 'participant', track: 'live', live: 'support_plan', cadence: 'annual', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Support planning', note: 'BookIt holds this now. The participant confirms it themselves and the review clock runs from their confirmation.' },
   { key: 'p-risk', officeOnly: true, showStatus: true, name: 'Risk Assessment', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management', note: 'Written by the office. The participant sees that it exists and when it was last done, but is never asked to produce it.' },
@@ -7619,6 +7619,7 @@ function tplIdentity(t, p) {
 }
 
 const TPL_CSS = `
+ .clauses{margin:4px 0 12px 22px;padding:0} .clauses li{margin:0 0 6px;font-size:10.8pt;line-height:1.5}
  :root{color-scheme:light}
  *{box-sizing:border-box}
  body{margin:0;background:#EFEDE8;color:#17211F;font:11.5pt/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif}
@@ -7920,7 +7921,156 @@ function genPage(t, body, opts = {}) {
 </div></body></html>`;
 }
 
+const AGREEMENT_EDITION = 'v2, on-screen edition, issued 22/08/2026';
+
 const GENERATED_DOCS = {
+  /* ---- the Service Agreement ---------------------------------------------
+     DMHC's agreement was a PDF with dotted lines for the name and address, a
+     "fromdate" placeholder, three signature blocks and two blank annexure
+     tables. Asking a person to press "I agree" under a page of blanks and
+     signature boxes is the contradiction this replaces: the same fifteen
+     clauses, in the same order, written for the person who is reading them,
+     with the parties, the funding arrangement and the representative filled
+     in from the file and the signature page replaced by the click record.
+     Annexure A is the Schedule of Supports, which is generated and accepted
+     separately; Annexure B (changes) is what versioning is. ---- */
+  'p-agreement': {
+    label: 'Service Agreement', accept: true, issued: '2026-08-22',
+    stale_why: 'The Service Agreement has been rewritten as an on-screen edition \u2014 the same terms, written for you rather than as a form \u2014 and the edition you agreed to is no longer the current one. Read it and agree again; nothing changes about your supports in the meantime.',
+    version: () => `service-agreement ${AGREEMENT_EDITION}`,
+    render(u, plan, opts) {
+      const co = 'Disability and Mental Health Care Pty Ltd';
+      const rep = u.nominee_role && u.nominee_role !== 'none' && u.nominee_name
+        ? `${u.nominee_name}${u.nominee_relationship ? ` (${u.nominee_relationship})` : ''}, ${nomineeLabel(u.nominee_role).toLowerCase()}` : '';
+      const used = genServices(u, plan);
+      const fundingClause = {
+        self: 'You have chosen to self-manage the funding for the supports provided under this Agreement. After providing those supports we will send you an invoice, and you agree to pay it within seven days of its date.',
+        ndia: 'You have nominated the NDIA to manage the funding for the supports provided under this Agreement. After providing those supports we will claim payment from the NDIA.',
+        plan: `You have nominated a plan management provider to manage the funding for the supports provided under this Agreement. After providing those supports we will claim payment from your plan manager${u.pm_email ? ` (${u.pm_email})` : ''}.`,
+        none: 'You are not using NDIS funding for these supports. After providing them we will send you an invoice, and you agree to pay it within seven days of its date.'
+      }[u.plan] || 'Your funding arrangement is not yet recorded on your billing details. Record it there and this clause updates itself.';
+      const windows = [...new Set(SERVICES.map(k => CANCEL_HOURS[k] || 48))].sort((a, b) => b - a)
+        .map(h => `${h >= 24 ? h / 24 + ' days' : h + ' hours'} for ${SERVICES.filter(k => (CANCEL_HOURS[k] || 48) === h).map(k => SERVICE_LABELS[k].toLowerCase()).join(', ')}`).join('; ');
+      const li = (items) => `<ol class="clauses">${items.map(x => `<li>${x}</li>`).join('')}</ol>`;
+      const body = `
+        <h2>1. Parties to the Agreement</h2>
+        <p class="say">This Service Agreement is made between <b>${escHtml(u.name)}</b>${u.suburb ? ` of ${escHtml(u.suburb)}` : ''}${u.ndis_number ? `, NDIS participant number ${escHtml(u.ndis_number)}` : ''} (<i>you</i>)${rep ? `, represented by <b>${escHtml(rep)}</b>,` : ''} and <b>${co}</b>, ABN 19 658 578 575, registered NDIS provider ${escHtml(NDIS_REG_NO)} (<i>we</i> or <i>us</i>).</p>
+        <p class="say">It commences on the day you agree to it on screen and continues until either of us ends it under clause 12.</p>
+        <h2>2. Purpose</h2>
+        <p class="say">The purpose of this Agreement is to document the supports we provide to you under your NDIS plan, in the context of a scheme that aims to support the independence and social and economic participation of people with disability, and to enable people with disability to experience choice and control in the pursuit of their goals and in the planning and delivery of their supports.</p>
+        <h2>3. Definitions</h2>
+        <p class="say"><b>NDIA</b> means the National Disability Insurance Agency, which runs the NDIS. <b>NDIS</b> means the National Disability Insurance Scheme established by the NDIS Act. <b>Services</b> means the supports you agree for us to provide and we agree to provide to you, as set out in your Schedule of Supports (Annexure A) and your support plan. <b>BookIt</b> means our platform at bookit.life, through which supports are booked, delivered, recorded and invoiced. <b>Representative</b> means the person you have recorded on your account as managing it or making decisions with you${rep ? ` \u2014 currently ${escHtml(u.nominee_name)}` : ' \u2014 currently nobody; you make your own decisions'}.</p>
+        <h2>4. Supports and services</h2>
+        ${li([
+          `We will provide you with the supports identified in your NDIS plan. If your plan differs from the details recorded in the NDIS portal, we provide the Services according to the portal.`,
+          `Together with you and your Representative, we determine the specific Services we can offer to help you meet your goals. This is done through your account, your support plan on BookIt, this Agreement and the support planning process; there is no separate intake form.`,
+          `The specifics of each Service \u2014 the support, the day, the time, the length and the worker \u2014 are agreed in writing as a booking on BookIt, which you request and a worker accepts.`,
+          `Your needs, goals and preferences may change over time. You can change your support plan at any time; every version is kept.`,
+          `The supports we may deliver, the NDIS support item each is claimed against and the price are in your Schedule of Supports (Annexure A)${used.length ? `, currently covering ${escHtml(used.map(k => SERVICE_LABELS[k].toLowerCase()).join(', '))}` : ''}.`,
+          `You and your Representative agree to: assessment and review of your plan by us; discussion of your plan with the NDIA and its contractors (such as Local Area Coordinators); our discussions with other providers who support you; our right to claim worker travel from your NDIS funds to the extent the NDIS rules allow; provision of Services in line with this Agreement and your support plan; being available for interviews and record reviews by auditors and regulators; and compliance with our policies, including our Privacy and Information Management Policy.`
+        ])}
+        <h2>5. Consent</h2>
+        ${li([
+          `Your informed consent is required for every Service we provide.`,
+          `You may withdraw your consent for any specific Service at any time, and that Service will cease immediately.`
+        ])}
+        <h2>6. Our responsibilities</h2>
+        <p class="say">We agree to:</p>
+        ${li([
+          `provide all supports under this Agreement as set out in Annexure A, in a manner that is timely and meets your needs;`,
+          `review the provision of supports with you at least annually;`,
+          `once agreed, provide supports at your preferred times;`,
+          `communicate clearly, openly and honestly, in a timely manner;`,
+          `treat you and your Representative with courtesy and respect;`,
+          `consult you on decisions about how supports are provided;`,
+          `give you information about managing complaints and disagreements, and our cancellation policy (clauses 11 and 13);`,
+          `give you the details of independent disability advocacy in your state (the National Disability Advocacy Program, 1800 643 787);`,
+          `listen to your feedback and resolve problems quickly;`,
+          `give you at least 24 hours\u2019 notice if we have to change a scheduled support;`,
+          `give you the required notice if we need to end this Agreement (clause 12);`,
+          `protect your privacy and confidential information;`,
+          `provide supports in a manner consistent with all relevant laws, including the National Disability Insurance Scheme Act 2013, its rules and regulations as amended from time to time, and the Australian Consumer Law;`,
+          `keep accurate records of the supports provided to you \u2014 on BookIt, every shift carries a note written by the worker, which you can read;`,
+          `in the event of a critical or reportable incident, respond according to the NDIS Practice Standards and the NDIS (Incident Management and Reportable Incidents) Rules 2018: the incident is recorded internally; your family, guardian or advocate is told if you agree (we have obligations to report some incidents that do not need your consent); an incident report is completed within 24 hours and, for a reportable incident, the NDIS Commission is notified;`,
+          `in the event of unexpected changes in service provision, such as a worker\u2019s unavailability, work to keep your supports continuous: BookIt first asks the workers you have named as your care web, then paid standby workers, then the wider matched pool, then partner providers, and tells our office when cover cannot be found; you are kept informed and your consent is sought for any alternative arrangement;`,
+          `for emergencies and disasters, follow our Business Continuity Plan and Emergency and Disaster Management Policy, and your own emergency and disaster plan, which is printed from the safety and emergency sections of your support plan.`
+        ])}
+        <h2>7. Your responsibilities</h2>
+        <p class="say">You and your Representative agree to:</p>
+        ${li([
+          `tell us how you wish the Services to be delivered to meet your needs \u2014 your support plan is where that is written;`,
+          `collaborate and actively participate in the development and review of your NDIS plan;`,
+          `provide accurate and up-to-date information necessary for delivery of the Services, including relevant medical, personal and contact details;`,
+          `communicate openly and honestly with us, and tell us of any concerns you have with any Service;`,
+          `treat our staff, workers and others present during the delivery of supports with courtesy and respect;`,
+          `give us the required notice if you cannot make a scheduled support (clause 11), noting that if notice is not given our cancellation policy applies;`,
+          `pay all invoices for agreed services, transport and other expenses promptly;`,
+          `let us know immediately if there is a change to your NDIS plan, if it is suspended or replaced by a new plan, or if you stop being an NDIS participant \u2014 the plan dates on your billing details are where we record this.`
+        ])}
+        <h2>8. Fees for services</h2>
+        ${li([
+          `We charge you for the Services.`,
+          `The price of each Service is the NDIS price limit for that support item, as set out in the NDIS Pricing Arrangements and Price Limits, and is listed in your Schedule of Supports (Annexure A).`,
+          `When the NDIA publishes new price limits, the Schedule is regenerated and you are asked to read and agree to the new one before anything is invoiced at the new figures.`,
+          `Additional expenses \u2014 things not funded under your plan \u2014 are your responsibility and are paid by you.`
+        ])}
+        <h2>9. Payments</h2>
+        <p class="say">We seek payment for supports after they have been delivered. A shift is priced when the worker marks it completed, from the published table at that moment, and the price is then fixed on that shift.</p>
+        <p class="say"><b>Your arrangement:</b> ${escHtml(fundingClause)}</p>
+        <p class="help">The three arrangements the NDIS allows are self-managed (we invoice you), NDIA-managed (we claim from the NDIA) and plan-managed (we claim from your plan manager). You can change yours on your billing details; shifts already claimed keep their payer.</p>
+        <h2>10. Goods and Services Tax</h2>
+        <p class="say">For the purposes of GST legislation, the parties confirm that a supply of supports under this Agreement is a supply of one or more of the reasonable and necessary supports specified in the statement included, under subsection 33(2) of the NDIS Act, in your NDIS plan currently in effect under section 37 of the NDIS Act; that your NDIS plan is expected to remain in effect while the supports are provided; and that you will immediately notify us if your plan is replaced by a new plan or you stop being a participant in the NDIS.</p>
+        <h2>11. Cancellation and no-show policy</h2>
+        ${li([
+          `If a support is cancelled at short notice, or there is a no-show, you agree that we may charge you 100% of the amount that would otherwise have been payable if you do not show up for a scheduled support within a reasonable time or are not present at the agreed place when the worker arrives, or if you give less than the published notice. The notice windows, published on BookIt and in your Schedule of Supports, are ${escHtml(windows)}.`,
+          `We only charge a short-notice cancellation where the NDIS pricing arrangements allow it for that support item, and where we must pay the worker for their time.`,
+          `The NDIS monitors short-notice cancellations and may contact us about participants with a high number of them. We will work with you to minimise cancellations and make sure your plan is meeting your needs.`,
+          `To cancel a support, use the Cancel button on the booking in BookIt; outside office hours you can also call 0488 114 368.`
+        ])}
+        <h2>12. Ending this Agreement</h2>
+        ${li([
+          `Either of us may end this Agreement by giving 28 days\u2019 notice in writing, or by phone if you cannot give written notice.`,
+          `If either of us seriously breaches this Agreement, the requirement for notice is waived.`,
+          `We may end this Agreement immediately if: you cease to have NDIS funding or a source of private funding; your support plan or our Services no longer meet your needs or your goals; you or your support network do not tell us about changes in your support needs; you transfer to another provider; in the event of your death; you show an inability or unwillingness over time to work towards the agreed goals; you do not comply with the reasonable conditions in your support plan and so jeopardise the safe delivery of our Services or the health and safety of our staff; you breach this Agreement or our policies; your condition changes so that you need supports that exceed the skills of our staff or that we lack the capacity to provide; there has been no contact between us for two months; you or members of your support network engage in behaviour we deem unacceptable, such as violence, abuse, aggression, theft, property damage or behaviour that puts the safe delivery of our Services or the health and safety of our staff at risk; you disregard risk management procedures under our Workplace Health and Safety Policy; or you do not pay the fees due by the date they are due.`
+        ])}
+        <h2>13. Complaints and feedback</h2>
+        ${li([
+          `You can give us feedback or make a complaint in person to the Director or a staff member; by phone on 0488 114 368; by email to hello@bookit.life; or on BookIt, through the Contact page with the topic <i>Feedback or complaint</i>, which can be anonymous and can be written by an advocate or family member on your behalf.`,
+          `We resolve complaints promptly in accordance with our Feedback and Complaints Policy. A complaint made on BookIt is given a reference and acknowledged within two business days.`,
+          `Complaining never affects your access to supports.`,
+          `You can make a complaint to the NDIS Quality and Safeguards Commission by phone on 1800 035 544 (TTY 133 677; interpreters can be arranged), through the National Relay Service asking for 1800 035 544, or at ndiscommission.gov.au/about/complaints.`
+        ])}
+        <h2>14. Emergency and disaster management</h2>
+        ${li([
+          `In the event of an unavoidable change to the provision of your supports because of an emergency or disaster, we follow the care continuity plan in clause 6: your own care web first, then standby workers, then the wider pool, then partner providers.`,
+          `Our workers are trained to follow the procedures in our Emergency Management Plan, to keep you safe and your supports maintained.`,
+          `Your Participant Emergency and Disaster Plan is the emergency, continuity and safety sections of your support plan, written with you and printed from it on request${plan ? ` (your plan was confirmed on ${dmy(String(plan.confirmed_at).slice(0, 10))}${plan.disaster_8h ? ' and records that you need essential support within 8 hours of a disaster' : ''})` : ' (you have not yet confirmed a support plan)'}.`
+        ])}
+        <h2>15. Daily personal activities (0107) with sole support workers</h2>
+        ${li([
+          `If we provide daily personal activities with a sole support worker to you and you live alone, we comply with the additional conditions imposed under section 73G of the National Disability Insurance Scheme Act 2013.`,
+          `Where this applies, we record the evaluation of your risk factors on a Participant Risk Assessment, and you receive a copy and an updated version if your circumstances change.`,
+          `We ensure your sole support worker has the skills, qualifications and attributes to provide quality support, and you are involved in choosing them \u2014 on BookIt, you choose.`,
+          `The implementation of this Agreement is evaluated at an appropriate frequency by a person other than the sole support worker, taking in your feedback on the type, quality and frequency of the support.`,
+          `We oversee and assess the sole support worker\u2019s performance at an appropriate frequency. With your consent this includes scheduled supervisory visits to your home, and communication with you in your preferred language and mode, including face-to-face contact at home.`,
+          `With your consent, we establish connections with other providers involved in supporting you at home or in the community.`
+        ])}
+        <h2>Annexures</h2>
+        <p class="say"><b>Annexure A \u2014 Schedule of Supports.</b> Generated from your file and from the current NDIS price limits, and agreed separately on your documents page, so that a price change never makes this Agreement out of date.</p>
+        <p class="say"><b>Annexure B \u2014 Changes to the Schedule.</b> A change to your supports or their prices is a new edition of the Schedule, with its own date and your own fresh agreement. Every edition you have agreed to stays readable on your documents page, with the day you agreed to it.</p>
+        <div class="box note"><b>What agreeing means</b><p>Pressing <i>I agree to this</i> records your name${rep ? ', or your Representative\u2019s name on your behalf' : ''}, the date and the edition shown \u2014 <i>${escHtml(AGREEMENT_EDITION)}</i> \u2014 and keeps a copy of this page as you saw it. It replaces the signature page of the printed agreement. If the text changes, you are asked to read and agree to the new edition; the earlier one stays on your file.</p></div>`;
+      return genPage({
+        title: 'Service Agreement',
+        lede: 'The agreement between you and Disability and Mental Health Care Pty Ltd for the supports we provide under your NDIS plan, written for you from your file.',
+        meta: [['Participant', u.name], ['NDIS number', u.ndis_number || 'not recorded'],
+          ['Representative', rep || 'none \u2014 you make your own decisions'],
+          ['Funding', FUNDING_LABELS[u.plan] || 'not yet recorded'],
+          ['Edition', AGREEMENT_EDITION], ['Provider', `${co}, ABN 19 658 578 575, NDIS provider ${NDIS_REG_NO}`]],
+        footer: `Service Agreement, ${AGREEMENT_EDITION}. Generated ${dmy(ymd())}. Supersedes the printed Service Agreement v1 for acceptances made from this date.`
+      }, body, Object.assign({}, opts, { barNote: 'Read it here, then press I agree on your documents page \u00b7 nothing to print or sign' }));
+    }
+  },
+
   /* ---- the Schedule of Supports ------------------------------------------
      A registered provider on a certificate has to say which supports at what
      price, in writing, before
@@ -8122,11 +8272,14 @@ const GENERATED_DOCS = {
    text of this form, and what version is it. A DB row wins (the office put a
    PDF up); a generated document answers for itself when there is none. */
 function templateFor(key) {
-  const t = formTemplate(key);
-  if (t && (t.file_path || t.link)) return t;
+  /* v86.1: a document BookIt renders for the person beats a blank on the
+     shelf. The shelf copy stays where it is — it is the archived text of
+     every acceptance made before the generated edition existed, and the
+     "read the version I agreed to" link still opens it — but nobody is asked
+     to agree to a form with dotted lines and signature boxes again. */
   const g = GENERATED_DOCS[key];
   if (g && g.accept) return { form_key: key, generated: true, version: g.version(), effective_from: g.issued || '', link: `/api/me/generated/${key}`, file_path: '', file_name: '' };
-  return t;
+  return formTemplate(key);
 }
 
 function renderGenerated(key, pid, req) {
