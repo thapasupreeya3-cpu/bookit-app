@@ -1,0 +1,104 @@
+BookIt — the blank forms, filled in from your Drive
+
+  server.js            → repository root
+  public/index.html    → public/ folder
+  blank-forms/         → not uploaded to git; these are what you put on the
+                         shelf through the admin screen
+  word-originals/      → the .docx exactly as they came out of Drive, in case
+                         you'd rather put those up than the PDFs
+
+Then:  sudo bookit-update
+
+STILL TRUE: on deploy, anyone with no document filed as CPR comes off the
+platform. Credentials → "re-file as…" → CPR (HLTAID009) → "move it".
+
+
+WHAT I TOOK FROM DRIVE
+
+From "Disability and Mental Health Care Pty Ltd - Core Documents". Eleven of
+the sixteen participant rows now have a blank. Each PDF is named with the row
+it belongs to, so uploading is unambiguous:
+
+  p-intake            Participant Intake Form                        9 pages
+  p-agreement         Service Agreement                             12 pages
+  p-risk              Participant Risk Assessment Form               8 pages
+  p-emergency         Participant Emergency Plan                     6 pages
+  p-consent-privacy   Privacy Consent Form                           4 pages
+  p-advocate          Advocate or Support Person Request Form        3 pages
+  p-money             Money and Property Declaration                 3 pages
+  p-medication        Medication Plan + Medication Consent           8 pages
+  p-mealtime          Mealtime Management Plan                       9 pages
+  p-exit              Participant Exit and Transition Form           3 pages
+  p-satisfaction      Participant Satisfaction Survey                4 pages
+
+The medication row is the Plan and the Consent Form joined into one document,
+because the row asks for "Medication Plan and Administration Form + consent"
+and those are two files in Drive.
+
+I checked every one for real data before converting: no participant names, no
+NDIS numbers, no dates of birth. The only names in them are DMHC's own contact
+block — Supriya as Director, the business email and phone — which is what
+belongs on a blank.
+
+
+WHAT IS STILL MISSING — five rows
+
+  Schedule of Supports        DMHCScheduleofSupports.docx is in Drive and is a
+                              complete blank. It came back small enough that it
+                              never got saved to disk here, so upload that one
+                              straight from Drive. Worth knowing: it already
+                              references BookIt — "the live roster is
+                              maintained in the BookIt platform and forms part
+                              of this Schedule".
+  Photo and media consent     No file in Drive. The Privacy Consent Form covers
+                              information sharing, not images.
+  Annual review record        No file in Drive.
+  s73G Living Arrangement     Only the PROCEDURE exists
+    Determination             (DMHCLivingAloneSafeguardsProcedures73G.pdf).
+                              A procedure is not a determination.
+  Copy of the NDIS plan       Needs nothing — it is the NDIA's document.
+
+So three forms genuinely don't exist yet. I can draft them if you want.
+
+
+HOW TO PUT THEM UP
+
+Admin → Documents → "Blank forms — what a participant can download".
+Each row: Choose File → pick the PDF whose name starts with that row's key →
+Save. It appears on every participant's documents page immediately.
+
+Eleven uploads, about five minutes.
+
+
+TWO THINGS I HAD TO FIX TO MAKE THIS WORK
+
+1. The request body cap. Any route not on an explicit allow-list is capped at
+   100 KB, so the shelf refused every form over that size with a message about
+   photos being shrunk. The form-templates route is now on the list, at 12 MB.
+   That list is worth remembering: a new upload route added without being
+   added here fails at whatever size the first real file happens to be.
+
+2. LibreOffice writes /OpenAction into every PDF it exports — a "open at page
+   one" destination, entirely inert, but the upload scanner refuses
+   /OpenAction on sight because it CAN hold a Launch or JavaScript action.
+   Rather than weaken the scanner to fit my own files, the PDFs are rebuilt
+   page-by-page with qpdf so the catalogue has no OpenAction at all. The
+   scanner is unchanged.
+
+The shelf also takes Word files now, not just PDF — these are blanks an
+administrator authored, and a .docx is often more useful to someone who will
+type into it. They are still served as sandboxed attachments.
+
+
+TESTED
+  every form scanned for participant data before conversion   clean
+  all 11 uploaded through the real route                      11 of 11
+  participant page                                            11 "get the
+                                                              blank form"
+                                                              links, one row
+                                                              still saying
+                                                              "ask us"
+  a participant downloads the Service Agreement               200, application/
+                                                              pdf, 82 KB,
+                                                              starts %PDF-
+  npm run check                                               20/20, scan clean

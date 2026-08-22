@@ -4345,6 +4345,12 @@ html.high-contrast .care-stage-block{display:none!important;}
     .c37-docs{margin-top:7px;}
     .c37-docs summary{font-size:.78rem;color:#3E5A64;cursor:pointer;padding:2px 0;}
     .c37-docs[open] summary{font-weight:600;}
+    .pdoc-grp{border-left:3px solid var(--line,#E7DFD4);padding:2px 0 2px 12px;margin:0 0 12px;}
+    .pdoc-grp.mine{border-left-color:#0E6B62;}
+    .pdoc-grp-h{font-size:.82rem;font-weight:700;color:#2B4A55;margin-bottom:3px;}
+    .pdoc-grp-h span{font-weight:600;color:#7A8B93;font-size:.76rem;margin-left:4px;}
+    .pdoc-row{font-size:.88rem;margin:3px 0;color:#3E5A64;}
+    .pdoc-if{font-size:.78rem;color:#8a6d00;background:#FDF3DC;border-radius:6px;padding:1px 7px;}
     .adm-table-wrap{overflow-x:auto;}
     .adm-table{width:100%;border-collapse:collapse;font-size:.92rem;background:rgba(255,255,255,.72);border-radius:12px;overflow:hidden;}
     .adm-table th,.adm-table td{padding:9px 12px;border-bottom:1px solid #EFE8DC;text-align:left;vertical-align:top;}
@@ -6697,6 +6703,7 @@ function route(){
   if(id === 'page-admin' && window.renderAdminPage) renderAdminPage();
   if(id === 'page-admin' && window.renderTrainingMatrix) setTimeout(renderTrainingMatrix, 600);
   if(id === 'page-admin' && window.renderDocRequestsCard) setTimeout(renderDocRequestsCard, 700);
+  if(id === 'page-admin' && window.renderBlankForms) setTimeout(renderBlankForms, 750);
   if(id === 'page-worker') renderWorkerPage(Number(workerMatch[1]));
   if(id === 'page-job' && window.renderJobPage) renderJobPage(Number(jobMatch[1]));
   if(id === 'page-jobs' && window.renderJobsBoard) renderJobsBoard();
@@ -9323,6 +9330,7 @@ async function renderAdminPage(){
     H('Audit pack — one download, everything in it') + auditPackHtml(pack)
     + H('Participant files ', pMissingN === null ? '' : pMissingN ? red(pMissingN + ' not on file')
         : '<span style="color:#2E6B4F;">(complete)</span>') + participantFiles
+    + H('Blank forms — what a participant can download') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>'
     + H('Forms register — where every document lives')
     + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')
     + H('Support plans ', plans && plans.counts.critical ? red(plans.counts.critical + ' critical') : '')
@@ -9857,6 +9865,33 @@ document.addEventListener('click', async e => {
         body:{ doc_type: bx.querySelector('.rt-type').value }});
       toast('Moved to ' + r.label + (r.changed && r.changed.restored ? ' — and that puts them back on the platform.' : '') + ' The verification stands.');
       renderAdminPage();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  /* put a blank form up, or take it down */
+  const bfs = e.target.closest('[data-bf-save]');
+  if(bfs){
+    const key = bfs.dataset.bfSave;
+    const fileEl = document.querySelector(`[data-bf-file="${key}"]`);
+    const linkEl = document.querySelector(`[data-bf-link="${key}"]`);
+    const link = linkEl ? linkEl.value.trim() : '';
+    let file = null;
+    if(fileEl && fileEl.files && fileEl.files[0]) file = await fileToB64(fileEl);
+    if(!file && !link){ toast('Choose a file, or paste a link to where the blank lives.'); return; }
+    bfs.disabled = true;
+    try{
+      await API.call('/admin/form-templates/' + key, {method:'POST', noFor:true, body:{ file, link }});
+      toast('Up. Participants can download it from their own documents page now.');
+      renderBlankForms();
+    }catch(err){ toast(err.message); bfs.disabled = false; }
+    return;
+  }
+  const bfd = e.target.closest('[data-bf-del]');
+  if(bfd){
+    try{
+      await API.call('/admin/form-templates/' + bfd.dataset.bfDel + '/delete', {method:'POST', noFor:true});
+      toast('Removed.');
+      renderBlankForms();
     }catch(err){ toast(err.message); }
     return;
   }
@@ -13067,13 +13102,38 @@ async function renderPdocsMini(){
       : ' · <span class="muted-sm">recorded, no file</span>'}${!d.verified_at ? ` · <button type="button" class="adm-btn-sm" data-mpd-del="${d.id}">remove</button>` : ''}${d.review === 'rejected' && d.review_note ? `<br><span style="color:#A5301A;font-size:.82rem;"><b>Why:</b> ${esc(d.review_note)} — add another copy and it takes this one's place.</span>` : ''}</p>`).join('');
   const missing = (pf.outstanding || []);
   const reqs = (pf.requests || []);
+  /* Sixteen names in one paragraph read as sixteen jobs. Eleven of them are
+     somebody else's, and several only apply in circumstances that may not be
+     this person's, so the list is grouped by whose job it is and each row says
+     when it applies and where the blank is. Same data, four fewer wrong
+     impressions. */
+  const OWNERS = pf.owners || {};
+  const ORDER = ['participant', 'cosigned', 'clinical', 'ndia', 'office'];
+  const missingGroups = ORDER.map(o => {
+    const items = missing.filter(x => (x.owner || 'participant') === o);
+    if(!items.length) return '';
+    const meta = OWNERS[o] || { label: o, blurb: '' };
+    return `<div class="pdoc-grp${o === 'participant' ? ' mine' : ''}">
+      <div class="pdoc-grp-h">${esc(meta.label)} <span>${items.length}</span></div>
+      ${meta.blurb ? `<p class="muted-sm" style="margin:0 0 7px;">${esc(meta.blurb)}</p>` : ''}
+      ${items.map(x => `<div class="pdoc-row">
+        <b>${esc(x.label)}</b>${x.only_if ? ` <span class="pdoc-if">${esc(x.only_if)}</span>` : ''}
+        ${x.template && x.template.has_file
+          ? ` · <a href="/api/form-templates/${esc(x.key)}/file" target="_blank" rel="noopener">get the blank form</a>`
+          : x.template && x.template.link
+            ? ` · <a href="${esc(x.template.link)}" target="_blank" rel="noopener noreferrer">get the blank form</a>`
+            : (x.owner === 'participant' ? ' · <span class="muted-sm">ask us for a blank</span>' : '')}
+        ${x.requested_at ? ` · <span style="color:#8a6d00;">we asked ${x.waiting_days === 0 ? 'today' : x.waiting_days + 'd ago'}</span>` : ''}
+      </div>`).join('')}
+    </div>`;
+  }).join('');
   wrap.innerHTML = `
   <div class="info-card" style="margin-bottom:12px;" id="cardDocsMini">
     <h3 style="margin:0 0 6px;">My documents</h3>
-    <p class="mini-note">${pf.held != null ? `<b>${pf.held} of ${pf.of} on file.</b> ` : ''}Only you and the office see these — workers never do.</p>
+    <p class="mini-note">${pf.held != null ? `<b>${pf.yours_held ?? 0} of ${pf.yours_of ?? 0} of yours on file.</b> ` : ''}Only you and the office see these — workers never do.${pf.of != null ? ` Your file holds ${pf.held} of ${pf.of} documents in all; most of the rest are ours to write, or come from someone else.` : ''}</p>
     ${reqs.length ? `<p class="mini-note" style="color:#8a6d00;"><b>The office has asked for:</b> ${reqs.map(r => esc(r.label)).join(', ')} — add it below and the ask closes itself.</p>` : ''}
     <div class="mini-rows">${rows || '<p class="muted-sm">Nothing on file yet.</p>'}</div>
-    ${missing.length ? `<p class="mini-note" style="margin:10px 0 0;"><b>Not on file yet:</b> ${missing.map(x => esc(x.label || x)).join(' · ')}</p>` : ''}
+    ${missing.length ? `<div style="margin-top:12px;"><p class="mini-note" style="margin:0 0 8px;"><b>Not on file yet</b></p>${missingGroups}</div>` : ''}
     <div style="display:flex;gap:8px 10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;">
       <label style="font-size:.82rem;">Add a document<br><select id="mpdType" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;max-width:210px;">${pTypes.map(t => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('')}</select></label>
       <label style="font-size:.82rem;">Name it <span class="muted-sm">(if "Other")</span><br><input id="mpdLabel" maxlength="90" placeholder="e.g. OT seating report" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;width:170px;"></label>
@@ -13356,6 +13416,41 @@ function reviewChip(dd){
 }
 
 /* ---- the office's register of open requests, on the admin page ---- */
+/* --- the blanks -----------------------------------------------------------
+   Eleven of the sixteen participant forms are ours to author, and the platform
+   could say so and do nothing about it. One shelf: put the blank up once and
+   it appears on every participant's own documents page, next to the row that
+   asks them for it. A link works where the blank lives somewhere else. */
+async function renderBlankForms(){
+  const host = $('#admBlankForms');
+  if(!host) return;
+  let d;
+  try{ d = await API.call('/form-templates', {noFor:true}); }
+  catch(e){ host.innerHTML = `<p class="adm-empty">${esc(e.message)}</p>`; return; }
+  const OWNER_LABEL = { participant: 'theirs to fill in', cosigned: 'they sign, we write',
+    clinical: 'a clinician writes it', office: 'ours', ndia: 'a copy of the NDIS plan' };
+  host.innerHTML = `
+    <p class="muted-sm" style="margin:0 0 12px;">Put a blank up once and it shows on every participant's documents page, beside the row that asks for it. PDF, Word, JPG or PNG up to 8 MB — or a link, if the blank lives somewhere else.</p>
+    <div class="adm-table-wrap"><table class="adm-table"><thead><tr>
+      <th>Form</th><th>Whose</th><th>Blank on file</th><th style="min-width:290px;">Put one up</th>
+    </tr></thead><tbody>
+    ${(d.templates || []).map(t => `<tr>
+      <td><b>${esc(t.label)}</b>${t.only_if ? `<br><span class="muted-sm">${esc(t.only_if)}</span>` : ''}</td>
+      <td><span class="muted-sm">${esc(OWNER_LABEL[t.owner] || t.owner)}</span></td>
+      <td>${t.has_file
+          ? `<a href="/api/form-templates/${esc(t.key)}/file" target="_blank" rel="noopener">${esc(t.file_name || 'blank form')}</a>`
+          : t.link ? `<a href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">link</a>`
+          : '<span class="adm-empty">nothing yet</span>'}
+        ${t.updated_at ? `<br><span class="muted-sm">${fmtStamp(t.updated_at)}${t.updated_by ? ' · ' + esc(t.updated_by) : ''}</span>` : ''}</td>
+      <td>
+        <input type="file" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" data-bf-file="${esc(t.key)}" style="font-size:.78rem;max-width:180px;">
+        <input placeholder="or https:// link" data-bf-link="${esc(t.key)}" value="${esc(t.link || '')}" style="font:inherit;font-size:.78rem;padding:4px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:170px;margin-top:4px;">
+        <button class="adm-btn-sm" data-bf-save="${esc(t.key)}" type="button">Save</button>
+        ${t.has_file || t.link ? `<button class="adm-btn-sm" data-bf-del="${esc(t.key)}" style="color:#D94F32;" type="button">remove</button>` : ''}
+      </td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+
 const ADMREQ = { types: null };
 async function renderDocRequestsCard(){
   const host = $('#admDocReqCard');
@@ -13510,7 +13605,7 @@ document.addEventListener('click', async e => {
     if(location.hash.startsWith('#/bookings')) renderBookingsPage();
     if(location.hash.startsWith('#/support-plan')){ renderSupportPlanPage(); spExtras(); }
   }
-  if(location.hash.startsWith('#/admin')){ renderAdminPage(); setTimeout(renderTrainingMatrix, 700); setTimeout(renderDocRequestsCard, 800); }
+  if(location.hash.startsWith('#/admin')){ renderAdminPage(); setTimeout(renderTrainingMatrix, 700); setTimeout(renderDocRequestsCard, 800); setTimeout(renderBlankForms, 850); }
   if(location.hash.startsWith('#/worker/')) renderWorkerPage(Number(location.hash.split('/')[2]));
   if(location.hash.startsWith('#/clients')) renderClientsPage();
   if(location.hash.startsWith('#/access')) renderAccessPage();

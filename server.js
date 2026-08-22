@@ -810,6 +810,28 @@ db.exec(`CREATE TABLE IF NOT EXISTS form_records (
    One row per document, keyed to the form in the register it satisfies, so
    the register and the folder cannot drift: if the register says the Risk
    Assessment is held, this is where the file is. --- */
+/* --- the blank form, kept where the person who has to fill it in is ------
+
+   Eleven of the sixteen participant forms are authored by DMHC, and until now
+   the platform knew that and could do nothing with it: `template` said "DMHC"
+   and there was no field anywhere for where the blank actually lived. So the
+   screen asked a participant for a document and gave them no way to get it.
+
+   One blank per form key. The office uploads it once and every participant
+   gets it — a file we hold, or a link to one we don't. Nothing about a
+   particular person is in here, which is why it is one row per form and not
+   one per participant, and why it can be served to anyone signed in. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS form_templates (
+  form_key TEXT PRIMARY KEY,
+  file_name TEXT DEFAULT '',
+  file_mime TEXT DEFAULT '',
+  file_path TEXT DEFAULT '',
+  link TEXT DEFAULT '',
+  note TEXT DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT '',
+  updated_by TEXT DEFAULT ''
+);`);
+
 db.exec(`CREATE TABLE IF NOT EXISTS participant_docs (
   id INTEGER PRIMARY KEY,
   participant_id INTEGER NOT NULL REFERENCES users(id),
@@ -6780,18 +6802,18 @@ const FORMS = [
   { key: 'p-risk', name: 'Risk Assessment', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management' },
   { key: 'p-emergency', name: 'Participant Emergency and Disaster Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Continuity of supports', note: 'The support plan asks whether essential safety support is needed within 8 hours of a disaster. That answer belongs in this plan.' },
   { key: 'p-consent-privacy', name: 'Privacy and information-sharing consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
-  { key: 'p-consent-media', name: 'Photo and media consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
-  { key: 'p-advocate', name: 'Advocate / nominee / decision-maker form', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Independence and informed choice' },
-  { key: 'p-money', name: 'Money and Property Declaration', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Participant money and property' },
-  { key: 'p-medication', name: 'Medication Plan and Administration Form + consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + prescriber', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'The Drive copy is on file but entirely blank per-medication. If a completed copy is held elsewhere, record it here with the date it was filed rather than completing the blank one.' },
-  { key: 'p-mealtime', name: 'Mealtime Management Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'DMHC', requires: 'Recorded as met on DMHC\'s 2025 Core Module audit sheet', note: 'The two 2025 audit sheets contradict each other — one ticks it as met, the participant file records it was declined. Both cannot be true.' },
+  { key: 'p-consent-media', onlyIf: 'only if photos or video of you might be used', name: 'Photo and media consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
+  { key: 'p-advocate', onlyIf: 'only if someone helps you make decisions', name: 'Advocate / nominee / decision-maker form', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Independence and informed choice' },
+  { key: 'p-money', onlyIf: 'only if we handle any of your money or property', name: 'Money and Property Declaration', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Participant money and property' },
+  { key: 'p-medication', onlyIf: 'only if we support you with medication', name: 'Medication Plan and Administration Form + consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + prescriber', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'The Drive copy is on file but entirely blank per-medication. If a completed copy is held elsewhere, record it here with the date it was filed rather than completing the blank one.' },
+  { key: 'p-mealtime', onlyIf: 'only if there is a mealtime or swallowing risk', name: 'Mealtime Management Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'DMHC', requires: 'Recorded as met on DMHC\'s 2025 Core Module audit sheet', note: 'The two 2025 audit sheets contradict each other — one ticks it as met, the participant file records it was declined. Both cannot be true.' },
   { key: 'p-care-plans', name: 'Clinical care plans named in the support plan', scope: 'participant', track: 'live', live: 'care_plans', cadence: 'on-change', signed: 'Clinician', template: 'none', requires: 'Core Module — Support planning', note: 'The support plan asks the participant to name every care plan they have. Any name with no document behind it shows up here.' },
   { key: 'p-ndis-plan', name: 'Copy of the current NDIS plan + plan dates', scope: 'participant', track: 'drive', cadence: 'expiry', signed: 'NDIA', template: 'none', requires: 'Core Module — Service agreements with participants', note: 'The plan on file expired 24/06/2026 while supports continued.' },
   { key: 'p-notes', name: 'Progress notes / shift notes', scope: 'participant', track: 'live', live: 'shift_notes', cadence: 'per-event', signed: 'Worker', template: 'BookIt', requires: 'Core Module — Responsive support provision', note: 'Append-only in BookIt. A note that can be quietly rewritten is not evidence of anything.' },
   { key: 'p-satisfaction', name: 'Participant Satisfaction Survey', scope: 'participant', track: 'missing', cadence: 'annual', signed: 'Participant', template: 'none', requires: 'Core Module — Quality management', note: 'Never run. Due annually.' },
   { key: 'p-annual-review', name: 'Annual review record', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'none', requires: 'Core Module — Support planning' },
-  { key: 'p-living-arrangement', name: 'Living Arrangement Determination (s73G)', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'NDIS Act s73G condition on this registration', note: 'Settles the contradiction between "lives with parents" in the support plan and the sole-worker clause in the agreement.' },
-  { key: 'p-exit', name: 'Exit / transition record', scope: 'participant', track: 'drive', cadence: 'per-event', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Transitions to or from the provider' }
+  { key: 'p-living-arrangement', onlyIf: 'only where the s73G condition applies', name: 'Living Arrangement Determination (s73G)', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'NDIS Act s73G condition on this registration', note: 'Settles the contradiction between "lives with parents" in the support plan and the sole-worker clause in the agreement.' },
+  { key: 'p-exit', onlyIf: 'only when supports end', name: 'Exit / transition record', scope: 'participant', track: 'drive', cadence: 'per-event', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Transitions to or from the provider' }
 ];
 const FORM_SCOPES = [
   { key: 'company', label: 'The company holds one of each', per: 'once' },
@@ -7494,17 +7516,52 @@ route('GET', /^\/api\/templates$/, (req, res) => {
   });
 });
 
+/* --- whose job is this form ----------------------------------------------
+
+   The participant's file listed sixteen documents flat, under a heading that
+   counted them, on the participant's own settings page. Eleven of the sixteen
+   are somebody else's to write — two are the Director's and the participant
+   never touches them, one is a copy of a plan the NDIA wrote, one needs a
+   clinician — and several only apply in circumstances that may not be theirs.
+   Read as a to-do list, which is exactly how it reads, it asks a person with a
+   disability to produce eleven documents they cannot produce.
+
+   `signed` already knew all of this. Nothing was passing it on. */
+const PDOC_OWNERS = {
+  participant: { label: 'Yours to fill in and send back',
+    blurb: 'These are yours. Fill them in, take a photo or attach the PDF, and add them below.' },
+  cosigned:    { label: 'We write these, you sign them',
+    blurb: 'We prepare these and bring them to you. Nothing to do until we do.' },
+  clinical:    { label: 'Someone else has to write these',
+    blurb: 'A prescriber or clinician writes these. Ask us and we will chase it with you.' },
+  office:      { label: 'We look after these',
+    blurb: 'Ours to write and keep current. They are on your file for completeness, not for you to do.' },
+  ndia:        { label: 'A copy of something you already have',
+    blurb: 'Nothing to fill in — we just need a copy on file.' }
+};
+function pdocOwner(signed) {
+  const sg = String(signed || '');
+  if (sg === 'Participant') return 'participant';
+  if (sg === 'NDIA') return 'ndia';
+  if (sg === 'Clinician') return 'clinical';
+  if (/prescriber|clinician/i.test(sg)) return 'clinical';
+  if (/^Participant \+/.test(sg)) return 'cosigned';
+  return 'office';
+}
+
 const PDOC_CATALOG = FORMS.filter(f => f.scope === 'participant' && f.track !== 'live').map(f => ({
   key: f.key,
   label: f.name,
   cadence: f.cadence,
   signed: f.signed || '',
+  owner: pdocOwner(f.signed),
+  only_if: f.onlyIf || '',
   requires: f.requires || '',
   /* only the NDIS plan carries a hard expiry. Everything else has a review
      cadence, which is a different thing and should not fail validation. */
   expiry: f.cadence === 'expiry' ? 'required' : 'optional',
   help: f.note || ''
-})).concat([{ key: 'p-other', label: 'Other document', cadence: 'per-event', signed: '', requires: '',
+})).concat([{ key: 'p-other', label: 'Other document', cadence: 'per-event', signed: '', owner: 'participant', only_if: '', requires: '',
   expiry: 'optional', needsLabel: true, help: 'Anything else that belongs on this person\'s file. Give it a name.' }]);
 const PDOC_MAP = Object.fromEntries(PDOC_CATALOG.map(d => [d.key, d]));
 const PDOC_METHODS = {
@@ -7806,16 +7863,122 @@ function participantFile(pid) {
     /* Still outstanding even once we have asked. A request is a fact about
        the gap, not a filling of it — the only thing it changes is that the
        list can now say when we asked and stop the office asking again. */
+    /* the same list, but able to answer "is this mine?" and "where do I get
+       the blank?" — the two questions the flat version could not */
+    owners: PDOC_OWNERS,
     outstanding: PDOC_CATALOG.filter(c => c.key !== 'p-other' && !noted.has(c.key))
       .map(c => ({ key: c.key, label: c.label, signed: c.signed, requires: c.requires,
+        owner: c.owner, only_if: c.only_if,
+        template: (() => { const t = formTemplate(c.key);
+          return t ? { has_file: Boolean(t.file_path), link: t.link || '', file_name: t.file_name || '' } : null; })(),
         requested_at: (asked[c.key] || {}).requested_at || '',
         requested_by: (asked[c.key] || {}).requested_by || '',
         requested_note: (asked[c.key] || {}).note || '',
         waiting_days: (asked[c.key] || {}).waiting_days ?? null })),
     held: have.size,
-    of: PDOC_CATALOG.filter(c => c.key !== 'p-other').length
+    of: PDOC_CATALOG.filter(c => c.key !== 'p-other').length,
+    /* The office needs the whole-file number; the participant needs to know
+       how much of it is theirs. Sending only the first turned a five-item ask
+       into a sixteen-item one, on their own settings page. */
+    yours_held: PDOC_CATALOG.filter(c => c.key !== 'p-other' && c.owner === 'participant' && have.has(c.key)).length,
+    yours_of: PDOC_CATALOG.filter(c => c.key !== 'p-other' && c.owner === 'participant').length
   };
 }
+
+/* --- blank forms: one shelf, three doors ---------------------------------
+   The office puts a blank up, anyone signed in can take a copy, and the row
+   knows when it was last replaced and by whom — because a service agreement
+   template that quietly changed in March is a thing an auditor asks about. */
+const TEMPLATE_MIMES = Object.assign({}, DOC_MIMES, {
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/msword': '.doc'
+});
+function formTemplate(key) {
+  return db.prepare('SELECT * FROM form_templates WHERE form_key = ?').get(key) || null;
+}
+
+route('GET', /^\/api\/form-templates$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const rows = db.prepare('SELECT * FROM form_templates').all();
+  const by = Object.fromEntries(rows.map(r => [r.form_key, r]));
+  json(res, 200, {
+    templates: PDOC_CATALOG.filter(c => c.key !== 'p-other').map(c => {
+      const t = by[c.key];
+      return { key: c.key, label: c.label, owner: c.owner, only_if: c.only_if,
+        has_file: Boolean(t && t.file_path), link: (t && t.link) || '',
+        file_name: (t && t.file_name) || '', note: (t && t.note) || '',
+        updated_at: (t && t.updated_at) || '', updated_by: (t && t.updated_by) || '' };
+    })
+  });
+});
+
+route('GET', /^\/api\/form-templates\/([a-z0-9-]+)\/file$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const t = formTemplate(String(m[1]));
+  if (!t || !t.file_path) return json(res, 404, { error: 'No blank form on file for that one yet.' });
+  let buf;
+  try { buf = fs.readFileSync(t.file_path); } catch { return json(res, 404, { error: 'The file is missing from the server.' }); }
+  res.writeHead(200, {
+    'Content-Type': t.file_mime || 'application/octet-stream',
+    'Content-Disposition': `attachment; filename="${(t.file_name || 'form').replace(/[^\w.\- ]/g, '')}"`,
+    'Content-Security-Policy': 'sandbox',
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'no-store, private'
+  });
+  res.end(buf);
+});
+
+route('POST', /^\/api\/admin\/form-templates\/([a-z0-9-]+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const key = String(m[1]);
+  const cat = PDOC_MAP[key];
+  if (!cat || key === 'p-other') return json(res, 400, { error: 'No such form.' });
+  body = body || {};
+  const link = clean(body.link, 500);
+  if (link && !/^https:\/\//i.test(link)) return json(res, 400, { error: 'A link has to start with https://' });
+  const prev = formTemplate(key);
+  let fileName = prev ? prev.file_name : '', fileMime = prev ? prev.file_mime : '', filePath = prev ? prev.file_path : '';
+  if (body.file && body.file.data) {
+    fileMime = String(body.file.mime || '');
+    /* Wider than the participant upload path on purpose. These are blanks the
+       office authored, put up by an administrator — a Word original is often
+       the more useful thing to hand someone who will type into it, and the
+       reason participant uploads are narrow (an unknown file from an unknown
+       person) does not apply here. Served as an attachment with nosniff and a
+       sandbox policy either way, so nothing renders in the browser. */
+    if (!TEMPLATE_MIMES[fileMime]) return json(res, 400, { error: 'Blank forms must be PDF, Word (.docx), JPG or PNG.' });
+    let buf;
+    try { buf = Buffer.from(String(body.file.data).replace(/^data:[^,]*,/, ''), 'base64'); } catch { return json(res, 400, { error: 'Could not read that file.' }); }
+    if (!buf.length || buf.length > 8 * 1024 * 1024) return json(res, 400, { error: 'Blank forms can be up to 8 MB.' });
+    fileName = clean(body.file.name, 90).replace(/[^A-Za-z0-9. _-]/g, '') || ('blank' + TEMPLATE_MIMES[fileMime]);
+    const next = path.join(DOCS_DIR, `tpl-${key}-${Date.now()}${TEMPLATE_MIMES[fileMime]}`);
+    fs.writeFileSync(next, buf);
+    if (filePath && filePath !== next) { try { fs.unlinkSync(filePath); } catch {} }
+    filePath = next;
+  }
+  db.prepare(`INSERT INTO form_templates (form_key, file_name, file_mime, file_path, link, note, updated_at, updated_by)
+    VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT(form_key) DO UPDATE SET file_name = excluded.file_name, file_mime = excluded.file_mime,
+      file_path = excluded.file_path, link = excluded.link, note = excluded.note,
+      updated_at = excluded.updated_at, updated_by = excluded.updated_by`)
+    .run(key, fileName, fileMime, filePath, link, clean(body.note, 200), now(), user.name);
+  logCompliance({ kind: 'form-template', result: 'updated',
+    detail: `Blank form for "${cat.label}" ${filePath ? 'uploaded' : link ? 'linked' : 'cleared'}.`,
+    source: 'Forms register', checked_by: user.name });
+  json(res, 200, { ok: true, has_file: Boolean(filePath), link });
+});
+
+route('POST', /^\/api\/admin\/form-templates\/([a-z0-9-]+)\/delete$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const t = formTemplate(String(m[1]));
+  if (!t) return json(res, 404, { error: 'Nothing to remove.' });
+  if (t.file_path) { try { fs.unlinkSync(t.file_path); } catch {} }
+  db.prepare('DELETE FROM form_templates WHERE form_key = ?').run(String(m[1]));
+  logCompliance({ kind: 'form-template', result: 'removed',
+    detail: `Blank form for "${(PDOC_MAP[String(m[1])] || {}).label || m[1]}" removed.`,
+    source: 'Forms register', checked_by: user.name });
+  json(res, 200, { ok: true });
+});
 
 route('GET', /^\/api\/me\/participant-documents$/, (req, res, m, user) => {
   const pers = actFor(req, user, 'documents');
@@ -14700,9 +14863,14 @@ const server = http.createServer((req, res) => {
 
   let raw = '';
   let overflow = false;
+  /* Anything that carries a base64 file needs room; everything else is capped
+     hard at 100 KB. A route added without being listed here fails at whatever
+     size the first real file happens to be, with a message about photos —
+     which is how the blank-forms shelf failed the first time it was tried. */
   const bodyCap = (pathname === '/api/me/documents' || pathname === '/api/me/photo'
     || pathname === '/api/me/participant-documents'
-    || /^\/api\/admin\/participants\/\d+\/documents$/.test(pathname)) ? 8_000_000 : 100_000; /* uploads carry base64 files */
+    || /^\/api\/admin\/form-templates\/[a-z0-9-]+$/.test(pathname)
+    || /^\/api\/admin\/participants\/\d+\/documents$/.test(pathname)) ? 12_000_000 : 100_000; /* uploads carry base64 files */
   req.on('data', chunk => {
     if (overflow) return; /* keep draining so the response can get through, but stop buffering */
     raw += chunk;
