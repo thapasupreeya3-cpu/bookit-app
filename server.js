@@ -7897,6 +7897,49 @@ function formTemplate(key) {
   return db.prepare('SELECT * FROM form_templates WHERE form_key = ?').get(key) || null;
 }
 
+/* --- the shelf arrives stocked ------------------------------------------
+
+   The first version of this shipped an empty shelf and eleven PDFs in a zip,
+   with instructions to upload them one at a time through the admin screen.
+   That is not "the forms are on the site", that is a chore list, and a chore
+   list is a thing that does not get done.
+
+   So the blanks ship in the repository, in forms/, named for the row they
+   belong to, and the first boot after a deploy files any that are missing.
+   Seeded once and once only: a marker per key means an administrator who
+   deliberately removes a blank does not find it back the next morning, which
+   is the failure mode of every auto-import ever written. Replacing one
+   through the admin screen simply overwrites the row, and the marker stops
+   the shipped copy arguing with it. --- */
+const FORMS_DIR = path.join(__dirname, 'forms');
+function seedFormTemplates() {
+  let files;
+  try { files = fs.readdirSync(FORMS_DIR); } catch { return; }
+  let filed = 0;
+  for (const name of files) {
+    const key = name.replace(/\.(pdf|docx|doc|jpe?g|png)$/i, '');
+    const cat = PDOC_MAP[key];
+    if (!cat || key === 'p-other') continue;
+    if (setting('tplseed:' + key, '')) continue;          /* already offered once */
+    if (formTemplate(key)) { setSetting('tplseed:' + key, now()); continue; }
+    const ext = path.extname(name).toLowerCase();
+    const mime = Object.keys(TEMPLATE_MIMES).find(k => TEMPLATE_MIMES[k] === ext);
+    if (!mime) continue;
+    try {
+      const src = path.join(FORMS_DIR, name);
+      const dest = path.join(DOCS_DIR, `tpl-${key}-${Date.now()}${ext}`);
+      fs.copyFileSync(src, dest);
+      db.prepare(`INSERT INTO form_templates (form_key, file_name, file_mime, file_path, link, note, updated_at, updated_by)
+        VALUES (?,?,?,?,'','',?,?)`)
+        .run(key, `${cat.label.replace(/[\/+]/g, ' ').replace(/[^\w.\- ]/g, '').replace(/\s+/g, ' ').trim()}${ext}`, mime, dest, now(), 'Shipped with the release');
+      setSetting('tplseed:' + key, now());
+      filed++;
+    } catch (e) { console.error('form template seed:', key, e.message); }
+  }
+  if (filed) console.log(`Blank forms: ${filed} filed from forms/ — participants can download them now.`);
+}
+try { seedFormTemplates(); } catch (e) { console.error('form template seed:', e.message); }
+
 route('GET', /^\/api\/form-templates$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const rows = db.prepare('SELECT * FROM form_templates').all();
