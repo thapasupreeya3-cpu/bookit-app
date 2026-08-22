@@ -821,6 +821,35 @@ db.exec(`CREATE TABLE IF NOT EXISTS form_records (
    gets it — a file we hold, or a link to one we don't. Nothing about a
    particular person is in here, which is why it is one row per form and not
    one per participant, and why it can be served to anyone signed in. --- */
+/* --- every version, kept -------------------------------------------------
+
+   Hireup publishes its client Service Agreement as numbered versions with the
+   dates each was current — version 5 from 17 March 2026, version 4 from
+   4 March 2024, back to version 2 in 2018 — and each account records which one
+   it accepted and when. That is not bureaucracy. It is the only way an
+   acceptance means anything: "they agreed" is a claim about a document, and if
+   the document has been replaced the claim cannot be checked.
+
+   The first version of this file deleted the old blank when a new one went up.
+   Every acceptance made before that moment pointed at nothing. So: replacing a
+   blank archives the one it replaces, keeps the file, and increments a version
+   number a human can say out loud. Nothing is ever unlinked. --- */
+db.exec(`CREATE TABLE IF NOT EXISTS form_template_versions (
+  id INTEGER PRIMARY KEY,
+  form_key TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  effective_from TEXT DEFAULT '',
+  superseded_at TEXT DEFAULT '',
+  file_name TEXT DEFAULT '',
+  file_mime TEXT DEFAULT '',
+  file_path TEXT DEFAULT '',
+  link TEXT DEFAULT '',
+  note TEXT DEFAULT '',
+  created TEXT NOT NULL DEFAULT '',
+  created_by TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_tplver ON form_template_versions (form_key, version);`);
+
 db.exec(`CREATE TABLE IF NOT EXISTS form_templates (
   form_key TEXT PRIMARY KEY,
   file_name TEXT DEFAULT '',
@@ -831,6 +860,9 @@ db.exec(`CREATE TABLE IF NOT EXISTS form_templates (
   updated_at TEXT NOT NULL DEFAULT '',
   updated_by TEXT DEFAULT ''
 );`);
+for (const col of ['version INTEGER DEFAULT 1', "effective_from TEXT DEFAULT ''"]) {
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE form_templates ADD COLUMN ${col}`);
+}
 
 db.exec(`CREATE TABLE IF NOT EXISTS participant_docs (
   id INTEGER PRIMARY KEY,
@@ -851,6 +883,12 @@ db.exec(`CREATE TABLE IF NOT EXISTS participant_docs (
   verify_note TEXT DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_pdocs_person ON participant_docs (participant_id, form_key);`);
+/* An acceptance made in the platform is a stronger record than a scan of a
+   signature, provided it says which version was on the screen at the time.
+   Without that, "they agreed" is a claim about a document nobody can produce. */
+for (const col of ['accepted_at TEXT', 'accepted_ip TEXT', 'accepted_version TEXT']) {
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE participant_docs ADD COLUMN ${col}`);
+}
 
 /* --- a tiny key/value store so award figures aren't welded into the source.
    SCHADS rates move every 1 July; an admin should be able to change one number
@@ -5786,12 +5824,49 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   const sleepover = body.sleepover && ['personal-care', 'daily-tasks'].includes(service) ? 1 : 0;
   const notes = clean(body.notes, 600);
 
-  /* 11. an expired support plan stops the NEXT booking, never the ones
-     already in the diary. Somebody relying on Tuesday morning does not lose
-     it because a review date passed on Monday. */
+  /* --- what has to be true before a first shift can be asked for ---------
+
+     Three things, and the test for each is the same: is this the
+     participant's own to do, and can they do it in minutes? Funding, because
+     an invoice with nowhere to go is not a support. The service agreement,
+     because the Practice Standards want the terms agreed before supports
+     start and it is now one click rather than a printed signature. And a
+     support plan, because sending a worker to someone whose needs nobody has
+     written down is the thing this whole platform exists to prevent.
+
+     Not the other thirteen. Most are ours to write, several may never apply,
+     and a gate that waits on the office is a gate on the wrong person.
+
+     Everything here stops the NEXT booking and never the ones already in the
+     diary — somebody relying on Tuesday morning does not lose it because a
+     review date passed on Monday. */
   const plan = currentPlan(pers.id);
-  if (plan && plan.review_due && plan.review_due < ymd()) {
-    return json(res, 400, { error: `${pers.self ? 'Your' : pers.name + '\u2019s'} support plan was due for review on ${dmy(plan.review_due)}. New bookings resume as soon as it is updated \u2014 existing shifts are unaffected.`, plan_review_due: plan.review_due });
+  const whose = pers.self ? 'Your' : pers.name + '\u2019s';
+  const youOr = pers.self ? 'you' : pers.name;
+  const missing = [];
+  if (!user.plan || user.plan === 'none') {
+    missing.push({ what: 'how the support is funded', where: '#/bookings', key: 'billing',
+      why: 'An invoice has to have somewhere to go before a shift is worth booking.' });
+  }
+  const agreed = db.prepare("SELECT id FROM participant_docs WHERE participant_id = ? AND form_key = 'p-agreement'").get(pers.id);
+  if (!agreed) {
+    missing.push({ what: 'the service agreement', where: '#/account/documents', key: 'p-agreement',
+      why: 'Read it and press agree — it takes a moment, and the terms have to be agreed before supports start.' });
+  }
+  if (!plan || plan.status !== 'confirmed') {
+    missing.push({ what: 'a support plan', where: '#/support-plan', key: 'support-plan',
+      why: 'It is how a worker knows how ' + youOr + ' want' + (pers.self ? '' : 's') + ' to be supported before the first shift, not after it.' });
+  }
+  if (missing.length) {
+    return json(res, 400, {
+      needs_setup: true, missing,
+      error: `Before the first booking: ${missing.map(x => x.what).join(', ').replace(/, ([^,]*)$/, ' and $1')}. ${missing.length === 1
+        ? `It takes a few minutes and it is ${pers.self ? 'yours' : 'theirs'} to do.`
+        : `They take a few minutes and they are all ${pers.self ? 'yours' : 'theirs'} to do.`}`
+    });
+  }
+  if (plan.review_due && plan.review_due < ymd()) {
+    return json(res, 400, { error: `${whose} support plan was due for review on ${dmy(plan.review_due)}. New bookings resume as soon as it is updated \u2014 existing shifts are unaffected.`, plan_review_due: plan.review_due });
   }
 
   const repeat = ['weekly', 'fortnightly'].includes(clean(body.repeat, 20)) ? clean(body.repeat, 20) : '';
@@ -6796,13 +6871,13 @@ const FORMS = [
 
   /* ---------- one per participant ---------- */
   { key: 'p-intake', name: 'Intake / referral form', scope: 'participant', track: 'drive', cadence: 'once', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Access to supports' },
-  { key: 'p-agreement', name: 'Service Agreement', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Service agreements with participants', note: 'On file at 2025–26 limits, which have ceased. New figures must be agreed in writing before invoicing at them.' },
+  { key: 'p-agreement', sign: 'click', name: 'Service Agreement', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Service agreements with participants', note: 'On file at 2025–26 limits, which have ceased. New figures must be agreed in writing before invoicing at them.' },
   { key: 'p-schedule', name: 'Schedule of Supports', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Service agreements with participants' },
   { key: 'p-support-plan', name: 'Support Plan', scope: 'participant', track: 'live', live: 'support_plan', cadence: 'annual', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Support planning', note: 'BookIt holds this now. The participant confirms it themselves and the review clock runs from their confirmation.' },
-  { key: 'p-risk', name: 'Risk Assessment', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management' },
+  { key: 'p-risk', officeOnly: true, name: 'Risk Assessment', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management' },
   { key: 'p-emergency', name: 'Participant Emergency and Disaster Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Continuity of supports', note: 'The support plan asks whether essential safety support is needed within 8 hours of a disaster. That answer belongs in this plan.' },
-  { key: 'p-consent-privacy', name: 'Privacy and information-sharing consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
-  { key: 'p-consent-media', onlyIf: 'only if photos or video of you might be used', name: 'Photo and media consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
+  { key: 'p-consent-privacy', sign: 'click', name: 'Privacy and information-sharing consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
+  { key: 'p-consent-media', sign: 'click', onlyIf: 'only if photos or video of you might be used', name: 'Photo and media consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
   { key: 'p-advocate', onlyIf: 'only if someone helps you make decisions', name: 'Advocate / nominee / decision-maker form', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Independence and informed choice' },
   { key: 'p-money', onlyIf: 'only if we handle any of your money or property', name: 'Money and Property Declaration', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Participant money and property' },
   { key: 'p-medication', onlyIf: 'only if we support you with medication', name: 'Medication Plan and Administration Form + consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant + prescriber', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'The Drive copy is on file but entirely blank per-medication. If a completed copy is held elsewhere, record it here with the date it was filed rather than completing the blank one.' },
@@ -6812,7 +6887,7 @@ const FORMS = [
   { key: 'p-notes', name: 'Progress notes / shift notes', scope: 'participant', track: 'live', live: 'shift_notes', cadence: 'per-event', signed: 'Worker', template: 'BookIt', requires: 'Core Module — Responsive support provision', note: 'Append-only in BookIt. A note that can be quietly rewritten is not evidence of anything.' },
   { key: 'p-satisfaction', name: 'Participant Satisfaction Survey', scope: 'participant', track: 'missing', cadence: 'annual', signed: 'Participant', template: 'none', requires: 'Core Module — Quality management', note: 'Never run. Due annually.' },
   { key: 'p-annual-review', name: 'Annual review record', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'none', requires: 'Core Module — Support planning' },
-  { key: 'p-living-arrangement', onlyIf: 'only where the s73G condition applies', name: 'Living Arrangement Determination (s73G)', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'NDIS Act s73G condition on this registration', note: 'Settles the contradiction between "lives with parents" in the support plan and the sole-worker clause in the agreement.' },
+  { key: 'p-living-arrangement', officeOnly: true, onlyIf: 'only where the s73G condition applies', name: 'Living Arrangement Determination (s73G)', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'NDIS Act s73G condition on this registration', note: 'Settles the contradiction between "lives with parents" in the support plan and the sole-worker clause in the agreement.' },
   { key: 'p-exit', onlyIf: 'only when supports end', name: 'Exit / transition record', scope: 'participant', track: 'drive', cadence: 'per-event', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Transitions to or from the provider' }
 ];
 const FORM_SCOPES = [
@@ -7556,6 +7631,15 @@ const PDOC_CATALOG = FORMS.filter(f => f.scope === 'participant' && f.track !== 
   signed: f.signed || '',
   owner: pdocOwner(f.signed),
   only_if: f.onlyIf || '',
+  /* An agreement is a thing you accept, not a page you print. Three of these
+     are pure consent — you read them and you say yes or you don't — and
+     posting a scanned signature back is a worse record than a dated, versioned
+     acceptance, not a better one. */
+  sign: f.sign || '',
+  /* And two of them never involve the participant at all. They stay on the
+     file, they stay in the audit pack, they are simply not shown to the person
+     as though they were homework. */
+  office_only: Boolean(f.officeOnly),
   requires: f.requires || '',
   /* only the NDIS plan carries a hard expiry. Everything else has a review
      cadence, which is a different thing and should not fail validation. */
@@ -7853,7 +7937,10 @@ function participantFile(pid) {
      not count as held, and the form goes back onto the outstanding list,
      because from the file's point of view that gap was never filled. */
   const live = docs.filter(d => d.review !== 'rejected');
-  const have = new Set(live.filter(d => d.has_file).map(d => d.form_key));
+  /* A clicked agreement has no file, because the acceptance IS the record —
+     dated, versioned and attributed. Requiring an attachment would mean the
+     better record counted for less than a photo of a signature. */
+  const have = new Set(live.filter(d => d.has_file || d.accepted_at).map(d => d.form_key));
   const noted = new Set(live.map(d => d.form_key));
   const reqs = openRequests('participant', pid);
   const asked = Object.fromEntries(reqs.map(r => [r.doc_key, r]));
@@ -7866,9 +7953,13 @@ function participantFile(pid) {
     /* the same list, but able to answer "is this mine?" and "where do I get
        the blank?" — the two questions the flat version could not */
     owners: PDOC_OWNERS,
-    outstanding: PDOC_CATALOG.filter(c => c.key !== 'p-other' && !noted.has(c.key))
+    /* office_only forms are still counted in `of` and still appear on the
+       admin side and in the audit pack — the file is not less complete for
+       being described honestly. They are simply not put in front of the
+       participant as though they were waiting on them. */
+    outstanding: PDOC_CATALOG.filter(c => c.key !== 'p-other' && !c.office_only && !noted.has(c.key))
       .map(c => ({ key: c.key, label: c.label, signed: c.signed, requires: c.requires,
-        owner: c.owner, only_if: c.only_if,
+        owner: c.owner, only_if: c.only_if, sign: c.sign,
         template: (() => { const t = formTemplate(c.key);
           return t ? { has_file: Boolean(t.file_path), link: t.link || '', file_name: t.file_name || '' } : null; })(),
         requested_at: (asked[c.key] || {}).requested_at || '',
@@ -7880,8 +7971,8 @@ function participantFile(pid) {
     /* The office needs the whole-file number; the participant needs to know
        how much of it is theirs. Sending only the first turned a five-item ask
        into a sixteen-item one, on their own settings page. */
-    yours_held: PDOC_CATALOG.filter(c => c.key !== 'p-other' && c.owner === 'participant' && have.has(c.key)).length,
-    yours_of: PDOC_CATALOG.filter(c => c.key !== 'p-other' && c.owner === 'participant').length
+    yours_held: PDOC_CATALOG.filter(c => c.key !== 'p-other' && !c.office_only && c.owner === 'participant' && have.has(c.key)).length,
+    yours_of: PDOC_CATALOG.filter(c => c.key !== 'p-other' && !c.office_only && c.owner === 'participant').length
   };
 }
 
@@ -7929,9 +8020,9 @@ function seedFormTemplates() {
       const src = path.join(FORMS_DIR, name);
       const dest = path.join(DOCS_DIR, `tpl-${key}-${Date.now()}${ext}`);
       fs.copyFileSync(src, dest);
-      db.prepare(`INSERT INTO form_templates (form_key, file_name, file_mime, file_path, link, note, updated_at, updated_by)
-        VALUES (?,?,?,?,'','',?,?)`)
-        .run(key, `${cat.label.replace(/[\/+]/g, ' ').replace(/[^\w.\- ]/g, '').replace(/\s+/g, ' ').trim()}${ext}`, mime, dest, now(), 'Shipped with the release');
+      db.prepare(`INSERT INTO form_templates (form_key, file_name, file_mime, file_path, link, note, updated_at, updated_by, version, effective_from)
+        VALUES (?,?,?,?,'','',?,?,1,?)`)
+        .run(key, `${cat.label.replace(/[\/+]/g, ' ').replace(/[^\w.\- ]/g, '').replace(/\s+/g, ' ').trim()}${ext}`, mime, dest, now(), 'Shipped with the release', ymd());
       setSetting('tplseed:' + key, now());
       filed++;
     } catch (e) { console.error('form template seed:', key, e.message); }
@@ -7947,9 +8038,11 @@ route('GET', /^\/api\/form-templates$/, (req, res, m, user) => {
   json(res, 200, {
     templates: PDOC_CATALOG.filter(c => c.key !== 'p-other').map(c => {
       const t = by[c.key];
-      return { key: c.key, label: c.label, owner: c.owner, only_if: c.only_if,
+      return { key: c.key, label: c.label, owner: c.owner, only_if: c.only_if, sign: c.sign,
         has_file: Boolean(t && t.file_path), link: (t && t.link) || '',
         file_name: (t && t.file_name) || '', note: (t && t.note) || '',
+        version: (t && t.version) || 1, effective_from: (t && t.effective_from) || '',
+        versions: 1 + db.prepare('SELECT COUNT(*) n FROM form_template_versions WHERE form_key = ?').get(c.key).n,
         updated_at: (t && t.updated_at) || '', updated_by: (t && t.updated_by) || '' };
     })
   });
@@ -7980,6 +8073,7 @@ route('POST', /^\/api\/admin\/form-templates\/([a-z0-9-]+)$/, (req, res, m, user
   const link = clean(body.link, 500);
   if (link && !/^https:\/\//i.test(link)) return json(res, 400, { error: 'A link has to start with https://' });
   const prev = formTemplate(key);
+  const effective = /^\d{4}-\d{2}-\d{2}$/.test(clean(body.effective_from, 10)) ? clean(body.effective_from, 10) : ymd();
   let fileName = prev ? prev.file_name : '', fileMime = prev ? prev.file_mime : '', filePath = prev ? prev.file_path : '';
   if (body.file && body.file.data) {
     fileMime = String(body.file.mime || '');
@@ -7994,29 +8088,81 @@ route('POST', /^\/api\/admin\/form-templates\/([a-z0-9-]+)$/, (req, res, m, user
     try { buf = Buffer.from(String(body.file.data).replace(/^data:[^,]*,/, ''), 'base64'); } catch { return json(res, 400, { error: 'Could not read that file.' }); }
     if (!buf.length || buf.length > 8 * 1024 * 1024) return json(res, 400, { error: 'Blank forms can be up to 8 MB.' });
     fileName = clean(body.file.name, 90).replace(/[^A-Za-z0-9. _-]/g, '') || ('blank' + TEMPLATE_MIMES[fileMime]);
-    const next = path.join(DOCS_DIR, `tpl-${key}-${Date.now()}${TEMPLATE_MIMES[fileMime]}`);
+    const next = path.join(DOCS_DIR, `tpl-${key}-v${(prev ? prev.version || 1 : 0) + 1}-${Date.now()}${TEMPLATE_MIMES[fileMime]}`);
     fs.writeFileSync(next, buf);
-    if (filePath && filePath !== next) { try { fs.unlinkSync(filePath); } catch {} }
+    /* The old file stays. Somebody agreed to it. */
     filePath = next;
   }
-  db.prepare(`INSERT INTO form_templates (form_key, file_name, file_mime, file_path, link, note, updated_at, updated_by)
-    VALUES (?,?,?,?,?,?,?,?)
+  /* Archive what is being replaced before replacing it. */
+  const changed = prev && (prev.file_path !== filePath || (prev.link || '') !== link);
+  if (prev && changed) {
+    db.prepare(`INSERT INTO form_template_versions
+        (form_key, version, effective_from, superseded_at, file_name, file_mime, file_path, link, note, created, created_by)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(key, prev.version || 1, prev.effective_from || '', now(), prev.file_name || '', prev.file_mime || '',
+           prev.file_path || '', prev.link || '', prev.note || '', prev.updated_at || now(), prev.updated_by || '');
+  }
+  const version = prev ? (changed ? (prev.version || 1) + 1 : (prev.version || 1)) : 1;
+  db.prepare(`INSERT INTO form_templates (form_key, file_name, file_mime, file_path, link, note, updated_at, updated_by, version, effective_from)
+    VALUES (?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(form_key) DO UPDATE SET file_name = excluded.file_name, file_mime = excluded.file_mime,
       file_path = excluded.file_path, link = excluded.link, note = excluded.note,
-      updated_at = excluded.updated_at, updated_by = excluded.updated_by`)
-    .run(key, fileName, fileMime, filePath, link, clean(body.note, 200), now(), user.name);
+      updated_at = excluded.updated_at, updated_by = excluded.updated_by,
+      version = excluded.version, effective_from = excluded.effective_from`)
+    .run(key, fileName, fileMime, filePath, link, clean(body.note, 200), now(), user.name, version, effective);
   logCompliance({ kind: 'form-template', result: 'updated',
-    detail: `Blank form for "${cat.label}" ${filePath ? 'uploaded' : link ? 'linked' : 'cleared'}.`,
+    detail: `"${cat.label}" version ${version}${changed && prev ? `, replacing version ${prev.version || 1}` : ''}, current from ${dmy(effective)}.`,
     source: 'Forms register', checked_by: user.name });
-  json(res, 200, { ok: true, has_file: Boolean(filePath), link });
+  json(res, 200, { ok: true, has_file: Boolean(filePath), link, version, effective_from: effective });
+});
+
+route('GET', /^\/api\/form-templates\/([a-z0-9-]+)\/v(\d+)\/file$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const key = String(m[1]), want = Number(m[2]);
+  const cur = formTemplate(key);
+  const row = (cur && (cur.version || 1) === want) ? cur
+    : db.prepare('SELECT * FROM form_template_versions WHERE form_key = ? AND version = ? ORDER BY id DESC LIMIT 1').get(key, want);
+  if (!row || !row.file_path) return json(res, 404, { error: 'That version isn\'t on file.' });
+  let buf;
+  try { buf = fs.readFileSync(row.file_path); } catch { return json(res, 404, { error: 'That version\'s file is missing from the server.' }); }
+  res.writeHead(200, {
+    'Content-Type': row.file_mime || 'application/octet-stream',
+    'Content-Disposition': `attachment; filename="${(row.file_name || 'form').replace(/[^\w.\- ]/g, '').replace(/(\.[^.]*)?$/, ` (v${want})$1`)}"`,
+    'Content-Security-Policy': 'sandbox',
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'no-store, private'
+  });
+  res.end(buf);
+});
+
+/* the whole history of one form, the way Hireup publishes theirs */
+route('GET', /^\/api\/form-templates\/([a-z0-9-]+)\/versions$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const key = String(m[1]);
+  const cat = PDOC_MAP[key];
+  if (!cat) return json(res, 404, { error: 'No such form.' });
+  const cur = formTemplate(key);
+  const old = db.prepare('SELECT * FROM form_template_versions WHERE form_key = ? ORDER BY version DESC').all(key);
+  const rows = (cur ? [{ ...cur, superseded_at: '' }] : []).concat(old).map(r => ({
+    version: r.version || 1, effective_from: r.effective_from || '', superseded_at: r.superseded_at || '',
+    current: !r.superseded_at, has_file: Boolean(r.file_path), link: r.link || '',
+    file_name: r.file_name || '', by: r.updated_by || r.created_by || ''
+  }));
+  json(res, 200, { key, label: cat.label, versions: rows });
 });
 
 route('POST', /^\/api\/admin\/form-templates\/([a-z0-9-]+)\/delete$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const t = formTemplate(String(m[1]));
+  const key = String(m[1]);
+  const t = formTemplate(key);
   if (!t) return json(res, 404, { error: 'Nothing to remove.' });
-  if (t.file_path) { try { fs.unlinkSync(t.file_path); } catch {} }
-  db.prepare('DELETE FROM form_templates WHERE form_key = ?').run(String(m[1]));
+  /* Archived, not deleted — the same reason as above. Somebody agreed to it. */
+  db.prepare(`INSERT INTO form_template_versions
+      (form_key, version, effective_from, superseded_at, file_name, file_mime, file_path, link, note, created, created_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(key, t.version || 1, t.effective_from || '', now(), t.file_name || '', t.file_mime || '',
+         t.file_path || '', t.link || '', t.note || '', t.updated_at || now(), t.updated_by || '');
+  db.prepare('DELETE FROM form_templates WHERE form_key = ?').run(key);
   logCompliance({ kind: 'form-template', result: 'removed',
     detail: `Blank form for "${(PDOC_MAP[String(m[1])] || {}).label || m[1]}" removed.`,
     source: 'Forms register', checked_by: user.name });
@@ -8084,6 +8230,70 @@ route('POST', /^\/api\/me\/participant-documents$/, (req, res, m, user, body, ip
      answer to the same question and gets written down the same way. */
   const newId = savePdoc(res, pers.id, body || {}, pers.self ? `${user.name} (participant)` : `${user.name} (support coordinator)`, ip);
   if (newId) logDelegate(pers, 'document', `uploaded ${clean(body && body.label, 90) || clean(body && body.form_key, 40) || 'a document'}`, `pdoc:${newId}`);
+});
+
+/* --- agreeing to something, in one click ---------------------------------
+
+   The version stamp is the whole point. A signed PDF in a folder proves a
+   signature; it does not prove which text was above it, and a template that
+   quietly changed in March makes every signature before March ambiguous. Here
+   the blank on the shelf carries a date, that date is written onto the
+   acceptance, and the two can always be put back together. --- */
+route('POST', /^\/api\/me\/participant-documents\/([a-z0-9-]+)\/accept$/, (req, res, m, user, body, ip) => {
+  const pers = actFor(req, user, 'documents');
+  if (!pers) return json(res, 403, { error: 'Participants only.' });
+  const cat = PDOC_MAP[String(m[1])];
+  if (!cat || cat.sign !== 'click') return json(res, 400, { error: 'That one is not an agreement you can accept here.' });
+  if (body && body.agree !== true) return json(res, 400, { error: 'Tick the box to say you agree.' });
+  const held = db.prepare('SELECT id FROM participant_docs WHERE participant_id = ? AND form_key = ?').get(pers.id, cat.key);
+  if (held) return json(res, 400, { error: `${cat.label} is already on your file.` });
+  const tpl = formTemplate(cat.key);
+  /* You cannot agree to a document nobody can show you. Without a blank on the
+     shelf there is no text, no version and nothing to read back later — the
+     acceptance would be a record of a click and nothing else. */
+  if (!tpl || (!tpl.file_path && !tpl.link)) {
+    return json(res, 400, { error: `We haven\'t published ${cat.label} yet, so there is nothing to agree to. Ask the office \u2014 they will put it up.` });
+  }
+  /* A version number, not a file timestamp. "Version 3" is a thing a person
+     can say in a room; a modification time is a thing that changes when
+     somebody fixes a typo, which is not the same event as the terms changing. */
+  const version = tpl ? `v${tpl.version || 1}${tpl.effective_from ? `, current from ${dmy(tpl.effective_from)}` : ''}` : 'no version on file';
+  const versionNo = tpl ? (tpl.version || 1) : 0;
+  const who = pers.self ? pers.name : `${user.name} for ${pers.name}`;
+  const r = db.prepare(`INSERT INTO participant_docs
+      (participant_id, form_key, label, doc_date, note, uploaded_at, uploaded_by,
+       accepted_at, accepted_ip, accepted_version, verified_at, verified_by, verify_method, verify_note)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(pers.id, cat.key, '', ymd(), `Agreed in BookIt by ${who}.`, now(), who,
+         now(), String(ip || ''), version, now(), 'BookIt', 'other',
+         `Accepted on screen. The version shown was ${version}, and that version is kept so it can be read back.`);
+  logCompliance({ worker_id: null, worker_name: pers.name, kind: 'agreement-accepted', result: 'accepted',
+    detail: `${cat.label} accepted in the platform by ${who}. Version on screen: ${version}.`,
+    source: 'Participant agreement', checked_by: who });
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid), label: cat.label, version: versionNo });
+});
+
+/* --- what this person has agreed to, and to which version ----------------
+   Their own copy of the account-agreements list: the document, the version,
+   the day they agreed, and a link to that exact text rather than to whatever
+   is current now. */
+route('GET', /^\/api\/me\/agreements$/, (req, res, m, user) => {
+  const pers = actFor(req, user, 'documents');
+  if (!pers) return json(res, 403, { error: 'Participants only.' });
+  const rows = db.prepare(`SELECT * FROM participant_docs
+    WHERE participant_id = ? AND accepted_at IS NOT NULL AND accepted_at <> '' ORDER BY accepted_at DESC`).all(pers.id);
+  json(res, 200, {
+    agreements: rows.map(r => {
+      const cat = PDOC_MAP[r.form_key] || {};
+      const n = Number(String(r.accepted_version || '').replace(/^v(\d+).*/, '$1')) || 0;
+      return { key: r.form_key, label: cat.label || r.form_key, version: r.accepted_version || '',
+        version_no: n, accepted_at: r.accepted_at, accepted_by: r.uploaded_by || '' };
+    }),
+    /* and the agreements still waiting on them */
+    outstanding: PDOC_CATALOG.filter(c => c.sign === 'click'
+      && !db.prepare('SELECT 1 FROM participant_docs WHERE participant_id = ? AND form_key = ?').get(pers.id, c.key))
+      .map(c => ({ key: c.key, label: c.label }))
+  });
 });
 
 route('POST', /^\/api\/me\/participant-documents\/(\d+)\/delete$/, (req, res, m, user) => {

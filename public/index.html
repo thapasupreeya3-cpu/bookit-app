@@ -7247,7 +7247,32 @@ $('#bookingForm').addEventListener('submit', async e => {
       : 'Booking request sent to ' + bookingWorker.name.split(' ')[0] + '!');
     location.hash = '#/bookings';
     renderBookingsPage();
-  }catch(err){ toast(err.message); }
+  }catch(err){
+    /* A refusal that only says no is a dead end. If the account is short of
+       the three things a first booking needs, name them and put the link to
+       each one in the same breath — the person is trying to book support, not
+       to solve a riddle about their own account. */
+    if(err.data && err.data.needs_setup && Array.isArray(err.data.missing)){
+      const host = $('#bkForm') || document.querySelector('.modal.open .modal-body');
+      const box = document.createElement('div');
+      box.className = 'info-card';
+      box.style.cssText = 'margin-top:12px;border-color:#F5B841;background:#FDF9EF;';
+      box.innerHTML = `<p style="margin:0 0 8px;"><b>Nearly — a few things first.</b> They take a few minutes and they are all yours to do.</p>`
+        + err.data.missing.map(x => `<p style="margin:6px 0;font-size:.9rem;">
+            <b>${esc(x.what.charAt(0).toUpperCase() + x.what.slice(1))}</b> — ${esc(x.why)}<br>
+            <a href="${esc(x.where)}" data-close-modal>Take me there →</a></p>`).join('');
+      const prev = host && host.querySelector('.bk-setup');
+      if(prev) prev.remove();
+      box.classList.add('bk-setup');
+      if(host) host.appendChild(box);
+      else toast(err.message);
+      return;
+    }
+    toast(err.message);
+  }
+});
+document.addEventListener('click', e => {
+  if(e.target.closest('[data-close-modal]')) closeModals();
 });
 async function renderBookingsPage(){
   const wrap = $('#bookingsList');
@@ -9875,15 +9900,33 @@ document.addEventListener('click', async e => {
     const fileEl = document.querySelector(`[data-bf-file="${key}"]`);
     const linkEl = document.querySelector(`[data-bf-link="${key}"]`);
     const link = linkEl ? linkEl.value.trim() : '';
+    const effEl = document.querySelector(`[data-bf-eff="${key}"]`);
+    const effective_from = effEl ? effEl.value : '';
     let file = null;
     if(fileEl && fileEl.files && fileEl.files[0]) file = await fileToB64(fileEl);
     if(!file && !link){ toast('Choose a file, or paste a link to where the blank lives.'); return; }
     bfs.disabled = true;
     try{
-      await API.call('/admin/form-templates/' + key, {method:'POST', noFor:true, body:{ file, link }});
-      toast('Up. Participants can download it from their own documents page now.');
+      const r = await API.call('/admin/form-templates/' + key, {method:'POST', noFor:true, body:{ file, link, effective_from }});
+      toast('Version ' + r.version + ' is up. Participants can download it now, and every earlier version is kept.');
       renderBlankForms();
     }catch(err){ toast(err.message); bfs.disabled = false; }
+    return;
+  }
+  const bfh = e.target.closest('[data-bf-hist]');
+  if(bfh){
+    e.preventDefault();
+    const key = bfh.dataset.bfHist;
+    const host = document.querySelector(`.bf-hist[data-for="${key}"]`);
+    if(!host) return;
+    if(!host.hidden){ host.hidden = true; return; }
+    try{
+      const d = await API.call('/form-templates/' + key + '/versions', {noFor:true});
+      host.innerHTML = d.versions.map(v => `<div class="muted-sm" style="margin:2px 0;">
+        <b>Version ${v.version}</b>${v.effective_from ? ' · from ' + fmtAU(v.effective_from) : ''}${v.superseded_at ? ' · until ' + fmtAU(String(v.superseded_at).slice(0,10)) : ' · <span style="color:#2E6B4F;">current</span>'}
+        ${v.has_file ? ` · <a href="/api/form-templates/${esc(key)}/v${v.version}/file" target="_blank" rel="noopener">read it</a>` : ''}</div>`).join('');
+      host.hidden = false;
+    }catch(err){ toast(err.message); }
     return;
   }
   const bfd = e.target.closest('[data-bf-del]');
@@ -13118,16 +13161,45 @@ async function renderPdocsMini(){
       ${meta.blurb ? `<p class="muted-sm" style="margin:0 0 7px;">${esc(meta.blurb)}</p>` : ''}
       ${items.map(x => `<div class="pdoc-row">
         <b>${esc(x.label)}</b>${x.only_if ? ` <span class="pdoc-if">${esc(x.only_if)}</span>` : ''}
-        ${x.template && x.template.has_file
-          ? ` · <a href="/api/form-templates/${esc(x.key)}/file" target="_blank" rel="noopener">get the blank form</a>`
-          : x.template && x.template.link
-            ? ` · <a href="${esc(x.template.link)}" target="_blank" rel="noopener noreferrer">get the blank form</a>`
-            : (x.owner === 'participant' ? ' · <span class="muted-sm">ask us for a blank</span>' : '')}
+        ${(() => {
+          const url = x.template && x.template.has_file ? `/api/form-templates/${esc(x.key)}/file`
+            : x.template && x.template.link ? esc(x.template.link) : '';
+          /* An agreement is read then accepted, so the link says "read it" and
+             the button next to it is the whole of the signing. */
+          if(x.sign === 'click'){
+            /* no published text, no button — agreeing to nothing is not consent */
+            if(!url) return ' · <span class="muted-sm">we haven\'t published this one yet</span>';
+            return ` · <a href="${url}" target="_blank" rel="noopener noreferrer">read it</a>
+              · <button type="button" class="adm-btn-sm" data-pdoc-agree="${esc(x.key)}" data-label="${esc(x.label)}" style="border-color:#0E6B62;color:#0E6B62;">I agree to this</button>`;
+          }
+          return url ? ` · <a href="${url}" target="_blank" rel="noopener noreferrer">get the blank form</a>`
+            : (x.owner === 'participant' ? ' · <span class="muted-sm">ask us for a blank</span>' : '');
+        })()}
         ${x.requested_at ? ` · <span style="color:#8a6d00;">we asked ${x.waiting_days === 0 ? 'today' : x.waiting_days + 'd ago'}</span>` : ''}
       </div>`).join('')}
     </div>`;
   }).join('');
-  wrap.innerHTML = `
+  /* Their own account-agreements list: what they agreed to, which version, the
+     day they did it, and a link to THAT text rather than to whatever is
+     current now. Nothing here is new information — it is the same rows the
+     file already holds — but a person cannot check an agreement they cannot
+     find. */
+  let agr = null;
+  try{ agr = await API.call('/me/agreements'); }catch(e){}
+  const agreedHtml = agr && agr.agreements && agr.agreements.length ? `
+    <div class="info-card" style="margin-bottom:12px;">
+      <h3 style="margin:0 0 4px;">Agreements</h3>
+      <p class="mini-note" style="margin:0 0 10px;">What you've agreed to, and the exact version you saw at the time.</p>
+      ${agr.agreements.map(a => `<div class="pdoc-row" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;">
+        <b>${esc(a.label)}</b>
+        <span class="muted-sm">${esc(a.version)}</span>
+        <span style="flex:1;"></span>
+        <span class="muted-sm">agreed ${fmtAU(String(a.accepted_at).slice(0,10))}</span>
+        ${a.version_no ? `<a href="/api/form-templates/${esc(a.key)}/v${a.version_no}/file" target="_blank" rel="noopener noreferrer">read the version I agreed to</a>` : ''}
+      </div>`).join('')}
+    </div>` : '';
+
+  wrap.innerHTML = agreedHtml + `
   <div class="info-card" style="margin-bottom:12px;" id="cardDocsMini">
     <h3 style="margin:0 0 6px;">My documents</h3>
     <p class="mini-note">${pf.held != null ? `<b>${pf.yours_held ?? 0} of ${pf.yours_of ?? 0} of yours on file.</b> ` : ''}Only you and the office see these — workers never do.${pf.of != null ? ` Your file holds ${pf.held} of ${pf.of} documents in all; most of the rest are ours to write, or come from someone else.` : ''}</p>
@@ -13217,6 +13289,43 @@ document.addEventListener('click', async e => {
       toast('Added to your file. 👍');
       renderPdocsMini();
     }catch(err){ toast(err.message); e.target.disabled = false; }
+    return;
+  }
+  /* agree to an agreement. Two steps on purpose — the confirm names the
+     document and says what pressing it does, because a one-click contract
+     nobody read is not consent, it is a dark pattern. */
+  const pag = e.target.closest('[data-pdoc-agree]');
+  if(pag){
+    if(pag.dataset.open) return;
+    pag.dataset.open = '1';
+    const box = document.createElement('div');
+    box.className = 'pag-box';
+    box.style.cssText = 'margin:8px 0 4px;padding:11px 13px;border:1.5px solid #0E6B62;border-radius:11px;background:rgba(14,107,98,.05);font-size:.88rem;';
+    box.innerHTML = `<p style="margin:0 0 8px;">Please read <b>${esc(pag.dataset.label)}</b> first — the link is beside this button. Agreeing records the date, and which version was on the screen when you did it.</p>
+      <label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:9px;"><input type="checkbox" class="pag-tick" style="margin-top:4px;"> <span>I have read it and I agree to it.</span></label>
+      <button type="button" class="btn btn-primary btn-sm pag-go" data-pdoc-agree-go="${esc(pag.dataset.pdocAgree)}">Record my agreement</button>
+      <button type="button" class="adm-btn-sm pag-cancel" style="margin-left:6px;">Not yet</button>`;
+    pag.closest('.pdoc-row').appendChild(box);
+    return;
+  }
+  const pagc = e.target.closest('.pag-cancel');
+  if(pagc){
+    const bx = pagc.closest('.pag-box');
+    const trig = bx.closest('.pdoc-row').querySelector('[data-pdoc-agree]');
+    if(trig) delete trig.dataset.open;
+    bx.remove();
+    return;
+  }
+  const pagg = e.target.closest('[data-pdoc-agree-go]');
+  if(pagg){
+    const bx = pagg.closest('.pag-box');
+    if(!bx.querySelector('.pag-tick').checked){ toast('Tick the box to say you agree.'); return; }
+    pagg.disabled = true;
+    try{
+      const r = await API.call('/me/participant-documents/' + pagg.dataset.pdocAgreeGo + '/accept', {method:'POST', body:{ agree:true }});
+      toast(r.label + ' — agreed and on your file. 👍');
+      renderPdocsMini();
+    }catch(err){ toast(err.message); pagg.disabled = false; }
     return;
   }
   const mpdDel = e.target.closest('[data-mpd-del]');
@@ -13430,9 +13539,9 @@ async function renderBlankForms(){
   const OWNER_LABEL = { participant: 'theirs to fill in', cosigned: 'they sign, we write',
     clinical: 'a clinician writes it', office: 'ours', ndia: 'a copy of the NDIS plan' };
   host.innerHTML = `
-    <p class="muted-sm" style="margin:0 0 12px;">Put a blank up once and it shows on every participant's documents page, beside the row that asks for it. PDF, Word, JPG or PNG up to 8 MB — or a link, if the blank lives somewhere else.</p>
+    <p class="muted-sm" style="margin:0 0 12px;">Put a blank up once and it shows on every participant's documents page, beside the row that asks for it. PDF, Word, JPG or PNG up to 8 MB — or a link, if the blank lives somewhere else. Replacing one raises its version number and <b>keeps the old file</b>, because somebody agreed to that text and has to be able to read it back.</p>
     <div class="adm-table-wrap"><table class="adm-table"><thead><tr>
-      <th>Form</th><th>Whose</th><th>Blank on file</th><th style="min-width:290px;">Put one up</th>
+      <th>Form</th><th>Whose</th><th>Blank on file</th><th style="min-width:330px;">Put one up</th>
     </tr></thead><tbody>
     ${(d.templates || []).map(t => `<tr>
       <td><b>${esc(t.label)}</b>${t.only_if ? `<br><span class="muted-sm">${esc(t.only_if)}</span>` : ''}</td>
@@ -13441,10 +13550,13 @@ async function renderBlankForms(){
           ? `<a href="/api/form-templates/${esc(t.key)}/file" target="_blank" rel="noopener">${esc(t.file_name || 'blank form')}</a>`
           : t.link ? `<a href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">link</a>`
           : '<span class="adm-empty">nothing yet</span>'}
-        ${t.updated_at ? `<br><span class="muted-sm">${fmtStamp(t.updated_at)}${t.updated_by ? ' · ' + esc(t.updated_by) : ''}</span>` : ''}</td>
+        ${t.has_file || t.link ? `<br><span class="muted-sm"><b>Version ${t.version || 1}</b>${t.effective_from ? ` · current from ${fmtAU(t.effective_from)}` : ''}${t.versions > 1 ? ` · <a href="#" data-bf-hist="${esc(t.key)}">${t.versions} versions</a>` : ''}</span>` : ''}
+        ${t.updated_at ? `<br><span class="muted-sm">${fmtStamp(t.updated_at)}${t.updated_by ? ' · ' + esc(t.updated_by) : ''}</span>` : ''}
+        <div class="bf-hist" data-for="${esc(t.key)}" hidden style="margin-top:6px;"></div></td>
       <td>
         <input type="file" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" data-bf-file="${esc(t.key)}" style="font-size:.78rem;max-width:180px;">
         <input placeholder="or https:// link" data-bf-link="${esc(t.key)}" value="${esc(t.link || '')}" style="font:inherit;font-size:.78rem;padding:4px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:170px;margin-top:4px;">
+        <label class="muted-sm" style="display:block;margin-top:4px;">Current from <input type="date" data-bf-eff="${esc(t.key)}" style="font:inherit;font-size:.78rem;padding:4px 8px;border-radius:8px;border:1.5px solid #E7DFD4;"></label>
         <button class="adm-btn-sm" data-bf-save="${esc(t.key)}" type="button">Save</button>
         ${t.has_file || t.link ? `<button class="adm-btn-sm" data-bf-del="${esc(t.key)}" style="color:#D94F32;" type="button">remove</button>` : ''}
       </td></tr>`).join('')}
