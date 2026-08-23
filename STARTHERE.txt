@@ -1,7 +1,36 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.2.3
+Current release: v86.3.0
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.3.0 — THE PRIVACY CONSENT GETS THE AGREEMENT'S TREATMENT
+---------------------------------------------------------------------------
+  The Privacy and information-sharing consent was still DMHC's printed form:
+  twelve tick-boxes, dotted lines for "share with" and "never share with",
+  three signature blocks and a worker's declaration. It is now rendered on
+  screen like the Service Agreement — the same for everyone, nothing to
+  fill in — and published without a login at /privacy-consent, linked from
+  the Privacy & terms page and from clause 9 of the agreement.
+
+  DMHC's substance is kept in the same order. The tick-boxes and the dotted
+  lines become the settings the account already has, and clause 8 of the
+  consent says where each one is: Photo and media consent (photos, video,
+  audio); Emails & notifications (newsletters and marketing, off unless
+  turned on); People with access (sharing with named people or providers);
+  "anyone we must never share with" (tell us, recorded on the file); the
+  worker-access switch under My documents; and surveys and research, always
+  optional. The signature page is the click record. Edition "privacy-consent
+  v1, issued 23/08/2026".
+
+  Anyone who agreed to the PDF is asked for a fresh click. The reset script
+  clears the walkthrough account's earlier clicks, so after reset + prefill
+  it shows one acceptance of the agreement and one of the consent, both
+  current. The PDF stays on the shelf as the text of earlier acceptances.
+  To change the wording, edit privacyConsentBody() and bump
+  PRIVACY_CONSENT_EDITION.
+
+  No migration. SCHEMA_VERSION stays 86000.
 
 
 WHAT CHANGED IN v86.2.3 — THE PRIVACY CONSENT IS ITS OWN DOCUMENT

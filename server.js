@@ -7034,7 +7034,7 @@ const FORMS = [
   { key: 'p-support-plan', name: 'Support Plan', scope: 'participant', track: 'live', live: 'support_plan', cadence: 'annual', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Support planning', note: 'BookIt holds this now. The participant confirms it themselves and the review clock runs from their confirmation.' },
   { key: 'p-risk', officeOnly: true, showStatus: true, name: 'Risk Assessment', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management', note: 'Written by the office. The participant sees that it exists and when it was last done, but is never asked to produce it.' },
   { key: 'p-emergency', name: 'Participant Emergency and Disaster Plan', scope: 'participant', track: 'live', live: 'emergency_plan', cadence: 'annual', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Continuity of supports', note: 'Derived from the support plan: the emergency contact, home and community safety, the 8-hour disaster question and the 24-hour backup answer. Printed on demand for the file. The emergency contact and the safety answers live in the support plan, so the plan is the record.' },
-  { key: 'p-consent-privacy', sign: 'click', name: 'Privacy and information-sharing consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity', note: 'A separate document: DMHC\'s own consent to collect, use and share information, read on screen and accepted by click; the acceptance records who, when and which version. The Service Agreement does not repeat it \u2014 clause 9 points to it.' },
+  { key: 'p-consent-privacy', sign: 'click', generated: true, name: 'Privacy and information-sharing consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Privacy and dignity', note: 'Same treatment as the agreement: DMHC\'s consent rendered on screen, the same for everyone, nothing to fill in, published at /privacy-consent. The printed form\'s tick-boxes and dotted lines are the account settings (Photo and media consent, Emails & notifications, People with access, the worker-access switch); the signature page is the click record. The PDF stays on the shelf as the text of acceptances made before this edition.' },
   { key: 'p-consent-media', sign: 'click', onlyIf: 'only if photos or video of you might be used', name: 'Photo and media consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
   { key: 'p-advocate', track: 'live', live: 'nominee', upload: true, optional: true, onlyIf: 'only if someone helps you make decisions', name: 'Advocate / nominee / decision-maker form', scope: 'participant', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Independence and informed choice', note: 'A nomination on the account — who, their relationship, whether they are paid — with two rules attached: anyone under 18 must have one, and a paid worker cannot be it. The signed form stays on the shelf for arrangements that need a signature, such as a guardianship order or an NDIS nominee; it is optional otherwise.' },
   { key: 'p-money', onlyIf: 'only if we handle any of your money or property', name: 'Money and Property Declaration', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Participant money and property' },
@@ -8093,7 +8093,7 @@ function serviceAgreementBody() {
 
     <h2>9&nbsp; Information management</h2>
     ${sub('9.1', 'Your privacy')}
-    <p class="say">We collect, hold, use and disclose your personal and sensitive information in accordance with our Privacy Policy and the Privacy Act 1988. Your consent to that is given separately, in the <b>Privacy and information-sharing consent</b>, which you read and agree to on your documents page. Your information is held in Australia, we never sell it, and you can read everything we hold about you from your account at any time.</p>
+    <p class="say">We collect, hold, use and disclose your personal and sensitive information in accordance with our Privacy Policy and the Privacy Act 1988. Your consent to that is given separately, in the <b>Privacy and information-sharing consent</b>, published at bookit.life/privacy-consent, which you read and agree to on your documents page. Your information is held in Australia, we never sell it, and you can read everything we hold about you from your account at any time.</p>
     ${sub('9.2', 'Confidential information')}
     <p class="say">You may come to know confidential information about us, our workers or other participants. You must not use or disclose it without our written consent unless the law requires you to, and you must tell us immediately of any suspected or actual breach.</p>
 
@@ -8151,7 +8151,103 @@ function serviceAgreementHtml(opts = {}) {
   }, serviceAgreementBody(), Object.assign({ barNote: 'Read it here \u00b7 agree on your documents page \u00b7 nothing to print or sign' }, opts));
 }
 
+const PRIVACY_CONSENT_EDITION = 'v1, issued 23/08/2026';
+
+/* ============================================================================
+   THE PRIVACY AND INFORMATION-SHARING CONSENT — same treatment as the
+   agreement: DMHC's consent, the same for everyone, nothing to fill in.
+   ----------------------------------------------------------------------------
+   DMHC's printed consent was a form: twelve tick-boxes for optional uses,
+   dotted lines for "share with" and "never share with", three signature
+   blocks and a worker's declaration. The substance is kept in the same
+   order; the tick-boxes and dotted lines become the account settings that
+   already exist (Photo and media consent, Emails & notifications, People
+   with access, the worker-access switch), and the signature page becomes
+   the click record. Published at /privacy-consent.
+   ========================================================================== */
+function privacyConsentBody() {
+  const co = 'Disability and Mental Health Care Pty Ltd';
+  const li = items => `<ol class="clauses">${items.map(x => `<li>${x}</li>`).join('')}</ol>`;
+  return `
+    <p class="say">As an NDIS participant with <b>${co}</b> (<b>we</b>, <b>us</b>), we need your consent to collect, store and use your personal information so that we can deliver your supports. Please read this consent together with the Service Agreement, and agree to it on your documents page if you are happy with what it says. It is the same for everyone, and there is nothing to fill in.</p>
+
+    <h2>1&nbsp; Your sensitive information</h2>
+    <p class="say">We respect your privacy and your dignity. We only collect sensitive information \u2014 health, medical and disability-related information \u2014 when it is needed to provide your supports, and only if you give explicit consent or we are legally required to collect it.</p>
+
+    <h2>2&nbsp; Before you agree</h2>
+    <p class="say">We explain how we will use your information and who it may be disclosed to, and we make sure you understand, with an interpreter, an advocate or another person of your choosing if that helps. Ask us, in person or on 0488 114 368, before you agree. You can change this consent at any time (clause 9).</p>
+
+    <h2>3&nbsp; Keeping you informed</h2>
+    <p class="say">We tell you how your information is used and stored. You have the right to see it, to have it corrected, and to make a complaint. You can involve family, friends or your chosen community in any of this; tell us who on <b>People with access</b>.</p>
+
+    <h2>4&nbsp; What we collect</h2>
+    ${li([
+      'your details and identifiers \u2014 name, contact details, NDIS number and plan dates, and who acts for you;',
+      'service details \u2014 your support plan, bookings, shift notes, incidents and feedback;',
+      'medical and disability-related information that your supports need, such as the clinical plans your plan says apply to you;',
+      'financial information needed to invoice and claim \u2014 your funding arrangement and plan manager;',
+      'records of our interactions with you \u2014 messages, calls and complaints; and',
+      'audio, photo or video material only if you have given the separate Photo and media consent.'
+    ])}
+
+    <h2>5&nbsp; How we collect it</h2>
+    <p class="say">From you, through BookIt and your conversations with us; from your support plan; from the people you have told us may act for you; from referrals you have agreed to; and from government agencies such as the NDIA where our registration requires it.</p>
+
+    <h2>6&nbsp; What we use it for</h2>
+    <p class="say">To tailor your support plan and deliver your supports; to answer your enquiries; to manage, review and improve our services; to meet our legal obligations as a registered NDIS provider, including audits; to tell you about changes that affect you; and to keep BookIt working for you. We do not use it to train artificial-intelligence models, and we never sell it.</p>
+
+    <h2>7&nbsp; Who we may share it with</h2>
+    ${li([
+      'the workers you book, who see the short brief from your support plan and, unless you switch it off, the clinical plans they must follow on a shift \u2014 and nothing else from your file;',
+      'the people you have recorded on <b>People with access</b>, such as a representative or a plan manager, to the extent you have allowed;',
+      'the NDIA and your plan manager, where claiming and invoicing require it;',
+      'the NDIS Quality and Safeguards Commission, external auditors and other regulators, where our registration or the law requires it;',
+      'other service providers and health professionals involved in your support \u2014 only when you tell us to, or in an emergency;',
+      'law enforcement, courts or financial institutions where we are required or authorised by law; and',
+      'anyone who needs to know in order to prevent an immediate risk of serious harm to you or someone else.'
+    ])}
+    <p class="say">Apart from the last three, we share only what the purpose needs, and we record what was shared on your file.</p>
+
+    <h2>8&nbsp; What you control</h2>
+    <p class="say">The printed version of this consent asked you to tick boxes. On BookIt each of those is a setting you can change at any time:</p>
+    ${li([
+      '<b>Photos, video and audio</b> \u2014 never collected or published unless you have agreed to the separate Photo and media consent on your documents page.',
+      '<b>Newsletters and marketing</b> \u2014 off unless you turn them on under <b>Emails &amp; notifications</b>. Messages about your bookings and your file are not marketing.',
+      '<b>Sharing with named people or providers</b> \u2014 add them on <b>People with access</b>, or tell us and we record it.',
+      '<b>Anyone we must never share with</b> \u2014 tell us, in writing or by phone, and we record it on your file and follow it regardless of who asks.',
+      '<b>Workers reading your clinical plans on BookIt</b> \u2014 the switch under <b>My documents \u203a What a worker can read</b>.',
+      '<b>Surveys, research and quality activities</b> \u2014 always optional; say no to any of them with no effect on your supports.'
+    ])}
+
+    <h2>9&nbsp; Changing or withdrawing your consent</h2>
+    <p class="say">Your consent continues until you tell us otherwise. You can change or withdraw it at any time by changing a setting above, or by telling us in writing or by phone. Some records must still be kept for the periods the NDIS rules and the law require, and we will tell you if a withdrawal means we can no longer provide a support safely.</p>
+
+    <h2>10&nbsp; Access, complaints and breaches</h2>
+    <p class="say">Our Privacy and Information Management Policy explains how to see the information we hold about you and how to complain about a privacy matter; complaints are handled under our Feedback and Complaints Policy, and you can also complain to the Office of the Australian Information Commissioner. Any breach or suspected breach of your privacy is taken seriously and managed under our Incident Management Policy, and you are told. For a copy of any of these policies, or any question, phone 0488 114 368 or email hello@bookit.life.</p>
+
+    <h2>11&nbsp; If someone agrees on your behalf</h2>
+    <p class="say">A parent, guardian, nominee or other representative recorded on your account may agree to this consent for you. By doing so they confirm that they are authorised to act for you, that they have read our Privacy and Information Management Policy and Incident Management Policy, and that they consent on your behalf to the uses set out here; and they agree that their own details may be used to administer this consent and to show evidence of it where required.</p>
+
+    <div class="box note"><b>What agreeing means</b><p>Pressing <i>I agree</i> on your documents page records your name (or your representative\u2019s, on your behalf), the date and the edition shown \u2014 <i>${escHtml(PRIVACY_CONSENT_EDITION)}</i> \u2014 and keeps a copy of this page as you saw it. It replaces the signature page of the printed form. If the text changes, you are asked to read and agree to the new edition; the earlier one stays on your file.</p></div>`;
+}
+function privacyConsentHtml(opts = {}) {
+  return genPage({
+    title: 'Privacy and information-sharing consent',
+    lede: 'Your consent for Disability and Mental Health Care Pty Ltd to collect, store, use and share your personal information in order to deliver your supports. The same for everyone; nothing to fill in.',
+    meta: [['Provider', `Disability and Mental Health Care Pty Ltd, ABN 19 658 578 575, NDIS provider ${NDIS_REG_NO}`],
+      ['Edition', PRIVACY_CONSENT_EDITION], ['Policy', 'Privacy and Information Management Policy'], ['Change it', 'Any time \u2014 clause 9']],
+    footer: `Privacy and information-sharing consent, edition ${PRIVACY_CONSENT_EDITION}. Published at bookit.life/privacy-consent.`
+  }, privacyConsentBody(), Object.assign({ barNote: 'Read it here \u00b7 agree on your documents page \u00b7 nothing to print or sign' }, opts));
+}
+
 const GENERATED_DOCS = {
+  /* ---- the privacy consent: same treatment as the agreement ---- */
+  'p-consent-privacy': {
+    label: 'Privacy and information-sharing consent', accept: true, issued: '2026-08-23',
+    stale_why: 'We have updated the Privacy and information-sharing consent. Please read the new version and agree to it again.',
+    version: () => `privacy-consent ${PRIVACY_CONSENT_EDITION}`,
+    render(u, plan, opts) { return privacyConsentHtml(opts); }
+  },
   /* ---- the Service Agreement: the platform agreement, see above ---- */
   'p-agreement': {
     label: 'Service Agreement', accept: true, issued: '2026-08-22',
@@ -16261,10 +16357,13 @@ const server = http.createServer((req, res) => {
      site does not quietly serve them to the open internet. */
   /* v86.2: the Service Agreement is published, like the platforms publish
      theirs — no login, the same text everyone agrees to. */
-  if (pathname === '/service-agreement') {
+  if (pathname === '/service-agreement' || pathname === '/privacy-consent') {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-    return res.end(req.method === 'HEAD' ? '' : serviceAgreementHtml({ base: baseUrl(req), barNote: 'The agreement everyone on BookIt accepts · nothing to fill in or sign' }));
+    if (req.method === 'HEAD') return res.end();
+    return res.end(pathname === '/privacy-consent'
+      ? privacyConsentHtml({ base: baseUrl(req), barNote: 'The consent everyone on BookIt gives · nothing to fill in or sign' })
+      : serviceAgreementHtml({ base: baseUrl(req), barNote: 'The agreement everyone on BookIt accepts · nothing to fill in or sign' }));
   }
   if (pathname === '/templates' || pathname.startsWith('/templates/')) {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
