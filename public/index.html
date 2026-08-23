@@ -248,6 +248,8 @@ nav.main a.nav-link:focus-visible, nav.main button.nav-link:focus-visible{outlin
 .cmp-tab .cmp-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#D94F32;color:#fff;font-size:.72rem;margin-left:6px;}
 .cmp-search{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 14px;}
 .cmp-search input{font:inherit;font-size:1rem;padding:10px 14px;border:1.5px solid var(--line);border-radius:12px;min-width:min(420px,100%);}
+.adm-fold > summary{cursor:pointer;list-style:none;} .adm-fold > summary::-webkit-details-marker{display:none;}
+.adm-fold > summary .adm-section{display:inline-block;margin:0;} .adm-fold > summary::before{content:'▸ ';color:var(--teal);font-weight:700;} .adm-fold[open] > summary::before{content:'▾ ';}
 /* v86.4 — red marks for anything that blocks the next shift */
 .acct-chip{position:relative;}
 .acct-dot{position:absolute;top:-3px;right:-3px;width:13px;height:13px;border-radius:999px;background:#D94F32;border:2px solid var(--cream);}
@@ -6811,7 +6813,7 @@ function updateAuthUI(){
      only on the next page change */
   loadBlockers();
   const nb = $('#navBookings');
-  if(nb) nb.hidden = !API.me;
+  if(nb) nb.hidden = !API.me || !!(API.me && API.me.admin);
   const np = $('#navPlan');
   if(np) np.hidden = !(API.me && vrole() === 'participant');
   if(window.actBarSync) actBarSync();
@@ -6853,10 +6855,12 @@ function renderAcctChip(){
 function renderAcctMenu(){
   const m = API.me; if(!m) return;
   const first = esc((m.name || '').split(' ')[0]);
-  const roleLabel = m.role === 'worker' ? 'Support worker' : m.role === 'coordinator' ? 'Support coordinator' : 'Participant';
-  const status = m.role === 'worker'
+  /* v86.5.1: the office account is the office account. It is not also a
+     participant with documents to agree to and a plan to write. */
+  const roleLabel = m.admin ? 'Admin' : m.role === 'worker' ? 'Support worker' : m.role === 'coordinator' ? 'Support coordinator' : 'Participant';
+  const status = m.admin ? ' · DMHC office' : m.role === 'worker'
     ? (m.live ? ' · <span class="acct-live">profile live</span>' : ' · <span class="acct-wait">awaiting approval</span>')
-    : (m.admin ? ' · Admin' : '');
+    : '';
   const item = (hash, sec, icon, label, extra) =>
     `<button type="button" class="acct-item" role="menuitem" data-acct="go" data-hash="${hash}"${sec ? ` data-sec="${sec}"` : ''}><span class="mi">${ACCT_ICONS[icon]}</span><span>${label}</span>${extra || ''}</button>`;
   /* Build 19b — the menu is the short list, the settings hub is the long
@@ -6865,18 +6869,23 @@ function renderAcctMenu(){
      purpose: safety shortcuts don't get filed away. */
   let items = '';
   items += item('#/account/profile', '', 'user', 'Profile');
-  if(m.role === 'coordinator') items += item('#/clients', '', 'grid', 'My clients');
-  items += item('#/bookings', '', 'cal', m.role === 'worker' ? 'Bookings & shifts' : 'My bookings');
-  if(m.role === 'participant') items += item('#/support-plan', '', 'flag', 'Support plan',
+  if(m.admin){
+    items += item('#/admin', '', 'grid', 'Admin dashboard', '<span class="acct-pill">Admin</span>');
+    items += item('#/messages', '', 'chat', 'Messages',
+      `<span class="acct-badge" id="acctMsgBadge" ${API.unread ? '' : 'hidden'}>${API.unread || ''}</span>`);
+    items += item('#/account', '', 'gear', 'Settings');
+  }
+  if(!m.admin && m.role === 'coordinator') items += item('#/clients', '', 'grid', 'My clients');
+  if(!m.admin) items += item('#/bookings', '', 'cal', m.role === 'worker' ? 'Bookings & shifts' : 'My bookings');
+  if(!m.admin && m.role === 'participant') items += item('#/support-plan', '', 'flag', 'Support plan',
     `<span class="acct-badge red" data-blk-badge="support_plan" ${blockerCount('support_plan') ? '' : 'hidden'}>${blockerCount('support_plan') || ''}</span>`);
-  if(m.role === 'worker') items += item('#/account/training', '', 'flag', 'Training',
+  if(!m.admin && m.role === 'worker') items += item('#/account/training', '', 'flag', 'Training',
     `<span class="acct-badge red" data-blk-badge="training" ${blockerCount('training') ? '' : 'hidden'}>${blockerCount('training') || ''}</span>`);
-  items += item('#/messages', '', 'chat', 'Messages',
+  if(!m.admin) items += item('#/messages', '', 'chat', 'Messages',
     `<span class="acct-badge" id="acctMsgBadge" ${API.unread ? '' : 'hidden'}>${API.unread || ''}</span>`);
-  if(m.role !== 'coordinator') items += item('#/bookings', 'cardIncident', 'flag', 'Report an incident');
-  items += item('#/account', '', 'gear', 'Settings',
+  if(!m.admin && m.role !== 'coordinator') items += item('#/bookings', 'cardIncident', 'flag', 'Report an incident');
+  if(!m.admin) items += item('#/account', '', 'gear', 'Settings',
     `<span class="acct-badge red" data-blk-badge="settings" ${blockerCount('settings') ? '' : 'hidden'}>${blockerCount('settings') || ''}</span>`);
-  if(m.admin) items += item('#/admin', '', 'grid', 'Admin dashboard', '<span class="acct-pill">Admin</span>');
   $('#acctMenu').innerHTML = `
     <div class="acct-head">
       <div class="wc-avatar acct-big" style="background:var(--teal);">${m.photo ? `<img src="${m.photo}" alt="">` : acctInitials(m.name)}</div>
@@ -9142,8 +9151,8 @@ async function renderAdminPage(){
       <td style="white-space:nowrap;">${esc(r.checked_by || 'System')}</td>
     </tr>`).join('');
     compliance = `
-      <div class="info-card" style="margin-bottom:14px;">
-        <p style="margin:0 0 8px;"><b>Registration group 0137 — NDIS Digital Platform Service</b> carries two conditions of registration. BookIt enforces both in code, so a worker who stops meeting them comes off the platform the same day rather than at the next audit.</p>
+      <details class="info-card" style="margin-bottom:14px;"><summary style="cursor:pointer;font-weight:700;">About the 0137 conditions, the counts and the re-check settings</summary>
+        <p style="margin:10px 0 8px;"><b>Registration group 0137 — NDIS Digital Platform Service</b> carries two conditions of registration. BookIt enforces both in code, so a worker who stops meeting them comes off the platform the same day rather than at the next audit.</p>
         <blockquote style="margin:0 0 10px;padding:8px 14px;border-left:4px solid #0E6B62;background:rgba(255,255,255,.6);font-size:.9rem;line-height:1.65;">
           • worker screening check requirements ensuring that only persons who hold a worker screening clearance may use the platform; and<br>
           • requirements to check and display certain information about persons providing supports on the platform, such as whether a banning order against a person is in force.
@@ -9162,7 +9171,7 @@ async function renderAdminPage(){
           <label style="font-size:.8rem;">Grace before withdrawal<br><input id="c37Grace" type="number" min="0" max="120" value="${cmp.settings.banning_grace_days}" style="font:inherit;font-size:.82rem;padding:5px 8px;border-radius:8px;border:1.5px solid #E7DFD4;width:80px;"> days</label>
           <button class="adm-btn-sm" id="c37Save" type="button">Save</button>
         </div>
-      </div>
+      </details><!--INTRO-END-->
       ${cmp.links ? `<div class="info-card" style="margin:0 0 12px;padding:12px 16px;"><b style="font-size:.9rem;">Where to check — open in a new tab, then record what you found on the row</b>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px 18px;margin-top:8px;font-size:.84rem;">
           ${Object.values(cmp.links).map(l => `<div><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)} ↗</a>${l.how ? `<br><span class="muted-sm">${esc(l.how)}</span>` : ''}</div>`).join('')}
@@ -9171,11 +9180,18 @@ async function renderAdminPage(){
           <th>Worker</th><th>Screening clearance (a)</th><th>Banning orders (b)</th><th>Evidence</th><th>Displayed</th>
         </tr></thead><tbody>${c37Rows}</tbody></table></div>`
         : '<p class="adm-empty">No real workers yet — every worker who joins appears here against both conditions.</p>'}
+      <!--EVIDENCE-LOG-->
       <h3 class="adm-sub">Evidence log ${clog.entries && clog.entries.length ? `(latest ${Math.min(60, clog.entries.length)} of ${clog.entries.length})` : ''}</h3>
       <p class="muted-sm" style="margin:0 0 10px;">Every check, who did it, what they checked it against and what they found — written once and never edited. This is the answer to "show me how you satisfy your conditions".</p>
       ${logRows ? `<div class="adm-table-wrap"><table class="adm-table c37-log"><thead><tr><th>When</th><th>Worker</th><th>What</th><th>Detail</th><th>By</th></tr></thead><tbody>${logRows}</tbody></table></div>`
         : '<p class="adm-empty">Nothing logged yet — verifying a document or recording a check writes the first entry.</p>'}`;
   }
+  /* v86.5.1: the evidence log is its own tab; the verification table leads */
+  const complianceParts = String(compliance).split('<!--EVIDENCE-LOG-->');
+  /* the table first; the folded "about" card after it */
+  const introParts = complianceParts[0].split('<!--INTRO-END-->');
+  const complianceVerify = introParts.length === 2 ? introParts[1] + introParts[0] : complianceParts[0];
+  const complianceLog = complianceParts[1] || '<p class="adm-empty">Nothing logged yet.</p>';
   const credentials = `
     <p style="margin:0 0 10px;"><button class="adm-btn-sm" id="admSweep" type="button">▶ Run the automatic check now</button>
     <span style="font-size:.85rem;color:#3E5A64;margin-left:8px;">Runs by itself twice a day: warns workers and you at 30 and 7 days before expiry, chases the banning-order re-check before it falls due, and withdraws — then restores — anyone whose 0137 position changes. "Verify" asks how you satisfied yourself and records it; the screening database has no public connection, so that step is a human one either way.</span></p>
@@ -9466,11 +9482,11 @@ async function renderAdminPage(){
   const cmpPane = (key, inner) => `<div class="cmp-pane" data-cmp-pane="${key}"${key === CMP_TAB ? '' : ' hidden'}>${inner}</div>`;
   g('compliance', 'Compliance', 'Verify a worker, verify a participant, the registers',
     wUrgent + rUrgent,
-    `<div class="cmp-tabs" role="tablist">${tab('workers', 'Support workers', wUrgent)}${tab('participants', 'Participants', pUrgent)}${tab('registers', 'Incidents, complaints & scope', rUrgent)}</div>`
+    `<div class="cmp-tabs" role="tablist">${tab('workers', 'Support workers', wUrgent)}${tab('participants', 'Participants', pUrgent)}${tab('registers', 'Incidents, complaints & scope', rUrgent)}${tab('log', 'Evidence log', 0)}</div>`
     + cmpPane('workers', cmpSearch('workers', workerNames, 'Type a worker\'s name to verify them')
-      + H('0137 conditions of registration ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + compliance
-      + H('Worker screening — the NWSD queue ', scr && scr.waiting ? red(scr.waiting + ' to look at') : '') + screeningHtml(scr)
-      + H('Credentials — the automatic checker') + credentials
+      + H('Verify a worker — the 0137 conditions ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + complianceVerify
+      + `<details class="adm-fold" style="margin-top:18px;"${scr && scr.waiting ? ' open' : ''}><summary>${H('Worker screening — the NWSD queue ', scr && scr.waiting ? red(scr.waiting + ' to look at') : '')}</summary>${screeningHtml(scr)}</details>`
+      + `<details class="adm-fold" style="margin-top:18px;"><summary>${H('Credentials and documents — the automatic checker')}</summary>${credentials}</details>`
       + '<div class="info-card" id="admTrainingCard" style="margin-top:18px;" hidden></div>')
     + cmpPane('participants', cmpSearch('participants', partNames, 'Type a participant\'s name to verify their file')
       + H('Participant files ', pMissingN === null ? '' : pMissingN ? red(pMissingN + ' not on file')
@@ -9480,7 +9496,10 @@ async function renderAdminPage(){
     + cmpPane('registers', H('Incident register ', c.urgent_incidents ? red(c.urgent_incidents + ' awaiting Commission notice!') : '') + incidents
       + H('Complaints register') + complaints
       + H('Out-of-scope register ', srOpen.length ? red(srOpen.length + ' open')
-          : (srRows.length ? `<span style="color:#2E6B4F;">(${srRows.length} closed)</span>` : '')) + scopeRegister));
+          : (srRows.length ? `<span style="color:#2E6B4F;">(${srRows.length} closed)</span>` : '')) + scopeRegister)
+    + cmpPane('log', cmpSearch('log', workerNames, 'Type a worker\'s name to see their entries')
+      + '<p class="muted-sm" style="margin:0 0 10px;">Every check, who did it, what they checked it against and what they found — written once and never edited. This is the answer to "show me how you satisfy your conditions".</p>'
+      + complianceLog));
 
   g('documents', 'Documents', 'Files, forms, plans and the audit pack',
     (pMissingN || 0) + (plans && plans.counts.critical ? plans.counts.critical : 0),
@@ -13214,7 +13233,7 @@ async function renderAccountPage(){
   /* [slug, label, one-line description for the list, body] */
   const S = [];
 
-  if(me.role === 'participant' && !API.actingFor){
+  if(me.role === 'participant' && !API.actingFor && !me.admin){
     S.push(['billing', 'Billing & payments', 'Plan, NDIS number, invoices & statements', payCard + '<div id="miniStatements"><p class="muted-sm">Loading…</p></div>']);
     S.push(['documents', 'My documents', 'Your file', '<div id="miniPdocs"><p class="muted-sm">Loading…</p></div>']);
     S.push(['access', 'People with access', 'Family or a coordinator helping', '<div id="miniAccess"><p class="muted-sm">Loading…</p></div>']);
@@ -13225,7 +13244,7 @@ async function renderAccountPage(){
     S.push(['statements', 'Invoices & statements', 'Statements for the people you support', '<div id="miniStatements"><p class="muted-sm">Loading…</p></div>']);
   }
 
-  if(me.role === 'worker'){
+  if(me.role === 'worker' && !me.admin){
     S.push(['credentials', 'Credentials & checks', 'Screening, training, expiry dates', '<div id="miniCreds"><p class="muted-sm">Loading…</p></div>']);
     S.push(['earnings', 'Earnings & pay tier', 'Pay lines, super, next rate', '<div id="miniEarnings"><p class="muted-sm">Loading…</p></div>']);
     S.push(['training', 'Training', 'Required, done, due', '<div id="miniTraining"><p class="muted-sm">Loading…</p></div>']);

@@ -5875,6 +5875,8 @@ function firstBookingBlockers(pid, self) {
 route('GET', /^\/api\/me\/blockers$/, (req, res, m, user) => {
   const counts = { settings: 0, documents: 0, billing: 0, support_plan: 0, training: 0, credentials: 0, total: 0 };
   let items = [];
+  /* the office account has no shifts of its own to be blocked from */
+  if (user.admin) return json(res, 200, { items, counts: { ...counts, office: 0 } });
   if (user.role === 'participant') {
     items = firstBookingBlockers(user.id, true).map(x => ({ key: x.key, section: x.section, where: x.where, blocking: true, yours: x.yours,
       label: x.key === 'plan-review' ? 'Our office is reviewing your support plan' : x.key === 'plan-review-due' ? 'Your support plan is due for review'

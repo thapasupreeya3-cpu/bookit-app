@@ -1,7 +1,41 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.5.0
+Current release: v86.5.1
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.5.1 — THE OFFICE ACCOUNT, THE VERIFY TABLE FIRST, A RESET FOR EACH PREFILL
+----------------------------------------------------------------------------------------------
+  THE OFFICE ACCOUNT IS AN ADMIN ACCOUNT
+    An account on ADMIN_EMAILS no longer doubles as a participant. Its menu
+    is Profile, Admin dashboard, Messages, Settings, Help, Log out; its
+    Settings hub is emails, accessibility, sign-in and help; the header has
+    no Bookings link for it; /api/me/blockers returns nothing for it, so it
+    never carries a red mark for documents or a plan it was never going to
+    agree to or write. The role line reads "Admin · DMHC office". Nothing
+    changes in the database — the account keeps its role, and the admin
+    routes still check the admin flag.
+
+  COMPLIANCE › SUPPORT WORKERS: VERIFY FIRST
+    The 0137 verification table is the first thing on the tab, under the
+    "Where to check" link sheet. The long explanation of the conditions,
+    the counts and the re-check settings is one folded line after it. The
+    NWSD screening queue and the credentials-and-documents checker are
+    folded too (the queue opens itself when something is waiting). The
+    evidence log is its own tab, with its own name search.
+
+  A RESET FOR EACH THING THE PREFILL FILLS
+    scripts/reset-walkthrough.js clears a test participant's --plan (every
+    version, the workers' acknowledgements and with them the office review),
+    --billing, --agreements (with their snapshots), --nominee, or --all.
+    Dry run by default, --yes to apply; refuses demo accounts, non-
+    participants and accounts with a completed booking; refuses --plan while
+    a requested or accepted booking exists, because the worker must be able
+    to read the plan. Run on the server with the site stopped, like the
+    other scripts. reset-test-agreements.js still works and is the same as
+    --agreements.
+
+  No migration. SCHEMA_VERSION stays 86400.
 
 
 WHAT CHANGED IN v86.5.0 — COMPLIANCE IS THREE TABS AND A NAME
