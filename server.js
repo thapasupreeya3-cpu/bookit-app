@@ -391,6 +391,11 @@ for (const [col, type] of [
   ['need_allergy', 'INTEGER DEFAULT 0'], ['need_manual', 'INTEGER DEFAULT 0'],
   ['has_pbs', 'INTEGER DEFAULT 0'], ['plan_schema', 'INTEGER DEFAULT 1']
 ]) { BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE support_plans ADD COLUMN ${col} ${type}`) }
+/* v86.4: the office reads every new support plan before the first shift,
+   and says so on the plan row. Later versions are flagged, not blocked. */
+for (const [col, type] of [['reviewed_at', "TEXT DEFAULT ''"], ['reviewed_by', "TEXT DEFAULT ''"]]) {
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE support_plans ADD COLUMN ${col} ${type}`);
+}
 /* SIL rosters build: shared-living houses with weekly repeating shift slots */
 db.exec(`
   CREATE TABLE IF NOT EXISTS sil_houses (
@@ -2355,6 +2360,8 @@ function seed() {
   console.log('Seeded 12 demo workers (…@demo.bookit.life / demo1234) and demo@demo.bookit.life / demo1234');
 }
 seed();
+/* v86.4: demo participants' plans are reviewed by definition */
+try { db.prepare("UPDATE support_plans SET reviewed_at = COALESCE(NULLIF(confirmed_at,''), ?), reviewed_by = 'BookIt demo' WHERE COALESCE(reviewed_at,'') = '' AND participant_id IN (SELECT id FROM users WHERE email LIKE '%@demo.bookit.life')").run(now()); } catch (e) { console.error('demo plan review:', e.message); }
 
 /* ---------- data access ---------- */
 /* Note what is NOT here any more: the `checks` column. It was seeded free text
@@ -5784,6 +5791,144 @@ route('POST', /^\/api\/conversations\/(\d+)\/messages$/, (req, res, m, user, bod
   json(res, 200, { id: Number(r.lastInsertRowid), ok: true, attachment: att ? messageAttachment({ doc_kind: att.kind, doc_id: att.id, doc_name: att.name, id: Number(r.lastInsertRowid) }) : null });
 });
 
+/* ============================================================================
+   v86.4 — what stands between a person and their next shift, in one place
+   ----------------------------------------------------------------------------
+   The booking route used to compute its own gate and the page only learned of
+   it when a request bounced. Now one function answers "what is blocking this
+   person", the booking route uses it, and /api/me/blockers lets every screen
+   show a red mark where the problem is: the avatar, the account menu, the
+   settings list, the documents page, the booking form, a worker's Accept.
+   ========================================================================== */
+function planReviewState(pid) {
+  const cur = db.prepare("SELECT id, version, status, confirmed_at FROM support_plans WHERE participant_id = ? AND current = 1").get(Number(pid)) || null;
+  const rev = db.prepare("SELECT version, reviewed_at, reviewed_by FROM support_plans WHERE participant_id = ? AND COALESCE(reviewed_at,'') <> '' ORDER BY version DESC LIMIT 1").get(Number(pid)) || null;
+  return {
+    plan: cur ? { id: cur.id, version: cur.version, status: cur.status, confirmed_at: cur.confirmed_at || '' } : null,
+    reviewed_any: !!rev, reviewed_version: rev ? rev.version : 0, reviewed_at: rev ? rev.reviewed_at : '', reviewed_by: rev ? rev.reviewed_by : '',
+    /* the version the office last read is the version in force */
+    current_reviewed: !!(cur && rev && rev.version >= cur.version),
+    /* a confirmed plan the office has never read: the first-booking gate */
+    awaiting_first_review: !!(cur && cur.status === 'confirmed' && !rev),
+    /* changed since the office last read it: flagged on the admin card */
+    changed_since_review: !!(cur && rev && cur.version > rev.version && cur.status === 'confirmed')
+  };
+}
+
+function firstBookingBlockers(pid, self) {
+  const u = db.prepare('SELECT plan, under_18, nominee_name, name FROM users WHERE id = ?').get(Number(pid)) || {};
+  const plan = currentPlan(pid);
+  const youOr = self ? 'you' : u.name;
+  const missing = [];
+  if (!u.plan || u.plan === 'none') {
+    missing.push({ what: 'how the support is funded', where: '#/account/billing', key: 'billing', section: 'billing', yours: true,
+      why: 'An invoice has to have somewhere to go before a shift is worth booking.' });
+  }
+  const agreed = k => db.prepare("SELECT id FROM participant_docs WHERE participant_id = ? AND form_key = ? AND COALESCE(review_state,'') <> 'rejected'").get(Number(pid), k);
+  if (!agreed('p-agreement')) {
+    missing.push({ what: 'the Service Agreement', where: '#/account/documents', key: 'p-agreement', section: 'documents', yours: true,
+      why: 'Read it and press I agree. The terms have to be agreed before supports start.' });
+  }
+  if (!agreed('p-consent-privacy')) {
+    missing.push({ what: 'the privacy consent', where: '#/account/documents', key: 'p-consent-privacy', section: 'documents', yours: true,
+      why: 'Read it and press I agree. We need your consent before we hold and share your information.' });
+  }
+  if (u.under_18 && !u.nominee_name) {
+    missing.push({ what: 'who manages the account', where: '#/account/documents', key: 'nominee', section: 'documents', yours: true,
+      why: 'You have told us the person receiving support is under 18, so a parent or guardian has to be named as managing this account before the first shift.' });
+  }
+  if (!plan || plan.status !== 'confirmed') {
+    missing.push({ what: 'a support plan', where: '#/support-plan', key: 'support-plan', section: 'support-plan', yours: true,
+      why: 'It is how a worker knows how ' + youOr + ' want' + (self ? '' : 's') + ' to be supported before the first shift, not after it.' });
+  } else {
+    const pr = planReviewState(pid);
+    if (pr.awaiting_first_review) {
+      missing.push({ what: 'our office\u2019s review of the support plan', where: '#/support-plan', key: 'plan-review', section: 'support-plan', yours: false,
+        why: 'We read every new support plan before the first shift. Nothing for you to do \u2014 you will hear from us when it is done.' });
+    } else if (plan.review_due && plan.review_due < ymd()) {
+      missing.push({ what: 'an updated support plan', where: '#/support-plan', key: 'plan-review-due', section: 'support-plan', yours: true,
+        why: `The support plan was due for review on ${dmy(plan.review_due)}. New bookings resume as soon as it is updated; existing shifts are unaffected.` });
+    }
+  }
+  return missing;
+}
+
+route('GET', /^\/api\/me\/blockers$/, (req, res, m, user) => {
+  const counts = { settings: 0, documents: 0, billing: 0, support_plan: 0, training: 0, credentials: 0, total: 0 };
+  let items = [];
+  if (user.role === 'participant') {
+    items = firstBookingBlockers(user.id, true).map(x => ({ key: x.key, section: x.section, where: x.where, blocking: true, yours: x.yours,
+      label: x.key === 'plan-review' ? 'Our office is reviewing your support plan' : x.key === 'plan-review-due' ? 'Your support plan is due for review'
+        : x.key === 'support-plan' ? 'Your support plan is not confirmed' : x.key === 'billing' ? 'Tell us how your supports are funded'
+        : x.key === 'nominee' ? 'Name who manages this account' : `${x.what.replace(/^the /, '')[0].toUpperCase()}${x.what.replace(/^the /, '').slice(1)} not yet agreed`, why: x.why }));
+  } else if (user.role === 'worker') {
+    const t = moduleState(user.id);
+    if (t.lock) items.push({ key: 'training', section: 'training', where: '#/account/training', blocking: t.lock === 'hard', yours: true,
+      label: t.lock === 'hard' ? `Training ${t.overdue_days} days overdue \u2014 you can\u2019t accept new shifts until it\u2019s done` : `Training ${t.overdue_days} days overdue`,
+      why: (t.outstanding || []).join(', ') });
+    const w = db.prepare("SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(user.id);
+    if (!w || !w.visible || !platformEligible(user.id, w.email)) {
+      const st = platformStatus(user.id);
+      items.push({ key: 'profile', section: 'credentials', where: '#/account/credentials', blocking: true, yours: false,
+        label: 'Your profile isn\u2019t active yet \u2014 you can\u2019t accept shifts until it is', why: (st.blocks || []).join(' ') });
+    }
+  }
+  for (const it of items) {
+    if (it.section === 'documents') counts.documents++;
+    if (it.section === 'billing') counts.billing++;
+    if (it.section === 'support-plan') counts.support_plan++;
+    if (it.section === 'training') counts.training++;
+    if (it.section === 'credentials') counts.credentials++;
+  }
+  counts.settings = counts.documents + counts.billing + counts.training + counts.credentials;
+  counts.total = items.length;
+  json(res, 200, { items, counts });
+});
+
+/* the office reads the plan: every question and answer, as the participant
+   wrote it, on one printable page, with the review button's state at the top */
+route('GET', /^\/api\/admin\/participants\/(\d+)\/plan$/, (req, res, m, user) => {
+  if (!user || !user.admin) return json(res, 403, { error: 'Admin only.' });
+  const pid = Number(m[1]);
+  const u = db.prepare('SELECT id, name, ndis_number, suburb FROM users WHERE id = ? AND role = ?').get(pid, 'participant');
+  if (!u) return json(res, 404, { error: 'No such participant.' });
+  const plan = confirmedPlan(pid);
+  if (!plan) { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(genPage({ title: 'Support plan', lede: `${escHtml(u.name)} has not confirmed a support plan yet.`, meta: [] }, '', { base: baseUrl(req) })); }
+  const pr = planReviewState(pid);
+  const val = q => {
+    const v = plan[q.key];
+    if (q.type === 'yn') return v == null ? '\u2014' : (Number(v) ? 'Yes' : 'No');
+    return v == null || String(v).trim() === '' ? '<i class="help">not answered</i>' : escHtml(String(v)).replace(/\n/g, '<br>');
+  };
+  const body = PLAN_SECTIONS.map(sec => {
+    const qs = PLAN_QUESTIONS.filter(q => q.section === sec.key && (!q.showIf || Number(plan[q.showIf])));
+    if (!qs.length) return '';
+    return `<h2>${escHtml(sec.title)}</h2>` + qs.map(q => `<p class="say"><b>${escHtml(q.q)}</b><br>${val(q)}</p>`).join('');
+  }).join('');
+  const state = pr.awaiting_first_review ? 'Waiting for the office\u2019s first review \u2014 the participant\u2019s first booking is blocked until it is marked reviewed.'
+    : pr.changed_since_review ? `Changed since the office reviewed v${pr.reviewed_version} on ${dmy(String(pr.reviewed_at).slice(0, 10))}.`
+    : pr.reviewed_any ? `Reviewed by ${escHtml(pr.reviewed_by)} on ${dmy(String(pr.reviewed_at).slice(0, 10))}.` : '';
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(genPage({
+    title: `Support plan \u2014 ${u.name}`,
+    lede: `Version ${plan.version}, confirmed by the participant on ${dmy(String(plan.confirmed_at).slice(0, 10))}. ${state}`,
+    meta: [['Participant', u.name], ['NDIS number', u.ndis_number || 'not recorded'], ['Version', String(plan.version)],
+      ['Continuity tier', continuityTier(plan).label || ''], ['Office review', pr.reviewed_any ? `v${pr.reviewed_version}, ${dmy(String(pr.reviewed_at).slice(0, 10))}` : 'not yet']],
+    footer: `Support plan v${plan.version} for ${u.name}, printed for the office ${dmy(ymd())}. Office copy \u2014 not for the worker; the worker reads the brief.`
+  }, body, { base: baseUrl(req), barNote: 'Office copy of the support plan \u00b7 mark it reviewed on the Participant files board' }));
+});
+
+/* the office reads a plan and says so; later versions are flagged, not blocked */
+route('POST', /^\/api\/admin\/participants\/(\d+)\/plan-review$/, (req, res, m, user) => {
+  if (!user.admin) return json(res, 403, { error: 'Admin only.' });
+  const pid = Number(m[1]);
+  const cur = db.prepare("SELECT id, version, status FROM support_plans WHERE participant_id = ? AND current = 1").get(pid);
+  if (!cur || cur.status !== 'confirmed') return json(res, 400, { error: 'There is no confirmed support plan to review yet.' });
+  db.prepare('UPDATE support_plans SET reviewed_at = ?, reviewed_by = ? WHERE id = ?').run(now(), user.name, cur.id);
+  logAccess(pid, user, 'plan-reviewed', `${user.name} reviewed support plan version ${cur.version}`, `plan:${cur.id}`);
+  json(res, 200, { ok: true, version: cur.version, reviewed_at: now(), reviewed_by: user.name });
+});
+
 route('GET', /^\/api\/bookings$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   /* A coordinator sees a client's diary through exactly the same route, and
@@ -5827,9 +5972,13 @@ route('GET', /^\/api\/bookings$/, (req, res, m, user) => {
     const w = db.prepare("SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(user.id);
     return !!(w && w.visible && platformEligible(user.id, w.email));
   })();
+  const train = user.role === 'worker' ? moduleState(user.id) : null;
   json(res, 200, {
     bookings: rows,
     worker_active: workerActive,
+    training_lock: train ? train.lock : '',
+    training_overdue_days: train ? train.overdue_days : 0,
+    training_outstanding: train ? (train.outstanding || []) : [],
     acting_for: pers && !pers.self ? { id: pers.id, name: pers.name } : null,
     approval_rule: APPROVAL_RULE,
     approval_days: APPROVAL_DEEM_DAYS,
@@ -5909,41 +6058,15 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
      diary — somebody relying on Tuesday morning does not lose it because a
      review date passed on Monday. */
   const plan = currentPlan(pers.id);
-  const whose = pers.self ? 'Your' : pers.name + '\u2019s';
-  const youOr = pers.self ? 'you' : pers.name;
-  const missing = [];
-  if (!user.plan || user.plan === 'none') {
-    missing.push({ what: 'how the support is funded', where: '#/bookings', key: 'billing',
-      why: 'An invoice has to have somewhere to go before a shift is worth booking.' });
-  }
-  const agreed = db.prepare("SELECT id FROM participant_docs WHERE participant_id = ? AND form_key = 'p-agreement' AND COALESCE(review_state,'') <> 'rejected'").get(pers.id);
-  if (!agreed) {
-    missing.push({ what: 'the service agreement', where: '#/account/documents', key: 'p-agreement',
-      why: 'Read it and press agree — it takes a moment, and the terms have to be agreed before supports start.' });
-  }
-  /* v86: anyone under 18 must have an adult managing the account before the
-     first shift. Only fires for a participant who has told us
-     they are under 18, because BookIt does not hold a date of birth. It is
-     theirs to do and it takes a minute, which is the test for a gate. */
-  const acct = db.prepare('SELECT under_18, nominee_name FROM users WHERE id = ?').get(pers.id) || {};
-  if (acct.under_18 && !acct.nominee_name) {
-    missing.push({ what: 'who manages the account', where: '#/account/documents', key: 'nominee',
-      why: 'You have told us the person receiving support is under 18, so an adult — a parent or guardian — has to be named as managing this account before the first shift.' });
-  }
-  if (!plan || plan.status !== 'confirmed') {
-    missing.push({ what: 'a support plan', where: '#/support-plan', key: 'support-plan',
-      why: 'It is how a worker knows how ' + youOr + ' want' + (pers.self ? '' : 's') + ' to be supported before the first shift, not after it.' });
-  }
+  const missing = firstBookingBlockers(pers.id, !!pers.self);
   if (missing.length) {
+    const theirs = missing.filter(x => x.yours), ours = missing.filter(x => !x.yours);
     return json(res, 400, {
       needs_setup: true, missing,
-      error: `Before the first booking: ${missing.map(x => x.what).join(', ').replace(/, ([^,]*)$/, ' and $1')}. ${missing.length === 1
-        ? `It takes a few minutes and it is ${pers.self ? 'yours' : 'theirs'} to do.`
-        : `They take a few minutes and they are all ${pers.self ? 'yours' : 'theirs'} to do.`}`
+      error: `Before the first booking: ${missing.map(x => x.what).join(', ').replace(/, ([^,]*)$/, ' and $1')}. ${theirs.length
+        ? `${theirs.length === 1 ? 'It takes a few minutes and it is' : 'They take a few minutes and they are'} ${pers.self ? 'yours' : 'theirs'} to do.`
+        : ''}${ours.length ? ' Our office will let you know when the support plan has been reviewed.' : ''}`.trim()
     });
-  }
-  if (plan.review_due && plan.review_due < ymd()) {
-    return json(res, 400, { error: `${whose} support plan was due for review on ${dmy(plan.review_due)}. New bookings resume as soon as it is updated \u2014 existing shifts are unaffected.`, plan_review_due: plan.review_due });
   }
 
   const repeat = ['weekly', 'fortnightly'].includes(clean(body.repeat, 20)) ? clean(body.repeat, 20) : '';
@@ -8934,6 +9057,7 @@ function participantFile(pid) {
       phone: u.nominee_phone || '', email: u.nominee_email || '', paid: !!u.nominee_paid,
       under_18: !!u.under_18, at: u.nominee_at || '', options: NOMINEE_ROLES },
     sharing: { on: u.share_plans == null ? true : !!u.share_plans, note: u.share_plans_note || '', at: u.share_plans_at || '' },
+    plan_review: planReviewState(pid),
     plan_dates: { start: u.plan_start || '', end: u.plan_end || '', ended: Boolean(u.plan_end && u.plan_end < ymd()), funding: u.plan || '' },
     held: rows.filter(c => counted(c) && have.has(c.key)).length,
     of: rows.filter(counted).length,

@@ -9136,6 +9136,11 @@ async function renderAdminPage(){
           · account managed by: ${p.nominee && p.nominee.role === 'none' ? 'self' : p.nominee && p.nominee.name ? esc(p.nominee.name) + (p.nominee.under_18 ? ' (participant under 18)' : '') + (p.nominee.paid ? ' (paid)' : '') : (p.nominee && p.nominee.under_18 ? '<b style="color:#D94F32;">under 18, nobody named</b>' : '<span style="color:#8a6d00;">not answered</span>')}
           · plans shared with workers: ${p.sharing && p.sharing.on === false ? '<b style="color:#D94F32;">no</b> — ' + esc(p.sharing.note || '') : 'yes'}<br>
           Survey: ${p.survey && p.survey.open_since ? `sent ${fmtAU(p.survey.open_since.slice(0,10))}, not answered` : p.survey && p.survey.last_answered ? `answered ${fmtAU(p.survey.last_answered.slice(0,10))}` : 'not sent in the last year'} <button class="adm-btn-sm" data-svy-invite="${p.id}" type="button">send the survey</button> · <a href="/api/admin/surveys.csv" download>responses (CSV)</a></p>
+        ${(() => { const pr = p.plan_review || {}; if(!pr.plan) return '<p style="margin:8px 0 0;font-size:.86rem;color:#A5301A;"><b>Support plan:</b> not written yet — their first booking waits on it.</p>';
+          if(pr.plan.status !== 'confirmed') return '<p style="margin:8px 0 0;font-size:.86rem;color:#8a6d00;"><b>Support plan:</b> draft in progress, not confirmed.</p>';
+          if(pr.awaiting_first_review) return `<p style="margin:8px 0 0;font-size:.86rem;color:#A5301A;"><b>Support plan v${pr.plan.version}</b> confirmed ${fmtAU(String(pr.plan.confirmed_at).slice(0,10))} — <b>waiting for your review</b>; their first booking is blocked until you have read it. <a href="/api/admin/participants/${p.id}/plan" target="_blank" rel="noopener noreferrer">Read the plan</a> · <button class="adm-btn-sm" data-plan-review="${p.id}" type="button">Mark reviewed</button></p>`;
+          if(pr.changed_since_review) return `<p style="margin:8px 0 0;font-size:.86rem;color:#8a6d00;"><b>Support plan v${pr.plan.version}</b> — changed since you reviewed v${pr.reviewed_version} on ${fmtAU(String(pr.reviewed_at).slice(0,10))}. Bookings continue. <a href="/api/admin/participants/${p.id}/plan" target="_blank" rel="noopener noreferrer">Read the plan</a> · <button class="adm-btn-sm" data-plan-review="${p.id}" type="button">Mark v${pr.plan.version} reviewed</button></p>`;
+          return `<p style="margin:8px 0 0;font-size:.86rem;color:#1C7C43;"><b>Support plan v${pr.plan.version}</b> reviewed by ${esc(pr.reviewed_by || 'the office')} on ${fmtAU(String(pr.reviewed_at).slice(0,10))}. <a href="/api/admin/participants/${p.id}/plan" target="_blank" rel="noopener noreferrer">Read the plan</a></p>`; })()}
         <div style="margin-top:8px;"><button class="adm-btn-sm" data-preq-doc="${p.id}" type="button">＋ ask for a document</button></div>
         <details style="margin-top:10px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;font-size:.9rem;">＋ File a document for ${esc(p.name)}</summary>
           <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
@@ -13205,8 +13210,8 @@ async function renderPdocsMini(){
     const items = missing.filter(x => (x.owner || 'participant') === o);
     if(!items.length) return '';
     const meta = OWNERS[o] || { label: o, blurb: '' };
-    return `<div class="pdoc-grp${o === 'participant' ? ' mine' : ''}">
-      <div class="pdoc-grp-h">${esc(meta.label)} <span>${items.length}</span></div>
+    return `<div class="pdoc-grp${o === 'participant' ? ' mine pdoc-grp-must' : ''}">
+      <div class="pdoc-grp-h">${o === 'participant' ? 'Before your first booking — for you to read and agree to' : esc(meta.label)} <span>${items.length}</span></div>
       ${meta.blurb ? `<p class="muted-sm" style="margin:0 0 7px;">${esc(meta.blurb)}</p>` : ''}
       ${items.map(x => rowHtml(x, false)).join('')}
     </div>`;
@@ -13840,6 +13845,14 @@ document.addEventListener('click', async e => {
     svi.disabled = true;
     try{ await API.call('/admin/participants/' + svi.dataset.svyInvite + '/survey-invite', {method:'POST', noFor:true}); toast('Survey sent — it is on their documents page now.'); renderAdminPage(); }
     catch(err){ toast(err.message); svi.disabled = false; }
+    return;
+  }
+  const prv = e.target.closest('[data-plan-review]');
+  if(prv){
+    if(!confirm('Mark this support plan as reviewed by you? It records your name and today\'s date on the plan, and lifts the first-booking hold.')) return;
+    prv.disabled = true;
+    try{ await API.call('/admin/participants/' + prv.dataset.planReview + '/plan-review', {method:'POST', noFor:true}); toast('Plan marked reviewed.'); if(window.renderAdminPage) renderAdminPage(); }
+    catch(err){ toast(err.message); prv.disabled = false; }
     return;
   }
   const pra = e.target.closest('[data-preq-doc]');

@@ -1,7 +1,59 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.3.0
+Current release: v86.4.0
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.4.0 — RED MARKS, THE OFFICE REVIEWS THE PLAN, ACCEPT TELLS THE TRUTH
+---------------------------------------------------------------------------------------
+  ONE ANSWER TO "WHAT IS BLOCKING THIS PERSON"
+    GET /api/me/blockers returns the list and the counts, for the signed-in
+    person. A participant's list is the first-booking gate (funding, the
+    Service Agreement, the privacy consent, who manages the account if
+    under 18, a confirmed plan, the office's review of the plan, a plan due
+    for review). A worker's list is the training lock (soft at 7 days,
+    hard at 14) and an inactive profile. The booking route now uses the
+    same function, so the page and the server never disagree.
+
+  WHERE THE RED MARKS ARE
+    A dot on the avatar chip. In the account menu: Support plan (participant)
+    or Training (worker) with a red count, and Settings with a red count.
+    In Settings: counts on My documents, Billing & payments, Training,
+    Credentials & checks. A dot on the header's Support plan link. The
+    booking form opens with a red panel naming each blocker, with a "fix
+    this" link for the ones that are theirs. Repainted on every page change.
+
+  THE OFFICE REVIEWS EVERY NEW SUPPORT PLAN BEFORE THE FIRST SHIFT
+    support_plans gains reviewed_at / reviewed_by. The Participant files
+    card shows the plan's state: waiting for your review (first booking
+    blocked), changed since you reviewed vN (bookings continue), or reviewed
+    by whom and when. "Read the plan" opens an office copy of every question
+    and answer (GET /api/admin/participants/:id/plan); "Mark reviewed" records
+    your name and the date (POST .../plan-review) and is written to the
+    participant's access log. Demo participants are reviewed by definition.
+    The participant sees "Our office is reviewing your support plan —
+    nothing for you to do."
+
+  THE PRIVACY CONSENT IS PART OF THE FIRST-BOOKING GATE
+    As the agreement always was: read it, press I agree, a minute.
+
+  A WORKER'S ACCEPT BUTTON SAYS WHY IT WON'T
+    The bookings list carries training_lock / training_overdue_days /
+    training_outstanding. At a hard lock the Accept button is greyed out
+    with the reason in red under it and a link to the Training page; at a
+    soft lock it works and warns. The server refused before; now the screen
+    says so first.
+
+  THE DOCUMENTS PAGE
+    "Before your first booking — for you to read and agree to" is a
+    red-bordered box.
+
+  Migration: two columns on support_plans, added in place on boot.
+  SCHEMA_VERSION 86400.
+
+  MONDAY: after deploying, open Admin › Documents › Participant files, find
+  the walkthrough participant, press "Read the plan", then "Mark reviewed".
+  Until you do, their booking form says the office is reviewing the plan.
 
 
 WHAT CHANGED IN v86.3.0 — THE PRIVACY CONSENT GETS THE AGREEMENT'S TREATMENT
