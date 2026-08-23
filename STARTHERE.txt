@@ -1,7 +1,26 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.2.2
+Current release: v86.2.3
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.2.3 — THE PRIVACY CONSENT IS ITS OWN DOCUMENT
+-----------------------------------------------------------------
+  The Privacy and information-sharing consent is a separate document with
+  its own click, and the Service Agreement no longer repeats it: clause 9
+  says we handle information under the Privacy Policy and that consent is
+  given separately in that document. One consent, recorded once, in DMHC's
+  own words. (The v86.2.1 note below said clause 9 "says the same thing";
+  it no longer does.)
+
+  The "We have updated the Service Agreement" panel on the walkthrough
+  account is there only because that account agreed to the printed PDF and
+  then to the personalised edition before the platform edition existed.
+  The reset script clears it. A new participant never sees it; it only ever
+  appears again if the agreement's text is changed after people have
+  agreed to it, which is the one time asking again is right.
+
+  No migration. SCHEMA_VERSION stays 86000.
 
 
 WHAT CHANGED IN v86.2.2 — THE DOCUMENTS PAGE SPEAKS TO THE PARTICIPANT
