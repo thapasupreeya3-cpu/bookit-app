@@ -5873,7 +5873,10 @@ route('GET', /^\/api\/me\/blockers$/, (req, res, m, user) => {
         label: 'Your profile isn\u2019t active yet \u2014 you can\u2019t accept shifts until it is', why: (st.blocks || []).join(' ') });
     }
   }
-  for (const it of items) {
+  /* red is for what the person can do themselves. Something the office owes
+     them is still in the list (the booking form says so, in amber) but it
+     never lights a red mark on their account. */
+  for (const it of items.filter(x => x.yours)) {
     if (it.section === 'documents') counts.documents++;
     if (it.section === 'billing') counts.billing++;
     if (it.section === 'support-plan') counts.support_plan++;
@@ -5881,7 +5884,8 @@ route('GET', /^\/api\/me\/blockers$/, (req, res, m, user) => {
     if (it.section === 'credentials') counts.credentials++;
   }
   counts.settings = counts.documents + counts.billing + counts.training + counts.credentials;
-  counts.total = items.length;
+  counts.total = items.filter(x => x.yours).length;
+  counts.office = items.filter(x => !x.yours).length;
   json(res, 200, { items, counts });
 });
 
@@ -6934,6 +6938,7 @@ route('GET', /^\/api\/me\/support-plan$/, (req, res, m, user) => {
        answers and check they still hold — is possible without hunting */
     previous: cur && conf && cur.id !== conf.id ? planOut(conf) : null,
     continuity: continuityTier(conf),
+    review: planReviewState(user.id),
     history: db.prepare("SELECT version, status, confirmed_at, confirmed_by FROM support_plans WHERE participant_id = ? AND status = 'confirmed' ORDER BY version DESC").all(user.id)
   });
 });

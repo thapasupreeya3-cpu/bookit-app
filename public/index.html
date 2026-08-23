@@ -253,7 +253,7 @@ nav.main a.nav-link:focus-visible, nav.main button.nav-link:focus-visible{outlin
 .blk-panel h4{margin:0 0 6px;color:#A5301A;font-size:.95rem;}
 .blk-panel p{margin:4px 0;font-size:.92rem;}
 .blk-panel a{font-weight:700;}
-.pdoc-grp-must{border:2px solid #D94F32;border-radius:14px;padding:10px 14px;margin:0 0 14px;background:rgba(217,79,50,.05);}
+.pdoc-grp.mine.pdoc-grp-must,.pdoc-grp-must{border:2px solid #D94F32;border-left:2px solid #D94F32;border-radius:14px;padding:10px 14px;margin:0 0 14px;background:rgba(217,79,50,.05);}
 .pdoc-grp-must .pdoc-grp-h{color:#A5301A;}
 .btn[disabled],.btn:disabled{opacity:.45;cursor:not-allowed;}
 .accept-why{display:block;color:#A5301A;font-size:.84rem;font-weight:700;margin:6px 0 0;}
@@ -1769,7 +1769,6 @@ html.high-contrast .care-stage-block{display:none!important;}
         <li><a class="nav-link" href="#/pricing">Pricing</a></li>
         <li><a class="nav-link" href="#/find-workers">Find workers</a></li>
         <li><a class="nav-link" href="#/bookings" id="navBookings" hidden>Bookings</a></li>
-        <li><a class="nav-link" href="#/support-plan" id="navPlan" hidden>Support plan</a></li>
         <li><a class="nav-link" href="#/admin" id="navAdmin" hidden>Admin</a></li>
         <li id="navForWorkersLi"><a class="nav-link" href="#/support-workers">For support workers</a></li>
         <li class="dropdown" id="ddAbout">
@@ -6784,6 +6783,9 @@ window.API = {
       err.status = res.status; err.data = data;
       throw err;
     }
+    /* v86.4: anything that changes the account re-counts the red marks at
+       once, so pressing I agree takes the 2 to a 1 without a refresh */
+    if((opts.method || 'GET') !== 'GET' && typeof loadBlockers === 'function') setTimeout(loadBlockers, 0);
     return data;
   }
 };
@@ -7232,7 +7234,9 @@ function openBookingModal(w){
   const items = (API.blockers && API.blockers.items || []).filter(x => x.blocking);
   let panel = $('#bkBlockers');
   if(!panel){ panel = document.createElement('div'); panel.id = 'bkBlockers'; $('#bookingForm').insertAdjacentElement('beforebegin', panel); }
-  panel.innerHTML = items.length ? `<div class="blk-panel"><h4>Before your first booking</h4>${items.map(x => `<p><b>${esc(x.label)}</b>${x.yours ? ` — <a href="${esc(x.where)}" data-close>fix this</a>` : ''}<br><span class="muted-sm">${esc(x.why)}</span></p>`).join('')}</div>` : '';
+  const mine = items.filter(x => x.yours), office = items.filter(x => !x.yours);
+  panel.innerHTML = (mine.length ? `<div class="blk-panel"><h4>Before your first booking</h4>${mine.map(x => `<p><b>${esc(x.label)}</b> — <a href="${esc(x.where)}" data-close>fix this</a><br><span class="muted-sm">${esc(x.why)}</span></p>`).join('')}</div>` : '')
+    + (office.length ? `<div class="blk-panel" style="border-color:#E0B060;background:#FFF6E8;"><h4 style="color:#7A5C00;">Waiting on our office</h4>${office.map(x => `<p><b>${esc(x.label)}</b><br><span class="muted-sm">${esc(x.why)}</span></p>`).join('')}</div>` : '');
   $('#bkService').innerHTML = (w.services || []).map(s => `<option value="${s}">${SVC_NAME[s] || s}</option>`).join('');
   if(window.syncBkRateLine) syncBkRateLine();
   const today = new Date();
@@ -7835,7 +7839,13 @@ function spPaint(){
         ? `<span class="muted-sm">Version ${d.history[0].version} · confirmed ${fmtAU(String(d.history[0].confirmed_at).slice(0,10))} by ${esc(d.history[0].confirmed_by || 'you')}</span>`
         : '<span class="muted-sm">Never confirmed</span>'}
       ${p && p.status === 'draft' && d.history && d.history.length ? '<span class="adm-badge">Review in progress — draft saved</span>' : ''}
+      ${confirmed && d.review && d.review.awaiting_first_review ? '<span class="adm-badge" style="background:#FFF4D6;border-color:#E0B060;color:#7A5C00;">Being reviewed by our office — nothing for you to do</span>' : ''}
+      ${confirmed && d.review && d.review.reviewed_any && !d.review.awaiting_first_review ? `<span class="adm-badge" style="background:#DBF2E4;border-color:#2E6B4F;color:#215239;">Reviewed by our office ${fmtAU(String(d.review.reviewed_at).slice(0,10))}</span>` : ''}
     </div>
+    ${(() => { const miss = (cat.questions || []).filter(q => { let need = q.required; if(q.showIf) need = SP_VALS[q.showIf] === true; if(!need) return false; const v = SP_VALS[q.key]; return q.type === 'yn' ? (v !== true && v !== false) : !String(v || '').trim(); });
+      if(confirmed && !miss.length) return '';
+      if(!confirmed && !miss.length) return '<p style="margin:0 0 8px;font-size:.93rem;color:#A5301A;font-weight:700;">Every question is answered — tick the box at the bottom and press Save and submit to confirm the plan.</p>';
+      return `<p style="margin:0 0 8px;font-size:.93rem;color:#A5301A;font-weight:700;">${miss.length} question${miss.length === 1 ? '' : 's'} still to answer before the plan can be confirmed: ${miss.slice(0, 4).map(q => esc(q.q.split(' — ')[0])).join(' · ')}${miss.length > 4 ? ' · …' : ''}. <a href="#" data-sp-first="${esc(miss[0].key)}">Go to the first one</a></p>`; })()}
     <p style="margin:0;font-size:.93rem;line-height:1.65;color:#2B4A55;max-width:74ch;">${esc(ct.why || '')}</p>
     ${p && p.review_due ? `<p style="margin:8px 0 0;font-size:.88rem;${p.overdue ? 'color:#A5301A;font-weight:700;' : 'color:#3E5A64;'}">${p.overdue
       ? `Review was due ${fmtAU(p.review_due)} — ${Math.round((new Date(today) - new Date(p.review_due)) / 864e5)} days ago.`
@@ -13894,6 +13904,14 @@ document.addEventListener('click', async e => {
     svi.disabled = true;
     try{ await API.call('/admin/participants/' + svi.dataset.svyInvite + '/survey-invite', {method:'POST', noFor:true}); toast('Survey sent — it is on their documents page now.'); renderAdminPage(); }
     catch(err){ toast(err.message); svi.disabled = false; }
+    return;
+  }
+  const spf = e.target.closest('[data-sp-first]');
+  if(spf){
+    e.preventDefault();
+    if(window.spMark) spMark();
+    const el = document.querySelector(`[data-sp-q="${spf.dataset.spFirst}"]`);
+    if(el){ el.scrollIntoView({ behavior: 'smooth', block: 'center' }); const f = el.querySelector('input,textarea,select,button'); if(f) f.focus({ preventScroll: true }); }
     return;
   }
   const prv = e.target.closest('[data-plan-review]');

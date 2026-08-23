@@ -1,7 +1,29 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.4.1
+Current release: v86.4.2
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.4.2 — RED MEANS "YOURS TO DO"
+-------------------------------------------------
+  Red marks count only what the person can do themselves. Something the
+  office owes them (the first review of their plan) is no longer a red
+  count on Support plan; it shows on the plan page as an amber "Being
+  reviewed by our office — nothing for you to do", and on the booking form
+  as an amber "Waiting on our office" panel under the red one. Once the
+  office has reviewed, the plan page says so in green with the date.
+
+  The plan page now says what is left: "N questions still to answer before
+  the plan can be confirmed: …  Go to the first one", or, when every answer
+  is in but the plan is not confirmed, "tick the box at the bottom and press
+  Save and submit".
+
+  Pressing I agree (or saving anything else) re-counts the marks at once —
+  the 2 becomes a 1 without a refresh. The red box on the documents page no
+  longer has a green edge. The Support plan link has been removed from the
+  header; it lives in the account menu.
+
+  No migration. SCHEMA_VERSION stays 86400.
 
 
 WHAT CHANGED IN v86.4.1 — THE RED MARKS ACTUALLY SHIP
