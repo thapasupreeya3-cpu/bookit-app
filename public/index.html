@@ -9484,9 +9484,9 @@ async function renderAdminPage(){
     wUrgent + rUrgent,
     `<div class="cmp-tabs" role="tablist">${tab('workers', 'Support workers', wUrgent)}${tab('participants', 'Participants', pUrgent)}${tab('registers', 'Incidents, complaints & scope', rUrgent)}${tab('log', 'Evidence log', 0)}</div>`
     + cmpPane('workers', cmpSearch('workers', workerNames, 'Type a worker\'s name to verify them')
-      + H('Verify a worker — the 0137 conditions ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + complianceVerify
+      + H('Credentials and documents — verify, reject, re-file') + credentials
+      + H('The 0137 conditions — screening, banning registers, evidence, displayed ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + complianceVerify
       + `<details class="adm-fold" style="margin-top:18px;"${scr && scr.waiting ? ' open' : ''}><summary>${H('Worker screening — the NWSD queue ', scr && scr.waiting ? red(scr.waiting + ' to look at') : '')}</summary>${screeningHtml(scr)}</details>`
-      + `<details class="adm-fold" style="margin-top:18px;"><summary>${H('Credentials and documents — the automatic checker')}</summary>${credentials}</details>`
       + '<div class="info-card" id="admTrainingCard" style="margin-top:18px;" hidden></div>')
     + cmpPane('participants', cmpSearch('participants', partNames, 'Type a participant\'s name to verify their file')
       + H('Participant files ', pMissingN === null ? '' : pMissingN ? red(pMissingN + ' not on file')
