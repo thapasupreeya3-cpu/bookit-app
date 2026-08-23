@@ -74,7 +74,7 @@ function ask(q, hidden) {
   return new Promise(resolve => {
     const tty = Boolean(process.stdin.isTTY);
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: tty });
-    if (hidden && tty) rl._writeToOutput = () => process.stdout.write(q);
+    if (hidden && tty) { let shown = false; rl._writeToOutput = () => { if (!shown) { shown = true; process.stdout.write(q); } }; }
     rl.question(q, a => { if (hidden && tty) process.stdout.write('\n'); rl.close(); resolve(String(a || '').trim()); });
   });
 }

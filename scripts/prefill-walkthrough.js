@@ -131,7 +131,7 @@ function ask(q, hidden) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: tty });
     /* hidden input: every redraw of the line writes the prompt and nothing
        else, so the prompt stays on screen and the keystrokes never do */
-    if (hidden && tty) rl._writeToOutput = () => process.stdout.write(q);
+    if (hidden && tty) { let shown = false; rl._writeToOutput = () => { if (!shown) { shown = true; process.stdout.write(q); } }; }
     rl.question(q, a => { if (hidden && tty) process.stdout.write('\n'); rl.close(); resolve(String(a || '').trim()); });
   });
 }

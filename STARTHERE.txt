@@ -1,7 +1,17 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.6.1
+Current release: v86.6.2
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.6.2 — THE PASSWORD PROMPT BEHAVES
+-----------------------------------------------------
+  Both prefill scripts' hidden password prompt reprinted itself on every
+  keystroke. Fixed: the prompt prints once and the typing is silent. The
+  tour guide passes BOOKIT_PASS on the command line instead, so the prompt
+  never appears at all.
+
+  No server or page changes. No migration.
 
 
 WHAT CHANGED IN v86.6.1 — THE RESET CLEARS EVERYTHING, AND THE GUIDE IS A TOUR GUIDE
