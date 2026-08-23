@@ -1,7 +1,23 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.4.0
+Current release: v86.4.1
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.4.1 — THE RED MARKS ACTUALLY SHIP
+-----------------------------------------------------
+  v86.4.0's zip carried the server half of the red marks and only part of
+  the page: the edit that adds the avatar dot, the menu and settings counts,
+  the booking-form panel and the greyed-out Accept was lost before the file
+  was saved, and the release went out without it. v86.4.1 is that page,
+  verified this time by loading the real index.html in a headless DOM
+  against a running server: the dot shows, Settings and My documents show
+  their counts, the documents page boxes the agreements, the booking form
+  lists the blockers before the form, and a hard-locked worker's Accept is
+  greyed out with the reason under it. The marks are also fetched the
+  moment the session is known, not only on the next page change.
+
+  No migration. SCHEMA_VERSION stays 86400.
 
 
 WHAT CHANGED IN v86.4.0 — RED MARKS, THE OFFICE REVIEWS THE PLAN, ACCEPT TELLS THE TRUTH

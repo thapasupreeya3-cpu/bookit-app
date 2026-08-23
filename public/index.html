@@ -241,6 +241,22 @@ nav.main a.nav-link:focus-visible, nav.main button.nav-link:focus-visible{outlin
 .acct-chip:hover{border-color:var(--teal);}
 .acct-chip:focus-visible{outline:3px solid var(--amber);outline-offset:2px;}
 .acct.open .acct-chip{border-color:var(--teal);box-shadow:0 0 0 3px rgba(14,107,98,.14);}
+/* v86.4 — red marks for anything that blocks the next shift */
+.acct-chip{position:relative;}
+.acct-dot{position:absolute;top:-3px;right:-3px;width:13px;height:13px;border-radius:999px;background:#D94F32;border:2px solid var(--cream);}
+.acct-dot[hidden]{display:none;}
+.nav-dot{display:inline-block;width:9px;height:9px;border-radius:999px;background:#D94F32;margin-left:6px;vertical-align:middle;}
+.sr-badge{background:#D94F32;color:#fff;font-size:.72rem;font-weight:800;min-width:20px;height:20px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;margin-left:8px;vertical-align:middle;}
+.sr-badge[hidden],.acct-badge[hidden]{display:none;}
+.acct-badge.red{background:#D94F32;}
+.blk-panel{border:2px solid #D94F32;border-radius:14px;padding:12px 14px;margin:0 0 14px;background:rgba(217,79,50,.06);}
+.blk-panel h4{margin:0 0 6px;color:#A5301A;font-size:.95rem;}
+.blk-panel p{margin:4px 0;font-size:.92rem;}
+.blk-panel a{font-weight:700;}
+.pdoc-grp-must{border:2px solid #D94F32;border-radius:14px;padding:10px 14px;margin:0 0 14px;background:rgba(217,79,50,.05);}
+.pdoc-grp-must .pdoc-grp-h{color:#A5301A;}
+.btn[disabled],.btn:disabled{opacity:.45;cursor:not-allowed;}
+.accept-why{display:block;color:#A5301A;font-size:.84rem;font-weight:700;margin:6px 0 0;}
 .acct-avatar{
   width:34px;height:34px;border-radius:50%;background:var(--teal);color:#fff;
   font-weight:700;font-size:.82rem;display:flex;align-items:center;justify-content:center;
@@ -1782,7 +1798,7 @@ html.high-contrast .care-stage-block{display:none!important;}
       <a href="#/get-started" class="btn btn-primary btn-sm" id="btnGetStarted">Get started</a>
       <div class="acct" id="acctWrap" hidden>
         <button class="acct-chip" id="acctBtn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu" type="button">
-          <span class="acct-avatar" id="acctAvatar"></span>
+          <span class="acct-avatar" id="acctAvatar"></span><span class="acct-dot" id="acctDot" hidden aria-label="Something needs your attention"></span>
           <svg class="acct-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="acct-menu" id="acctMenu" role="menu" aria-label="Account" hidden></div>
@@ -6662,8 +6678,24 @@ const ROUTES = {
     : `We're registered for 0107 and for all eight <b>high intensity daily personal activities</b> (0104).`}`;
 })();
 
+/* v86.4 — what blocks the next shift, fetched quietly whenever the session
+   is known and on every page change, so the red marks are always current. */
+async function loadBlockers(){
+  if(typeof API === 'undefined' || !(API.online && API.me)){ if(typeof API !== 'undefined') API.blockers = null; paintBlockers(); return; }
+  try{ API.blockers = await API.call('/me/blockers', {noFor:true}); }catch(e){ API.blockers = null; }
+  paintBlockers();
+}
+function blockerCount(section){ const c = typeof API !== 'undefined' && API.blockers && API.blockers.counts; return c ? (c[section] || 0) : 0; }
+function paintBlockers(){
+  const total = blockerCount('total');
+  const dot = $('#acctDot'); if(dot) dot.hidden = !total;
+  const np = $('#navPlan');
+  if(np){ const d = np.querySelector('.nav-dot'); if(blockerCount('support_plan')){ if(!d) np.insertAdjacentHTML('beforeend', '<span class="nav-dot" aria-label="needs attention"></span>'); } else if(d) d.remove(); }
+  document.querySelectorAll('[data-blk-badge]').forEach(el => { const n = blockerCount(el.dataset.blkBadge); el.textContent = n || ''; el.hidden = !n; });
+}
 let ROUTE_LAST = null;
 function route(){
+  if(typeof loadBlockers === 'function') loadBlockers();
   let path = location.hash.replace(/^#/, '');
   const qi = path.indexOf('?');
   if(qi !== -1) path = path.slice(0, qi);
@@ -6766,6 +6798,9 @@ function updateAuthUI(){
   if(fw) fw.hidden = authed; /* marketing page — signed-in people have the app */
   $('#acctWrap').hidden = !authed;
   if(authed) renderAcctChip(); else closeAcctMenu();
+  /* v86.4: the red marks are fetched the moment the session is known, not
+     only on the next page change */
+  loadBlockers();
   const nb = $('#navBookings');
   if(nb) nb.hidden = !API.me;
   const np = $('#navPlan');
@@ -6823,10 +6858,15 @@ function renderAcctMenu(){
   items += item('#/account/profile', '', 'user', 'Profile');
   if(m.role === 'coordinator') items += item('#/clients', '', 'grid', 'My clients');
   items += item('#/bookings', '', 'cal', m.role === 'worker' ? 'Bookings & shifts' : 'My bookings');
+  if(m.role === 'participant') items += item('#/support-plan', '', 'flag', 'Support plan',
+    `<span class="acct-badge red" data-blk-badge="support_plan" ${blockerCount('support_plan') ? '' : 'hidden'}>${blockerCount('support_plan') || ''}</span>`);
+  if(m.role === 'worker') items += item('#/account/training', '', 'flag', 'Training',
+    `<span class="acct-badge red" data-blk-badge="training" ${blockerCount('training') ? '' : 'hidden'}>${blockerCount('training') || ''}</span>`);
   items += item('#/messages', '', 'chat', 'Messages',
     `<span class="acct-badge" id="acctMsgBadge" ${API.unread ? '' : 'hidden'}>${API.unread || ''}</span>`);
   if(m.role !== 'coordinator') items += item('#/bookings', 'cardIncident', 'flag', 'Report an incident');
-  items += item('#/account', '', 'gear', 'Settings');
+  items += item('#/account', '', 'gear', 'Settings',
+    `<span class="acct-badge red" data-blk-badge="settings" ${blockerCount('settings') ? '' : 'hidden'}>${blockerCount('settings') || ''}</span>`);
   if(m.admin) items += item('#/admin', '', 'grid', 'Admin dashboard', '<span class="acct-pill">Admin</span>');
   $('#acctMenu').innerHTML = `
     <div class="acct-head">
@@ -7188,6 +7228,11 @@ function syncSleepoverOption(){
 function openBookingModal(w){
   bookingWorker = w;
   $('#bkWorkerName').textContent = w.name;
+  /* v86.4: say what blocks the booking before the form, not after it bounces */
+  const items = (API.blockers && API.blockers.items || []).filter(x => x.blocking);
+  let panel = $('#bkBlockers');
+  if(!panel){ panel = document.createElement('div'); panel.id = 'bkBlockers'; $('#bookingForm').insertAdjacentElement('beforebegin', panel); }
+  panel.innerHTML = items.length ? `<div class="blk-panel"><h4>Before your first booking</h4>${items.map(x => `<p><b>${esc(x.label)}</b>${x.yours ? ` — <a href="${esc(x.where)}" data-close>fix this</a>` : ''}<br><span class="muted-sm">${esc(x.why)}</span></p>`).join('')}</div>` : '';
   $('#bkService').innerHTML = (w.services || []).map(s => `<option value="${s}">${SVC_NAME[s] || s}</option>`).join('');
   if(window.syncBkRateLine) syncBkRateLine();
   const today = new Date();
@@ -7554,6 +7599,7 @@ async function renderBookingsPage(){
   try { d = await API.call('/bookings'); } catch(e){ return; }
   API.apprDays = d.approval_days || 7;
   const wActive = d.worker_active !== false;
+  const trainLock = d.training_lock || '', trainDays = d.training_overdue_days || 0;
   const wdBanner = vrole() === 'worker' && !wActive ? `<div class="info-card" style="margin-bottom:18px;border-left:6px solid #D94F32;">
     <p style="margin:0;"><b>Your profile isn't active on BookIt right now</b>, so accepting and completing shifts is paused, and we're looking for cover for anything upcoming. <a href="#/contact">Contact the office</a> — they can help you get back on.</p>
   </div>` : '';
@@ -7634,7 +7680,9 @@ async function renderBookingsPage(){
       </div>
       <span class="bk-status bk-${b.status}">${STATUS_LABEL[b.status] || b.status}</span>
       <div class="bk-actions">
-        ${vrole() === 'worker' && b.status === 'requested' && wActive && !bookingProviderLocked(b) && bookingStartLocal(b) > new Date() ? `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="accepted" type="button">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined" type="button">Decline</button>` : ''}
+        ${vrole() === 'worker' && b.status === 'requested' && wActive && !bookingProviderLocked(b) && bookingStartLocal(b) > new Date() ? (trainLock === 'hard'
+          ? `<button class="btn btn-primary btn-sm" type="button" disabled aria-disabled="true" title="Finish your training first">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined" type="button">Decline</button><span class="accept-why">Your training is ${trainDays} days overdue, so you can't accept new shifts. <a href="#/account/training">Finish it on the Training page</a> and this button comes back straight away.</span>`
+          : `<button class="btn btn-primary btn-sm" data-bk="${b.id}" data-act="accepted" type="button">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined" type="button">Decline</button>${trainLock === 'soft' ? `<span class="accept-why" style="color:#8a6d00;">Your training is ${trainDays} days overdue — at 14 days you won't be able to accept new shifts. <a href="#/account/training">Training page</a></span>` : ''}`) : ''}
         ${vrole() === 'worker' && ['requested','accepted'].includes(b.status) && (!wActive || bookingProviderLocked(b)) ? `<span class="muted-sm" style="color:#7a4a12;"><b>${['office','uncovered','failed'].includes(String(b.cover_state || '')) ? 'The office is handling this shift' : 'We\'re looking for cover'}</b> — booking actions are paused.</span>` : ''}
         ${vrole() === 'worker' && b.status === 'requested' && wActive && !bookingProviderLocked(b) && bookingStartLocal(b) <= new Date() ? `<span class="muted-sm" style="color:#7a4a12;"><b>This shift has already started.</b> It can no longer be accepted online — contact the office.</span>` : ''}
         ${vrole() === 'worker' && b.status === 'accepted' && bookingEndLocal(b) <= new Date() && wActive && !bookingProviderLocked(b) ? `<button class="btn btn-primary btn-sm" data-note-open="${b.id}" type="button">Mark shift completed</button>` : ''}
@@ -13136,8 +13184,9 @@ async function renderAccountPage(){
   const directRows =
     (me.role === 'coordinator' ? `<a class="sr-row" href="#/clients"><span class="sr-txt"><b>My clients</b></span><span class="sr-go" aria-hidden="true">›</span></a>` : '') +
     (me.admin ? `<a class="sr-row" href="#/admin"><span class="sr-txt"><b>Admin dashboard</b></span><span class="sr-go" aria-hidden="true">›</span></a>` : '');
+  const badgeFor = slug => ({ documents: 'documents', billing: 'billing', training: 'training', credentials: 'credentials' })[slug] || '';
   const rows = S.map(([slug, label]) =>
-    `<a class="sr-row${slug === rowOn ? ' on' : ''}" href="#/account/${slug}"${cur && slug === cur[0] ? ' aria-current="page"' : ''}><span class="sr-txt"><b>${label}</b></span><span class="sr-go" aria-hidden="true">›</span></a>`).join('');
+    `<a class="sr-row${slug === rowOn ? ' on' : ''}" href="#/account/${slug}"${cur && slug === cur[0] ? ' aria-current="page"' : ''}><span class="sr-txt"><b>${label}${badgeFor(slug) ? `<span class="sr-badge" data-blk-badge="${badgeFor(slug)}" ${blockerCount(badgeFor(slug)) ? '' : 'hidden'}>${blockerCount(badgeFor(slug)) || ''}</span>` : ''}</b></span><span class="sr-go" aria-hidden="true">›</span></a>`).join('');
 
   wrap.innerHTML = `
   <div class="set-layout ${cur ? 'has-sub' : 'no-sub'}">
