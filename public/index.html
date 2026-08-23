@@ -6879,8 +6879,6 @@ function renderAcctMenu(){
   if(!m.admin) items += item('#/bookings', '', 'cal', m.role === 'worker' ? 'Bookings & shifts' : 'My bookings');
   if(!m.admin && m.role === 'participant') items += item('#/support-plan', '', 'flag', 'Support plan',
     `<span class="acct-badge red" data-blk-badge="support_plan" ${blockerCount('support_plan') ? '' : 'hidden'}>${blockerCount('support_plan') || ''}</span>`);
-  if(!m.admin && m.role === 'worker') items += item('#/account/training', '', 'flag', 'Training',
-    `<span class="acct-badge red" data-blk-badge="training" ${blockerCount('training') ? '' : 'hidden'}>${blockerCount('training') || ''}</span>`);
   if(!m.admin) items += item('#/messages', '', 'chat', 'Messages',
     `<span class="acct-badge" id="acctMsgBadge" ${API.unread ? '' : 'hidden'}>${API.unread || ''}</span>`);
   if(!m.admin && m.role !== 'coordinator') items += item('#/bookings', 'cardIncident', 'flag', 'Report an incident');
