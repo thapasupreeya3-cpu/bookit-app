@@ -1,7 +1,30 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.6.2
+Current release: v86.6.3
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.6.3 — A ROW THAT HINGES ON THE PLAN WAITS FOR THE PLAN
+--------------------------------------------------------------------------
+  With no support plan on the account (a brand-new person, or the test
+  account after a full clear), every "only if the plan says so" row —
+  medication consent, medication plan, mealtime, epilepsy, diabetes,
+  allergy, transfers, behaviour support — was landing in the red
+  "before your first booking" box, because an unanswered question was
+  being treated as a yes. Now a row with a plan condition appears on the
+  to-do list only when the plan has answered yes; unanswered, it waits;
+  answered no, it is not applicable. After a full clear the red box is
+  exactly four rows: the two agreements, the media consent (available
+  soon), and the NDIS plan copy.
+
+  The on-screen Consent to medication assistance no longer shows five
+  empty tick boxes. They looked like something to tick and there was
+  nothing to tick — the agreement is the I-agree click. The five points
+  are now a plain list; the blank printable forms keep their boxes,
+  which is where boxes belong.
+
+  Server change: deploy needs a push AND sudo bookit-update.
+  No migration. SCHEMA_VERSION stays 86400.
 
 
 WHAT CHANGED IN v86.6.2 — THE PASSWORD PROMPT BEHAVES

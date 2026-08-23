@@ -8482,13 +8482,13 @@ const GENERATED_DOCS = {
         <h2>What you are agreeing to</h2>
         <p class="say"><b>I, ${escHtml(who)},</b> give my permission and my full consent for Disability and Mental Health Care Pty Ltd workers who are appropriately trained and qualified to assist me with my medication as set out in my current medication plan or authority form, following my pharmacist\u2019s or medical practitioner\u2019s instructions and the directions on the medication packaging.</p>
         <p class="say">I understand that:</p>
-        <div class="ticks">
-          <div class="tick"><span class="bx"></span><span>The medications, doses, times and routes a worker may help with are the ones in the plan my prescriber wrote. If a medication is added or changed, my prescriber updates the plan and I am asked to agree again. Workers will not give anything that is not on it.</span></div>
-          <div class="tick"><span class="bx"></span><span>Workers give medication from its labelled pharmacy container, a pharmacy-packed blister pack or a dosing box, never from an unlabelled or expired container, and never change a dose.</span></div>
-          <div class="tick"><span class="bx"></span><span>Every dose a worker gives is written in the shift note, and any dose refused, missed or vomited is reported to me or the person who makes decisions with me, and to DMHC.</span></div>
-          <div class="tick"><span class="bx"></span><span>If I refuse a medication, or choose to take my own, I do so at my own risk, and a worker may let my medical practitioner know.</span></div>
-          <div class="tick"><span class="bx"></span><span>I can withdraw this consent at any time by telling DMHC, and nothing about my other supports changes if I do.</span></div>
-        </div>
+        <ul class="say" style="margin:4px 0 0 2px;padding-left:18px;">
+          <li style="margin:0 0 6px;">The medications, doses, times and routes a worker may help with are the ones in the plan my prescriber wrote. If a medication is added or changed, my prescriber updates the plan and I am asked to agree again. Workers will not give anything that is not on it.</li>
+          <li style="margin:0 0 6px;">Workers give medication from its labelled pharmacy container, a pharmacy-packed blister pack or a dosing box, never from an unlabelled or expired container, and never change a dose.</li>
+          <li style="margin:0 0 6px;">Every dose a worker gives is written in the shift note, and any dose refused, missed or vomited is reported to me or the person who makes decisions with me, and to DMHC.</li>
+          <li style="margin:0 0 6px;">If I refuse a medication, or choose to take my own, I do so at my own risk, and a worker may let my medical practitioner know.</li>
+          <li style="margin:0 0 6px;">I can withdraw this consent at any time by telling DMHC, and nothing about my other supports changes if I do.</li>
+        </ul>
         <h2>What DMHC agrees to</h2>
         <p class="say">Only workers whose medication administration training is current on their file will be rostered to assist with medication. DMHC keeps the prescriber\u2019s plan on your file, asks for it to be reviewed at least every 12 months, and shares it with the workers who take your shifts so that they are working from the same page as your prescriber.</p>
         <div class="box note"><b>What agreeing means</b><p>Pressing <i>I agree to this</i> records your name, the date and the version of this text \u2014 <i>${escHtml(MED_CONSENT_VERSION)}</i>. It stands until you withdraw it or the text changes. Adapted from DMHC\u2019s Medication Consent Form; the per-medication table on that form lives in your prescriber\u2019s plan instead.</p></div>`;
@@ -9073,7 +9073,10 @@ function participantFile(pid) {
        being described honestly. They are simply not put in front of the
        participant as though they were waiting on them. A row that does not
        apply to this person is not outstanding for anyone. */
-    outstanding: rows.filter(c => !c.office_only && !c.optional && applies(c) !== false && !noted.has(c.key)).map(rowOut),
+    /* a row that hinges on a plan answer waits for the plan: before the
+       question is asked it is nobody's to-do, and after a "no" it is
+       not applicable. Only a "yes" puts it on the list. */
+    outstanding: rows.filter(c => !c.office_only && !c.optional && (c.applies_if ? applies(c) === true : true) && !noted.has(c.key)).map(rowOut),
     /* filed if they have one handy; never chased */
     optional: rows.filter(c => c.optional && !c.office_only && !noted.has(c.key) && applies(c) !== false).map(rowOut),
     /* never asked for, because the plan said no */
