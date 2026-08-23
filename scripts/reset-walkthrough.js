@@ -20,6 +20,11 @@
                     (never a completed one; the row stays, marked cancelled)
      --all          all six
 
+   On a WORKER account the script clears one thing:
+     --training     every module completion and the platform-issued module
+                    certificates, so the training lock comes back
+   (--all on a worker means --training.)
+
    It refuses: any account that is not a participant; any demo account;
    any account with a completed booking (a real history is never edited).
    With --plan it also refuses if the account has a requested or accepted
@@ -52,7 +57,8 @@ const want = {
   agreements: all || args.includes('--agreements'),
   nominee: all || args.includes('--nominee'),
   ndisPlan: all || args.includes('--ndis-plan'),
-  bookings: all || args.includes('--bookings')
+  bookings: all || args.includes('--bookings'),
+  training: all || args.includes('--training')
 };
 const DB_PATH = process.env.DB_PATH || '';
 const AGREEMENT_KEYS = ['p-agreement', 'p-consent-privacy', 'p-schedule'];
@@ -67,14 +73,37 @@ if (/@demo\.bookit\.life$/i.test(email)) die('That is a demo account; this scrip
 const db = new DatabaseSync(DB_PATH);
 const u = db.prepare('SELECT id, email, role, name, plan, ndis_number, pm_email, plan_start, plan_end, nominee_role, nominee_name, under_18 FROM users WHERE lower(email) = ?').get(email);
 if (!u) die(`No account with the email ${email}.`);
-if (u.role !== 'participant') die(`${email} is a ${u.role} account, not a participant. Nothing changed.`);
+if (u.role !== 'participant' && u.role !== 'worker') die(`${email} is a ${u.role} account. Nothing changed.`);
 
+const mark = yes ? '✗ clearing ' : '– would clear';
+const work = [];   /* [label, fn] */
+
+/* ============================ a worker account =========================== */
+if (u.role === 'worker') {
+  if (!want.training) die(`${email} is a worker account — the only thing this script clears on a worker is --training. Nothing changed.`);
+  console.log(`\n${u.name} <${u.email}> — worker #${u.id}\n`);
+  const comps = db.prepare('SELECT COUNT(*) AS n FROM module_completions WHERE worker_id = ?').get(u.id).n;
+  const certs = db.prepare("SELECT id, label FROM worker_docs WHERE worker_id = ? AND verified_by = 'BookIt (platform-issued)' AND label LIKE '%(BookIt module)'").all(u.id);
+  if (!comps && !certs.length) { console.log('  – training: nothing on file\n\nNothing to do.\n'); process.exit(0); }
+  if (comps) console.log(`  ${mark}  ${comps} module completion(s)`);
+  for (const c of certs) console.log(`  ${mark}  certificate: ${c.label}`);
+  if (!yes) { console.log('\nDry run. Add --yes to clear these.\n'); process.exit(0); }
+  db.exec('BEGIN');
+  try {
+    db.prepare('DELETE FROM module_completions WHERE worker_id = ?').run(u.id);
+    const del = db.prepare('DELETE FROM worker_docs WHERE id = ? AND worker_id = ?');
+    for (const c of certs) del.run(c.id, u.id);
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); die(`Failed, nothing changed: ${e.message}`); }
+  console.log(`\n  ✓ Cleared the training. The lock comes back by itself once the modules are overdue again.\n`);
+  process.exit(0);
+}
+
+/* ========================== a participant account ======================== */
 const done = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE participant_id = ? AND status = 'completed'").get(u.id).n;
 if (done > 0) die(`${u.name} has ${done} completed booking(s). This script only resets accounts with no service history. Nothing changed.`);
 
-const mark = yes ? '✗ clearing ' : '– would clear';
 console.log(`\n${u.name} <${u.email}> — participant #${u.id}\n`);
-const work = [];   /* [label, fn] */
 
 /* ---- open bookings ---- */
 const liveBookings = db.prepare("SELECT id, worker_id, service, date, start, hours, status FROM bookings WHERE participant_id = ? AND status IN ('requested','accepted') ORDER BY date, start").all(u.id);

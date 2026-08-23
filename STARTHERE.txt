@@ -1,7 +1,18 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.6.3
+Current release: v86.6.4
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.6.4 — THE RESET CAN UNTRAIN THE TEST WORKER
+---------------------------------------------------------------
+  reset-walkthrough.js now takes a worker account with --training: it
+  deletes the worker's module completions and the platform-issued module
+  certificates, so the training lock comes back and the tour can be run
+  again from the top. On a worker, --training is the only thing the script
+  clears. Nothing else changed.
+
+  Script only. No server or page changes. No migration.
 
 
 WHAT CHANGED IN v86.6.3 — A ROW THAT HINGES ON THE PLAN WAITS FOR THE PLAN
