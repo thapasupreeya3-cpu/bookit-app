@@ -1,7 +1,23 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.6.0
+Current release: v86.6.1
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.6.1 — THE RESET CLEARS EVERYTHING, AND THE GUIDE IS A TOUR GUIDE
+------------------------------------------------------------------------------------
+  reset-walkthrough.js gains --bookings: requested and accepted bookings are
+  cancelled (the row stays, marked cancelled by the participant with the
+  reason "test walkthrough reset"; completed bookings still refuse the whole
+  script). --all now includes it, so one command takes the test account back
+  to the beginning: bookings, plan, billing, agreements, nominee, NDIS plan.
+  Clearing the plan no longer refuses while an open booking exists if the
+  same run is cancelling it.
+
+  The run sheet is now the Tour guide: no days, just the steps in order,
+  each script fetched from GitHub at the step where it runs.
+
+  No server or page changes. No migration.
 
 
 WHAT CHANGED IN v86.6.0 — THE NDIS PLAN IS ON THE FILE, AND THE OFFICE CHECKS IT FIRST

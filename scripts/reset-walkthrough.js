@@ -16,7 +16,9 @@
                     consent, and any old schedule clicks, with their snapshots
      --nominee      "who manages this account" (and the under-18 flag)
      --ndis-plan    the uploaded copy of the NDIS plan, and the office's check of it
-     --all          all five
+     --bookings     cancels the account's requested and accepted bookings
+                    (never a completed one; the row stays, marked cancelled)
+     --all          all six
 
    It refuses: any account that is not a participant; any demo account;
    any account with a completed booking (a real history is never edited).
@@ -49,14 +51,15 @@ const want = {
   billing: all || args.includes('--billing'),
   agreements: all || args.includes('--agreements'),
   nominee: all || args.includes('--nominee'),
-  ndisPlan: all || args.includes('--ndis-plan')
+  ndisPlan: all || args.includes('--ndis-plan'),
+  bookings: all || args.includes('--bookings')
 };
 const DB_PATH = process.env.DB_PATH || '';
 const AGREEMENT_KEYS = ['p-agreement', 'p-consent-privacy', 'p-schedule'];
 
 function die(msg) { console.error('  ✗ ' + msg); process.exit(2); }
 if (!email) die('Usage: DB_PATH=/path/to/bookit.db node reset-walkthrough.js you+participant@gmail.com --plan|--billing|--agreements|--nominee|--all [--yes]');
-if (!Object.values(want).some(Boolean)) die('Say what to clear: --plan, --billing, --agreements, --nominee, --ndis-plan, or --all.');
+if (!Object.values(want).some(Boolean)) die('Say what to clear: --plan, --billing, --agreements, --nominee, --ndis-plan, --bookings, or --all.');
 if (!DB_PATH) die('Set DB_PATH to the live database (on the server: /opt/bookit-data/bookit.db).');
 if (!fs.existsSync(DB_PATH)) die(`No database at ${DB_PATH}.`);
 if (/@demo\.bookit\.life$/i.test(email)) die('That is a demo account; this script does not touch demo data.');
@@ -73,10 +76,20 @@ const mark = yes ? '✗ clearing ' : '– would clear';
 console.log(`\n${u.name} <${u.email}> — participant #${u.id}\n`);
 const work = [];   /* [label, fn] */
 
+/* ---- open bookings ---- */
+const liveBookings = db.prepare("SELECT id, worker_id, service, date, start, hours, status FROM bookings WHERE participant_id = ? AND status IN ('requested','accepted') ORDER BY date, start").all(u.id);
+if (want.bookings) {
+  if (!liveBookings.length) console.log('  – open bookings: none');
+  for (const b of liveBookings) console.log(`  ${mark}  booking #${b.id} ${b.status} — ${b.service} ${b.date} ${b.start} (${b.hours}h)`);
+  if (liveBookings.length) work.push(['bookings', () => {
+    const upd = db.prepare("UPDATE bookings SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = ?, cancel_code = 'other' WHERE id = ?");
+    for (const b of liveBookings) upd.run(new Date().toISOString(), 'participant', 'test walkthrough reset', b.id);
+  }]);
+}
+
 /* ---- plan ---- */
 if (want.plan) {
-  const live = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE participant_id = ? AND status IN ('requested','accepted')").get(u.id).n;
-  if (live > 0) die(`${u.name} has ${live} requested or accepted booking(s); a worker holding a shift must be able to read the plan. Cancel them first, or run without --plan.`);
+  if (liveBookings.length > 0 && !want.bookings) die(`${u.name} has ${liveBookings.length} requested or accepted booking(s); a worker holding a shift must be able to read the plan. Add --bookings to cancel them, or run without --plan.`);
   /* SELECT * so the script also runs against a database from before v86.4, which has no reviewed_at column */
   const plans = db.prepare('SELECT * FROM support_plans WHERE participant_id = ? ORDER BY version').all(u.id);
   const acks = db.prepare('SELECT COUNT(*) AS n FROM plan_acks WHERE participant_id = ?').get(u.id).n;
