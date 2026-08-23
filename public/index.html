@@ -9242,6 +9242,10 @@ async function renderAdminPage(){
           · account managed by: ${p.nominee && p.nominee.role === 'none' ? 'self' : p.nominee && p.nominee.name ? esc(p.nominee.name) + (p.nominee.under_18 ? ' (participant under 18)' : '') + (p.nominee.paid ? ' (paid)' : '') : (p.nominee && p.nominee.under_18 ? '<b style="color:#D94F32;">under 18, nobody named</b>' : '<span style="color:#8a6d00;">not answered</span>')}
           · plans shared with workers: ${p.sharing && p.sharing.on === false ? '<b style="color:#D94F32;">no</b> — ' + esc(p.sharing.note || '') : 'yes'}<br>
           Survey: ${p.survey && p.survey.open_since ? `sent ${fmtAU(p.survey.open_since.slice(0,10))}, not answered` : p.survey && p.survey.last_answered ? `answered ${fmtAU(p.survey.last_answered.slice(0,10))}` : 'not sent in the last year'} <button class="adm-btn-sm" data-svy-invite="${p.id}" type="button">send the survey</button> · <a href="/api/admin/surveys.csv" download>responses (CSV)</a></p>
+        ${(() => { const np = (p.documents || []).filter(d => d.form_key === 'p-ndis-plan' && d.review !== 'rejected').sort((a, b) => b.id - a.id)[0];
+          if(!np) return '<p style="margin:8px 0 0;font-size:.86rem;color:#A5301A;"><b>NDIS plan:</b> no copy on file yet — their first booking waits on it (they upload it from My documents, or file it below).</p>';
+          if(!np.verified_at) return `<p style="margin:8px 0 0;font-size:.86rem;color:#A5301A;"><b>NDIS plan</b> uploaded ${np.uploaded_at ? fmtAU(String(np.uploaded_at).slice(0,10)) : ''} — <b>waiting for your check</b>; their first booking is blocked until you press <i>Check it</i> on that row above.</p>`;
+          return `<p style="margin:8px 0 0;font-size:.86rem;color:#1C7C43;"><b>NDIS plan</b> checked ${fmtAU(String(np.verified_at).slice(0,10))}${np.expiry_date ? ' · plan ends ' + fmtAU(np.expiry_date) : ''}.</p>`; })()}
         ${(() => { const pr = p.plan_review || {}; if(!pr.plan) return '<p style="margin:8px 0 0;font-size:.86rem;color:#A5301A;"><b>Support plan:</b> not written yet — their first booking waits on it.</p>';
           if(pr.plan.status !== 'confirmed') return '<p style="margin:8px 0 0;font-size:.86rem;color:#8a6d00;"><b>Support plan:</b> draft in progress, not confirmed.</p>';
           if(pr.awaiting_first_review) return `<p style="margin:8px 0 0;font-size:.86rem;color:#A5301A;"><b>Support plan v${pr.plan.version}</b> confirmed ${fmtAU(String(pr.plan.confirmed_at).slice(0,10))} — <b>waiting for your review</b>; their first booking is blocked until you have read it. <a href="/api/admin/participants/${p.id}/plan" target="_blank" rel="noopener noreferrer">Read the plan</a> · <button class="adm-btn-sm" data-plan-review="${p.id}" type="button">Mark reviewed</button></p>`;
@@ -13327,6 +13331,7 @@ async function renderPdocsMini(){
             return ` · <a href="${url}" target="_blank" rel="noopener noreferrer">Read</a>
               · <button type="button" class="adm-btn-sm" data-pdoc-agree="${esc(x.key)}" data-label="${esc(x.label)}" style="border-color:#0E6B62;color:#0E6B62;">I agree</button>`;
           }
+          if(x.key === 'p-ndis-plan') return ' · <span class="muted-sm">a photo or PDF of the plan the NDIA sent you — use <b>Add a document</b> below; our office checks it before your first shift</span>';
           return url ? ` · <a href="${url}" target="_blank" rel="noopener noreferrer">Blank form</a>` : '';
         })()}
         ${x.requested_at ? ` · <span style="color:#8a6d00;">requested ${x.waiting_days === 0 ? 'today' : x.waiting_days + ' day' + (x.waiting_days === 1 ? '' : 's') + ' ago'}</span>` : ''}
@@ -13336,7 +13341,7 @@ async function renderPdocsMini(){
     if(!items.length) return '';
     const meta = OWNERS[o] || { label: o, blurb: '' };
     return `<div class="pdoc-grp${o === 'participant' ? ' mine pdoc-grp-must' : ''}">
-      <div class="pdoc-grp-h">${o === 'participant' ? 'Before your first booking — for you to read and agree to' : esc(meta.label)} <span>${items.length}</span></div>
+      <div class="pdoc-grp-h">${o === 'participant' ? 'Before your first booking — for you to do' : esc(meta.label)} <span>${items.length}</span></div>
       ${meta.blurb ? `<p class="muted-sm" style="margin:0 0 7px;">${esc(meta.blurb)}</p>` : ''}
       ${items.map(x => rowHtml(x, false)).join('')}
     </div>`;

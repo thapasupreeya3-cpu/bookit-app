@@ -15,7 +15,8 @@
      --agreements   the on-screen "I agree" records: Service Agreement, privacy
                     consent, and any old schedule clicks, with their snapshots
      --nominee      "who manages this account" (and the under-18 flag)
-     --all          all four
+     --ndis-plan    the uploaded copy of the NDIS plan, and the office's check of it
+     --all          all five
 
    It refuses: any account that is not a participant; any demo account;
    any account with a completed booking (a real history is never edited).
@@ -47,14 +48,15 @@ const want = {
   plan: all || args.includes('--plan'),
   billing: all || args.includes('--billing'),
   agreements: all || args.includes('--agreements'),
-  nominee: all || args.includes('--nominee')
+  nominee: all || args.includes('--nominee'),
+  ndisPlan: all || args.includes('--ndis-plan')
 };
 const DB_PATH = process.env.DB_PATH || '';
 const AGREEMENT_KEYS = ['p-agreement', 'p-consent-privacy', 'p-schedule'];
 
 function die(msg) { console.error('  ✗ ' + msg); process.exit(2); }
 if (!email) die('Usage: DB_PATH=/path/to/bookit.db node reset-walkthrough.js you+participant@gmail.com --plan|--billing|--agreements|--nominee|--all [--yes]');
-if (!Object.values(want).some(Boolean)) die('Say what to clear: --plan, --billing, --agreements, --nominee, or --all.');
+if (!Object.values(want).some(Boolean)) die('Say what to clear: --plan, --billing, --agreements, --nominee, --ndis-plan, or --all.');
 if (!DB_PATH) die('Set DB_PATH to the live database (on the server: /opt/bookit-data/bookit.db).');
 if (!fs.existsSync(DB_PATH)) die(`No database at ${DB_PATH}.`);
 if (/@demo\.bookit\.life$/i.test(email)) die('That is a demo account; this script does not touch demo data.');
@@ -127,6 +129,23 @@ if (want.nominee) {
       db.prepare("UPDATE users SET nominee_role = '', nominee_name = '', nominee_relationship = '', nominee_phone = '', nominee_email = '', nominee_paid = 0, under_18 = 0, nominee_at = '' WHERE id = ?").run(u.id);
     }]);
   }
+}
+
+/* ---- NDIS plan copy ---- */
+if (want.ndisPlan) {
+  const docs = db.prepare("SELECT id, uploaded_at, verified_at, file_path FROM participant_docs WHERE participant_id = ? AND form_key = 'p-ndis-plan' ORDER BY id").all(u.id);
+  if (!docs.length) console.log('  – NDIS plan copy: nothing on file');
+  for (const d of docs) console.log(`  ${mark}  NDIS plan copy uploaded ${String(d.uploaded_at || '').slice(0, 10)}${d.verified_at ? ', checked by the office ' + String(d.verified_at).slice(0, 10) : ', not yet checked'}`);
+  if (docs.length) work.push(['ndis-plan', () => {
+    const del = db.prepare('DELETE FROM participant_docs WHERE id = ? AND participant_id = ?');
+    for (const d of docs) {
+      del.run(d.id, u.id);
+      if (d.file_path) {
+        const cands = [d.file_path, path.join(path.dirname(path.resolve(DB_PATH)), 'bookit-docs', path.basename(d.file_path))];
+        for (const c of cands) { try { if (fs.existsSync(c)) fs.unlinkSync(c); } catch { /* leave it */ } }
+      }
+    }
+  }]);
 }
 
 if (!work.length) { console.log('\nNothing to do.\n'); process.exit(0); }

@@ -5852,6 +5852,14 @@ function firstBookingBlockers(pid, self) {
     missing.push({ what: 'the privacy consent', where: '#/account/documents', key: 'p-consent-privacy', section: 'documents', yours: true,
       why: 'Read it and press I agree. We need your consent before we hold and share your information.' });
   }
+  const ndisPlan = db.prepare("SELECT id, verified_at FROM participant_docs WHERE participant_id = ? AND form_key = 'p-ndis-plan' AND COALESCE(review_state,'') <> 'rejected' ORDER BY id DESC LIMIT 1").get(Number(pid));
+  if (!ndisPlan) {
+    missing.push({ what: 'a copy of the NDIS plan', where: '#/account/documents', key: 'ndis-plan', section: 'documents', yours: true,
+      why: 'Upload a photo or PDF of the current NDIS plan (Settings › My documents › Add a document). Our office checks it before the first shift.' });
+  } else if (!ndisPlan.verified_at) {
+    missing.push({ what: 'our office\u2019s check of the NDIS plan', where: '#/account/documents', key: 'ndis-plan-check', section: 'documents', yours: false,
+      why: 'We have the NDIS plan. Nothing for you to do \u2014 our office is checking it against your plan dates.' });
+  }
   if (u.under_18 && !u.nominee_name) {
     missing.push({ what: 'who manages the account', where: '#/account/documents', key: 'nominee', section: 'documents', yours: true,
       why: 'You have told us the person receiving support is under 18, so a parent or guardian has to be named as managing this account before the first shift.' });
@@ -5880,6 +5888,7 @@ route('GET', /^\/api\/me\/blockers$/, (req, res, m, user) => {
   if (user.role === 'participant') {
     items = firstBookingBlockers(user.id, true).map(x => ({ key: x.key, section: x.section, where: x.where, blocking: true, yours: x.yours,
       label: x.key === 'plan-review' ? 'Our office is reviewing your support plan' : x.key === 'plan-review-due' ? 'Your support plan is due for review'
+        : x.key === 'ndis-plan' ? 'Upload a copy of your NDIS plan' : x.key === 'ndis-plan-check' ? 'Our office is checking your NDIS plan'
         : x.key === 'support-plan' ? 'Your support plan is not confirmed' : x.key === 'billing' ? 'Tell us how your supports are funded'
         : x.key === 'nominee' ? 'Name who manages this account' : `${x.what.replace(/^the /, '')[0].toUpperCase()}${x.what.replace(/^the /, '').slice(1)} not yet agreed`, why: x.why }));
   } else if (user.role === 'worker') {
@@ -6090,7 +6099,7 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
       needs_setup: true, missing,
       error: `Before the first booking: ${missing.map(x => x.what).join(', ').replace(/, ([^,]*)$/, ' and $1')}. ${theirs.length
         ? `${theirs.length === 1 ? 'It takes a few minutes and it is' : 'They take a few minutes and they are'} ${pers.self ? 'yours' : 'theirs'} to do.`
-        : ''}${ours.length ? ' Our office will let you know when the support plan has been reviewed.' : ''}`.trim()
+        : ''}${ours.length ? ' Our office will let you know when its check is done.' : ''}`.trim()
     });
   }
 
@@ -7196,7 +7205,7 @@ const FORMS = [
   { key: 'p-manual', appliesIf: 'need_manual', onlyIf: 'only if you use a hoist or need help with transfers', name: 'Manual handling / transfer plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'OT or physiotherapist', template: 'none', requires: 'Core Module — Safe environment' },
   { key: 'p-pbs', appliesIf: 'has_pbs', onlyIf: 'only if you have a Behaviour Support Plan', name: 'Positive Behaviour Support Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Behaviour support practitioner', template: 'none', requires: 'Core Module — Support planning', note: 'A copy of a plan someone else wrote. Any restrictive practice in it has its own obligations with the Commission — this row only evidences that the workers can read the plan they are meant to follow.' },
   { key: 'p-care-plans', name: 'Any other care plan named in the support plan', scope: 'participant', track: 'live', live: 'care_plans', cadence: 'on-change', signed: 'Clinician', template: 'none', requires: 'Core Module — Support planning', note: 'The seven plans above are asked for by name. This row is for anything else the participant names — a wound care plan, a continence plan — and any name with no document behind it shows up here. A filed clinical plan ticks a matching name automatically.' },
-  { key: 'p-ndis-plan', optional: true, name: 'Copy of the current NDIS plan', scope: 'participant', track: 'drive', cadence: 'expiry', signed: 'NDIA', template: 'none', requires: 'Core Module — Service agreements with participants', note: 'Helpful, not required — the goals are already in the support plan. The dates are what matter, and they live on the billing card; see the next row.' },
+  { key: 'p-ndis-plan', owner: 'participant', upload: true, name: 'Copy of your current NDIS plan', scope: 'participant', track: 'drive', cadence: 'expiry', signed: 'NDIA', template: 'none', requires: 'Core Module — Service agreements with participants', note: 'Upload a photo or PDF of the plan the NDIA sent you. Our office checks it against your plan dates before your first shift.' },
   { key: 'p-plan-dates', name: 'Current NDIS plan dates', scope: 'participant', track: 'live', live: 'plan_dates', cadence: 'expiry', signed: 'NDIA', template: 'BookIt', requires: 'Core Module — Service agreements with participants', note: 'Start and end date of the plan being claimed against, recorded on the billing card. A plan that has ended while supports continue is named here the day it happens — which is the finding the old paper copy missed for two months.' },
   { key: 'p-notes', name: 'Progress notes / shift notes', scope: 'participant', track: 'live', live: 'shift_notes', cadence: 'per-event', signed: 'Worker', template: 'BookIt', requires: 'Core Module — Responsive support provision', note: 'Append-only in BookIt. A note that can be quietly rewritten is not evidence of anything.' },
   { key: 'p-satisfaction', owner: 'feedback', track: 'live', live: 'survey', upload: true, optional: true, name: 'Participant Satisfaction Survey', scope: 'participant', cadence: 'annual', signed: 'Participant', template: 'none', requires: 'Core Module — Quality management', note: 'Sent from the office, answered in BookIt, tracked as sent and answered. Seeking feedback is our obligation under the quality management outcome, not a document the participant owes the file — so it is never counted against them, and a paper copy can still be filed.' },

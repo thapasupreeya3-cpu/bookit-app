@@ -1,7 +1,30 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.5.5
+Current release: v86.6.0
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.6.0 — THE NDIS PLAN IS ON THE FILE, AND THE OFFICE CHECKS IT FIRST
+--------------------------------------------------------------------------------------
+  "Copy of your current NDIS plan" is now a required row on the participant's
+  file, theirs to upload (Settings › My documents › Add a document — a photo
+  or PDF) and the office's to check (Participant files › that row › Check
+  it). Two new first-booking blockers come with it: no copy on file (red,
+  theirs), and a copy not yet checked (amber, waiting on the office). The
+  admin card says which state it is in. A rejected copy counts as none.
+
+  scripts/NDIS_plan__sample_for_walkthrough.pdf is a two-page sample plan
+  for the walkthrough participant — fictional budgets, plan 01/07/2026 to
+  30/06/2027, self-managed, with a footer saying it is a sample. The prefill
+  uploads it (or the file named with --ndis-plan) if no copy is on file;
+  reset-walkthrough.js --ndis-plan clears it; --all includes it.
+
+  Rehearsed end to end on a database copy: reset --all, prefill with
+  --leave-agreements, four blockers (two theirs, two the office's), booking
+  refused; Check it and Mark reviewed as admin; two I-agree clicks; no
+  blockers; booking accepted.
+
+  No migration. SCHEMA_VERSION stays 86400.
 
 
 WHAT CHANGED IN v86.5.5 — A TRAINING PREFILL FOR THE TEST WORKER

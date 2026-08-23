@@ -11,6 +11,10 @@
      3. the Service Agreement, agreed on screen (and on servers before v86.2,
         the privacy consent and schedule clicks those versions asked for)
      4. on v86+: "who manages this account" = nobody, I manage my own
+     5. on v86.6+: a copy of the NDIS plan, uploaded as a PDF. By default the
+        sample plan beside this script (NDIS_plan__sample_for_walkthrough.pdf);
+        point --ndis-plan at another file to use that instead. The office then
+        checks it on the Participant files board before the first booking.
 
    It goes through the server's own validation, versioning and compliance log,
    so what lands on the file is exactly what the participant would have
@@ -43,6 +47,8 @@ const gateIdx = args.indexOf('--gate');
 const gatePw = gateIdx >= 0 ? args[gateIdx + 1] : '';
 const dryRun = args.includes('--dry-run');
 const leaveAgreements = args.includes('--leave-agreements');   /* so the "I agree" click can be shown live */
+const planIdx = args.indexOf('--ndis-plan');
+const ndisPlanPath = planIdx >= 0 ? args[planIdx + 1] : require('path').join(__dirname, 'NDIS_plan__sample_for_walkthrough.pdf');
 if (!base || !email) {
   console.error('usage: node scripts/prefill-walkthrough.js https://bookit.life participant@example.com [--gate "site password"] [--dry-run]');
   process.exit(1);
@@ -167,6 +173,26 @@ const bad = m => console.log('  \u2717 ' + m);
     console.log('    If there is none yet: sign up at /#/get-started as a participant, verify the email, then run this again.');
     process.exit(2);
   }
+
+  /* 1b. the copy of the NDIS plan, if the server asks for one and none is on file */
+  try {
+    const fs = require('fs');
+    const fileBefore = await api('GET', '/api/me/participant-documents');
+    const asks = (fileBefore.data.types || fileBefore.data.catalog || []).some(t => t.key === 'p-ndis-plan')
+      || (fileBefore.data.outstanding || []).some(x => x.key === 'p-ndis-plan') || (fileBefore.data.documents || []).some(d => d.form_key === 'p-ndis-plan');
+    const held = (fileBefore.data.documents || []).some(d => d.form_key === 'p-ndis-plan' && d.review !== 'rejected');
+    if (held) skip('NDIS plan copy already on file.');
+    else if (!fs.existsSync(ndisPlanPath)) skip(`No NDIS plan file at ${ndisPlanPath} \u2014 upload one from Settings \u203a My documents \u203a Add a document.`);
+    else if (!asks) skip('This server does not ask for an NDIS plan copy.');
+    else if (dryRun) skip(`Dry run \u2014 would upload ${ndisPlanPath} as the NDIS plan (01/07/2026 to 30/06/2027).`);
+    else {
+      const data = fs.readFileSync(ndisPlanPath).toString('base64');
+      const up = await api('POST', '/api/me/participant-documents', { form_key: 'p-ndis-plan', doc_date: BILLING.plan_start, expiry_date: BILLING.plan_end,
+        file: { name: require('path').basename(ndisPlanPath), mime: 'application/pdf', data } });
+      if (up.status === 200) ok(`NDIS plan copy uploaded \u2014 ${require('path').basename(ndisPlanPath)}. The office checks it on the Participant files board.`);
+      else bad(`NDIS plan upload refused: ${up.data.error || up.status}`);
+    }
+  } catch (e) { bad(`NDIS plan upload: ${e.message}`); }
 
   /* 2. the support plan, every required question answered */
   const body = { confirm: true, declaration: true, care_plans: [] };
