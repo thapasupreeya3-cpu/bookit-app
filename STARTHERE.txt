@@ -1,7 +1,44 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.4.2
+Current release: v86.5.0
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.5.0 — COMPLIANCE IS THREE TABS AND A NAME
+-------------------------------------------------------------
+  Admin › Compliance was one long scroll: the screening queue, the 0137
+  board, the credentials checker, incidents, complaints, out-of-scope,
+  training. It is now three tabs, each with a search box that narrows every
+  board on it to one person:
+
+    Support workers — the 0137 conditions board first (screening, the three
+      banning registers, evidence, displayed), then the NWSD queue, the
+      credentials checker and training. Type a name and every board shows
+      that worker only.
+    Participants — the participant files board (documents, agreements, the
+      plan-review button) and the support-plan board, moved here from
+      Documents, which keeps a pointer. Type a name.
+    Incidents, complaints & scope — the three registers.
+
+  Every place a check is made elsewhere now links to where it is made:
+    NDIS worker screening database — the registered providers' worker
+      screening page (log in with myID, link the worker, read My workers),
+      plus the worker's own state screening unit on their row;
+    NDIS Commission banning orders and compliance actions search;
+    Aged Care Quality and Safety Commission register of banning orders
+      (both Aged Care Act 2024 orders and the earlier ACQSC Act ones);
+    NSW Working With Children Check verification;
+    the NDIS Provider Register.
+  The link sheet sits above the 0137 table with a one-line "how" for each;
+  each banning register on a worker's row has its own "open register" link;
+  each screening cell links the database and the state unit.
+
+  The counts on the tabs are the things that need a person: workers off the
+  platform plus screening to look at; participant documents not on file plus
+  critical plans; incidents awaiting Commission notice plus open scope
+  entries. The tab you were on survives a re-render.
+
+  No migration. SCHEMA_VERSION stays 86400.
 
 
 WHAT CHANGED IN v86.4.2 — RED MEANS "YOURS TO DO"

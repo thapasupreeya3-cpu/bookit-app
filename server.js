@@ -4269,7 +4269,7 @@ const SCREEN_UNITS = {
   ACT: ['Access Canberra', 'https://www.accesscanberra.act.gov.au/'],
   NT:  ['NT Police, Fire & Emergency Services', 'https://forms.pfes.nt.gov.au/safent/']
 };
-const NWSD_PORTAL = 'https://www.ndiscommission.gov.au/providers/ndis-worker-screening-check';
+const NWSD_PORTAL = 'https://www.ndiscommission.gov.au/workforce/worker-screening/worker-screening-registered-providers';
 
 /* The whole decision, in one place, so nothing else has to reimplement it.
    All three must hold. Anything else is not a clearance, whatever the card
@@ -4351,14 +4351,30 @@ function recordScreening(workerId, o, who) {
 const BAN_REGISTERS = [
   { key: 'ndis', short: 'NDIS', rc: 'banning_result', ac: 'banning_checked_at', sc: 'banning_source',
     label: 'NDIS Commission banning orders register',
-    where: 'the NDIS Quality and Safeguards Commission banning orders register' },
+    where: 'the NDIS Quality and Safeguards Commission banning orders register',
+    url: 'https://www.ndiscommission.gov.au/about-us/compliance-and-enforcement/compliance-actions/search',
+    how: 'Search the worker\'s full name; the list covers banning orders, compliance notices and suspensions against providers and workers.' },
   { key: 'aged', short: 'Aged Care Act 2024', rc: 'banning_aged_result', ac: 'banning_aged_at', sc: 'banning_aged_source',
     label: 'Aged care banning orders register (Aged Care Act 2024)',
-    where: 'the aged care banning orders register, for orders under the Aged Care Act 2024' },
+    where: 'the aged care banning orders register, for orders under the Aged Care Act 2024',
+    url: 'https://www.agedcarequality.gov.au/providers/compliance-enforcement/banning-orders',
+    how: 'Open the Register of banning orders (PDF or CSV on that page) and search the worker\'s name.' },
   { key: 'acqsc', short: 'ACQSC Act', rc: 'banning_acqsc_result', ac: 'banning_acqsc_at', sc: 'banning_acqsc_source',
     label: 'Aged care banning orders made before the Aged Care Act 2024 (ACQSC Act)',
-    where: 'the aged care banning orders register, for orders made under the Aged Care Quality and Safety Commission Act 2018 before the Aged Care Act 2024 commenced' }
+    where: 'the aged care banning orders register, for orders made under the Aged Care Quality and Safety Commission Act 2018 before the Aged Care Act 2024 commenced',
+    url: 'https://www.agedcarequality.gov.au/providers/compliance-enforcement/banning-orders',
+    how: 'Same register: it lists current and former orders, including those made under the 2018 Act.' }
 ];
+/* where the person doing the checking goes, in one place */
+const CHECK_LINKS = {
+  nwsd: { label: 'NDIS worker screening database (registered providers portal)', url: 'https://www.ndiscommission.gov.au/workforce/worker-screening/worker-screening-registered-providers',
+    how: 'Log in with myID, link the worker by surname and application or clearance number, then read their status on My workers.' },
+  ndis_register: { label: 'NDIS Commission — banning orders and compliance actions', url: 'https://www.ndiscommission.gov.au/about-us/compliance-and-enforcement/compliance-actions/search' },
+  aged_register: { label: 'Aged Care Quality and Safety Commission — register of banning orders', url: 'https://www.agedcarequality.gov.au/providers/compliance-enforcement/banning-orders' },
+  wwcc_nsw: { label: 'NSW Working With Children Check — verify a worker', url: 'https://www.service.nsw.gov.au/transaction/verify-your-wwcc-workers',
+    how: 'Register the organisation once with the Office of the Children\'s Guardian, then verify with the worker\'s name, date of birth and WWCC number.' },
+  ndis_provider_register: { label: 'NDIS Provider Register (our own registration)', url: 'https://www.ndiscommission.gov.au/about-us/ndis-provider-register' }
+};
 const BAN_BY_KEY = Object.fromEntries(BAN_REGISTERS.map(r => [r.key, r]));
 const BAN_COLS = BAN_REGISTERS.flatMap(r => [r.rc, r.ac, r.sc]);
 
@@ -5270,7 +5286,7 @@ function board0137() {
   const rows = db.prepare(`SELECT u.id, u.name, u.email, p.visible, p.auto_hidden, p.screening_status,
       p.screening_status_at, p.screening_status_by, p.screening_source, p.screening_ref,
       p.banning_checked_by, ${BAN_COLS.map(c => 'p.' + c).join(', ')},
-      p.platform_block, p.platform_block_reason
+      p.platform_block, p.platform_block_reason, p.screening_state
     FROM users u JOIN worker_profiles p ON p.user_id = u.id
     WHERE u.role = 'worker' ORDER BY u.name`).all();
 
@@ -5283,6 +5299,7 @@ function board0137() {
     const pv = publicVerification(w.id, w.email);
     return {
       id: w.id, name: w.name, demo: isDemoWorker(w.email), visible: w.visible, auto_hidden: w.auto_hidden,
+      c_state: String(w.screening_state || '').toUpperCase(),
       /* the four things the conditions actually require, one column each */
       c_screening_held: Boolean(sdoc && sdoc.verified_at && (!sdoc.expiry_date || sdoc.expiry_date >= today)),
       c_screening_status: st.screening.status,
@@ -5292,7 +5309,7 @@ function board0137() {
       c_banning_result: st.registers.some(r => r.result === 'banned') ? 'banned'
         : st.registers.every(r => r.result === 'clear') ? 'clear' : 'unchecked',
       c_registers: st.registers.map(r => ({ key: r.key, short: r.short, result: r.result,
-        checked_at: r.checked_at, age_days: r.age_days })),
+        checked_at: r.checked_at, age_days: r.age_days, url: (BAN_BY_KEY[r.key] || {}).url || '', how: (BAN_BY_KEY[r.key] || {}).how || '' })),
       c_evidence: Boolean(sdoc && sdoc.verify_method),
       /* Every document this worker holds, not only the screening check.
          The board was answering "is the clearance in order" when the question
@@ -5346,6 +5363,8 @@ function board0137() {
         met: live.filter(w => w.c_displayed).length, of: live.length }
     ],
     settings: { banning_recheck_days: banningWindowDays(), banning_grace_days: banningGraceDays() },
+    links: CHECK_LINKS,
+    screen_units: SCREEN_UNITS,
     blocked: workers.filter(w => !w.demo && !w.platform.ok).length,
     live_count: live.length
   };

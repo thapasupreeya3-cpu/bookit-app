@@ -241,6 +241,13 @@ nav.main a.nav-link:focus-visible, nav.main button.nav-link:focus-visible{outlin
 .acct-chip:hover{border-color:var(--teal);}
 .acct-chip:focus-visible{outline:3px solid var(--amber);outline-offset:2px;}
 .acct.open .acct-chip{border-color:var(--teal);box-shadow:0 0 0 3px rgba(14,107,98,.14);}
+/* v86.5 — the compliance tabs */
+.cmp-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;border-bottom:2px solid var(--line);padding-bottom:0;}
+.cmp-tab{font:inherit;font-weight:700;font-size:.92rem;background:none;border:0;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;color:var(--ink-soft);margin-bottom:-2px;}
+.cmp-tab.on{color:var(--teal);border-bottom-color:var(--teal);}
+.cmp-tab .cmp-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#D94F32;color:#fff;font-size:.72rem;margin-left:6px;}
+.cmp-search{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 14px;}
+.cmp-search input{font:inherit;font-size:1rem;padding:10px 14px;border:1.5px solid var(--line);border-radius:12px;min-width:min(420px,100%);}
 /* v86.4 — red marks for anything that blocks the next shift */
 .acct-chip{position:relative;}
 .acct-dot{position:absolute;top:-3px;right:-3px;width:13px;height:13px;border-radius:999px;background:#D94F32;border:2px solid var(--cream);}
@@ -8619,7 +8626,7 @@ function screeningHtml(d){
     : `<span class="sec-chip off">${esc(w.outcome_label || 'Not cleared')}</span>`;
   const inp = 'font:inherit;padding:6px 8px;border-radius:8px;border:1.5px solid #E7DFD4;font-size:.84rem;';
   const row = w => `
-    <div style="padding:11px 0;border-bottom:1px solid var(--line);">
+    <div class="scr-row" style="padding:11px 0;border-bottom:1px solid var(--line);">
       <div style="display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;">
         <b style="font-size:.94rem;">${esc(w.name)}</b> ${chip(w)}
         ${w.visible ? '<span class="muted-sm">on the platform</span>' : '<span class="muted-sm">not visible</span>'}
@@ -8771,6 +8778,28 @@ function aiQueueHtml(q){
     + '</div>';
 }
 
+/* v86.5 — which compliance tab is open; survives a re-render of the page */
+let CMP_TAB = 'workers';
+function cmpShowTab(key){
+  CMP_TAB = key;
+  document.querySelectorAll('[data-cmp-tab]').forEach(b => { const on = b.dataset.cmpTab === key; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  document.querySelectorAll('[data-cmp-pane]').forEach(p => { p.hidden = p.dataset.cmpPane !== key; });
+}
+/* the search box narrows every board on its tab to the rows that mention
+   the name: table rows, the screening queue's rows, the participant cards */
+function cmpFilter(key, q){
+  const pane = document.querySelector(`[data-cmp-pane="${key}"]`); if(!pane) return;
+  const needle = String(q || '').trim().toLowerCase();
+  const units = pane.querySelectorAll('tbody > tr, .adm-pf-card, .scr-row');
+  let shown = 0;
+  units.forEach(el => { const hit = !needle || el.textContent.toLowerCase().includes(needle); el.hidden = !hit; if(hit) shown++; });
+  const c = pane.querySelector(`[data-cmp-count="${key}"]`); if(c) c.textContent = needle ? `${shown} match${shown === 1 ? '' : 'es'} — clear the box to see everyone` : '';
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-cmp-tab]'); if(t){ cmpShowTab(t.dataset.cmpTab); return; }
+  const g = e.target.closest('[data-cmp-go]'); if(g){ CMP_TAB = g.dataset.cmpGo; }
+});
+document.addEventListener('input', e => { const f = e.target.closest('[data-cmp-filter]'); if(f) cmpFilter(f.dataset.cmpFilter, f.value); });
 async function renderAdminPage(){
   const wrap = $('#adminContent');
   if(!wrap) return;
@@ -9070,12 +9099,13 @@ async function renderAdminPage(){
             <input class="c37-scr-ref" data-uid="${w.id}" placeholder="ref / clearance no." value="${esc(scr.ref || '')}" style="width:130px;">
             <button class="adm-btn-sm" data-c37-scr="${w.id}" type="button">Record</button>
           </div>
+          <div style="font-size:.76rem;margin:3px 0;">Check it: <a href="${esc((cmp.links && cmp.links.nwsd || {}).url || '#')}" target="_blank" rel="noopener noreferrer">NDIS worker screening database ↗</a>${w.c_state && cmp.screen_units && cmp.screen_units[w.c_state] ? ` · <a href="${esc(cmp.screen_units[w.c_state][1])}" target="_blank" rel="noopener noreferrer">${esc(cmp.screen_units[w.c_state][0])} ↗</a>` : ''}</div>
           <span style="font-size:.74rem;color:#3E5A64;">${scr.status_at ? 'Confirmed ' + admDate(scr.status_at) + (scr.source ? ' · ' + esc(scr.source) : '') : 'Look the worker up on the NDIS Worker Check portal, then record what it says.'}</span></td>
         <td>${w.c_banning_result === 'banned' ? '<span class="c37-no">✗ BANNING ORDER</span>'
               : w.c_banning_checked ? '<span class="c37-ok">✓ all three clear</span>'
               : `<span class="c37-no">✗ ${esc(BAN_LABEL[w.c_banning_result] || w.c_banning_result)}</span>`}
           <div style="font-size:.76rem;color:#3E5A64;margin-top:3px;">${(w.c_registers || []).map(r =>
-            `${esc(r.short)}: <b style="color:${r.result === 'clear' ? '#2E6B4F' : '#D94F32'};">${r.result === 'clear' ? 'clear' : r.result === 'banned' ? 'ORDER' : 'not checked'}</b>${r.checked_at ? ' · ' + admDate(r.checked_at) : ''}`
+            `${esc(r.short)}: <b style="color:${r.result === 'clear' ? '#2E6B4F' : '#D94F32'};">${r.result === 'clear' ? 'clear' : r.result === 'banned' ? 'ORDER' : 'not checked'}</b>${r.url ? ` · <a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" title="${esc(r.how || '')}">open register ↗</a>` : ''}${r.checked_at ? ' · ' + admDate(r.checked_at) : ''}`
           ).join('<br>')}</div>
           <div class="c37-ctl">
             <button class="adm-btn-sm" data-c37-ban="${w.id}" data-all="clear" type="button">All three checked — clear</button>
@@ -9133,6 +9163,10 @@ async function renderAdminPage(){
           <button class="adm-btn-sm" id="c37Save" type="button">Save</button>
         </div>
       </div>
+      ${cmp.links ? `<div class="info-card" style="margin:0 0 12px;padding:12px 16px;"><b style="font-size:.9rem;">Where to check — open in a new tab, then record what you found on the row</b>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px 18px;margin-top:8px;font-size:.84rem;">
+          ${Object.values(cmp.links).map(l => `<div><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)} ↗</a>${l.how ? `<br><span class="muted-sm">${esc(l.how)}</span>` : ''}</div>`).join('')}
+        </div></div>` : ''}
       ${c37Rows ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr>
           <th>Worker</th><th>Screening clearance (a)</th><th>Banning orders (b)</th><th>Evidence</th><th>Displayed</th>
         </tr></thead><tbody>${c37Rows}</tbody></table></div>`
@@ -9175,7 +9209,7 @@ async function renderAdminPage(){
         ${d.review === 'rejected' ? '<span style="color:#D94F32;font-weight:700;"> rejected</span>' : ` · <button class="adm-btn-sm" data-pdoc-reject="${d.id}" style="color:#D94F32;" type="button">reject</button>`}
         · <button class="adm-btn-sm" data-pdoc-del="${d.id}" type="button">remove</button>${d.review === 'rejected' && d.review_note ? `<br><span style="color:#A5301A;font-size:.78rem;"><b>Why:</b> ${esc(d.review_note)}</span>` : ''}</div>`).join('');
       const pct = p.of ? Math.round(p.held / p.of * 100) : 0;
-      return `<div class="info-card" style="margin-bottom:14px;">
+      return `<div class="info-card adm-pf-card" style="margin-bottom:14px;">
         <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;">
           <h3 style="margin:0;">${esc(p.name)}</h3>
           <span class="adm-badge" ${p.held === p.of ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>${p.held} of ${p.of} on file</span>
@@ -9419,27 +9453,42 @@ async function renderAdminPage(){
     + H('Shift notes ', snFlagged.length ? red(snFlagged.length + ' flagged') : '') + shiftNotes
     + H('Contact-form messages') + contacts);
 
-  g('compliance', 'Compliance', '0137, credentials, incidents, complaints',
-    (cmp ? cmp.blocked : 0) + (c.urgent_incidents || 0) + srOpen.length + (scr ? scr.waiting : 0),
-    H('Worker screening — the NWSD queue ', scr && scr.waiting ? red(scr.waiting + ' to look at') : '') + screeningHtml(scr)
-    +     H('0137 conditions of registration ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + compliance
-    + H('Credentials — the automatic checker') + credentials
-    + H('Incident register ', c.urgent_incidents ? red(c.urgent_incidents + ' awaiting Commission notice!') : '') + incidents
-    + H('Complaints register') + complaints
-    + H('Out-of-scope register ', srOpen.length ? red(srOpen.length + ' open')
-        : (srRows.length ? `<span style="color:#2E6B4F;">(${srRows.length} closed)</span>` : '')) + scopeRegister
-    + '<div class="info-card" id="admTrainingCard" style="margin-top:18px;" hidden></div>');
+  /* v86.5: three tabs, each with a search box that narrows every board on
+     it to one person — the screen is "verify this worker" or "verify this
+     participant", not a scroll through everything. */
+  const workerNames = cmp ? cmp.workers.filter(w => !w.demo).map(w => w.name) : [];
+  const partNames = pdx && pdx.participants ? pdx.participants.map(p => p.name) : [];
+  const cmpSearch = (key, names, ph) => `<div class="cmp-search"><input type="search" data-cmp-filter="${key}" list="cmpNames-${key}" placeholder="${ph}" autocomplete="off"><datalist id="cmpNames-${key}">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist><span class="muted-sm" data-cmp-count="${key}"></span></div>`;
+  const wUrgent = (cmp ? cmp.blocked : 0) + (scr ? scr.waiting : 0);
+  const pUrgent = (pMissingN || 0) + (plans && plans.counts.critical ? plans.counts.critical : 0);
+  const rUrgent = (c.urgent_incidents || 0) + srOpen.length;
+  const tab = (key, label, n) => `<button type="button" class="cmp-tab${key === CMP_TAB ? ' on' : ''}" data-cmp-tab="${key}" role="tab" aria-selected="${key === CMP_TAB}">${label}${n ? ` <span class="cmp-n">${n}</span>` : ''}</button>`;
+  const cmpPane = (key, inner) => `<div class="cmp-pane" data-cmp-pane="${key}"${key === CMP_TAB ? '' : ' hidden'}>${inner}</div>`;
+  g('compliance', 'Compliance', 'Verify a worker, verify a participant, the registers',
+    wUrgent + rUrgent,
+    `<div class="cmp-tabs" role="tablist">${tab('workers', 'Support workers', wUrgent)}${tab('participants', 'Participants', pUrgent)}${tab('registers', 'Incidents, complaints & scope', rUrgent)}</div>`
+    + cmpPane('workers', cmpSearch('workers', workerNames, 'Type a worker\'s name to verify them')
+      + H('0137 conditions of registration ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + compliance
+      + H('Worker screening — the NWSD queue ', scr && scr.waiting ? red(scr.waiting + ' to look at') : '') + screeningHtml(scr)
+      + H('Credentials — the automatic checker') + credentials
+      + '<div class="info-card" id="admTrainingCard" style="margin-top:18px;" hidden></div>')
+    + cmpPane('participants', cmpSearch('participants', partNames, 'Type a participant\'s name to verify their file')
+      + H('Participant files ', pMissingN === null ? '' : pMissingN ? red(pMissingN + ' not on file')
+          : '<span style="color:#2E6B4F;">(complete)</span>') + participantFiles
+      + H('Support plans ', plans && plans.counts.critical ? red(plans.counts.critical + ' critical') : '')
+      + (plans ? planBoardHtml(plans) : '<p class="adm-empty">The support-plan board couldn\'t be loaded.</p>'))
+    + cmpPane('registers', H('Incident register ', c.urgent_incidents ? red(c.urgent_incidents + ' awaiting Commission notice!') : '') + incidents
+      + H('Complaints register') + complaints
+      + H('Out-of-scope register ', srOpen.length ? red(srOpen.length + ' open')
+          : (srRows.length ? `<span style="color:#2E6B4F;">(${srRows.length} closed)</span>` : '')) + scopeRegister));
 
   g('documents', 'Documents', 'Files, forms, plans and the audit pack',
     (pMissingN || 0) + (plans && plans.counts.critical ? plans.counts.critical : 0),
     H('Audit pack — one download, everything in it') + auditPackHtml(pack)
-    + H('Participant files ', pMissingN === null ? '' : pMissingN ? red(pMissingN + ' not on file')
-        : '<span style="color:#2E6B4F;">(complete)</span>') + participantFiles
+    + `<p class="muted-sm" style="margin:0 0 14px;">Participant files and support plans have moved to <a href="#/admin/compliance" data-cmp-go="participants">Compliance › Participants</a>, beside the worker checks.</p>`
     + H('Blank forms — what a participant can download') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>'
     + H('Forms register — where every document lives')
     + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')
-    + H('Support plans ', plans && plans.counts.critical ? red(plans.counts.critical + ' critical') : '')
-    + (plans ? planBoardHtml(plans) : '<p class="adm-empty">The support-plan board couldn\'t be loaded.</p>')
     + '<div class="info-card" id="admDocReqCard" style="margin-top:18px;" hidden></div>');
 
   g('money', 'Money', 'Claims, invoicing and the pay ladder', 0,
