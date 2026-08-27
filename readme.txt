@@ -1,15 +1,19 @@
-BookIt v86.7.0 — the tier system (medallions, ladder page, profile badges)
+BookIt v86.7.0 — the tier system (illustrated badges, ladder page, animated avatar ring)
 
-WHAT'S IN THIS ZIP — the four files that changed:
+WHAT'S IN THIS ZIP:
   server.js
   public/index.html
+  public/assets/tiers/tier-bronze.svg      (the badge artwork — NEW folder)
+  public/assets/tiers/tier-silver.svg
+  public/assets/tiers/tier-gold.svg
+  public/assets/tiers/tier-platinum.svg
   package.json
   lib/version.js
 
-TO DEPLOY: upload these four over the same files on the server, keeping the
-folder layout (lib/version.js into lib/, public/index.html into public/),
-then restart:  sudo systemctl restart bookit
+TO DEPLOY: upload these over the same paths on the server, keeping the
+folder layout (the four SVGs go into public/assets/tiers/ — create the
+folder if it doesn't exist), then restart:  sudo systemctl restart bookit
 
-Nothing else changed. No database work needed — the one migration in it
-runs itself at boot, and demonstration workers spread themselves across the
-four levels (once) so every medal can be seen before launch.
+No database work needed — the one migration runs itself at boot, and
+demonstration workers spread themselves across the four levels (once) so
+every badge can be seen before launch.

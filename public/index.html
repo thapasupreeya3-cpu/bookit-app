@@ -4239,6 +4239,19 @@ html.high-contrast .care-stage-block{display:none!important;}
   .tr-silver{--ring-grad:conic-gradient(from 210deg,#66757D,#E3EAED 24%,#9AA7AD 47%,#F2F6F7 70%,#7D8C94 88%,#66757D);--ring-glow:rgba(154,167,173,.7);}
   .tr-gold{--ring-grad:conic-gradient(from 210deg,#A87614,#F6DF8E 24%,#D9A62B 47%,#FBEBB4 70%,#C08A1C 88%,#A87614);--ring-glow:rgba(217,166,43,.7);}
   .tr-platinum{--ring-grad:conic-gradient(from 210deg,#0A4B44,#9AD9CF 24%,#0E6B62 47%,#C5EAE3 70%,#11837A 88%,#0A4B44);--ring-glow:rgba(14,107,98,.65);}
+  /* the tier artwork wrapped around the avatar — wings, laurels, crown and all.
+     The art sits behind the round photo, so the shield centre is covered and
+     the ornament emerges around it. The plain conic ring stands down when the
+     artwork is on; the breathing glow stays. */
+  .acct-av.framed::before{display:none;}
+  .tier-frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0;user-select:none;}
+  .tier-frame{max-width:none;filter:drop-shadow(0 1px 2.5px rgba(23,49,58,.4));}
+  .tf-bronze{width:238%;height:238%;}
+  .tf-silver{width:252%;height:252%;}
+  .tf-gold{width:262%;height:262%;}
+  .tf-platinum{width:272%;height:272%;}
+  .acct-chip,.acct{overflow:visible;}
+  .acct-av.ring-lg.framed{margin:34px 0 48px;}
   .tier-pip{position:absolute;right:-6px;bottom:-6px;width:19px;height:19px;z-index:2;border-radius:50%;background:#FBF8F2;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(23,49,58,.3);}
   .tier-pip .medal{width:15px;height:15px;}
   .ring-lg{padding:5px;}
@@ -5314,134 +5327,6 @@ function ensureTierDefs(){
     </linearGradient></defs></svg>`;
   document.body.appendChild(holder);
 }
-/* five-point star */
-function starPath(cx, cy, r){
-  let d='';
-  for(let i=0;i<10;i++){
-    const a=-Math.PI/2 + i*Math.PI/5, rr = i%2 ? r*0.44 : r;
-    d += (i?'L':'M') + (cx+rr*Math.cos(a)).toFixed(1) + ' ' + (cy+rr*Math.sin(a)).toFixed(1);
-  }
-  return d+'Z';
-}
-const SHIELD = 'M60 15 C70 21 82 24 93 23 C95 23 96 24 96 26 C96 60 88 86 62 104 C61 105 59 105 58 104 C32 86 24 60 24 26 C24 24 25 23 27 23 C38 24 50 21 60 15 Z';
-const SHIELD_IN = 'M60 24 C68 28.5 78 31 87 30.5 C88 30.5 89 31 89 32.5 C89 60 82 81 61 96.5 C60.4 97 59.6 97 59 96.5 C38 81 31 60 31 32.5 C31 31 32 30.5 33 30.5 C42 31 52 28.5 60 24 Z';
-function heartPath(cx, cy, w){
-  const s=w/36;
-  return `M${cx} ${cy+14*s} C${cx-11*s} ${cy+6*s} ${cx-18*s} ${cy-2*s} ${cx-18*s} ${cy-8*s} A${9.4*s} ${9.4*s} 0 0 1 ${cx} ${cy-10*s} A${9.4*s} ${9.4*s} 0 0 1 ${cx+18*s} ${cy-8*s} C${cx+18*s} ${cy-2*s} ${cx+11*s} ${cy+6*s} ${cx} ${cy+14*s} Z`;
-}
-/* one laurel branch built explicitly on the left, mirrored for the right */
-function laurelSide(k, leaves){
-  const c=TIER_ART[k];
-  const L=[ [31,97,-32],[22,85,-52],[16,72,-70],[14,58,-88],[16,44,-106],[21,32,-122],[28,22,-136] ].slice(0, leaves);
-  let out=`<path d="M37 103 Q4 68 26 20" fill="none" stroke="url(#tmWing-${k})" stroke-width="3.4"/>`;
-  for(const [x,y,rot] of L){
-    out += `<ellipse cx="${x}" cy="${y}" rx="4.8" ry="11"
-      transform="rotate(${rot} ${x} ${y})" fill="url(#tmWing-${k})" stroke="${c.edge}" stroke-width=".8"/>`;
-  }
-  return out;
-}
-function laurel(k, leaves){
-  return laurelSide(k, leaves) + `<g transform="translate(120 0) scale(-1 1)">${laurelSide(k, leaves)}</g>`;
-}
-function wing(k, side, feathers, size){
-  const c=TIER_ART[k]; let out='';
-  for(let i=0;i<feathers;i++){
-    const t=i/(feathers-1);
-    const baseX = 60 + side*27, baseY = 42 - t*2;
-    const ang = (-4 - t*58);
-    const len = size*(1 - t*0.13);
-    const tipX = baseX + side*len*Math.cos(ang*Math.PI/180);
-    const tipY = baseY + len*Math.sin(ang*Math.PI/180);
-    const w1 = 8.5 - t*2.5;
-    out += `<path d="M${baseX} ${baseY}
-      Q${((baseX+tipX)/2 + side*w1*Math.sin(-ang*Math.PI/180)).toFixed(1)} ${((baseY+tipY)/2 - w1*Math.cos(ang*Math.PI/180)).toFixed(1)} ${tipX.toFixed(1)} ${tipY.toFixed(1)}
-      Q${((baseX+tipX)/2 - side*1.5).toFixed(1)} ${((baseY+tipY)/2 + w1*.9).toFixed(1)} ${baseX} ${(baseY+5).toFixed(1)} Z"
-      fill="url(#tmWing-${k})" stroke="${c.edge}" stroke-width=".9" stroke-linejoin="round"/>`;
-  }
-  return out;
-}
-function gem(k, cx, cy, r){
-  const c=TIER_ART[k]; if(!c.gem) return '';
-  return `<path d="M${cx-r} ${cy} L${cx-r*.5} ${cy-r*.8} L${cx+r*.5} ${cy-r*.8} L${cx+r} ${cy} L${cx} ${cy+r*1.1} Z"
-      fill="${c.gem}" stroke="${c.edge}" stroke-width="1"/>
-    <path d="M${cx-r*.5} ${cy-r*.8} L${cx} ${cy} L${cx+r*.5} ${cy-r*.8} M${cx-r} ${cy} L${cx} ${cy} L${cx+r} ${cy} M${cx} ${cy} L${cx} ${cy+r*1.1}"
-      stroke="#fff" stroke-opacity=".65" stroke-width=".8" fill="none"/>`;
-}
-/* Four ranks, four objects — the form itself is the promotion:
-   Bronze  a round starter medal with ribbon tails
-   Silver  earns the shield, laurels and a gem
-   Gold    earns wings, coral enamel and rays
-   Platinum earns the crown, the widest wings and the aura            */
-function crownPath(){
-  return 'M40 22 L44.5 7 L53 15.5 L60 3.5 L67 15.5 L75.5 7 L80 22 Z';
-}
-function tierCrestSvg(key, px, opts){
-  const c = TIER_ART[key]||TIER_ART.bronze; ensureTierDefs();
-  const label = esc((opts&&opts.label)||key);
-  let body='';
-  if(key==='bronze'){
-    /* round starter medal, ribbon tails behind */
-    body = `
-      <path d="M45 82 L36 106 L48 99 L54 92 Z" fill="url(#tmWing-bronze)" stroke="${c.edge}" stroke-width="1"/>
-      <path d="M75 82 L84 106 L72 99 L66 92 Z" fill="url(#tmWing-bronze)" stroke="${c.edge}" stroke-width="1"/>
-      <circle cx="60" cy="56" r="41" fill="url(#tmRim-bronze)" stroke="${c.edge}" stroke-width="2"/>
-      <circle cx="60" cy="56" r="36.5" fill="none" stroke="${c.light}" stroke-width="1.5" stroke-dasharray="2 3.4" opacity=".7"/>
-      <circle cx="60" cy="56" r="31.5" fill="url(#tmEn-bronze)" stroke="${c.edge}" stroke-width="1.1"/>
-      <ellipse cx="47" cy="40" rx="17" ry="9" fill="url(#tmShine)" opacity=".4" transform="rotate(-24 47 40)"/>
-      <path d="${heartPath(60,52,30)}" fill="${c.heart}" stroke="${c.edge}" stroke-width="1.2"/>
-      <ellipse cx="54.5" cy="47.5" rx="4.2" ry="6" transform="rotate(-22 54.5 47.5)" fill="#fff" opacity=".5"/>
-      <path d="${starPath(60,76,5.4)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>`;
-  }
-  else if(key==='silver'){
-    body = `
-      ${laurel('silver',7)}
-      <path d="${SHIELD}" fill="url(#tmRim-silver)" stroke="${c.edge}" stroke-width="2"/>
-      <path d="${SHIELD_IN}" fill="url(#tmEn-silver)" stroke="${c.edge}" stroke-width="1.1"/>
-      <path d="${SHIELD_IN}" fill="url(#tmShine)" opacity=".32" transform="scale(1 .5)" transform-origin="60 27"/>
-      <path d="${heartPath(60,50,32)}" fill="${c.heart}" stroke="${c.edge}" stroke-width="1.2"/>
-      <ellipse cx="54" cy="45" rx="4.6" ry="6.8" transform="rotate(-22 54 45)" fill="#fff" opacity=".5"/>
-      <path d="${starPath(52,78,5.2)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
-      <path d="${starPath(68,78,5.2)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
-      ${gem('silver',60,14,7)}`;
-  }
-  else if(key==='gold'){
-    body = `
-      <circle cx="60" cy="56" r="55" fill="url(#tmAura-gold)"/>
-      <g stroke="${c.light}" stroke-width="2.2" stroke-linecap="round" opacity=".55">
-        <path d="M60 2 60 12"/><path d="M40 6 44 15"/><path d="M80 6 76 15"/></g>
-      ${wing('gold',-1,4,36)}${wing('gold',1,4,36)}
-      <path d="${SHIELD}" fill="url(#tmRim-gold)" stroke="${c.edge}" stroke-width="2"/>
-      <path d="${SHIELD_IN}" fill="url(#tmEn-gold)" stroke="${c.edge}" stroke-width="1.1"/>
-      <path d="${SHIELD_IN}" fill="url(#tmShine)" opacity=".32" transform="scale(1 .5)" transform-origin="60 27"/>
-      <path d="${heartPath(60,49,32)}" fill="${c.heart}" stroke="${c.edge}" stroke-width="1.2"/>
-      <ellipse cx="54" cy="44" rx="4.6" ry="6.8" transform="rotate(-22 54 44)" fill="#fff" opacity=".5"/>
-      <path d="${starPath(46,75,5)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
-      <path d="${starPath(60,80,5)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
-      <path d="${starPath(74,75,5)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
-      ${gem('gold',60,14,7.2)}`;
-  }
-  else {
-    body = `
-      <circle cx="60" cy="56" r="58" fill="url(#tmAura-platinum)"/>
-      <g stroke="${c.light}" stroke-width="2.2" stroke-linecap="round" opacity=".6">
-        <path d="M26 16 32 23"/><path d="M94 16 88 23"/><path d="M18 38 26 41"/><path d="M102 38 94 41"/></g>
-      ${wing('platinum',-1,6,46)}${wing('platinum',1,6,46)}
-      <path d="${crownPath()}" fill="url(#tmRim-platinum)" stroke="${c.edge}" stroke-width="1.6" stroke-linejoin="round"/>
-      <circle cx="60" cy="12.5" r="3.4" fill="${c.gem}" stroke="${c.edge}" stroke-width=".9"/>
-      <circle cx="45.6" cy="10.5" r="2" fill="${c.gem}" stroke="${c.edge}" stroke-width=".7"/>
-      <circle cx="74.4" cy="10.5" r="2" fill="${c.gem}" stroke="${c.edge}" stroke-width=".7"/>
-      <path d="${SHIELD}" fill="url(#tmRim-platinum)" stroke="${c.edge}" stroke-width="2"/>
-      <path d="${SHIELD_IN}" fill="url(#tmEn-platinum)" stroke="${c.edge}" stroke-width="1.1"/>
-      <path d="${SHIELD_IN}" fill="url(#tmShine)" opacity=".34" transform="scale(1 .5)" transform-origin="60 27"/>
-      <path d="${heartPath(60,49,32)}" fill="${c.heart}" stroke="${c.edge}" stroke-width="1.2"/>
-      <ellipse cx="54" cy="44" rx="4.6" ry="6.8" transform="rotate(-22 54 44)" fill="#fff" opacity=".5"/>
-      <path d="${starPath(42,72,4.8)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
-      <path d="${starPath(54,79,4.8)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
-      <path d="${starPath(66,79,4.8)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
-      <path d="${starPath(78,72,4.8)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>`;
-  }
-  return `<svg class="medal" width="${px}" height="${px}" viewBox="0 0 120 120" role="img" aria-label="${label} — BookIt ladder level">${body}</svg>`;
-}
 /* the coin — the round medal, for chips and pips where a crest would turn to mush */
 function tierCoinSvg(key, px, opts){
   const c = TIER_ART[key] || TIER_ART.bronze;
@@ -5463,9 +5348,15 @@ function tierCoinSvg(key, px, opts){
     + `<ellipse cx="36" cy="25" rx="31" ry="15" fill="url(#tmShine)" opacity=".4" clip-path="url(#tmClipDisc)" transform="rotate(-24 36 25)"/>`
     + chev + `</svg>`;
 }
-/* one name for every call site: crest when there is room, coin when there is not */
+/* one name for every call site: the illustrated badge when there is room, the
+   coin when there is not. The badges are professionally rendered vector art,
+   shipped as files in assets/tiers/ — one per level, transparent, and drawn
+   once per page load rather than inlined into every card. */
 function tierMedalSvg(key, px, opts){
-  return px < 30 ? tierCoinSvg(key, px, opts) : tierCrestSvg(key, px, opts);
+  if(px < 30) return tierCoinSvg(key, px, opts);
+  if(!TIER_ART[key]) key = 'bronze';
+  const label = esc((opts && opts.label) || tierLabelOf(key));
+  return `<img class="medal" src="/assets/tiers/tier-${key}.svg" width="${px}" height="${px}" alt="${label} — BookIt ladder level" loading="lazy" decoding="async">`;
 }
 function tierChipHtml(key, label, link){
   if(!TIER_ART[key]) return '';
@@ -7142,13 +7033,18 @@ function renderAcctChip(){
      tier's metal, and a little medal pip. Nobody else gets a ring. */
   const wrap = $('#acctAvWrap'), pip = $('#acctTierPip');
   if(!wrap || !pip) return;
+  let fr = wrap.querySelector('.tier-frame');
   if(m.role === 'worker' && m.tier && TIER_ART[m.tier]){
-    wrap.className = `acct-av ringed tr-${m.tier}`;
-    pip.hidden = false;
-    pip.innerHTML = tierMedalSvg(m.tier, 13);
-    pip.title = `${tierLabelOf(m.tier)} — your BookIt ladder level`;
+    wrap.className = `acct-av ringed framed tr-${m.tier}`;
+    if(!fr){ fr = document.createElement('img'); fr.alt = ''; fr.setAttribute('aria-hidden','true'); wrap.insertBefore(fr, wrap.firstChild); }
+    fr.className = `tier-frame tf-${m.tier}`;
+    fr.src = `/assets/tiers/tier-${m.tier}.svg`;
+    wrap.title = `${tierLabelOf(m.tier)} — your BookIt ladder level`;
+    pip.hidden = true; pip.innerHTML = '';
   } else {
     wrap.className = 'acct-av';
+    if(fr) fr.remove();
+    wrap.removeAttribute('title');
     pip.hidden = true; pip.innerHTML = ''; pip.removeAttribute('title');
   }
 }
@@ -13528,7 +13424,7 @@ async function renderAccountPage(){
   const identityCard = `
   <div class="info-card" style="margin-bottom:18px;" id="cardIdentity">
     <div style="display:flex;gap:12px;align-items:center;flex-direction:column;text-align:center;">
-      ${me.role === 'worker' && me.tier ? `<span class="acct-av ringed ring-lg tr-${me.tier}">` : ''}<span class="wc-avatar" id="profAvatar" style="background:var(--teal);width:104px;height:104px;font-size:2rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="Your photo">` : acctInitials(me.name || '')}</span>${me.role === 'worker' && me.tier ? `<span class="tier-pip">${tierMedalSvg(me.tier, 21)}</span></span>` : ''}
+      ${me.role === 'worker' && me.tier ? `<span class="acct-av ringed framed ring-lg tr-${me.tier}" title="${esc(tierLabelOf(me.tier))} — your BookIt ladder level"><img class="tier-frame tf-${me.tier}" src="/assets/tiers/tier-${me.tier}.svg" alt="" aria-hidden="true">` : ''}<span class="wc-avatar" id="profAvatar" style="background:var(--teal);width:104px;height:104px;font-size:2rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="Your photo">` : acctInitials(me.name || '')}</span>${me.role === 'worker' && me.tier ? `</span>` : ''}
       <div style="min-width:0;">
         <b style="font-family:var(--font-head);font-size:1.3rem;display:block;">${esc(me.name || '')}</b>
         <span class="muted-sm">${roleLabel}${me.admin ? ' · Admin' : ''}${me.suburb ? ' · ' + esc(me.suburb) : ''}</span>
