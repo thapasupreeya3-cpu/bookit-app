@@ -1851,9 +1851,12 @@ function sessionUser(uid) {
   if (!u) return null;
   u.hi_flags = safeJson(u.hi_flags, []);
   if (u.role === 'worker') {
-    const p = db.prepare('SELECT photo, photo_at, visible FROM worker_profiles WHERE user_id = ?').get(u.id);
+    const p = db.prepare('SELECT photo, photo_at, visible, tier FROM worker_profiles WHERE user_id = ?').get(u.id);
     u.photo = p && p.photo ? `/photos/${u.id}?v=${encodeURIComponent(p.photo_at || '')}` : null;
     u.live = p && p.visible ? 1 : 0;
+    /* the ladder tier, for the avatar ring and the profile page. The key only:
+       rates and shares stay behind /api/me/tier, which is workers-only. */
+    u.tier = ['bronze', 'silver', 'gold', 'platinum'].includes(p && p.tier) ? p.tier : 'bronze';
   } else {
     u.photo = u.photo ? `/photos/${u.id}?v=${encodeURIComponent(u.photo_at || '')}` : null;
   }
@@ -2375,6 +2378,9 @@ function publicWorker(row) {
   const v = publicVerification(row.user_id, row.email);
   return {
     id: row.user_id, name: row.name, suburb: row.suburb, color: row.color,
+    /* the badge, not the pay: tier key + label only. What a tier is worth is
+       the worker's business and lives behind the workers-only /api/me/tier. */
+    tier: ['bronze', 'silver', 'gold', 'platinum'].includes(row.tier) ? row.tier : 'bronze',
     exp: row.exp, langs: row.langs, bio: row.bio,
     gender: row.gender || '', interests: safeJson(row.interests, []),
     services: JSON.parse(row.services),
@@ -12213,6 +12219,18 @@ db.exec(`CREATE TABLE IF NOT EXISTS tier_log (
   created TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_tier_log_worker ON tier_log(worker_id);`);
+
+/* Demonstration profiles get spread across the ladder — once — so every medal
+   can actually be seen on the demo data. Real workers earn theirs from
+   completed bookings; demo accounts are removed by the launch routine. */
+if (!setting('demo_tier_spread')) {
+  const demoRows = db.prepare(`SELECT p.user_id FROM worker_profiles p JOIN users u ON u.id = p.user_id
+    WHERE u.email LIKE '%@demo.bookit.life' ORDER BY p.shifts DESC, p.user_id`).all();
+  const demoSpread = ['platinum', 'gold', 'gold', 'silver', 'silver', 'silver'];
+  demoRows.forEach((r, i) => db.prepare('UPDATE worker_profiles SET tier = ? WHERE user_id = ?')
+    .run(demoSpread[i] || 'bronze', r.user_id));
+  if (demoRows.length) setSetting('demo_tier_spread', 'v1');
+}
 
 const TIERS = [
   { key: 'bronze',   label: 'Bronze',   sub: 'Starter' },

@@ -1806,7 +1806,7 @@ html.high-contrast .care-stage-block{display:none!important;}
       <a href="#/get-started" class="btn btn-primary btn-sm" id="btnGetStarted">Get started</a>
       <div class="acct" id="acctWrap" hidden>
         <button class="acct-chip" id="acctBtn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu" type="button">
-          <span class="acct-avatar" id="acctAvatar"></span><span class="acct-dot" id="acctDot" hidden aria-label="Something needs your attention"></span>
+          <span class="acct-av" id="acctAvWrap"><span class="acct-avatar" id="acctAvatar"></span><span class="tier-pip" id="acctTierPip" hidden></span></span><span class="acct-dot" id="acctDot" hidden aria-label="Something needs your attention"></span>
           <svg class="acct-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="acct-menu" id="acctMenu" role="menu" aria-label="Account" hidden></div>
@@ -3825,6 +3825,20 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 </section>
 
+<!-- ================= THE LADDER ================= -->
+<section class="page" id="page-ladder" data-title="The BookIt ladder — BookIt">
+  <div class="page-hero">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / The ladder</nav>
+      <h1>The BookIt ladder</h1>
+      <p class="lead">Four levels, earned with hours. A level is recognition of time worked through BookIt over the last twelve months &mdash; and for workers, it sets the share of every hour that is theirs.</p>
+    </div>
+  </div>
+  <section class="block">
+    <div class="container"><div id="ladderWrap"><p class="muted-sm">Loading&hellip;</p></div></div>
+  </section>
+</section>
+
 <!-- ================= TRAINING ================= -->
 <section class="page" id="page-training" data-title="Training — BookIt">
   <div class="page-hero">
@@ -4203,6 +4217,63 @@ html.high-contrast .care-stage-block{display:none!important;}
   .pl-g{border-color:#D9A62B;} .pl-g .pl-dot{background:#D9A62B;}
   .pl-p{border-color:#0E6B62;background:linear-gradient(180deg,#EAF5F3,#fff 70%);} .pl-p .pl-dot{background:#0E6B62;}
   .pl-rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:18px 26px;margin-top:30px;}
+  /* ---- tier medallions ---- */
+  .medal{display:inline-block;vertical-align:middle;flex:none;filter:drop-shadow(0 1.5px 2.5px rgba(23,49,58,.18));}
+  .tier-chip{display:inline-flex;align-items:center;gap:6px;padding:2.5px 11px 2.5px 5px;border-radius:999px;border:1.5px solid;font-size:.78rem;font-weight:700;letter-spacing:.01em;background:#fff;white-space:nowrap;vertical-align:middle;}
+  .tier-chip .medal{filter:none;}
+  .tc-bronze{border-color:#DDBB98;color:#7C5028;background:linear-gradient(180deg,#FDF6EF,#FBF0E3);}
+  .tc-silver{border-color:#BEC9CE;color:#4F5B62;background:linear-gradient(180deg,#F7F9FA,#EEF2F4);}
+  .tc-gold{border-color:#E7C669;color:#8A5F0C;background:linear-gradient(180deg,#FEF8E6,#FCF1CE);}
+  .tc-platinum{border-color:#8CC7BE;color:#0A4B44;background:linear-gradient(180deg,#EAF5F3,#DDF0EC);}
+  a.tier-chip{text-decoration:none;}
+  a.tier-chip:hover{box-shadow:0 2px 8px rgba(23,49,58,.14);}
+  /* the metallic ring around the account avatar, and its little medal pip */
+  .acct-av{position:relative;display:inline-flex;border-radius:50%;flex:none;}
+  .acct-av.ringed{padding:3px;}
+  .acct-av.ringed::before{content:'';position:absolute;inset:0;border-radius:50%;background:var(--ring-grad);
+    box-shadow:0 0 0 1px rgba(23,49,58,.16),0 1px 3px rgba(23,49,58,.18);}
+  .acct-av.ringed::after{content:'';position:absolute;inset:-3px;border-radius:50%;pointer-events:none;
+    box-shadow:0 0 12px 2.5px var(--ring-glow);opacity:.45;}
+  .acct-av.ringed .acct-avatar,.acct-av.ringed .wc-avatar{position:relative;z-index:1;box-shadow:0 0 0 1.5px #FBF8F2;}
+  .tr-bronze{--ring-grad:conic-gradient(from 210deg,#8A5A32,#EDC49B 24%,#C08A5B 47%,#F3D9BC 70%,#A06A3D 88%,#8A5A32);--ring-glow:rgba(192,138,91,.65);}
+  .tr-silver{--ring-grad:conic-gradient(from 210deg,#66757D,#E3EAED 24%,#9AA7AD 47%,#F2F6F7 70%,#7D8C94 88%,#66757D);--ring-glow:rgba(154,167,173,.7);}
+  .tr-gold{--ring-grad:conic-gradient(from 210deg,#A87614,#F6DF8E 24%,#D9A62B 47%,#FBEBB4 70%,#C08A1C 88%,#A87614);--ring-glow:rgba(217,166,43,.7);}
+  .tr-platinum{--ring-grad:conic-gradient(from 210deg,#0A4B44,#9AD9CF 24%,#0E6B62 47%,#C5EAE3 70%,#11837A 88%,#0A4B44);--ring-glow:rgba(14,107,98,.65);}
+  .tier-pip{position:absolute;right:-6px;bottom:-6px;width:19px;height:19px;z-index:2;border-radius:50%;background:#FBF8F2;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(23,49,58,.3);}
+  .tier-pip .medal{width:15px;height:15px;}
+  .ring-lg{padding:5px;}
+  .ring-lg .tier-pip{width:27px;height:27px;right:-2px;bottom:-2px;}
+  .ring-lg .tier-pip .medal{width:21px;height:21px;}
+  /* the dedicated ladder page */
+  .ldr-you{display:flex;gap:18px;align-items:center;margin:6px 0 16px;flex-wrap:wrap;}
+  .ldr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:16px;margin:18px 0 0;}
+  .ldr-card{position:relative;border:2px solid #E7DFD4;border-radius:20px;padding:24px 20px 22px;background:#fff;text-align:center;}
+  .ldr-card.t-bronze{border-color:#C08A5B;background:linear-gradient(180deg,#FDF6EF,#fff 58%);}
+  .ldr-card.t-silver{border-color:#9AA7AD;background:linear-gradient(180deg,#F4F6F7,#fff 58%);}
+  .ldr-card.t-gold{border-color:#D9A62B;background:linear-gradient(180deg,#FEF8E6,#fff 58%);}
+  .ldr-card.t-platinum{border-color:#0E6B62;background:linear-gradient(180deg,#EAF5F3,#fff 58%);}
+  .ldr-card.now{box-shadow:0 10px 26px rgba(14,107,98,.16);outline:3px solid rgba(14,107,98,.28);outline-offset:2px;}
+  .ldr-now{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:#0E6B62;color:#fff;font-size:.72rem;font-weight:700;padding:3px 12px;border-radius:999px;letter-spacing:.04em;white-space:nowrap;}
+  .ldr-name{font-family:var(--font-head);font-weight:800;font-size:1.28rem;margin-top:10px;letter-spacing:-.3px;}
+  .ldr-sub{color:#3E5A64;font-size:.86rem;margin-top:1px;}
+  .ldr-band{font-size:.8rem;color:#3E5A64;margin-top:8px;border-top:1px dashed #E7DFD4;padding-top:9px;}
+  .ldr-rate{font-size:1.62rem;font-weight:800;color:#0E6B62;letter-spacing:-1px;margin-top:6px;}
+  .ldr-rate small{display:block;font-size:.73rem;font-weight:500;color:#3E5A64;letter-spacing:0;margin-top:2px;}
+  .ldr-pts{font-size:.84rem;color:#3E5A64;margin-top:8px;}
+  .ldr-log{border-left:3px solid #E7DFD4;padding-left:16px;margin-top:10px;}
+  .ldr-log p{margin:0 0 8px;font-size:.88rem;color:#3E5A64;}
+  /* motion lives on the avatar ring, nowhere else. The medals themselves are
+     still; the ring around the signed-in worker's avatar slowly turns its
+     metal and breathes a glow in the tier's colour. Behind the motion
+     preference, none of it runs. */
+  @media (prefers-reduced-motion: no-preference){
+    .acct-av.ringed::before{animation:ringSpin 5.5s linear infinite;}
+    .acct-av.ringed::after{animation:ringGlow 3.2s ease-in-out infinite;}
+    .ldr-card .medal{transition:transform .25s ease;}
+    .ldr-card:hover .medal{transform:scale(1.07) translateY(-2px);}
+  }
+  @keyframes ringSpin{to{transform:rotate(360deg);}}
+  @keyframes ringGlow{0%,100%{opacity:.3;}50%{opacity:.9;}}50%{opacity:.85;}}
   .pl-rule{border-left:3px solid #0E6B62;padding:1px 0 1px 16px;}
   .pl-rule h4{margin:0 0 5px;font-size:.99rem;}
   .pl-rule p{margin:0;font-size:.9rem;line-height:1.65;color:#3E5A64;}
@@ -5193,13 +5264,224 @@ let LADDER = [
   { key:'gold',     label:'Gold',     sub:'Committed', share:75.5, band:600 },
   { key:'platinum', label:'Platinum', sub:'Career',    share:76.5, band:1200 }
 ];
+/* ---- the tier medallions ----
+   One drawing, four metals, three sizes. Gradients live in a single hidden
+   <defs> sprite so a page full of medals costs four gradients, not forty.
+   The chevron count is the rank — Bronze one to Platinum four — so the tiers
+   stay tellable-apart in greyscale and to anyone who can't read the colour. */
+const TIER_ART = {
+  bronze:   { deep:'#8A5A32', base:'#C08A5B', light:'#EDC49B', edge:'#6E4526', rank:1,
+              en1:'#C0703F', en2:'#7E3F1E', gem:null,       heart:'#F9E9D4' },
+  silver:   { deep:'#66757D', base:'#9AA7AD', light:'#E9F0F3', edge:'#4F5B62', rank:2,
+              en1:'#7FA3B5', en2:'#46626F', gem:'#BFE7F5',  heart:'#F7FBFD' },
+  gold:     { deep:'#A87614', base:'#D9A62B', light:'#F8E29A', edge:'#8A5F0C', rank:3,
+              en1:'#D95C39', en2:'#9A2E1C', gem:'#FFD24D',  heart:'#FFF6DC' },
+  platinum: { deep:'#0A4B44', base:'#0E6B62', light:'#9FDDD3', edge:'#06332E', rank:4,
+              en1:'#12796E', en2:'#073B35', gem:'#8CF0E2',  heart:'#F2FBF9' }
+};
+const tierLabelOf = k => (LADDER.find(t => t.key === k) || {}).label || (k ? k[0].toUpperCase() + k.slice(1) : '');
+function ensureTierDefs(){
+  if(document.getElementById('tierDefs')) return;
+  const g = Object.entries(TIER_ART).map(([k,c]) => `
+    <linearGradient id="tmRim-${k}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff"/><stop offset=".14" stop-color="${c.light}"/><stop offset=".48" stop-color="${c.base}"/>
+      <stop offset=".8" stop-color="${c.deep}"/><stop offset="1" stop-color="${c.light}"/>
+    </linearGradient>
+    <radialGradient id="tmAura-${k}" cx=".5" cy=".45" r=".5">
+      <stop offset="0" stop-color="${c.light}" stop-opacity=".9"/><stop offset=".6" stop-color="${c.base}" stop-opacity=".38"/>
+      <stop offset="1" stop-color="${c.base}" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tmWing-${k}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${c.light}"/><stop offset=".6" stop-color="${c.base}"/><stop offset="1" stop-color="${c.deep}"/>
+    </linearGradient>
+    <radialGradient id="tmEn-${k}" cx=".5" cy=".28" r="1">
+      <stop offset="0" stop-color="${c.en1}"/><stop offset=".55" stop-color="${c.en1}"/><stop offset="1" stop-color="${c.en2}"/>
+    </radialGradient>
+    <radialGradient id="tmDisc-${k}" cx=".38" cy=".3" r=".95">
+      <stop offset="0" stop-color="${c.light}"/><stop offset=".58" stop-color="${c.base}"/><stop offset="1" stop-color="${c.deep}"/>
+    </radialGradient>`).join('');
+  const holder = document.createElement('div');
+  holder.style.cssText='position:absolute;width:0;height:0;overflow:hidden;';
+  holder.innerHTML = `<svg id="tierDefs" aria-hidden="true"><defs>${g}
+    <linearGradient id="tmShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="tmClipDisc"><circle cx="48" cy="48" r="36"/></clipPath>
+    <clipPath id="tmClipShield"><path d="M60 24 C68 28.5 78 31 87 30.5 C88 30.5 89 31 89 32.5 C89 60 82 81 61 96.5 C60.4 97 59.6 97 59 96.5 C38 81 31 60 31 32.5 C31 31 32 30.5 33 30.5 C42 31 52 28.5 60 24 Z"/></clipPath>
+    <linearGradient id="tmSweep" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient></defs></svg>`;
+  document.body.appendChild(holder);
+}
+/* five-point star */
+function starPath(cx, cy, r){
+  let d='';
+  for(let i=0;i<10;i++){
+    const a=-Math.PI/2 + i*Math.PI/5, rr = i%2 ? r*0.44 : r;
+    d += (i?'L':'M') + (cx+rr*Math.cos(a)).toFixed(1) + ' ' + (cy+rr*Math.sin(a)).toFixed(1);
+  }
+  return d+'Z';
+}
+const SHIELD = 'M60 15 C70 21 82 24 93 23 C95 23 96 24 96 26 C96 60 88 86 62 104 C61 105 59 105 58 104 C32 86 24 60 24 26 C24 24 25 23 27 23 C38 24 50 21 60 15 Z';
+const SHIELD_IN = 'M60 24 C68 28.5 78 31 87 30.5 C88 30.5 89 31 89 32.5 C89 60 82 81 61 96.5 C60.4 97 59.6 97 59 96.5 C38 81 31 60 31 32.5 C31 31 32 30.5 33 30.5 C42 31 52 28.5 60 24 Z';
+function heartPath(cx, cy, w){
+  const s=w/36;
+  return `M${cx} ${cy+14*s} C${cx-11*s} ${cy+6*s} ${cx-18*s} ${cy-2*s} ${cx-18*s} ${cy-8*s} A${9.4*s} ${9.4*s} 0 0 1 ${cx} ${cy-10*s} A${9.4*s} ${9.4*s} 0 0 1 ${cx+18*s} ${cy-8*s} C${cx+18*s} ${cy-2*s} ${cx+11*s} ${cy+6*s} ${cx} ${cy+14*s} Z`;
+}
+/* one laurel branch built explicitly on the left, mirrored for the right */
+function laurelSide(k, leaves){
+  const c=TIER_ART[k];
+  const L=[ [31,97,-32],[22,85,-52],[16,72,-70],[14,58,-88],[16,44,-106],[21,32,-122],[28,22,-136] ].slice(0, leaves);
+  let out=`<path d="M37 103 Q4 68 26 20" fill="none" stroke="url(#tmWing-${k})" stroke-width="3.4"/>`;
+  for(const [x,y,rot] of L){
+    out += `<ellipse cx="${x}" cy="${y}" rx="4.8" ry="11"
+      transform="rotate(${rot} ${x} ${y})" fill="url(#tmWing-${k})" stroke="${c.edge}" stroke-width=".8"/>`;
+  }
+  return out;
+}
+function laurel(k, leaves){
+  return laurelSide(k, leaves) + `<g transform="translate(120 0) scale(-1 1)">${laurelSide(k, leaves)}</g>`;
+}
+function wing(k, side, feathers, size){
+  const c=TIER_ART[k]; let out='';
+  for(let i=0;i<feathers;i++){
+    const t=i/(feathers-1);
+    const baseX = 60 + side*27, baseY = 42 - t*2;
+    const ang = (-4 - t*58);
+    const len = size*(1 - t*0.13);
+    const tipX = baseX + side*len*Math.cos(ang*Math.PI/180);
+    const tipY = baseY + len*Math.sin(ang*Math.PI/180);
+    const w1 = 8.5 - t*2.5;
+    out += `<path d="M${baseX} ${baseY}
+      Q${((baseX+tipX)/2 + side*w1*Math.sin(-ang*Math.PI/180)).toFixed(1)} ${((baseY+tipY)/2 - w1*Math.cos(ang*Math.PI/180)).toFixed(1)} ${tipX.toFixed(1)} ${tipY.toFixed(1)}
+      Q${((baseX+tipX)/2 - side*1.5).toFixed(1)} ${((baseY+tipY)/2 + w1*.9).toFixed(1)} ${baseX} ${(baseY+5).toFixed(1)} Z"
+      fill="url(#tmWing-${k})" stroke="${c.edge}" stroke-width=".9" stroke-linejoin="round"/>`;
+  }
+  return out;
+}
+function gem(k, cx, cy, r){
+  const c=TIER_ART[k]; if(!c.gem) return '';
+  return `<path d="M${cx-r} ${cy} L${cx-r*.5} ${cy-r*.8} L${cx+r*.5} ${cy-r*.8} L${cx+r} ${cy} L${cx} ${cy+r*1.1} Z"
+      fill="${c.gem}" stroke="${c.edge}" stroke-width="1"/>
+    <path d="M${cx-r*.5} ${cy-r*.8} L${cx} ${cy} L${cx+r*.5} ${cy-r*.8} M${cx-r} ${cy} L${cx} ${cy} L${cx+r} ${cy} M${cx} ${cy} L${cx} ${cy+r*1.1}"
+      stroke="#fff" stroke-opacity=".65" stroke-width=".8" fill="none"/>`;
+}
+/* Four ranks, four objects — the form itself is the promotion:
+   Bronze  a round starter medal with ribbon tails
+   Silver  earns the shield, laurels and a gem
+   Gold    earns wings, coral enamel and rays
+   Platinum earns the crown, the widest wings and the aura            */
+function crownPath(){
+  return 'M40 22 L44.5 7 L53 15.5 L60 3.5 L67 15.5 L75.5 7 L80 22 Z';
+}
+function tierCrestSvg(key, px, opts){
+  const c = TIER_ART[key]||TIER_ART.bronze; ensureTierDefs();
+  const label = esc((opts&&opts.label)||key);
+  let body='';
+  if(key==='bronze'){
+    /* round starter medal, ribbon tails behind */
+    body = `
+      <path d="M45 82 L36 106 L48 99 L54 92 Z" fill="url(#tmWing-bronze)" stroke="${c.edge}" stroke-width="1"/>
+      <path d="M75 82 L84 106 L72 99 L66 92 Z" fill="url(#tmWing-bronze)" stroke="${c.edge}" stroke-width="1"/>
+      <circle cx="60" cy="56" r="41" fill="url(#tmRim-bronze)" stroke="${c.edge}" stroke-width="2"/>
+      <circle cx="60" cy="56" r="36.5" fill="none" stroke="${c.light}" stroke-width="1.5" stroke-dasharray="2 3.4" opacity=".7"/>
+      <circle cx="60" cy="56" r="31.5" fill="url(#tmEn-bronze)" stroke="${c.edge}" stroke-width="1.1"/>
+      <ellipse cx="47" cy="40" rx="17" ry="9" fill="url(#tmShine)" opacity=".4" transform="rotate(-24 47 40)"/>
+      <path d="${heartPath(60,52,30)}" fill="${c.heart}" stroke="${c.edge}" stroke-width="1.2"/>
+      <ellipse cx="54.5" cy="47.5" rx="4.2" ry="6" transform="rotate(-22 54.5 47.5)" fill="#fff" opacity=".5"/>
+      <path d="${starPath(60,76,5.4)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>`;
+  }
+  else if(key==='silver'){
+    body = `
+      ${laurel('silver',7)}
+      <path d="${SHIELD}" fill="url(#tmRim-silver)" stroke="${c.edge}" stroke-width="2"/>
+      <path d="${SHIELD_IN}" fill="url(#tmEn-silver)" stroke="${c.edge}" stroke-width="1.1"/>
+      <path d="${SHIELD_IN}" fill="url(#tmShine)" opacity=".32" transform="scale(1 .5)" transform-origin="60 27"/>
+      <path d="${heartPath(60,50,32)}" fill="${c.heart}" stroke="${c.edge}" stroke-width="1.2"/>
+      <ellipse cx="54" cy="45" rx="4.6" ry="6.8" transform="rotate(-22 54 45)" fill="#fff" opacity=".5"/>
+      <path d="${starPath(52,78,5.2)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
+      <path d="${starPath(68,78,5.2)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
+      ${gem('silver',60,14,7)}`;
+  }
+  else if(key==='gold'){
+    body = `
+      <circle cx="60" cy="56" r="55" fill="url(#tmAura-gold)"/>
+      <g stroke="${c.light}" stroke-width="2.2" stroke-linecap="round" opacity=".55">
+        <path d="M60 2 60 12"/><path d="M40 6 44 15"/><path d="M80 6 76 15"/></g>
+      ${wing('gold',-1,4,36)}${wing('gold',1,4,36)}
+      <path d="${SHIELD}" fill="url(#tmRim-gold)" stroke="${c.edge}" stroke-width="2"/>
+      <path d="${SHIELD_IN}" fill="url(#tmEn-gold)" stroke="${c.edge}" stroke-width="1.1"/>
+      <path d="${SHIELD_IN}" fill="url(#tmShine)" opacity=".32" transform="scale(1 .5)" transform-origin="60 27"/>
+      <path d="${heartPath(60,49,32)}" fill="${c.heart}" stroke="${c.edge}" stroke-width="1.2"/>
+      <ellipse cx="54" cy="44" rx="4.6" ry="6.8" transform="rotate(-22 54 44)" fill="#fff" opacity=".5"/>
+      <path d="${starPath(46,75,5)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
+      <path d="${starPath(60,80,5)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
+      <path d="${starPath(74,75,5)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
+      ${gem('gold',60,14,7.2)}`;
+  }
+  else {
+    body = `
+      <circle cx="60" cy="56" r="58" fill="url(#tmAura-platinum)"/>
+      <g stroke="${c.light}" stroke-width="2.2" stroke-linecap="round" opacity=".6">
+        <path d="M26 16 32 23"/><path d="M94 16 88 23"/><path d="M18 38 26 41"/><path d="M102 38 94 41"/></g>
+      ${wing('platinum',-1,6,46)}${wing('platinum',1,6,46)}
+      <path d="${crownPath()}" fill="url(#tmRim-platinum)" stroke="${c.edge}" stroke-width="1.6" stroke-linejoin="round"/>
+      <circle cx="60" cy="12.5" r="3.4" fill="${c.gem}" stroke="${c.edge}" stroke-width=".9"/>
+      <circle cx="45.6" cy="10.5" r="2" fill="${c.gem}" stroke="${c.edge}" stroke-width=".7"/>
+      <circle cx="74.4" cy="10.5" r="2" fill="${c.gem}" stroke="${c.edge}" stroke-width=".7"/>
+      <path d="${SHIELD}" fill="url(#tmRim-platinum)" stroke="${c.edge}" stroke-width="2"/>
+      <path d="${SHIELD_IN}" fill="url(#tmEn-platinum)" stroke="${c.edge}" stroke-width="1.1"/>
+      <path d="${SHIELD_IN}" fill="url(#tmShine)" opacity=".34" transform="scale(1 .5)" transform-origin="60 27"/>
+      <path d="${heartPath(60,49,32)}" fill="${c.heart}" stroke="${c.edge}" stroke-width="1.2"/>
+      <ellipse cx="54" cy="44" rx="4.6" ry="6.8" transform="rotate(-22 54 44)" fill="#fff" opacity=".5"/>
+      <path d="${starPath(42,72,4.8)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
+      <path d="${starPath(54,79,4.8)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
+      <path d="${starPath(66,79,4.8)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>
+      <path d="${starPath(78,72,4.8)}" fill="${c.heart}" stroke="${c.edge}" stroke-width=".7"/>`;
+  }
+  return `<svg class="medal" width="${px}" height="${px}" viewBox="0 0 120 120" role="img" aria-label="${label} — BookIt ladder level">${body}</svg>`;
+}
+/* the coin — the round medal, for chips and pips where a crest would turn to mush */
+function tierCoinSvg(key, px, opts){
+  const c = TIER_ART[key] || TIER_ART.bronze;
+  ensureTierDefs();
+  const n = c.rank, pitch = 11.5, h = 9.5, w = 13;
+  const y1 = 48 - ((n - 1) * pitch + h) / 2 + h;
+  let chev = '';
+  for(let i = 0; i < n; i++){
+    const y = y1 + i * pitch;
+    const d = `M${48 - w} ${y} L48 ${y - h} L${48 + w} ${y}`;
+    chev += `<path d="${d}" fill="none" stroke="${c.light}" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 1.7)" opacity=".5"/>`
+          + `<path d="${d}" fill="none" stroke="${c.deep}" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+  return `<svg class="medal" width="${px}" height="${px}" viewBox="0 0 96 96" role="img" aria-label="${esc((opts && opts.label) || tierLabelOf(key))} — BookIt ladder level">`
+    + `<circle cx="48" cy="48" r="45" fill="url(#tmRim-${key})" stroke="${c.edge}" stroke-width="1.4"/>`
+    + `<circle cx="48" cy="48" r="41.4" fill="none" stroke="${c.light}" stroke-width="1.6" stroke-dasharray="1.8 3.2" opacity=".65"/>`
+    + `<circle cx="48" cy="48" r="36" fill="url(#tmDisc-${key})"/>`
+    + `<circle cx="48" cy="48" r="36" fill="none" stroke="${c.edge}" stroke-width="1" opacity=".5"/>`
+    + `<ellipse cx="36" cy="25" rx="31" ry="15" fill="url(#tmShine)" opacity=".4" clip-path="url(#tmClipDisc)" transform="rotate(-24 36 25)"/>`
+    + chev + `</svg>`;
+}
+/* one name for every call site: crest when there is room, coin when there is not */
+function tierMedalSvg(key, px, opts){
+  return px < 30 ? tierCoinSvg(key, px, opts) : tierCrestSvg(key, px, opts);
+}
+function tierChipHtml(key, label, link){
+  if(!TIER_ART[key]) return '';
+  const inner = `${tierMedalSvg(key, 16, { label })}<span>${esc(label || tierLabelOf(key))}</span>`;
+  return link
+    ? `<a class="tier-chip tc-${key}" href="${link}" title="BookIt ladder level — see how the levels work">${inner}</a>`
+    : `<span class="tier-chip tc-${key}">${inner}</span>`;
+}
+
 function renderPublicLadder(){
   const g = $('#plGrid'); if(!g) return;
   const wd = RATES.find(r => r.category === 'weekday-day') || { you: 73.58 };
   const cls = { bronze:'pl-b', silver:'pl-s', gold:'pl-g', platinum:'pl-p' };
   g.innerHTML = LADDER.map((t, i) => `
     <div class="pl-rung ${cls[t.key] || ''}">
-      <h3><span class="pl-dot"></span>${esc(t.label)}</h3>
+      <h3>${tierMedalSvg(t.key, 34)} <span style="vertical-align:middle;">${esc(t.label)}</span></h3>
       <p class="pl-when">${t.band ? `from ${t.band.toLocaleString()} hours` : 'from your first shift'}${t.sub ? ` &middot; ${esc(t.sub)}` : ''}</p>
       <div class="pl-rate">${money(wd.you * t.share / 100)}<small>an hour, weekday daytime, incl. super</small></div>
       <p class="pl-share"><b>${t.share}%</b> of everything the NDIS pays for your hour${
@@ -5419,6 +5701,7 @@ function workerCard(w){
       <div>
         <div class="wc-name">${esc(w.name)}
           ${w.demo ? '<span class="wc-demo">Demo</span>' : VERIFIED_ROSETTE}
+          ${w.tier ? tierChipHtml(w.tier, tierLabelOf(w.tier), '#/ladder') : ''}
         </div>
         <div class="wc-meta">${esc(w.suburb)} · ${esc(w.exp)} · ${w.shifts ? `★ ${w.rating.toFixed(1)} (${w.shifts} shifts)` : 'New to BookIt'}</div>
       </div>
@@ -5664,6 +5947,7 @@ async function renderWorkerPage(id){
           <div style="flex:1;min-width:220px;">
             <h1 class="wp-name">${esc(w.name)}${w.demo ? '<span class="wc-demo" style="font-size:.8rem;vertical-align:6px;">Demo profile</span>' : VERIFIED_ROSETTE}</h1>
             <div class="wc-meta" style="margin-top:5px;">${esc(w.suburb)} · ${esc(w.exp)}</div>
+            ${w.tier ? `<div style="margin-top:10px;">${tierChipHtml(w.tier, tierLabelOf(w.tier) + ' — ' + ((LADDER.find(t => t.key === w.tier) || {}).sub || ''), '#/ladder')}</div>` : ''}
             <div class="wc-tags" style="margin-top:11px;">${(w.services || []).map(s => `<span class="wc-tag">${SVC_NAME[s] || s}</span>`).join('')}</div>
           </div>
         </div>
@@ -6643,6 +6927,7 @@ const ROUTES = {
   '/statements': 'page-statements',
   '/security': 'page-security',
   '/earnings': 'page-earnings',
+  '/ladder': 'page-ladder',
   '/training': 'page-training',
   '/for-plan-managers': 'page-for-plan-managers',
   '/for-families': 'page-for-families',
@@ -6738,6 +7023,7 @@ function route(){
   if(id === 'page-clients' && window.renderClientsPage) renderClientsPage();
   if(id === 'page-find-workers' && window.applyFindFilters) applyFindFilters();
   if(id === 'page-calculator' && window.renderCalculatorPage) renderCalculatorPage();
+  if(id === 'page-ladder' && window.renderLadderPage) renderLadderPage();
   if(id === 'page-access' && window.renderAccessPage) renderAccessPage();
   if(id === 'page-invite' && window.renderInvitePage) renderInvitePage();
   if(id === 'page-admin' && window.renderAdminPage) renderAdminPage();
@@ -6835,6 +7121,7 @@ function updateAuthUI(){
 
 /* ---------- account chip + menu ---------- */
 const ACCT_ICONS = {
+  medal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9.5" r="6"/><path d="M9.3 10.8 12 7.6l2.7 3.2"/><path d="M8.4 14.8 7 21l5-2.6L17 21l-1.4-6.2"/></svg>',
   gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h0a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h0a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v0a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
   cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
   chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
@@ -6851,6 +7138,19 @@ function acctInitials(name){ return (name || '?').split(' ').map(p => p[0]).join
 function renderAcctChip(){
   const m = API.me; if(!m) return;
   $('#acctAvatar').innerHTML = m.photo ? `<img src="${m.photo}" alt="">` : acctInitials(m.name);
+  /* workers wear their ladder level around the avatar — a metallic ring in the
+     tier's metal, and a little medal pip. Nobody else gets a ring. */
+  const wrap = $('#acctAvWrap'), pip = $('#acctTierPip');
+  if(!wrap || !pip) return;
+  if(m.role === 'worker' && m.tier && TIER_ART[m.tier]){
+    wrap.className = `acct-av ringed tr-${m.tier}`;
+    pip.hidden = false;
+    pip.innerHTML = tierMedalSvg(m.tier, 13);
+    pip.title = `${tierLabelOf(m.tier)} — your BookIt ladder level`;
+  } else {
+    wrap.className = 'acct-av';
+    pip.hidden = true; pip.innerHTML = ''; pip.removeAttribute('title');
+  }
 }
 function renderAcctMenu(){
   const m = API.me; if(!m) return;
@@ -6877,6 +7177,7 @@ function renderAcctMenu(){
   }
   if(!m.admin && m.role === 'coordinator') items += item('#/clients', '', 'grid', 'My clients');
   if(!m.admin) items += item('#/bookings', '', 'cal', m.role === 'worker' ? 'Bookings & shifts' : 'My bookings');
+  if(!m.admin && m.role === 'worker') items += item('#/ladder', '', 'medal', 'The ladder');
   if(!m.admin && m.role === 'participant') items += item('#/support-plan', '', 'flag', 'Support plan',
     `<span class="acct-badge red" data-blk-badge="support_plan" ${blockerCount('support_plan') ? '' : 'hidden'}>${blockerCount('support_plan') || ''}</span>`);
   if(!m.admin) items += item('#/messages', '', 'chat', 'Messages',
@@ -10362,8 +10663,9 @@ async function renderCoverPanels(){
    once and know three things — what they earn an hour, what the next rung is
    worth, and how far away it is. Anything that makes those three harder to
    find has been left off. */
-function tierCardHtml(d){
+function tierCardHtml(d, opts){
   if(!d || !d.tier) return '';
+  const onLadder = !!(opts && opts.onLadder);
   const cur = d.ladder.findIndex(t => t.current);
   const rung = d.ladder[cur] || {};
   /* progress runs across the whole ladder, not just to the next rung, so the
@@ -10382,7 +10684,7 @@ function tierCardHtml(d){
   return `<div class="tier-card t-${d.tier}" id="cardTier">
     <div class="tier-top">
       <div>
-        <span class="tier-badge"><span class="tier-dot"></span>${esc(d.label)}</span>
+        <span class="tier-badge">${tierMedalSvg(d.tier, 42)}${esc(d.label)}</span>
         <div class="muted-sm" style="margin-top:3px;">${esc(d.sub)} · ${d.hours} hrs in the last 12 months</div>
       </div>
       <div class="tier-rate"><b>$${Number(d.weekday_rate).toFixed(2)}</b><span>per weekday hour, super included</span></div>
@@ -10415,6 +10717,7 @@ function tierCardHtml(d){
     ${d.history && d.history.length ? `<div data-tier-hist-out hidden style="margin-top:11px;border-top:1px dashed #E0D3B6;padding-top:10px;">
       ${d.history.map(h => `<div class="muted-sm" style="padding:3px 0;">${fmtAU(h.created.slice(0,10))} — ${esc(h.reason || '')}</div>`).join('')}
     </div>` : ''}
+    ${onLadder ? '' : `<p class="tier-note" style="margin-top:12px;"><a href="#/ladder" style="color:#0E6B62;font-weight:700;">See the full ladder — every level, every rate, and how the levels work &rarr;</a></p>`}
   </div>`;
 }
 
@@ -12764,6 +13067,76 @@ document.addEventListener('keydown', e => {
 /* ============ Build 14 — the worker's money, without asking ============ */
 const EARN = { period: 0, from: '', to: '' };
 const earnMoney = n => '$' + Number(n || 0).toFixed(2);
+/* ---- the dedicated ladder page ----
+   One page, three readers. A worker gets "you are here": their medal, the full
+   tier card, and their history. A participant or visitor gets the four levels
+   as published facts — the same rates the recruitment page already publishes —
+   plus the sentence that matters to them: a level never changes what they pay.
+   The office gets the public view and a pointer to the admin board. */
+async function renderLadderPage(){
+  const wrap = $('#ladderWrap'); if(!wrap) return;
+  ensureTierDefs();
+  const me = API.me;
+  let mine = null;
+  if(me && me.role === 'worker' && !me.admin){
+    try{ mine = await API.call('/me/tier'); }catch(e){}
+  }
+  const wd = (Array.isArray(RATES) && RATES.find(r => r.category === 'weekday-day')) || { you: 73.58 };
+  const rungs = mine
+    ? mine.ladder.map(t => ({ key: t.key, label: t.label, sub: t.sub, share: t.share_pct, band: t.from_hours, rate: t.weekday_rate, current: t.current }))
+    : LADDER.map(t => ({ key: t.key, label: t.label, sub: t.sub, share: t.share, band: t.band, rate: wd.you * t.share / 100 }));
+
+  const you = mine ? `
+    <div class="ldr-you">
+      ${tierMedalSvg(mine.tier, 86)}
+      <div>
+        <span class="kicker">You are here</span>
+        <h2 style="margin:3px 0 4px;">${esc(mine.label)} &middot; ${esc(mine.sub)}</h2>
+        <p class="muted-sm" style="margin:0;">${mine.hours} hours in the last 12 months${mine.next
+          ? ` &middot; <b>${mine.next.hours_to_go} more</b> to ${esc(mine.next.label)}` : ' &middot; top of the ladder'}</p>
+      </div>
+    </div>
+    ${tierCardHtml(mine, { onLadder: true })}` : '';
+
+  const cards = `<div class="ldr-grid">${rungs.map(t => `
+    <div class="ldr-card t-${t.key}${t.current ? ' now' : ''}">
+      ${t.current ? '<span class="ldr-now">You are here</span>' : ''}
+      ${tierMedalSvg(t.key, 92)}
+      <div class="ldr-name">${esc(t.label)}</div>
+      <div class="ldr-sub">${esc(t.sub || '')}</div>
+      <div class="ldr-band">${t.band ? `from ${Number(t.band).toLocaleString()} hours` : 'from your first shift'}</div>
+      <div class="ldr-rate">$${Number(t.rate || 0).toFixed(2)}<small>an hour &middot; weekday daytime &middot; incl. super</small></div>
+      <div class="ldr-pts"><b>${t.share}%</b> of what the NDIS pays for the hour</div>
+    </div>`).join('')}</div>`;
+
+  const rules = `<div class="pl-rules" style="margin-top:30px;">
+    <div class="pl-rule"><h4>Hours count over a rolling year</h4>
+      <p>The twelve months behind you, whenever they're counted — not since you joined and not since January. A break doesn't send you back to the start.</p></div>
+    <div class="pl-rule"><h4>Up is immediate</h4>
+      <p>Cross a line and the next shift you accept is priced at the new share. Nobody nominates you and there's no review to wait for.</p></div>
+    <div class="pl-rule"><h4>Down is slow, and it warns you</h4>
+      <p>A level only comes down after your rolling hours have been under the line for 90 days straight — and then with 28 days' written notice, one step at a time. Work the hours back in that window and the change cancels itself.</p></div>
+    <div class="pl-rule"><h4>The award always wins</h4>
+      <p>Every rate is floored at the SCHADS Award for your classification, whatever your level. A level can only ever add to the floor — never replace it.</p></div>
+  </div>`;
+
+  const forOthers = (!me || me.role !== 'worker' || me.admin) ? `
+    <p class="tier-note" style="margin-top:22px;">A level is recognition of hours worked through BookIt — it never changes what a participant pays. Prices are the published NDIS limits, whoever the worker is: see <a href="#/pricing">pricing</a>.</p>
+    ${!me ? `<p class="tier-note">Thinking about support work? <a href="#/support-workers">See pay, perks and how to apply &rarr;</a></p>` : ''}
+    ${me && me.admin ? `<p class="tier-note">Office view: shares, bands and the award check live on the <a href="#/admin">admin board</a>, under the ladder.</p>` : ''}` : '';
+
+  const hist = mine && mine.history && mine.history.length ? `
+    <h2 style="margin:30px 0 8px;">Your history on the ladder</h2>
+    <div class="ldr-log">${mine.history.map(h => `
+      <p><b>${fmtAU(h.created.slice(0, 10))}</b> — ${esc(h.reason || (h.from_tier ? `${tierLabelOf(h.from_tier)} to ${tierLabelOf(h.to_tier)}` : tierLabelOf(h.to_tier)))}</p>`).join('')}</div>` : '';
+
+  wrap.innerHTML = you
+    + `<h2 style="margin:${mine ? '30px' : '4px'} 0 4px;">The four levels</h2>
+       <p class="muted-sm" style="max-width:58em;margin:0 0 6px;">Levels are earned with hours worked through BookIt over a rolling twelve months. Each one is a bigger share of the same published NDIS price — the price itself never moves.</p>`
+    + cards + rules + forOthers + hist;
+}
+window.renderLadderPage = renderLadderPage;
+
 async function renderEarningsPage(){
   const wrap = pickWrap('#earnWrap', '#miniEarnings'); if(!wrap) return;
   if(!(API.online && API.me)){
@@ -13018,8 +13391,10 @@ async function renderAccountPage(){
   const subRaw = (location.hash.split('/')[2] || '').replace(/[^a-z-]/g, '');
   let nots = null, prof = null, sp = null;
   if(subRaw === 'notifications'){ try{ nots = await API.call('/me/notifications', {noFor:true}); }catch(e){} }
+  let myTier = null;
   if(API.me.role === 'worker' && subRaw === 'profile'){
     try{ prof = (await API.call('/me/profile', {noFor:true})).profile; }catch(e){}
+    try{ myTier = await API.call('/me/tier', {noFor:true}); }catch(e){}
   }
   if(API.me.role === 'participant' && !API.actingFor && subRaw === 'profile'){
     try{ sp = await API.call('/me/support-plan'); }catch(e){}
@@ -13153,10 +13528,11 @@ async function renderAccountPage(){
   const identityCard = `
   <div class="info-card" style="margin-bottom:18px;" id="cardIdentity">
     <div style="display:flex;gap:12px;align-items:center;flex-direction:column;text-align:center;">
-      <span class="wc-avatar" id="profAvatar" style="background:var(--teal);width:104px;height:104px;font-size:2rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="Your photo">` : acctInitials(me.name || '')}</span>
+      ${me.role === 'worker' && me.tier ? `<span class="acct-av ringed ring-lg tr-${me.tier}">` : ''}<span class="wc-avatar" id="profAvatar" style="background:var(--teal);width:104px;height:104px;font-size:2rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="Your photo">` : acctInitials(me.name || '')}</span>${me.role === 'worker' && me.tier ? `<span class="tier-pip">${tierMedalSvg(me.tier, 21)}</span></span>` : ''}
       <div style="min-width:0;">
         <b style="font-family:var(--font-head);font-size:1.3rem;display:block;">${esc(me.name || '')}</b>
         <span class="muted-sm">${roleLabel}${me.admin ? ' · Admin' : ''}${me.suburb ? ' · ' + esc(me.suburb) : ''}</span>
+        ${me.role === 'worker' && me.tier ? `<div style="margin-top:9px;">${tierChipHtml(me.tier, tierLabelOf(me.tier) + (myTier ? ' · ' + myTier.sub : ''), '#/ladder')}</div>` : ''}
         ${canPhoto ? `
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;justify-content:center;">
           <input id="profPhotoFile" type="file" accept=".jpg,.jpeg,.png" hidden>
@@ -13188,8 +13564,19 @@ async function renderAccountPage(){
       aboutCards = card('cardEmergency', 'Emergency contact', `<p class="muted-sm" style="margin:0 0 10px;">${ecLine}</p>${tile('#/support-plan', '', 'Update it in your support plan', 'The one field everyone forgets until the night they need it.')}`) + card('cardPlanLink', 'Support plan & about you', `<p class="muted-sm" style="margin:0 0 10px;">${planLine}</p>${tile('#/support-plan', '', 'Open your support plan', 'Your goals, how you communicate, health notes, home safety and what a great match looks like.')}`) + card('cardSupports', 'Your supports', `${six.length ? `<p class="muted-sm" style="margin:0 0 8px;">From your support plan:</p><p style="margin:0 0 10px;">${six.map(([,l]) => `<span class="wc-tag" style="margin:0 5px 5px 0;display:inline-block;">${l}</span>`).join('')}</p>` : '<p class="muted-sm" style="margin:0 0 10px;">The six kinds of support we’re registered for — tell us which ones are yours in your support plan.</p>'}${tile('#/specialist-supports', '', 'Specialised & high-intensity supports', 'What we can safely take on, and what happens if you need something we don’t hold.')}`);
     }
     const privacyCards = note('Nothing about ' + (me.role === 'worker' ? 'you is public except the profile you choose to show.' : 'you is public — participants don’t have public profiles, full stop.')) + dataCard + `<div class="info-card" style="margin-bottom:18px;" id="cardPrivacyLinks">${tile('#/legal', '', 'Privacy policy & terms', 'What we hold, why, and the promises we’ve made in writing.')}</div>`;
+    const tierAcctCard = me.role === 'worker' && myTier ? `
+    <div class="info-card" style="margin-bottom:18px;" id="cardTierMini">
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+        ${tierMedalSvg(myTier.tier, 62)}
+        <div style="flex:1;min-width:200px;">
+          <h3 style="margin:0 0 3px;">${esc(myTier.label)} &middot; ${esc(myTier.sub)}</h3>
+          <p class="muted-sm" style="margin:0;">${myTier.hours} hours in the last 12 months${myTier.next ? ` &middot; <b>${myTier.next.hours_to_go} more</b> and you're on ${esc(myTier.next.label)}` : ' &middot; top of the ladder'}. Your level shows on your public profile; what it pays is only ever shown to you.</p>
+          <p class="muted-sm" style="margin:7px 0 0;"><a href="#/ladder" style="color:#0E6B62;font-weight:700;">See the full ladder &rarr;</a></p>
+        </div>
+      </div>
+    </div>` : '';
     const workerCards = me.role === 'worker'
-      ? card('cardProfileLink', 'Your public profile', `<p class="muted-sm" style="margin:0 0 10px;">Your bio, photo, services, days and interests — what participants see when they find you.</p>${tile('#/bookings', 'cardProfile', 'Edit my profile & photo', 'Everything on your public card.')}${tile('#/worker/' + me.id, '', 'See my public profile', 'Exactly as participants see it.')}`) + (visCard || '')
+      ? tierAcctCard + card('cardProfileLink', 'Your public profile', `<p class="muted-sm" style="margin:0 0 10px;">Your bio, photo, services, days and interests — what participants see when they find you.</p>${tile('#/bookings', 'cardProfile', 'Edit my profile & photo', 'Everything on your public card.')}${tile('#/worker/' + me.id, '', 'See my public profile', 'Exactly as participants see it.')}`) + (visCard || '')
       : '';
     /* Tabbed profile: the identity card stays put and everything else
        takes its turn behind a tab — the page stops running. Tabs only exist
@@ -14059,6 +14446,7 @@ document.addEventListener('click', async e => {
   if(location.hash.startsWith('#/statements')) renderStatementsPage();
   if(location.hash.startsWith('#/security')) renderSecurityPage();
   if(location.hash.startsWith('#/earnings')) renderEarningsPage();
+  if(location.hash.startsWith('#/ladder')) renderLadderPage();
   if(location.hash.startsWith('#/training')) renderTrainingPage();
   if(location.hash.startsWith('#/account')) renderAccountPage();
 })();
