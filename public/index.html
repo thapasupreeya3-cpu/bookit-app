@@ -4252,6 +4252,37 @@ html.high-contrast .care-stage-block{display:none!important;}
   .tf-platinum{width:272%;height:272%;}
   .acct-chip,.acct{overflow:visible;}
   .acct-av.ring-lg.framed{margin:34px 0 48px;}
+  /* When the artwork is worn, the chip box stands down entirely — no pill, no
+     border, no shadow. The highlight IS the tier art: hover or open lifts and
+     brightens the wings, never a rectangle. And the wings get elbow room so
+     they stop crowding the message icon and the screen edge. */
+  .acct.tier-worn{margin-left:36px;margin-right:10px;}
+  .acct.tier-worn .acct-chip,
+  .acct.tier-worn .acct-chip:hover,
+  .acct.tier-worn.open .acct-chip{background:transparent;border-color:transparent;box-shadow:none;}
+  .acct.tier-worn .tier-frame{transition:transform .22s ease, filter .22s ease;}
+  .acct.tier-worn .acct-chip:hover .tier-frame,
+  .acct.tier-worn.open .tier-frame{transform:translate(-50%,-50%) scale(1.08);
+    filter:drop-shadow(0 1px 2.5px rgba(23,49,58,.4)) drop-shadow(0 0 8px var(--ring-glow)) brightness(1.07);}
+  .acct.tier-worn .acct-chip:hover .acct-av.ringed::after,
+  .acct.tier-worn.open .acct-av.ringed::after{opacity:.95;}
+  /* The celebration: wings flap and the glow cheers — once, when the worker
+     passes a training module or accepts a booking. */
+  @media (prefers-reduced-motion: no-preference){
+    .acct-av.celebrate .tier-frame{animation:tierFlap 2.1s ease-in-out both;}
+    .acct-av.celebrate.ringed::after{animation:tierCheer 2.1s ease-in-out both;}
+  }
+  @keyframes tierFlap{
+    0%{transform:translate(-50%,-50%) scaleX(1);}
+    10%{transform:translate(-50%,-53%) scaleX(.8);}
+    20%{transform:translate(-50%,-49%) scaleX(1.12);}
+    30%{transform:translate(-50%,-53%) scaleX(.84);}
+    40%{transform:translate(-50%,-49%) scaleX(1.1);}
+    52%{transform:translate(-50%,-52%) scaleX(.9);}
+    64%{transform:translate(-50%,-49.5%) scaleX(1.06);}
+    80%,100%{transform:translate(-50%,-50%) scaleX(1);}
+  }
+  @keyframes tierCheer{0%,100%{opacity:.35;}15%,45%{opacity:1;}70%{opacity:.6;}}
   .tier-pip{position:absolute;right:-6px;bottom:-6px;width:19px;height:19px;z-index:2;border-radius:50%;background:#FBF8F2;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(23,49,58,.3);}
   .tier-pip .medal{width:15px;height:15px;}
   .ring-lg{padding:5px;}
@@ -7034,6 +7065,8 @@ function renderAcctChip(){
   const wrap = $('#acctAvWrap'), pip = $('#acctTierPip');
   if(!wrap || !pip) return;
   let fr = wrap.querySelector('.tier-frame');
+  const acctBox = $('#acctWrap');
+  if(acctBox) acctBox.classList.toggle('tier-worn', !!(m.role === 'worker' && m.tier && TIER_ART[m.tier]));
   if(m.role === 'worker' && m.tier && TIER_ART[m.tier]){
     wrap.className = `acct-av ringed framed tr-${m.tier}`;
     if(!fr){ fr = document.createElement('img'); fr.alt = ''; fr.setAttribute('aria-hidden','true'); wrap.insertBefore(fr, wrap.firstChild); }
@@ -7048,6 +7081,21 @@ function renderAcctChip(){
     pip.hidden = true; pip.innerHTML = ''; pip.removeAttribute('title');
   }
 }
+/* One flap of the wings and a cheer of the glow — called when the signed-in
+   worker passes a training module or accepts a booking. Does nothing for
+   anyone without the artwork, and nothing under reduced motion (the class is
+   added, the animation simply doesn't run). */
+function celebrateTier(){
+  const wrap = $('#acctAvWrap');
+  if(!wrap || !wrap.querySelector('.tier-frame')) return;
+  wrap.classList.remove('celebrate');
+  void wrap.offsetWidth;
+  wrap.classList.add('celebrate');
+  clearTimeout(celebrateTier._t);
+  celebrateTier._t = setTimeout(() => wrap.classList.remove('celebrate'), 2300);
+}
+window.celebrateTier = celebrateTier;
+
 function renderAcctMenu(){
   const m = API.me; if(!m) return;
   const first = esc((m.name || '').split(' ')[0]);
@@ -8570,6 +8618,7 @@ document.addEventListener('click', async e => {
   try{
     const r = await API.call('/bookings/' + btn.dataset.bk, {method:'PATCH', body:{status: btn.dataset.act}});
     toast(btn.dataset.act === 'completed' && r.invoice ? `Shift completed — $${r.invoice.total.toFixed(2)} recorded for invoicing. 🎉` : 'Booking ' + btn.dataset.act + '.');
+    if(btn.dataset.act === 'accepted') celebrateTier();
     renderBookingsPage();
   }catch(err){
     /* Build 11: the server refuses the accept until the current plan is
@@ -11200,6 +11249,7 @@ document.addEventListener('click', async e => {
       await API.call(`/me/offers/${id}/${yes ? 'accept' : 'decline'}`, {method:'POST', body:{}});
       toast(yes ? 'Locked in — it\'s in your bookings now. Thank you, that\'s a real difference to someone\'s day.'
         : 'No worries — it\'s moved on to the next person already. Saying no never counts against you.');
+      if(yes) celebrateTier();
       renderBookingsPage();
     }catch(err){ toast(err.message); btn.disabled = false; renderBookingsPage(); }
     return;
@@ -12716,6 +12766,7 @@ document.addEventListener('click', async e => {
   try{
     await API.call('/bookings/' + go.dataset.ackBk, {method:'PATCH', body:{status:'accepted', plan_ack:true}});
     toast('Accepted — and your acknowledgement of the plan is on the record.');
+    celebrateTier();
     renderBookingsPage();
   }catch(err){ toast(err.message); }
 });
@@ -13219,6 +13270,7 @@ document.addEventListener('click', async e => {
     }
   }
   if(r.passed){
+    celebrateTier();
     box.innerHTML = `<div style="padding:12px 14px;border:1.5px solid #1C7C43;border-radius:12px;background:#F4FBF6;">
       <b>Passed — ${r.score}%.</b> Your certificate has filed itself with your other credentials${r.expires_at ? ', and renews ' + fmtAU(r.expires_at) : ''}.${r.training && !r.training.lock ? ' Any lock has lifted — right now, not overnight.' : ''}
     </div>`;
