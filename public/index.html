@@ -4283,6 +4283,25 @@ html.high-contrast .care-stage-block{display:none!important;}
     80%,100%{transform:translate(-50%,-50%) scaleX(1);}
   }
   @keyframes tierCheer{0%,100%{opacity:.35;}15%,45%{opacity:1;}70%{opacity:.6;}}
+  /* The shine: a bar of light that runs across the artwork while it flaps.
+     It's a masked overlay — the light only ever lands on the artwork's own
+     pixels (the mask IS the badge), and it sits under the photo so a face is
+     never washed out. It rides the same flap keyframes as the frame, so the
+     light stays on the wings mid-beat. */
+  .tier-shine{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0;opacity:0;
+    -webkit-mask-image:var(--tier-art);mask-image:var(--tier-art);
+    -webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+    background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.95) 45%,rgba(255,255,255,.5) 52%,transparent 66%);
+    background-size:280% 100%;background-position:130% 0;background-repeat:no-repeat;}
+  @media (prefers-reduced-motion: no-preference){
+    .acct-av.celebrate .tier-shine{animation:tierFlap 2.1s ease-in-out both, tierShine 2.1s ease-in-out both;}
+  }
+  @keyframes tierShine{
+    0%,14%{opacity:0;background-position:130% 0;}
+    26%{opacity:1;}
+    58%{opacity:1;background-position:-45% 0;}
+    72%,100%{opacity:0;background-position:-60% 0;}
+  }
   .tier-pip{position:absolute;right:-6px;bottom:-6px;width:19px;height:19px;z-index:2;border-radius:50%;background:#FBF8F2;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(23,49,58,.3);}
   .tier-pip .medal{width:15px;height:15px;}
   .ring-lg{padding:5px;}
@@ -7072,11 +7091,16 @@ function renderAcctChip(){
     if(!fr){ fr = document.createElement('img'); fr.alt = ''; fr.setAttribute('aria-hidden','true'); wrap.insertBefore(fr, wrap.firstChild); }
     fr.className = `tier-frame tf-${m.tier}`;
     fr.src = `/assets/tiers/tier-${m.tier}.svg`;
+    let sh = wrap.querySelector('.tier-shine');
+    if(!sh){ sh = document.createElement('span'); sh.setAttribute('aria-hidden','true'); fr.after(sh); }
+    sh.className = `tier-shine tf-${m.tier}`;
+    sh.style.setProperty('--tier-art', `url(/assets/tiers/tier-${m.tier}.svg)`);
     wrap.title = `${tierLabelOf(m.tier)} — your BookIt ladder level`;
     pip.hidden = true; pip.innerHTML = '';
   } else {
     wrap.className = 'acct-av';
     if(fr) fr.remove();
+    const sh0 = wrap.querySelector('.tier-shine'); if(sh0) sh0.remove();
     wrap.removeAttribute('title');
     pip.hidden = true; pip.innerHTML = ''; pip.removeAttribute('title');
   }

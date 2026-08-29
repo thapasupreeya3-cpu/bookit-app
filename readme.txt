@@ -1,4 +1,4 @@
-BookIt v86.7.1 — the tier system (illustrated badges, ladder page, animated avatar ring)
+BookIt v86.7.2 — the tier system (illustrated badges, ladder page, animated avatar ring)
 
 WHAT'S IN THIS ZIP:
   server.js
