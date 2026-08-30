@@ -201,6 +201,107 @@ async function main() {
     const oa3 = await req('POST', `/api/admin/bookings/${held2}/office-assign`, { headers: J, cookie: ac2, body: { worker_id: 10 } });
     t('office-assign refuses a worker still on last night\'s sleepover (backward across midnight)', oa3.status === 400 && /not eligible/.test(oa3.json.error || ''), `${oa3.status} ${oa3.json && oa3.json.error}`);
   }
+  /* ---- v86.9.0: inactive night care, meet-and-greets, the feed, referrals, KPIs, fees, suburb pages ---- */
+  {
+    const J2 = J;
+    const al3 = await req('POST', '/api/login', { headers: J2, body: { email: 'smoke.test@example.com', password: 'longpassword1' } });
+    const ac2 = cookieOf(al3);
+    /* sleepover rules on the booking route (the demo participant is fully set up) */
+    const s1 = await req('POST', '/api/bookings', { headers: J2, cookie: pc, body: { worker_id: 10, service: 'personal-care', date: '2027-05-05', start: '22:00', hours: 3, sleepover: true } });
+    t('a 3-hour sleepover is refused (a sleepover is a night)', s1.status === 400 && /night/.test(s1.json.error), s1.status + ' ' + (s1.json && s1.json.error));
+    const s2 = await req('POST', '/api/bookings', { headers: J2, cookie: pc, body: { worker_id: 10, service: 'personal-care', date: '2027-05-05', start: '14:00', hours: 8, sleepover: true } });
+    t('a sleepover starting at 2pm is refused', s2.status === 400 && /8pm/.test(s2.json.error), s2.status);
+    /* the demo participant is deliberately not fully set up (the gate is its own test),
+       so the accepted sleepover goes straight into the diary, dated last Wednesday */
+    const sid = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, sleepover, status, accepted_at, created) VALUES (13,10,'personal-care','2026-08-26','22:00',8,1,'accepted',?,?)").run(new Date().toISOString(), new Date().toISOString()).lastInsertRowid);
+    t('an 8-hour sleepover from 10pm sits in the diary', sid > 0);
+    /* active hours at completion: 3.5 active → 1.5 extra at the weekday-night rate */
+    const wl = await req('POST', '/api/login', { headers: J2, body: { email: db.prepare("SELECT email FROM users WHERE id = 10").get().email, password: 'demo1234' } });
+    const wc = cookieOf(wl);
+    const noActive = await req('PATCH', `/api/bookings/${sid}`, { headers: J2, cookie: wc, body: { status: 'completed', note: 'Quiet night, up once at 3am for the bathroom.', scope: false } });
+    t('completing a sleepover without the active hours is refused', noActive.status === 400 && /hours/.test(noActive.json.error), noActive.status);
+    const done = await req('PATCH', `/api/bookings/${sid}`, { headers: J2, cookie: wc, body: { status: 'completed', note: 'Up from 1am to 4:30am with a bad night; settled after that.', scope: false, active_hours: 3.5, active_note: 'Repositioning and reassurance, 1am–4:30am.' } });
+    t('completing with 3.5 active hours works', done.status === 200, done.status + ' ' + (done.json && done.json.error));
+    const row = db.prepare('SELECT * FROM bookings WHERE id = ?').get(sid);
+    t('the night is one flat $311.79', row.rate_category === 'sleepover' && Math.abs(row.total - 311.79) < 0.01, `${row.rate_category} ${row.total}`);
+    t('the 1.5 extra hours are charged at the weekday-night rate on their own line', row.active_extra_hours === 1.5 && row.active_extra_category === 'weekday-night' && Math.abs(row.active_extra_total - 1.5 * 82.57) < 0.01 && row.active_extra_item === '01_002_0107_1_1', `${row.active_extra_hours} ${row.active_extra_category} ${row.active_extra_total} ${row.active_extra_item}`);
+    t('the worker is paid a share of the extra hours', row.active_extra_share > 0 && row.active_extra_share < row.active_extra_total, row.active_extra_share);
+    /* the statement carries the grand total including the extra */
+    const st = await req('GET', '/api/statements', { cookie: pc });
+    const stRow = st.status === 200 ? (st.json.rows || st.json.lines || st.json.shifts || []).find(x => x.id === sid || x.booking_id === sid) : null;
+    t('the statement grand total carries the night plus the extra hours', st.status === 200 && (!stRow || Math.abs((stRow.grand || 0) - (311.79 + 1.5 * 82.57)) < 0.02), st.status + ' ' + (stRow ? stRow.grand : 'no row'));
+
+    /* a meet-and-greet needs only a confirmed email and a funding lane */
+    const terms2 = /const CURRENT_TERMS_VERSION = '([^']+)'/.exec(fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8'))[1];
+    const reg2 = await req('POST', '/api/register', { headers: J2, body: { role: 'participant', name: 'Intro Person', email: 'intro.person@example.com', password: 'longpassword1', suburb: 'Ryde NSW', plan: 'self', terms_accepted: true, terms_version: terms2 } });
+    const ic = cookieOf(reg2);
+    db.prepare("UPDATE users SET verified = 1 WHERE email = 'intro.person@example.com'").run();
+    const full = await req('POST', '/api/bookings', { headers: J2, cookie: ic, body: { worker_id: 10, service: 'daily-tasks', date: '2027-05-12', start: '10:00', hours: 3 } });
+    t('a full shift is still gated for a new participant', full.status === 400 && full.json.needs_setup === true, full.status);
+    const intro = await req('POST', '/api/bookings', { headers: J2, cookie: ic, body: { worker_id: 10, service: 'daily-tasks', date: '2027-05-12', start: '10:00', intro: true } });
+    t('a meet-and-greet goes through with just email + funding', intro.status === 200 && intro.json.ids, intro.status + ' ' + (intro.json && intro.json.error));
+    t('… as a one-hour intro, no charge', intro.status === 200 && db.prepare('SELECT hours, kind FROM bookings WHERE id = ?').get(intro.json.ids[0]).kind === 'intro');
+
+    /* the directory shows a next-free slot */
+    const wl2 = await req('GET', '/api/workers');
+    t('the directory carries a next-free slot per worker', wl2.json.workers.some(w => w.next_free && w.next_free.date && w.next_free.label));
+
+    /* the open-shift feed: a cover request the worker can claim */
+    const now2 = new Date().toISOString();
+    const held = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, created) VALUES (13,11,'daily-tasks','2027-06-09','10:00',3,'accepted',?)").run(now2).lastInsertRowid);
+    db.prepare("INSERT INTO cover (booking_id, status, opened_at, lead_minutes, window_minutes, parallel, tier, human_minutes) VALUES (?, 'open', ?, 600, 60, 3, 'standby', 0)").run(held, now2);
+    const feed = await req('GET', '/api/me/open-shifts', { cookie: wc });
+    t('worker 10 sees the open shift in the feed', feed.status === 200 && feed.json.shifts.some(x => x.date === '2027-06-09'), feed.status + ' ' + JSON.stringify(feed.json).slice(0, 80));
+    const cvid = db.prepare('SELECT id FROM cover WHERE booking_id = ?').get(held).id;
+    const claim = await req('POST', `/api/cover/${cvid}/claim`, { headers: J2, cookie: wc, body: {} });
+    t('… and can take it', claim.status === 200 && db.prepare('SELECT worker_id, status FROM bookings WHERE id = ?').get(held).worker_id === 10, claim.status + ' ' + (claim.json && claim.json.error));
+    t('… after which it is gone from the feed', !(await req('GET', '/api/me/open-shifts', { cookie: wc })).json.shifts.some(x => x.date === '2027-06-09'));
+
+    /* referrals: code, sign-up with it, qualification */
+    const myRef = await req('GET', '/api/me/referrals', { cookie: wc });
+    t('a worker has a referral code and link', myRef.status === 200 && /^W10-[A-F0-9]{6}$/.test(myRef.json.code) && myRef.json.link.includes('ref='), myRef.json && myRef.json.code);
+    const wreg = await req('POST', '/api/register', { headers: J2, body: { role: 'worker', name: 'Referred Worker', email: 'referred.worker@example.com', password: 'longpassword1', suburb: 'Ryde NSW', terms_accepted: true, terms_version: terms2, ref: myRef.json.code } });
+    t('a worker can register with a referral code', wreg.status === 200, wreg.status + ' ' + (wreg.json && wreg.json.error));
+    const newId = wreg.json && wreg.json.user ? wreg.json.user.id : 0;
+    t('the referral is recorded', !!db.prepare('SELECT id FROM referrals WHERE referee_id = ? AND referrer_id = 10').get(newId));
+    for (let i = 0; i < 20; i++) db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, created) VALUES (13,?,'daily-tasks',?,'10:00',3,'completed',?)").run(newId, `2026-07-${String(i + 1).padStart(2, '0')}`, now2);
+    const admRefs = await req('GET', '/api/admin/referrals', { cookie: ac2 });
+    t('after 60 completed hours the referral is payable', admRefs.status === 200 && admRefs.json.referrals.some(r => r.referee_id === newId && r.qualified_at && !r.paid_at), admRefs.status);
+    const rid = admRefs.json.referrals.find(r => r.referee_id === newId).id;
+    t('the office can mark it paid', (await req('POST', `/api/admin/referrals/${rid}/paid`, { headers: J2, cookie: ac2, body: {} })).status === 200);
+
+    /* KPIs, concierge, fee lines, groups off, coordinator referral, suburb pages, overnight page */
+    const k = await req('GET', '/api/admin/kpis', { cookie: ac2 });
+    t('the KPI board answers with the ten numbers', k.status === 200 && ['fill_rate', 'utilisation', 'cancellations', 'uncovered', 'days_to_cash', 'margin_per_hour', 'activation', 'retention_90d', 'worker_churn', 'time_to_verify'].every(x => x in k.json), k.status);
+    const cc = await req('POST', '/api/admin/participants/create', { headers: J2, cookie: ac2, body: { name: 'Phone Person', email: 'phone.person@example.com', phone: '0400000000', suburb: 'Wyong NSW', plan: 'ndia', consent: 'Phone Person agreed on the phone on 30 August 2026 to an account being opened for her.' } });
+    t('concierge onboarding opens an account with consent recorded', cc.status === 200 && cc.json.id > 0, cc.status + ' ' + (cc.json && cc.json.error));
+    t('… and refuses without consent in words', (await req('POST', '/api/admin/participants/create', { headers: J2, cookie: ac2, body: { name: 'X Y', email: 'xy@example.com', consent: 'ok' } })).status === 400);
+    const ef = await req('POST', `/api/admin/participants/${cc.json.id}/establishment-fee`, { headers: J2, cookie: ac2, body: { service: 'personal-care', conditions_met: true, note: 'new participant' } });
+    t('an establishment fee raises a $735.80 line', ef.status === 200 && Math.abs(ef.json.total - 735.80) < 0.01 && db.prepare('SELECT support_item, kind, status FROM bookings WHERE id = ?').get(ef.json.booking_id).support_item === '01_049_0107_1_1', ef.status + ' ' + (ef.json && ef.json.error));
+    t('… only once per participant', (await req('POST', `/api/admin/participants/${cc.json.id}/establishment-fee`, { headers: J2, cookie: ac2, body: { service: 'personal-care', conditions_met: true } })).status === 409);
+    const nf = await req('POST', `/api/admin/participants/${cc.json.id}/nf2f`, { headers: J2, cookie: ac2, body: { service: 'community', hours: 1.5, what: 'writing the support plan' } });
+    t('non-face-to-face time raises a line at the weekday rate', nf.status === 200 && Math.abs(nf.json.total - 1.5 * 73.58) < 0.01 && nf.json.item === '04_104_0125_6_1', nf.status + ' ' + (nf.json && nf.json.error));
+    const g1 = await req('POST', '/api/admin/bookings/group', { headers: J2, cookie: ac2, body: { ids: [1, 2] } });
+    t('group shifts are refused while the setting is off (0136 registration)', g1.status === 400 && /0136/.test(g1.json.error), g1.status);
+    const cr = await req('POST', '/api/referrals', { headers: J2, body: { coordinator: 'Sam Coordinator', email: 'sam@example.org', participant: 'Lee', supports: 'community access twice a week' } });
+    t('a coordinator referral is accepted without a session and gets a reference', cr.status === 200 && /^R-\d+$/.test(cr.json.ref), cr.status + ' ' + (cr.json && cr.json.error));
+    const sp = await req('GET', '/support-workers-in/ryde');
+    t('a suburb page is served for a suburb with workers', sp.status === 200 && /support workers in Ryde/.test(sp.text), sp.status);
+    t('… and a suburb with none is a 404', (await req('GET', '/support-workers-in/nowhere-ville')).status === 404);
+    const sm2 = await req('GET', '/sitemap.xml');
+    t('the sitemap lists the suburb pages and the overnight page', sm2.text.includes('/support-workers-in/ryde') && sm2.text.includes('/services/overnight'));
+    const ov = await req('GET', '/services/overnight');
+    t('the overnight page is served with its own title', ov.status === 200 && /<title>Overnight support/.test(ov.text), ov.status);
+    /* kilometres reach the invoice and the claim file (they used to stop at the statement) */
+    const kmId = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, rate_category, unit_price, worker_share, total, support_item, km, km_from, km_to, km_rate, km_total, claim_status, created) VALUES (13,10,'community','2026-08-20','10:00',2,'completed',?,'approved','weekday-day',73.58,100,147.16,'04_104_0125_6_1',12.5,'Ryde','Chatswood',1.00,12.50,'claimed',?)").run(now2, now2).lastInsertRowid);
+    db.prepare("UPDATE users SET plan = 'ndia', ndis_number = '430000001' WHERE id = 13").run();
+    db.prepare("UPDATE bookings SET claim_status = 'claimed', approval_state = 'approved' WHERE id = ?").run(sid);   /* the office has run the claim */
+    const claims = await req('GET', '/api/admin/claims/pace.csv', { cookie: ac2 });
+    const kmRow = claims.text.split(/\r?\n/).find(l => l.includes(`BK${kmId}T`));
+    t('the PACE export carries the kilometres as a non-labour travel row', claims.status === 200 && !!kmRow && kmRow.includes('04_799_0125_6_1') && kmRow.includes('12.50'), claims.status + ' ' + (kmRow || 'no travel row'));
+    const nightRow = claims.text.split(/\r?\n/).find(l => l.includes(`BK${sid}A`));
+    t('… and the sleepover\'s extra active hours as their own row', !!nightRow && nightRow.includes('01_002_0107_1_1'), nightRow || 'no row');
+  }
   db.close();
 
   t('the server logged no errors during the run', !/Error|TypeError|UNSAFE/.test(serverLog), serverLog.split('\n').filter(l => /Error/.test(l))[0]);

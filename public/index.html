@@ -1778,6 +1778,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <li><a class="nav-link" href="#/pricing">Pricing</a></li>
         <li><a class="nav-link" href="#/find-workers">Find workers</a></li>
         <li><a class="nav-link" href="#/bookings" id="navBookings" hidden>Bookings</a></li>
+        <li><a class="nav-link" href="#/shifts" id="navShifts" hidden>Open shifts</a></li>
         <li><a class="nav-link" href="#/admin" id="navAdmin" hidden>Admin</a></li>
         <li id="navForWorkersLi"><a class="nav-link" href="#/support-workers">For support workers</a></li>
         <li class="dropdown" id="ddAbout">
@@ -1886,6 +1887,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <span class="kicker">NDIS registered provider · Available across Australia, with our largest worker pools in Sydney, Melbourne and Brisbane</span>
         <h1>Support workers who fit <span class="u rotator" id="heroRotate" aria-hidden="true" data-words="your life|your work week|your mornings|your day out|your routine|your home|your community"><span class="rot-word">your life</span></span><span class="sr-only">your life</span>, not the other way around.</h1>
         <p class="lead">Find, book and manage your own team of verified support workers — for work, home, daily living and getting out into your community. You choose who, when and how. We handle the rest.</p>
+        <p class="lead" style="font-size:1rem;margin-top:-6px;"><b>Agency-managed? You can book here.</b> BookIt is run by a registered NDIS provider, so NDIA-managed, plan-managed and self-managed participants are all welcome — and if your worker can't make a shift, we find cover or tell you by 7am.</p>
         <div class="hero-ctas">
           <a href="#/find-workers" class="btn btn-primary btn-lg">Browse support workers</a>
           <a href="#/get-started" class="btn btn-secondary btn-lg">Create a free account</a>
@@ -2213,7 +2215,7 @@ html.high-contrast .care-stage-block{display:none!important;}
             <li>Toileting and continence assistance, at standard intensity</li>
             <li>Transfers and mobility around your home</li>
             <li>Morning and evening routines</li>
-            <li>Overnight support — active or sleepover</li>
+            <li><a href="#/services/overnight">Overnight support — active or sleepover (inactive night care)</a></li>
           </ul>
         </div>
       </div>
@@ -2497,6 +2499,46 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= HOW IT WORKS ================= -->
+<section class="page" id="page-services-overnight" data-title="Overnight support: sleepovers and active nights — BookIt">
+  <div class="container" style="max-width:860px;">
+    <p class="eyebrow">Overnight support</p>
+    <h1>Inactive night care, and active nights</h1>
+    <p class="lede">Two different things, with two different NDIS prices. A <b>sleepover</b> (inactive night care) is a worker asleep on the premises, there if something happens. An <b>active overnight</b> shift is a worker awake and working through the night. Book the one that matches the night you actually have.</p>
+    <div class="grid-2" style="margin-top:22px;">
+      <div class="card">
+        <h2 style="margin-top:0;">Sleepover — inactive night care</h2>
+        <p><b>One flat price for the night</b>, whatever the day of the week: <span id="ovSleepPrice">the NDIS sleepover limit</span>. Your worker arrives in the evening, sleeps on the premises, and is there if you need them.</p>
+        <ul>
+          <li>An eight-hour night (up to ten if the evening runs late), starting between 8pm and 1am.</li>
+          <li><b>Up to two hours of help during the night are included</b> — getting up once or twice, repositioning, a bad dream, a walk to the bathroom.</li>
+          <li>If a night needs more than two hours of active support, the extra is charged by the hour at the night rate for that day, on its own line, and your worker records it when the shift ends. You see exactly what was charged and why.</li>
+          <li>Personal care and daily-living workers offer sleepovers; a worker's profile says so.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0;">Active overnight</h2>
+        <p><b>By the hour, at the night rate</b> — for a night where the worker is up and working: turning, monitoring, medication at set times, someone who does not settle.</p>
+        <ul>
+          <li>Booked like any other shift, two hours or more, at any time of night. Midnight to 6am is the weekday night rate; Saturday, Sunday and public-holiday nights carry their own rates.</li>
+          <li>Where a night is sometimes quiet and sometimes not, book the sleepover: the two included hours cover most nights, and the ones that run over are charged only for what was needed.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card" style="margin-top:18px;">
+      <h2 style="margin-top:0;">What your worker is paid</h2>
+      <p>The sleepover is paid as a flat night at the worker's ladder share of the NDIS price — well above the award sleepover allowance — and any active hours beyond two are paid at their share of the night rate. Nobody is asked to be awake all night for a sleepover price: that is an active overnight shift, and it is booked and paid as one.</p>
+      <p><a class="btn btn-primary" href="#/find-workers?service=personal-care">Find a worker who offers sleepovers</a> <a class="btn btn-secondary" href="#/calculator">See the price for your night</a></p>
+    </div>
+  </div>
+</section>
+<section class="page" id="page-shifts" data-title="Open shifts — BookIt">
+  <div class="container" style="max-width:860px;">
+    <p class="eyebrow">For workers</p>
+    <h1>Open shifts near you</h1>
+    <p class="lede">Shifts that need a worker this week and next. Every one here is one you are eligible for — the service, the day, your credentials and your diary have already been checked. Take one and it is yours; the participant is told straight away.</p>
+    <div id="shiftsList"><p class="muted-sm">Loading…</p></div>
+  </div>
+</section>
 <section class="page" id="page-how-it-works" data-title="How it works — BookIt">
   <div class="page-hero">
     <div class="container">
@@ -2789,6 +2831,11 @@ html.high-contrast .care-stage-block{display:none!important;}
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / For support workers</nav>
       <span class="kicker">We're hiring, available across Australia</span>
       <h1>Support work that supports you back</h1>
+    <div class="card" id="swPay" style="margin:18px 0;" data-swpay>
+      <b>What you are paid, per hour, on each level of the ladder</b>
+      <p class="muted-sm" style="margin:4px 0 8px;">Live from our rate table — the NDIS price for the hour, and your share of it. Superannuation is on top. A sleepover is a flat night.</p>
+      <div id="swPayTable"><span class="muted-sm">Loading…</span></div>
+    </div>
       <p class="lead">Be employed — not a gig contractor. Choose your clients and hours, get paid above award with super and full insurance, and build real relationships doing work that matters.</p>
       <div class="hero-ctas mt-3">
         <a href="#/get-started?type=worker" class="btn btn-coral btn-lg">Apply now — it's free</a>
@@ -3886,6 +3933,22 @@ html.high-contrast .care-stage-block{display:none!important;}
         <p style="margin:0;"><b>Managing a plan for someone on BookIt?</b> Ask them to invite you — it takes them under a minute.</p>
         <a class="btn btn-primary" href="#/contact">Talk to us</a>
       </div>
+      <div class="card" style="margin-top:18px;" id="referralCard">
+        <h2 style="margin-top:0;">Refer a participant — answered within two business hours</h2>
+        <p class="muted-sm">Support coordinators, plan managers and LACs: one form, and someone from the office rings or emails you within two business hours (8am–6pm, Monday to Friday) with who we have available and what happens next. You get a reference number by email straight away.</p>
+        <form id="referralForm" style="display:grid;gap:10px;grid-template-columns:1fr 1fr;">
+          <div class="field"><label for="rfName">Your name</label><input id="rfName" name="coordinator" required></div>
+          <div class="field"><label for="rfOrg">Organisation</label><input id="rfOrg" name="org"></div>
+          <div class="field"><label for="rfEmail">Your email</label><input id="rfEmail" name="email" type="email" required></div>
+          <div class="field"><label for="rfPhone">Your phone</label><input id="rfPhone" name="phone"></div>
+          <div class="field"><label for="rfPart">Participant's first name</label><input id="rfPart" name="participant" required></div>
+          <div class="field"><label for="rfSub">Their suburb</label><input id="rfSub" name="suburb"></div>
+          <div class="field"><label for="rfFund">How supports are funded</label><select id="rfFund" name="funding"><option value="">Not sure</option><option value="ndia">Agency-managed</option><option value="plan">Plan-managed</option><option value="self">Self-managed</option></select></div>
+          <div class="field" style="grid-column:1/-1;"><label for="rfSup">What supports are needed, roughly when, anything we should know</label><textarea id="rfSup" name="supports" rows="3" required></textarea></div>
+          <p class="muted-sm" style="grid-column:1/-1;margin:0;">No clinical detail here, please — first name and suburb are enough to start. We collect the rest with the participant's consent.</p>
+          <button class="btn btn-primary" type="submit" style="grid-column:1/-1;justify-self:start;">Send the referral</button>
+        </form>
+      </div>
     </div>
   </section>
 </section>
@@ -4683,8 +4746,12 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
       <div class="field full" id="bkSleepWrap" hidden>
         <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-weight:400;">
-          <input type="checkbox" id="bkSleep" style="margin-top:4px;">
+          <input type="checkbox" id="bkSleep" style="margin-top:4px;" onchange="if(this.checked){$('#bkHours').value='8';if($('#bkStart').value<'20:00'&&$('#bkStart').value>'01:00')$('#bkStart').value='22:00';}">
           <span><b>Overnight sleepover (inactive night)</b> — your worker sleeps over and helps if needed. Billed at the flat NDIS sleepover limit of <b>$311.79 per night</b> instead of hourly.</span>
+        </label>
+        <label class="check-row" id="bkIntroWrap" style="margin-top:8px;">
+          <input type="checkbox" id="bkIntro" style="margin-top:4px;">
+          <span><b>Book a one-hour meet-and-greet first</b> — no charge, no paperwork beyond a confirmed email and how your supports are funded. Meet the worker, then decide. It counts for nothing on either side until you book a real shift.</span>
         </label>
       </div>
       <div class="field full">
@@ -5644,6 +5711,7 @@ function workerCard(w){
           ${w.demo ? '<span class="wc-demo">Demo</span>' : VERIFIED_ROSETTE}
           ${w.tier ? tierChipHtml(w.tier, tierLabelOf(w.tier), '#/ladder') : ''}
         </div>
+        ${w.next_free ? `<div class="wc-meta" style="color:#1C7C43;font-weight:600;">Next free: ${esc(w.next_free.label)}</div>` : ''}
         <div class="wc-meta">${esc(w.suburb)} · ${esc(w.exp)} · ${w.shifts ? `★ ${w.rating.toFixed(1)} (${w.shifts} shifts)` : 'New to BookIt'}</div>
       </div>
     </div>
@@ -6844,6 +6912,8 @@ const ROUTES = {
   '/services/daily-tasks': 'page-services-daily-tasks',
   '/services/household': 'page-services-household',
   '/services/community': 'page-services-community',
+  '/services/overnight': 'page-services-overnight',
+  '/shifts': 'page-shifts',
   '/how-it-works': 'page-how-it-works',
   '/pricing': 'page-pricing',
   '/find-workers': 'page-find-workers',
@@ -6974,6 +7044,9 @@ function route(){
   if(id === 'page-ladder' && window.renderLadderPage) renderLadderPage();
   if(id === 'page-access' && window.renderAccessPage) renderAccessPage();
   if(id === 'page-invite' && window.renderInvitePage) renderInvitePage();
+  if(id === 'page-shifts' && window.renderShiftsPage) renderShiftsPage();
+  if(id === 'page-support-workers' && window.paintWorkerPay) paintWorkerPay();
+  if(id === 'page-services-overnight' && window.paintOvernightPrice) paintOvernightPrice();
   if(id === 'page-admin' && window.renderAdminPage) renderAdminPage();
   if(id === 'page-admin' && window.renderTrainingMatrix) setTimeout(renderTrainingMatrix, 600);
   if(id === 'page-admin' && window.renderDocRequestsCard) setTimeout(renderDocRequestsCard, 700);
@@ -7000,6 +7073,41 @@ function route(){
   ROUTE_LAST = path;
   $('#main').focus({preventScroll:true});
 }
+
+/* ---------- the open-shift feed (workers) ---------- */
+window.renderShiftsPage = async function(){
+  const wrap = $('#shiftsList'); if(!wrap) return;
+  if(!API.me || API.me.role !== 'worker'){ wrap.innerHTML = '<div class="info-card"><p>Open shifts are for support workers who are signed in. <a href="#/get-started?type=worker">Become a worker</a> or <a href="#/login">sign in</a>.</p></div>'; return; }
+  try{
+    const d = await API.call('/me/open-shifts');
+    if(!d.shifts.length){ wrap.innerHTML = '<div class="info-card"><p><b>Nothing open for you right now.</b> The cascade offers you shifts by text and email as they come up; this page is the same list, for when you want to look.</p></div>'; return; }
+    wrap.innerHTML = d.shifts.map(s => `<div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;">
+      <div><b>${esc(s.label)}${s.sleepover ? ' — sleepover' : ''}</b><br><span class="muted-sm">${esc(fmtAU(s.date))} at ${esc(s.start)} · ${s.sleepover ? 'one night' : s.hours + ' hours'} · ${esc(s.suburb || '')}</span><br><span style="color:#1C7C43;font-weight:600;">You would be paid $${Number(s.pay).toFixed(2)}</span></div>
+      <button type="button" class="btn btn-primary btn-sm" data-claim-shift="${s.cover_id}">Take this shift</button></div>`).join('');
+  }catch(err){ wrap.innerHTML = `<div class="info-card"><p>${esc(err.message)}</p></div>`; }
+};
+document.addEventListener('click', async e => {
+  const c = e.target.closest('[data-claim-shift]'); if(!c) return;
+  c.disabled = true;
+  try{ const r = await API.call('/cover/' + c.dataset.claimShift + '/claim', {method:'POST', body:{}}); toast('The shift is yours — it is in My bookings.'); renderShiftsPage(); }
+  catch(err){ toast(err.message); c.disabled = false; }
+});
+
+window.paintWorkerPay = async function(){
+  const el = $('#swPayTable'); if(!el || el.dataset.done) return;
+  try{
+    const d = await API.call('/rates');
+    const cats = (d.rates || []).filter(r => r.category && r.you);
+    if(!cats.length){ el.innerHTML = '<span class="muted-sm">The rate table is on the <a href="#/pricing">pricing page</a>.</span>'; return; }
+    const unit = r => r.category === 'sleepover' ? '/night' : '/hr';
+    el.innerHTML = `<table class="rt" style="width:100%;"><thead><tr><th>Shift</th><th>NDIS price</th><th>Bronze (${d.ladder ? d.ladder[0].share : ''}%)</th><th>Platinum (${d.ladder ? d.ladder[d.ladder.length-1].share : ''}%)</th></tr></thead><tbody>${cats.map(r => `<tr><td>${esc(r.label)}</td><td>$${Number(r.you).toFixed(2)}${unit(r)}</td><td><b>$${Number(r.worker).toFixed(2)}</b>${unit(r)}</td><td><b>$${Number(r.worker_top).toFixed(2)}</b>${unit(r)}</td></tr>`).join('')}</tbody></table><p class="muted-sm" style="margin:8px 0 0;">Figures include the ${esc(String(d.super || 12))}% superannuation guarantee. Lifted to the SCHADS minimum wherever a price limit sits below the award.</p>`;
+    el.dataset.done = '1';
+  }catch(e){ el.innerHTML = '<span class="muted-sm">See the <a href="#/pricing">pricing page</a>.</span>'; }
+};
+window.paintOvernightPrice = async function(){
+  const el = $('#ovSleepPrice'); if(!el || el.dataset.done) return;
+  try{ const d = await API.call('/rates'); const s = (d.rates || []).find(r => r.category === 'sleepover'); if(s && s.you){ el.textContent = '$' + Number(s.you).toFixed(2) + ' for the night, your worker paid $' + Number(s.worker).toFixed(2) + ' to $' + Number(s.worker_top).toFixed(2) + ' of it'; el.dataset.done = '1'; } }catch(e){}
+};
 window.addEventListener('hashchange', route);
 route();
 updateMsgBadge();
@@ -7053,6 +7161,8 @@ function updateAuthUI(){
   if(window.actBarSync) actBarSync();
   const na = $('#navAdmin');
   if(na) na.hidden = !(API.online && API.me && API.me.admin);
+  const ns = $('#navShifts');
+  if(ns) ns.hidden = !(API.online && API.me && API.me.role === 'worker');
   const vb = $('#verifyBanner');
   if(vb) vb.hidden = !(API.online && API.me && API.me.verified === 0);
   const hint = $('#loginHint');
@@ -7572,8 +7682,10 @@ $('#bookingForm').addEventListener('submit', async e => {
       start: $('#bkStart').value,
       hours: Number($('#bkHours').value),
       notes: $('#bkNotes').value,
-      sleepover: $('#bkSleep').checked
+      sleepover: $('#bkSleep').checked,
+      intro: !!($('#bkIntro') && $('#bkIntro').checked)
     };
+    if(body.intro){ body.hours = 1; body.sleepover = false; }
     if(repeat){
       body.repeat = repeat;
       if($('#bkRepeatMode').value === 'until') body.repeat_until = $('#bkRepeatUntil').value;
@@ -7963,6 +8075,10 @@ async function renderBookingsPage(){
               <label class="choice-pill"><input type="radio" name="bkScope${b.id}" value="no" checked><span>No</span></label>
               <label class="choice-pill"><input type="radio" name="bkScope${b.id}" value="yes"><span>Yes</span></label>
             </div>
+            ${b.sleepover ? `<div style="margin-top:12px;"><b style="font-size:.9rem;">How many hours were you up and supporting during the night?</b>
+              <p class="muted-sm" style="margin:4px 0 7px;">Up to two hours is inside the sleepover price. Anything beyond two is charged to the participant\u2019s plan by the hour at the night rate and paid to you at your share of it, so say what the support was.</p>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><input class="note-active" type="number" min="0" max="${b.hours}" step="0.25" value="0" style="width:90px;" aria-label="Active hours during the sleepover"> <span class="muted-sm">hours (0 if you were not woken)</span></div>
+              <textarea class="note-active-note" rows="2" maxlength="4000" style="margin-top:8px;" placeholder="If more than two: what the support was, roughly when."></textarea></div>` : ''}
             <textarea class="note-scope-detail" rows="2" maxlength="4000" hidden style="margin-top:9px;" placeholder="What were you asked to do? We'll follow it up — you're not in trouble for telling us."></textarea>
           </div>
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -8490,7 +8606,9 @@ document.addEventListener('click', async e => {
     const detail = form.querySelector('.note-scope-detail').value;
     nSave.disabled = true;
     try{
-      const r = await API.call('/bookings/' + id, {method:'PATCH', body:{status:'completed', note: body, scope, scope_detail: detail}});
+      const activeEl = form.querySelector('.note-active');
+      const extra = activeEl ? { active_hours: Number(activeEl.value), active_note: (form.querySelector('.note-active-note') || {}).value || '' } : {};
+      const r = await API.call('/bookings/' + id, {method:'PATCH', body:{status:'completed', note: body, scope, scope_detail: detail, ...extra}});
       toast(scope
         ? 'Shift completed and your note is saved. Thanks for flagging that — the office has been alerted and will call you.'
         : (r.invoice ? `Shift completed — note saved and $${r.invoice.total.toFixed(2)} recorded for invoicing. 🎉` : 'Shift completed — note saved.'));
@@ -9099,6 +9217,9 @@ async function renderAdminPage(){
   let inv;
   try{ inv = await API.call('/admin/invoices'); }
   catch(e){ inv = { invoices: [], totals: { billed: 0, worker_share: 0 }, categories: [] }; }
+  let kpi = null, refs = null;
+  try{ kpi = await API.call('/admin/kpis'); }catch(e){}
+  try{ refs = await API.call('/admin/referrals'); }catch(e){}
   let sn;
   try{ sn = await API.call('/admin/shift-notes'); }
   catch(e){ sn = { notes: [], people: [], flagged_open: 0 }; }
@@ -9735,6 +9856,61 @@ async function renderAdminPage(){
   const G = [];
   const g = (slug, label, blurb, urgent, html) => G.push({ slug, label, blurb, urgent, html });
 
+  const money = n => n == null ? '—' : '$' + Number(n).toFixed(2);
+  const pctS = n => n == null ? '—' : Number(n).toFixed(0) + '%';
+  const kpiBox = (label, value, how) => `<div class="card" style="padding:12px 14px;"><small class="muted-sm">${label}</small><div style="font-size:1.5rem;font-weight:700;">${value}</div><small class="muted-sm">${esc(how)}</small></div>`;
+  const growthHtml = `
+    <h2>Growth &amp; money</h2>
+    ${kpi ? `<p class="muted-sm">Last ${kpi.window.days} days (${esc(fmtAU(kpi.window.from))} – ${esc(fmtAU(kpi.window.to))}). Demo accounts excluded.</p>
+    <div class="grid-3" style="gap:10px;">
+      ${kpiBox('Fill rate', pctS(kpi.fill_rate.value), kpi.fill_rate.how)}
+      ${kpiBox('Worker utilisation', pctS(kpi.utilisation.value), kpi.utilisation.how)}
+      ${kpiBox('Cancellations', pctS(kpi.cancellations.rate) + (kpi.cancellations.unbilled ? ` · <span style="color:#A5301A">${kpi.cancellations.unbilled} short-notice unbilled</span>` : ''), kpi.cancellations.how)}
+      ${kpiBox('Uncovered shifts', kpi.uncovered.value, kpi.uncovered.how)}
+      ${kpiBox('Days to cash', kpi.days_to_cash.value == null ? '—' : kpi.days_to_cash.value + ' days', kpi.days_to_cash.how + (kpi.days_to_cash.by_lane.length ? ' · ' + kpi.days_to_cash.by_lane.map(l => `${l.lane}: ${l.days}d`).join(', ') : ''))}
+      ${kpiBox('Margin per hour', money(kpi.margin_per_hour.value), kpi.margin_per_hour.how)}
+      ${kpiBox('Sign-up → first booking', pctS(kpi.activation.value) + ` (${kpi.activation.activated}/${kpi.activation.signups})`, kpi.activation.how)}
+      ${kpiBox('90-day retention', pctS(kpi.retention_90d.value) + ` (${kpi.retention_90d.retained}/${kpi.retention_90d.cohort})`, kpi.retention_90d.how)}
+      ${kpiBox('Workers', `${kpi.worker_churn.active} active · ${kpi.worker_churn.visible} live · ${kpi.worker_churn.left} gone quiet`, kpi.worker_churn.how)}
+      ${kpiBox('Time to verify', kpi.time_to_verify.days == null ? '—' : kpi.time_to_verify.days + ' days', kpi.time_to_verify.how)}
+    </div>
+    ${kpi.margin_per_hour.by_category.length ? `<details style="margin-top:10px;"><summary>Margin by rate category</summary><table class="rt"><thead><tr><th>Category</th><th>Units</th><th>Revenue</th><th>Worker share</th><th>Margin/unit</th></tr></thead><tbody>${kpi.margin_per_hour.by_category.map(c => `<tr><td>${esc(c.category || '—')}</td><td>${c.units}</td><td>${money(c.revenue)}</td><td>${money(c.worker_share)}</td><td>${money(c.margin_per_unit)}</td></tr>`).join('')}</tbody></table></details>` : ''}` : '<p class="muted-sm">KPIs unavailable.</p>'}
+
+    <h3 style="margin-top:22px;">Worker referrals</h3>
+    ${refs ? `<p class="muted-sm">$${Number(refs.bonus).toFixed(2)} after ${refs.qualify_hours} completed hours. Settings: referral_bonus, referral_qualify_hours.</p>
+    ${refs.referrals.length ? `<table class="rt"><thead><tr><th>Referred by</th><th>New worker</th><th>Joined</th><th>Status</th><th></th></tr></thead><tbody>${refs.referrals.map(r => `<tr><td>${esc(r.referrer_name)}</td><td>${esc(r.referee_name)}</td><td>${esc(fmtAU(r.created.slice(0,10)))}</td><td>${r.paid_at ? 'Paid ' + esc(fmtAU(r.paid_at.slice(0,10))) : r.qualified_at ? `<b style="color:#1C7C43;">Payable $${Number(r.amount).toFixed(2)}</b>` : 'Not yet qualified'}</td><td>${r.qualified_at && !r.paid_at ? `<button class="adm-btn-sm" type="button" data-ref-paid="${r.id}">Mark paid</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="muted-sm">No referrals yet.</p>'}` : ''}
+
+    <h3 style="margin-top:22px;">Open an account for someone on the phone</h3>
+    <p class="muted-sm">Concierge onboarding. They set their own password from the email; the plan, agreement and consent stay theirs to do. Consent is recorded in words.</p>
+    <form id="admConcierge" style="display:grid;gap:8px;grid-template-columns:1fr 1fr;max-width:640px;">
+      <input name="name" placeholder="Full name" required style="${inpStyle}"><input name="email" type="email" placeholder="Email" required style="${inpStyle}">
+      <input name="phone" placeholder="Phone" style="${inpStyle}"><input name="suburb" placeholder="Suburb" style="${inpStyle}">
+      <select name="plan" style="${inpStyle}"><option value="none">Funding: not sure yet</option><option value="ndia">Agency-managed</option><option value="plan">Plan-managed</option><option value="self">Self-managed</option></select>
+      <input name="consent" placeholder="Consent, in words: who agreed, on the phone, on what date" required style="${inpStyle}">
+      <button class="adm-btn-sm" type="submit" style="grid-column:1/-1;justify-self:start;">Open the account and email the password link</button>
+    </form>
+
+    <h3 style="margin-top:22px;">One-off claimable lines</h3>
+    <p class="muted-sm">An establishment fee for a new participant (conditions in the Pricing Arrangements — you tick that they are met), or non-face-to-face time such as writing a support plan. Each becomes a completed, approved line the invoice and claim machinery carries as normal.</p>
+    <form id="admFee" style="display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));max-width:760px;align-items:center;">
+      <input name="pid" type="number" min="1" placeholder="Participant #" required style="${inpStyle}">
+      <select name="kind" style="${inpStyle}"><option value="establishment">Establishment fee</option><option value="nf2f">Non-face-to-face time</option></select>
+      <select name="service" style="${inpStyle}"><option value="personal-care">Personal care</option><option value="community">Community</option><option value="daily-tasks">Daily tasks</option><option value="household">Household</option><option value="employment">Employment</option><option value="transport">Transport</option></select>
+      <input name="hours" type="number" min="0.25" max="8" step="0.25" placeholder="Hours (NF2F)" style="${inpStyle}">
+      <input name="what" placeholder="What the work was / note" style="${inpStyle};grid-column:span 2;">
+      <label class="muted-sm" style="grid-column:span 2;"><input type="checkbox" name="conditions_met"> The Pricing Arrangements conditions are met (establishment fee)</label>
+      <button class="adm-btn-sm" type="submit" style="justify-self:start;">Raise the line</button>
+    </form>
+
+    <h3 style="margin-top:22px;">Group shifts (1:2, 1:3)</h3>
+    <p class="muted-sm">Two or three shifts with the same worker at the same time: each participant is charged the hourly price divided by the ratio, the worker is paid once. Claims the 0136 group items — needs that registration, and the setting group_supports=on.</p>
+    <form id="admGroup" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <input name="ids" placeholder="Booking numbers, e.g. 412, 413" required style="${inpStyle};min-width:220px;">
+      <button class="adm-btn-sm" type="submit">Link as a group</button>
+      <input name="ungroup" type="number" placeholder="Booking # to ungroup" style="${inpStyle}">
+      <button class="adm-btn-sm" type="button" data-ungroup>Ungroup</button>
+    </form>`;
+  g('growth', 'Growth & money', 'KPIs, referrals, concierge, fee lines, groups', refs && refs.referrals ? refs.referrals.filter(r => r.qualified_at && !r.paid_at).length : 0, growthHtml);
   g('overview', 'Overview', 'Is everything running, and the numbers', stest ? stest.counts.fail : 0,
     tiles + H('Is everything actually running? ', stest && stest.counts.fail ? red(stest.counts.fail + ' failing')
       : stest && stest.counts.warn ? `<span style="color:#B4761A;">(${stest.counts.warn} to look at)</span>` : '') + selfTestHtml(stest));
@@ -9828,6 +10004,40 @@ async function renderAdminPage(){
     </div>
   </div>`;
 }
+document.addEventListener('submit', async e => {
+  const f = e.target;
+  if(f.id === 'referralForm'){
+    e.preventDefault(); const fd = new FormData(f);
+    try{ const r = await API.call('/referrals', {method:'POST', body:Object.fromEntries(fd.entries())}); toast(`Thanks — reference ${r.ref}. We will be in touch within two business hours.`); f.reset(); }catch(err){ toast(err.message); }
+    return;
+  }
+  if(f.id === 'admConcierge'){
+    e.preventDefault(); const fd = new FormData(f);
+    try{ const r = await API.call('/admin/participants/create', {method:'POST', body:Object.fromEntries(fd.entries())}); toast(`Account #${r.id} opened — the password link has been emailed.`); f.reset(); }catch(err){ toast(err.message); }
+    return;
+  }
+  if(f.id === 'admFee'){
+    e.preventDefault(); const fd = new FormData(f); const pid = fd.get('pid'), kind = fd.get('kind');
+    try{
+      const r = kind === 'establishment'
+        ? await API.call(`/admin/participants/${pid}/establishment-fee`, {method:'POST', body:{service: fd.get('service'), note: fd.get('what'), conditions_met: !!fd.get('conditions_met')}})
+        : await API.call(`/admin/participants/${pid}/nf2f`, {method:'POST', body:{service: fd.get('service'), hours: Number(fd.get('hours')), what: fd.get('what')}});
+      toast(`Raised: $${Number(r.total).toFixed(2)} as booking #${r.booking_id}.`); f.reset();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  if(f.id === 'admGroup'){
+    e.preventDefault(); const ids = String(new FormData(f).get('ids') || '').split(/[^0-9]+/).filter(Boolean).map(Number);
+    try{ const r = await API.call('/admin/bookings/group', {method:'POST', body:{ids}}); toast(`Linked as a 1:${r.ratio} group.`); renderAdminPage(); }catch(err){ toast(err.message); }
+    return;
+  }
+});
+document.addEventListener('click', async e => {
+  const rp = e.target.closest('[data-ref-paid]');
+  if(rp){ try{ await API.call('/admin/referrals/' + rp.dataset.refPaid + '/paid', {method:'POST', body:{}}); toast('Marked paid.'); renderAdminPage(); }catch(err){ toast(err.message); } return; }
+  const ug = e.target.closest('[data-ungroup]');
+  if(ug){ const id = ug.closest('form').querySelector('[name=ungroup]').value; if(!id) return; try{ const r = await API.call('/admin/bookings/' + id + '/ungroup', {method:'POST', body:{}}); toast(`${r.ungrouped} shifts back to 1:1.`); renderAdminPage(); }catch(err){ toast(err.message); } return; }
+});
 document.addEventListener('change', async e => {
   const it = e.target.closest('.adm-claim-item');
   if(it){
@@ -13153,7 +13363,9 @@ async function renderEarningsPage(){
       <td>${chip(r)}</td>
     </tr>`;
   const next = tier.next;
-  wrap.innerHTML = `
+  let refHtml = '';
+  try{ const R = await API.call('/me/referrals'); refHtml = `<div class="info-card" style="margin-bottom:16px;"><p style="margin:0 0 6px;"><b>Know a good support worker?</b> Give them your code <b style="font-family:monospace;">${esc(R.code)}</b> or this link, and once they have completed ${R.qualify_hours} hours with BookIt you are paid <b>$${Number(R.bonus).toFixed(2)}</b> on your next pay run.</p><p style="margin:0;font-size:.9rem;"><input readonly value="${esc(R.link)}" style="width:100%;max-width:520px;font:inherit;font-size:.85rem;padding:6px 8px;border:1.5px solid #E7DFD4;border-radius:8px;" onclick="this.select()"></p>${R.referrals.length ? `<p class="muted-sm" style="margin:8px 0 0;">${R.referrals.map(x => `${esc(x.who)}: ${x.paid_at ? 'paid' : x.qualified_at ? 'payable — on your next pay' : `${Number(x.hours).toFixed(1)} of ${R.qualify_hours} hours`}`).join(' · ')}</p>` : ''}</div>`; }catch(e){}
+  wrap.innerHTML = `${refHtml}
     <div class="st-presets" role="group" aria-label="Pay period">
       ${(d.periods || []).slice(0, 4).map((p, i) => `
         <button type="button" class="st-preset" data-earn-p="${p.from}|${p.to}" aria-pressed="${T.from === p.from ? 'true' : 'false'}">
@@ -13862,7 +14074,7 @@ async function renderCredsMini(){
   wrap.innerHTML = `
   <div class="info-card" style="margin-bottom:12px;" id="cardCredsMini">
     <h3 style="margin:0 0 6px;">Credentials & checks</h3>
-    <p class="mini-note">Reminders start 60 days before anything expires — nothing lapses silently.</p>
+    <p class="mini-note">We check every document within <b>one business day</b> of it arriving, and reminders start 60 days before anything expires — nothing lapses silently.</p>
     ${reqs.length ? `<p class="mini-note" style="color:#8a6d00;"><b>The office has asked for:</b> ${reqs.map(r => esc(r.label)).join(', ')}.</p>` : ''}
     <div class="mini-rows">${rows || '<p class="muted-sm">Nothing on file yet — your screening check and photo are the two that unlock approval.</p>'}</div>
     <a class="set-tile" style="margin-top:12px;" href="#/bookings" data-acct="go" data-hash="#/bookings" data-sec="cardCreds"><span class="st-txt"><b>Add or replace files</b><small>Uploads live on your bookings page.</small></span><span class="st-go" aria-hidden="true">→</span></a>

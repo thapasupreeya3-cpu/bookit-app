@@ -17,10 +17,13 @@ ap-southeast-2, Ubuntu 24.04, Caddy in front of Node on 127.0.0.1:3000, the serv
    `https://bookit.life/services/transport` (a 200, with its own title in the tab);
    sign in; open a worker profile signed out and signed in (short name, then full name);
    drag the scrubber on a service-page video; `cd ~/bookit-app && npm run check`.
-5. Pin Node. `.nvmrc` says 22.22.2 and CI runs exactly that. `node -v` on the box: if it
-   differs, either install that release on the box or change `.nvmrc` to what the box
-   runs — the point is that the box, `.nvmrc` and CI agree. `node:sqlite` is experimental
-   on Node 22 and moves between majors; `package.json` says `>=22.12 <23`.
+5. Pin Node. `.nvmrc` says 22.23.2 — the current Node 22 LTS, a security release
+   (29 July 2026) — and CI runs exactly that. `node -v` on the box: if it is older,
+   install 22.23.2 there (`sudo n 22.23.2`, or NodeSource's 22.x package, then
+   `sudo systemctl restart bookit`); if you cannot upgrade the box yet, change `.nvmrc`
+   to what the box runs. The point is that the box, `.nvmrc` and CI agree.
+   `node:sqlite` is experimental on Node 22 and moves between majors; `package.json`
+   says `>=22.12 <23`.
 
 Caddy: nothing to change. Node now sends `Content-Encoding` itself; if your Caddyfile
 has `encode zstd gzip`, Caddy passes an already-encoded response through untouched.

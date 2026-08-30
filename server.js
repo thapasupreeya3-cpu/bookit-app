@@ -154,6 +154,14 @@ for (const col of ["health_consent_version TEXT DEFAULT ''", "health_consent_at 
 for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_no TEXT', 'support_item TEXT', 'claimed_at TEXT', 'paid_at TEXT', 'sleepover INTEGER DEFAULT 0']) {
   BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`)
 }
+/* v86.9.0: inactive night care (active hours inside a sleepover), meet-and-greet
+   bookings, group ratios, one-off fee lines. All nullable with defaults; no
+   rewrite of the table. */
+for (const col of ['active_hours REAL DEFAULT 0', 'active_extra_hours REAL DEFAULT 0', 'active_extra_category TEXT DEFAULT \'\'', 'active_extra_item TEXT DEFAULT \'\'',
+  'active_extra_rate REAL DEFAULT 0', 'active_extra_total REAL DEFAULT 0', 'active_extra_share REAL DEFAULT 0', 'active_note TEXT DEFAULT \'\'',
+  'kind TEXT DEFAULT \'shift\'', 'ratio INTEGER DEFAULT 1', 'group_key TEXT DEFAULT \'\'']) {
+  BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`)
+}
 /* migration (profiles build): worker profile photos */
 for (const col of ['photo TEXT DEFAULT \'\'', 'photo_at TEXT DEFAULT \'\'',
   /* Build 2: the two facts participants actually filter on that we never
@@ -1769,24 +1777,30 @@ function makeInvoicePdf(inv) {
    worth" — see THE AWARDS LADDER further down. */
 function applyInvoice(id, category) {
   const r = INVOICE_RATES[category];
-  const b = db.prepare('SELECT hours, worker_id FROM bookings WHERE id = ?').get(id);
+  const b = db.prepare('SELECT hours, worker_id, ratio FROM bookings WHERE id = ?').get(id);
   if (!r || !b) return null;
   const qty = r.perNight ? 1 : b.hours; /* sleepovers are one flat per-night price */
-  const total = Math.round(r.price * qty * 100) / 100;
+  /* a group shift (1:2, 1:3) is one worker hour shared: each participant is
+     charged the hourly price divided by the ratio, and the worker's share of
+     that hour is divided the same way, so the worker is paid once for the hour */
+  const ratio = Math.max(1, Number(b.ratio) || 1);
+  const unit = Math.round(r.price / ratio * 100) / 100;
+  const total = Math.round(unit * qty * 100) / 100;
 
   const pay = workerPay(b.worker_id, category, b.hours)
     /* fallback only if the profile row is missing entirely — never leave pay unset */
     || { tier: 'bronze', share_pct: null, rate: r.worker, amount: Math.round(r.worker * qty * 100) / 100, floored: false, why: '' };
+  if (ratio > 1) pay.amount = Math.round(pay.amount / ratio * 100) / 100;
 
   db.prepare(`UPDATE bookings SET rate_category = ?, unit_price = ?, worker_share = ?, total = ?,
       tier_at_shift = ?, share_pct = ?, award_floored = ? WHERE id = ?`)
-    .run(category, r.price, pay.amount, total, pay.tier, pay.share_pct, pay.floored ? 1 : 0, id);
+    .run(category, unit, pay.amount, total, pay.tier, pay.share_pct, pay.floored ? 1 : 0, id);
 
   /* uneconomic and uplift_withheld ride along on the completion response for the
      same reason award_floored does: the shift is the moment the decision is made,
      and an audit two years from now needs the flag next to the shift, not
      reconstructed from settings that may have moved since. */
-  return { category, label: r.label, unit_price: r.price, qty, total, worker_share: pay.amount,
+  return { category, label: r.label, unit_price: unit, qty, total, ratio, worker_share: pay.amount,
     tier: pay.tier, share_pct: pay.share_pct, worker_rate: pay.rate, award_floored: !!pay.floored,
     uplift_withheld: !!pay.uplift_withheld, uneconomic: !!pay.uneconomic, pay_note: pay.why };
 }
@@ -3182,7 +3196,7 @@ const PUBLIC_API = [
   ['GET', /^\/api\/jobs$/], ['GET', /^\/api\/jobs\/\d+$/],
   ['GET', /^\/api\/invite\/[a-f0-9]{16,64}$/],
   ['POST', /^\/api\/register$/], ['POST', /^\/api\/login$/], ['POST', /^\/api\/login\/mfa$/], ['POST', /^\/api\/logout$/],
-  ['POST', /^\/api\/forgot$/], ['POST', /^\/api\/reset$/], ['POST', /^\/api\/contact$/]
+  ['POST', /^\/api\/forgot$/], ['POST', /^\/api\/reset$/], ['POST', /^\/api\/contact$/], ['POST', /^\/api\/referrals$/]
 ];
 
 route('GET', /^\/api\/health$/, (req, res) => json(res, 200, { ok: true, time: now() }));
@@ -3360,6 +3374,13 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
     .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), clean(body.plan, 30), ndisNum, pmEmail,
          JSON.stringify(services), JSON.stringify(hiFlags), hiFlags.length ? now() : '', termsV, now(), 0, now());
   const uid = Number(r.lastInsertRowid);
+  /* a worker who came in on another worker's referral code */
+  if (role === 'worker') {
+    const referrer = referrerFromCode(body.ref);
+    if (referrer && referrer !== uid && db.prepare("SELECT id FROM users WHERE id = ? AND role = 'worker'").get(referrer)) {
+      try { db.prepare('INSERT INTO referrals (referrer_id, referee_id, code, created) VALUES (?,?,?,?)').run(referrer, uid, String(body.ref).toUpperCase(), now()); } catch (e) { console.warn('[referral] not recorded:', e.message); }
+    }
+  }
   if (role === 'participant')
     db.prepare('UPDATE users SET health_consent_version = ?, health_consent_at = ? WHERE id = ?').run(CURRENT_TERMS_VERSION, now(), uid);
   if (hiFlags.length) { recordScope(uid, hiFlags, 'signup'); hiAlert(req, { id: uid, name, email, suburb }, hiFlags, 'at signup'); }
@@ -3879,6 +3900,8 @@ route('GET', /^\/api\/admin\/invoices\.csv$/, (req, res, m, user) => {
 const dmy = iso => String(iso || '').split('-').reverse().join('/');
 function claimRows(where) {
   return db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.rate_category, b.unit_price, b.total,
+      b.active_extra_hours, b.active_extra_total, b.active_extra_item, b.active_extra_rate, b.active_extra_category, b.kind, b.ratio, b.sleepover,
+      b.km, b.km_total, b.km_from, b.km_to,
       b.claim_status, b.claim_ref, b.invoice_no, b.support_item, b.claimed_at, b.paid_at, b.pay_url,
       b.status, b.short_notice, b.notice_hours, b.cancel_code, b.cancel_reason,
       up.id AS pid, up.name AS participant_name, up.email AS participant_email, up.plan AS funding, up.ndis_number, up.pm_email,
@@ -3886,7 +3909,20 @@ function claimRows(where) {
     FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id
     WHERE ${billable('b')} ${where || ''} ORDER BY b.date ASC, b.id ASC`).all();
 }
-function effectiveItem(r) { return r.support_item || supportItemFor(r.service, r.rate_category) || ''; }
+/* Group and centre-based activities are their own registration group (0136).
+   A ratio shift claims the 0136 item for its time of day; the office turns
+   group supports on (setting group_supports=on) only once that registration
+   exists. */
+/* Provider travel, non-labour costs: the $1.00 "Each" item for the support's
+   registration group; the quantity claimed is the dollar amount of the
+   kilometres. Until v86.9.1 the kilometres were on the participant's
+   statement and nowhere else — never on the invoice, never in the claim. */
+const TRAVEL_ITEMS = { 'personal-care': '01_799_0107_1_1', 'daily-tasks': '01_799_0138_1_1', 'household': '01_799_0120_1_1', 'employment': '01_799_0102_1_1', 'community': '04_799_0125_6_1', 'transport': '04_799_0125_6_1' };
+const GROUP_ITEMS = { 'weekday-day': '04_102_0136_6_1', 'weekday-evening': '04_103_0136_6_1', 'saturday': '04_104_0136_6_1', 'sunday': '04_105_0136_6_1', 'public-holiday': '04_106_0136_6_1' };
+function effectiveItem(r) {
+  if (r.ratio > 1 && GROUP_ITEMS[r.rate_category]) return GROUP_ITEMS[r.rate_category];
+  return r.support_item || supportItemFor(r.service, r.rate_category) || '';
+}
 function lineFlags(r) {
   const flags = [];
   if (!['ndia', 'plan', 'self'].includes(r.funding)) flags.push('no funding type on the participant profile');
@@ -3955,7 +3991,7 @@ route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
     let n = 1;
     while (db.prepare('SELECT 1 FROM bookings WHERE invoice_no = ?').get(n === 1 ? invNo : `${invNo}-${n}`)) n++;
     if (n > 1) invNo = `${invNo}-${n}`;
-    const total = Math.round(group.reduce((s, r) => s + (r.total || 0), 0) * 100) / 100;
+    const total = Math.round(group.reduce((s, r) => s + (r.total || 0) + (r.active_extra_total || 0) + (r.status === 'cancelled' ? 0 : (r.km_total || 0)), 0) * 100) / 100;
     for (const r of group) {
       db.prepare("UPDATE bookings SET claim_status = 'claimed', claim_ref = ?, support_item = ?, invoice_no = ?, claimed_at = ? WHERE id = ?")
         .run(`BK${r.id}`, r.item, invNo, now(), r.id);
@@ -3988,15 +4024,24 @@ route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
       bill_to: self
         ? [first.participant_name, first.participant_email, first.ndis_number ? `NDIS number: ${first.ndis_number}` : '']
         : [`Plan manager for ${first.participant_name}`, dest, first.ndis_number ? `NDIS number: ${first.ndis_number}` : ''],
-      lines: group.map(r => ({
+      lines: group.flatMap(r => [{
         date: dmy(r.date),
         service: (SERVICE_LABELS[r.service] || r.service)
           + (r.rate_category === 'sleepover' ? ' — sleepover (per night)' : '')
+          + (r.ratio > 1 ? ` — group 1:${r.ratio}` : '')
           + (r.status === 'cancelled' ? ' — cancelled at short notice' : ''),
         item: r.item,
         hours: (INVOICE_RATES[r.rate_category] || {}).perNight ? 1 : r.hours,
         rate: r.unit_price || 0, amount: r.total || 0
-      })),
+      }, ...(r.active_extra_hours > 0 ? [{
+        date: dmy(r.date),
+        service: `${SERVICE_LABELS[r.service] || r.service} — active support during the sleepover, beyond the two hours included`,
+        item: r.active_extra_item, hours: r.active_extra_hours, rate: r.active_extra_rate || 0, amount: r.active_extra_total || 0
+      }] : []), ...(r.km > 0 && r.km_total > 0 && r.status !== 'cancelled' ? [{
+        date: dmy(r.date),
+        service: `Provider travel — ${r.km} km${r.km_from ? `, ${r.km_from} → ${r.km_to}` : ''} (non-labour costs)`,
+        item: TRAVEL_ITEMS[r.service] || '', hours: r.km_total, rate: 1, amount: r.km_total
+      }] : [])]),
       total
     });
     let emailed = false;
@@ -4029,6 +4074,19 @@ route('GET', /^\/api\/admin\/claims\/pace\.csv$/, (req, res, m, user) => {
     lines.push([q(NDIS_REG_NO), q(r.ndis_number), q(dmy(r.date)), q(dmy(r.date)), q(effectiveItem(r)), q(r.claim_ref || `BK${r.id}`),
       qty, '', (r.unit_price || 0).toFixed(2), 'P2', q(canc ? 'CANC' : ''), q(canc ? (r.cancel_code || 'NSDO') : ''),
       q(COMPANY_ABN), '', '', (r.total || 0).toFixed(2)].join(','));
+    /* the active hours beyond the two inside a sleepover are their own claim
+       line against the night item for that day */
+    if (r.active_extra_hours > 0 && !canc) {
+      lines.push([q(NDIS_REG_NO), q(r.ndis_number), q(dmy(r.date)), q(dmy(r.date)), q(r.active_extra_item), q(`${r.claim_ref || `BK${r.id}`}A`),
+        r.active_extra_hours, '', (r.active_extra_rate || 0).toFixed(2), 'P2', '', '',
+        q(COMPANY_ABN), '', '', (r.active_extra_total || 0).toFixed(2)].join(','));
+    }
+    /* the kilometres: the $1.00 non-labour travel item, quantity = dollars */
+    if (r.km > 0 && r.km_total > 0 && !canc && TRAVEL_ITEMS[r.service]) {
+      lines.push([q(NDIS_REG_NO), q(r.ndis_number), q(dmy(r.date)), q(dmy(r.date)), q(TRAVEL_ITEMS[r.service]), q(`${r.claim_ref || `BK${r.id}`}T`),
+        (r.km_total || 0).toFixed(2), '', '1.00', 'P2', '', '',
+        q(COMPANY_ABN), '', '', (r.km_total || 0).toFixed(2)].join(','));
+    }
   }
   res.writeHead(200, {
     'Content-Type': 'text/csv; charset=utf-8',
@@ -5658,8 +5716,26 @@ route('GET', /^\/api\/workers$/, (req, res, m, user) => {
        conditions, at approval and again on every sweep — but the search page
        is the front door, so it re-asks rather than trusting the flag. */
     .filter(r => platformEligible(r.user_id, r.email));
-  json(res, 200, { workers: rows.map(r => forVisitor(withReviewAgg(publicWorker(r)), user)) });
+  json(res, 200, { workers: rows.map(r => { const w = forVisitor(withReviewAgg(publicWorker(r)), user); w.next_free = nextFree(r.user_id, r.days); return w; }) });
 });
+/* The first two-hour daytime slot in the next fortnight that the worker's
+   own weekday pattern allows and the diary does not already hold. An
+   estimate for a card, not a promise; the booking form still asks. */
+function nextFree(workerId, daysJson) {
+  const days = safeJson(daysJson, [1, 1, 1, 1, 1, 0, 0]);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  for (let i = 1; i <= 14; i++) {
+    const d = new Date(today); d.setDate(d.getDate() + i);
+    const idx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+    if (days.length === 7 && !days[idx]) continue;
+    const date = ymd(d);
+    for (const h of [9, 11, 13, 15]) {
+      const start = `${String(h).padStart(2, '0')}:00`;
+      if (!bookingClash(workerId, date, start, 2, { statuses: ['requested', 'accepted'] })) return { date, start, label: `${d.toLocaleDateString('en-AU', { weekday: 'short' })} ${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}` };
+    }
+  }
+  return null;
+}
 
 /* one worker's full public profile — powers the #/worker/:id page.
    Credential info is label + month-level expiry only: never numbers, dates or files. */
@@ -6131,10 +6207,23 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   const start = clean(body.start, 5);
   if (!/^\d{2}:\d{2}$/.test(start)) return json(res, 400, { error: 'Please choose a start time.' });
   const hours = Number(body.hours);
-  if (!(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
+  /* a meet-and-greet is one hour, unpaid, and needs only a confirmed email
+     and a funding lane — the way to meet a worker before the paperwork */
+  const intro = body.intro === true;
+  if (!intro && !(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
   if (bookingStart({ date, start }) <= new Date())
     return json(res, 409, { error: 'That start time has already passed. Choose a future time.' });
   const sleepover = body.sleepover && ['personal-care', 'daily-tasks'].includes(service) ? 1 : 0;
+  if (sleepover && intro) return json(res, 400, { error: 'A meet-and-greet is a daytime hour, not a sleepover.' });
+  if (sleepover) {
+    /* Inactive night care is a night, not a number of hours: the NDIS item is
+       one flat price for an eight-hour sleepover. Ten hours is allowed for a
+       house whose evening runs late; fewer than eight is an active overnight
+       shift and is booked as one. */
+    if (!(hours >= SLEEPOVER_HOURS_MIN && hours <= SLEEPOVER_HOURS_MAX)) return json(res, 400, { error: `A sleepover is a night: ${SLEEPOVER_HOURS_MIN} hours, up to ${SLEEPOVER_HOURS_MAX}. For a shorter time overnight, book an ordinary shift \u2014 it is charged by the hour at the night rate.` });
+    const sh = Number(String(start).split(':')[0]);
+    if (!(sh >= 20 || sh <= 1)) return json(res, 400, { error: 'A sleepover starts between 8pm and 1am.' });
+  }
   const notes = clean(body.notes, 600);
 
   /* --- what has to be true before a first shift can be asked for ---------
@@ -6156,7 +6245,7 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
      diary — somebody relying on Tuesday morning does not lose it because a
      review date passed on Monday. */
   const plan = currentPlan(pers.id);
-  const missing = firstBookingBlockers(pers.id, !!pers.self);
+  const missing = firstBookingBlockers(pers.id, !!pers.self).filter(x => !intro || ['verify-email', 'billing'].includes(x.key));
   if (missing.length) {
     const theirs = missing.filter(x => x.yours), ours = missing.filter(x => !x.yours);
     return json(res, 400, {
@@ -6172,13 +6261,14 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   const count = Math.max(0, Math.min(SERIES_MAX, Number(body.repeat_count) || 0));
   if (repeat && !until && !count) return json(res, 400, { error: 'Tell us when the repeating booking should stop \u2014 either an end date or a number of shifts.' });
 
+  if (intro && repeat) return json(res, 400, { error: 'A meet-and-greet happens once.' });
   const dates = repeat ? seriesDates(date, repeat, until, count) : [date];
   if (!dates.length) return json(res, 400, { error: 'That end date is before the first shift.' });
 
   /* One worker, one place at a time. Checked for every date in a series so a
      participant hears about the clash before anything is written, and is told
      which dates so they can move the rule rather than guess. */
-  const clashes = dates.filter(d => bookingClash(workerId, d, start, hours, { statuses: ['accepted', 'requested'], participantId: pers.id }));
+  const clashes = dates.filter(d => bookingClash(workerId, d, start, intro ? 1 : hours, { statuses: ['accepted', 'requested'], participantId: pers.id }));
   if (clashes.length) {
     const first = bookingClash(workerId, clashes[0], start, hours, { statuses: ['accepted', 'requested'], participantId: pers.id });
     const dup = first && first.participant_id === pers.id;
@@ -6206,8 +6296,8 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
       seriesId = Number(sr.lastInsertRowid);
     }
     dates.forEach((d, idx) => {
-      const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-        .run(pers.id, workerId, service, d, start, hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now());
+      const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created, kind) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+        .run(pers.id, workerId, service, d, start, intro ? 1 : hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now(), intro ? 'intro' : 'shift');
       const id = Number(r.lastInsertRowid);
       if (km > 0) applyKm(id, km, clean(body.km_from, 80), clean(body.km_to, 80));
       ids.push(id);
@@ -6386,11 +6476,22 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
        leave a charged shift that still looks open, or the reverse. The
        cover-close inside the same transaction is the terminal-state rule:
        a booking that reaches completed closes any open cover with it. */
-    let kmLine = null, inv = null, noteId = null;
+    /* inactive night care: how much of the night was awake and working. Up
+       to two hours is inside the flat price; beyond that the extra is charged
+       by the hour at the night rate for that day. Recorded by the worker who
+       was there, on the screen where the shift is closed off. */
+    let activeIn = null;
+    if (b.sleepover) {
+      if (body.active_hours === undefined || body.active_hours === null || body.active_hours === '') return json(res, 400, { error: 'How many hours were you up and supporting during the night? Enter 0 if you were not woken.' });
+      activeIn = Math.round(Math.max(0, Math.min(Number(b.hours) || 8, Number(body.active_hours) || 0)) * 4) / 4;
+      if (activeIn > SLEEPOVER_INCLUDED_ACTIVE_HOURS && !clean(body.active_note, NOTE_MAX)) return json(res, 400, { error: 'More than two active hours is charged to the participant\u2019s plan, so say what the support was in the active-hours note.' });
+    }
+    let kmLine = null, inv = null, noteId = null, activeLine = null;
     db.exec('BEGIN IMMEDIATE');
     try {
       if (kmIn > 0) kmLine = applyKm(b.id, kmIn, body.km_from, body.km_to);
-      inv = applyInvoice(b.id, suggestCategory(b));
+      inv = b.kind === 'intro' ? { category: 'intro', label: 'Meet-and-greet (no charge)', unit_price: 0, qty: 1, total: 0, worker_share: 0 } : applyInvoice(b.id, suggestCategory(b));
+      if (b.sleepover) activeLine = applySleepoverActive(b.id, activeIn, clean(body.active_note, NOTE_MAX));
       /* 7. the state between "done" and "claimed". */
       db.prepare("UPDATE bookings SET status = 'completed', completed_at = ?, approval_state = 'pending', approval_from = ? WHERE id = ?").run(now(), now(), b.id);
       noteId = Number(db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,0,?)')
@@ -12496,7 +12597,7 @@ function awardMult(category) {
 function rollingHours(workerId) {
   const since = ymd(new Date(Date.now() - 365 * 864e5));
   const r = db.prepare(`SELECT COALESCE(SUM(hours), 0) AS h FROM bookings
-    WHERE worker_id = ? AND status = 'completed' AND date >= ? AND COALESCE(sleepover, 0) = 0`).get(workerId, since);
+    WHERE worker_id = ? AND status = 'completed' AND date >= ? AND COALESCE(sleepover, 0) = 0 AND COALESCE(kind, 'shift') = 'shift'`).get(workerId, since);
   return Math.round((r.h || 0) * 10) / 10;
 }
 function tierForHours(hours) {
@@ -13581,7 +13682,7 @@ function statementRows(participantId, from, to) {
       cancel_reason: b.cancel_reason || '',
       cancel_label: b.status === 'cancelled' ? (CANCEL_CODES[b.cancel_code || 'NSDO'] || CANCEL_CODES.NSDO) : '',
       notice_hours: b.notice_hours === null || b.notice_hours === undefined ? null : b.notice_hours,
-      grand: round2((b.total || 0) + (b.km_total || 0))
+      grand: round2((b.total || 0) + (b.km_total || 0) + (b.active_extra_total || 0))
     }));
 }
 
@@ -13674,7 +13775,7 @@ route('GET', /^\/api\/statements\/(\d+)$/, (req, res, m, user) => {
     category_label: r.label || b.rate_category, support_item: effectiveItem(b),
     unit_price: b.unit_price || 0, total: b.total || 0,
     km: b.km || 0, km_from: b.km_from || '', km_to: b.km_to || '', km_rate: b.km_rate || 0, km_total: b.km_total || 0,
-    grand: round2((b.total || 0) + (b.km_total || 0)),
+    grand: round2((b.total || 0) + (b.km_total || 0) + (b.active_extra_total || 0)),
     invoice_no: b.invoice_no || '', approval_state: b.approval_state || '', approved_at: b.approved_at || '',
     approval_source: b.approval_source || '', short_notice: b.short_notice ? 1 : 0,
     notes: notes.map(n => ({ body: n.body, addendum: n.addendum, created: n.created })),
@@ -13719,7 +13820,7 @@ function earningsFor(workerId, from, to) {
   let pay = 0, kmPay = 0, hours = 0, km = 0, loading = 0, awaiting = 0, cancelledPay = 0, cancelledShifts = 0;
   const byCategory = {};
   const lines = rows.map(b => {
-    const share = b.worker_share || 0;
+    const share = round2((b.worker_share || 0) + (b.active_extra_share || 0));
     const kmLine = round2((b.km || 0) * (KM_RATE_PAY()));
     const plainRate = b.hours > 0 ? round2(share / b.hours) : 0;
     pay = round2(pay + share); kmPay = round2(kmPay + kmLine);
@@ -16497,6 +16598,377 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
     '.woff': 'font/woff',
     '.woff2': 'font/woff2',
     '.ttf': 'font/ttf', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
+
+/* =====================================================================
+   v86.9.0 — inactive night care, meet-and-greets, the open-shift feed,
+   worker referrals, the KPI board, concierge onboarding, one-off fee
+   lines, coordinator referrals, group ratios and suburb pages.
+   ===================================================================== */
+
+/* ---------- inactive night care (sleepovers) ----------
+   The NDIS "Night-Time Sleepover Support" item is one flat price for an
+   eight-hour night with the worker asleep on the premises. It includes up to
+   two hours of active support across the night; more than that is charged
+   by the hour at the night rate that applies to the day. The worker records
+   the active hours when the shift is closed; the extra becomes its own line
+   on the invoice and its own claim line, and the worker is paid their ladder
+   share of it. Check these three numbers against each July's Pricing
+   Arrangements. */
+const SLEEPOVER_HOURS_MIN = 8, SLEEPOVER_HOURS_MAX = 10, SLEEPOVER_INCLUDED_ACTIVE_HOURS = 2;
+function sleepoverActiveCategory(b) {
+  const dow = new Date(b.date + 'T00:00:00').getDay();
+  if (dow === 6) return 'saturday';
+  if (dow === 0) return 'sunday';
+  return 'weekday-night';
+}
+function applySleepoverActive(id, activeHours, note) {
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
+  if (!b) return null;
+  const active = Math.round(Math.max(0, Math.min(Number(b.hours) || SLEEPOVER_HOURS_MIN, Number(activeHours) || 0)) * 4) / 4;
+  const extra = Math.max(0, round2(active - SLEEPOVER_INCLUDED_ACTIVE_HOURS));
+  let category = '', item = '', rate = 0, total = 0, share = 0;
+  if (extra > 0) {
+    category = sleepoverActiveCategory(b);
+    const r = INVOICE_RATES[category];
+    rate = r.price; total = round2(rate * extra);
+    item = supportItemFor(b.service, category) || '';
+    const pay = workerPay(b.worker_id, category, extra);
+    share = pay ? pay.amount : round2(r.worker * extra);
+  }
+  db.prepare(`UPDATE bookings SET active_hours = ?, active_extra_hours = ?, active_extra_category = ?, active_extra_item = ?,
+    active_extra_rate = ?, active_extra_total = ?, active_extra_share = ?, active_note = ? WHERE id = ?`)
+    .run(active, extra, category, item, rate, total, share, String(note || ''), id);
+  return { active, included: SLEEPOVER_INCLUDED_ACTIVE_HOURS, extra, category, item, rate, total, share };
+}
+
+/* ---------- the open-shift feed ----------
+   Every cover request the cascade has open is a shift somebody needs. The
+   cascade offers them in tiers; this is the same list, shown to any worker
+   who is eligible, so a spare Tuesday can be filled by the person who wants
+   it rather than waited on. Claiming runs the same gates as an offer. */
+route('GET', /^\/api\/me\/open-shifts$/, (req, res, m, user) => {
+  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const open = db.prepare(`SELECT c.id AS cover_id, b.id AS booking_id, b.service, b.date, b.start, b.hours, b.sleepover, u.suburb
+    FROM cover c JOIN bookings b ON b.id = c.booking_id JOIN users u ON u.id = b.participant_id
+    WHERE c.status = 'open' AND b.status IN ('requested','accepted') AND b.date >= ? ORDER BY b.date, b.start`).all(ymd());
+  const shifts = open.filter(r => r.booking_id && workerEligible(user.id, { id: r.booking_id, service: r.service, date: r.date, start: r.start, hours: r.hours }))
+    .map(r => ({ cover_id: r.cover_id, service: r.service, label: SERVICE_LABELS[r.service] || r.service, date: r.date, start: r.start, hours: r.hours, sleepover: !!r.sleepover, suburb: r.suburb,
+      pay: (() => { const cat = r.sleepover ? 'sleepover' : suggestCategory(r); const pay = workerPay(user.id, cat, r.hours); return pay ? pay.amount : 0; })() }));
+  json(res, 200, { shifts });
+});
+route('POST', /^\/api\/cover\/(\d+)\/claim$/, (req, res, m, user, body, ip) => {
+  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  if (limited(ip, 'claim', 30)) return json(res, 429, { error: 'Too many attempts — try again shortly.' });
+  const cv = db.prepare("SELECT * FROM cover WHERE id = ? AND status = 'open'").get(Number(m[1]));
+  if (!cv) return json(res, 404, { error: 'That shift has already been covered.' });
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
+  if (!b || !['requested', 'accepted'].includes(b.status)) return json(res, 404, { error: 'That shift is no longer open.' });
+  if (bookingStart(b) <= new Date()) return json(res, 409, { error: 'That shift has started; the office is arranging it directly.' });
+  if (!workerEligible(user.id, b)) return json(res, 409, { error: 'You are not eligible for this one — the service, the day, a credential, or a clash in your diary.' });
+  /* workerBookingGate is not asked here: its "cover is being arranged" refusal
+     is the very thing a claim resolves, and workerEligible has already asked
+     the platform, screening, service, day and diary questions */
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.prepare("UPDATE cover SET status = 'filled', filled_worker_id = ?, filled_at = ?, closed_at = ?, outcome_note = 'Claimed from the open-shift feed.' WHERE id = ?").run(user.id, now(), now(), cv.id);
+    db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
+    db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', accepted_at = ?, swap_count = swap_count + 1 WHERE id = ?").run(user.id, now(), b.id);
+    db.exec('COMMIT');
+  } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
+  const w = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(user.id);
+  try { notifyCovered(req, db.prepare('SELECT * FROM bookings WHERE id = ?').get(b.id), w, null); } catch (e) { console.warn('[feed] notify failed:', e.message); }
+  json(res, 200, { ok: true, booking_id: b.id });
+});
+
+/* ---------- worker referrals ----------
+   A worker who brings in a worker is paid a bonus once the new worker has
+   delivered REFERRAL_QUALIFY_HOURS of completed shifts. The code is on the
+   earnings page; a new worker types it at sign-up. Participants are never
+   offered anything for a referral — the Code of Conduct treats inducements
+   to participants as a problem, and so do we. */
+db.exec(`CREATE TABLE IF NOT EXISTS referrals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  referrer_id INTEGER NOT NULL,
+  referee_id INTEGER NOT NULL UNIQUE,
+  code TEXT NOT NULL,
+  created TEXT NOT NULL,
+  qualified_at TEXT,
+  hours_at_qualify REAL DEFAULT 0,
+  amount REAL DEFAULT 0,
+  paid_at TEXT,
+  paid_by TEXT
+)`);
+const REFERRAL_QUALIFY_HOURS = () => numSetting('referral_qualify_hours', 50);
+const REFERRAL_BONUS = () => numSetting('referral_bonus', 150);
+function referralCode(workerId) {
+  return 'W' + Number(workerId) + '-' + crypto.createHmac('sha256', SECRET).update('referral:' + workerId).digest('hex').slice(0, 6).toUpperCase();
+}
+function referrerFromCode(code) {
+  const m = /^W(\d+)-([A-F0-9]{6})$/i.exec(String(code || '').trim());
+  if (!m) return null;
+  return referralCode(Number(m[1])).toUpperCase() === (m[0]).toUpperCase() ? Number(m[1]) : null;
+}
+function reviewReferrals() {
+  const rows = db.prepare('SELECT * FROM referrals WHERE qualified_at IS NULL').all();
+  let q = 0;
+  for (const r of rows) {
+    const h = db.prepare("SELECT COALESCE(SUM(hours),0) AS h FROM bookings WHERE worker_id = ? AND status = 'completed' AND COALESCE(kind,'shift') = 'shift'").get(r.referee_id).h;
+    if (h >= REFERRAL_QUALIFY_HOURS()) {
+      db.prepare('UPDATE referrals SET qualified_at = ?, hours_at_qualify = ?, amount = ? WHERE id = ?').run(now(), h, REFERRAL_BONUS(), r.id);
+      q++;
+      const u = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(r.referrer_id);
+      if (u) notify(u.id, 'earnings', u.email, 'Your referral bonus is on its way — BookIt', `Good news, ${firstName(u.name)}`,
+        `<p>The worker you referred has completed ${REFERRAL_QUALIFY_HOURS()} hours with BookIt, so your <b>$${REFERRAL_BONUS().toFixed(2)}</b> referral bonus is now payable. It will be on your next pay run.</p>`);
+    }
+  }
+  return q;
+}
+route('GET', /^\/api\/me\/referrals$/, (req, res, m, user) => {
+  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const rows = db.prepare(`SELECT r.*, u.name AS referee_name FROM referrals r JOIN users u ON u.id = r.referee_id WHERE r.referrer_id = ? ORDER BY r.id DESC`).all(user.id)
+    .map(r => ({ id: r.id, who: shortName(r.referee_name), created: r.created, qualified_at: r.qualified_at, paid_at: r.paid_at, amount: r.amount,
+      hours: db.prepare("SELECT COALESCE(SUM(hours),0) AS h FROM bookings WHERE worker_id = ? AND status = 'completed' AND COALESCE(kind,'shift') = 'shift'").get(r.referee_id).h }));
+  json(res, 200, { code: referralCode(user.id), link: `${baseUrl(req)}/#/get-started?type=worker&ref=${referralCode(user.id)}`, qualify_hours: REFERRAL_QUALIFY_HOURS(), bonus: REFERRAL_BONUS(), referrals: rows });
+});
+route('GET', /^\/api\/admin\/referrals$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  reviewReferrals();
+  const rows = db.prepare(`SELECT r.*, a.name AS referrer_name, b.name AS referee_name FROM referrals r JOIN users a ON a.id = r.referrer_id JOIN users b ON b.id = r.referee_id ORDER BY r.qualified_at IS NULL, r.paid_at IS NOT NULL, r.id DESC`).all();
+  json(res, 200, { referrals: rows, qualify_hours: REFERRAL_QUALIFY_HOURS(), bonus: REFERRAL_BONUS() });
+});
+route('POST', /^\/api\/admin\/referrals\/(\d+)\/paid$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const r = db.prepare('SELECT * FROM referrals WHERE id = ?').get(Number(m[1]));
+  if (!r) return json(res, 404, { error: 'Not found.' });
+  if (!r.qualified_at) return json(res, 400, { error: 'Not payable yet — the referred worker has not reached the qualifying hours.' });
+  db.prepare('UPDATE referrals SET paid_at = ?, paid_by = ? WHERE id = ?').run(now(), user.name, r.id);
+  json(res, 200, { ok: true });
+});
+
+/* ---------- the KPI board ----------
+   The ten numbers that decide whether this business works, from the tables
+   that already hold them. Each is a plain count or ratio over a window; the
+   definitions are in the response so the office and the accountant read the
+   same thing. */
+route('GET', /^\/api\/admin\/kpis$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const q = new URL(req.url, 'http://x').searchParams;
+  const days = Math.max(7, Math.min(365, Number(q.get('days')) || 30));
+  const since = ymd(new Date(Date.now() - days * 864e5)), until = ymd();
+  const one = (sql, ...a) => db.prepare(sql).get(...a);
+  const n = (sql, ...a) => Number((one(sql, ...a) || {}).n || 0);
+  const demo = "AND up.email NOT LIKE '%@demo.bookit.life'";
+  const base = `FROM bookings b JOIN users up ON up.id = b.participant_id WHERE b.date BETWEEN ? AND ? ${demo}`;
+  const requested = n(`SELECT COUNT(*) AS n ${base} AND COALESCE(b.kind,'shift') = 'shift'`, since, until);
+  const delivered = n(`SELECT COUNT(*) AS n ${base} AND b.status = 'completed'`, since, until);
+  const cancelled = n(`SELECT COUNT(*) AS n ${base} AND b.status = 'cancelled'`, since, until);
+  const cancelledShort = n(`SELECT COUNT(*) AS n ${base} AND b.status = 'cancelled' AND b.short_notice = 1`, since, until);
+  const cancelledShortBilled = n(`SELECT COUNT(*) AS n ${base} AND b.status = 'cancelled' AND b.short_notice = 1 AND COALESCE(b.total,0) > 0`, since, until);
+  const uncovered = n(`SELECT COUNT(*) AS n FROM cover c JOIN bookings b ON b.id = c.booking_id JOIN users up ON up.id = b.participant_id WHERE b.date BETWEEN ? AND ? AND c.status IN ('uncovered','failed') ${demo}`, since, until);
+  const revenue = one(`SELECT COALESCE(SUM(b.total),0) + COALESCE(SUM(b.km_total),0) + COALESCE(SUM(b.active_extra_total),0) AS r, COALESCE(SUM(b.worker_share),0) + COALESCE(SUM(b.active_extra_share),0) AS w, COALESCE(SUM(b.hours),0) AS h ${base} AND b.status = 'completed' AND COALESCE(b.kind,'shift') <> 'intro'`, since, until);
+  const byCat = db.prepare(`SELECT b.rate_category AS c, COALESCE(SUM(b.total),0) AS r, COALESCE(SUM(b.worker_share),0) AS w, COALESCE(SUM(CASE WHEN b.sleepover = 1 THEN 1 ELSE b.hours END),0) AS h ${base} AND b.status = 'completed' GROUP BY b.rate_category`).all(since, until);
+  const cash = one(`SELECT AVG(julianday(b.paid_at) - julianday(b.completed_at)) AS d ${base} AND b.paid_at IS NOT NULL AND b.completed_at IS NOT NULL`, since, until);
+  const cashByLane = db.prepare(`SELECT up.plan AS lane, AVG(julianday(b.paid_at) - julianday(b.completed_at)) AS d, COUNT(*) AS n ${base} AND b.paid_at IS NOT NULL AND b.completed_at IS NOT NULL GROUP BY up.plan`).all(since, until);
+  const signups = n(`SELECT COUNT(*) AS n FROM users up WHERE up.role = 'participant' AND up.created >= ? ${demo}`, since);
+  const activated = n(`SELECT COUNT(DISTINCT up.id) AS n FROM users up JOIN bookings b ON b.participant_id = up.id WHERE up.role = 'participant' AND up.created >= ? AND COALESCE(b.kind,'shift') = 'shift' ${demo}`, since);
+  const ninety = ymd(new Date(Date.now() - 90 * 864e5)), oneEighty = ymd(new Date(Date.now() - 180 * 864e5));
+  const cohort = n(`SELECT COUNT(*) AS n FROM users up WHERE up.role = 'participant' AND up.created BETWEEN ? AND ? ${demo}`, oneEighty, ninety);
+  const retained = n(`SELECT COUNT(DISTINCT up.id) AS n FROM users up JOIN bookings b ON b.participant_id = up.id WHERE up.role = 'participant' AND up.created BETWEEN ? AND ? AND b.date >= ? AND b.status IN ('accepted','completed') ${demo}`, oneEighty, ninety, ninety);
+  const workersActive = n(`SELECT COUNT(DISTINCT b.worker_id) AS n FROM bookings b JOIN users uw ON uw.id = b.worker_id WHERE b.date BETWEEN ? AND ? AND b.status = 'completed' AND uw.email NOT LIKE '%@demo.bookit.life'`, since, until);
+  const workersVisible = n(`SELECT COUNT(*) AS n FROM worker_profiles p JOIN users uw ON uw.id = p.user_id WHERE p.visible = 1 AND uw.email NOT LIKE '%@demo.bookit.life'`);
+  const workersLeft = n(`SELECT COUNT(DISTINCT b.worker_id) AS n FROM bookings b JOIN users uw ON uw.id = b.worker_id WHERE b.status = 'completed' AND b.date BETWEEN ? AND ? AND uw.email NOT LIKE '%@demo.bookit.life' AND b.worker_id NOT IN (SELECT worker_id FROM bookings WHERE date > ? AND status IN ('accepted','completed'))`, ymd(new Date(Date.now() - 2 * days * 864e5)), since, since);
+  const verify = one(`SELECT AVG(julianday(verified_at) - julianday(uploaded_at)) AS d, COUNT(*) AS n FROM worker_docs WHERE verified_at IS NOT NULL AND verified_at <> '' AND uploaded_at >= ?`, since);
+  const availHours = one(`SELECT COALESCE(SUM(json_array_length(COALESCE(p.days,'[1,1,1,1,1,0,0]'))),0) AS d FROM worker_profiles p JOIN users uw ON uw.id = p.user_id WHERE p.visible = 1 AND uw.email NOT LIKE '%@demo.bookit.life'`);
+  const pct = (a, b) => (b > 0 ? round2(a / b * 100) : null);
+  json(res, 200, {
+    window: { days, from: since, to: until },
+    fill_rate: { value: pct(delivered, requested), delivered, requested, how: 'shifts completed ÷ shifts requested in the window' },
+    utilisation: { value: workersVisible ? round2((revenue.h || 0) / days * 7 / (workersVisible * 20)) * 100 : null, hours: revenue.h, workers: workersVisible, how: 'completed hours per visible worker per week ÷ 20 (a full part-time week)' },
+    cancellations: { rate: pct(cancelled, requested), short_notice: cancelledShort, short_notice_billed: cancelledShortBilled, unbilled: cancelledShort - cancelledShortBilled, how: 'a short-notice cancellation with no charge on it is revenue left on the table' },
+    uncovered: { value: uncovered, how: 'cover requests that ended uncovered or failed' },
+    days_to_cash: { value: cash && cash.d != null ? round2(cash.d) : null, by_lane: cashByLane.map(r => ({ lane: r.lane, days: r.d != null ? round2(r.d) : null, n: r.n })), how: 'completed → paid, averaged' },
+    margin_per_hour: { value: revenue.h ? round2(((revenue.r || 0) - (revenue.w || 0)) / revenue.h) : null, revenue: round2(revenue.r || 0), worker_share: round2(revenue.w || 0), hours: revenue.h,
+      by_category: byCat.map(r => ({ category: r.c, revenue: round2(r.r), worker_share: round2(r.w), units: r.h, margin_per_unit: r.h ? round2((r.r - r.w) / r.h) : null })), how: 'revenue minus worker share, per completed hour, before on-costs and overheads' },
+    activation: { value: pct(activated, signups), signups, activated, how: 'participants who signed up in the window and have requested a shift' },
+    retention_90d: { value: pct(retained, cohort), cohort, retained, how: 'participants who joined 90–180 days ago and had a shift in the last 90 days' },
+    worker_churn: { active: workersActive, visible: workersVisible, left: workersLeft, how: 'workers with completed shifts in the prior window and nothing since' },
+    time_to_verify: { days: verify && verify.d != null ? round2(verify.d) : null, checked: verify ? verify.n : 0, how: 'credential uploaded → verified by the office, averaged' },
+    referrals_payable: n('SELECT COUNT(*) AS n FROM referrals WHERE qualified_at IS NOT NULL AND paid_at IS NULL')
+  });
+});
+
+/* ---------- concierge onboarding ----------
+   Many participants and parents are not digital-first. The office can open
+   the account for them on the phone, with consent recorded in words, and the
+   person then sets their own password from the email. Nothing else is filled
+   in by the office: the plan, the agreement and the consent are theirs to do. */
+route('POST', /^\/api\/admin\/participants\/create$/, (req, res, m, user, body, ip) => {
+  if (!requireAdmin(user, res)) return;
+  const name = clean(body.name, 80), email = clean(body.email, 120).toLowerCase(), phone = clean(body.phone, 30), suburb = clean(body.suburb, 80);
+  const plan = ['ndia', 'plan', 'self'].includes(body.plan) ? body.plan : 'none';
+  const consent = clean(body.consent, 400);
+  if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json(res, 400, { error: 'A name and a working email address are needed.' });
+  if (!consent || consent.length < 20) return json(res, 400, { error: 'Record the consent in words: who agreed, on the phone, on what date, to an account being opened for them.' });
+  if (db.prepare('SELECT id FROM users WHERE lower(email) = ?').get(email)) return json(res, 409, { error: 'There is already an account with that email address.' });
+  const pw = crypto.randomBytes(24).toString('base64url');
+  const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, created) VALUES (?,?,?,?,?,?,?,?)').run('participant', name, email, hashPassword(pw), suburb, phone, plan, now());
+  const uid = Number(r.lastInsertRowid);
+  logCompliance({ worker_id: null, worker_name: '', kind: 'concierge-onboarding', result: 'opened', detail: `Participant account #${uid} (${name}) opened by the office. Consent: ${consent}`, source: 'admin', checked_by: user.name });
+  const row = db.prepare('SELECT id, pass FROM users WHERE id = ?').get(uid);
+  const token = makeEmailToken('r', row.id, 7 * 24 * 3600e3, String(row.pass).slice(0, 16));
+  sendMail(email, 'Your BookIt account is ready — choose a password', `Hello ${escHtml(name.split(' ')[0])}`,
+    `<p>As we discussed on the phone, we have opened your BookIt account. Press the button to choose your password — the link works for seven days. Then you can find and book support workers, and see everything we hold about your supports.</p><p>If you did not ask for this, ignore this email and nothing will happen.</p>`,
+    'Choose my password', `${baseUrl(req)}/#/reset?token=${token}`).catch(e => console.warn('[concierge] mail failed:', e.message));
+  json(res, 200, { ok: true, id: uid });
+});
+
+/* ---------- one-off fee lines ----------
+   Two claimable things that are not shifts. The establishment fee is a one-off
+   for a new participant who needs their supports set up (conditions in the
+   Pricing Arrangements — the office ticks that they are met). Non-face-to-face
+   time is the writing of a support plan or a report, claimed against the same
+   item as the support it relates to. Both are bookings of a kind, so the
+   invoice, statement and claim machinery carries them unchanged, and the
+   participant sees them where they see every other charge. */
+const ESTABLISHMENT_FEE = 735.80;
+const ESTABLISHMENT_ITEMS = { 'personal-care': '01_049_0107_1_1', 'community': '04_049_0125_1_1', 'transport': '04_049_0125_1_1', 'daily-tasks': '01_049_0107_1_1', 'household': '01_049_0107_1_1', 'employment': '04_049_0125_1_1' };
+function feeBooking(participantId, officeId, service, kind, hours, unit, total, item, note) {
+  return Number(db.prepare(`INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, status, created, completed_at, approval_state, approval_from,
+      rate_category, unit_price, worker_share, total, support_item, kind, office_ok)
+    VALUES (?,?,?,?,?,?,?,'completed',?,?,'approved',?,?,?,0,?,?,?,1)`)
+    .run(participantId, officeId, service, ymd(), '09:00', hours, note, now(), now(), now(), kind, unit, total, item, kind).lastInsertRowid);
+}
+route('POST', /^\/api\/admin\/participants\/(\d+)\/establishment-fee$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const pid = Number(m[1]);
+  const p = db.prepare("SELECT id, name, plan FROM users WHERE id = ? AND role = 'participant'").get(pid);
+  if (!p) return json(res, 404, { error: 'Participant not found.' });
+  if (body.conditions_met !== true) return json(res, 400, { error: 'Tick that the Pricing Arrangements conditions for an establishment fee are met for this participant.' });
+  if (db.prepare("SELECT id FROM bookings WHERE participant_id = ? AND kind = 'establishment'").get(pid)) return json(res, 409, { error: 'An establishment fee has already been raised for this participant.' });
+  const service = ESTABLISHMENT_ITEMS[body.service] ? body.service : 'personal-care';
+  const id = feeBooking(pid, user.id, service, 'establishment', 0, ESTABLISHMENT_FEE, ESTABLISHMENT_FEE, ESTABLISHMENT_ITEMS[service], `Establishment fee — ${clean(body.note, 200) || 'new participant set-up'}`);
+  logCompliance({ worker_id: null, worker_name: '', kind: 'establishment-fee', result: 'raised', detail: `Establishment fee $${ESTABLISHMENT_FEE.toFixed(2)} raised for ${p.name} (booking #${id}).`, source: 'admin', checked_by: user.name });
+  json(res, 200, { ok: true, booking_id: id, total: ESTABLISHMENT_FEE });
+});
+route('POST', /^\/api\/admin\/participants\/(\d+)\/nf2f$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const pid = Number(m[1]);
+  const p = db.prepare("SELECT id, name FROM users WHERE id = ? AND role = 'participant'").get(pid);
+  if (!p) return json(res, 404, { error: 'Participant not found.' });
+  const service = SUPPORT_ITEMS[body.service] ? body.service : null;
+  const hours = Math.round((Number(body.hours) || 0) * 4) / 4;
+  const what = clean(body.what, 200);
+  if (!service || !(hours >= 0.25 && hours <= 8) || !what) return json(res, 400, { error: 'A service, the time (¼ to 8 hours) and what the work was are all needed.' });
+  const cat = ['household', 'employment'].includes(service) ? service : 'weekday-day';
+  const r = INVOICE_RATES[cat];
+  const item = supportItemFor(service, cat) || '';
+  const id = feeBooking(pid, user.id, service, 'nf2f', hours, r.price, round2(r.price * hours), item, `Non-face-to-face support — ${what}`);
+  json(res, 200, { ok: true, booking_id: id, total: round2(r.price * hours), item });
+});
+
+/* ---------- coordinator referrals ----------
+   A support coordinator or plan manager sends a participant our way in one
+   form; the office answers within two business hours. The promise is in the
+   acknowledgement email, so it is a promise, not a hope. */
+route('POST', /^\/api\/referrals$/, (req, res, m, user, body, ip) => {
+  if (limited(ip, 'referral', 10)) return json(res, 429, { error: 'Too many attempts — try again later.' });
+  const f = k => clean(body[k], 200);
+  const coordinator = f('coordinator'), org = f('org'), email = f('email').toLowerCase(), phone = f('phone');
+  const participant = f('participant'), suburb = f('suburb'), supports = clean(body.supports, 600), funding = ['ndia', 'plan', 'self'].includes(body.funding) ? body.funding : '';
+  if (!coordinator || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !participant || !supports) return json(res, 400, { error: 'Your name and email, the participant\u2019s first name and what supports are needed are the minimum.' });
+  const bodyText = `REFERRAL from ${coordinator}${org ? ` (${org})` : ''}, ${phone || 'no phone'}\nParticipant: ${participant}, ${suburb || 'suburb not given'}, funding: ${funding || 'not given'}\nSupports needed: ${supports}`;
+  const mid = db.prepare('INSERT INTO contact_messages (name, email, topic, body, created) VALUES (?,?,?,?,?)').run(coordinator, email, 'referral', bodyText, now()).lastInsertRowid;
+  sendMail(email, `Referral received — we will be in touch within two business hours (R-${mid})`, `Thanks, ${escHtml(coordinator.split(' ')[0])}`,
+    `<p>We have your referral for <b>${escHtml(participant)}</b>. Someone from the office will ring or email you within <b>two business hours</b> (8am–6pm, Monday to Friday) with who we have available and what happens next. Your reference is <b>R-${mid}</b>.</p>`).catch(() => {});
+  for (const a of db.prepare("SELECT id, email FROM users WHERE is_admin = 1 AND verified = 1").all()) {
+    notify(a.id, 'office', a.email, `New referral R-${mid} — answer within two business hours`, 'A coordinator has referred a participant', `<pre style="white-space:pre-wrap">${escHtml(bodyText)}</pre>`, 'Open the office inbox', `${baseUrl(req)}/#/admin/inbox`);
+  }
+  json(res, 200, { ok: true, ref: `R-${mid}` });
+});
+
+/* ---------- group ratios ----------
+   Two or three participants, one worker, one hour: each is charged the hourly
+   price divided by the ratio, the worker is paid once. The office links the
+   shifts; they must share the worker, the date, the start and the length, and
+   none may be claimed yet. Off until the 0136 registration is held. */
+route('POST', /^\/api\/admin\/bookings\/group$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  if (setting('group_supports', 'off') !== 'on') return json(res, 400, { error: 'Group supports are off. They claim the 0136 (group and centre-based activities) items, which need that registration group — turn them on with the setting group_supports=on once it is held.' });
+  const ids = [...new Set((body.ids || []).map(Number).filter(Boolean))];
+  if (!(ids.length >= 2 && ids.length <= 3)) return json(res, 400, { error: 'A group is two or three shifts.' });
+  const rows = ids.map(id => db.prepare('SELECT * FROM bookings WHERE id = ?').get(id)).filter(Boolean);
+  if (rows.length !== ids.length) return json(res, 404, { error: 'One of those shifts does not exist.' });
+  const f = rows[0];
+  for (const b of rows) {
+    if (b.worker_id !== f.worker_id || b.date !== f.date || b.start !== f.start || Number(b.hours) !== Number(f.hours)) return json(res, 400, { error: `Shift #${b.id} does not share the worker, date, start and length of #${f.id}.` });
+    if (!['requested', 'accepted', 'completed'].includes(b.status) || b.claim_status === 'claimed' || b.claim_status === 'paid') return json(res, 400, { error: `Shift #${b.id} is cancelled or already claimed.` });
+    if (!GROUP_ITEMS[b.rate_category || suggestCategory(b)] && !['community', 'transport', 'daily-tasks'].includes(b.service)) return json(res, 400, { error: `Shift #${b.id} is a ${b.service} shift; group pricing covers community, transport and daily-living time.` });
+    if (b.sleepover || b.kind !== 'shift') return json(res, 400, { error: `Shift #${b.id} is not an ordinary shift.` });
+  }
+  const key = `G${f.worker_id}-${f.date}-${f.start}`;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    for (const b of rows) {
+      db.prepare('UPDATE bookings SET ratio = ?, group_key = ? WHERE id = ?').run(rows.length, key, b.id);
+      if (b.status === 'completed' && b.rate_category) applyInvoice(b.id, b.rate_category);
+    }
+    db.exec('COMMIT');
+  } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
+  json(res, 200, { ok: true, group_key: key, ratio: rows.length });
+});
+route('POST', /^\/api\/admin\/bookings\/(\d+)\/ungroup$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b || !b.group_key) return json(res, 404, { error: 'That shift is not in a group.' });
+  const rows = db.prepare('SELECT * FROM bookings WHERE group_key = ?').all(b.group_key);
+  if (rows.some(x => x.claim_status === 'claimed' || x.claim_status === 'paid')) return json(res, 400, { error: 'A shift in this group has been claimed; it cannot be re-priced.' });
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    for (const x of rows) {
+      db.prepare("UPDATE bookings SET ratio = 1, group_key = '' WHERE id = ?").run(x.id);
+      if (x.status === 'completed' && x.rate_category) applyInvoice(x.id, x.rate_category);
+    }
+    db.exec('COMMIT');
+  } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
+  json(res, 200, { ok: true, ungrouped: rows.length });
+});
+
+/* ---------- suburb pages ----------
+   "Support workers in Wyong" is how a family actually searches. One page per
+   suburb that has a visible worker: how many, what they offer, and a button
+   into the directory filtered to that suburb. No names, no photos — a page
+   for a search engine, not a profile. */
+function suburbSlug(s) { return String(s || '').toLowerCase().replace(/\s+(nsw|vic|qld|sa|wa|tas|nt|act)$/i, '').trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+function suburbIndex() {
+  const rows = db.prepare(`SELECT u.suburb, p.services, u.email FROM worker_profiles p JOIN users u ON u.id = p.user_id WHERE p.visible = 1 AND COALESCE(u.suburb,'') <> ''`).all()
+    .filter(r => platformEligible(null, r.email) !== false);
+  const by = new Map();
+  for (const r of rows) {
+    const slug = suburbSlug(r.suburb); if (!slug) continue;
+    const e = by.get(slug) || { slug, name: String(r.suburb).replace(/\s+(nsw|vic|qld|sa|wa|tas|nt|act)$/i, '').trim(), state: (/(nsw|vic|qld|sa|wa|tas|nt|act)$/i.exec(r.suburb) || [''])[0].toUpperCase(), workers: 0, services: new Set() };
+    e.workers++; for (const sv of safeJson(r.services, [])) e.services.add(sv);
+    by.set(slug, e);
+  }
+  return [...by.values()].sort((a, b) => b.workers - a.workers || a.name.localeCompare(b.name));
+}
+function suburbPage(req, entry, all) {
+  const base = baseUrl(req);
+  const title = `NDIS support workers in ${entry.name}${entry.state ? ', ' + entry.state : ''} — BookIt`;
+  const desc = `${entry.workers} verified, insured NDIS support worker${entry.workers === 1 ? '' : 's'} based in ${entry.name} on BookIt, offering ${[...entry.services].map(s => (SERVICE_LABELS[s] || s).toLowerCase()).join(', ')}. Operated by a registered NDIS provider; agency-managed, plan-managed and self-managed participants welcome.`;
+  const others = all.filter(x => x.slug !== entry.slug).slice(0, 12).map(x => `<li><a href="${base}/support-workers-in/${x.slug}">${escHtml(x.name)}</a> (${x.workers})</li>`).join('');
+  return `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(title)}</title><meta name="description" content="${escHtml(desc)}"><link rel="canonical" href="${base}/support-workers-in/${entry.slug}"><link rel="stylesheet" href="/assets/fonts/fonts.css">
+<style>body{font-family:Inter,system-ui,sans-serif;margin:0;color:#1c2a30;background:#fbfaf7}main{max-width:720px;margin:0 auto;padding:40px 20px}h1{font-family:Sora,system-ui,sans-serif;font-size:2rem;line-height:1.15;margin:0 0 .6em}p,li{font-size:1.05rem;line-height:1.6}.cta{display:inline-block;background:#0e6b62;color:#fff;padding:.9em 1.4em;border-radius:12px;text-decoration:none;font-weight:600;margin:.6em 0}ul.sv li{display:inline-block;background:#e6f2f0;border-radius:999px;padding:.35em .9em;margin:.2em}nav a{color:#0e6b62}footer{color:#5a6b71;font-size:.9rem;margin-top:3em}</style></head>
+<body><main><nav><a href="${base}/">BookIt</a> › <a href="${base}/locations">Where we work</a> › ${escHtml(entry.name)}</nav>
+<h1>NDIS support workers in ${escHtml(entry.name)}</h1>
+<p><b>${entry.workers}</b> verified, insured support worker${entry.workers === 1 ? ' is' : 's are'} based in ${escHtml(entry.name)} and available to book through BookIt. Every one has current NDIS Worker Screening, first aid and CPR, and has been interviewed by our team — nothing appears on a profile until someone has checked it.</p>
+<p>They offer:</p><ul class="sv">${[...entry.services].map(s => `<li>${escHtml(SERVICE_LABELS[s] || s)}</li>`).join('')}</ul>
+<p><a class="cta" href="${base}/#/find-workers?suburb=${encodeURIComponent(entry.name)}">See the workers in ${escHtml(entry.name)}</a></p>
+<p>BookIt is operated by Disability &amp; Mental Health Care Pty Ltd, a registered NDIS provider, so agency-managed participants can book here as well as plan-managed and self-managed. We bill at the NDIS price limits, never above them, and if your worker cannot make a shift we find cover or tell you early.</p>
+<p>Nearby: <a href="${base}/#/find-workers">the whole directory</a>, or <a href="${base}/#/get-started">get started</a> — it takes about ten minutes.</p>
+${others ? `<h2>Other suburbs</h2><ul>${others}</ul>` : ''}
+<footer>Disability &amp; Mental Health Care Pty Ltd · NDIS registered provider · <a href="${base}/#/contact">Contact</a></footer></main></body></html>`;
+}
+
 /* ---------- the public pages, as the server knows them ----------
    The app is one page and a hash router, which is right for the person using
    it and wrong for a search engine, which sees one URL with one title. So the
@@ -16534,7 +17006,8 @@ const PUBLIC_PAGES = {
   '/jobs': ['Open jobs — BookIt', 'Real posts from NDIS participants and their families looking for a support worker. Every application gets an answer.'],
   '/for-plan-managers': ['For plan managers — BookIt', 'The exact support item on every line, statements that open in your software, and never a dollar above the published maximums.'],
   '/for-families': ['For families & carers — BookIt', 'Who is coming to the house, whether they are properly checked, and what happened on the shift — how BookIt answers each, and how to help without taking over.'],
-  '/locations': ['Where BookIt works — BookIt', 'Available across Australia by design, with the deepest coverage where the worker pools are. Where you will find the most choice today.']
+  '/locations': ['Where BookIt works — BookIt', 'Available across Australia by design, with the deepest coverage where the worker pools are. Where you will find the most choice today.'],
+  '/services/overnight': ['Overnight support: sleepovers and active nights — BookIt', 'Inactive night care (a sleepover) is one flat NDIS price for the night with a worker asleep on the premises, up to two hours of help included. Active overnight support is by the hour. How each is booked, priced and paid.']
 };
 const CSP_HTML = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
@@ -16690,7 +17163,8 @@ function serveShell(req, res, pathname) {
 }
 function sitemapXml(req) {
   const base = baseUrl(req);
-  const urls = Object.keys(PUBLIC_PAGES).map(p => `  <url><loc>${escHtml(base + (p === '/' ? '/' : p))}</loc></url>`).join('\n');
+  const urls = [...Object.keys(PUBLIC_PAGES).map(p => `  <url><loc>${escHtml(base + (p === '/' ? '/' : p))}</loc></url>`),
+    ...suburbIndex().map(e => `  <url><loc>${escHtml(`${base}/support-workers-in/${e.slug}`)}</loc></url>`)].join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
@@ -16892,6 +17366,14 @@ const server = http.createServer((req, res) => {
 
   if (!pathname.startsWith('/api/')) {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+    if (/^\/support-workers-in\/[a-z0-9-]+$/.test(pathname)) {
+      const all = suburbIndex();
+      const entry = all.find(x => x.slug === pathname.split('/')[2]);
+      if (!entry) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end('No workers there yet.'); }
+      const html = Buffer.from(suburbPage(req, entry, all));
+      res.setHeader('Content-Security-Policy', CSP_HTML);
+      return sendBuffer(req, res, html, MIME['.html'], 'public, max-age=3600', null, `suburb:${entry.slug}`, String(html.length));
+    }
     if (pathname === '/sitemap.xml') {
       const body = sitemapXml(req);
       res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8', 'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'public, max-age=3600' });

@@ -1,4 +1,4 @@
-BookIt v86.8.0 — the review release: the door shut by default, one worker in one
+BookIt v86.9.0 — the growth release (inactive night care done properly, meet-and-greets, the open-shift feed, worker referrals, the KPI board, concierge onboarding, fee lines, coordinator referrals, group ratios, suburb pages), on top of v86.8.0, the review release: the door shut by default, one worker in one
 place at a time, streamed and compressed static files, public pages for search
 engines, self-hosted fonts, an admin idle timeout, backups in the repository,
 tests and CI. Read STARTHERE.txt — "WHAT CHANGED IN v86.8.0" — before deploying.
@@ -14,4 +14,4 @@ of it over the same paths on that commit, then sudo bookit-update. Unchanged fil
   .github/workflows/check.yml  .nvmrc  .env.example   (dotfiles — see STARTHERE for the macOS note)
   STARTHERE.txt  readme.txt
 
-No database work needed. SCHEMA_VERSION stays 86400.
+One migration, automatic at boot: ten columns on bookings and the referrals table. SCHEMA_VERSION 86900.
