@@ -2836,6 +2836,11 @@ html.high-contrast .care-stage-block{display:none!important;}
       <p class="muted-sm" style="margin:4px 0 8px;">Live from our rate table — the NDIS price for the hour, and your share of it. Superannuation is on top. A sleepover is a flat night.</p>
       <div id="swPayTable"><span class="muted-sm">Loading…</span></div>
     </div>
+    <div class="card" id="swReferral" style="margin:18px 0;">
+      <b>Know a good support worker? Refer them.</b>
+      <p style="margin:6px 0 0;">Every BookIt worker has a referral code and link on their <i>My earnings</i> page. Give it to someone you would want on your own roster; they type it when they sign up. Once they have completed <b>50 hours</b> with BookIt you are paid a <b>$150</b> referral bonus on your next pay run — no cap on how many. Participants are never offered anything for referrals; this is a worker's programme, because workers know who is good.</p>
+      <p class="muted-sm" style="margin:6px 0 0;">Already with us? Your code is at <a href="#/earnings">My earnings</a>.</p>
+    </div>
       <p class="lead">Be employed — not a gig contractor. Choose your clients and hours, get paid above award with super and full insurance, and build real relationships doing work that matters.</p>
       <div class="hero-ctas mt-3">
         <a href="#/get-started?type=worker" class="btn btn-coral btn-lg">Apply now — it's free</a>
@@ -5361,8 +5366,9 @@ function serviceCard(s){
     <span class="go">Learn more →</span>
   </a>`;
 }
-$('#homeServices').innerHTML = SERVICES.map(serviceCard).join('');
-$('#allServices').innerHTML = SERVICES.map(serviceCard).join('');
+const OVERNIGHT_CARD = { slug:'overnight', icon:'heart', color:'ic-coral', name:'Overnight support', short:'Inactive night care — a sleepover at one flat price for the night, up to two hours of help included — or an active overnight shift by the hour.', code:'0107 / 0115 · Night-Time Sleepover' };
+$('#homeServices').innerHTML = SERVICES.concat([OVERNIGHT_CARD]).map(serviceCard).join('');
+$('#allServices').innerHTML = SERVICES.concat([OVERNIGHT_CARD]).map(serviceCard).join('');
 
 /* ============ Render: rates tables ============ */
 function renderRateTables(){
