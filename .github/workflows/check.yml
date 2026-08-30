@@ -1,0 +1,20 @@
+# Runs the same command as "npm run check" on every push and pull request:
+# syntax check, the generated inventories must match server.js, the clash
+# tests, and the smoke test (boots the server on a throwaway database).
+# The answer on the laptop and the answer here are the same answer.
+name: check
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc   # the exact release the server runs; change .nvmrc and the box together
+      - run: npm ci --ignore-scripts
+      - run: npm run check
