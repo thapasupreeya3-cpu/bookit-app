@@ -268,7 +268,14 @@ async function main() {
     const admRefs = await req('GET', '/api/admin/referrals', { cookie: ac2 });
     t('after 60 completed hours the referral is payable', admRefs.status === 200 && admRefs.json.referrals.some(r => r.referee_id === newId && r.qualified_at && !r.paid_at), admRefs.status);
     const rid = admRefs.json.referrals.find(r => r.referee_id === newId).id;
+    const pay = await req('GET', '/api/admin/payroll.csv', { cookie: ac2 });
+    const bonusRow = pay.text.split(/\r?\n/).find(l => l.includes('Referral bonus') && l.includes('Referred Worker'));
+    t('the payable bonus is a row on the payroll run, not claimable', pay.status === 200 && !!bonusRow && bonusRow.includes('150.00') && bonusRow.includes('not claimable'), bonusRow || 'no row');
     t('the office can mark it paid', (await req('POST', `/api/admin/referrals/${rid}/paid`, { headers: J2, cookie: ac2, body: {} })).status === 200);
+    t('… after which it leaves the payroll run', !(await req('GET', '/api/admin/payroll.csv', { cookie: ac2 })).text.split(/\r?\n/).some(l => l.includes('Referral bonus') && l.includes('Referred Worker')));
+    const rt = await req('GET', '/api/rates');
+    t('the public rate table lists the sleepover, per night', rt.json.rates.some(r => r.category === 'sleepover' && Math.abs(r.you - 311.79) < 0.01 && r.worker > 0), JSON.stringify((rt.json.rates || []).map(r => r.category)));
+    t('the claim table lists the sleepover and active-overnight items', rt.json.calc.claims.some(c => c.service === 'sleepover' && /01_010_0107_1_1/.test(c.codes['*'])) && rt.json.calc.claims.some(c => c.service === 'active-overnight'));
 
     /* KPIs, concierge, fee lines, groups off, coordinator referral, suburb pages, overnight page */
     const k = await req('GET', '/api/admin/kpis', { cookie: ac2 });

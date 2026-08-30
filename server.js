@@ -1610,7 +1610,8 @@ const RATE_ROWS = [
   { label: 'Sunday',          category: 'sunday' },
   { label: 'Public holiday',  category: 'public-holiday' },
   { label: 'Household tasks', category: 'household' },
-  { label: 'Employment support', category: 'employment' }
+  { label: 'Employment support', category: 'employment' },
+  { label: 'Inactive night care — sleepover (per night, up to 2 active hours included)', category: 'sleepover' }
 ];
 function publicRates() {
   const shares = tierShares(), sup = superRate();
@@ -5682,6 +5683,18 @@ route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
       q(`SCHADS cl.26 on-call — ${r.band === 'weekday' ? 'Mon–Fri' : 'weekend/public holiday'}${r.called_at ? ', called on' : ''}`),
       (r.allowance || 0).toFixed(2), q('not claimable')].join(','));
   }
+  /* Referral bonuses that have qualified and not yet been paid ride the same
+     run, one row each, so the bookkeeper sees them beside the shifts. They
+     stay on every run until the office presses Mark paid — pressing it is
+     the record that the money went. Not claimable: it is our cost. */
+  const rb = db.prepare(`SELECT r.id, r.qualified_at, r.amount, a.name, a.email, b.name AS referee
+    FROM referrals r JOIN users a ON a.id = r.referrer_id JOIN users b ON b.id = r.referee_id
+    WHERE r.qualified_at IS NOT NULL AND r.paid_at IS NULL ORDER BY a.name`).all();
+  for (const r of rb) {
+    lines.push([q(r.name), q(r.email), q(String(r.qualified_at).slice(0, 10)), q(''), '', q('Worker referral'), q('Referral bonus'),
+      q(`Referred ${r.referee} — qualified ${String(r.qualified_at).slice(0, 10)} (referral #${r.id}, mark paid in Admin › Growth & money)`),
+      (r.amount || 0).toFixed(2), q('not claimable')].join(','));
+  }
   res.writeHead(200, {
     'Content-Type': 'text/csv; charset=utf-8',
     'Content-Disposition': `attachment; filename="bookit-payroll-${ymd()}.csv"`
@@ -5803,7 +5816,10 @@ route('GET', /^\/api\/rates$/, (req, res) => {
       claims: SERVICES.map(sv => ({
         service: sv, label: SERVICE_LABELS[sv], group: REG_GROUPS[sv],
         codes: SUPPORT_ITEMS[sv], confirm: !!ITEM_CONFIRM[sv]
-      })),
+      })).concat([
+        { service: 'sleepover', label: 'Inactive night care — sleepover (personal care / daily tasks)', group: '0107 / 0115', codes: { '*': `${SUPPORT_ITEMS['personal-care'].sleepover} · ${SUPPORT_ITEMS['daily-tasks'].sleepover}` }, confirm: false },
+        { service: 'active-overnight', label: 'Active overnight (personal care / daily tasks)', group: '0107 / 0115', codes: { '*': `${SUPPORT_ITEMS['personal-care']['weekday-night']} · ${SUPPORT_ITEMS['daily-tasks']['weekday-night']}` }, confirm: false }
+      ]),
       cancel: Object.entries(CANCEL_HOURS).map(([service, hours]) => ({
         service, label: SERVICE_LABELS[service], hours,
         notice: hours % 24 === 0 ? `${hours / 24} clear day${hours / 24 === 1 ? '' : 's'}` : `${hours} hours`
@@ -12600,6 +12616,7 @@ function schadsCasual(level) {
   return numSetting(`schads_l${lv}_casual`, LADDER_DEFAULT.schads[lv]);
 }
 function awardMult(category) {
+  if (category === 'sleepover') return { mult: 0, confirmed: true, note: 'A sleepover is a flat SCHADS allowance, not an hourly multiple; the ladder share of the night is well above it.' };
   const d = AWARD_MULT_DEFAULT[category];
   if (!d) return { mult: 1, confirmed: false, note: 'No multiplier recorded for this category.' };
   const n = Number(setting(`award_mult_${category}`));
@@ -12989,6 +13006,10 @@ route('POST', /^\/api\/admin\/ladder\/review$/, (req, res, m, user) => {
 everyJob('tiers', 86400 * 1000, () => reviewAllTiers(), {
   label: 'Pay tier review',
   why: 'Moves workers up the ladder immediately when they qualify, and down by at most one step after notice.'
+});
+everyJob('referrals', 86400 * 1000, () => reviewReferrals(), {
+  label: 'Referral bonuses',
+  why: 'Marks a referral payable, and emails the referrer, the day the referred worker\u2019s completed hours reach the mark.'
 });
 
 /* ==========================================================================

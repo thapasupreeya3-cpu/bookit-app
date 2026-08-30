@@ -2678,7 +2678,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 
   <section class="block">
     <div class="container">
-      <h2 class="mb-2">Hourly rates (2+ hour shifts)</h2>
+      <h2 class="mb-2">Hourly rates (2+ hour shifts) — and the sleepover, per night</h2>
       <div class="table-wrap">
         <table id="ratesTable">
           <caption>Standard support rates · billed at the NDIA's published maximum prices (NDIS Pricing Arrangements 2026–27, from 1 July 2026) — Employment Assistance and dedicated household-cleaning items use their own published maximum prices, below</caption>
@@ -7330,7 +7330,11 @@ function renderAcctMenu(){
   }
   if(!m.admin && m.role === 'coordinator') items += item('#/clients', '', 'grid', 'My clients');
   if(!m.admin) items += item('#/bookings', '', 'cal', m.role === 'worker' ? 'Bookings & shifts' : 'My bookings');
+  if(!m.admin && m.role === 'worker') items += item('#/shifts', '', 'cal', 'Open shifts');
+  if(!m.admin && m.role === 'worker') items += item('#/earnings', '', 'medal', 'My earnings');
   if(!m.admin && m.role === 'worker') items += item('#/ladder', '', 'medal', 'The ladder');
+  if(!m.admin && m.role === 'worker') items += item('#/refer-a-worker', '', 'user', 'Refer a worker — earn $150');
+  if(!m.admin && m.role === 'worker') items += item('#/support-workers', '', 'grid', 'Pay rates & working with us');
   if(!m.admin && m.role === 'participant') items += item('#/support-plan', '', 'flag', 'Support plan',
     `<span class="acct-badge red" data-blk-badge="support_plan" ${blockerCount('support_plan') ? '' : 'hidden'}>${blockerCount('support_plan') || ''}</span>`);
   if(!m.admin) items += item('#/messages', '', 'chat', 'Messages',

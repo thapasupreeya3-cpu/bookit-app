@@ -53,6 +53,36 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     referral_bonus (setting, default 50), notified, and the office marks
     it paid from Admin › Growth & money. Participants are never offered
     anything for a referral (Code of Conduct).
+    HOW IT WORKS, MECHANICALLY: the code is HMAC(secret, worker id), so it
+    cannot be guessed and needs no table. At sign-up, POST /api/register
+    with ref=<code> writes one referrals row (referrer, referee, code,
+    created). Nothing else happens until the referred worker's completed
+    ordinary shifts (not sleepovers, not intros) reach the mark. The
+    nightly job 'referrals' (and the office opening the referrals list)
+    runs reviewReferrals(): it sets qualified_at, hours_at_qualify and
+    amount, and emails the referrer. From then until it is marked paid the
+    bonus is a row on /api/admin/payroll.csv ("Referral bonus", not
+    claimable) beside the shifts, and shows as payable on the worker's My
+    earnings and on /refer-a-worker. The office pays it through the normal
+    pay run and presses Mark paid; that writes paid_at and paid_by, and the
+    row leaves the payroll file. The bonus is the provider's cost — it is
+    never on a participant's invoice or in a claim. Public page:
+    /refer-a-worker (footer, Work with us, and the worker's account menu).
+
+  THE ACCOUNT MENU HAS DOORS FOR WORKERS
+    Open shifts, My earnings, The ladder, Refer a worker, and Pay rates &
+    working with us (the public Work with us page) — a signed-in worker
+    could not previously reach the public worker pages without the footer.
+
+  THE PRICE LIST IS COMPLETE
+    The public rate table (/api/rates › rates, the pricing page's first
+    table) now has the sleepover row, per night; the claim table has rows
+    for the sleepover and active-overnight items; a second table,
+    "Everything else on the price list", is rendered from /api/rates ›
+    extras: meet-and-greet, sleepover with the included hours and the
+    extra-active rates, active overnight, travel per km, short-notice
+    cancellation with every window, the establishment fee, non-face-to-face
+    time, group shifts, and the no-fees line.
 
   ADMIN › GROWTH & MONEY
     Ten KPIs with their definitions (fill rate, utilisation, cancellations
