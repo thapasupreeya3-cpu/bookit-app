@@ -21,20 +21,36 @@ const publicApi = [];
   const m = /const PUBLIC_API = \[([\s\S]*?)\];/.exec(src);
   if (m) for (const x of m[1].matchAll(/\['(GET|POST)',\s*\/\^(.*?)\$\/\]/g)) publicApi.push(`${x[1]} ${x[2].replace(/\\\//g, '/').replace(/\\\./g, '.').replace(/[()]/g, '')}`);
 }
+/* The tables come from a real database, not from reading the SQL: the server
+   is booted once against an empty throwaway file (no demo seed), every
+   migration runs, and sqlite_master plus PRAGMA table_info are read back.
+   What the file says is what a fresh bookit.db actually contains. */
+const { spawnSync } = require('node:child_process');
+const os = require('node:os');
+const { DatabaseSync } = require('node:sqlite');
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bookit-inventory-'));
+const dbFile = path.join(tmp, 'bookit.db');
+const boot = spawnSync(process.execPath, ['--no-warnings', '-e', `
+  process.env.PORT = '0';
+  const http = require('node:http');
+  const listen = http.Server.prototype.listen;
+  /* let the server finish its boot work, then leave before it serves anything */
+  http.Server.prototype.listen = function () { setImmediate(() => process.exit(0)); return this; };
+  require(${JSON.stringify(path.join(ROOT, 'server.js'))});
+`], { cwd: ROOT, env: { ...process.env, DB_PATH: dbFile, DOCS_DIR: path.join(tmp, 'docs'), PHOTOS_DIR: path.join(tmp, 'photos'), SECRET_FILE: path.join(tmp, '.secret'), SEED_DEMO: 'off', NODE_ENV: '' }, encoding: 'utf8', timeout: 60000 });
+if (boot.status !== 0 || !fs.existsSync(dbFile)) {
+  console.error('could not boot server.js against a throwaway database:\n' + (boot.stderr || boot.stdout));
+  process.exit(1);
+}
 const tables = [];
-for (const m of src.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)\s*\(([\s\S]*?)\);/g)) {
-  const cols = m[2].split('\n').map(l => l.trim()).filter(l => l && !/^(PRIMARY|UNIQUE|FOREIGN|CHECK|CONSTRAINT)\b/i.test(l)).map(l => l.split(/\s+/)[0].replace(/,$/, ''));
-  if (!tables.some(t => t.name === m[1])) tables.push({ name: m[1], cols });
-}
-for (const m of src.matchAll(/ALTER TABLE (\w+) ADD COLUMN (\w+)/g)) {
-  const t = tables.find(x => x.name === m[1]);
-  if (t && !t.cols.includes(m[2])) t.cols.push(m[2]);
-}
-for (const m of src.matchAll(/runLegacyAlter\(db, `ALTER TABLE (\w+) ADD COLUMN \$\{col\}`\)/g)) { /* column lists in loops are recorded from the loop arrays below */ }
-for (const m of src.matchAll(/for \(const col of \[([^\]]+)\]\) \{\s*BOOKIT_MIGRATIONS\.runLegacyAlter\(db, `ALTER TABLE (\w+) ADD COLUMN \$\{col\}`\)/g)) {
-  const t = tables.find(x => x.name === m[2]);
-  if (!t) continue;
-  for (const c of m[1].matchAll(/'([A-Za-z_]+)\b/g)) if (!t.cols.includes(c[1])) t.cols.push(c[1]);
+{
+  const db = new DatabaseSync(dbFile, { readOnly: true });
+  for (const t of db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all()) {
+    const cols = db.prepare(`PRAGMA table_info("${t.name.replace(/"/g, '""')}")`).all().map(c => `${c.name} ${c.type || ''}`.trim() + (c.pk ? ' PK' : '') + (c.notnull ? ' NOT NULL' : ''));
+    tables.push({ name: t.name, cols });
+  }
+  db.close();
+  try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
 }
 tables.sort((a, b) => a.name.localeCompare(b.name));
 routes.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
@@ -45,7 +61,7 @@ const routeDoc = head + `# ${routes.length} routes registered through route(). M
   + `# enforced in the dispatcher before the handler runs, except the ${publicApi.length} public routes marked *.\n\n`
   + routes.map(r => `${publicApi.includes(`${r.method} ${r.path}`) ? '*' : ' '} ${r.method.padEnd(6)} ${r.path}`).join('\n') + '\n'
   + `\n# Handled before the route table: GET /api/version, GET /api/health/live, GET /api/health/ready, POST /api/stripe/webhook,\n# GET /verify-email, GET /cover, GET /service-agreement, GET /privacy-consent, GET /templates, GET /sitemap.xml, GET /robots.txt.\n`;
-const tableDoc = head + `# ${tables.length} persistent tables (CREATE TABLE IF NOT EXISTS, plus columns added by ALTER TABLE at boot).\n\n`
+const tableDoc = head + `# ${tables.length} tables, read back with PRAGMA table_info from a database the server created and migrated at boot.\n# Column, then declared type; PK marks the primary key. Order is the order in the file.\n\n`
   + tables.map(t => `${t.name} (${t.cols.length} columns)\n  ${t.cols.join(', ')}\n`).join('\n');
 
 const outDir = path.join(ROOT, 'docs');

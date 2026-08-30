@@ -3,14 +3,15 @@ place at a time, streamed and compressed static files, public pages for search
 engines, self-hosted fonts, an admin idle timeout, backups in the repository,
 tests and CI. Read STARTHERE.txt — "WHAT CHANGED IN v86.8.0" — before deploying.
 
-WHAT'S IN THIS RELEASE (upload all of it over the same paths, then sudo bookit-update):
+THIS IS AN OVERLAY FOR v86.7.2 (commit c986779): only changed and new files. Upload all
+of it over the same paths on that commit, then sudo bookit-update. Unchanged files stay.
   server.js  package.json  package-lock.json  lib/  public/index.html
   public/assets/fonts/            (NEW — the page loads its fonts from here)
   scripts/backup.js  scripts/dbq.js  scripts/inventory.js
   tests/clash-tests.js  tests/smoke.js
   docs/api-route-inventory.txt  docs/database-table-inventory.txt  (generated)
   ops/bookit-backup.service  ops/bookit-backup.timer  ops/README.md
-  .github/workflows/check.yml     (dotfolder — see STARTHERE for the macOS note)
+  .github/workflows/check.yml  .nvmrc  .env.example   (dotfiles — see STARTHERE for the macOS note)
   STARTHERE.txt  readme.txt
 
 No database work needed. SCHEMA_VERSION stays 86400.

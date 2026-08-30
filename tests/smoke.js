@@ -111,7 +111,8 @@ async function main() {
     t('/robots.txt exists and names the sitemap', rb.status === 200 && rb.text.includes('Sitemap:'));
   }
   {
-    const files = fs.readdirSync(path.join(ROOT, 'public', 'assets', 'scenes')).filter(f => f.endsWith('.mp4'));
+    const files = fs.existsSync(path.join(ROOT, 'public', 'assets', 'scenes')) ? fs.readdirSync(path.join(ROOT, 'public', 'assets', 'scenes')).filter(f => f.endsWith('.mp4')) : [];
+    t('the scene videos are in the repository', files.length > 0, 'public/assets/scenes has no .mp4');
     if (files.length) {
       const r = await req('GET', `/assets/scenes/${files[0]}`, { headers: { Range: 'bytes=0-99' } });
       t('a video answers a byte range with 206', r.status === 206 && r.buf.length === 100 && /^bytes 0-99\//.test(r.headers.get('content-range') || ''), r.status);
@@ -180,6 +181,25 @@ async function main() {
     t('… and nothing changed', db.prepare('SELECT start FROM bookings WHERE id = ?').get(occ[1]).start === '15:00');
     const se2 = await req('PATCH', `/api/series/${sid}`, { headers: J, cookie: pc, body: { start: '08:00' } });
     t('a series edit to a free hour goes through', se2.status === 200 && db.prepare('SELECT start FROM bookings WHERE id = ?').get(occ[1]).start === '08:00', se2.status);
+
+    /* the office path: workerEligible → workerFree, across midnight in both directions.
+       Demo worker 10 offers daily-tasks and works Monday to Saturday, so the only
+       thing that can make her ineligible on these Wednesday/Thursday shifts is the diary. */
+    const al2 = await req('POST', '/api/login', { headers: J, body: { email: 'smoke.test@example.com', password: 'longpassword1' } });
+    const ac2 = cookieOf(al2);
+    const d3 = '2027-04-07', d4 = '2027-04-08';                                   /* Wednesday, Thursday */
+    db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, created) VALUES (1,10,'community',?,'01:00',2,'accepted',?)").run(d4, now);
+    const held = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, cover_state, created) VALUES (13,11,'daily-tasks',?,'22:00',8,'requested','office',?)").run(d3, now).lastInsertRowid);
+    const oa = await req('POST', `/api/admin/bookings/${held}/office-assign`, { headers: J, cookie: ac2, body: { worker_id: 10 } });
+    t('office-assign refuses a worker whose next-morning shift overlaps (forward across midnight)', oa.status === 400 && /not eligible/.test(oa.json.error || ''), `${oa.status} ${oa.json && oa.json.error}`);
+    db.prepare("UPDATE bookings SET date = ? WHERE participant_id = 1 AND worker_id = 10 AND date = ? AND start = '01:00'").run('2027-04-15', d4);
+    const oa2 = await req('POST', `/api/admin/bookings/${held}/office-assign`, { headers: J, cookie: ac2, body: { worker_id: 10 } });
+    t('… and accepts once that shift is moved away', oa2.status === 200, `${oa2.status} ${oa2.json && oa2.json.error}`);
+    const d5 = '2027-04-14', d6 = '2027-04-15';
+    db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, created) VALUES (1,10,'community',?,'22:00',10,'accepted',?)").run(d5, now);
+    const held2 = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, cover_state, created) VALUES (13,11,'daily-tasks',?,'07:00',2,'requested','office',?)").run(d6, now).lastInsertRowid);
+    const oa3 = await req('POST', `/api/admin/bookings/${held2}/office-assign`, { headers: J, cookie: ac2, body: { worker_id: 10 } });
+    t('office-assign refuses a worker still on last night\'s sleepover (backward across midnight)', oa3.status === 400 && /not eligible/.test(oa3.json.error || ''), `${oa3.status} ${oa3.json && oa3.json.error}`);
   }
   db.close();
 

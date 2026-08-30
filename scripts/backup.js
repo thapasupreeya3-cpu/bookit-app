@@ -15,8 +15,11 @@
        bookit-docs.tar.gz    every uploaded document
        bookit-photos.tar.gz  every profile photo
        manifest.json         row counts, file counts, sha256 of each part,
-                             and every document row whose file is NOT in
-                             the archive that was just written
+                             and every row (documents, templates, profile
+                             photos) whose file is NOT in the archive that
+                             was just written — if there are any, the run
+                             still writes and copies the set, then exits 2
+                             so the timer shows it
 
    Then it prunes sets older than BACKUP_KEEP_DAYS (default 35, never fewer
    than BACKUP_KEEP_MIN sets, default 3), and, if BACKUP_S3_URI is set and the
@@ -151,14 +154,16 @@ async function main() {
       manifest.counts[t].snapshot = n;
       if (manifest.counts[t].live_after_snapshot !== n) manifest.notes.push(`${t}: snapshot ${n}, live read a moment later ${manifest.counts[t].live_after_snapshot} — the site wrote during the run`);
     }
-    /* every table that points at a file on disk: the four in the schema today */
-    for (const [table, col] of [['worker_docs', 'worker_id'], ['participant_docs', 'participant_id'], ['form_templates', 'form_key'], ['form_template_versions', 'form_key']]) {
+    /* every column that points at a file on disk: the four document tables
+       and the two profile-photo columns */
+    for (const [table, owner, col] of [['worker_docs', 'worker_id', 'file_path'], ['participant_docs', 'participant_id', 'file_path'], ['form_templates', 'form_key', 'file_path'], ['form_template_versions', 'form_key', 'file_path'], ['users', 'id', 'photo'], ['worker_profiles', 'user_id', 'photo']]) {
       let rows = [];
-      try { rows = chk.prepare(`SELECT rowid AS id, ${col} AS owner, file_path FROM ${table} WHERE file_path IS NOT NULL AND file_path <> ''`).all(); } catch { continue; }
+      try { rows = chk.prepare(`SELECT rowid AS id, ${owner} AS owner, ${col} AS file_path FROM ${table} WHERE ${col} IS NOT NULL AND ${col} <> ''`).all(); } catch { continue; }
       for (const r of rows) {
+        if (!/^[/\\]/.test(r.file_path) && !/^[A-Za-z]:/.test(r.file_path)) continue;   /* a URL or a colour, not a file */
         const fp = path.resolve(r.file_path);
         const bucket = fp.startsWith(PHOTOS_DIR + path.sep) ? 'photos' : 'docs';
-        referenced[bucket].push({ table, id: r.id, owner: r.owner, file_path: fp });
+        referenced[bucket].push({ table, column: col, id: r.id, owner: r.owner, file_path: fp });
       }
     }
     chk.close();
@@ -192,8 +197,9 @@ async function main() {
     manifest.parts[`${label}.tar.gz`] = { bytes: fs.statSync(out).size, sha256: await sha256(out), files };
     log(`${label}: ${files} file(s) → ${(fs.statSync(out).size / 1048576).toFixed(1)} MB`);
   }
-  if (manifest.missing_from_archive.length) {
-    warn(`${manifest.missing_from_archive.length} document row(s) in the snapshot refer to a file that is NOT in tonight's archive — see manifest.json. That is a gap in the record to look at tomorrow, not a backup failure.`);
+  const incomplete = manifest.missing_from_archive.length > 0;
+  if (incomplete) {
+    warn(`${manifest.missing_from_archive.length} row(s) in the snapshot refer to a file that is NOT in tonight's archive — see manifest.json. The set is written and copied off the instance as usual, but this run ends INCOMPLETE (exit 2) so the timer shows it: a set that cannot restore what its own database refers to must not read as green.`);
   }
 
   fs.writeFileSync(path.join(setDir, 'manifest.json'), JSON.stringify(manifest, null, 2), { mode: 0o600 });
@@ -222,6 +228,10 @@ async function main() {
   }
 
   log(`done: ${setName} (${Object.values(manifest.parts).reduce((n, p) => n + p.bytes, 0) / 1048576 | 0} MB)`);
+  if (incomplete) {
+    console.error(`[backup] INCOMPLETE: ${manifest.missing_from_archive.length} file reference(s) from the database were absent from the archives — ${path.join(setDir, 'manifest.json')} names each one. Fix the rows or the files; the next clean run goes green again.`);
+    process.exitCode = 2;
+  }
 }
 
 main().catch(e => fail(e && e.message ? e.message : String(e)));

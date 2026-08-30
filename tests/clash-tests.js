@@ -35,8 +35,8 @@ INSERT INTO bookings VALUES (5,2,10,'2026-08-30','01:00',2,'accepted');   -- ear
 INSERT INTO bookings VALUES (6,2,10,'2026-10-05','00:00',2,'accepted');   -- the night daylight saving starts`);
 
 /* the four helpers, verbatim, bound to this db */
-const helpers = new Function('db', `${['ymd', 'bookingStart', 'bookingEnd', 'bookingClash'].map(grab).join('\n')}\nreturn { bookingClash };`)(db);
-const { bookingClash } = helpers;
+const helpers = new Function('db', `${['ymd', 'bookingStart', 'bookingEnd', 'bookingClash', 'workerFree'].map(grab).join('\n')}\nreturn { bookingClash, workerFree };`)(db);
+const { bookingClash, workerFree } = helpers;
 
 let fails = 0;
 const id = r => (r ? r.id : null);
@@ -62,5 +62,12 @@ t('accept a 12-14 request: clashes with #1',    id(bookingClash(10, '2026-09-03'
 t('excludeId hides the booking itself',         id(bookingClash(10, '2026-09-03', '10:00', 3, { excludeId: 1 })), null);
 t('accept-time ignores competing requests',     id(bookingClash(10, '2026-09-03', '16:00', 1, { excludeId: 99 })), null);
 
-console.log(fails ? `${fails} FAILED` : 'all 16 passed');
+/* workerFree — what the cover cascade and the office assignment ask — must read both sides of midnight too */
+t('workerFree FWD: cover 29th 22:00-06:00 vs accepted 30th 01:00 → busy', workerFree(10, '2026-08-29', '22:00', 8, 0), false);
+t('workerFree BACK: cover 5th 07:00 vs sleepover from the 4th → busy',    workerFree(10, '2026-09-05', '07:00', 2, 0), false);
+t('workerFree: a competing REQUEST counts as busy for an offer list',    workerFree(10, '2026-09-03', '16:00', 1, 0), false);
+t('workerFree: a free hour is free',                                     workerFree(10, '2026-09-05', '09:00', 2, 0), true);
+t('workerFree: excludes the booking being covered',                      workerFree(10, '2026-09-03', '10:00', 3, 1), true);
+
+console.log(fails ? `${fails} FAILED` : 'all 21 passed');
 process.exit(fails ? 1 : 0);

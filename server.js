@@ -11102,17 +11102,12 @@ function standbyBand(dateIso) {
    auto-offers — offering a shift to somebody already working it is how a system
    loses a participant's trust in one move. */
 function workerFree(workerId, date, start, hours, excludeBookingId) {
-  const s0 = new Date(`${date}T${start}:00`).getTime();
-  const e0 = s0 + hours * 3600e3;
-  const rows = db.prepare(`SELECT id, start, hours FROM bookings
-    WHERE worker_id = ? AND date = ? AND status IN ('requested','accepted','completed') AND id != ?`)
-    .all(workerId, date, excludeBookingId || 0);
-  for (const r of rows) {
-    const s1 = new Date(`${date}T${r.start}:00`).getTime();
-    const e1 = s1 + r.hours * 3600e3;
-    if (s0 < e1 && s1 < e0) return false;
-  }
-  return true;
+  /* v86.8.0: the same interval-aware check as a direct booking, so a cover
+     offer or an office assignment reads both sides of midnight too (it used
+     to read the shift's own calendar date only). Requested shifts count as
+     busy here — a name is never put on an offer list for an hour somebody
+     has already asked them for — which is stricter than the direct path. */
+  return !bookingClash(workerId, date, start, hours, { excludeId: excludeBookingId || 0, statuses: ['requested', 'accepted', 'completed'] });
 }
 /* Everything that has to be true before a name goes on an offer list: live
    profile, current screening, offers the service, works that weekday, free. */

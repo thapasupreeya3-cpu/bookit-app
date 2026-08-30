@@ -17,9 +17,10 @@ ap-southeast-2, Ubuntu 24.04, Caddy in front of Node on 127.0.0.1:3000, the serv
    `https://bookit.life/services/transport` (a 200, with its own title in the tab);
    sign in; open a worker profile signed out and signed in (short name, then full name);
    drag the scrubber on a service-page video; `cd ~/bookit-app && npm run check`.
-5. Pin Node. `node -v` on the box, then keep that exact release until you choose to
-   change it: `node:sqlite` is experimental on Node 22 and moves between majors.
-   `package.json` now says `>=22.12 <23`.
+5. Pin Node. `.nvmrc` says 22.22.2 and CI runs exactly that. `node -v` on the box: if it
+   differs, either install that release on the box or change `.nvmrc` to what the box
+   runs — the point is that the box, `.nvmrc` and CI agree. `node:sqlite` is experimental
+   on Node 22 and moves between majors; `package.json` says `>=22.12 <23`.
 
 Caddy: nothing to change. Node now sends `Content-Encoding` itself; if your Caddyfile
 has `encode zstd gzip`, Caddy passes an already-encoded response through untouched.
@@ -28,9 +29,13 @@ has `encode zstd gzip`, Caddy passes an already-encoded response through untouch
 
 `scripts/backup.js` makes one dated set: a consistent copy of the database (SQLite's
 own `VACUUM INTO`, integrity-checked), both document folders as tar.gz, and a manifest
-with counts, hashes and any document row whose file is not in the archive. It prunes old
-sets (35 days, never below three) and, if `BACKUP_S3_URI` is set, copies the set off
-the instance. It exits non-zero on any failure so the timer shows red.
+with counts, hashes and any row (document, template, profile photo) whose file is not in
+the archive. It prunes old sets (35 days, never below three) and, if `BACKUP_S3_URI` is
+set, copies the set off the instance. It exits non-zero on any failure so the timer shows
+red — including exit 2, INCOMPLETE, when the database refers to a file the archive does
+not hold: the set is still written and copied, but a set that cannot restore what its own
+database refers to must not read as green. The manifest names each row; fix the row or
+the file and the next run is green again.
 
 ### Install the nightly timer
 
@@ -40,7 +45,7 @@ the instance. It exits non-zero on any failure so the timer shows red.
     sudo systemctl enable --now bookit-backup.timer
     sudo systemctl start bookit-backup.service     # one run now, to prove it
     sudo journalctl -u bookit-backup -n 40         # what it did
-    systemctl list-timers bookit-backup.timer      # when it runs next (02:15 Sydney)
+    systemctl list-timers bookit-backup.timer      # when it runs next (02:15–02:25 Sydney)
 
 Settings go in `/etc/bookit.env` (the service reads the same file as the site):
 
