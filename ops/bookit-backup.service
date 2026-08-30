@@ -1,0 +1,42 @@
+# /etc/systemd/system/bookit-backup.service
+# One backup set: consistent database copy + both document folders.
+# Uses the SAME environment file as the site, so DB_PATH, DOCS_DIR and
+# PHOTOS_DIR can never point somewhere the service is not using.
+#
+# Install:
+#   sudo cp ops/bookit-backup.service ops/bookit-backup.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now bookit-backup.timer
+#   sudo systemctl start bookit-backup.service      # run one now, to prove it
+#   sudo journalctl -u bookit-backup -n 30           # read what it did
+#   systemctl list-timers bookit-backup.timer        # when it runs next
+#
+# Add to /etc/bookit.env (optional):
+#   BACKUP_DIR=/home/ubuntu/backups
+#   BACKUP_KEEP_DAYS=35
+#   BACKUP_S3_URI=s3://<your-bucket>/bookit          # needs `aws` CLI + an IAM role
+#   (the bucket itself must be created in ap-southeast-2 with versioning,
+#    default encryption and a lifecycle rule — the script does not check this)
+#
+# Check WorkingDirectory and User against:  sudo systemctl show bookit -p User -p WorkingDirectory
+[Unit]
+Description=BookIt nightly backup (database + documents + photos)
+After=bookit.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/bookit-app
+EnvironmentFile=/etc/bookit.env
+# Optional: take the whole set from one frozen moment by stopping the site
+# for the few seconds the run takes. The leading "+" runs these two lines as
+# root even though the script itself runs as User= above. Leave commented
+# for a no-downtime backup (database snapshot consistent on its own; the
+# folders archived seconds later and checked against the snapshot).
+#ExecStartPre=+/bin/systemctl stop bookit
+ExecStart=/usr/bin/node --no-warnings scripts/backup.js
+#ExecStopPost=+/bin/systemctl start bookit
+Nice=10
+IOSchedulingClass=idle
+# The script exits non-zero on any failure; a failed unit shows in
+# `systemctl --failed` and `journalctl -u bookit-backup`.

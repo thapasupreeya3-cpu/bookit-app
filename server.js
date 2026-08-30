@@ -1204,13 +1204,13 @@ try { db.exec("CREATE INDEX IF NOT EXISTS idx_bookings_approval ON bookings (app
 try {
   db.prepare(`UPDATE bookings SET approval_state = 'approved', approved_at = completed_at,
     approval_source = 'legacy' WHERE status = 'completed' AND (approval_state IS NULL OR approval_state = '')`).run();
-} catch {}
+} catch (e) { console.warn('[boot] legacy approval backfill skipped:', e.message); }
 /* Anything already waiting when this column arrived has been waiting since it
    was completed, which is the truth and also the answer that does not hand
    anybody a surprise seven-day extension on the day of the deploy. */
 try {
   db.prepare("UPDATE bookings SET approval_from = completed_at WHERE approval_from IS NULL AND completed_at IS NOT NULL").run();
-} catch {}
+} catch (e) { console.warn('[boot] approval_from backfill skipped:', e.message); }
 
 /* --- 8b. the worker's vehicle, recorded once instead of per shift. --- */
 for (const col of [
@@ -1298,7 +1298,7 @@ for (const col of ["review_due TEXT DEFAULT ''"]) {
 try {
   db.prepare(`UPDATE support_plans SET review_due = date(substr(COALESCE(NULLIF(confirmed_at,''), created),1,10), '+12 months')
     WHERE status = 'confirmed' AND (review_due IS NULL OR review_due = '')`).run();
-} catch {}
+} catch (e) { console.warn('[boot] review_due backfill skipped:', e.message); }
 
 /* --- 12. an attachment that is a document we already hold.
    No new storage, no second copy, no file that escaped verification: a
@@ -1398,7 +1398,7 @@ for (const col of ["review_state TEXT DEFAULT ''", "review_note TEXT DEFAULT ''"
 try {
   db.prepare("UPDATE worker_docs SET review_state = CASE WHEN verified_at IS NOT NULL AND verified_at != '' THEN 'approved' ELSE 'submitted' END WHERE review_state = '' OR review_state IS NULL").run();
   db.prepare("UPDATE participant_docs SET review_state = CASE WHEN verified_at IS NOT NULL AND verified_at != '' THEN 'approved' ELSE 'submitted' END WHERE review_state = '' OR review_state IS NULL").run();
-} catch {}
+} catch (e) { console.warn('[boot] review_state fix-up skipped:', e.message); }
 /* The old ladder's tightest rung was '7'; the new one's is '14'. A document
    already carrying '7' has had the most urgent warning that existed, so this
    renames that fact rather than inventing one — and without it every document
@@ -1406,7 +1406,7 @@ try {
    for a reason no reader of the email could possibly work out. Documents
    sitting between 8 and 14 days keep their '30' and correctly get the new
    14-day warning, because for them the rung is genuinely new. */
-try { db.prepare("UPDATE worker_docs SET warned_stage = '14' WHERE warned_stage = '7'").run(); } catch {}
+try { db.prepare("UPDATE worker_docs SET warned_stage = '14' WHERE warned_stage = '7'").run(); } catch (e) { console.warn('[boot] warned_stage fix-up skipped:', e.message); }
 
 /* ---------- helpers ---------- */
 const now = () => new Date().toISOString();
@@ -1882,6 +1882,10 @@ function readSession(cookieHeader) {
     if (cut && (Number(exp) - SESSION_DAYS * 864e5) < cut) return null;
   }
   const u = sessionUser(uid);
+  if (u && four && u.is_admin === 1 && sessionIdle(sid)) {
+    try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE sid = ? AND revoked_at IS NULL').run(now(), sid); } catch {}
+    return null;
+  }
   if (u && four) { u.sid = sid; touchSession(sid); }
   return u;
 }
@@ -3028,6 +3032,18 @@ function sessionRevoked(sid) {
   const r = db.prepare('SELECT revoked_at FROM sessions WHERE sid = ?').get(sid);
   return !!(r && r.revoked_at);
 }
+/* An office session that nobody has used for ADMIN_IDLE_HOURS is over. The
+   thirty-day cookie stays as it is for participants and workers; an admin
+   cookie opens every participant's file, so it is not left lying around on a
+   laptop for a month. last_seen is only written every five minutes, so the
+   window is accurate to that. Signing back in is the normal door, with the
+   second step; nobody is locked out, they are asked again. */
+const ADMIN_IDLE_HOURS = Math.max(1, Number(process.env.ADMIN_IDLE_HOURS || 12));
+function sessionIdle(sid) {
+  const r = db.prepare('SELECT last_seen FROM sessions WHERE sid = ?').get(sid);
+  const seen = r ? Date.parse(r.last_seen) : NaN;
+  return Number.isFinite(seen) && (Date.now() - seen) > ADMIN_IDLE_HOURS * 3600e3;
+}
 /* "Last active" is useful to five minutes, not to the second, and writing a
    row on every single request to a SQLite file would make every page load
    wait behind a write lock. The WHERE clause does the throttling, so the
@@ -3154,6 +3170,20 @@ function moduleState(workerId) {
 /* ---------- routes ---------- */
 const routes = [];
 function route(method, pattern, handler) { routes.push({ method, pattern, handler }); }
+/* The routes that work without a session, and only these. Everything else
+   under /api/ needs a signed-in person, and everything under /api/admin/ needs
+   the office, before its handler is even called (see the dispatcher). A new
+   public route is added here on purpose, by name. */
+const PUBLIC_API = [
+  ['GET', /^\/api\/health$/], ['GET', /^\/api\/me$/],
+  ['GET', /^\/api\/scope$/], ['GET', /^\/api\/high-intensity$/], ['GET', /^\/api\/rates$/], ['GET', /^\/api\/cancel-policy$/],
+  ['GET', /^\/api\/doc-catalog$/], ['GET', /^\/api\/templates$/], ['GET', /^\/api\/support-plan\/questions$/],
+  ['GET', /^\/api\/workers$/], ['GET', /^\/api\/workers\/\d+$/],
+  ['GET', /^\/api\/jobs$/], ['GET', /^\/api\/jobs\/\d+$/],
+  ['GET', /^\/api\/invite\/[a-f0-9]{16,64}$/],
+  ['POST', /^\/api\/register$/], ['POST', /^\/api\/login$/], ['POST', /^\/api\/login\/mfa$/], ['POST', /^\/api\/logout$/],
+  ['POST', /^\/api\/forgot$/], ['POST', /^\/api\/reset$/], ['POST', /^\/api\/contact$/]
+];
 
 route('GET', /^\/api\/health$/, (req, res) => json(res, 200, { ok: true, time: now() }));
 
@@ -3546,7 +3576,7 @@ route('POST', /^\/api\/reset$/, (req, res, m, user, body, ip) => {
   /* a password reset is the one moment where every other session must go.
      If the reset happened because somebody else had the password, leaving
      their laptop signed in makes the reset theatre. */
-  try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now(), u.id); } catch {}
+  try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now(), u.id); } catch (e) { console.warn('[sessions] sign-out-everywhere after reset failed:', e.message); }
   stampLegacyCutoff(u.id);
   const me = sessionUser(u.id);
   json(res, 200, { user: me }, setSessionHeaders(u.id, req, ip));
@@ -5601,7 +5631,25 @@ route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
   res.end('﻿' + lines.join('\r\n'));
 });
 
-route('GET', /^\/api\/workers$/, (req, res) => {
+/* A worker's full name is for the people they work with. Anyone can browse
+   the directory, but without an account the name reads "Zoe T." — the same
+   convention the review cards already use for participants. A worker's
+   photo and suburb stay: the photo is theirs to put up, and the suburb is
+   what a participant is searching by. PUBLIC_WORKER_NAMES=full restores the
+   old behaviour. */
+const PUBLIC_WORKER_NAMES = String(process.env.PUBLIC_WORKER_NAMES || 'short').toLowerCase();
+function shortName(name) {
+  const parts = String(name || '').trim().split(/\s+/);
+  if (parts.length < 2) return parts[0] || '';
+  const last = parts[parts.length - 1].replace(/[^\p{L}]/gu, '');
+  return `${parts[0]} ${last.slice(0, 1)}${last ? '.' : ''}`.trim();
+}
+function forVisitor(w, user) {
+  if (!user && PUBLIC_WORKER_NAMES !== 'full') w.name = shortName(w.name);
+  return w;
+}
+
+route('GET', /^\/api\/workers$/, (req, res, m, user) => {
   const rows = db.prepare(`
     SELECT p.*, u.name, u.suburb, u.email FROM worker_profiles p
     JOIN users u ON u.id = p.user_id
@@ -5610,12 +5658,12 @@ route('GET', /^\/api\/workers$/, (req, res) => {
        conditions, at approval and again on every sweep — but the search page
        is the front door, so it re-asks rather than trusting the flag. */
     .filter(r => platformEligible(r.user_id, r.email));
-  json(res, 200, { workers: rows.map(r => withReviewAgg(publicWorker(r))) });
+  json(res, 200, { workers: rows.map(r => forVisitor(withReviewAgg(publicWorker(r)), user)) });
 });
 
 /* one worker's full public profile — powers the #/worker/:id page.
    Credential info is label + month-level expiry only: never numbers, dates or files. */
-route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m) => {
+route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m, user) => {
   const row = db.prepare(`
     SELECT p.*, u.name, u.suburb, u.created, u.email FROM worker_profiles p
     JOIN users u ON u.id = p.user_id
@@ -5639,7 +5687,7 @@ route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m) => {
      public-safe categories (checks, training, qualifications — never identity
      documents, visas or resumes), unexpired, and verified by a human. */
   w.docs = w.checks;
-  json(res, 200, { worker: w });
+  json(res, 200, { worker: forVisitor(w, user) });
 });
 
 route('GET', /^\/api\/rates$/, (req, res) => {
@@ -5841,10 +5889,18 @@ function planReviewState(pid) {
 }
 
 function firstBookingBlockers(pid, self) {
-  const u = db.prepare('SELECT plan, under_18, nominee_name, name FROM users WHERE id = ?').get(Number(pid)) || {};
+  const u = db.prepare('SELECT plan, under_18, nominee_name, name, verified, email FROM users WHERE id = ?').get(Number(pid)) || {};
   const plan = currentPlan(pid);
   const youOr = self ? 'you' : u.name;
   const missing = [];
+  /* An address that has never answered is an address that may be wrong, and
+     it is where the invoices, the cover requests and the shift confirmations
+     go. Confirming it is one click on the email we already sent. Demo
+     accounts are verified when they are seeded. */
+  if (!u.verified && !isDemoWorker(u.email)) {
+    missing.push({ what: 'a confirmed email address', where: '#/account', key: 'verify-email', section: 'billing', yours: true,
+      why: `We sent a confirmation link to ${u.email || 'your email address'}. Open it and press the button \u2014 that is where your invoices and shift confirmations will go. If it has not arrived, press \u201cSend it again\u201d at the top of the page.` });
+  }
   if (!u.plan || u.plan === 'none') {
     missing.push({ what: 'how the support is funded', where: '#/account/billing', key: 'billing', section: 'billing', yours: true,
       why: 'An invoice has to have somewhere to go before a shift is worth booking.' });
@@ -5887,6 +5943,7 @@ function firstBookingBlockers(pid, self) {
 }
 
 route('GET', /^\/api\/me\/blockers$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
   const counts = { settings: 0, documents: 0, billing: 0, support_plan: 0, training: 0, credentials: 0, total: 0 };
   let items = [];
   /* the office account has no shifts of its own to be blocked from */
@@ -5896,7 +5953,8 @@ route('GET', /^\/api\/me\/blockers$/, (req, res, m, user) => {
       label: x.key === 'plan-review' ? 'Our office is reviewing your support plan' : x.key === 'plan-review-due' ? 'Your support plan is due for review'
         : x.key === 'ndis-plan' ? 'Upload a copy of your NDIS plan' : x.key === 'ndis-plan-check' ? 'Our office is checking your NDIS plan'
         : x.key === 'support-plan' ? 'Your support plan is not confirmed' : x.key === 'billing' ? 'Tell us how your supports are funded'
-        : x.key === 'nominee' ? 'Name who manages this account' : `${x.what.replace(/^the /, '')[0].toUpperCase()}${x.what.replace(/^the /, '').slice(1)} not yet agreed`, why: x.why }));
+        : x.key === 'nominee' ? 'Name who manages this account' : x.key === 'verify-email' ? 'Confirm your email address'
+        : `${x.what.replace(/^the /, '')[0].toUpperCase()}${x.what.replace(/^the /, '').slice(1)} not yet agreed`, why: x.why }));
   } else if (user.role === 'worker') {
     const t = moduleState(user.id);
     if (t.lock) items.push({ key: 'training', section: 'training', where: '#/account/training', blocking: t.lock === 'hard', yours: true,
@@ -5960,7 +6018,7 @@ route('GET', /^\/api\/admin\/participants\/(\d+)\/plan$/, (req, res, m, user) =>
 
 /* the office reads a plan and says so; later versions are flagged, not blocked */
 route('POST', /^\/api\/admin\/participants\/(\d+)\/plan-review$/, (req, res, m, user) => {
-  if (!user.admin) return json(res, 403, { error: 'Admin only.' });
+  if (!requireAdmin(user, res)) return;
   const pid = Number(m[1]);
   const cur = db.prepare("SELECT id, version, status FROM support_plans WHERE participant_id = ? AND current = 1").get(pid);
   if (!cur || cur.status !== 'confirmed') return json(res, 400, { error: 'There is no confirmed support plan to review yet.' });
@@ -6117,24 +6175,48 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   const dates = repeat ? seriesDates(date, repeat, until, count) : [date];
   if (!dates.length) return json(res, 400, { error: 'That end date is before the first shift.' });
 
-  let seriesId = null;
-  if (repeat) {
-    const sr = db.prepare(`INSERT INTO booking_series (participant_id, worker_id, service, start, hours, notes, freq, dow, first_date, until_date, occurrences, created_by, created)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .run(pers.id, workerId, service, start, hours, notes, repeat,
-           new Date(`${date}T00:00:00`).getDay(), date, until, dates.length, user.id, now());
-    seriesId = Number(sr.lastInsertRowid);
+  /* One worker, one place at a time. Checked for every date in a series so a
+     participant hears about the clash before anything is written, and is told
+     which dates so they can move the rule rather than guess. */
+  const clashes = dates.filter(d => bookingClash(workerId, d, start, hours, { statuses: ['accepted', 'requested'], participantId: pers.id }));
+  if (clashes.length) {
+    const first = bookingClash(workerId, clashes[0], start, hours, { statuses: ['accepted', 'requested'], participantId: pers.id });
+    const dup = first && first.participant_id === pers.id;
+    return json(res, 409, {
+      clash: true, dates: clashes,
+      error: dup
+        ? `You already have a booking with this worker at ${first.start} on ${dmy(first.date)} (${first.status}) that overlaps this one.`
+        : `This worker already has a shift that overlaps ${clashes.length === 1 ? dmy(clashes[0]) : `${clashes.length} of these dates (${clashes.slice(0, 3).map(dmy).join(', ')}${clashes.length > 3 ? '\u2026' : ''})`}. Choose another time, or another worker.`
+    });
   }
 
+  let seriesId = null;
   const km = Number(body.km) || 0;
   const ids = [];
-  dates.forEach((d, idx) => {
-    const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-      .run(pers.id, workerId, service, d, start, hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now());
-    const id = Number(r.lastInsertRowid);
-    if (km > 0) applyKm(id, km, clean(body.km_from, 80), clean(body.km_to, 80));
-    ids.push(id);
-  });
+  /* The rule and its occurrences are one thing to the participant, so they
+     are one write: a failure on the ninth shift leaves no rule and no shifts,
+     not a rule with eight. */
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    if (repeat) {
+      const sr = db.prepare(`INSERT INTO booking_series (participant_id, worker_id, service, start, hours, notes, freq, dow, first_date, until_date, occurrences, created_by, created)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .run(pers.id, workerId, service, start, hours, notes, repeat,
+             new Date(`${date}T00:00:00`).getDay(), date, until, dates.length, user.id, now());
+      seriesId = Number(sr.lastInsertRowid);
+    }
+    dates.forEach((d, idx) => {
+      const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+        .run(pers.id, workerId, service, d, start, hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now());
+      const id = Number(r.lastInsertRowid);
+      if (km > 0) applyKm(id, km, clean(body.km_from, 80), clean(body.km_to, 80));
+      ids.push(id);
+    });
+    db.exec('COMMIT');
+  } catch (e) {
+    try { db.exec('ROLLBACK'); } catch {}
+    throw e;
+  }
 
   logDelegate(pers, 'Booked a shift', `${SERVICE_LABELS[service] || service} with worker #${workerId} on ${dmy(dates[0])}${repeat ? ` (${repeat}, ${dates.length} shifts)` : ''}`, ids[0]);
 
@@ -6181,6 +6263,13 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
         return json(res, 409, { error: 'This shift has already started and can no longer be accepted online. Contact the office.' });
       const t = moduleState(user.id);
       if (t.lock === 'hard') return json(res, 400, { error: `Your training is ${t.overdue_days} days overdue (${t.outstanding.join(', ')}). Finish it on the Training page and you can accept shifts again straight away — your existing bookings are unaffected.`, training_lock: 'hard' });
+      /* 12. the diary gate. Two participants may both have asked for this
+         hour; the first accept wins and the second is refused here, so the
+         worker is never on two rosters at once. Checked before the plan
+         prompt, so nobody reads a plan for a shift they cannot take, and
+         against accepted shifts only. */
+      const busy = bookingClash(user.id, b.date, b.start, b.hours, { excludeId: b.id });
+      if (busy) return json(res, 409, { error: `You already have an accepted shift at ${busy.start} on ${dmy(busy.date)} that overlaps this one. Decline this request, or ask the office to move the other shift.`, clash: true, clash_booking_id: busy.id });
       /* 11. the plan acknowledgement gate. A worker cannot accept a shift
          for someone whose current support plan they have not read. */
       const ack = planAck(b.participant_id, user.id);
@@ -6191,7 +6280,13 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
         try {
           db.prepare('INSERT INTO plan_acks (plan_id, participant_id, version, worker_id, acked_at, ip) VALUES (?,?,?,?,?,?)')
             .run(ack.plan_id, b.participant_id, ack.version, user.id, now(), '');
-        } catch {}
+        } catch (e) {
+          /* the acknowledgement is evidence that the worker read the plan; if
+             it cannot be written the shift is not accepted on the strength of
+             a tick nobody can find later */
+          console.error('[plan-ack] could not record acknowledgement', e && e.message);
+          return json(res, 500, { error: 'We could not record that you read the plan. Try again in a moment.' });
+        }
       }
     }
     if (status === 'accepted') db.prepare('UPDATE bookings SET status = ?, accepted_at = ? WHERE id = ?').run(status, now(), b.id);
@@ -6397,7 +6492,6 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
 
   const sets = Object.keys(patch).map(k => `${k} = ?`).join(', ');
   const vals = Object.values(patch);
-  db.prepare(`UPDATE booking_series SET ${sets} WHERE id = ?`).run(...vals, sr.id);
 
   /* Every future occurrence that has not been detached and starts more
      than twelve hours from now. A shift tonight is not moved out from
@@ -6406,11 +6500,25 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
   const rows = db.prepare(`SELECT * FROM bookings WHERE series_id = ? AND detached = 0
     AND status IN ('requested','accepted') ORDER BY date`).all(sr.id);
   const changed = [], locked = [];
-  for (const b of rows) {
-    let startAt; try { startAt = new Date(`${b.date}T${b.start}:00`); } catch { startAt = null; }
-    if (startAt && startAt < cutoff) { locked.push(b.id); continue; }
-    db.prepare(`UPDATE bookings SET ${sets} WHERE id = ?`).run(...vals, b.id);
-    changed.push(b.id);
+  const movable = rows.filter(b => { let t; try { t = new Date(`${b.date}T${b.start}:00`); } catch { t = null; } if (t && t < cutoff) { locked.push(b.id); return false; } return true; });
+  /* The diary gate for a rule: if the new time or the new worker clashes on
+     any date, nothing changes and the participant is told which dates. */
+  if (patch.start || patch.hours || patch.worker_id) {
+    const clashes = movable.filter(b => bookingClash(patch.worker_id || b.worker_id, b.date, patch.start || b.start, patch.hours || b.hours, { statuses: ['accepted', 'requested'], participantId: pers.id, excludeId: b.id })).map(b => b.date);
+    if (clashes.length) return json(res, 409, { clash: true, dates: clashes,
+      error: `The new time clashes with a shift the worker already has on ${clashes.length === 1 ? dmy(clashes[0]) : `${clashes.length} dates (${clashes.slice(0, 3).map(dmy).join(', ')}${clashes.length > 3 ? '\u2026' : ''})`}. Nothing has been changed.` });
+  }
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.prepare(`UPDATE booking_series SET ${sets} WHERE id = ?`).run(...vals, sr.id);
+    for (const b of movable) {
+      db.prepare(`UPDATE bookings SET ${sets} WHERE id = ?`).run(...vals, b.id);
+      changed.push(b.id);
+    }
+    db.exec('COMMIT');
+  } catch (e) {
+    try { db.exec('ROLLBACK'); } catch {}
+    throw e;
   }
   logDelegate(pers, 'Changed a repeating booking', `${Object.keys(patch).join(', ')} on ${changed.length} shifts`, sr.id);
   json(res, 200, { ok: true, changed: changed.length, locked: locked.length, lock_hours: SERIES_LOCK_HOURS });
@@ -6432,6 +6540,13 @@ route('PATCH', /^\/api\/bookings\/(\d+)\/occurrence$/, (req, res, m, user, body)
   if (bookingStart({ date, start }) <= new Date()) return json(res, 409, { error: 'That start time has already passed. Choose a future time.' });
   const hours = body.hours === undefined ? b.hours : Number(body.hours);
   if (!(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
+  /* the diary gate, at the moment of moving rather than when the worker
+     comes to accept the moved shift: a request that cannot be accepted is
+     not a request worth sending */
+  const busy = bookingClash(b.worker_id, date, start, hours, { statuses: ['accepted', 'requested'], participantId: pers.id, excludeId: b.id });
+  if (busy) return json(res, 409, { clash: true, error: busy.participant_id === pers.id
+    ? `You already have a booking with this worker at ${busy.start} on ${dmy(busy.date)} (${busy.status}) that overlaps the new time.`
+    : `This worker already has a shift that overlaps ${dmy(date)} at ${start}. Choose another time.` });
   db.prepare("UPDATE bookings SET date = ?, start = ?, hours = ?, detached = 1, status = 'requested' WHERE id = ?")
     .run(date, start, hours, b.id);
   logDelegate(pers, 'Moved one shift', `${SERVICE_LABELS[b.service] || b.service} from ${dmy(b.date)} to ${dmy(date)}`, b.id);
@@ -6456,6 +6571,10 @@ route('POST', /^\/api\/series\/(\d+)\/end$/, (req, res, m, user, body) => {
      must not reach back and cancel it. */
   const future = db.prepare("SELECT * FROM bookings WHERE series_id = ? AND detached = 0 AND date >= ? AND status IN ('requested','accepted')").all(sr.id, today);
   let charged = 0;
+  /* one write: the rule and every future occurrence end together, or the
+     participant is told nothing happened */
+  db.exec('BEGIN IMMEDIATE');
+  try {
   for (const b of future) {
     const sn = shortNotice(b);
     /* Review round 4: an occurrence whose worker was withdrawn is never
@@ -6478,6 +6597,11 @@ route('POST', /^\/api\/series\/(\d+)\/end$/, (req, res, m, user, body) => {
     if (charge) { applyInvoice(b.id, suggestCategory(b)); charged++; }
   }
   db.prepare('UPDATE booking_series SET ended_at = ?, ended_by = ? WHERE id = ?').run(now(), user.name, sr.id);
+  db.exec('COMMIT');
+  } catch (e) {
+    try { db.exec('ROLLBACK'); } catch {}
+    throw e;
+  }
   logDelegate(pers, 'Ended a repeating booking', `${future.length} future shifts cancelled`, sr.id);
   json(res, 200, { ok: true, cancelled: future.length, charged });
 });
@@ -9144,10 +9268,14 @@ function seedFormTemplates() {
   let files;
   try { files = fs.readdirSync(FORMS_DIR); } catch { return; }
   let filed = 0;
+  const skipped = [];
   for (const name of files) {
     const key = name.replace(/\.(pdf|docx|doc|jpe?g|png)$/i, '');
     const cat = PDOC_MAP[key];
-    if (!cat || key === 'p-other') continue;
+    /* p-intake and p-emergency left the catalogue in v86.0.0 (both are
+       generated from the file now), so their PDFs on the shelf are skipped
+       on purpose — named in the log so the count does not read as a fault */
+    if (!cat || key === 'p-other') { if (key !== 'p-other') skipped.push(key); continue; }
     if (setting('tplseed:' + key, '')) continue;          /* already offered once */
     if (formTemplate(key)) { setSetting('tplseed:' + key, now()); continue; }
     const ext = path.extname(name).toLowerCase();
@@ -9164,7 +9292,7 @@ function seedFormTemplates() {
       filed++;
     } catch (e) { console.error('form template seed:', key, e.message); }
   }
-  if (filed) console.log(`Blank forms: ${filed} filed from forms/ — participants can download them now.`);
+  if (filed) console.log(`Blank forms: ${filed} filed from forms/ — participants can download them now.${skipped.length ? ` ${skipped.length} skipped, not in the participant catalogue: ${skipped.join(', ')}.` : ''}`);
 }
 try { seedFormTemplates(); } catch (e) { console.error('form template seed:', e.message); }
 
@@ -10933,6 +11061,37 @@ function coverClock(leadMin) {
 }
 function bookingStart(b) { return new Date(`${b.date}T${b.start || '00:00'}:00`); }
 function bookingEnd(b) { return new Date(bookingStart(b).getTime() + Number(b.hours || 0) * 3600e3); }
+/* The first booking on the diary that overlaps a proposed shift, or null.
+   One worker cannot be in two places, so a request is refused against an
+   ACCEPTED shift of that worker, and an accept is refused against any other
+   accepted shift of the same worker. Competing REQUESTS are allowed to
+   coexist — the worker decides — except a participant re-requesting a slot
+   they already hold with the same worker, which is a duplicate, not a choice. */
+function bookingClash(workerId, date, start, hours, opts = {}) {
+  const s0 = bookingStart({ date, start }).getTime();
+  const e0 = s0 + Number(hours || 0) * 3600e3;
+  /* Every calendar date an overlapping shift could be filed under: the day
+     before (last night's sleepover runs into this morning), each day this
+     shift touches, and — if it runs past midnight — the day it ends on (an
+     early start tomorrow). Derived from the interval, not assumed, so a
+     longer shift some day would still be read correctly. */
+  const days = [];
+  const d = new Date(`${date}T00:00:00`);
+  d.setDate(d.getDate() - 1);
+  while (d.getTime() <= e0) { days.push(ymd(d)); d.setDate(d.getDate() + 1); }
+  const statuses = opts.statuses || ['accepted'];
+  const rows = db.prepare(`SELECT b.id, b.date, b.start, b.hours, b.status, b.participant_id, u.name AS participant_name
+    FROM bookings b JOIN users u ON u.id = b.participant_id
+    WHERE b.worker_id = ? AND b.date IN (${days.map(() => '?').join(',')}) AND b.id != ?
+      AND b.status IN (${statuses.map(() => '?').join(',')})`)
+    .all(Number(workerId), ...days, Number(opts.excludeId || 0), ...statuses);
+  for (const r of rows) {
+    if (opts.participantId && r.status === 'requested' && r.participant_id !== Number(opts.participantId)) continue;
+    const s1 = bookingStart(r).getTime(), e1 = bookingEnd(r).getTime();
+    if (s0 < e1 && s1 < e0) return r;
+  }
+  return null;
+}
 function leadMinutes(b) { return Math.round((bookingStart(b) - Date.now()) / 60000); }
 function standbyBand(dateIso) {
   const d = new Date(dateIso + 'T00:00:00').getDay();
@@ -14612,7 +14771,7 @@ route('POST', /^\/api\/modules\/([a-z0-9-]+)\/submit$/, (req, res, m, user, body
       const st = moduleState(user.id);
       db.prepare("UPDATE worker_profiles SET training_lock = ?, training_due = ? WHERE user_id = ?")
         .run(st.lock, st.modules.filter(x => x.required).map(x => x.expires_at).filter(Boolean).sort()[0] || '', user.id);
-    } catch {}
+    } catch (e) { console.warn('[training] could not cache the lock state:', e.message); }
   }
   json(res, 200, {
     ok: true, score, passed, pass_mark: mod.pass_mark, attempts,
@@ -15184,7 +15343,7 @@ route('POST', /^\/api\/me\/password$/, (req, res, m, user, body, ip) => {
   /* Every other device goes, and this one is re-issued. Same reasoning as the
      reset route: if the password was changed because somebody else had it,
      leaving their session alive makes the change decorative. */
-  try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now(), user.id); } catch {}
+  try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now(), user.id); } catch (e) { console.warn('[sessions] sign-out-everywhere after password change failed:', e.message); }
   stampLegacyCutoff(user.id);
   securityMail(req, user, 'Your BookIt password was changed',
     `<p>Your password was changed just now from ${escHtml(deviceName(req.headers['user-agent']))}. Every other device has been signed out.</p>
@@ -16343,35 +16502,201 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
     '.woff': 'font/woff',
     '.woff2': 'font/woff2',
     '.ttf': 'font/ttf', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
+/* ---------- the public pages, as the server knows them ----------
+   The app is one page and a hash router, which is right for the person using
+   it and wrong for a search engine, which sees one URL with one title. So the
+   22 public pages are also served at their real paths, each with its own
+   title, description and canonical link written into the <head> the server
+   sends. The page itself then runs exactly as before: the browser turns
+   /services/transport into /#/services/transport on load (see route() in
+   index.html), so nothing about navigation changes. Titles are the pages'
+   own data-title attributes; descriptions are the pages' own first
+   sentences. Change a page and change it here. */
+const PUBLIC_PAGES = {
+  '/': ['BookIt — Find NDIS support workers who fit your life', 'Find, book and manage your own team of verified NDIS support workers — for work, home, daily living and getting out into your community. Operated by Disability & Mental Health Care Pty Ltd, a registered NDIS provider.'],
+  '/services': ['Support services — BookIt', 'Six kinds of NDIS support, delivered by workers you choose: employment support, personal care, transport, daily tasks and shared living, household tasks and community participation.'],
+  '/services/employment': ['Employment support (0102) — BookIt', 'NDIS employment support: exploring what you want to do, landing the role, and building the skills and routines to thrive in it, with a support worker you choose.'],
+  '/services/personal-care': ['Personal care (0107) — BookIt', 'Personal care on your terms: choose workers you are comfortable with, brief them your way, and keep the same familiar faces — morning, evening or overnight.'],
+  '/services/transport': ['Travel & transport (0108) — BookIt', 'Appointments, work, uni, the shops, the game. Ride with a checked and insured NDIS support worker, or learn to make the trip independently.'],
+  '/services/daily-tasks': ['Daily tasks & shared living (0115/0138) — BookIt', 'Build the daily living skills that add up to real independence — on your own, with family or in a shared home, at your pace, with a worker you choose.'],
+  '/services/household': ['Household tasks (0120) — BookIt', 'Reliable NDIS-funded help with cleaning, laundry and meals from support workers who do it properly — and do it your way.'],
+  '/services/community': ['Community participation (0125) — BookIt', 'Sport, music, mates, faith, volunteering, a swim at the local pool — NDIS community participation support that helps you get out there and make it regular.'],
+  '/how-it-works': ['How it works — BookIt', 'The control of hiring your own NDIS support team, without the paperwork, risk or admin. The full journey, from signing up to your hundredth booking.'],
+  '/pricing': ['Pricing — BookIt', 'No joining fees, no subscriptions. BookIt bills at the NDIA\u2019s published maximum prices, never above them, with the worker\u2019s share shown beside every rate.'],
+  '/find-workers': ['Find support workers — BookIt', 'Browse verified, insured, interviewed NDIS support workers. Filter by support, day, language, gender, rating or shared interests — no account needed.'],
+  '/support-workers': ['Become a support worker — BookIt', 'Support work that supports you back: be employed rather than a gig contractor, choose your clients and hours, and be paid above award with super and insurance.'],
+  '/safety': ['Safety & quality — BookIt', 'How BookIt is built to the NDIS Practice Standards — from how workers are screened to how incidents and complaints are handled, day and night.'],
+  '/specialist-supports': ['Specialist supports — BookIt', 'Eight high-intensity supports need a provider registered for them specifically. What BookIt does not deliver, and how it is arranged with a provider that does.'],
+  '/verification': ['How we check every worker — BookIt', 'Nothing appears on a worker\u2019s profile until someone on our team has verified it: NDIS Worker Screening, banning-order registers, first aid, CPR and induction training.'],
+  '/about': ['About us — BookIt', 'BookIt was started by people who had lived both sides of the roster. Operated by Disability & Mental Health Care Pty Ltd, a registered NDIS provider.'],
+  '/faq': ['FAQ & help — BookIt', 'Straight answers about how BookIt works, for participants, families, plan managers and support workers.'],
+  '/contact': ['Contact us — BookIt', 'Talk to a human seven days a week, plus an urgent line for anything that happens during a shift. In an emergency, always call 000 first.'],
+  '/legal': ['Privacy & terms — BookIt', 'How BookIt handles your information and the terms it works to, in plain English, with the Service Agreement and privacy consent published in full.'],
+  '/get-started': ['Get started — BookIt', 'Create a free BookIt account as a participant or a support worker. It takes about ten minutes and costs nothing.'],
+  '/easy-read': ['Easy Read — BookIt', 'About BookIt in Easy Read: short sentences, big text and pictures explaining how to find and book a support worker.'],
+  '/calculator': ['What will a shift cost? — BookIt', 'Pick the support, the day and the time and see the exact NDIS price, the support item it is charged against, and what a cancellation would mean.'],
+  '/ladder': ['The BookIt ladder — BookIt', 'Four levels, earned with hours worked through BookIt over the last twelve months. For workers, the level sets the share of every hour that is theirs.'],
+  '/jobs': ['Open jobs — BookIt', 'Real posts from NDIS participants and their families looking for a support worker. Every application gets an answer.'],
+  '/for-plan-managers': ['For plan managers — BookIt', 'The exact support item on every line, statements that open in your software, and never a dollar above the published maximums.'],
+  '/for-families': ['For families & carers — BookIt', 'Who is coming to the house, whether they are properly checked, and what happened on the shift — how BookIt answers each, and how to help without taking over.'],
+  '/locations': ['Where BookIt works — BookIt', 'Available across Australia by design, with the deepest coverage where the worker pools are. Where you will find the most choice today.']
+};
+const CSP_HTML = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+
+/* ---------- static files ----------
+   Three things the first version did not do, all of them felt by a
+   participant on a phone: it read every file whole into memory (a 3 MB video
+   per request on a 1 GB box), it could not answer a Range request (so the
+   scrubber on a video jumped back to the start), and it sent the 1 MB app
+   shell uncompressed with no way for the browser to say "I already have
+   that". Now: files stream from disk; Range is honoured; text is compressed
+   once per deploy and kept in memory; every file carries an ETag so an
+   unchanged page is a 304 and a few hundred bytes. Caddy may compress as
+   well — an already-encoded response passes through it untouched. */
+const COMPRESSIBLE = new Set(['.html', '.css', '.js', '.mjs', '.json', '.svg', '.txt', '.xml', '.webmanifest']);
+const COMPRESS_MAX_BYTES = 4 * 1024 * 1024;
+const encodedCache = new Map();          /* key → { stamp, br, gz } */
+function etagFor(st) { return `W/"${st.size.toString(16)}-${Math.floor(st.mtimeMs).toString(16)}"`; }
+function encodingFor(req) {
+  const ae = String(req.headers['accept-encoding'] || '');
+  if (/\bbr\b/.test(ae)) return 'br';
+  if (/\bgzip\b/.test(ae)) return 'gzip';
+  return '';
+}
+function encodedBody(key, stamp, raw, enc) {
+  let hit = encodedCache.get(key);
+  if (!hit || hit.stamp !== stamp) { hit = { stamp, br: null, gz: null }; encodedCache.set(key, hit); }
+  if (enc === 'br') {
+    if (!hit.br) hit.br = zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 7, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } });
+    return hit.br;
+  }
+  if (!hit.gz) hit.gz = zlib.gzipSync(raw, { level: 8 });
+  return hit.gz;
+}
+function baseHeaders(extra) {
+  return {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    ...(SITE_PASSWORD ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}),
+    ...extra
+  };
+}
+/* a small buffer, already in memory: html, css, js. ETag, then compression */
+function sendBuffer(req, res, raw, type, cacheControl, etag, cacheKey, stamp) {
+  if (etag && req.headers['if-none-match'] === etag) {
+    res.writeHead(304, baseHeaders({ 'ETag': etag, 'Cache-Control': cacheControl, 'Vary': 'Accept-Encoding' }));
+    return res.end();
+  }
+  const enc = raw.length <= COMPRESS_MAX_BYTES ? encodingFor(req) : '';
+  const body = enc ? encodedBody(cacheKey, stamp, raw, enc) : raw;
+  res.writeHead(200, baseHeaders({
+    'Content-Type': type, 'Content-Length': body.length, 'Cache-Control': cacheControl, 'Vary': 'Accept-Encoding',
+    ...(etag ? { 'ETag': etag } : {}), ...(enc ? { 'Content-Encoding': enc } : {})
+  }));
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
+/* everything else streams from disk, with byte ranges for the videos */
+function sendFile(req, res, full, st, type, cacheControl) {
+  const etag = etagFor(st);
+  if (req.headers['if-none-match'] === etag) {
+    res.writeHead(304, baseHeaders({ 'ETag': etag, 'Cache-Control': cacheControl, 'Accept-Ranges': 'bytes' }));
+    return res.end();
+  }
+  const common = baseHeaders({ 'Content-Type': type, 'Cache-Control': cacheControl, 'ETag': etag, 'Accept-Ranges': 'bytes', 'Last-Modified': st.mtime.toUTCString() });
+  const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ''));
+  if (range && (range[1] || range[2])) {
+    let start = range[1] ? Number(range[1]) : Math.max(0, st.size - Number(range[2]));
+    let end = range[1] && range[2] ? Math.min(Number(range[2]), st.size - 1) : st.size - 1;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= st.size) {
+      res.writeHead(416, baseHeaders({ 'Content-Range': `bytes */${st.size}` }));
+      return res.end();
+    }
+    res.writeHead(206, { ...common, 'Content-Range': `bytes ${start}-${end}/${st.size}`, 'Content-Length': end - start + 1 });
+    if (req.method === 'HEAD') return res.end();
+    return fs.createReadStream(full, { start, end }).on('error', () => res.destroy()).pipe(res);
+  }
+  res.writeHead(200, { ...common, 'Content-Length': st.size });
+  if (req.method === 'HEAD') return res.end();
+  fs.createReadStream(full).on('error', () => res.destroy()).pipe(res);
+}
 function serveStatic(req, res, pathname) {
-  let file = pathname === '/' ? '/index.html' : pathname;
-  file = path.normalize(file).replace(/^(\.\.[\/\\])+/, '');
+  if (pathname === '/' || pathname === '/index.html') return serveShell(req, res, '/');
+  const file = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
   const full = path.join(PUBLIC_DIR, file);
-  if (!full.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end('Forbidden'); }
-  fs.readFile(full, (err, data) => {
-    if (err) {
-      // An asset miss must never return the 900 KB app shell with HTTP 200.
+  if (!full.startsWith(PUBLIC_DIR + path.sep)) { res.writeHead(403); return res.end('Forbidden'); }
+  fs.stat(full, (err, st) => {
+    if (err || !st.isFile()) {
+      // An asset miss must never return the 1 MB app shell with HTTP 200.
       if (path.extname(pathname)) {
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
         return res.end('Not found');
       }
-      /* Hash-router compatibility: extensionless direct paths receive the app shell. */
-      return fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, home) => {
+      return serveShell(req, res, pathname);
+    }
+    const ext = path.extname(full).toLowerCase();
+    const type = MIME[ext] || BOOKIT_HARDENING.mimeType(full);
+    const cc = BOOKIT_HARDENING.cacheControl(full);
+    if (COMPRESSIBLE.has(ext) && st.size <= COMPRESS_MAX_BYTES) {
+      return fs.readFile(full, (e2, raw) => {
         if (e2) { res.writeHead(404); return res.end('Not found'); }
-        res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-cache, no-store, must-revalidate' });
-        res.end(home);
+        sendBuffer(req, res, raw, type, cc, etagFor(st), full, `${st.size}:${st.mtimeMs}`);
       });
     }
-    res.writeHead(200, {
-      'Content-Type': MIME[path.extname(full)] || 'application/octet-stream',
-      'Cache-Control': BOOKIT_HARDENING.cacheControl(full),
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'SAMEORIGIN',
-      'Referrer-Policy': 'strict-origin-when-cross-origin',
-      ...(SITE_PASSWORD ? { 'X-Robots-Tag': 'noindex, nofollow' } : {})
-    });
-    res.end(data);
+    sendFile(req, res, full, st, type, cc);
   });
+}
+/* The app shell, with the <head> written for the path it was asked for.
+   Public paths get their own title, description and canonical link and are
+   listed in the sitemap; anything else (an account page, the admin page, a
+   worker profile) gets the shell as-is plus a noindex, because there is
+   nothing on it until somebody signs in. */
+const shellCache = { stamp: '', html: '' };
+function serveShell(req, res, pathname) {
+  const full = path.join(PUBLIC_DIR, 'index.html');
+  fs.stat(full, (err, st) => {
+    if (err) { res.writeHead(404); return res.end('Not found'); }
+    const stamp = `${st.size}:${st.mtimeMs}`;
+    const build = () => {
+      const pub = PUBLIC_PAGES[pathname];
+      const base = baseUrl(req);
+      let html = shellCache.html;
+      if (pub) {
+        const [title, desc] = pub;
+        const canonical = `${base}${pathname === '/' ? '/' : pathname}`;
+        html = html
+          .replace(/<title>[^<]*<\/title>/, `<title>${escHtml(title)}</title>`)
+          .replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${escHtml(desc)}">`)
+          .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${escHtml(title)}">`)
+          .replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${escHtml(desc)}">`)
+          .replace('<meta property="og:type" content="website">', `<link rel="canonical" href="${escHtml(canonical)}">\n<meta property="og:url" content="${escHtml(canonical)}">\n<meta property="og:type" content="website">`);
+        if (pathname === '/') {
+          const ld = { '@context': 'https://schema.org', '@type': 'Organization', name: 'BookIt', legalName: 'Disability & Mental Health Care Pty Ltd', url: `${base}/`, description: desc, areaServed: 'AU' };
+          html = html.replace('</head>', `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>\n</head>`);
+        }
+      } else {
+        html = html.replace('<meta property="og:type" content="website">', '<meta name="robots" content="noindex">\n<meta property="og:type" content="website">');
+      }
+      return Buffer.from(html);
+    };
+    const finish = () => {
+      const raw = build();
+      const etag = `W/"${st.size.toString(16)}-${Math.floor(st.mtimeMs).toString(16)}-${crypto.createHash('sha1').update(pathname).digest('hex').slice(0, 8)}"`;
+      res.setHeader('Content-Security-Policy', CSP_HTML);
+      sendBuffer(req, res, raw, MIME['.html'], 'no-cache', etag, `shell:${pathname}`, stamp);
+    };
+    if (shellCache.stamp === stamp) return finish();
+    fs.readFile(full, 'utf8', (e2, html) => {
+      if (e2) { res.writeHead(404); return res.end('Not found'); }
+      shellCache.stamp = stamp; shellCache.html = html;
+      finish();
+    });
+  });
+}
+function sitemapXml(req) {
+  const base = baseUrl(req);
+  const urls = Object.keys(PUBLIC_PAGES).map(p => `  <url><loc>${escHtml(base + (p === '/' ? '/' : p))}</loc></url>`).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
 /* ---------- server ---------- */
@@ -16430,11 +16755,11 @@ const server = http.createServer((req, res) => {
   if (String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
-  if (pathname === '/' || pathname.endsWith('.html')) {
+  if (pathname === '/' || pathname.endsWith('.html') || PUBLIC_PAGES[pathname.replace(/\/+$/, '') || '/']) {
     /* the app is one file of inline script by design, so 'unsafe-inline'
-       stays — the value here is pinning every OTHER origin shut */
-    res.setHeader('Content-Security-Policy',
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+       stays — the value here is pinning every OTHER origin shut. Fonts are
+       self-hosted since v86.8.0, so no other origin is named at all. */
+    res.setHeader('Content-Security-Policy', CSP_HTML);
   }
 
   /* ----- cross-site writes are refused when the browser names a foreign
@@ -16572,6 +16897,21 @@ const server = http.createServer((req, res) => {
 
   if (!pathname.startsWith('/api/')) {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+    if (pathname === '/sitemap.xml') {
+      const body = sitemapXml(req);
+      res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8', 'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'public, max-age=3600' });
+      return res.end(req.method === 'HEAD' ? undefined : body);
+    }
+    if (pathname === '/robots.txt') {
+      const body = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\nSitemap: ${baseUrl(req)}/sitemap.xml\n`;
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'public, max-age=3600' });
+      return res.end(req.method === 'HEAD' ? undefined : body);
+    }
+    /* a public page at its real path gets the shell with its own <head>;
+       every other extensionless path (an account page, a worker profile, an
+       emailed link) is folded into the hash as before */
+    const clean = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+    if (PUBLIC_PAGES[clean] && clean !== '/') return serveShell(req, res, clean);
     if (pathname !== '/' && pathname !== '/index.html' && !path.extname(pathname)) {
       const destination = '/#' + pathname + (url.search || '');
       res.writeHead(302, { 'Location': destination, 'Cache-Control': 'no-store' });
@@ -16610,16 +16950,35 @@ const server = http.createServer((req, res) => {
       if (r.method !== req.method) continue;
       const m = r.pattern.exec(pathname);
       if (!m) continue;
-      try { return r.handler(req, res, m, user, body, ip); }
-      catch (e) {
+      /* The door is shut by default. Every handler still asks its own
+         question (who owns this booking, may this worker read this plan),
+         but the answer to "is anyone here at all" and "is this the office"
+         is given once, here, so a route added without its own check is
+         refused rather than silently open. The public routes are the
+         explicit list in PUBLIC_API. */
+      if (pathname.startsWith('/api/admin/')) {
+        if (!user || !user.admin) return json(res, 403, { error: 'Admin only.' });
+      } else if (!user && !PUBLIC_API.some(([meth, rx]) => meth === req.method && rx.test(pathname))) {
+        return json(res, 401, { error: 'Please log in.' });
+      }
+      const failed = e => {
         const uploadCodes = new Set(['INVALID_UPLOAD','UNSAFE_UPLOAD','UNSUPPORTED_UPLOAD','UPLOAD_TOO_LARGE','MIME_MISMATCH','IMAGE_TOO_LARGE']);
         if (e && uploadCodes.has(e.code)) {
           console.warn('[upload rejected]', e.code, e.message);
-          return json(res, 400, { error: e.message, code: e.code });
+          if (!res.headersSent) return json(res, 400, { error: e.message, code: e.code });
+          return;
         }
         console.error(e);
-        return json(res, 500, { error: 'Something went wrong on our end.' });
-      }
+        if (!res.headersSent) return json(res, 500, { error: 'Something went wrong on our end.' });
+        try { res.end(); } catch {}
+      };
+      try {
+        const out = r.handler(req, res, m, user, body, ip);
+        /* an async handler's rejection used to escape this try/catch as an
+           unhandled rejection, which on Node 22 ends the whole process */
+        if (out && typeof out.then === 'function') out.catch(failed);
+        return;
+      } catch (e) { return failed(e); }
     }
     json(res, 404, { error: 'Not found.' });
   });

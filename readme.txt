@@ -1,19 +1,16 @@
-BookIt v86.7.2 — the tier system (illustrated badges, ladder page, animated avatar ring)
+BookIt v86.8.0 — the review release: the door shut by default, one worker in one
+place at a time, streamed and compressed static files, public pages for search
+engines, self-hosted fonts, an admin idle timeout, backups in the repository,
+tests and CI. Read STARTHERE.txt — "WHAT CHANGED IN v86.8.0" — before deploying.
 
-WHAT'S IN THIS ZIP:
-  server.js
-  public/index.html
-  public/assets/tiers/tier-bronze.svg      (the badge artwork — NEW folder)
-  public/assets/tiers/tier-silver.svg
-  public/assets/tiers/tier-gold.svg
-  public/assets/tiers/tier-platinum.svg
-  package.json
-  lib/version.js
+WHAT'S IN THIS RELEASE (upload all of it over the same paths, then sudo bookit-update):
+  server.js  package.json  package-lock.json  lib/  public/index.html
+  public/assets/fonts/            (NEW — the page loads its fonts from here)
+  scripts/backup.js  scripts/dbq.js  scripts/inventory.js
+  tests/clash-tests.js  tests/smoke.js
+  docs/api-route-inventory.txt  docs/database-table-inventory.txt  (generated)
+  ops/bookit-backup.service  ops/bookit-backup.timer  ops/README.md
+  .github/workflows/check.yml     (dotfolder — see STARTHERE for the macOS note)
+  STARTHERE.txt  readme.txt
 
-TO DEPLOY: upload these over the same paths on the server, keeping the
-folder layout (the four SVGs go into public/assets/tiers/ — create the
-folder if it doesn't exist), then restart:  sudo systemctl restart bookit
-
-No database work needed — the one migration runs itself at boot, and
-demonstration workers spread themselves across the four levels (once) so
-every badge can be seen before launch.
+No database work needed. SCHEMA_VERSION stays 86400.

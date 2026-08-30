@@ -1,0 +1,14 @@
+# /etc/systemd/system/bookit-backup.timer
+[Unit]
+Description=Run the BookIt backup every night
+
+[Timer]
+# 02:15 Sydney time regardless of the server's own timezone setting (systemd
+# accepts a trailing zone name); RandomizedDelaySec keeps it off the exact
+# minute Lightsail snapshots tend to start.
+OnCalendar=*-*-* 02:15:00 Australia/Sydney
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

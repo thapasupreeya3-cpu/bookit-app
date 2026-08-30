@@ -1,7 +1,137 @@
 BOOKIT — START HERE
 ===================
-Current release: v86.6.4
+Current release: v86.8.0
 Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.8.0 — THE REVIEW RELEASE
+--------------------------------------------
+  Everything from the 29 August review, in one release. No migration:
+  SCHEMA_VERSION stays 86400 and nothing is added to the database. Server,
+  page, scripts and docs all change, so this is a FULL upload (see the
+  deploy list below) followed by sudo bookit-update.
+
+  THE DOOR IS SHUT BY DEFAULT
+    The dispatcher now refuses every /api/ route without a session and every
+    /api/admin/ route without the office BEFORE the handler runs. The public
+    routes are an explicit list, PUBLIC_API in server.js (21 of them: the
+    directory, rates, scope, the sign-in family, contact, the public jobs
+    board, the invite reader). Every handler keeps its own check as well.
+    Two routes that answered a 500 when logged out (/api/me/blockers and
+    /api/admin/participants/:id/plan-review) now answer 401/403.
+
+  AN ASYNC HANDLER CAN NO LONGER STOP THE PROCESS
+    Three handlers are async (email test, claims run, AI backfill). A
+    rejection inside one used to escape the dispatcher's try/catch as an
+    unhandled rejection, which on Node 22 ends the process. Promises are
+    caught now, the same as thrown errors.
+
+  ONE WORKER, ONE PLACE AT A TIME
+    bookingClash() beside bookingStart(). A booking request is refused
+    against the worker's accepted shifts and against the participant's own
+    overlapping request; an accept is refused against the worker's other
+    accepted shifts; a moved occurrence and a series edit are refused the
+    same way, and a series edit that clashes changes nothing and names the
+    dates. The window is derived from the shift's interval, so both sides
+    of midnight are read (a 22:00 sleepover tonight against an 01:00 shift
+    already accepted for tomorrow, and the reverse). workerFree(), which the
+    cover cascade uses, is unchanged. tests/clash-tests.js has sixteen cases.
+
+  SERIES WRITES ARE ONE WRITE
+    Creating, editing and ending a repeating booking each run inside
+    BEGIN IMMEDIATE … COMMIT. A failure on the ninth occurrence leaves no
+    rule and no occurrences, not a rule with eight.
+
+  AN OFFICE SESSION THAT IS NOT USED FOR 12 HOURS IS OVER
+    ADMIN_IDLE_HOURS (default 12), admin accounts only. Participants and
+    workers keep the thirty-day cookie. Signing back in is the normal door
+    with the second step; nobody is locked out. This closes the "no
+    administrator idle timeout" note below.
+
+  A FIRST BOOKING NEEDS A CONFIRMED EMAIL ADDRESS
+    "Confirm your email address" joins the first-booking blockers (red,
+    theirs, with the resend link at the top of the page). The account still
+    works unverified — browsing, messaging, the plan — only the first shift
+    waits. Demo accounts are exempt.
+
+  A VISITOR SEES "ZOE T."
+    /api/workers and /api/workers/:id give the short name to anyone without
+    a session, the full name to a member. Photo and suburb are unchanged.
+    PUBLIC_WORKER_NAMES=full restores the old behaviour.
+
+  THE PUBLIC PAGES EXIST FOR SEARCH ENGINES
+    The 27 public pages (PUBLIC_PAGES in server.js) are served at their real
+    paths — https://bookit.life/services/transport is a 200 with its own
+    <title>, description, canonical link and og:url written into the <head>
+    the server sends; the home page carries Organization JSON-LD. The page
+    then folds the path into the hash on load (route() in index.html), so
+    the app runs exactly as before. /sitemap.xml lists them; /robots.txt
+    allows the site and names the sitemap (the SITE_PASSWORD gate still
+    answers Disallow while it is on). Account, admin and worker paths still
+    redirect into the hash and are never indexed.
+
+  STATIC FILES: STREAMED, RANGED, COMPRESSED, REVALIDATED
+    serveStatic() streams from disk instead of reading whole files into
+    memory; videos answer Range requests (206), so seeking works — this
+    closes the "video seeking jumps back to the start" note below; text is
+    brotli/gzip compressed once per deploy and kept in memory (the 1 MB page
+    is 224 KB over the wire); every file carries an ETag, so an unchanged
+    page is a 304. The page's Cache-Control is now no-cache (revalidate,
+    then 304) rather than no-store. Caddy's own encode setting, if on, is
+    harmless: an already-encoded response passes through.
+
+  FONTS ARE SELF-HOSTED
+    Sora, Inter and Fraunces from public/assets/fonts/ (SIL OFL, from the
+    Fontsource packages, licences beside them), same family names, so the
+    stylesheet did not change. The Google origins are gone from the page
+    and from the CSP, which now names no other origin at all.
+
+  BACKUPS ARE IN THE REPOSITORY
+    scripts/backup.js (VACUUM INTO for a consistent copy of a live WAL
+    database, integrity-checked; both folders archived and checked against
+    the archive; prune; optional S3/Lightsail-bucket sync; exits non-zero
+    on failure) and ops/bookit-backup.service + .timer (02:15 Sydney, using
+    /etc/bookit.env). Setting them up is in ops/README.md. The old "cp the
+    .db file" procedure must not be used on a running site.
+
+  THE GUIDE'S PROMISES ARE KEPT
+    docs/api-route-inventory.txt and docs/database-table-inventory.txt are
+    generated by scripts/inventory.js and checked by npm run check.
+    scripts/dbq.js is the read-only query helper (the guide called it
+    tests/dbq.js). tests/ holds the clash tests and a smoke test that boots
+    the server on a throwaway database; .github/workflows/check.yml runs
+    npm run check on every push. npm run check is now: syntax, inventories
+    up to date, clash tests, smoke test.
+
+  SMALLER
+    og:image and twitter:image are absolute URLs (link previews were blank).
+    X-Frame-Options is DENY everywhere (it was SAMEORIGIN on static files).
+    The boot log names the two blank forms it skips on purpose (p-intake,
+    p-emergency — both generated from the file since v86.0.0). The silent
+    catches around boot fix-ups and sign-out-everywhere now log a warning;
+    a failed plan-acknowledgement write refuses the accept instead of
+    accepting on a tick nobody can find later. package-lock.json records
+    the real version. engines is >=22.12 <23: node:sqlite is experimental
+    on Node 22 and its API moves between majors — pin the box to one Node
+    22 release and treat an upgrade as a change to test.
+
+  NOT DONE, ON PURPOSE
+    Splitting the page's JavaScript so participants do not download the
+    admin boards (a larger refactor, planned). Deleting the unreferenced
+    public/vendor/ and care-cast/ assets (confirm with a browser network
+    trace first; a GitHub upload never deletes anyway). A series edit that
+    changes the time or the worker still leaves occurrences "accepted" —
+    whether they should go back to "requested" is a product decision.
+
+  DEPLOY: full upload (server.js, package.json, package-lock.json, lib/,
+  public/index.html, public/assets/fonts/, scripts/, tests/, docs/, ops/,
+  .github/, STARTHERE.txt, readme.txt), then sudo bookit-update, then:
+    /api/version says 86.8.0
+    https://bookit.life/services/transport is a 200 with its own title
+    a worker's profile shows the full name only after sign-in
+    a video on a service page can be scrubbed (seeking works)
+    npm run check on the server is green
+  Then install the backup timer (ops/README.md) and run it once.
 
 
 WHAT CHANGED IN v86.6.4 — THE RESET CAN UNTRAIN THE TEST WORKER
@@ -629,6 +759,8 @@ The minimum deployable set is:
   public/index.html
   public/assets/bookit-a11y-dialogs.js
   public/assets/bookit-worker-load-guard.js
+  public/assets/fonts/       since v86.8.0 — the page loads its fonts from here
+  scripts/  tests/  docs/    since v86.8.0 — npm run check needs all three
 
 Videos, photographs, character files and public/vendor/ are unchanged by a
 code release and do NOT need re-uploading. GitHub's upload page adds and
@@ -677,18 +809,18 @@ BEFORE ANY DEPLOY
 
 Both must exit 0.
 
-Be clear about what that currently proves: `npm run check` runs SYNTAX
-VALIDATION ONLY on server.js, the three lib/ files and the two browser
-scripts. It is not a test suite, not a security scan, and not a browser
-regression run. The v85.3.0 package contains tests/, scripts/, ops/ and a
-GitHub Actions workflow that would make it a real gate, but those were
-deliberately not uploaded to keep the release minimal.
+Since v86.8.0 `npm run check` is: syntax validation of the server, the
+lib/ files, the browser scripts and the scripts/ tools; the two generated
+inventories in docs/ must match server.js; tests/clash-tests.js (sixteen
+booking-clash cases, read out of server.js at run time); tests/smoke.js
+(boots the server on a throwaway database and checks the public routes,
+the refusals, compression, byte ranges, the public pages' <head>, sitemap,
+robots, names, the idle timeout, the email gate and the clash gates through
+the real routes). It is not a security scan or a browser regression run.
+.github/workflows/check.yml runs the same command on every push.
 
-IF YOU LATER UPLOAD tests/, scripts/, ops/ AND .github/, replace
-package.json AT THE SAME TIME with the fuller version from the v85.3.0
-package. The two halves must travel together — uploading the fuller
-package.json without the folders is what previously left the repository
-advertising commands it could not run.
+package.json, scripts/, tests/ and docs/ travel together: the check
+command names files in all three folders.
 
 
 ENVIRONMENT SETTINGS WORTH KNOWING
@@ -716,25 +848,27 @@ decide whether the server starts at all.
 
 CURRENT STATE — HONEST NOTES
 ----------------------------
-* Video SEEKING still jumps back to the start. The server does not serve
-  byte ranges. Normal playback is unaffected; only dragging the scrubber.
-
-* There is no administrator idle timeout. Sessions run 30 days as before.
-  Deliberately deferred so a sole administrator cannot be locked out.
+* Video seeking works since v86.8.0 (byte ranges). Admin sessions time out
+  after 12 idle hours since v86.8.0. Both earlier notes are closed.
 
 * The numbered migration ledger is NOT active. lib/migration-runner.js
   contains ensureMigrationTable() and runMigrations(), but server.js calls
   neither — it uses runLegacyAlter() only. What IS true: unexpected
-  migration errors are now rethrown instead of being silently swallowed.
+  migration errors are rethrown instead of being silently swallowed.
   Do not describe this as a completed versioned-migration system.
 
-* package.json is named "bookit-site" while package-lock.json still says
-  "bookit-site-v65". Cosmetic only; npm ci works. Regenerating the lock
-  would tidy it.
+* Both package.json and package-lock.json are named "bookit-site-v65"; the
+  lock records the same version as package.json since v86.8.0. Regenerate
+  the lock (or edit the two version fields) on every release.
 
-* No test suite, CI workflow, backup tooling or operations documentation is
-  on this branch. That is a deliberate minimal-release choice, not an
-  oversight. They exist in the full v85.3.0 package.
+* Tests, a CI workflow, backup tooling and operations notes are on this
+  branch since v86.8.0 (tests/, .github/, scripts/backup.js, ops/). There
+  is still no browser regression run and no security scan.
+
+* Authentication is scryptSync: every sign-in blocks the event loop for
+  roughly fifty milliseconds. Fine at today's scale; the first busy Monday
+  morning is when it would show, and the fix (crypto.scrypt, async) is
+  small now that the dispatcher handles promises.
 
 
 HISTORICAL BUILD NOTES

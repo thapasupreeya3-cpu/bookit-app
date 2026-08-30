@@ -9,13 +9,13 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="BookIt — Support workers who fit your life">
 <meta property="og:description" content="Find, book and manage your own verified NDIS support workers. You choose who, when and how.">
-<meta property="og:image" content="/assets/photos/og.jpg">
+<meta property="og:image" content="https://bookit.life/assets/photos/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="/assets/photos/og.jpg">
+<meta name="twitter:image" content="https://bookit.life/assets/photos/og.jpg">
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 48"><circle cx="27" cy="24" r="22" fill="%230E6B62"/><circle cx="63" cy="24" r="22" fill="%23F5B841"/><path d="M45 11.35 A22 22 0 0 1 45 36.65 A22 22 0 0 1 45 11.35 Z" fill="%230A544D"/><path d="M52 25 l9 9 17 -18" stroke="%2317313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,380..700;1,9..144,380..700&display=swap" rel="stylesheet">
+<link rel="preload" href="/assets/fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/sora-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/fonts/fonts.css">
 <style>
 /* ============ Design tokens ============ */
 :root{
@@ -6930,6 +6930,13 @@ function paintBlockers(){
 let ROUTE_LAST = null;
 function route(){
   if(typeof loadBlockers === 'function') loadBlockers();
+  /* The server also answers the public pages at their real paths
+     (/services/transport) so search engines see each one. The app itself
+     runs on the hash, so a real path is folded into the hash once, on load,
+     without a reload or a history entry. */
+  if(!location.hash && location.pathname !== '/' && location.pathname !== '/index.html'){
+    try { history.replaceState(null, '', '/#' + location.pathname + location.search); } catch(e){ location.hash = '#' + location.pathname + location.search; }
+  }
   let path = location.hash.replace(/^#/, '');
   const qi = path.indexOf('?');
   if(qi !== -1) path = path.slice(0, qi);
