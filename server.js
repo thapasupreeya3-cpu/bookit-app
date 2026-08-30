@@ -2566,7 +2566,12 @@ function shortNotice(b) {
    to approve), the admin `completed` count (it counts delivered shifts), and
    every "have we worked together" test. --- */
 const billable = (a = 'b') =>
-  `(${a}.status = 'completed' OR (${a}.status = 'cancelled' AND COALESCE(${a}.short_notice, 0) = 1))`;
+  `((${a}.status = 'completed' OR (${a}.status = 'cancelled' AND COALESCE(${a}.short_notice, 0) = 1)) AND COALESCE(${a}.kind, 'shift') <> 'intro')`;
+/* what goes on the pay run: everything billable that a worker delivered, plus
+   the meet-and-greets, which are ours to pay and nobody's to claim. The office's
+   own fee lines (establishment, non-face-to-face) are not worker pay. */
+const payable = (a = 'b') =>
+  `((${billable(a)} AND COALESCE(${a}.kind, 'shift') = 'shift')${INTRO_PAID_HOURS() > 0 ? ` OR (${a}.status = 'completed' AND COALESCE(${a}.kind, 'shift') = 'intro')` : ''})`;
 
 /* --- 1. acting for somebody else.
    A participant acts for themselves. A coordinator acts for whichever of
@@ -5660,7 +5665,7 @@ route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
       b.status, b.notice_hours,
       uw.name AS worker_name, uw.email AS worker_email
     FROM bookings b JOIN users uw ON uw.id = b.worker_id
-    WHERE ${billable('b')} ORDER BY uw.name, b.date`).all();
+    WHERE ${payable('b')} ORDER BY uw.name, b.date`).all();
   const lines = [['Worker', 'Worker email', 'Date', 'Start', 'Hours', 'Service', 'Pay type', 'Rate category', 'Worker share incl. super ($)', 'Claim status'].map(q).join(',')];
   for (const r of rows) {
     /* The pay type column is what the bookkeeper reads. A short-notice
@@ -5668,8 +5673,8 @@ route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
        run — but it is not a shift that was worked, and calling it one would
        misstate hours worked in a payroll audit. */
     lines.push([q(r.worker_name), q(r.worker_email), q(r.date), q(r.start), r.hours, q(SERVICE_LABELS[r.service] || r.service),
-      q(r.status === 'cancelled' ? 'Short-notice cancellation' : 'Shift'),
-      q((INVOICE_RATES[r.rate_category] || {}).label || r.rate_category), (r.worker_share || 0).toFixed(2), q(r.claim_status || 'unclaimed')].join(','));
+      q(r.status === 'cancelled' ? 'Short-notice cancellation' : r.rate_category === 'intro' ? `Meet-and-greet (${INTRO_PAID_HOURS()} h, paid by BookIt)` : 'Shift'),
+      q((INVOICE_RATES[r.rate_category] || {}).label || r.rate_category), (r.worker_share || 0).toFixed(2), q(r.rate_category === 'intro' ? 'not claimable' : (r.claim_status || 'unclaimed'))].join(','));
   }
   /* SCHADS cl.26 on-call allowance. This is payable whether or not the worker was
      ever called — that is what buys the availability, and it is the entire marginal
@@ -5828,13 +5833,13 @@ route('GET', /^\/api\/rates$/, (req, res) => {
     /* v86.9.0 — everything else on the price list, in the one payload the
        pricing page already fetches, so the page never types a number */
     extras: {
-      meet_and_greet: { hours: 1, price: 0 },
+      meet_and_greet: { minutes: 15, price: 0, longer_than: 30, who_pays: 'nobody — it is a conversation, not a shift; past thirty minutes the participant books a shift so the worker is paid', worker_paid_hours: INTRO_PAID_HOURS() },
       sleepover: { price: INVOICE_RATES.sleepover.price, worker: INVOICE_RATES.sleepover.worker, hours_min: SLEEPOVER_HOURS_MIN, hours_max: SLEEPOVER_HOURS_MAX, included_active_hours: SLEEPOVER_INCLUDED_ACTIVE_HOURS,
         extra_active: { 'weekday-night': INVOICE_RATES['weekday-night'].price, 'saturday': INVOICE_RATES['saturday'].price, 'sunday': INVOICE_RATES['sunday'].price } },
       active_overnight: { price: INVOICE_RATES['weekday-night'].price, saturday: INVOICE_RATES['saturday'].price, sunday: INVOICE_RATES['sunday'].price, public_holiday: INVOICE_RATES['public-holiday'].price },
       travel: { per_km: KM_RATE_CHARGE(), max_km: KM_MAX_SHIFT, item: 'Provider travel — non-labour costs' },
       short_notice: { charged: true, windows: Object.entries(CANCEL_HOURS).map(([service, hours]) => ({ service, label: SERVICE_LABELS[service] || service, hours })) },
-      establishment_fee: { price: ESTABLISHMENT_FEE, once: true },
+      establishment_fee: { price: ESTABLISHMENT_FEE, once: true, who_pays: 'the participant\u2019s plan, once, from Core', conditions: 'new to us; a substantial ongoing program of personal care or participation (the Pricing Arrangements name 20 hours a month for at least three months); agreed in the service agreement; claimable once per participant' },
       non_face_to_face: { rate: INVOICE_RATES['weekday-day'].price, per: 'hour, at the weekday daytime rate for the support it relates to' },
       group: { available: setting('group_supports', 'off') === 'on', ratios: [2, 3], note: 'each participant pays the hourly price divided by the ratio' },
       referral_bonus: { amount: REFERRAL_BONUS(), after_hours: REFERRAL_QUALIFY_HOURS(), for: 'workers only' }
@@ -6239,12 +6244,12 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   const hours = Number(body.hours);
   /* a meet-and-greet is one hour, unpaid, and needs only a confirmed email
      and a funding lane — the way to meet a worker before the paperwork */
-  const intro = body.intro === true;
+  const intro = body.intro === true;   /* fifteen minutes, not a shift — see INTRO_HOURS */
   if (!intro && !(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
   if (bookingStart({ date, start }) <= new Date())
     return json(res, 409, { error: 'That start time has already passed. Choose a future time.' });
   const sleepover = body.sleepover && ['personal-care', 'daily-tasks'].includes(service) ? 1 : 0;
-  if (sleepover && intro) return json(res, 400, { error: 'A meet-and-greet is a daytime hour, not a sleepover.' });
+  if (sleepover && intro) return json(res, 400, { error: 'A meet-and-greet is a fifteen-minute hello, not a sleepover.' });
   if (sleepover) {
     /* Inactive night care is a night, not a number of hours: the NDIS item is
        one flat price for an eight-hour sleepover. Ten hours is allowed for a
@@ -6298,7 +6303,7 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   /* One worker, one place at a time. Checked for every date in a series so a
      participant hears about the clash before anything is written, and is told
      which dates so they can move the rule rather than guess. */
-  const clashes = dates.filter(d => bookingClash(workerId, d, start, intro ? 1 : hours, { statuses: ['accepted', 'requested'], participantId: pers.id }));
+  const clashes = dates.filter(d => bookingClash(workerId, d, start, intro ? INTRO_HOURS : hours, { statuses: ['accepted', 'requested'], participantId: pers.id }));
   if (clashes.length) {
     const first = bookingClash(workerId, clashes[0], start, hours, { statuses: ['accepted', 'requested'], participantId: pers.id });
     const dup = first && first.participant_id === pers.id;
@@ -6327,7 +6332,7 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
     }
     dates.forEach((d, idx) => {
       const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created, kind) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        .run(pers.id, workerId, service, d, start, intro ? 1 : hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now(), intro ? 'intro' : 'shift');
+        .run(pers.id, workerId, service, d, start, intro ? INTRO_HOURS : hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now(), intro ? 'intro' : 'shift');
       const id = Number(r.lastInsertRowid);
       if (km > 0) applyKm(id, km, clean(body.km_from, 80), clean(body.km_to, 80));
       ids.push(id);
@@ -6487,8 +6492,8 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
       if (cvf && cvf.filled_at && new Date(cvf.filled_at) > bookingStart(b))
         return json(res, 409, { error: 'This cover was recorded after the shift had started, so completion needs the office to confirm what was actually delivered. Give them a ring.' });
     }
-    const note = clean(body.note, NOTE_MAX);
-    const noteBad = noteProblem(note);
+    const note = clean(body.note, NOTE_MAX) || (b.kind === 'intro' ? 'Meet-and-greet held.' : '');
+    const noteBad = b.kind === 'intro' ? '' : noteProblem(note);
     if (noteBad) return json(res, 400, { error: noteBad });
     const scope = body.scope ? 1 : 0;
     const scopeDetail = clean(body.scope_detail, NOTE_MAX);
@@ -6520,7 +6525,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     db.exec('BEGIN IMMEDIATE');
     try {
       if (kmIn > 0) kmLine = applyKm(b.id, kmIn, body.km_from, body.km_to);
-      inv = b.kind === 'intro' ? { category: 'intro', label: 'Meet-and-greet (no charge)', unit_price: 0, qty: 1, total: 0, worker_share: 0 } : applyInvoice(b.id, suggestCategory(b));
+      inv = b.kind === 'intro' ? applyIntroPay(b.id) : applyInvoice(b.id, suggestCategory(b));
       if (b.sleepover) activeLine = applySleepoverActive(b.id, activeIn, clean(body.active_note, NOTE_MAX));
       /* 7. the state between "done" and "claimed". */
       db.prepare("UPDATE bookings SET status = 'completed', completed_at = ?, approval_state = 'pending', approval_from = ? WHERE id = ?").run(now(), now(), b.id);
@@ -13850,7 +13855,7 @@ function payPeriods(n) {
 function earningsFor(workerId, from, to) {
   const rows = db.prepare(`SELECT b.*, u.name AS participant_name FROM bookings b
     JOIN users u ON u.id = b.participant_id
-    WHERE b.worker_id = ? AND ${billable('b')} AND b.date BETWEEN ? AND ?
+    WHERE b.worker_id = ? AND ${payable('b')} AND b.date BETWEEN ? AND ?
     ORDER BY b.date DESC, b.start DESC`).all(Number(workerId), from, to);
   let pay = 0, kmPay = 0, hours = 0, km = 0, loading = 0, awaiting = 0, cancelledPay = 0, cancelledShifts = 0;
   const byCategory = {};
@@ -13860,7 +13865,7 @@ function earningsFor(workerId, from, to) {
     const plainRate = b.hours > 0 ? round2(share / b.hours) : 0;
     pay = round2(pay + share); kmPay = round2(kmPay + kmLine);
     hours = round2(hours + (b.hours || 0)); km = round2(km + (b.km || 0));
-    const cl = (INVOICE_RATES[b.rate_category] || {}).label || b.rate_category || 'Other';
+    const cl = b.rate_category === 'intro' ? 'Meet-and-greet (paid by BookIt)' : (INVOICE_RATES[b.rate_category] || {}).label || b.rate_category || 'Other';
     byCategory[cl] = round2((byCategory[cl] || 0) + share);
     if (b.approval_state === 'pending' || b.approval_state === 'queried') awaiting = round2(awaiting + share + kmLine);
     if (b.status === 'cancelled') { cancelledPay = round2(cancelledPay + share); cancelledShifts += 1; }
@@ -16650,6 +16655,24 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
    share of it. Check these three numbers against each July's Pricing
    Arrangements. */
 const SLEEPOVER_HOURS_MIN = 8, SLEEPOVER_HOURS_MAX = 10, SLEEPOVER_INCLUDED_ACTIVE_HOURS = 2;
+/* A meet-and-greet is fifteen minutes — a video call or a quick hello — before
+   the paperwork. It is not a shift and it is not time worked: no support is
+   provided, nothing is charged to anyone, and the worker is not paid for it,
+   the same way an interview is not a shift. The rule that keeps that honest is
+   the half hour: if it runs past thirty minutes it has become support, and the
+   participant books a shift so the worker is paid. The office can choose to pay
+   for intros anyway (intro_paid_hours, default 0) — then they ride the pay run
+   as not claimable. */
+const INTRO_HOURS = 0.25;
+const INTRO_PAID_HOURS = () => Math.max(0, numSetting('intro_paid_hours', 0));
+function applyIntroPay(id) {
+  const b = db.prepare('SELECT worker_id FROM bookings WHERE id = ?').get(id);
+  const hours = INTRO_PAID_HOURS();
+  const pay = hours > 0 ? (workerPay(b.worker_id, 'weekday-day', hours) || { tier: 'bronze', share_pct: null, amount: round2(INVOICE_RATES['weekday-day'].worker * hours), floored: false }) : { tier: '', share_pct: null, amount: 0, floored: false };
+  db.prepare(`UPDATE bookings SET rate_category = 'intro', unit_price = 0, worker_share = ?, total = 0, tier_at_shift = ?, share_pct = ?, award_floored = ?, claim_status = 'not claimable', support_item = '' WHERE id = ?`)
+    .run(pay.amount, pay.tier, pay.share_pct, pay.floored ? 1 : 0, id);
+  return { category: 'intro', label: hours > 0 ? `Meet-and-greet — no charge, paid by BookIt (${hours} h)` : 'Meet-and-greet — no charge, not time worked', unit_price: 0, qty: 1, total: 0, worker_share: pay.amount, paid_hours: hours };
+}
 function sleepoverActiveCategory(b) {
   const dow = new Date(b.date + 'T00:00:00').getDay();
   if (dow === 6) return 'saturday';
@@ -16828,7 +16851,8 @@ route('GET', /^\/api\/admin\/kpis$/, (req, res, m, user) => {
     retention_90d: { value: pct(retained, cohort), cohort, retained, how: 'participants who joined 90–180 days ago and had a shift in the last 90 days' },
     worker_churn: { active: workersActive, visible: workersVisible, left: workersLeft, how: 'workers with completed shifts in the prior window and nothing since' },
     time_to_verify: { days: verify && verify.d != null ? round2(verify.d) : null, checked: verify ? verify.n : 0, how: 'credential uploaded → verified by the office, averaged' },
-    referrals_payable: n('SELECT COUNT(*) AS n FROM referrals WHERE qualified_at IS NOT NULL AND paid_at IS NULL')
+    referrals_payable: n('SELECT COUNT(*) AS n FROM referrals WHERE qualified_at IS NOT NULL AND paid_at IS NULL'),
+    meet_and_greets: (() => { const r = one(`SELECT COUNT(*) AS c, COALESCE(SUM(b.worker_share),0) AS w ${base} AND b.status = 'completed' AND b.kind = 'intro'`, since, until); const conv = one(`SELECT COUNT(DISTINCT i.participant_id) AS n FROM bookings i WHERE i.kind = 'intro' AND i.status = 'completed' AND i.date BETWEEN ? AND ? AND EXISTS (SELECT 1 FROM bookings s WHERE s.participant_id = i.participant_id AND COALESCE(s.kind,'shift') = 'shift' AND s.status IN ('accepted','completed') AND s.created > i.created)`, since, until); return { count: r.c, cost: round2(r.w || 0), led_to_a_booking: conv ? conv.n : 0, how: 'fifteen-minute hellos held, and how many were followed by a real booking' }; })()
   });
 });
 
@@ -16878,7 +16902,7 @@ route('POST', /^\/api\/admin\/participants\/(\d+)\/establishment-fee$/, (req, re
   const pid = Number(m[1]);
   const p = db.prepare("SELECT id, name, plan FROM users WHERE id = ? AND role = 'participant'").get(pid);
   if (!p) return json(res, 404, { error: 'Participant not found.' });
-  if (body.conditions_met !== true) return json(res, 400, { error: 'Tick that the Pricing Arrangements conditions for an establishment fee are met for this participant.' });
+  if (body.conditions_met !== true) return json(res, 400, { error: 'Tick that the Pricing Arrangements conditions are met and that the set-up was real, documented work (a behaviour support plan, restrictive practices, a complex handover) rather than a routine sign-up: the participant is new to us, is starting a substantial ongoing program (the Arrangements name 20 hours a month for at least three months), the fee is in the service agreement, and it has not been claimed for them before.' });
   if (db.prepare("SELECT id FROM bookings WHERE participant_id = ? AND kind = 'establishment'").get(pid)) return json(res, 409, { error: 'An establishment fee has already been raised for this participant.' });
   const service = ESTABLISHMENT_ITEMS[body.service] ? body.service : 'personal-care';
   const id = feeBooking(pid, user.id, service, 'establishment', 0, ESTABLISHMENT_FEE, ESTABLISHMENT_FEE, ESTABLISHMENT_ITEMS[service], `Establishment fee — ${clean(body.note, 200) || 'new participant set-up'}`);

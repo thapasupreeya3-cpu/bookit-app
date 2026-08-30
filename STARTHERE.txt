@@ -28,12 +28,35 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     SLEEPOVER_INCLUDED_ACTIVE_HOURS against each July's Pricing
     Arrangements.
 
-  MEET-AND-GREET BEFORE THE PAPERWORK
-    A one-hour, no-charge intro booking (kind = 'intro') needs only a
-    confirmed email and a funding lane; the rest of the first-booking gate
-    applies to the first real shift. It never repeats, never invoices, and
-    counts for nothing on the ladder. Tick "Book a one-hour meet-and-greet
-    first" on the booking form.
+  MEET-AND-GREET BEFORE THE PAPERWORK — FIFTEEN MINUTES, NOT A SHIFT
+    An intro request (kind = 'intro', 0.25 h) needs only a confirmed email
+    and a funding lane; the rest of the first-booking gate applies to the
+    first real shift. It is a conversation — a video call or a quick hello
+    — not a shift: no support is given, nobody is charged and nobody is
+    paid, the same way an interview is not a shift. The rule that keeps
+    that honest is the half hour: if it runs past thirty minutes it has
+    become support, and the participant books a shift so the worker is
+    paid. The worker closes it with one tap (no shift note needed). It is
+    never on an invoice, a statement, a claim or the pay run (billable()
+    and payable() both exclude it). If the office ever decides to pay for
+    intros anyway, intro_paid_hours (setting, default 0) puts them on the
+    pay run as not claimable. The KPI board counts intros held and how
+    many led to a booking. It never repeats and counts for nothing on the
+    ladder.
+
+  THE ESTABLISHMENT FEE — WHO PAYS, AND WHEN IT MAY BE RAISED
+    The participant's plan pays it, once, from Core ($735.80 in 2026-27).
+    The Pricing Arrangements attach conditions, and the schedule you have
+    carries the price only, so read the Arrangements before raising one.
+    In outline: the participant is new to the provider; they are starting
+    a substantial ongoing program of personal care or participation (the
+    Arrangements name 20 hours a month for at least three months); the fee
+    is in the signed service agreement; once per participant. And, our
+    own rule on top: only where the set-up was real, documented work — a
+    behaviour support plan, restrictive practices, a complex handover —
+    never for a routine sign-up. The tick on Growth & money says exactly
+    that, and the refusal repeats it. Non-face-to-face time is for writing
+    plans and reports, not for phone calls, which are part of the service.
 
   THE DIRECTORY SAYS WHEN
     Every worker card shows "Next free: Tue 9am" — the first two-hour

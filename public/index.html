@@ -4791,7 +4791,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         </label>
         <label class="check-row" id="bkIntroWrap" style="margin-top:8px;">
           <input type="checkbox" id="bkIntro" style="margin-top:4px;">
-          <span><b>Book a one-hour meet-and-greet first</b> — no charge, no paperwork beyond a confirmed email and how your supports are funded. Meet the worker, then decide. It counts for nothing on either side until you book a real shift.</span>
+          <span><b>Ask for a 15-minute meet-and-greet first</b> — a video call or a quick hello, no charge, no paperwork beyond a confirmed email and how your supports are funded. It is a conversation, not a shift: no support is given and nobody is paid or charged. If it runs past 30 minutes, book a shift so the worker is paid. Meet them, then decide.</span>
         </label>
       </div>
       <div class="field full">
@@ -7158,12 +7158,12 @@ window.paintExtras = async function(){
     if(!tb || tb.dataset.done) return;
     const $m = n => '$' + Number(n).toFixed(2);
     const rows = [
-      ['Meet-and-greet', 'Free', 'One hour with a worker before the paperwork — needs only a confirmed email and how your supports are funded. Never repeats, never charged, never counted.'],
+      ['Meet-and-greet', 'Free', `A ${x.meet_and_greet.minutes}-minute video call or quick hello with a worker before the paperwork — needs only a confirmed email and how your supports are funded. It is a conversation, not a shift: no support is given, nobody is charged and nobody is paid. If it runs past ${x.meet_and_greet.longer_than} minutes, book a shift so the worker is paid. Never repeats, never counted.`],
       ['Sleepover — inactive night care', $m(x.sleepover.price) + ' per night', `One flat price for an ${x.sleepover.hours_min}-hour night (up to ${x.sleepover.hours_max}), starting between 8pm and 1am, any day of the week. Includes up to ${x.sleepover.included_active_hours} hours of active support. Beyond that, the extra is charged by the hour at the night rate for the day: ${$m(x.sleepover.extra_active['weekday-night'])} weekday, ${$m(x.sleepover.extra_active.saturday)} Saturday, ${$m(x.sleepover.extra_active.sunday)} Sunday — on its own line, so you can see it.`],
       ['Active overnight', $m(x.active_overnight.price) + ' per hour', `A worker awake and working through the night, two hours or more. Saturday ${$m(x.active_overnight.saturday)}, Sunday ${$m(x.active_overnight.sunday)}, public holiday ${$m(x.active_overnight.public_holiday)}.`],
       ['Provider travel', $m(x.travel.per_km) + ' per km', `When your worker drives as part of the shift (not their commute), entered by the worker with where from and where to, up to ${x.travel.max_km} km on a shift. Claimed as "${x.travel.item}".`],
       ['Short-notice cancellation', 'The shift\u2019s price', `Cancel inside the notice window and the shift is charged as if delivered, as the NDIS allows: ${x.short_notice.windows.map(w => `${w.label} ${w.hours % 24 === 0 ? (w.hours/24) + ' clear day' + (w.hours/24 === 1 ? '' : 's') : w.hours + ' hours'}`).join(' · ')}. Outside the window, nothing. Never charged when the shortfall was ours.`],
-      ['Establishment fee', $m(x.establishment_fee.price) + ' once', 'A one-off for a new participant whose supports need setting up, only where the NDIS conditions are met, and only ever once.'],
+      ['Establishment fee', $m(x.establishment_fee.price) + ' once', `Rarely. Charged to your plan once, from Core, only where the NDIS conditions are met (${x.establishment_fee.conditions}) and only where setting up your supports was real, documented work — a behaviour support plan, restrictive practices, a complex handover — never for an ordinary sign-up. It is written into your service agreement before it is ever claimed; if it is not there, it is not charged.`],
       ['Writing a plan or a report (non-face-to-face)', $m(x.non_face_to_face.rate) + ' per hour', 'Time our office spends on your support plan or a report that is directly about your supports, charged against the same item as the support, in quarter hours, and shown to you like any other line.'],
       ['Group shifts (1:2, 1:3)', x.group.available ? 'Hourly price \u00f7 the ratio' : 'Not yet', x.group.available ? 'Two or three participants with one worker at the same time: each pays the hourly price divided by the ratio, the worker is paid once.' : 'Coming once our registration for group supports is held. Each participant would pay the hourly price divided by the ratio.'],
       ['Joining, subscriptions, platform fees', 'Free', 'No joining fee, no subscription, no platform fee, no charge above the NDIS price limit for anything. Ever.']
@@ -9945,6 +9945,7 @@ async function renderAdminPage(){
       ${kpiBox('90-day retention', pctS(kpi.retention_90d.value) + ` (${kpi.retention_90d.retained}/${kpi.retention_90d.cohort})`, kpi.retention_90d.how)}
       ${kpiBox('Workers', `${kpi.worker_churn.active} active · ${kpi.worker_churn.visible} live · ${kpi.worker_churn.left} gone quiet`, kpi.worker_churn.how)}
       ${kpiBox('Time to verify', kpi.time_to_verify.days == null ? '—' : kpi.time_to_verify.days + ' days', kpi.time_to_verify.how)}
+      ${kpi.meet_and_greets ? kpiBox('Meet-and-greets', `${kpi.meet_and_greets.count} held · ${kpi.meet_and_greets.led_to_a_booking} led to a booking`, kpi.meet_and_greets.how) : ''}
     </div>
     ${kpi.margin_per_hour.by_category.length ? `<details style="margin-top:10px;"><summary>Margin by rate category</summary><table class="rt"><thead><tr><th>Category</th><th>Units</th><th>Revenue</th><th>Worker share</th><th>Margin/unit</th></tr></thead><tbody>${kpi.margin_per_hour.by_category.map(c => `<tr><td>${esc(c.category || '—')}</td><td>${c.units}</td><td>${money(c.revenue)}</td><td>${money(c.worker_share)}</td><td>${money(c.margin_per_unit)}</td></tr>`).join('')}</tbody></table></details>` : ''}` : '<p class="muted-sm">KPIs unavailable.</p>'}
 
@@ -9963,14 +9964,14 @@ async function renderAdminPage(){
     </form>
 
     <h3 style="margin-top:22px;">One-off claimable lines</h3>
-    <p class="muted-sm">An establishment fee for a new participant (conditions in the Pricing Arrangements — you tick that they are met), or non-face-to-face time such as writing a support plan. Each becomes a completed, approved line the invoice and claim machinery carries as normal.</p>
+    <p class="muted-sm">An establishment fee for a new participant whose set-up was real work (conditions in the Pricing Arrangements — you tick that they are met), or non-face-to-face time for writing a support plan or a report — not for phone calls, which are part of the service. Each becomes a completed, approved line the invoice and claim machinery carries as normal, and the participant sees it like any other charge.</p>
     <form id="admFee" style="display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));max-width:760px;align-items:center;">
       <input name="pid" type="number" min="1" placeholder="Participant #" required style="${inpStyle}">
       <select name="kind" style="${inpStyle}"><option value="establishment">Establishment fee</option><option value="nf2f">Non-face-to-face time</option></select>
       <select name="service" style="${inpStyle}"><option value="personal-care">Personal care</option><option value="community">Community</option><option value="daily-tasks">Daily tasks</option><option value="household">Household</option><option value="employment">Employment</option><option value="transport">Transport</option></select>
       <input name="hours" type="number" min="0.25" max="8" step="0.25" placeholder="Hours (NF2F)" style="${inpStyle}">
       <input name="what" placeholder="What the work was / note" style="${inpStyle};grid-column:span 2;">
-      <label class="muted-sm" style="grid-column:span 2;"><input type="checkbox" name="conditions_met"> The Pricing Arrangements conditions are met (establishment fee)</label>
+      <label class="muted-sm" style="grid-column:1/-1;"><input type="checkbox" name="conditions_met"> Establishment fee only: I have read the current Pricing Arrangements; this participant is new to us, is starting a substantial ongoing program (the Arrangements name 20 hours a month for at least three months), the fee is in their signed service agreement, it has not been claimed for them before, and the set-up was real, documented work (behaviour support plan, restrictive practices, complex handover) — not a routine sign-up.</label>
       <button class="adm-btn-sm" type="submit" style="justify-self:start;">Raise the line</button>
     </form>
 

@@ -240,7 +240,19 @@ async function main() {
     t('a full shift is still gated for a new participant', full.status === 400 && full.json.needs_setup === true, full.status);
     const intro = await req('POST', '/api/bookings', { headers: J2, cookie: ic, body: { worker_id: 10, service: 'daily-tasks', date: '2027-05-12', start: '10:00', intro: true } });
     t('a meet-and-greet goes through with just email + funding', intro.status === 200 && intro.json.ids, intro.status + ' ' + (intro.json && intro.json.error));
-    t('… as a one-hour intro, no charge', intro.status === 200 && db.prepare('SELECT hours, kind FROM bookings WHERE id = ?').get(intro.json.ids[0]).kind === 'intro');
+    t('… as a fifteen-minute intro, no charge', intro.status === 200 && (() => { const r = db.prepare('SELECT hours, kind FROM bookings WHERE id = ?').get(intro.json.ids[0]); return r.kind === 'intro' && r.hours === 0.25; })());
+    /* the worker is paid for it by us; the participant and the claim file never see it */
+    const introId = intro.json.ids[0];
+    db.prepare("UPDATE bookings SET status = 'accepted', accepted_at = ?, date = '2026-08-25' WHERE id = ?").run(new Date().toISOString(), introId);
+    const introDone = await req('PATCH', `/api/bookings/${introId}`, { headers: J2, cookie: wc, body: { status: 'completed', scope: false } });
+    const ir = db.prepare('SELECT worker_share, total, claim_status, rate_category FROM bookings WHERE id = ?').get(introId);
+    t('a meet-and-greet closes with no note needed, charges nobody and pays nobody', introDone.status === 200 && ir.worker_share === 0 && ir.total === 0 && ir.claim_status === 'not claimable', `${introDone.status} ${JSON.stringify(ir)}`);
+    const payIntro = (await req('GET', '/api/admin/payroll.csv', { cookie: ac2 })).text.split(/\r?\n/).find(l => l.includes('Meet-and-greet'));
+    t('… it is not on the pay run (not time worked)', !payIntro, payIntro || '');
+    const cl2 = await req('GET', '/api/admin/claims', { cookie: ac2 });
+    t('… and never in the claims list', cl2.status === 200 && !JSON.stringify(cl2.json).includes(`"id":${introId},`), cl2.status);
+    const kk = await req('GET', '/api/admin/kpis', { cookie: ac2 });
+    t('… and the KPI board counts it', kk.status === 200 && kk.json.meet_and_greets && kk.json.meet_and_greets.count >= 1, kk.status);
 
     /* the directory shows a next-free slot */
     const wl2 = await req('GET', '/api/workers');
@@ -304,7 +316,7 @@ async function main() {
     db.prepare("UPDATE users SET plan = 'ndia', ndis_number = '430000001' WHERE id = 13").run();
     db.prepare("UPDATE bookings SET claim_status = 'claimed', approval_state = 'approved' WHERE id = ?").run(sid);   /* the office has run the claim */
     const rx = await req('GET', '/api/rates');
-    t('/api/rates carries the whole price list (extras)', rx.status === 200 && rx.json.extras && rx.json.extras.sleepover.included_active_hours === 2 && rx.json.extras.travel.per_km > 0 && rx.json.extras.referral_bonus.for === 'workers only', rx.status);
+    t('/api/rates carries the whole price list (extras)', rx.status === 200 && rx.json.extras && rx.json.extras.sleepover.included_active_hours === 2 && rx.json.extras.travel.per_km > 0 && rx.json.extras.referral_bonus.for === 'workers only' && rx.json.extras.meet_and_greet.minutes === 15, rx.status);
     const rp = await req('GET', '/refer-a-worker');
     t('/refer-a-worker is a public page with its own title', rp.status === 200 && /<title>Refer a support worker/.test(rp.text), rp.status);
     t('the page links to the referral programme from the footer', rp.text.includes('href="#/refer-a-worker"'));
