@@ -296,6 +296,11 @@ async function main() {
     const kmId = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, rate_category, unit_price, worker_share, total, support_item, km, km_from, km_to, km_rate, km_total, claim_status, created) VALUES (13,10,'community','2026-08-20','10:00',2,'completed',?,'approved','weekday-day',73.58,100,147.16,'04_104_0125_6_1',12.5,'Ryde','Chatswood',1.00,12.50,'claimed',?)").run(now2, now2).lastInsertRowid);
     db.prepare("UPDATE users SET plan = 'ndia', ndis_number = '430000001' WHERE id = 13").run();
     db.prepare("UPDATE bookings SET claim_status = 'claimed', approval_state = 'approved' WHERE id = ?").run(sid);   /* the office has run the claim */
+    const rx = await req('GET', '/api/rates');
+    t('/api/rates carries the whole price list (extras)', rx.status === 200 && rx.json.extras && rx.json.extras.sleepover.included_active_hours === 2 && rx.json.extras.travel.per_km > 0 && rx.json.extras.referral_bonus.for === 'workers only', rx.status);
+    const rp = await req('GET', '/refer-a-worker');
+    t('/refer-a-worker is a public page with its own title', rp.status === 200 && /<title>Refer a support worker/.test(rp.text), rp.status);
+    t('the page links to the referral programme from the footer', rp.text.includes('href="#/refer-a-worker"'));
     const claims = await req('GET', '/api/admin/claims/pace.csv', { cookie: ac2 });
     const kmRow = claims.text.split(/\r?\n/).find(l => l.includes(`BK${kmId}T`));
     t('the PACE export carries the kilometres as a non-labour travel row', claims.status === 200 && !!kmRow && kmRow.includes('04_799_0125_6_1') && kmRow.includes('12.50'), claims.status + ' ' + (kmRow || 'no travel row'));

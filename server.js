@@ -5808,6 +5808,20 @@ route('GET', /^\/api\/rates$/, (req, res) => {
         service, label: SERVICE_LABELS[service], hours,
         notice: hours % 24 === 0 ? `${hours / 24} clear day${hours / 24 === 1 ? '' : 's'}` : `${hours} hours`
       }))
+    },
+    /* v86.9.0 — everything else on the price list, in the one payload the
+       pricing page already fetches, so the page never types a number */
+    extras: {
+      meet_and_greet: { hours: 1, price: 0 },
+      sleepover: { price: INVOICE_RATES.sleepover.price, worker: INVOICE_RATES.sleepover.worker, hours_min: SLEEPOVER_HOURS_MIN, hours_max: SLEEPOVER_HOURS_MAX, included_active_hours: SLEEPOVER_INCLUDED_ACTIVE_HOURS,
+        extra_active: { 'weekday-night': INVOICE_RATES['weekday-night'].price, 'saturday': INVOICE_RATES['saturday'].price, 'sunday': INVOICE_RATES['sunday'].price } },
+      active_overnight: { price: INVOICE_RATES['weekday-night'].price, saturday: INVOICE_RATES['saturday'].price, sunday: INVOICE_RATES['sunday'].price, public_holiday: INVOICE_RATES['public-holiday'].price },
+      travel: { per_km: KM_RATE_CHARGE(), max_km: KM_MAX_SHIFT, item: 'Provider travel — non-labour costs' },
+      short_notice: { charged: true, windows: Object.entries(CANCEL_HOURS).map(([service, hours]) => ({ service, label: SERVICE_LABELS[service] || service, hours })) },
+      establishment_fee: { price: ESTABLISHMENT_FEE, once: true },
+      non_face_to_face: { rate: INVOICE_RATES['weekday-day'].price, per: 'hour, at the weekday daytime rate for the support it relates to' },
+      group: { available: setting('group_supports', 'off') === 'on', ratios: [2, 3], note: 'each participant pays the hourly price divided by the ratio' },
+      referral_bonus: { amount: REFERRAL_BONUS(), after_hours: REFERRAL_QUALIFY_HOURS(), for: 'workers only' }
     }
   });
 });
@@ -17007,6 +17021,7 @@ const PUBLIC_PAGES = {
   '/for-plan-managers': ['For plan managers — BookIt', 'The exact support item on every line, statements that open in your software, and never a dollar above the published maximums.'],
   '/for-families': ['For families & carers — BookIt', 'Who is coming to the house, whether they are properly checked, and what happened on the shift — how BookIt answers each, and how to help without taking over.'],
   '/locations': ['Where BookIt works — BookIt', 'Available across Australia by design, with the deepest coverage where the worker pools are. Where you will find the most choice today.'],
+  '/refer-a-worker': ['Refer a support worker — BookIt', 'Know a good support worker? Give them your BookIt referral code. Once they have completed 50 hours you are paid a $150 bonus. A worker programme; participants are never offered anything for a referral.'],
   '/services/overnight': ['Overnight support: sleepovers and active nights — BookIt', 'Inactive night care (a sleepover) is one flat NDIS price for the night with a worker asleep on the premises, up to two hours of help included. Active overnight support is by the hour. How each is booked, priced and paid.']
 };
 const CSP_HTML = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";

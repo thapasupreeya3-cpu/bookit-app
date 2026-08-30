@@ -2531,6 +2531,34 @@ html.high-contrast .care-stage-block{display:none!important;}
     </div>
   </div>
 </section>
+<section class="page" id="page-refer" data-title="Refer a support worker — BookIt">
+  <div class="container" style="max-width:860px;">
+    <p class="eyebrow">For support workers</p>
+    <h1>Know a good support worker? Refer them.</h1>
+    <p class="lede">The best workers are found by workers. Give someone you would want on your own roster your referral code; once they have completed <b id="refHours">50</b> hours with BookIt, you are paid a <b id="refBonus">$150</b> bonus on your next pay run. No cap on how many.</p>
+    <div class="grid-2" style="margin-top:22px;">
+      <div class="card">
+        <h2 style="margin-top:0;">How it works</h2>
+        <ol>
+          <li>Sign in and open <a href="#/earnings">My earnings</a>. Your code (it looks like <code>W12-3F9A1C</code>) and a link are at the top.</li>
+          <li>Send the link, or tell them the code. They type it when they <a href="#/get-started?type=worker">apply</a>.</li>
+          <li>They go through the same checks as everyone — screening, first aid, CPR, the interview, the induction — and start taking shifts.</li>
+          <li>When their completed hours reach the mark, you are emailed, it shows as payable on My earnings, and it is on your next pay.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0;">The fine print, short</h2>
+        <ul>
+          <li>Workers only. <b>Participants are never offered anything for a referral</b> — the NDIS Code of Conduct treats inducements to participants as a problem, and so do we.</li>
+          <li>The code has to be entered at sign-up; it cannot be added afterwards.</li>
+          <li>Hours are completed shifts, not sleepovers or meet-and-greets.</li>
+          <li>You are not responsible for the person you refer; they stand on their own checks.</li>
+        </ul>
+        <p style="margin-top:14px;"><a class="btn btn-primary" href="#/earnings">Get my code</a> <a class="btn btn-secondary" href="#/get-started?type=worker">I'm the one applying</a></p>
+      </div>
+    </div>
+  </div>
+</section>
 <section class="page" id="page-shifts" data-title="Open shifts — BookIt">
   <div class="container" style="max-width:860px;">
     <p class="eyebrow">For workers</p>
@@ -2669,6 +2697,11 @@ html.high-contrast .care-stage-block{display:none!important;}
       <div class="info-card" style="margin-top:18px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
         <p style="margin:0;"><b>What will your shift actually cost?</b> Pick the support, day and time — see the price, the claim line and the cancellation window before you book anything.</p>
         <a class="btn btn-primary" href="#/calculator">Try the calculator</a>
+      </div>
+      <div id="pExtras" style="margin-top:26px;">
+        <h2 class="mb-2">Everything else on the price list</h2>
+        <p class="tbl-note" style="margin-top:0;">Every charge that can ever appear on a BookIt invoice, and the two things that are free. Live from the same rate table as the hours above.</p>
+        <div class="table-wrap"><table id="pExtrasTable"><thead><tr><th scope="col">What</th><th scope="col">Price</th><th scope="col">How it works</th></tr></thead><tbody><tr><td colspan="3"><span class="muted-sm">Loading…</span></td></tr></tbody></table></div>
       </div>
       <p class="tbl-note" style="margin-top:14px;">Managing plans for clients on BookIt? <a href="#/for-plan-managers">The plan managers' page</a> covers claims, statements and scoped access in one read.</p>
       <div id="pClaimSection" hidden style="margin-top:26px;">
@@ -2836,10 +2869,9 @@ html.high-contrast .care-stage-block{display:none!important;}
       <p class="muted-sm" style="margin:4px 0 8px;">Live from our rate table — the NDIS price for the hour, and your share of it. Superannuation is on top. A sleepover is a flat night.</p>
       <div id="swPayTable"><span class="muted-sm">Loading…</span></div>
     </div>
-    <div class="card" id="swReferral" style="margin:18px 0;">
-      <b>Know a good support worker? Refer them.</b>
-      <p style="margin:6px 0 0;">Every BookIt worker has a referral code and link on their <i>My earnings</i> page. Give it to someone you would want on your own roster; they type it when they sign up. Once they have completed <b>50 hours</b> with BookIt you are paid a <b>$150</b> referral bonus on your next pay run — no cap on how many. Participants are never offered anything for referrals; this is a worker's programme, because workers know who is good.</p>
-      <p class="muted-sm" style="margin:6px 0 0;">Already with us? Your code is at <a href="#/earnings">My earnings</a>.</p>
+    <div class="info-card" id="swReferral" style="margin:18px 0;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+      <p style="margin:0;"><b>Know a good support worker? Refer them and earn $150</b> once they have completed 50 hours. A worker programme — participants are never offered anything for a referral.</p>
+      <a class="btn btn-primary" href="#/refer-a-worker">How referrals work</a>
     </div>
       <p class="lead">Be employed — not a gig contractor. Choose your clients and hours, get paid above award with super and full insurance, and build real relationships doing work that matters.</p>
       <div class="hero-ctas mt-3">
@@ -4664,6 +4696,7 @@ html.high-contrast .care-stage-block{display:none!important;}
           <li><a href="#/jobs">Jobs board</a></li>
           <li><a href="#/locations">Where we work</a></li>
           <li><a href="#/find-workers">Find workers</a></li>
+          <li><a href="#/services/overnight">Overnight support</a></li>
           <li><a href="#/messages">Messages</a></li>
           <li><a href="#/easy-read">Easy Read</a></li>
           <li><a href="#/safety">Safety & quality</a></li>
@@ -4679,6 +4712,8 @@ html.high-contrast .care-stage-block{display:none!important;}
           <li><a href="#/support-workers">Pay rates</a></li>
           <li><a href="#/support-workers">Requirements</a></li>
           <li><a href="#/get-started?type=worker">Apply now</a></li>
+          <li><a href="#/shifts">Open shifts</a></li>
+          <li><a href="#/refer-a-worker">Refer a worker — $150</a></li>
         </ul>
       </nav>
       <nav aria-label="Footer — company">
@@ -6919,6 +6954,7 @@ const ROUTES = {
   '/services/household': 'page-services-household',
   '/services/community': 'page-services-community',
   '/services/overnight': 'page-services-overnight',
+  '/refer-a-worker': 'page-refer',
   '/shifts': 'page-shifts',
   '/how-it-works': 'page-how-it-works',
   '/pricing': 'page-pricing',
@@ -7053,6 +7089,7 @@ function route(){
   if(id === 'page-shifts' && window.renderShiftsPage) renderShiftsPage();
   if(id === 'page-support-workers' && window.paintWorkerPay) paintWorkerPay();
   if(id === 'page-services-overnight' && window.paintOvernightPrice) paintOvernightPrice();
+  if(id === 'page-refer' || id === 'page-pricing'){ if(window.paintExtras) paintExtras(); }
   if(id === 'page-admin' && window.renderAdminPage) renderAdminPage();
   if(id === 'page-admin' && window.renderTrainingMatrix) setTimeout(renderTrainingMatrix, 600);
   if(id === 'page-admin' && window.renderDocRequestsCard) setTimeout(renderDocRequestsCard, 700);
@@ -7109,6 +7146,31 @@ window.paintWorkerPay = async function(){
     el.innerHTML = `<table class="rt" style="width:100%;"><thead><tr><th>Shift</th><th>NDIS price</th><th>Bronze (${d.ladder ? d.ladder[0].share : ''}%)</th><th>Platinum (${d.ladder ? d.ladder[d.ladder.length-1].share : ''}%)</th></tr></thead><tbody>${cats.map(r => `<tr><td>${esc(r.label)}</td><td>$${Number(r.you).toFixed(2)}${unit(r)}</td><td><b>$${Number(r.worker).toFixed(2)}</b>${unit(r)}</td><td><b>$${Number(r.worker_top).toFixed(2)}</b>${unit(r)}</td></tr>`).join('')}</tbody></table><p class="muted-sm" style="margin:8px 0 0;">Figures include the ${esc(String(d.super || 12))}% superannuation guarantee. Lifted to the SCHADS minimum wherever a price limit sits below the award.</p>`;
     el.dataset.done = '1';
   }catch(e){ el.innerHTML = '<span class="muted-sm">See the <a href="#/pricing">pricing page</a>.</span>'; }
+};
+
+/* ---------- the rest of the price list, and the referral figures ---------- */
+window.paintExtras = async function(){
+  const tb = $('#pExtrasTable tbody'); const rh = $('#refHours'), rb = $('#refBonus');
+  try{
+    const d = await API.call('/rates'); const x = d.extras; if(!x) return;
+    if(rh) rh.textContent = x.referral_bonus.after_hours;
+    if(rb) rb.textContent = '$' + Number(x.referral_bonus.amount).toFixed(0);
+    if(!tb || tb.dataset.done) return;
+    const $m = n => '$' + Number(n).toFixed(2);
+    const rows = [
+      ['Meet-and-greet', 'Free', 'One hour with a worker before the paperwork — needs only a confirmed email and how your supports are funded. Never repeats, never charged, never counted.'],
+      ['Sleepover — inactive night care', $m(x.sleepover.price) + ' per night', `One flat price for an ${x.sleepover.hours_min}-hour night (up to ${x.sleepover.hours_max}), starting between 8pm and 1am, any day of the week. Includes up to ${x.sleepover.included_active_hours} hours of active support. Beyond that, the extra is charged by the hour at the night rate for the day: ${$m(x.sleepover.extra_active['weekday-night'])} weekday, ${$m(x.sleepover.extra_active.saturday)} Saturday, ${$m(x.sleepover.extra_active.sunday)} Sunday — on its own line, so you can see it.`],
+      ['Active overnight', $m(x.active_overnight.price) + ' per hour', `A worker awake and working through the night, two hours or more. Saturday ${$m(x.active_overnight.saturday)}, Sunday ${$m(x.active_overnight.sunday)}, public holiday ${$m(x.active_overnight.public_holiday)}.`],
+      ['Provider travel', $m(x.travel.per_km) + ' per km', `When your worker drives as part of the shift (not their commute), entered by the worker with where from and where to, up to ${x.travel.max_km} km on a shift. Claimed as "${x.travel.item}".`],
+      ['Short-notice cancellation', 'The shift\u2019s price', `Cancel inside the notice window and the shift is charged as if delivered, as the NDIS allows: ${x.short_notice.windows.map(w => `${w.label} ${w.hours % 24 === 0 ? (w.hours/24) + ' clear day' + (w.hours/24 === 1 ? '' : 's') : w.hours + ' hours'}`).join(' · ')}. Outside the window, nothing. Never charged when the shortfall was ours.`],
+      ['Establishment fee', $m(x.establishment_fee.price) + ' once', 'A one-off for a new participant whose supports need setting up, only where the NDIS conditions are met, and only ever once.'],
+      ['Writing a plan or a report (non-face-to-face)', $m(x.non_face_to_face.rate) + ' per hour', 'Time our office spends on your support plan or a report that is directly about your supports, charged against the same item as the support, in quarter hours, and shown to you like any other line.'],
+      ['Group shifts (1:2, 1:3)', x.group.available ? 'Hourly price \u00f7 the ratio' : 'Not yet', x.group.available ? 'Two or three participants with one worker at the same time: each pays the hourly price divided by the ratio, the worker is paid once.' : 'Coming once our registration for group supports is held. Each participant would pay the hourly price divided by the ratio.'],
+      ['Joining, subscriptions, platform fees', 'Free', 'No joining fee, no subscription, no platform fee, no charge above the NDIS price limit for anything. Ever.']
+    ];
+    tb.innerHTML = rows.map(r => `<tr><th scope="row">${r[0]}</th><td><b>${r[1]}</b></td><td>${r[2]}</td></tr>`).join('');
+    tb.dataset.done = '1';
+  }catch(e){ if(tb) tb.innerHTML = '<tr><td colspan="3"><span class="muted-sm">The price list is loading from the live server; if this stays blank, the calculator has every figure.</span></td></tr>'; }
 };
 window.paintOvernightPrice = async function(){
   const el = $('#ovSleepPrice'); if(!el || el.dataset.done) return;
