@@ -163,7 +163,8 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
        With Self-Care Activities - Standard - Sunday"), the item number,
        the time range and hours (or the night, or the kilometres), rate
        and amount; invoice total, paid, BALANCE DUE; payment block with
-       account name, BSB and account number read from BANK_DETAILS, the
+       account name, BSB 067-873 and account number 2577 2190 (the code's
+       default; BANK_DETAILS in /etc/bookit.env overrides it), the
        invoice number as the reference; the GST-free statement; page
        numbers when it runs long. ITEM_NAMES holds the 33 item names from
        the 2026-27 schedule; regenerate when the schedule changes.
@@ -176,6 +177,50 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     participant's (and their coordinator's, with the invoices scope); the
     PDF is generated from the bookings each time, so it is always the
     current state, and a worker or another participant gets a 403.
+
+  REMOVING RECORDS — ERASE, VOID, CLOSE (with a typed reason)
+    A registered provider keeps the records of the supports it delivered,
+    so "delete" is two different things and the office is asked which.
+    Every action needs a typed reason of at least twenty characters, goes
+    to the compliance log, and the erased rows are copied to a new table,
+    erasures (kind, ref, label, snapshot, reason, by, at), so the audit
+    trail still knows they existed.
+    SHIFTS — the "Remove…" button on a Claims-board row (only while the
+    line is unclaimed) opens the dialog:
+      Void  — a delivered shift the office wants out of everything but
+              which must stay on file: it becomes a cancellation that is
+              never short-notice with voided = 1, total and worker share
+              zeroed; billable(), payable(), the diary, the ladder and the
+              statement all ignore it. (The status column's CHECK allows
+              only the five working states, hence the flag.)
+      Erase — the row is deleted, with its notes, reviews and cover rows.
+              Only for something that was never a real support: a trial,
+              a test, an undelivered booking. Erasing a DELIVERED shift is
+              refused unless the "this was a test" box is ticked.
+      A claimed or paid line is refused either way: take it off the claim
+      first (Claims board › unpaid), then remove it.
+    ACCOUNTS — "Close account…" on a participant card (Participant files)
+    or a worker card (the applicant list). If the person never had a
+    delivered shift the account and everything attached to it is erased
+    (bookings, documents on disk, photo, sessions, links, messages). If
+    they did, the office is asked to acknowledge, and the account is
+    closed and de-identified: name → "Removed participant #id", email →
+    removed-id@invalid.bookit.life, phone, suburb, NDIS number, nominee
+    and plan-manager details cleared, password rotated, verified off,
+    closed_at stamped (new column), photo and documents deleted from
+    disk, open bookings cancelled; the delivered shifts, notes, invoices
+    and incidents stay, which is what the retention rules want. Admin
+    accounts are refused (revoke admin first); your own account is
+    refused from here.
+    Routes: DELETE /api/admin/bookings/:id (reason, test), POST
+    /api/admin/bookings/:id/void (reason), DELETE /api/admin/users/:id
+    (reason, acknowledge), GET /api/admin/erasures. Nothing here is
+    reachable from the participant or worker side; "Remove" on a filed
+    document (Participant files) is the older, separate action.
+    FOR YOUR TRIAL: the trial shift is unclaimed, so Remove… › Erase with
+    the "this was a test" tick, reason "trial shift used to test the
+    site", removes it and its note; the trial participant's account, if
+    it has no other delivered shift, can then be closed and is erased.
 
   THE KILOMETRES ARE CLAIMED NOW
     Provider travel entered by the worker at the end of a shift was charged

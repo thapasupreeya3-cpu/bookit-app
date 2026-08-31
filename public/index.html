@@ -7172,6 +7172,64 @@ window.invoiceBanner = async function(){
   if(!open.length) return '';
   return `<div class="info-card" style="border-left:5px solid #A5301A;margin-bottom:14px;"><p style="margin:0;"><b>${open.length === 1 ? 'An invoice' : open.length + ' invoices'} to pay — $${Number(d.owing).toFixed(2)}${open.some(i => i.status === 'overdue') ? ', one past its due date' : ''}.</b> ${open[0].funding === 'plan' ? 'Sent to your plan manager.' : ''} <a href="#/statements">See the invoice${open.length === 1 ? '' : 's'}, the PDF and how to pay</a>.</p></div>`;
 };
+
+/* ---------- removing records: one dialog, a typed reason, the right action ---------- */
+window.askRemoval = function(opts){
+  return new Promise(resolve => {
+    const old = $('#rmDialog'); if(old) old.remove();
+    const d = document.createElement('div'); d.id = 'rmDialog';
+    d.innerHTML = `<div role="dialog" aria-modal="true" aria-labelledby="rmTitle" style="position:fixed;inset:0;background:rgba(20,30,34,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;">
+      <form style="background:#fff;border-radius:16px;max-width:560px;width:100%;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+        <h2 id="rmTitle" style="margin:0 0 8px;font-size:1.25rem;">${esc(opts.title)}</h2>
+        <p style="margin:0 0 12px;">${opts.text}</p>
+        ${opts.choices ? `<div style="margin:0 0 12px;">${opts.choices.map((c, i) => `<label style="display:block;margin:6px 0;"><input type="radio" name="rmChoice" value="${esc(c.value)}" ${i === 0 ? 'checked' : ''}> <b>${esc(c.label)}</b> — ${esc(c.help)}</label>`).join('')}</div>` : ''}
+        ${opts.tick ? `<label style="display:block;margin:0 0 12px;"><input type="checkbox" name="rmTick"> ${esc(opts.tick)}</label>` : ''}
+        <label for="rmReason" style="display:block;font-weight:600;margin-bottom:4px;">Why? (required — at least 20 characters; it is kept with the record)</label>
+        <textarea id="rmReason" rows="3" required minlength="20" style="width:100%;font:inherit;padding:8px 10px;border:1.5px solid #E7DFD4;border-radius:10px;" placeholder="e.g. Trial shift used to test the site on 30 August, not a real support."></textarea>
+        <p id="rmErr" style="color:#A5301A;margin:8px 0 0;min-height:1.2em;font-size:.9rem;"></p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;"><button type="button" class="btn btn-secondary" data-rm-cancel>Keep it</button><button type="submit" class="btn btn-primary" style="background:#A5301A;border-color:#A5301A;">${esc(opts.button || 'Remove')}</button></div>
+      </form></div>`;
+    document.body.appendChild(d);
+    const form = d.querySelector('form'); const ta = d.querySelector('#rmReason'); ta.focus();
+    const close = v => { d.remove(); resolve(v); };
+    d.querySelector('[data-rm-cancel]').onclick = () => close(null);
+    d.addEventListener('keydown', e => { if(e.key === 'Escape') close(null); });
+    form.onsubmit = e => {
+      e.preventDefault();
+      const reason = ta.value.trim();
+      if(reason.length < 20){ d.querySelector('#rmErr').textContent = 'A few more words — at least 20 characters.'; ta.focus(); return; }
+      if(opts.tick && !form.querySelector('[name=rmTick]').checked){ d.querySelector('#rmErr').textContent = 'Tick the box to confirm.'; return; }
+      const choice = form.querySelector('[name=rmChoice]:checked');
+      close({ reason, choice: choice ? choice.value : null, ticked: !!(form.querySelector('[name=rmTick]') || {}).checked });
+    };
+  });
+};
+document.addEventListener('click', async e => {
+  const rb = e.target.closest('[data-remove-booking]');
+  if(rb){
+    const id = rb.dataset.removeBooking;
+    const a = await askRemoval({ title: `Remove shift #${id}`, text: 'A shift that was <b>delivered</b> is a record the provider must keep: choose <b>Void</b> and it leaves every statement, invoice, claim and pay run but stays on file. A shift that was <b>never a real support</b> (a trial, a test, a booking never delivered) can be <b>erased</b>; a copy goes to the erasure log with your reason.',
+      choices: [{ value: 'void', label: 'Void', help: 'keep the record, take it out of everything' }, { value: 'erase', label: 'Erase', help: 'delete it — only for a test or an undelivered booking' }],
+      tick: 'If erasing a delivered shift: this was a test, not a real support.', button: 'Remove' });
+    if(!a) return;
+    try{
+      if(a.choice === 'void') await API.call('/admin/bookings/' + id + '/void', {method:'POST', body:{reason: a.reason}});
+      else await API.call('/admin/bookings/' + id, {method:'DELETE', body:{reason: a.reason, test: a.ticked}});
+      toast(a.choice === 'void' ? 'Shift voided — kept on file, out of everything else.' : 'Shift erased; a copy is in the erasure log.'); renderAdminPage();
+    }catch(err){ toast(err.message); }
+    return;
+  }
+  const ru = e.target.closest('[data-remove-user]');
+  if(ru){
+    const id = ru.dataset.removeUser, name = ru.dataset.name || 'this account';
+    const a = await askRemoval({ title: `Close ${name}'s account`, text: 'If this person never had a delivered shift, the account and everything attached to it is <b>erased</b>. If they did, the account is <b>closed and de-identified</b>: name, email, phone, suburb, photo and documents go; shifts, notes, invoices and incidents stay under "Removed #id", which is what the retention rules require. Open bookings are cancelled either way.',
+      tick: 'I understand this cannot be undone.', button: 'Close the account' });
+    if(!a) return;
+    try{ const r = await API.call('/admin/users/' + id, {method:'DELETE', body:{reason: a.reason, acknowledge: true}}); toast(r.mode === 'erase' ? 'Account erased.' : 'Account closed and de-identified; the delivered shifts stay on file.'); renderAdminPage(); }
+    catch(err){ toast(err.message); }
+    return;
+  }
+});
 window.paintExtras = async function(){
   const tb = $('#pExtrasTable tbody'); const rh = $('#refHours'), rb = $('#refBonus');
   try{
@@ -9506,7 +9564,7 @@ async function renderAdminPage(){
       <div style="display:flex;gap:12px;align-items:flex-start;">
         <div class="wc-avatar" style="background:#0E6B62;width:56px;height:56px;">${w.photo ? `<img src="${w.photo}" alt="Photo of ${esc(w.name)}">` : '<span style="font-size:.7rem;text-align:center;line-height:1.2;">no<br>photo</span>'}</div>
         <div style="flex:1;">
-      <h3 style="margin:0 0 4px;">${esc(w.name)} <span style="font-weight:400;font-size:.85rem;color:#3E5A64;">· ${esc(w.suburb || 'no suburb')} · applied ${fmtStamp(w.created)}</span></h3>
+      <h3 style="margin:0 0 4px;">${esc(w.name)} <button class="adm-btn-sm" type="button" data-remove-user="${w.user_id}" data-name="${esc(w.name)}" style="color:#A5301A;float:right;" title="Close this account, with a reason">Close account…</button> <span style="font-weight:400;font-size:.85rem;color:#3E5A64;">· ${esc(w.suburb || 'no suburb')} · applied ${fmtStamp(w.created)}</span></h3>
       <p style="margin:6px 0;font-size:.92rem;">${esc(w.email || '')}${w.phone ? ' · ' + esc(w.phone) : ''} · email ${w.verified ? 'verified ✓' : '<b>not verified yet</b>'}</p>
       <p style="margin:6px 0;">${(w.services || []).map(s => `<span class="adm-badge">${esc(svcName(s))}</span>`).join('') || '<i>no services picked</i>'}</p>
       ${w.bio ? `<p style="margin:8px 0 0;font-size:.92rem;color:#3E5A64;">“${esc(w.bio)}”</p>` : ''}
@@ -9722,6 +9780,7 @@ async function renderAdminPage(){
           <h3 style="margin:0;">${esc(p.name)}</h3>
           <span class="adm-badge" ${p.held === p.of ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>${p.held} of ${p.of} on file</span>
           <span style="flex:1;"></span>
+          <button class="adm-btn-sm" type="button" data-remove-user="${p.id}" data-name="${esc(p.name)}" style="color:#A5301A;" title="Close this account, with a reason">Close account…</button>
           <span style="font-size:.8rem;color:#3E5A64;">${esc(p.email || '')}</span>
         </div>
         <div class="ob-bar" style="margin:8px 0 10px;" role="img" aria-label="${p.held} of ${p.of} documents on file"><i style="width:${pct}%;"></i></div>
@@ -9830,7 +9889,7 @@ async function renderAdminPage(){
     <td><b>$${Number(r.total || 0).toFixed(2)}</b></td>
     <td>${showActions
       ? (r.flags.length ? `<span style="color:#D94F32;font-size:.78rem;">${esc(r.flags.join(' · '))}</span>` : '<span style="color:#1C7C43;font-size:.78rem;">ready ✓</span>')
-      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `${r.invoice_no ? `<button class="adm-btn-sm" data-inv-paid="${esc(r.invoice_no)}" type="button" title="Bank transfer received for the whole invoice">Invoice paid</button> ` : ''}<button class="adm-btn-sm" data-claim-paid="${r.id}" type="button">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
+      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `${r.invoice_no ? `<button class="adm-btn-sm" data-inv-paid="${esc(r.invoice_no)}" type="button" title="Bank transfer received for the whole invoice">Invoice paid</button> ` : ''}${!r.claim_status ? `<button class="adm-btn-sm" data-remove-booking="${r.id}" type="button" title="Void or erase this shift, with a reason" style="color:#A5301A;">Remove…</button> ` : ''}<button class="adm-btn-sm" data-claim-paid="${r.id}" type="button">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
   </tr>`;
   const claimTable = (rows, showActions) => `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Date</th><th>Participant</th><th>Funding</th><th>Shift</th><th>Support item</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(r => claimRow(r, showActions)).join('')}</tbody></table></div>`;
   const claims = `

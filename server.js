@@ -154,6 +154,8 @@ for (const col of ["health_consent_version TEXT DEFAULT ''", "health_consent_at 
 for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_no TEXT', 'support_item TEXT', 'claimed_at TEXT', 'paid_at TEXT', 'sleepover INTEGER DEFAULT 0']) {
   BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`)
 }
+BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE users ADD COLUMN closed_at TEXT`);
+BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN voided INTEGER DEFAULT 0`);
 /* v86.9.0: inactive night care (active hours inside a sleepover), meet-and-greet
    bookings, group ratios, one-off fee lines. All nullable with defaults; no
    rewrite of the table. */
@@ -1695,7 +1697,8 @@ function supportItemFor(service, category) {
 }
 const NDIS_REG_NO = process.env.NDIS_REG_NO || '4-LO5XNY0';
 const COMPANY_ABN = '19658578575';
-const BANK_DETAILS = process.env.BANK_DETAILS || '';
+/* the account every invoice is paid into; BANK_DETAILS in /etc/bookit.env overrides it */
+const BANK_DETAILS = process.env.BANK_DETAILS || 'Account name: Disability & Mental Health Care Pty Ltd · BSB 067-873 · Account 2577 2190';
 
 /* ---------- tiny PDF invoice generator (zero-dependency) ---------- */
 function pdfEsc(s) {
@@ -1757,7 +1760,7 @@ function endTime(start, hours) {
    "BSB: 062198, Account: 10970494", or anything else printed as it is */
 function bankLines() {
   const raw = String(BANK_DETAILS || '');
-  const bsb = /BSB[:\s]*([\d-]{6,7})/i.exec(raw), acc = /Acc(?:ount|t)(?: number| no\.?)?[:\s]*([\d]{5,12})/i.exec(raw), name = /(?:Account name|Name)[:\s]*([^·,;]+)/i.exec(raw);
+  const bsb = /BSB[:\s]*([\d-]{6,7})/i.exec(raw), acc = /Acc(?:ount|t)(?: number| no\.?)?[:\s]*(\d[\d ]{4,14}\d)/i.exec(raw), name = /(?:Account name|Name)[:\s]*([^·,;]+?)\s*(?:·|,|;|$)/i.exec(raw);
   if (!raw) return ['Payment details are provided separately.'];
   if (!bsb && !acc) return [raw];
   return [`Account name: ${name ? name[1].trim() : COMPANY_NAME}`, bsb ? `BSB: ${bsb[1]}` : '', acc ? `Account number: ${acc[1]}` : ''].filter(Boolean);
@@ -2682,6 +2685,7 @@ function shortNotice(b) {
    every "have we worked together" test. --- */
 const billable = (a = 'b') =>
   `((${a}.status = 'completed' OR (${a}.status = 'cancelled' AND COALESCE(${a}.short_notice, 0) = 1)) AND COALESCE(${a}.kind, 'shift') <> 'intro')`;
+/* a voided shift (v86.9.0, the office's Void action: cancelled, never short-notice, voided = 1) never matches billable, payable, the diary or the ladder: a record, not a support */
 /* what goes on the pay run: everything billable that a worker delivered, plus
    the meet-and-greets, which are ours to pay and nobody's to claim. The office's
    own fee lines (establishment, non-face-to-face) are not worker pay. */
@@ -13812,7 +13816,7 @@ function periodRange(q) {
 function statementRows(participantId, from, to) {
   return db.prepare(`SELECT b.*, u.name AS worker_name FROM bookings b
     JOIN users u ON u.id = b.worker_id
-    WHERE b.participant_id = ? AND ${billable('b')} AND b.date BETWEEN ? AND ?
+    WHERE COALESCE(b.voided, 0) = 0 AND b.participant_id = ? AND ${billable('b')} AND b.date BETWEEN ? AND ?
     ORDER BY b.date DESC, b.start DESC`).all(Number(participantId), from, to)
     .map(b => ({
       id: b.id, date: b.date, start: b.start, hours: b.hours,
@@ -17184,6 +17188,147 @@ route('POST', /^\/api\/admin\/invoices\/([A-Z0-9-]+)\/paid$/, (req, res, m, user
   else db.prepare("UPDATE bookings SET claim_status = 'paid', paid_at = ? WHERE invoice_no = ? AND claim_status <> 'paid'").run(now(), inv.invoice_no);
   logCompliance({ worker_id: null, worker_name: '', kind: 'invoice-paid', result: body.paid === false ? 'unpaid' : 'paid', detail: `${inv.invoice_no} $${inv.total.toFixed(2)} for ${inv.participant.name} marked ${body.paid === false ? 'unpaid' : 'paid'} (${clean(body.how, 60) || 'bank transfer'}).`, source: 'admin', checked_by: user.name });
   json(res, 200, { ok: true });
+});
+
+
+/* ---------- removing records ----------
+   A registered provider keeps records of the supports it delivered for years,
+   so "delete" has to mean two different things, and the office is asked which:
+
+   ERASE   — the row is gone. Only for something that was never a real support
+             (a trial shift, a test account, a booking never delivered) and
+             never claimed or paid. A copy of the row goes to erasures, with the
+             reason and who did it, so the audit trail still knows it existed.
+   VOID    — a delivered shift the office wants out of every statement, invoice,
+             claim and pay run, but which must stay on file: the row stays,
+             status becomes 'void', the reason is recorded, and every list that
+             matters excludes it. Refused once claimed or paid — unclaim first.
+   CLOSE   — an account. If the person never had a delivered shift, the account
+             and everything attached to it is erased. If they did, the account
+             is closed and de-identified: name, email, phone, suburb, photo and
+             documents go; the shifts, notes, invoices and incidents stay under
+             "Removed participant #id", which is what the retention rules want.
+
+   Every one of these needs a typed reason of at least twenty characters and
+   is written to the compliance log as well. Nothing here is reachable from
+   the participant or worker side. */
+db.exec(`CREATE TABLE IF NOT EXISTS erasures (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  ref INTEGER NOT NULL,
+  label TEXT DEFAULT '',
+  snapshot TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  by TEXT NOT NULL,
+  at TEXT NOT NULL
+)`);
+const REASON_MIN = 20;
+function reasonOr400(res, body) {
+  const reason = clean(body.reason, 500);
+  if (!reason || reason.length < REASON_MIN) { json(res, 400, { error: `A reason of at least ${REASON_MIN} characters is required — it is kept with the record of what was removed.` }); return null; }
+  return reason;
+}
+function recordErasure(kind, ref, label, snapshot, reason, by) {
+  db.prepare('INSERT INTO erasures (kind, ref, label, snapshot, reason, by, at) VALUES (?,?,?,?,?,?,?)').run(kind, Number(ref), String(label || ''), JSON.stringify(snapshot), reason, by, now());
+  logCompliance({ worker_id: null, worker_name: '', kind: `remove-${kind}`, result: 'removed', detail: `${kind} #${ref} ${label ? `(${label}) ` : ''}removed by ${by}: ${reason}`, source: 'admin', checked_by: by });
+}
+function eraseBookingRows(id) {
+  for (const t of ['shift_notes', 'reviews', 'cover_offers']) {
+    try { db.prepare(t === 'cover_offers' ? 'DELETE FROM cover_offers WHERE cover_id IN (SELECT id FROM cover WHERE booking_id = ?)' : `DELETE FROM ${t} WHERE booking_id = ?`).run(id); } catch {}
+  }
+  try { db.prepare('DELETE FROM cover WHERE booking_id = ?').run(id); } catch {}
+  db.prepare('DELETE FROM bookings WHERE id = ?').run(id);
+}
+route('DELETE', /^\/api\/admin\/bookings\/(\d+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const reason = reasonOr400(res, body); if (!reason) return;
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'No such shift.' });
+  if (['claimed', 'paid'].includes(b.claim_status || '')) return json(res, 409, { error: `This shift is on invoice ${b.invoice_no || '(agency claim)'} and is ${b.claim_status}. Take it off the claim first (Claims board › unpaid), then remove it.` });
+  const delivered = b.status === 'completed' && (b.kind || 'shift') === 'shift';
+  if (delivered && body.test !== true) return json(res, 409, { error: 'This shift was delivered, so it is a record the provider must keep. Void it instead (it leaves every statement, invoice and pay run but stays on file), or tick "this was a test, not a real support" if it was one.', can_void: true });
+  const p = db.prepare('SELECT name FROM users WHERE id = ?').get(b.participant_id) || {};
+  const notes = db.prepare('SELECT * FROM shift_notes WHERE booking_id = ?').all(b.id);
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    recordErasure('booking', b.id, `${p.name || ''} ${b.date} ${b.start}`, { booking: b, shift_notes: notes }, reason, user.name);
+    eraseBookingRows(b.id);
+    db.exec('COMMIT');
+  } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
+  json(res, 200, { ok: true, erased: b.id });
+});
+route('POST', /^\/api\/admin\/bookings\/(\d+)\/void$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const reason = reasonOr400(res, body); if (!reason) return;
+  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!b) return json(res, 404, { error: 'No such shift.' });
+  if (['claimed', 'paid'].includes(b.claim_status || '')) return json(res, 409, { error: `This shift is on invoice ${b.invoice_no || '(agency claim)'} and is ${b.claim_status}. Take it off the claim first, then void it.` });
+  if (b.voided) return json(res, 409, { error: 'Already void.' });
+  /* the status column only allows the five working states, so a void is a
+     cancellation that is never short-notice, flagged voided: billable(),
+     payable(), the diary and the ladder all leave it alone, and the
+     statement hides it; the row itself stays */
+  db.prepare("UPDATE bookings SET status = 'cancelled', short_notice = 0, voided = 1, cancel_reason = ?, cancelled_at = ?, cancelled_by = ?, total = 0, worker_share = 0 WHERE id = ?").run(`VOID — ${reason}`, now(), user.name, b.id);
+  logCompliance({ worker_id: b.worker_id, worker_name: '', kind: 'void-booking', result: 'void', detail: `Shift #${b.id} (${b.date} ${b.start}) voided by ${user.name}: ${reason}`, source: 'admin', checked_by: user.name });
+  json(res, 200, { ok: true, voided: b.id });
+});
+/* a person's tables, in the order the foreign keys allow */
+const USER_TABLES = [
+  ['sessions', 'user_id'], ['mfa', 'user_id'], ['mfa_recovery', 'user_id'], ['notification_prefs', 'user_id'], ['scope_requests', 'user_id'],
+  ['account_links', 'participant_id'], ['delegate_log', 'participant_id'], ['participant_workers', 'participant_id'], ['participant_workers', 'worker_id'],
+  ['participant_docs', 'participant_id'], ['worker_docs', 'worker_id'], ['support_plans', 'participant_id'], ['plan_acks', 'participant_id'], ['plan_acks', 'worker_id'],
+  ['care_web', 'participant_id'], ['care_web', 'worker_id'], ['reviews', 'participant_id'], ['reviews', 'worker_id'], ['shift_notes', 'participant_id'], ['shift_notes', 'worker_id'],
+  ['messages', 'sender_id'], ['conversations', 'participant_id'], ['conversations', 'worker_id'], ['job_applications', 'worker_id'], ['jobs', 'participant_id'],
+  ['module_completions', 'worker_id'], ['screening_events', 'worker_id'], ['cover_offers', 'worker_id'], ['referrals', 'referrer_id'], ['referrals', 'referee_id'],
+  ['survey_invites', 'participant_id'], ['survey_responses', 'participant_id'], ['ai_suggestions', 'participant_id'], ['ai_suggestions', 'worker_id'],
+  ['booking_series', 'participant_id'], ['booking_series', 'worker_id'], ['worker_profiles', 'user_id']
+];
+function removeFiles(uid) {
+  for (const t of ['participant_docs', 'worker_docs']) {
+    let rows = []; try { rows = db.prepare(`SELECT file_path FROM ${t} WHERE ${t === 'worker_docs' ? 'worker_id' : 'participant_id'} = ?`).all(uid); } catch {}
+    for (const r of rows) { if (r.file_path) { try { fs.unlinkSync(r.file_path); } catch {} } }
+  }
+  const prof = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(uid);
+  if (prof && prof.photo && /^[/\\]/.test(prof.photo)) { try { fs.unlinkSync(prof.photo); } catch {} }
+}
+route('DELETE', /^\/api\/admin\/users\/(\d+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const reason = reasonOr400(res, body); if (!reason) return;
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(m[1]));
+  if (!u) return json(res, 404, { error: 'No such account.' });
+  if (u.id === user.id) return json(res, 400, { error: 'Not your own account, from here.' });
+  if (u.is_admin) return json(res, 400, { error: 'Revoke admin first (node server.js revoke-admin <email>), then close the account.' });
+  const delivered = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE (participant_id = ? OR worker_id = ?) AND (status = 'completed' OR COALESCE(voided,0) = 1) AND COALESCE(kind,'shift') <> 'intro'").get(u.id, u.id).n;
+  const claimed = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE (participant_id = ? OR worker_id = ?) AND claim_status IN ('claimed','paid')").get(u.id, u.id).n;
+  const mode = delivered || claimed ? 'deidentify' : 'erase';
+  if (mode === 'deidentify' && body.acknowledge !== true) return json(res, 409, { mode, delivered, error: `${u.name} has ${delivered} delivered shift(s)${claimed ? ` and ${claimed} claimed line(s)` : ''}, which the provider must keep on file. The account will be CLOSED and DE-IDENTIFIED — name, email, phone, suburb, photo and documents removed; shifts, notes, invoices and incidents kept under "Removed ${u.role} #${u.id}". Tick to confirm.` });
+  const snapshot = { user: { ...u, pass: undefined }, profile: db.prepare('SELECT * FROM worker_profiles WHERE user_id = ?').get(u.id) || null };
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    recordErasure(mode === 'erase' ? 'user' : 'user-deidentified', u.id, `${u.role} ${u.name} <${u.email}>`, snapshot, reason, user.name);
+    removeFiles(u.id);
+    if (mode === 'erase') {
+      for (const b of db.prepare('SELECT id FROM bookings WHERE participant_id = ? OR worker_id = ?').all(u.id, u.id)) eraseBookingRows(b.id);
+      for (const [t, col] of USER_TABLES) { try { db.prepare(`DELETE FROM ${t} WHERE ${col} = ?`).run(u.id); } catch (e) { if (!/no such/.test(e.message)) throw e; } }
+      db.prepare('DELETE FROM users WHERE id = ?').run(u.id);
+    } else {
+      for (const [t, col] of [['sessions', 'user_id'], ['mfa', 'user_id'], ['mfa_recovery', 'user_id'], ['participant_docs', 'participant_id'], ['worker_docs', 'worker_id'], ['account_links', 'participant_id'], ['messages', 'sender_id'], ['conversations', 'participant_id'], ['conversations', 'worker_id'], ['job_applications', 'worker_id'], ['jobs', 'participant_id'], ['cover_offers', 'worker_id'], ['survey_invites', 'participant_id'], ['ai_suggestions', 'participant_id'], ['ai_suggestions', 'worker_id']]) {
+        try { db.prepare(`DELETE FROM ${t} WHERE ${col} = ?`).run(u.id); } catch (e) { if (!/no such/.test(e.message)) throw e; }
+      }
+      db.prepare(`UPDATE users SET name = ?, email = ?, phone = '', suburb = '', ndis_number = '', pm_email = '', nominee_name = '', nominee_phone = '', nominee_email = '', pass = ?, verified = 0, closed_at = ? WHERE id = ?`)
+        .run(`Removed ${u.role} #${u.id}`, `removed-${u.id}@invalid.bookit.life`, crypto.randomBytes(32).toString('hex'), now(), u.id);
+      try { db.prepare("UPDATE worker_profiles SET bio = '', photo = '', visible = 0, screening_status = 'closed' WHERE user_id = ?").run(u.id); } catch {}
+      for (const b of db.prepare("SELECT id FROM bookings WHERE (participant_id = ? OR worker_id = ?) AND status IN ('requested','accepted')").all(u.id, u.id)) {
+        db.prepare("UPDATE bookings SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = 'Account closed' WHERE id = ?").run(now(), user.name, b.id);
+      }
+    }
+    db.exec('COMMIT');
+  } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
+  json(res, 200, { ok: true, mode, id: u.id });
+});
+route('GET', /^\/api\/admin\/erasures$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { erasures: db.prepare('SELECT id, kind, ref, label, reason, by, at FROM erasures ORDER BY id DESC LIMIT 200').all() });
 });
 
 /* ---------- the public pages, as the server knows them ----------

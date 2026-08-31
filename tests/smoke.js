@@ -344,6 +344,31 @@ async function main() {
     const big = await req('GET', '/api/me/invoices/INV-TEST-MULTI.pdf', { cookie: pc });
     t('a 34-line invoice runs to more than one page', big.status === 200 && (big.buf.toString('latin1').match(/\/Type \/Page /g) || []).length >= 2, big.status);
     db.prepare("UPDATE users SET plan = 'ndia' WHERE id = 13").run();   /* back to agency-managed for the PACE export checks below */
+    /* ---- removing records: erase a test shift, refuse a delivered one, void it, close accounts ---- */
+    const trial = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, rate_category, unit_price, worker_share, total, support_item, created) VALUES (13,10,'personal-care','2026-08-30','18:00',3,'completed',?,'approved','sunday',133.50,80,400.50,'01_014_0107_1_1',?)").run(now2, now2).lastInsertRowid);
+    const noReason = await req('DELETE', `/api/admin/bookings/${trial}`, { headers: J2, cookie: ac2, body: { reason: 'test' } });
+    t('removing without a real reason is refused', noReason.status === 400, noReason.status);
+    const delivered = await req('DELETE', `/api/admin/bookings/${trial}`, { headers: J2, cookie: ac2, body: { reason: 'Trial shift used to test the site, not a real support.' } });
+    t('erasing a delivered shift without the test tick is refused and offers Void', delivered.status === 409 && delivered.json.can_void === true, delivered.status);
+    const erased = await req('DELETE', `/api/admin/bookings/${trial}`, { headers: J2, cookie: ac2, body: { reason: 'Trial shift used to test the site, not a real support.', test: true } });
+    t('… with the tick it is erased and logged', erased.status === 200 && !db.prepare('SELECT id FROM bookings WHERE id = ?').get(trial) && db.prepare("SELECT reason FROM erasures WHERE kind = 'booking' AND ref = ?").get(trial).reason.includes('Trial'), erased.status);
+    const real = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, rate_category, unit_price, worker_share, total, support_item, created) VALUES (13,10,'personal-care','2026-08-23','10:00',2,'completed',?,'approved','weekday-day',73.58,50,147.16,'01_011_0107_1_1',?)").run(now2, now2).lastInsertRowid);
+    const vd = await req('POST', `/api/admin/bookings/${real}/void`, { headers: J2, cookie: ac2, body: { reason: 'Entered against the wrong participant; re-entered as #999.' } });
+    t('a delivered shift can be voided with a reason and stays on file', vd.status === 200 && (() => { const r = db.prepare('SELECT status, voided, total FROM bookings WHERE id = ?').get(real); return r.status === 'cancelled' && r.voided === 1 && r.total === 0; })(), vd.status);
+    const stAfter = await req('GET', '/api/admin/claims', { cookie: ac2 });
+    t('… and a void shift is off the claims list', stAfter.status === 200 && !JSON.stringify(stAfter.json).includes(`"id":${real},`));
+    const onInvoice = db.prepare("SELECT id FROM bookings WHERE participant_id = 13 AND claim_status = 'paid' LIMIT 1").get();
+    t('a claimed or paid shift cannot be removed until it is unclaimed', onInvoice && (await req('DELETE', `/api/admin/bookings/${onInvoice.id}`, { headers: J2, cookie: ac2, body: { reason: 'Trying to remove a paid shift, which should be refused.' } })).status === 409);
+    const testAcct = await req('POST', '/api/register', { headers: J2, body: { role: 'participant', name: 'Test Account', email: 'test.account@example.com', password: 'longpassword1', suburb: 'Ryde NSW', plan: 'self', terms_accepted: true, terms_version: terms2 } });
+    const taId = testAcct.json.user.id;
+    const closed = await req('DELETE', `/api/admin/users/${taId}`, { headers: J2, cookie: ac2, body: { reason: 'Test account created while trying the site; no real person.' } });
+    t('an account with no delivered shifts is erased outright', closed.status === 200 && closed.json.mode === 'erase' && !db.prepare('SELECT id FROM users WHERE id = ?').get(taId), closed.status + ' ' + JSON.stringify(closed.json));
+    const ask = await req('DELETE', `/api/admin/users/13`, { headers: J2, cookie: ac2, body: { reason: 'Participant asked to leave; records must be kept for the retention period.' } });
+    t('an account with delivered shifts asks for acknowledgement first', ask.status === 409 && ask.json.mode === 'deidentify', ask.status);
+    const smokeUser = db.prepare("SELECT id FROM users WHERE email = 'referred.worker@example.com'").get().id;
+    const de = await req('DELETE', `/api/admin/users/${smokeUser}`, { headers: J2, cookie: ac2, body: { reason: 'Worker has left; closing the account and de-identifying it.', acknowledge: true } });
+    const du = db.prepare('SELECT name, email, closed_at FROM users WHERE id = ?').get(smokeUser);
+    t('… and with it is closed and de-identified, shifts kept', de.status === 200 && de.json.mode === 'deidentify' && du && du.name === `Removed worker #${smokeUser}` && du.closed_at && db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE worker_id = ? AND status = 'completed'").get(smokeUser).n >= 20, de.status + ' ' + JSON.stringify(du));
     const rx = await req('GET', '/api/rates');
     t('/api/rates carries the whole price list (extras)', rx.status === 200 && rx.json.extras && rx.json.extras.sleepover.included_active_hours === 2 && rx.json.extras.travel.per_km > 0 && rx.json.extras.referral_bonus.for === 'workers only' && rx.json.extras.meet_and_greet.minutes === 15, rx.status);
     const rp = await req('GET', '/refer-a-worker');
