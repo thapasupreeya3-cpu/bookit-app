@@ -132,6 +132,51 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     counts and services, no names, a button into the filtered directory;
     all in the sitemap. Generated from the profiles, so they stay true.
 
+  HOW THE PARTICIPANT IS TOLD TO PAY (found on the first trial shift)
+    Before this release an invoice only existed once the office pressed
+    Run on the Claims board, and the participant had no prompt at all —
+    they saw a statement (a list of shifts) and a CSV, neither of which is
+    an invoice. Now:
+    1. The night a shift is approved (by the participant, or deemed on day
+       7), the job 'invoices' runs the self- and plan-managed lanes of the
+       claims run: one invoice per participant per run, numbered
+       INV-YYYYMMDD-<id>, stamped on every booking in it. The run is now
+       gated on approval_state = 'approved' — it never was before, so a
+       queried shift could have been invoiced. Agency lines still wait for
+       the office (the PACE file has to be uploaded by a person).
+    2. The participant (self-managed) is emailed the PDF with a Pay by card
+       button (Stripe, when STRIPE_SECRET_KEY is set) and gets a message in
+       their account; a plan-managed invoice goes to the plan manager's
+       email and the participant is told it went there.
+    3. In the account: a red banner at the top of Bookings ("An invoice to
+       pay — $X, due dd/mm; see the invoice, the PDF and how to pay") and
+       the Invoices table at the top of Statements & invoices: number,
+       date, due, lines, total, status (due / overdue / paid), PDF, Pay by
+       card. The statement below it now says what it is — every shift with
+       its note and cost — and that the invoice is what gets paid.
+    4. The PDF is a proper tax invoice, modelled on the office's own:
+       company name, ABN, address (COMPANY_ADDRESS, default 16 Crystal
+       Crescent, Wyong NSW 2259), NDIS registration number, email, phone;
+       invoice number, date, DUE DATE (invoice_due_days, default 14); bill
+       to — name, suburb, email, phone, NDIS number (or the plan manager);
+       one line per support with the NDIS item's own name ("Assistance
+       With Self-Care Activities - Standard - Sunday"), the item number,
+       the time range and hours (or the night, or the kilometres), rate
+       and amount; invoice total, paid, BALANCE DUE; payment block with
+       account name, BSB and account number read from BANK_DETAILS, the
+       invoice number as the reference; the GST-free statement; page
+       numbers when it runs long. ITEM_NAMES holds the 33 item names from
+       the 2026-27 schedule; regenerate when the schedule changes.
+    5. Paying: a card payment marks the invoice paid through the Stripe
+       webhook, as before. A bank transfer is marked by the office — a new
+       "Invoice paid" button on each row of the Claims board marks the
+       whole invoice at once (POST /api/admin/invoices/:no/paid), logged
+       to the compliance log; the participant's banner clears.
+    GET /api/me/invoices and GET /api/me/invoices/:no.pdf are the
+    participant's (and their coordinator's, with the invoices scope); the
+    PDF is generated from the bookings each time, so it is always the
+    current state, and a worker or another participant gets a 403.
+
   THE KILOMETRES ARE CLAIMED NOW
     Provider travel entered by the worker at the end of a shift was charged
     on the participant's statement and nowhere else — never on the invoice,

@@ -315,6 +315,35 @@ async function main() {
     const kmId = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, rate_category, unit_price, worker_share, total, support_item, km, km_from, km_to, km_rate, km_total, claim_status, created) VALUES (13,10,'community','2026-08-20','10:00',2,'completed',?,'approved','weekday-day',73.58,100,147.16,'04_104_0125_6_1',12.5,'Ryde','Chatswood',1.00,12.50,'claimed',?)").run(now2, now2).lastInsertRowid);
     db.prepare("UPDATE users SET plan = 'ndia', ndis_number = '430000001' WHERE id = 13").run();
     db.prepare("UPDATE bookings SET claim_status = 'claimed', approval_state = 'approved' WHERE id = ?").run(sid);   /* the office has run the claim */
+    /* ---- invoicing: approved shifts become an invoice the participant can see, download and pay ---- */
+    db.prepare("UPDATE users SET plan = 'self', ndis_number = '430000001', phone = '0400 000 000' WHERE id = 13").run();
+    const invIds = [];
+    for (const [d, st, hrs, cat, item, price] of [['2026-08-24','11:00',9,'weekday-day','04_104_0125_6_1',73.58], ['2026-08-24','06:00',5,'weekday-day','01_011_0107_1_1',73.58], ['2026-08-29','11:00',9,'saturday','04_105_0125_6_1',103.54]]) {
+      invIds.push(Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, approved_at, rate_category, unit_price, worker_share, total, support_item, created) VALUES (13,10,?,?,?,?,'completed',?,'approved',?,?,?,60,?,?,?)").run(item.startsWith('04') ? 'community' : 'personal-care', d, st, hrs, now2, now2, cat, price, Math.round(price * hrs * 100) / 100, item, now2).lastInsertRowid));
+    }
+    const unapproved = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, rate_category, unit_price, worker_share, total, support_item, created) VALUES (13,10,'personal-care','2026-08-30','18:00',3,'completed',?,'pending','sunday',133.50,80,400.50,'01_014_0107_1_1',?)").run(now2, now2).lastInsertRowid);
+    const before = await req('GET', '/api/me/invoices', { cookie: pc });
+    t('before the run: no invoice, and the page says one comes overnight', before.status === 200 && before.json.invoices.length === 0, before.status);
+    const run = await req('POST', '/api/admin/claims/run', { headers: J2, cookie: ac2, body: {} });
+    t('the claims run invoices the approved self-managed shifts', run.status === 200 && run.json.invoices.length >= 1, run.status + ' ' + JSON.stringify(run.json).slice(0, 120));
+    t('… and leaves the unapproved shift alone', !db.prepare('SELECT invoice_no FROM bookings WHERE id = ?').get(unapproved).invoice_no);
+    const mine = await req('GET', '/api/me/invoices', { cookie: pc });
+    const inv = mine.json.invoices.find(i => i.status !== 'paid');
+    t('the participant sees the invoice: total, due date, balance', mine.status === 200 && inv && inv.total > 1000 && inv.balance === inv.total && /^\d\d\/\d\d\/\d{4}$/.test(inv.due_date) && mine.json.owing === inv.balance, JSON.stringify(mine.json).slice(0, 160));
+    const pdf = await req('GET', `/api/me/invoices/${inv.invoice_no}.pdf`, { cookie: pc });
+    const pdfText = pdf.buf.toString('latin1');
+    t('the PDF is a real tax invoice: address, item names, times, due date, balance, bank lines', pdf.status === 200 && pdfText.startsWith('%PDF') && pdfText.includes('16 Crystal Crescent') && pdfText.includes('Access Community Social and Rec Activ') && pdfText.includes('11:00\\226') || pdfText.includes('11:00') , pdf.status);
+    t('… naming the NDIS item and the balance due', pdfText.includes('04_104_0125_6_1') && pdfText.includes('Balance due') && pdfText.includes('Payment reference'));
+    t('a worker cannot fetch it', (await req('GET', `/api/me/invoices/${inv.invoice_no}.pdf`, { cookie: wc })).status === 403);
+    t('another participant cannot fetch it', (await req('GET', `/api/me/invoices/${inv.invoice_no}.pdf`, { cookie: ic })).status === 403);
+    const mp = await req('POST', `/api/admin/invoices/${inv.invoice_no}/paid`, { headers: J2, cookie: ac2, body: { how: 'bank transfer' } });
+    const after = await req('GET', '/api/me/invoices', { cookie: pc });
+    t('the office marks the bank transfer received and the participant sees Paid', mp.status === 200 && after.json.invoices.find(i => i.invoice_no === inv.invoice_no).status === 'paid' && after.json.owing === 0, mp.status);
+    /* many lines → more than one page */
+    for (let i = 1; i <= 34; i++) db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, approved_at, rate_category, unit_price, worker_share, total, support_item, invoice_no, claim_status, claimed_at, created) VALUES (13,10,'personal-care',?,'06:00',5,'completed',?,'approved',?,'weekday-day',73.58,60,367.90,'01_011_0107_1_1','INV-TEST-MULTI','claimed',?,?)").run(`2026-07-${String(i).padStart(2,'0')}`, now2, now2, now2, now2);
+    const big = await req('GET', '/api/me/invoices/INV-TEST-MULTI.pdf', { cookie: pc });
+    t('a 34-line invoice runs to more than one page', big.status === 200 && (big.buf.toString('latin1').match(/\/Type \/Page /g) || []).length >= 2, big.status);
+    db.prepare("UPDATE users SET plan = 'ndia' WHERE id = 13").run();   /* back to agency-managed for the PACE export checks below */
     const rx = await req('GET', '/api/rates');
     t('/api/rates carries the whole price list (extras)', rx.status === 200 && rx.json.extras && rx.json.extras.sleepover.included_active_hours === 2 && rx.json.extras.travel.per_km > 0 && rx.json.extras.referral_bonus.for === 'workers only' && rx.json.extras.meet_and_greet.minutes === 15, rx.status);
     const rp = await req('GET', '/refer-a-worker');
@@ -322,7 +351,7 @@ async function main() {
     t('the page links to the referral programme from the footer', rp.text.includes('href="#/refer-a-worker"'));
     const claims = await req('GET', '/api/admin/claims/pace.csv', { cookie: ac2 });
     const kmRow = claims.text.split(/\r?\n/).find(l => l.includes(`BK${kmId}T`));
-    t('the PACE export carries the kilometres as a non-labour travel row', claims.status === 200 && !!kmRow && kmRow.includes('04_799_0125_6_1') && kmRow.includes('12.50'), claims.status + ' ' + (kmRow || 'no travel row'));
+    t('the PACE export carries the kilometres as a non-labour travel row', claims.status === 200 && !!kmRow && kmRow.includes('04_799_0125_6_1') && kmRow.includes('12.50'), claims.status + ' ' + (kmRow || 'no travel row: ' + claims.text.split(/\r?\n/).length + ' lines; ' + claims.text.slice(0, 400).replace(/\n/g, ' | ')));
     const nightRow = claims.text.split(/\r?\n/).find(l => l.includes(`BK${sid}A`));
     t('… and the sleepover\'s extra active hours as their own row', !!nightRow && nightRow.includes('01_002_0107_1_1'), nightRow || 'no row');
   }

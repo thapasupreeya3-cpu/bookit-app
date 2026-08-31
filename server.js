@@ -1698,72 +1698,187 @@ const COMPANY_ABN = '19658578575';
 const BANK_DETAILS = process.env.BANK_DETAILS || '';
 
 /* ---------- tiny PDF invoice generator (zero-dependency) ---------- */
-function pdfEsc(s) { return String(s ?? '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)'); }
-function makeInvoicePdf(inv) {
-  /* inv: { invoice_no, date, bill_to: [lines], lines: [{date, service, item, hours, rate, amount}], total, self } */
-  const ops = [];
-  const T = (x, y, size, font, text, color) => {
-    if (color) ops.push(color); else ops.push('0.09 0.19 0.23 rg');
-    ops.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${pdfEsc(text)}) Tj ET`);
+function pdfEsc(s) {
+  /* the built-in Helvetica knows WinAnsi only: dashes, arrows and curly quotes
+     become their plain cousins rather than disappearing */
+  return String(s ?? '').replace(/[\u2013\u2014]/g, '-').replace(/\u2192/g, 'to').replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/\u2026/g, '...').replace(/[^\x20-\x7e\xa0-\xff]/g, '?')
+    .replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+const ITEM_NAMES = {
+  '01_002_0107_1_1': 'Assistance With Self-Care Activities - Standard - Weekday Night',
+  '01_010_0107_1_1': 'Assistance With Self-Care Activities - Night-Time Sleepover',
+  '01_011_0107_1_1': 'Assistance With Self-Care Activities - Standard - Weekday Daytime',
+  '01_012_0107_1_1': 'Assistance With Self-Care Activities - Standard - Public Holiday',
+  '01_013_0107_1_1': 'Assistance With Self-Care Activities - Standard - Saturday',
+  '01_014_0107_1_1': 'Assistance With Self-Care Activities - Standard - Sunday',
+  '01_015_0107_1_1': 'Assistance With Self-Care Activities - Standard - Weekday Evening',
+  '01_020_0120_1_1': 'House Cleaning And Other Household Activities',
+  '01_049_0107_1_1': 'Establishment Fee For Personal Care/Participation',
+  '01_799_0102_1_1': 'Provider travel - non-labour costs',
+  '01_799_0107_1_1': 'Provider travel - non-labour costs',
+  '01_799_0120_1_1': 'Provider travel - non-labour costs',
+  '01_799_0138_1_1': 'Provider travel - non-labour costs',
+  '01_801_0115_1_1': 'Assistance in Supported Independent Living - Standard - Weekday Daytime',
+  '01_802_0115_1_1': 'Assistance in Supported Independent Living - Standard - Weekday Evening',
+  '01_803_0115_1_1': 'Assistance in Supported Independent Living - Standard - Weekday Night',
+  '01_804_0115_1_1': 'Assistance in Supported Independent Living - Standard - Saturday',
+  '01_805_0115_1_1': 'Assistance in Supported Independent Living - Standard - Sunday',
+  '01_806_0115_1_1': 'Assistance in Supported Independent Living - Standard - Public Holiday',
+  '01_832_0115_1_1': 'Assistance in Supported Independent Living - Night-Time Sleepover',
+  '04_049_0125_1_1': 'Establishment Fee For Personal Care/Participation',
+  '04_102_0125_6_1': 'Community Engagement Assistance - Standard - Weekday Daytime',
+  '04_102_0136_6_1': 'Group Activities - Standard - Weekday Daytime',
+  '04_103_0125_6_1': 'Access Community Social and Rec Activ - Standard - Weekday Evening',
+  '04_103_0136_6_1': 'Group Activities - Standard - Weekday Evening',
+  '04_104_0125_6_1': 'Access Community Social and Rec Activ - Standard - Weekday Daytime',
+  '04_104_0136_6_1': 'Group Activities - Standard - Saturday',
+  '04_105_0125_6_1': 'Access Community Social and Rec Activ - Standard - Saturday',
+  '04_105_0136_6_1': 'Group Activities - Standard - Sunday',
+  '04_106_0125_6_1': 'Access Community Social and Rec Activ - Standard - Sunday',
+  '04_106_0136_6_1': 'Group Activities - Standard - Public Holiday',
+  '04_590_0125_6_1': 'Activity Based Transport',
+  '04_799_0125_6_1': 'Provider travel - non-labour costs'
+};
+/* Every support item the server ever puts on a line, named the way the
+   Pricing Arrangements name it, so an invoice reads like the plan manager's
+   own list. From the 2026-27 schedule; regenerate when the schedule changes. */
+const COMPANY_NAME = 'Disability & Mental Health Care Pty Ltd';
+const COMPANY_ADDRESS = process.env.COMPANY_ADDRESS || '16 Crystal Crescent, Wyong NSW 2259';
+const COMPANY_EMAIL = process.env.COMPANY_EMAIL || 'hello@bookit.life';
+const COMPANY_PHONE = process.env.COMPANY_PHONE || '0488 114 368';
+const INVOICE_DUE_DAYS = () => Math.max(1, numSetting('invoice_due_days', 14));
+function itemName(code, fallback) { return ITEM_NAMES[code] || fallback || code || ''; }
+function endTime(start, hours) {
+  const [h, m] = String(start || '00:00').split(':').map(Number);
+  const t = h * 60 + m + Math.round((Number(hours) || 0) * 60);
+  return `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
+/* the bank line from the environment, read three ways: "BSB 062-198 · Account 10970494 · Name",
+   "BSB: 062198, Account: 10970494", or anything else printed as it is */
+function bankLines() {
+  const raw = String(BANK_DETAILS || '');
+  const bsb = /BSB[:\s]*([\d-]{6,7})/i.exec(raw), acc = /Acc(?:ount|t)(?: number| no\.?)?[:\s]*([\d]{5,12})/i.exec(raw), name = /(?:Account name|Name)[:\s]*([^·,;]+)/i.exec(raw);
+  if (!raw) return ['Payment details are provided separately.'];
+  if (!bsb && !acc) return [raw];
+  return [`Account name: ${name ? name[1].trim() : COMPANY_NAME}`, bsb ? `BSB: ${bsb[1]}` : '', acc ? `Account number: ${acc[1]}` : ''].filter(Boolean);
+}
+/* One invoice, assembled from the bookings that carry its number. Used by the
+   claims run (to email it), by the participant's download, and by the office. */
+function invoiceFor(invNo) {
+  const rows = claimRows('AND b.invoice_no = ?', invNo);
+  if (!rows.length) return null;
+  const first = rows[0];
+  const self = first.funding === 'self';
+  const p = db.prepare('SELECT name, email, phone, suburb, ndis_number, pm_email, plan FROM users WHERE id = ?').get(first.pid) || {};
+  const issued = String(first.claimed_at || now()).slice(0, 10);
+  const due = ymd(new Date(new Date(issued + 'T00:00:00').getTime() + INVOICE_DUE_DAYS() * 864e5));
+  const lines = rows.flatMap(r => {
+    const perNight = !!(INVOICE_RATES[r.rate_category] || {}).perNight;
+    const canc = r.status === 'cancelled';
+    const main = {
+      date: dmy(r.date), item: r.item || effectiveItem(r),
+      description: itemName(r.item || effectiveItem(r), `${SERVICE_LABELS[r.service] || r.service} — ${(INVOICE_RATES[r.rate_category] || {}).label || r.rate_category || ''}`)
+        + (r.ratio > 1 ? ` — 1:${r.ratio}` : '') + (canc ? ' — short-notice cancellation' : ''),
+      when: perNight ? `${r.start} sleepover` : `${r.start}-${endTime(r.start, r.hours)}`,
+      qty: perNight ? 1 : r.hours, unit: perNight ? 'night' : 'hours', rate: r.unit_price || 0, amount: r.total || 0
+    };
+    const extra = r.active_extra_hours > 0 && !canc ? [{ date: dmy(r.date), item: r.active_extra_item, description: `${itemName(r.active_extra_item, 'Active support during the sleepover')} — beyond the two hours included`, when: 'during the night', qty: r.active_extra_hours, unit: 'hours', rate: r.active_extra_rate || 0, amount: r.active_extra_total || 0 }] : [];
+    const km = r.km > 0 && r.km_total > 0 && !canc ? [{ date: dmy(r.date), item: TRAVEL_ITEMS[r.service] || '', description: `${itemName(TRAVEL_ITEMS[r.service], 'Provider travel - non-labour costs')}${r.km_from ? ` - ${r.km_from} to ${r.km_to}` : ''}`, when: `${r.km} km`, qty: `$${Number(r.km_total).toFixed(2)}`, unit: 'at $1.00/km', rate: 1, amount: r.km_total }] : [];
+    return [main, ...extra, ...km];
+  });
+  const total = round2(lines.reduce((a, l) => a + (l.amount || 0), 0));
+  const paidRows = rows.filter(r => r.claim_status === 'paid');
+  const paid = paidRows.length === rows.length ? total : 0;
+  return {
+    invoice_no: invNo, date: dmy(issued), issued, due_date: dmy(due), due, self, funding: first.funding,
+    participant: { id: first.pid, name: p.name || first.participant_name, email: p.email || first.participant_email, phone: p.phone || '', suburb: p.suburb || '', ndis_number: p.ndis_number || first.ndis_number || '' },
+    bill_to: self
+      ? [p.name || first.participant_name, p.suburb || '', p.email || first.participant_email, p.phone || '', p.ndis_number ? `NDIS number: ${p.ndis_number}` : ''].filter(Boolean)
+      : [`Plan manager for ${p.name || first.participant_name}`, p.pm_email || first.pm_email || '', p.ndis_number ? `Participant NDIS number: ${p.ndis_number}` : '', p.suburb ? `Participant: ${p.suburb}` : ''].filter(Boolean),
+    lines, total, paid, balance: round2(total - paid), paid_at: paidRows.length === rows.length ? (paidRows[0].paid_at || '') : '',
+    pay_url: first.pay_url || '', booking_ids: rows.map(r => r.id)
   };
+}
+function makeInvoicePdf(inv) {
+  const pages = [];
+  let ops = [];
+  const T = (x, y, size, font, text, color) => { ops.push(color || '0.09 0.19 0.23 rg'); ops.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${pdfEsc(text)}) Tj ET`); };
   const TEAL = '0.055 0.42 0.384 rg', SOFT = '0.35 0.44 0.48 rg';
-  T(40, 795, 24, 'FB', 'BookIt', TEAL);
-  T(40, 780, 8.5, 'F', 'Disability & Mental Health Care Pty Ltd · ABN 19 658 578 575', SOFT);
-  T(40, 769, 8.5, 'F', `Registered NDIS Provider ${NDIS_REG_NO} · hello@bookit.life · 0488 114 368 · bookit.life`, SOFT);
-  T(400, 795, 15, 'FB', 'TAX INVOICE');
-  T(400, 781, 8.5, 'F', 'GST-free NDIS supports (s38-38 GST Act)', SOFT);
-  T(400, 766, 10, 'FB', `Invoice ${inv.invoice_no}`);
-  T(400, 753, 9.5, 'F', `Date: ${inv.date}`);
-  T(40, 730, 9, 'FB', 'Bill to:');
-  let y = 718;
+  const rule = y => ops.push('0.9 0.87 0.83 RG 0.7 w', `40 ${y} m 555 ${y} l S`);
+  const cols = { date: 40, desc: 95, item: 318, when: 405, rate: 470, amt: 515 };
+  const header = (pageNo) => {
+    T(40, 795, 22, 'FB', 'BookIt', TEAL);
+    T(40, 781, 8.5, 'F', COMPANY_NAME + ' · ABN 19 658 578 575', SOFT);
+    T(40, 770, 8.5, 'F', COMPANY_ADDRESS, SOFT);
+    T(40, 759, 8.5, 'F', `Registered NDIS provider ${NDIS_REG_NO} · ${COMPANY_EMAIL} · ${COMPANY_PHONE}`, SOFT);
+    T(400, 795, 15, 'FB', 'TAX INVOICE');
+    T(400, 781, 8.5, 'F', 'GST-free NDIS supports (s38-38 GST Act)', SOFT);
+    T(400, 767, 10, 'FB', `Invoice ${inv.invoice_no}`);
+    T(400, 755, 9, 'F', `Date: ${inv.date}`);
+    T(400, 744, 9, 'F', `Due: ${inv.due_date}`);
+    if (pageNo > 1) T(400, 733, 8.5, 'F', `Page ${pageNo}`, SOFT);
+  };
+  const tableHead = y => {
+    T(cols.date, y, 8.5, 'FB', 'Date'); T(cols.desc, y, 8.5, 'FB', 'Support'); T(cols.item, y, 8.5, 'FB', 'NDIS support item');
+    T(cols.when, y, 8.5, 'FB', 'Time / qty'); T(cols.rate, y, 8.5, 'FB', 'Rate'); T(cols.amt, y, 8.5, 'FB', 'Amount');
+    rule(y - 5);
+  };
+  const flush = () => { pages.push(ops.join('\n')); ops = []; };
+  let pageNo = 1;
+  header(pageNo);
+  T(40, 725, 9, 'FB', 'Bill to');
+  let y = 713;
   for (const line of inv.bill_to) { T(40, y, 9.5, 'F', line); y -= 12; }
-  y = Math.min(y - 14, 660);
-  const cols = { date: 40, svc: 105, item: 300, hrs: 400, rate: 445, amt: 505 };
-  T(cols.date, y, 8.5, 'FB', 'Date'); T(cols.svc, y, 8.5, 'FB', 'Support'); T(cols.item, y, 8.5, 'FB', 'Support item no.');
-  T(cols.hrs, y, 8.5, 'FB', 'Hours'); T(cols.rate, y, 8.5, 'FB', 'Rate'); T(cols.amt, y, 8.5, 'FB', 'Amount');
-  y -= 5; ops.push('0.9 0.87 0.83 RG 0.7 w', `40 ${y} m 555 ${y} l S`); y -= 13;
+  y = Math.min(y - 12, 650);
+  tableHead(y); y -= 18;
+  const wrap = (txt, max) => { const w = []; let cur = ''; for (const word of String(txt).split(' ')) { if ((cur + ' ' + word).trim().length > max) { w.push(cur.trim()); cur = word; } else cur += ' ' + word; } if (cur.trim()) w.push(cur.trim()); return w; };
   for (const l of inv.lines) {
-    T(cols.date, y, 9, 'F', l.date);
-    T(cols.svc, y, 9, 'F', String(l.service).slice(0, 34));
-    T(cols.item, y, 9, 'F', l.item || '—');
-    T(cols.hrs, y, 9, 'F', String(l.hours));
-    T(cols.rate, y, 9, 'F', `$${l.rate.toFixed(2)}`);
-    T(cols.amt, y, 9, 'F', `$${l.amount.toFixed(2)}`);
-    y -= 15;
-    if (y < 150) { T(40, y, 9, 'F', `… ${inv.lines.length} lines total — remainder on statement.`); break; }
+    const descLines = wrap(l.description, 46);
+    const height = 12 * Math.max(1, descLines.length) + 4;
+    if (y - height < 130) { T(40, 60, 8, 'F', 'Continued on the next page', SOFT); flush(); pageNo++; header(pageNo); y = 700; tableHead(y); y -= 18; }
+    T(cols.date, y, 8.5, 'F', l.date);
+    descLines.forEach((d, i) => T(cols.desc, y - i * 11, 8.5, 'F', d));
+    T(cols.item, y, 8.5, 'F', l.item || '—');
+    T(cols.when, y, 8.5, 'F', l.when ? String(l.when) : '');
+    T(cols.when, y - 11, 8, 'F', `${l.qty} ${l.unit}`, SOFT);
+    T(cols.rate, y, 8.5, 'F', `$${Number(l.rate).toFixed(2)}`);
+    T(cols.amt, y, 8.5, 'F', `$${Number(l.amount).toFixed(2)}`);
+    y -= Math.max(height, 24);
   }
-  y -= 4; ops.push('0.9 0.87 0.83 RG 0.7 w', `40 ${y} m 555 ${y} l S`); y -= 16;
-  T(400, y, 11, 'FB', 'Total due:'); T(cols.amt, y, 11, 'FB', `$${inv.total.toFixed(2)}`);
-  y -= 26;
-  T(40, y, 9.5, 'FB', 'Payment'); y -= 13;
-  if (inv.self) {
-    T(40, y, 9, 'F', BANK_DETAILS ? `Please pay within 14 days by bank transfer: ${BANK_DETAILS}` : 'Please pay within 14 days — payment details provided separately.'); y -= 12;
-    T(40, y, 9, 'F', `Reference: ${inv.invoice_no}. You can claim this amount back through the myplace participant portal.`, undefined);
-  } else {
-    T(40, y, 9, 'F', 'Please pay from plan funds within 14 days.' + (BANK_DETAILS ? ` Bank transfer: ${BANK_DETAILS}` : ' Payment details provided separately.')); y -= 12;
-    T(40, y, 9, 'F', `Reference: ${inv.invoice_no}. Prices align with the NDIS Pricing Arrangements and Price Limits 2026-27.`);
+  if (y < 200) { flush(); pageNo++; header(pageNo); y = 700; }
+  rule(y + 6); y -= 12;
+  T(400, y, 10, 'FB', 'Invoice total'); T(cols.amt, y, 10, 'FB', `$${inv.total.toFixed(2)}`); y -= 14;
+  T(400, y, 9.5, 'F', 'Paid'); T(cols.amt, y, 9.5, 'F', `$${inv.paid.toFixed(2)}`); y -= 14;
+  T(400, y, 11, 'FB', 'Balance due', TEAL); T(cols.amt, y, 11, 'FB', `$${inv.balance.toFixed(2)}`, TEAL); y -= 26;
+  T(40, y, 9.5, 'FB', inv.balance > 0 ? `Payment — due by ${inv.due_date}` : 'Paid — thank you'); y -= 13;
+  if (inv.balance > 0) {
+    if (inv.self) { T(40, y, 9, 'F', 'Pay by bank transfer to:'); y -= 12; }
+    else { T(40, y, 9, 'F', 'Please pay from plan funds by bank transfer to:'); y -= 12; }
+    for (const b of bankLines()) { T(52, y, 9, 'F', b); y -= 12; }
+    T(40, y, 9, 'F', `Payment reference: ${inv.invoice_no}`); y -= 12;
+    if (inv.pay_url) { T(40, y, 9, 'F', 'Or pay by card from the link in your BookIt account (Statements & invoices).'); y -= 12; }
+    if (inv.self) { T(40, y, 9, 'F', 'Self-managed: claim this invoice back through the myplace participant portal.', SOFT); y -= 12; }
   }
-  T(40, 60, 8, 'F', 'Questions about this invoice? hello@bookit.life · 0488 114 368. Thank you for choosing BookIt.', SOFT);
-  const content = ops.join('\n');
-  const objects = [
-    '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F 5 0 R /FB 6 0 R >> >> /Contents 4 0 R >>',
-    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`,
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>'
-  ];
+  T(40, y - 4, 8.5, 'F', 'Prices are at or below the NDIS Pricing Arrangements and Price Limits 2026-27. No GST applies.', SOFT);
+  T(40, 60, 8, 'F', `Questions about this invoice? ${COMPANY_EMAIL} · ${COMPANY_PHONE}. Thank you for choosing BookIt.`, SOFT);
+  flush();
+  /* the file: one content stream per page */
+  const objects = ['<< /Type /Catalog /Pages 2 0 R >>'];
+  const kids = pages.map((_, i) => `${5 + i * 2} 0 R`).join(' ');
+  objects.push(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`);
+  objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>');
+  pages.forEach((content, i) => {
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F 3 0 R /FB 4 0 R >> >> /Contents ${6 + i * 2} 0 R >>`);
+    objects.push(`<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`);
+  });
   let pdf = '%PDF-1.4\n';
   const offsets = [];
-  objects.forEach((body, i) => {
-    offsets.push(Buffer.byteLength(pdf));
-    pdf += `${i + 1} 0 obj\n${body}\nendobj\n`;
-  });
-  const xrefPos = Buffer.byteLength(pdf);
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  offsets.forEach(o => { pdf += `${String(o).padStart(10, '0')} 00000 n \n`; });
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
-  return Buffer.from(pdf, 'latin1');
+  objects.forEach((body, i) => { offsets.push(Buffer.byteLength(pdf)); pdf += `${i + 1} 0 obj\n${body}\nendobj\n`; });
+  const xref = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n` + offsets.map(o => `${String(o).padStart(10, '0')} 00000 n \n`).join('');
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(pdf, 'binary');
 }
 
 /* The claim side and the pay side of one shift.
@@ -3904,7 +4019,7 @@ route('GET', /^\/api\/admin\/invoices\.csv$/, (req, res, m, user) => {
 
 /* ---------- admin: claims & payments (the money engine) ---------- */
 const dmy = iso => String(iso || '').split('-').reverse().join('/');
-function claimRows(where) {
+function claimRows(where, ...params) {
   return db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.rate_category, b.unit_price, b.total,
       b.active_extra_hours, b.active_extra_total, b.active_extra_item, b.active_extra_rate, b.active_extra_category, b.kind, b.ratio, b.sleepover,
       b.km, b.km_total, b.km_from, b.km_to,
@@ -3913,7 +4028,7 @@ function claimRows(where) {
       up.id AS pid, up.name AS participant_name, up.email AS participant_email, up.plan AS funding, up.ndis_number, up.pm_email,
       uw.name AS worker_name
     FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id
-    WHERE ${billable('b')} ${where || ''} ORDER BY b.date ASC, b.id ASC`).all();
+    WHERE ${billable('b')} ${where || ''} ORDER BY b.date ASC, b.id ASC`).all(...params);
 }
 /* Group and centre-based activities are their own registration group (0136).
    A ratio shift claims the 0136 item for its time of day; the office turns
@@ -3972,11 +4087,18 @@ route('POST', /^\/api\/admin\/claims\/(\d+)\/item$/, (req, res, m, user, body) =
   json(res, 200, { ok: true });
 });
 
-route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
-  if (!requireAdmin(user, res)) return;
-  const rows = claimRows("AND (b.claim_status IS NULL OR b.claim_status = '')");
+/* The run: every completed, APPROVED (or deemed) shift with no claim yet.
+   Agency-managed lines are stamped claimed for the PACE file the office
+   uploads; self- and plan-managed lines are grouped into one invoice per
+   participant, stamped, emailed with the PDF (and a card link for the
+   self-managed), and shown to the participant in their account. The office
+   presses Run on the Claims board; the nightly job runs the self and plan
+   lanes on its own, so nobody waits on the office to be told what they owe. */
+async function runClaims(lanes, actor) {
+  const rows = claimRows("AND (b.claim_status IS NULL OR b.claim_status = '') AND b.approval_state = 'approved'");
   const needs = [], ndiaClaimed = [], invoiceGroups = new Map();
   for (const r of rows) {
+    if (!lanes.includes(r.funding)) continue;
     const flags = lineFlags(r).filter(f => !f.startsWith('confirm'));
     if (flags.length) { needs.push({ id: r.id, date: r.date, participant: r.participant_name, flags }); continue; }
     const item = effectiveItem(r);
@@ -3997,16 +4119,15 @@ route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
     let n = 1;
     while (db.prepare('SELECT 1 FROM bookings WHERE invoice_no = ?').get(n === 1 ? invNo : `${invNo}-${n}`)) n++;
     if (n > 1) invNo = `${invNo}-${n}`;
-    const total = Math.round(group.reduce((s, r) => s + (r.total || 0) + (r.active_extra_total || 0) + (r.status === 'cancelled' ? 0 : (r.km_total || 0)), 0) * 100) / 100;
     for (const r of group) {
       db.prepare("UPDATE bookings SET claim_status = 'claimed', claim_ref = ?, support_item = ?, invoice_no = ?, claimed_at = ? WHERE id = ?")
         .run(`BK${r.id}`, r.item, invNo, now(), r.id);
     }
     const self = first.funding === 'self';
     const dest = self ? first.participant_email : first.pm_email;
-    /* self-managed + Stripe configured → hosted card-payment link for the whole invoice */
-    let payUrl = '';
-    if (self && STRIPE_KEY) {
+    let payUrl = null;
+    const total = round2(group.reduce((a, r) => a + (r.total || 0) + (r.active_extra_total || 0) + (r.status === 'cancelled' ? 0 : (r.km_total || 0)), 0));
+    if (self && STRIPE_KEY && total > 0) {
       try {
         const session = await stripeRequest('/v1/checkout/sessions', {
           mode: 'payment',
@@ -4016,53 +4137,40 @@ route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
           'line_items[0][price_data][product_data][name]': `BookIt invoice ${invNo} — NDIS supports for ${first.participant_name}`,
           'metadata[invoice_no]': invNo,
           customer_email: dest,
-          success_url: `${APP_URL || baseUrl(req)}/#/pay-success`,
-          cancel_url: `${APP_URL || baseUrl(req)}/#/bookings`
+          success_url: `${APP_URL || 'https://bookit.life'}/#/pay-success`,
+          cancel_url: `${APP_URL || 'https://bookit.life'}/#/statements`
         });
         payUrl = session.url || '';
         if (payUrl) db.prepare('UPDATE bookings SET stripe_session = ?, pay_url = ? WHERE invoice_no = ?').run(session.id || '', payUrl, invNo);
       } catch (e) { console.error(`[stripe] session failed for ${invNo}: ${e.message}`); }
     }
-    const pdf = makeInvoicePdf({
-      invoice_no: invNo,
-      date: dmy(ymd()),
-      self,
-      bill_to: self
-        ? [first.participant_name, first.participant_email, first.ndis_number ? `NDIS number: ${first.ndis_number}` : '']
-        : [`Plan manager for ${first.participant_name}`, dest, first.ndis_number ? `NDIS number: ${first.ndis_number}` : ''],
-      lines: group.flatMap(r => [{
-        date: dmy(r.date),
-        service: (SERVICE_LABELS[r.service] || r.service)
-          + (r.rate_category === 'sleepover' ? ' — sleepover (per night)' : '')
-          + (r.ratio > 1 ? ` — group 1:${r.ratio}` : '')
-          + (r.status === 'cancelled' ? ' — cancelled at short notice' : ''),
-        item: r.item,
-        hours: (INVOICE_RATES[r.rate_category] || {}).perNight ? 1 : r.hours,
-        rate: r.unit_price || 0, amount: r.total || 0
-      }, ...(r.active_extra_hours > 0 ? [{
-        date: dmy(r.date),
-        service: `${SERVICE_LABELS[r.service] || r.service} — active support during the sleepover, beyond the two hours included`,
-        item: r.active_extra_item, hours: r.active_extra_hours, rate: r.active_extra_rate || 0, amount: r.active_extra_total || 0
-      }] : []), ...(r.km > 0 && r.km_total > 0 && r.status !== 'cancelled' ? [{
-        date: dmy(r.date),
-        service: `Provider travel — ${r.km} km${r.km_from ? `, ${r.km_from} → ${r.km_to}` : ''} (non-labour costs)`,
-        item: TRAVEL_ITEMS[r.service] || '', hours: r.km_total, rate: 1, amount: r.km_total
-      }] : [])]),
-      total
-    });
+    const inv = invoiceFor(invNo);
+    const pdf = makeInvoicePdf(inv);
     let emailed = false;
     try {
-      await sendMail(dest, `Invoice ${invNo} — BookIt supports for ${first.participant_name}`,
+      await sendMail(dest, `Invoice ${invNo} — BookIt supports for ${first.participant_name} — $${total.toFixed(2)} due ${inv.due_date}`,
         `Invoice ${invNo}`,
-        `<p>Please find attached invoice <b>${invNo}</b> for NDIS supports delivered to <b>${escHtml(first.participant_name)}</b> — total <b>$${total.toFixed(2)}</b> (GST-free). Payment within 14 days, thank you.</p>${payUrl ? '<p>Fastest way: press the button below to <b>pay by card</b> — the invoice marks itself paid instantly. Bank transfer details are on the attached PDF if you prefer.</p>' : ''}<p>Prices align with the NDIS Pricing Arrangements and Price Limits 2026–27. Questions? Just reply to this email.</p>`,
-        payUrl ? '💳 Pay by card' : null, payUrl || null, MAIL_FROM, [{ filename: `${invNo}.pdf`, mime: 'application/pdf', buffer: pdf }]);
+        `<p>Please find attached invoice <b>${invNo}</b> for NDIS supports delivered to <b>${escHtml(first.participant_name)}</b> — total <b>$${total.toFixed(2)}</b> (GST-free), due <b>${inv.due_date}</b>.</p>
+         <p>${self ? 'You can pay by card from the button below or from your BookIt account, or by bank transfer using the details on the invoice.' : 'Please pay from plan funds by bank transfer using the details on the invoice.'} The payment reference is the invoice number.</p>
+         <p>Every line is also on the statement in ${self ? 'your' : 'the participant\u2019s'} BookIt account, with the shift note beside it.</p>`,
+        payUrl ? 'Pay by card' : 'Open my statement', payUrl || `${APP_URL}/#/statements`, MAIL_FROM, [{ filename: `${invNo}.pdf`, mime: 'application/pdf', buffer: pdf }]);
       emailed = EMAIL_ON;
     } catch (e) { console.error(`[claims] invoice email failed for ${invNo}: ${e.message}`); }
-    invoices.push({ invoice_no: invNo, to: dest, funding: first.funding, lines: group.length, total, emailed });
+    if (self) {
+      const pu = db.prepare('SELECT id FROM users WHERE id = ?').get(first.pid);
+      if (pu) notify(pu.id, 'invoice', first.participant_email, `Your BookIt invoice ${invNo} is ready`, 'An invoice is ready',
+        `<p>Invoice ${invNo} for $${total.toFixed(2)} is due by ${inv.due_date}. It is in your account under Statements &amp; invoices, with the PDF and a Pay by card button.</p>`, 'Open it', `${APP_URL}/#/statements`);
+    }
+    invoices.push({ invoice_no: invNo, participant: first.participant_name, to: dest, lines: group.length, total, emailed, pay_url: payUrl, due: inv.due_date, by: actor });
   }
-  json(res, 200, { ok: true, ndia_claimed: ndiaClaimed.length, invoices, needs_attention: needs });
+  if (invoices.length || ndiaClaimed.length) console.log(`[claims] ${actor}: ${invoices.length} invoice(s), ${ndiaClaimed.length} agency line(s) stamped, ${needs.length} held back`);
+  return { invoices, needs, ndiaClaimed };
+}
+route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const out = await runClaims(['ndia', 'plan', 'self'], user.name);
+  json(res, 200, { ok: true, ...out });
 });
-
 route('GET', /^\/api\/admin\/claims\/pace\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
@@ -13012,6 +13120,10 @@ everyJob('tiers', 86400 * 1000, () => reviewAllTiers(), {
   label: 'Pay tier review',
   why: 'Moves workers up the ladder immediately when they qualify, and down by at most one step after notice.'
 });
+everyJob('invoices', 86400 * 1000, () => runClaims(['self', 'plan'], 'nightly').catch(e => console.error('[claims] nightly run failed:', e.message)), {
+  label: 'Nightly invoicing',
+  why: 'Every approved shift for a self- or plan-managed participant is invoiced the night it is approved, with the PDF, the card link and a message in their account. Agency lines wait for the office to run the PACE file.'
+});
 everyJob('referrals', 86400 * 1000, () => reviewReferrals(), {
   label: 'Referral bonuses',
   why: 'Marks a referral payable, and emails the referrer, the day the referred worker\u2019s completed hours reach the mark.'
@@ -17027,6 +17139,52 @@ function suburbPage(req, entry, all) {
 ${others ? `<h2>Other suburbs</h2><ul>${others}</ul>` : ''}
 <footer>Disability &amp; Mental Health Care Pty Ltd · NDIS registered provider · <a href="${base}/#/contact">Contact</a></footer></main></body></html>`;
 }
+
+
+/* ---------- the participant's invoices ----------
+   What the participant (or their coordinator, or the office) can see and
+   download: one entry per invoice number, with what is owed, when it is due,
+   the card link, and the PDF. The statement is the record of every shift;
+   the invoice is what gets paid. */
+function invoiceSummaries(participantId) {
+  const nos = db.prepare(`SELECT DISTINCT invoice_no FROM bookings WHERE participant_id = ? AND COALESCE(invoice_no,'') <> '' ORDER BY claimed_at DESC`).all(participantId).map(r => r.invoice_no);
+  const today = ymd();
+  return nos.map(no => {
+    const inv = invoiceFor(no); if (!inv) return null;
+    return { invoice_no: no, date: inv.date, due_date: inv.due_date, total: inv.total, paid: inv.paid, balance: inv.balance, pay_url: inv.balance > 0 ? inv.pay_url : '',
+      funding: inv.funding, lines: inv.lines.length, status: inv.balance <= 0 ? 'paid' : (inv.due < today ? 'overdue' : 'due'), paid_at: inv.paid_at ? dmy(String(inv.paid_at).slice(0, 10)) : '' };
+  }).filter(Boolean);
+}
+route('GET', /^\/api\/me\/invoices$/, (req, res, m, user) => {
+  if (user.role === 'worker') return json(res, 403, { error: 'Participants and their coordinators only.' });
+  const pers = user.admin ? null : actFor(req, user, 'invoices');
+  if (!user.admin && !pers) return json(res, 403, { error: 'Not permitted.' });
+  const pid = user.admin ? Number(new URL(req.url, 'http://x').searchParams.get('for')) : pers.id;
+  if (!pid) return json(res, 400, { error: 'Which participant?' });
+  const invoices = invoiceSummaries(pid);
+  json(res, 200, { invoices, owing: round2(invoices.filter(i => i.status !== 'paid').reduce((a, i) => a + i.balance, 0)), bank: bankLines(), due_days: INVOICE_DUE_DAYS() });
+});
+route('GET', /^\/api\/me\/invoices\/([A-Z0-9-]+)\.pdf$/, (req, res, m, user) => {
+  const inv = invoiceFor(m[1]);
+  if (!inv) return json(res, 404, { error: 'No such invoice.' });
+  if (!user.admin) {
+    const pers = user.role === 'worker' ? null : actFor(req, user, 'invoices');
+    if (!pers || pers.id !== inv.participant.id) return json(res, 403, { error: 'Not permitted.' });
+  }
+  const pdf = makeInvoicePdf(inv);
+  res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Length': pdf.length, 'Content-Disposition': `inline; filename="${inv.invoice_no}.pdf"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+  res.end(pdf);
+});
+/* a bank transfer arrived: the office marks the whole invoice paid at once */
+route('POST', /^\/api\/admin\/invoices\/([A-Z0-9-]+)\/paid$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const inv = invoiceFor(m[1]);
+  if (!inv) return json(res, 404, { error: 'No such invoice.' });
+  if (body.paid === false) db.prepare("UPDATE bookings SET claim_status = 'claimed', paid_at = NULL WHERE invoice_no = ?").run(inv.invoice_no);
+  else db.prepare("UPDATE bookings SET claim_status = 'paid', paid_at = ? WHERE invoice_no = ? AND claim_status <> 'paid'").run(now(), inv.invoice_no);
+  logCompliance({ worker_id: null, worker_name: '', kind: 'invoice-paid', result: body.paid === false ? 'unpaid' : 'paid', detail: `${inv.invoice_no} $${inv.total.toFixed(2)} for ${inv.participant.name} marked ${body.paid === false ? 'unpaid' : 'paid'} (${clean(body.how, 60) || 'bank transfer'}).`, source: 'admin', checked_by: user.name });
+  json(res, 200, { ok: true });
+});
 
 /* ---------- the public pages, as the server knows them ----------
    The app is one page and a hash router, which is right for the person using

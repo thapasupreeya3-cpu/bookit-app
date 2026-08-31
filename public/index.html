@@ -4465,6 +4465,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   </div>
   <section class="block">
     <div class="container">
+      <div id="bookingsInvoiceNote"></div>
       <div id="bookingsList" class="bk-list"></div>
     </div>
   </section>
@@ -7149,6 +7150,28 @@ window.paintWorkerPay = async function(){
 };
 
 /* ---------- the rest of the price list, and the referral figures ---------- */
+
+/* ---------- invoices: what is owed, with the PDF and the card button ---------- */
+window.invoicesBlock = async function(){
+  if(!API.me || API.me.role === 'worker' || API.me.admin) return '';
+  let d; try{ d = await API.call('/me/invoices' + (API.actingFor ? '?for=' + API.actingFor.id : '')); }catch(e){ return ''; }
+  const forQ = API.actingFor ? '?for=' + API.actingFor.id : '';
+  const money = n => '$' + Number(n).toFixed(2);
+  const open = d.invoices.filter(i => i.status !== 'paid');
+  const row = i => `<tr><td style="white-space:nowrap;"><b>${esc(i.invoice_no)}</b></td><td>${esc(i.date)}</td><td>${esc(i.due_date)}</td><td>${i.lines}</td><td>${money(i.total)}</td>
+    <td>${i.status === 'paid' ? `<span style="color:#1C7C43;font-weight:600;">Paid${i.paid_at ? ' ' + esc(i.paid_at) : ''}</span>` : i.status === 'overdue' ? `<span style="color:#A5301A;font-weight:600;">Overdue — ${money(i.balance)}</span>` : `<b>${money(i.balance)} due</b>`}</td>
+    <td style="white-space:nowrap;"><a class="btn btn-secondary btn-sm" href="/api/me/invoices/${encodeURIComponent(i.invoice_no)}.pdf${forQ}" target="_blank" rel="noopener">PDF</a> ${i.pay_url ? `<a class="btn btn-primary btn-sm" href="${esc(i.pay_url)}" target="_blank" rel="noopener">Pay by card</a>` : ''}</td></tr>`;
+  const banner = open.length ? `<div class="info-card" style="border-left:5px solid #A5301A;margin-bottom:14px;"><p style="margin:0 0 6px;"><b>You have ${open.length === 1 ? 'an invoice' : open.length + ' invoices'} to pay — ${money(d.owing)}.</b> ${open.some(i => i.status === 'overdue') ? 'One is past its due date. ' : ''}${open[0].funding === 'plan' ? 'It has gone to your plan manager, who pays it from your plan funds; nothing for you to do unless they ask.' : 'Pay by card with the button, or by bank transfer using the details on the invoice — the reference is the invoice number.'}</p>${open[0].funding !== 'plan' && d.bank && d.bank.length ? `<p class="muted-sm" style="margin:0;">Bank transfer: ${d.bank.map(esc).join(' · ')}</p>` : ''}</div>` : '';
+  if(!d.invoices.length) return `<div class="info-card" style="margin-bottom:14px;"><p style="margin:0;"><b>No invoices yet.</b> Once a shift is approved it is invoiced overnight${API.me.plan === 'ndia' ? ' — for an agency-managed plan the office claims it from the NDIA directly, and nothing comes to you' : ', and it will appear here with the PDF and, for self-managed plans, a Pay by card button'}.</p></div>`;
+  return `${banner}<h2 style="margin:0 0 8px;">Invoices</h2><div class="table-wrap" style="margin-bottom:18px;"><table class="rt"><thead><tr><th>Invoice</th><th>Date</th><th>Due</th><th>Lines</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>${d.invoices.map(row).join('')}</tbody></table></div>`;
+};
+window.invoiceBanner = async function(){
+  if(!API.me || API.me.role === 'worker' || API.me.admin) return '';
+  let d; try{ d = await API.call('/me/invoices' + (API.actingFor ? '?for=' + API.actingFor.id : '')); }catch(e){ return ''; }
+  const open = d.invoices.filter(i => i.status !== 'paid');
+  if(!open.length) return '';
+  return `<div class="info-card" style="border-left:5px solid #A5301A;margin-bottom:14px;"><p style="margin:0;"><b>${open.length === 1 ? 'An invoice' : open.length + ' invoices'} to pay — $${Number(d.owing).toFixed(2)}${open.some(i => i.status === 'overdue') ? ', one past its due date' : ''}.</b> ${open[0].funding === 'plan' ? 'Sent to your plan manager.' : ''} <a href="#/statements">See the invoice${open.length === 1 ? '' : 's'}, the PDF and how to pay</a>.</p></div>`;
+};
 window.paintExtras = async function(){
   const tb = $('#pExtrasTable tbody'); const rh = $('#refHours'), rb = $('#refBonus');
   try{
@@ -7800,6 +7823,7 @@ document.addEventListener('click', e => {
 async function renderBookingsPage(){
   const wrap = $('#bookingsList');
   if(!wrap) return;
+  const invNote = $('#bookingsInvoiceNote'); if(invNote){ invoiceBanner().then(html => { invNote.innerHTML = html; }); }
   if(!API.online){
     wrap.innerHTML = '<div class="info-card"><p><b>Bookings run on the live BookIt server.</b> This preview is demo-only — on the deployed site this page shows real requests, confirmations and history.</p></div>';
     return;
@@ -9806,7 +9830,7 @@ async function renderAdminPage(){
     <td><b>$${Number(r.total || 0).toFixed(2)}</b></td>
     <td>${showActions
       ? (r.flags.length ? `<span style="color:#D94F32;font-size:.78rem;">${esc(r.flags.join(' · '))}</span>` : '<span style="color:#1C7C43;font-size:.78rem;">ready ✓</span>')
-      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `<button class="adm-btn-sm" data-claim-paid="${r.id}" type="button">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
+      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `${r.invoice_no ? `<button class="adm-btn-sm" data-inv-paid="${esc(r.invoice_no)}" type="button" title="Bank transfer received for the whole invoice">Invoice paid</button> ` : ''}<button class="adm-btn-sm" data-claim-paid="${r.id}" type="button">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
   </tr>`;
   const claimTable = (rows, showActions) => `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Date</th><th>Participant</th><th>Funding</th><th>Shift</th><th>Support item</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(r => claimRow(r, showActions)).join('')}</tbody></table></div>`;
   const claims = `
@@ -10106,6 +10130,8 @@ document.addEventListener('submit', async e => {
   }
 });
 document.addEventListener('click', async e => {
+  const ip = e.target.closest('[data-inv-paid]');
+  if(ip){ try{ await API.call('/admin/invoices/' + encodeURIComponent(ip.dataset.invPaid) + '/paid', {method:'POST', body:{how:'bank transfer'}}); toast('Invoice marked paid.'); renderAdminPage(); }catch(err){ toast(err.message); } return; }
   const rp = e.target.closest('[data-ref-paid]');
   if(rp){ try{ await API.call('/admin/referrals/' + rp.dataset.refPaid + '/paid', {method:'POST', body:{}}); toast('Marked paid.'); renderAdminPage(); }catch(err){ toast(err.message); } return; }
   const ug = e.target.closest('[data-ungroup]');
@@ -12708,7 +12734,9 @@ async function renderStatementsPage(){
       <td><button type="button" class="adm-btn-sm" data-st-open="${r.id}">detail</button></td>
     </tr>
     <tr class="st-detail" data-st-detail="${r.id}" hidden><td colspan="9"></td></tr>`;
-  wrap.innerHTML = `
+  const invHtml = await invoicesBlock();
+  wrap.innerHTML = `${invHtml}
+    <p class="muted-sm" style="margin:0 0 10px;"><b>Statement</b> — every shift, its note and what it cost, for a period you choose; the CSV is the same list for a spreadsheet. What you actually pay is on the <b>invoices</b> above, one per run, with the PDF.</p>
     ${d.acting_for ? `<p class="muted-sm" style="margin:0 0 10px;">Statement for <b>${esc(d.acting_for.name)}</b>.</p>` : ''}
     <div class="st-presets" role="group" aria-label="Statement period">
       ${presets.map(([v, t]) => `<button type="button" class="st-preset" data-st-preset="${v}" aria-pressed="${ST.preset === v ? 'true' : 'false'}">${t}</button>`).join('')}
