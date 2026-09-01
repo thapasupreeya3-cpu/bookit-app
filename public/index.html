@@ -4701,6 +4701,7 @@ html.high-contrast .care-stage-block{display:none!important;}
           <li><a href="#/locations">Where we work</a></li>
           <li><a href="#/find-workers">Find workers</a></li>
           <li><a href="#/services/overnight">Overnight support</a></li>
+          <li><a href="/policies">Policies &amp; procedures</a></li>
           <li><a href="#/messages">Messages</a></li>
           <li><a href="#/easy-read">Easy Read</a></li>
           <li><a href="#/safety">Safety & quality</a></li>
@@ -7305,6 +7306,105 @@ window.renderFormScreen = async function(){
   $('#screenForm').addEventListener('submit', e => { e.preventDefault(); send(true); });
   wrap.querySelector('[data-screen-save]').addEventListener('click', () => send(false));
 };
+/* ---------- the policies folder card ---------- */
+
+/* ---------- policies as pages: the office drops the folder's files in, each becomes a page ---------- */
+window.renderPolicyPagesCard = async function(){
+  const host = $('#admPolicyPages'); if(!host) return;
+  let d; try{ d = await API.call('/admin/policy-pages', {noFor:true}); }catch(e){ host.innerHTML = `<p class="adm-empty">${esc(e.message)}</p>`; return; }
+  const inp = 'font:inherit;font-size:.85rem;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;';
+  const kinds = ['policy', 'procedure', 'plan', 'register', 'form or template'];
+  host.innerHTML = `
+    <p style="margin:0 0 8px;"><b>Every document here is a page on the site</b> — the same wrapper and print button as the Service Agreement, at <a href="/policies" target="_blank" rel="noopener">/policies</a>, readable by participants and workers without a Google login, and in the audit pack. ${d.pages.length} published.</p>
+    <p class="muted-sm" style="margin:0 0 10px;">To publish the whole folder: in Google Drive, right-click the folder › Download (a zip), unzip it, then choose all the .docx and .pdf files below at once. Word files become pages; PDFs open as the file. Spreadsheets stay in the folder. Uploading a file again replaces its page.</p>
+    <form id="admPolicyUpload" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+      <input type="file" name="files" accept=".docx,.pdf" multiple required style="font-size:.85rem;">
+      <select name="audience" style="${inp}"><option value="">Audience: decide by title (participant-facing ones for participants, the rest staff)</option><option value="public">Public — anyone, no sign-in</option><option value="participants">Participants and staff (signed in)</option><option value="staff">Staff only</option></select>
+      <button class="adm-btn-sm" type="submit">Publish as pages</button>
+      <span id="admPolicyProgress" class="muted-sm"></span>
+    </form>
+    ${d.pages.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Page</th><th>Kind</th><th>Audience</th><th>From</th><th>Words</th><th></th></tr></thead><tbody>
+      ${d.pages.map(pg => `<tr><td><a href="/policies/${esc(pg.slug)}" target="_blank" rel="noopener">${esc(pg.title)}</a>${pg.file_mime === 'application/pdf' ? ' <span class="muted-sm">(PDF)</span>' : ''}</td>
+        <td><select data-pp-kind="${esc(pg.slug)}" style="${inp}">${kinds.map(k => `<option value="${k}" ${pg.kind === k ? 'selected' : ''}>${k}</option>`).join('')}</select></td>
+        <td><select data-pp-aud="${esc(pg.slug)}" style="${inp}"><option value="public" ${pg.audience === 'public' ? 'selected' : ''}>public</option><option value="participants" ${pg.audience === 'participants' ? 'selected' : ''}>participants + staff</option><option value="staff" ${pg.audience === 'staff' ? 'selected' : ''}>staff only</option></select></td>
+        <td class="muted-sm">${esc(pg.source_name)}<br>${esc(fmtAU(String(pg.imported_at).slice(0,10)))} · ${esc(pg.imported_by)}</td><td>${pg.words || ''}</td>
+        <td><button class="adm-btn-sm" type="button" data-pp-del="${esc(pg.slug)}" style="color:#A5301A;">Unpublish</button></td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="muted-sm">Nothing published yet. Choose the files above.</p>'}`;
+};
+document.addEventListener('submit', async e => {
+  if(e.target.id !== 'admPolicyUpload') return;
+  e.preventDefault();
+  const form = e.target, files = [...form.querySelector('[name=files]').files], audience = form.querySelector('[name=audience]').value, prog = $('#admPolicyProgress');
+  let ok = 0; const bad = [];
+  for(const [i, f] of files.entries()){
+    prog.textContent = `Publishing ${i + 1} of ${files.length}: ${f.name}…`;
+    if(!/\.(docx|pdf)$/i.test(f.name)){ bad.push(`${f.name}: not a .docx or .pdf`); continue; }
+    try{
+      const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+      await API.call('/admin/policy-pages', {method:'POST', noFor:true, body:{ file: { name: f.name, mime: f.type, data }, audience }});
+      ok++;
+    }catch(err){ bad.push(err.message); }
+  }
+  prog.textContent = '';
+  toast(`${ok} published${bad.length ? `; ${bad.length} skipped` : ''}.`);
+  if(bad.length) alert('Skipped:\n' + bad.join('\n'));
+  renderPolicyPagesCard(); renderPoliciesCard();
+});
+document.addEventListener('change', async e => {
+  const k = e.target.closest('[data-pp-kind]'), a = e.target.closest('[data-pp-aud]');
+  if(!k && !a) return;
+  const slug = (k || a).dataset.ppKind || (k || a).dataset.ppAud;
+  try{ await API.call('/admin/policy-pages/' + slug, {method:'PATCH', noFor:true, body: k ? { kind: k.value } : { audience: a.value }}); toast('Saved.'); }catch(err){ toast(err.message); }
+});
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-pp-del]'); if(!b) return;
+  if(!confirm('Unpublish this page? The file in the folder is untouched.')) return;
+  try{ await API.call('/admin/policy-pages/' + b.dataset.ppDel, {method:'DELETE', noFor:true, body:{}}); renderPolicyPagesCard(); renderPoliciesCard(); }catch(err){ toast(err.message); }
+});
+window.renderPoliciesCard = async function(){
+  const host = $('#admPolicies'); if(!host) return;
+  let d; try{ d = await API.call('/admin/policies-folder', {noFor:true}); }catch(e){ host.innerHTML = `<p class="adm-empty">${esc(e.message)}</p>`; return; }
+  const held = d.documents.filter(x => x.held).length, matched = d.documents.filter(x => x.match).length;
+  const kinds = ['policy', 'procedure', 'register', 'plan', 'form or template', 'other'];
+  const byKind = k => d.files.filter(f => f.kind === k);
+  const inp = 'font:inherit;font-size:.85rem;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;';
+  host.innerHTML = `
+    <p style="margin:0 0 8px;"><b>The office's documents live in one folder:</b> <a href="${esc(d.url)}" target="_blank" rel="noopener noreferrer">open the policies folder</a>. ${d.files.length} files are indexed here, each with its link, and the index goes into the audit pack.</p>
+    <p class="muted-sm" style="margin:0 0 10px;">Register: ${held} of ${d.documents.length} company documents recorded as held; ${matched} match a file in the folder by name.</p>
+    <form id="admPoliciesForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+      <input name="url" value="${esc(d.url)}" placeholder="https:// link to the folder" style="${inp}min-width:340px;flex:1;">
+      <button class="adm-btn-sm" type="submit">Save the link</button>
+      <button class="adm-btn-sm" type="button" data-policies-record-all>Record the matched documents as held in the folder</button>
+    </form>
+    ${kinds.map(k => byKind(k).length ? `<details ${k === 'policy' ? 'open' : ''}><summary style="cursor:pointer;font-weight:600;text-transform:capitalize;">${esc(k)} (${byKind(k).length})</summary>
+      <ul class="muted-sm" style="margin:6px 0 10px;padding-left:18px;columns:2;">${byKind(k).map(f => `<li>${f.page ? `<a href="/policies/${esc(f.page)}" target="_blank" rel="noopener"><b>${esc(f.title)}</b></a> <span style="color:#1C7C43;">page</span> · <a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">file</a>` : `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.title)}</a>`}${f.modified ? ` <span style="opacity:.7;">· ${esc(fmtAU(f.modified))}</span>` : ''} <button class="adm-btn-sm" type="button" data-policy-remove="${esc(f.id)}" title="Remove from the index (the file stays in the folder)" style="padding:0 6px;color:#A5301A;">×</button></li>`).join('')}</ul></details>` : '').join('')}
+    <form id="admPolicyAdd" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">
+      <input name="title" placeholder="A file added to the folder: its name" required style="${inp}min-width:220px;">
+      <input name="url" placeholder="its https:// link" required style="${inp}min-width:260px;">
+      <select name="kind" style="${inp}">${kinds.map(k => `<option value="${k}">${k}</option>`).join('')}</select>
+      <button class="adm-btn-sm" type="submit">Add to the index</button>
+    </form>
+    <details style="margin-top:10px;"><summary class="muted-sm" style="cursor:pointer;">The register's company documents, and which file each matches (${d.documents.length})</summary>
+      <ul class="muted-sm" style="margin:6px 0 0;padding-left:18px;">${d.documents.map(x => `<li>${esc(x.name)} — ${x.held ? `<span style="color:#1C7C43;">held</span>${x.location ? ': ' + esc(x.location.replace(/ — https?:\/\/\S+$/, '')) : ''}` : x.match ? `<span style="color:#8a6d00;">matches "${esc(x.match.title)}" — not yet recorded</span>` : '<span style="color:#A5301A;">no file with this name in the folder</span>'}</li>`).join('')}</ul></details>`;
+};
+document.addEventListener('submit', async e => {
+  if(e.target.id !== 'admPolicyAdd') return;
+  e.preventDefault(); const fd = new FormData(e.target);
+  try{ await API.call('/admin/policies-folder/files', {method:'POST', body:Object.fromEntries(fd.entries())}); toast('Added to the index.'); renderPoliciesCard(); }catch(err){ toast(err.message); }
+});
+document.addEventListener('click', async e => {
+  const r = e.target.closest('[data-policy-remove]'); if(!r) return;
+  try{ await API.call('/admin/policies-folder/files/' + encodeURIComponent(r.dataset.policyRemove), {method:'DELETE', body:{}}); renderPoliciesCard(); }catch(err){ toast(err.message); }
+});
+document.addEventListener('submit', async e => {
+  if(e.target.id !== 'admPoliciesForm') return;
+  e.preventDefault();
+  try{ await API.call('/admin/policies-folder', {method:'POST', body:{url: new FormData(e.target).get('url')}}); toast('Folder link saved.'); renderPoliciesCard(); }catch(err){ toast(err.message); }
+});
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-policies-record-all]'); if(!b) return;
+  try{ const r = await API.call('/admin/policies-folder', {method:'POST', body:{record_all: true}}); toast(`${r.recorded} document${r.recorded === 1 ? '' : 's'} recorded as held in the folder${r.unmatched.length ? `; ${r.unmatched.length} not found in it by name` : ''}.`); renderPoliciesCard(); renderAdminPage(); }catch(err){ toast(err.message); }
+});
 window.paintExtras = async function(){
   const tb = $('#pExtrasTable tbody'); const rh = $('#refHours'), rb = $('#refBonus');
   try{
@@ -9880,7 +9980,7 @@ async function renderAdminPage(){
           if(pr.changed_since_review) return `<p style="margin:8px 0 0;font-size:.86rem;color:#8a6d00;"><b>Support plan v${pr.plan.version}</b> — changed since you reviewed v${pr.reviewed_version} on ${fmtAU(String(pr.reviewed_at).slice(0,10))}. Bookings continue. <a href="/api/admin/participants/${p.id}/plan" target="_blank" rel="noopener noreferrer">Read the plan</a> · <button class="adm-btn-sm" data-plan-review="${p.id}" type="button">Mark v${pr.plan.version} reviewed</button></p>`;
           return `<p style="margin:8px 0 0;font-size:.86rem;color:#1C7C43;"><b>Support plan v${pr.plan.version}</b> reviewed by ${esc(pr.reviewed_by || 'the office')} on ${fmtAU(String(pr.reviewed_at).slice(0,10))}. <a href="/api/admin/participants/${p.id}/plan" target="_blank" rel="noopener noreferrer">Read the plan</a></p>`; })()}
         <div style="margin-top:8px;"><button class="adm-btn-sm" data-preq-doc="${p.id}" type="button">＋ ask for a document</button></div>
-        <p class="muted-sm" style="margin:10px 0 0;">On screen, with them: <a href="#/form/p-risk?for=${p.id}">risk assessment</a> · <a href="#/form/p-exit?for=${p.id}">exit record</a> · <a href="#/form/p-medication?for=${p.id}">medication plan</a> · <a href="#/form/p-money?for=${p.id}">money &amp; property</a> · <a href="#/form/p-consent-media?for=${p.id}">photo consent</a></p>
+        <p class="muted-sm" style="margin:10px 0 0;">On screen, with them — office: <a href="#/form/p-risk?for=${p.id}">risk assessment</a> · <a href="#/form/p-annual-review?for=${p.id}">annual review</a> · <a href="#/form/p-living-arrangement?for=${p.id}">s73G determination</a> · <a href="#/form/p-exit?for=${p.id}">exit record</a>. From a clinician's plan: <a href="#/form/p-mealtime?for=${p.id}">mealtime</a> · <a href="#/form/p-epilepsy?for=${p.id}">seizures</a> · <a href="#/form/p-diabetes?for=${p.id}">diabetes</a> · <a href="#/form/p-allergy?for=${p.id}">allergy/asthma</a> · <a href="#/form/p-manual?for=${p.id}">transfers</a> · <a href="#/form/p-pbs?for=${p.id}">behaviour support</a>. Theirs: <a href="#/form/p-medication?for=${p.id}">medication plan</a> · <a href="#/form/p-money?for=${p.id}">money &amp; property</a> · <a href="#/form/p-consent-media?for=${p.id}">photo consent</a> · <a href="#/form/p-advocate?for=${p.id}">nominee</a></p>
         <details style="margin-top:10px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;font-size:.9rem;">＋ File a document for ${esc(p.name)}</summary>
           <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
             <label style="font-size:.82rem;">What is it?<br><select class="pa-type" style="font:inherit;font-size:.85rem;padding:6px 9px;border-radius:9px;border:1.5px solid #E7DFD4;max-width:300px;">${pTypeOpts}</select></label>
@@ -10194,7 +10294,9 @@ async function renderAdminPage(){
     (pMissingN || 0) + (plans && plans.counts.critical ? plans.counts.critical : 0),
     H('Audit pack — one download, everything in it') + auditPackHtml(pack)
     + `<p class="muted-sm" style="margin:0 0 14px;">Participant files and support plans have moved to <a href="#/admin/compliance" data-cmp-go="participants">Compliance › Participants</a>, beside the worker checks.</p>`
-    + H('Documents on the shelf — written, on screen, or a blank') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>'
+    + H('Policies and procedures — published as pages') + '<div class="info-card" id="admPolicyPages"><p class="adm-empty">Loading…</p></div>'
+    + H('The folder they came from') + '<div class="info-card" id="admPolicies"><p class="adm-empty">Loading…</p></div>'
+    + H('Participant documents — written by BookIt, or on screen') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>'
     + H('Forms register — where every document lives')
     + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')
     + '<div class="info-card" id="admDocReqCard" style="margin-top:18px;" hidden></div>');
@@ -11359,7 +11461,7 @@ function planBoardHtml(d){
    file" is a document kept as a file: for a participant's or worker's form
    that means their own BookIt file, counted per person and shown with numbers;
    for the office's own documents (policies, certificates, registers) it means
-   wherever the office keeps them — OneDrive, a cabinet — and the office records
+   wherever the office keeps them — the policies folder, a cabinet — and the office records
    where. "Not built yet" is honest. The gap between the three is where every
    finding at the last review came from. */
 function auditPackHtml(d){
@@ -11441,7 +11543,7 @@ function formRecordFormHtml(f, held){
     <p class="muted-sm" style="margin:0 0 8px;">Two different dates, and they are not interchangeable. The period is what the <i>document</i> says. The recorded date is today, taken from the server — there is no way to set it, so this can never claim you filed something earlier than you did.</p>
     <label>Period the records cover — from<input type="date" data-frf="covers_from" value="${esc(r.covers_from || '')}"></label>
     <label>to<input type="date" data-frf="covers_to" value="${esc(r.covers_to || '')}"></label>
-    <label>Where it is kept<input type="text" data-frf="location" maxlength="200" placeholder="OneDrive folder, filing cabinet, the registered office…" value="${esc(r.location || '')}"></label>
+    <label>Where it is kept<input type="text" data-frf="location" maxlength="200" placeholder="The policies folder, a filing cabinet, the registered office…" value="${esc(r.location || '')}"></label>
     <label>Anything worth saying about it<textarea data-frf="note" maxlength="600" rows="2" placeholder="e.g. paper originals held at the participant's home, photographed and filed 29/07/2026">${esc(r.note || '')}</textarea></label>
     <div class="fr-form-actions">
       <button class="btn btn-primary adm-btn-sm" data-fr-save="${esc(f.key)}" type="button">Record it</button>
@@ -14681,6 +14783,8 @@ function reviewChip(dd){
    it appears on every participant's own documents page, next to the row that
    asks them for it. A link works where the blank lives somewhere else. */
 async function renderBlankForms(){
+  if(window.renderPoliciesCard) renderPoliciesCard();
+  if(window.renderPolicyPagesCard) renderPolicyPagesCard();
   const host = $('#admBlankForms');
   if(!host) return;
   let d;
@@ -14689,7 +14793,7 @@ async function renderBlankForms(){
   const OWNER_LABEL = { participant: 'theirs to fill in', cosigned: 'they sign, we write',
     clinical: 'a clinician writes it', office: 'ours', ndia: 'a copy of the NDIS plan' };
   host.innerHTML = `
-    <p class="muted-sm" style="margin:0 0 12px;"><b>Most participant documents no longer need a blank.</b> The agreement and the consents are written by BookIt and agreed with a click; five forms are screens, filled in and confirmed on the page and filed with Print. A blank is only wanted where somebody outside BookIt writes on paper — the nominee form, a clinician's plan, the office's own determinations — and only those rows take a file below. PDF, Word, JPG or PNG up to 8 MB, or a link. Replacing one raises its version and keeps the old file.</p>
+    <p class="muted-sm" style="margin:0 0 12px;"><b>No participant document is a blank PDF any more.</b> The agreement, the schedule and the consents are written by BookIt and agreed with a click; everything else is a screen — filled in on the page, confirmed with a click, filed with Print. A clinician's own signed plan is still added to the participant's file as a document (My documents › Add a document), and the screen is the summary a worker follows. If a row below ever shows an upload, it is one the office chose to keep as a paper form.</p>
     <div class="adm-table-wrap"><table class="adm-table"><thead><tr>
       <th>Form</th><th>Whose</th><th>Blank on file</th><th style="min-width:330px;">Put one up</th>
     </tr></thead><tbody>

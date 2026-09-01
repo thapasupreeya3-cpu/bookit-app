@@ -7524,7 +7524,7 @@ const FORMS = [
   { key: 'contractor-agreement', name: 'Engagement model — employment or contractor agreement template', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'Settled: workers engaged through the platform are employees - SCHADS award, superannuation, penalty rates, payroll export. Direct-delivery workers under existing arrangements are engaged as sole-trader contractors or casual employees, all covered under the icare policy. Employment agreements for platform workers are executed before launch; nothing existing is replaced.' },
 
   /* ---------- registers: living lists, never a snapshot ---------- */
-  { key: 'reg-worker', name: 'Worker Register', scope: 'register', track: 'live', live: 'workers', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'BookIt holds the live version. The OneDrive copy is a quarterly export, not the record.' },
+  { key: 'reg-worker', name: 'Worker Register', scope: 'register', track: 'live', live: 'workers', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'BookIt holds the live version. The copy in the policies folder is a quarterly export, not the record.' },
   { key: 'reg-participant', name: 'Participant Register', scope: 'register', track: 'live', live: 'participants', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'Core Module — Information management' },
   { key: 'reg-incident', name: 'Incident Register', scope: 'register', track: 'live', live: 'incidents', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Incident Management and Reportable Incidents) Rules 2018', note: 'BookIt runs the 24-hour and 5-business-day clocks itself.' },
   { key: 'reg-complaints', name: 'Complaints and Feedback Register', scope: 'register', track: 'live', live: 'complaints', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Complaints Management and Resolution) Rules 2018' },
@@ -7533,7 +7533,7 @@ const FORMS = [
   { key: 'reg-ci', name: 'Continuous Improvement Register', scope: 'register', track: 'drive', cadence: 'quarterly', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
   { key: 'reg-restrictive', name: 'Restrictive Practices Register', scope: 'register', track: 'drive', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Restrictive Practices and Behaviour Support) Rules 2018', note: 'Nil is the expected state. A nil register still has to exist and be dated.' },
   { key: 'reg-training', name: 'Training and Development Register (one per worker)', scope: 'register', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: '151 blanks across seven registers. Filling the Worker Register first turns these into transcription.' },
-  { key: 'reg-medicine', name: 'Medicine Register (per participant, per month)', scope: 'register', track: 'drive', cadence: 'monthly', signed: 'Worker on each administration', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'Register 13 in OneDrive covers 25/11/2025 only and every worker signature cell in it is blank; OneDrive holds nothing between 26/11/2025 and 30/06/2026. Records held outside OneDrive were identified 29/07/2026 — record them here with the period they actually cover and the date they were filed. Never fill in a blank cell after the fact: what is missing is filing, and a file note discloses that. What was never written cannot be written now.' },
+  { key: 'reg-medicine', name: 'Medicine Register (per participant, per month)', scope: 'register', track: 'drive', cadence: 'monthly', signed: 'Worker on each administration', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'Register 13 in the policies folder covers 25/11/2025 only and every worker signature cell in it is blank; the folder holds nothing between 26/11/2025 and 30/06/2026. Records held outside the folder were identified 29/07/2026 — record them here with the period they actually cover and the date they were filed. Never fill in a blank cell after the fact: what is missing is filing, and a file note discloses that. What was never written cannot be written now.' },
 
   /* ---------- one per worker ---------- */
   { key: 'w-agreement', name: 'Signed engagement agreement', scope: 'worker', track: 'drive', cadence: 'once', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
@@ -7547,7 +7547,7 @@ const FORMS = [
   { key: 'w-orientation', name: 'NDIS Worker Orientation Module certificate', scope: 'worker', track: 'live', live: 'doc:ndis-orientation', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
   { key: 'w-firstaid', name: 'First Aid and CPR certificate', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'CPR renews yearly, first aid every three years. The yearly one is what lapses.' },
   { key: 'w-infection', name: 'Infection prevention and control training', scope: 'worker', track: 'live', live: 'doc:infection-control', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment' },
-  { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Certificates held in OneDrive for every current worker - upload into BookIt worker docs so this register reflects them.' },
+  { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Certificates held in the policies folder for every current worker - upload into BookIt worker docs so this register reflects them.' },
   { key: 'w-medication', name: 'Medication administration training', scope: 'worker', track: 'live', live: 'doc:medication-training', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Management of medication' },
   { key: 'w-hi-competency', name: 'High-intensity skills competency sign-off (catheter, stoma, AD)', scope: 'worker', track: 'missing', cadence: 'annual', signed: 'Clinician or supervisor', template: 'none', requires: 'High Intensity Daily Personal Activities module', note: 'The training has been delivered. No certificate or competency sign-off is in any worker folder. The gap is evidence, not care.' },
   { key: 'w-qualification', name: 'Qualification certificates', scope: 'worker', track: 'live', live: 'doc:qualification', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
@@ -8411,6 +8411,145 @@ const FORM_SCREENS = {
     declaration: 'The supports have ended as recorded here. The participant\u2019s file is kept for the period the law requires and is available to them on request.'
   }
 };
+
+/* the rest of the participant documents, so nothing on a participant's file is a blank PDF */
+Object.assign(FORM_SCREENS, {
+  'p-advocate': {
+    title: 'Advocate, nominee or decision-maker', who: 'participant', edition: 'screen v1, issued 01/09/2026',
+    lede: 'Who helps you make decisions about your supports, what they may decide or be told, and how we reach them. You can change this at any time.',
+    fields: [
+      { id: 'name', label: 'Their name', type: 'text', required: true },
+      { id: 'relationship', label: 'Who they are to you', type: 'text', required: true, help: 'Parent, partner, guardian, support coordinator, advocate…' },
+      { id: 'role', label: 'Their role', type: 'choice', options: ['NDIS nominee (appointed by the NDIA)', 'Guardian or attorney under a court or tribunal order', 'Someone I have chosen to help me decide', 'Someone who may be told about my supports but does not decide'], required: true },
+      { id: 'contact', label: 'Phone and email', type: 'text', required: true },
+      { id: 'may', label: 'They may', type: 'checklist', options: ['Be told about my bookings and shifts', 'See my support plan and shift notes', 'Book and change shifts for me', 'See and pay my invoices', 'Speak to my workers directly', 'Be called first in an emergency'] },
+      { id: 'limits', label: 'Anything they may not do or be told', type: 'textarea' },
+      { id: 'evidence', label: 'If they hold a formal appointment (nominee, guardianship, power of attorney), the document is', type: 'choice', options: ['Uploaded to my documents', 'Not needed — this is my own choice of helper', 'To follow'] }
+    ],
+    declaration: 'I want this person involved in my supports as set out above. I can change or withdraw this at any time by telling the office.'
+  },
+  'p-mealtime': {
+    title: 'Mealtime management plan', who: 'both', edition: 'screen v1, issued 01/09/2026',
+    lede: 'How you eat and drink safely: textures, positioning, equipment, what a worker watches for and what they do if something goes wrong. Entered from the plan your speech pathologist or dietitian wrote; their signed plan stays on file.',
+    fields: [
+      { id: 'clinician', label: 'Written by (clinician, role, date of their plan)', type: 'text', required: true },
+      { id: 'food', label: 'Food texture (IDDSI level) and anything to avoid', type: 'text', required: true },
+      { id: 'drink', label: 'Drink thickness (IDDSI level)', type: 'text', required: true },
+      { id: 'position', label: 'Positioning during and after meals', type: 'textarea', required: true },
+      { id: 'equipment', label: 'Equipment and utensils', type: 'text' },
+      { id: 'pace', label: 'Pace, portion size, prompts and supervision', type: 'textarea', required: true },
+      { id: 'signs', label: 'Signs of difficulty a worker must act on', type: 'textarea', required: true, help: 'Coughing, wet voice, holding food, colour change…' },
+      { id: 'emergency', label: 'What the worker does in a choking or aspiration event', type: 'textarea', required: true },
+      { id: 'review', label: 'Review by', type: 'date', required: true }
+    ],
+    declaration: 'This matches the clinician’s current plan, which is on file. A worker follows this page and never guesses at a texture.'
+  },
+  'p-epilepsy': {
+    title: 'Epilepsy and seizure management plan', who: 'both', edition: 'screen v1, issued 01/09/2026',
+    lede: 'What your seizures look like, what a worker does during and after one, and when to call an ambulance. Entered from the plan your doctor or epilepsy nurse wrote; their signed plan stays on file.',
+    fields: [
+      { id: 'clinician', label: 'Written by (clinician, role, date of their plan)', type: 'text', required: true },
+      { id: 'types', label: 'Seizure types and what each looks like', type: 'textarea', required: true },
+      { id: 'triggers', label: 'Known triggers and warning signs', type: 'textarea' },
+      { id: 'during', label: 'What the worker does during a seizure', type: 'textarea', required: true },
+      { id: 'after', label: 'What the worker does afterwards', type: 'textarea', required: true },
+      { id: 'emergency_med', label: 'Emergency medication (name, dose, when it may be given, who may give it)', type: 'textarea', help: 'Midazolam and the like need the prescriber’s authority and a trained worker.' },
+      { id: 'ambulance', label: 'Call an ambulance when', type: 'textarea', required: true },
+      { id: 'contacts', label: 'Who to tell, and how', type: 'text', required: true },
+      { id: 'review', label: 'Review by', type: 'date', required: true }
+    ],
+    declaration: 'This matches the clinician’s current plan, which is on file. Every worker on the team reads it before their first shift.'
+  },
+  'p-diabetes': {
+    title: 'Diabetes management plan', who: 'both', edition: 'screen v1, issued 01/09/2026',
+    lede: 'How your diabetes is managed day to day and what a worker does about it. Entered from the plan your doctor or diabetes educator wrote; their signed plan stays on file.',
+    fields: [
+      { id: 'clinician', label: 'Written by (clinician, role, date of their plan)', type: 'text', required: true },
+      { id: 'type', label: 'Type and treatment', type: 'text', required: true, help: 'Type 1 or 2; insulin, tablets, diet.' },
+      { id: 'monitoring', label: 'Blood glucose checks: when, how, and who does them', type: 'textarea', required: true },
+      { id: 'targets', label: 'Target range, and the numbers that need action', type: 'text', required: true },
+      { id: 'hypo', label: 'Signs of a low (hypo) and exactly what the worker does', type: 'textarea', required: true },
+      { id: 'hyper', label: 'Signs of a high and what the worker does', type: 'textarea', required: true },
+      { id: 'food', label: 'Meals, snacks and timing', type: 'textarea' },
+      { id: 'ambulance', label: 'Call an ambulance when', type: 'textarea', required: true },
+      { id: 'review', label: 'Review by', type: 'date', required: true }
+    ],
+    declaration: 'This matches the clinician’s current plan, which is on file.'
+  },
+  'p-allergy': {
+    title: 'Allergy, anaphylaxis or asthma action plan', who: 'both', edition: 'screen v1, issued 01/09/2026',
+    lede: 'What you react to, what a reaction looks like, and exactly what a worker does. Entered from the ASCIA or asthma action plan your doctor signed; that plan stays on file.',
+    fields: [
+      { id: 'clinician', label: 'Written by (doctor, date of the signed action plan)', type: 'text', required: true },
+      { id: 'allergens', label: 'Allergens or triggers', type: 'textarea', required: true },
+      { id: 'mild', label: 'Mild to moderate reaction: signs and what the worker does', type: 'textarea', required: true },
+      { id: 'severe', label: 'Severe reaction (anaphylaxis) or severe asthma: signs and what the worker does', type: 'textarea', required: true },
+      { id: 'device', label: 'Adrenaline device or reliever: which one, dose, where it is kept, expiry', type: 'text', required: true },
+      { id: 'ambulance', label: 'Call an ambulance when', type: 'textarea', required: true },
+      { id: 'review', label: 'Review by', type: 'date', required: true }
+    ],
+    declaration: 'This matches the signed action plan, which is on file. The device is checked for expiry at the review date.'
+  },
+  'p-manual': {
+    title: 'Manual handling and transfer plan', who: 'both', edition: 'screen v1, issued 01/09/2026',
+    lede: 'How you are moved safely: transfers, equipment, the number of workers, and what must never be done. Entered from the plan your occupational therapist or physiotherapist wrote; their plan stays on file.',
+    fields: [
+      { id: 'clinician', label: 'Written by (clinician, role, date of their plan)', type: 'text', required: true },
+      { id: 'transfers', label: 'Each transfer and how it is done', type: 'textarea', required: true, help: 'Bed to chair, chair to car, toileting, showering…' },
+      { id: 'equipment', label: 'Equipment: hoist, sling type and size, slide sheet, wheelchair, shower chair', type: 'textarea', required: true },
+      { id: 'workers', label: 'Number of workers needed', type: 'choice', options: ['One', 'Two'], required: true },
+      { id: 'never', label: 'What must never be done', type: 'textarea', required: true },
+      { id: 'skin', label: 'Skin, pressure care and comfort', type: 'textarea' },
+      { id: 'training', label: 'Training a worker must have before doing this', type: 'text', required: true },
+      { id: 'review', label: 'Review by', type: 'date', required: true }
+    ],
+    declaration: 'This matches the clinician’s current plan, which is on file. A worker who has not been trained on this page does not do the transfer.'
+  },
+  'p-pbs': {
+    title: 'Positive behaviour support plan — summary for workers', who: 'both', edition: 'screen v1, issued 01/09/2026',
+    lede: 'The parts of your behaviour support plan a worker needs on every shift. The full plan, written by your behaviour support practitioner, stays on file; this is the summary they work from.',
+    fields: [
+      { id: 'practitioner', label: 'Behaviour support practitioner (name, phone) and the plan’s dates', type: 'text', required: true },
+      { id: 'about', label: 'What the behaviours of concern are, and what they communicate', type: 'textarea', required: true },
+      { id: 'proactive', label: 'Proactive strategies: what keeps the day going well', type: 'textarea', required: true },
+      { id: 'early', label: 'Early signs, and what the worker does then', type: 'textarea', required: true },
+      { id: 'reactive', label: 'If it escalates: what the worker does, and does not do', type: 'textarea', required: true },
+      { id: 'rp', label: 'Restrictive practices in the plan', type: 'choice', options: ['None', 'Yes — authorised and reported as the plan requires', 'Yes — authorisation pending'], required: true },
+      { id: 'rp_detail', label: 'If any: which, when, and the authorisation', type: 'textarea' },
+      { id: 'review', label: 'Plan review date', type: 'date', required: true }
+    ],
+    declaration: 'This summary matches the practitioner’s current plan, which is on file. Any restrictive practice is used only as the plan authorises and is reported as the rules require.'
+  },
+  'p-living-arrangement': {
+    title: 'Living arrangement determination (s73G)', who: 'office', edition: 'screen v1, issued 01/09/2026',
+    lede: 'The office’s record of whether the s73G condition applies to this participant’s living arrangement, and the safeguards in place if it does.',
+    fields: [
+      { id: 'arrangement', label: 'Where and with whom the participant lives', type: 'textarea', required: true },
+      { id: 'applies', label: 'The s73G condition applies', type: 'choice', options: ['Yes', 'No'], required: true },
+      { id: 'basis', label: 'On what basis', type: 'textarea', required: true },
+      { id: 'safeguards', label: 'Safeguards in place (visits, checks, who else is involved)', type: 'textarea' },
+      { id: 'determined_by', label: 'Determined by (name, role)', type: 'text', required: true },
+      { id: 'review', label: 'Review by', type: 'date', required: true }
+    ],
+    declaration: 'This determination reflects what the office knows today and is reviewed on the date above and on any change to the arrangement.'
+  },
+  'p-annual-review': {
+    title: 'Annual review record', who: 'office', edition: 'screen v1, issued 01/09/2026',
+    lede: 'The yearly sit-down: what worked, what did not, what changes, and what the participant said.',
+    fields: [
+      { id: 'date', label: 'Review date', type: 'date', required: true },
+      { id: 'present', label: 'Who took part', type: 'text', required: true },
+      { id: 'worked', label: 'What has worked well this year', type: 'textarea', required: true },
+      { id: 'not', label: 'What has not, and what changes', type: 'textarea', required: true },
+      { id: 'plan', label: 'Support plan: reviewed, and what changed in it', type: 'textarea', required: true },
+      { id: 'docs', label: 'Documents checked and still current', type: 'checklist', options: ['Service agreement', 'Consents', 'Risk assessment', 'Medication plan', 'Clinical plans', 'NDIS plan dates', 'Nominee or decision-maker'] },
+      { id: 'goals', label: 'Goals for the year ahead', type: 'textarea', required: true },
+      { id: 'said', label: 'What the participant said, in their words', type: 'textarea' },
+      { id: 'next', label: 'Next review by', type: 'date', required: true }
+    ],
+    declaration: 'A true record of the review, done with the participant (or their nominee) present.'
+  }
+});
 
 const PDOC_CATALOG = FORMS.filter(f => f.scope === 'participant' && !f.retired && (f.track !== 'live' || f.upload)).map(f => ({
   key: f.key,
@@ -9664,7 +9803,7 @@ route('GET', /^\/api\/form-templates$/, (req, res, m, user) => {
         screen: sc ? { who: sc.who, edition: sc.edition, fields: sc.fields.length } : null,
         /* a blank is only wanted where somebody outside BookIt writes on paper:
            the nominee form, a clinician's plan, the office's own determinations */
-        needs_blank: !c.generated && !sc && !['p-ndis-plan', 'p-intake', 'p-emergency', 'p-satisfaction', 'p-plan-dates', 'p-notes', 'p-care-plans', 'p-support-plan', 'p-schedule'].includes(c.key),
+        needs_blank: !c.generated && !sc && !['p-ndis-plan', 'p-intake', 'p-emergency', 'p-satisfaction', 'p-plan-dates', 'p-notes', 'p-care-plans', 'p-support-plan', 'p-schedule', 'p-other'].includes(c.key),
         read_url: c.key === 'p-agreement' ? '/service-agreement' : c.key === 'p-consent-privacy' ? '/privacy-consent' : `/api/me/generated/${c.key}`,
         has_file: Boolean(t && t.file_path), link: (t && t.link) || '',
         file_name: (t && t.file_name) || '', note: (t && t.note) || '',
@@ -10777,7 +10916,9 @@ const AUDIT_REPORTS = [
   { path: 'people/worker-referrals.csv', url: '/api/admin/referrals.csv', title: 'Worker referrals: who, when qualified, bonus, paid' },
   { path: 'participants/form-responses.csv', url: '/api/admin/form-responses.csv', title: 'Forms filled in on screen: answers, who confirmed, when, where filed' },
   { path: 'evidence/removed-records.csv', url: '/api/admin/erasures.csv', title: 'Every record erased, voided or held, with the typed reason and who did it' },
-  { path: 'evidence/kpis.json', url: '/api/admin/kpis.json', title: 'The Growth board\u2019s numbers for the last year, frozen at the time of the pack' }
+  { path: 'evidence/kpis.json', url: '/api/admin/kpis.json', title: 'The Growth board\u2019s numbers for the last year, frozen at the time of the pack' },
+  { path: 'policies/policies-folder.csv', url: '/api/admin/policies.csv', title: 'Every policy, procedure, register, plan and template in the office\u2019s folder, with its link' },
+  { path: 'policies/pages.csv', url: '/api/admin/policy-pages.csv', title: 'The documents published as pages on the site: audience, source file, edition' }
 ];
 
 /* ---------- two registers an auditor asks for that had no export ---------- */
@@ -10945,6 +11086,11 @@ function buildAuditPack(user) {
   }
   add('evidence/monitoring-history.csv', collect('/api/admin/audit-history.csv', user).body || '');
 
+  /* every policy published as a page, as the page */
+  for (const pg of db.prepare('SELECT * FROM policy_pages ORDER BY kind, title').all()) {
+    try { add(`policies/pages/${safeName(pg.slug)}.html`, policyPageHtml({ headers: {}, url: '/' }, pg)); } catch (e) { failed.push({ path: `policies/pages/${pg.slug}.html`, title: pg.title, status: e.message }); }
+    if (pg.file_path && fs.existsSync(pg.file_path)) { try { add(`policies/pages/${safeName(pg.slug)}.pdf`, fs.readFileSync(pg.file_path)); } catch {} }
+  }
   /* every invoice as the PDF the participant received, regenerated from the
      bookings so it is the current state; a withdrawn invoice has no bookings
      left and so no PDF, which is right — it is in the register with its reason */
@@ -17726,6 +17872,304 @@ route('GET', /^\/api\/admin\/kpis\.json$/, (req, res, m, user) => {
   res.end(out.body || '{}');
 });
 
+
+/* ---------- the policies folder ----------
+   The office's policies, procedures, registers, plans and templates live in
+   one Google Drive folder. BookIt keeps an index of it — every file's name,
+   kind and link — seeded from docs/policies-folder.json (listed from the
+   folder on 1 September 2026) and kept up to date from the Documents board.
+   The forms register's company rows are matched to the files by name, so
+   "where it is kept" is the actual file, and the audit pack carries the index. */
+db.exec(`CREATE TABLE IF NOT EXISTS office_docs (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'other',
+  url TEXT NOT NULL,
+  modified TEXT DEFAULT '',
+  added_at TEXT NOT NULL,
+  added_by TEXT DEFAULT '',
+  removed_at TEXT
+)`);
+const POLICIES_FOLDER_DEFAULT = 'https://drive.google.com/drive/folders/1KBGpvBiSgVcqTA2WWkvF-jXLWr8XTNNg';
+(function seedOfficeDocs() {
+  try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, 'docs', 'policies-folder.json'), 'utf8'));
+    const ins = db.prepare(`INSERT INTO office_docs (id, title, kind, url, modified, added_at, added_by) VALUES (?,?,?,?,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET title = excluded.title, kind = excluded.kind, url = excluded.url, modified = excluded.modified WHERE office_docs.removed_at IS NULL AND office_docs.added_by = 'folder listing'`);
+    let n = 0;
+    for (const f of manifest.files || []) { ins.run(f.id, f.title, f.kind, f.url, f.modified || '', now(), 'folder listing'); n++; }
+    if (n && !setting('policies_folder_url', '')) setSetting('policies_folder_url', (manifest.folder || {}).url || POLICIES_FOLDER_DEFAULT);
+  } catch (e) { console.warn('[policies] folder index not seeded:', e.message); }
+})();
+/* the words every title has are not evidence of a match: "policy" and
+   "procedure" match everything, so they are ignored and only the subject
+   words count; a register row must match a register file */
+const DOC_STOP = new Set(['and', 'or', 'of', 'the', 'a', 'an', 'for', 'to', 'in', 'dmhc', 'form', 'template', 'docx', 'pdf', 'xlsx', 'copy', 'filled', 'ndis', 'per', 'month', 'policy', 'procedure', 'register', 'one']);
+const DOC_ALIAS = { feedback: 'complaint', complaints: 'complaint' };
+function docTokens(t) {
+  return new Set(String(t || '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/\.(docx|pdf|xlsx)$/, '').replace(/[^a-z0-9]+/g, ' ').split(' ').filter(w => w && !DOC_STOP.has(w)).map(w => DOC_ALIAS[w] || w.replace(/(ies|s)$/, '')));
+}
+const docPlain = t => String(t || '').toLowerCase().replace(/\.(docx|pdf|xlsx)$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
+/* the file in the folder that best matches a register row, or null */
+function matchOfficeDoc(form) {
+  const docs = db.prepare('SELECT * FROM office_docs WHERE removed_at IS NULL').all();
+  const want = docTokens(form.name);
+  /* a name made only of the common words ("Policy Register") matches by the whole title */
+  if (!want.size) return docs.find(d => docPlain(d.title) === docPlain(form.name)) || null;
+  let best = null, bestScore = 0;
+  for (const d of docs) {
+    const have = docTokens(d.title);
+    const shared = [...want].filter(w => have.has(w)).length;
+    /* enough evidence: two subject words in common, or the file's whole
+       subject inside the form's name ("Feedback and Complaints" for the
+       complaints policy row) — one shared word out of several is not */
+    if (!(shared >= 2 || (shared >= 1 && shared === have.size) || (shared >= 1 && shared === want.size && have.size <= want.size + 1))) continue;
+    let score = shared / want.size + shared / Math.max(1, have.size) * 0.25;
+    if (/register/i.test(form.name) !== (d.kind === 'register')) score *= 0.4;
+    if (score > bestScore) { best = d; bestScore = score; }
+  }
+  return bestScore >= 0.5 ? best : null;
+}
+route('GET', /^\/api\/admin\/policies-folder$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const url = setting('policies_folder_url', POLICIES_FOLDER_DEFAULT);
+  const company = FORMS.filter(f => f.scope === 'company' || f.scope === 'register');
+  const recs = Object.fromEntries(db.prepare('SELECT form_key, held, location, recorded_by, recorded_at FROM form_records').all().map(r => [r.form_key, r]));
+  const pageBySource = Object.fromEntries(db.prepare('SELECT slug, source_id, source_name FROM policy_pages').all().flatMap(pg => [[pg.source_id, pg.slug], [docPlain(pg.source_name), pg.slug]]));
+  const files = db.prepare('SELECT id, title, kind, url, modified, added_by FROM office_docs WHERE removed_at IS NULL ORDER BY kind, title').all().map(f => ({ ...f, page: pageBySource[f.id] || pageBySource[docPlain(f.title)] || '' }));
+  json(res, 200, { url, files,
+    documents: company.map(f => { const match = matchOfficeDoc(f); return { key: f.key, name: f.name, scope: f.scope, held: !!(recs[f.key] && recs[f.key].held), location: (recs[f.key] || {}).location || '', recorded_by: (recs[f.key] || {}).recorded_by || '', recorded_at: (recs[f.key] || {}).recorded_at || '', match: match ? { id: match.id, title: match.title, url: match.url } : null }; }) });
+});
+route('POST', /^\/api\/admin\/policies-folder$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const url = clean(body.url, 400);
+  if (url && !/^https:\/\//.test(url)) return json(res, 400, { error: 'A https:// link to the folder.' });
+  if (url) setSetting('policies_folder_url', url);
+  const where = url || setting('policies_folder_url', POLICIES_FOLDER_DEFAULT);
+  let recorded = 0; const unmatched = [];
+  if (body.record_all === true) {
+    for (const f of FORMS.filter(f => f.scope === 'company' || f.scope === 'register')) {
+      const cur = db.prepare('SELECT held FROM form_records WHERE form_key = ?').get(f.key);
+      if (cur && cur.held) continue;
+      const match = matchOfficeDoc(f);
+      /* only a document that is actually in the folder is recorded as held there;
+         the rest are named so the office can add the file or record it elsewhere */
+      if (!match) { unmatched.push(f.name); continue; }
+      db.prepare(`INSERT INTO form_records (form_key, held, covers_from, covers_to, location, note, recorded_by, recorded_at) VALUES (?,1,'','',?,?,?,?)
+        ON CONFLICT(form_key) DO UPDATE SET held = 1, location = excluded.location, note = excluded.note, recorded_by = excluded.recorded_by, recorded_at = excluded.recorded_at`)
+        .run(f.key, `${match.title} — ${match.url}`, `Recorded from the policies folder index (${match.title}).`, user.name || user.email, now());
+      recorded++;
+    }
+    logCompliance({ worker_id: null, worker_name: '', kind: 'policies-folder', result: 'recorded', detail: `${recorded} company document(s) recorded as held in the policies folder by ${user.name}${unmatched.length ? `; not found in the folder by name: ${unmatched.join(', ')}` : ''}.`, source: 'admin', checked_by: user.name });
+  }
+  json(res, 200, { ok: true, url: where, recorded, unmatched });
+});
+/* the office keeps the index true: a new file in the folder, or one that went */
+route('POST', /^\/api\/admin\/policies-folder\/files$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const title = clean(body.title, 200), url = clean(body.url, 400), kind = ['policy', 'procedure', 'register', 'plan', 'form or template', 'other'].includes(body.kind) ? body.kind : 'other';
+  if (!title || !/^https:\/\//.test(url)) return json(res, 400, { error: 'A name and a https:// link.' });
+  const id = /\/d\/([A-Za-z0-9_-]{10,})/.exec(url) ? /\/d\/([A-Za-z0-9_-]{10,})/.exec(url)[1] : 'manual-' + crypto.createHash('sha1').update(url).digest('hex').slice(0, 12);
+  db.prepare(`INSERT INTO office_docs (id, title, kind, url, modified, added_at, added_by, removed_at) VALUES (?,?,?,?,'',?,?,NULL) ON CONFLICT(id) DO UPDATE SET title = excluded.title, kind = excluded.kind, url = excluded.url, removed_at = NULL, added_by = excluded.added_by`).run(id, title, kind, url, now(), user.name);
+  json(res, 200, { ok: true, id });
+});
+route('DELETE', /^\/api\/admin\/policies-folder\/files\/([A-Za-z0-9_-]+)$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  db.prepare('UPDATE office_docs SET removed_at = ? WHERE id = ?').run(now(), m[1]);
+  json(res, 200, { ok: true });
+});
+route('GET', /^\/api\/admin\/policies\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = db.prepare('SELECT title, kind, url, modified FROM office_docs WHERE removed_at IS NULL ORDER BY kind, title').all().map(r => [r.title, r.kind, r.url, r.modified]);
+  csvOut(res, 'bookit-policies-folder', ['Document', 'Kind', 'Link', 'Last modified in the folder'], rows);
+});
+
+
+/* ---------- policies as pages ----------
+   A policy in a Word file in a folder is a policy nobody reads. Here the
+   office uploads the folder's documents once and each becomes a page on the
+   site — the same wrapper and print button as the Service Agreement —
+   readable by participants and workers without a Google login, listed at
+   /policies, and shipped in the audit pack. BookIt does the conversion
+   itself: a .docx is a zip of XML, so the server opens the zip (a small
+   reader, below) and walks word/document.xml for headings, paragraphs,
+   lists and tables. A PDF is kept as the file and served to read. Every
+   page has an audience: participants (anyone signed in) or staff only. */
+db.exec(`CREATE TABLE IF NOT EXISTS policy_pages (
+  slug TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'policy',
+  audience TEXT NOT NULL DEFAULT 'participants',
+  body_html TEXT NOT NULL DEFAULT '',
+  file_path TEXT DEFAULT '',
+  file_mime TEXT DEFAULT '',
+  source_name TEXT DEFAULT '',
+  source_id TEXT DEFAULT '',
+  edition TEXT DEFAULT '',
+  imported_at TEXT NOT NULL,
+  imported_by TEXT DEFAULT '',
+  words INTEGER DEFAULT 0
+)`);
+/* the zip reader: central directory, then each entry inflated */
+function readZip(buf) {
+  const out = new Map();
+  let eocd = buf.length - 22;
+  while (eocd >= 0 && buf.readUInt32LE(eocd) !== 0x06054b50) eocd--;
+  if (eocd < 0) throw new Error('not a zip');
+  const count = buf.readUInt16LE(eocd + 10), cdOff = buf.readUInt32LE(eocd + 16);
+  let p = cdOff;
+  for (let i = 0; i < count; i++) {
+    if (buf.readUInt32LE(p) !== 0x02014b50) break;
+    const method = buf.readUInt16LE(p + 10), csize = buf.readUInt32LE(p + 20), usize = buf.readUInt32LE(p + 24);
+    const nlen = buf.readUInt16LE(p + 28), elen = buf.readUInt16LE(p + 30), clen = buf.readUInt16LE(p + 32), lho = buf.readUInt32LE(p + 42);
+    const name = buf.toString('utf8', p + 46, p + 46 + nlen);
+    const lnlen = buf.readUInt16LE(lho + 26), lelen = buf.readUInt16LE(lho + 28);
+    const start = lho + 30 + lnlen + lelen;
+    const raw = buf.subarray(start, start + csize);
+    if (usize <= 40 * 1024 * 1024) out.set(name, method === 8 ? zlib.inflateRawSync(raw) : Buffer.from(raw));
+    p += 46 + nlen + elen + clen;
+  }
+  return out;
+}
+/* word/document.xml → the HTML a page needs: headings, paragraphs, lists, tables, bold */
+function docxToHtml(buf) {
+  const parts = readZip(buf);
+  const xml = parts.get('word/document.xml');
+  if (!xml) throw new Error('no document.xml');
+  const doc = xml.toString('utf8');
+  const unesc = t => t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  const runText = pXml => {
+    let out = '';
+    const re = /<w:r\b[^>]*>([\s\S]*?)<\/w:r>|<w:hyperlink\b[^>]*>([\s\S]*?)<\/w:hyperlink>/g;
+    let m;
+    while ((m = re.exec(pXml))) {
+      const inner = m[1] !== undefined ? m[1] : m[2];
+      const bold = /<w:b\b(?![^>]*w:val="(?:0|false)")/.test(inner);
+      let t = '';
+      for (const tm of inner.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g)) t += tm[1] !== undefined ? tm[1] : tm[0] === '<w:tab/>' ? ' ' : '\n';
+      t = escHtml(unesc(t)).replace(/\n/g, '<br>');
+      out += bold && t.trim() ? `<b>${t}</b>` : t;
+    }
+    return out;
+  };
+  const body = (/<w:body>([\s\S]*)<\/w:body>/.exec(doc) || [, doc])[1];
+  const html = [];
+  let listOpen = false;
+  const closeList = () => { if (listOpen) { html.push('</ul>'); listOpen = false; } };
+  /* top-level blocks only: tables are handled whole, so their paragraphs are not repeated */
+  const blocks = body.match(/<w:tbl\b[\s\S]*?<\/w:tbl>|<w:p\b[\s\S]*?<\/w:p>|<w:p\b[^>]*\/>/g) || [];
+  for (const b of blocks) {
+    if (b.startsWith('<w:tbl')) {
+      closeList();
+      const rows = (b.match(/<w:tr\b[\s\S]*?<\/w:tr>/g) || []).map(r => (r.match(/<w:tc\b[\s\S]*?<\/w:tc>/g) || []).map(c => (c.match(/<w:p\b[\s\S]*?<\/w:p>/g) || []).map(runText).filter(Boolean).join('<br>')));
+      if (rows.length) html.push(`<table class="grid">${rows.map((r, i) => `<tr>${r.map(c => `<${i === 0 ? 'th' : 'td'}>${c || ''}</${i === 0 ? 'th' : 'td'}>`).join('')}</tr>`).join('')}</table>`);
+      continue;
+    }
+    const text = runText(b);
+    if (!text.trim()) { closeList(); continue; }
+    const style = (/<w:pStyle w:val="([^"]+)"/.exec(b) || [, ''])[1];
+    if (/^(Title|Heading1)$/i.test(style)) { closeList(); html.push(`<h2>${text}</h2>`); }
+    else if (/^Heading[2-3]$/i.test(style)) { closeList(); html.push(`<h3>${text}</h3>`); }
+    else if (/^Heading[4-9]$/i.test(style)) { closeList(); html.push(`<h4>${text}</h4>`); }
+    else if (/<w:numPr>/.test(b) || /^(ListParagraph|ListBullet|ListNumber)$/i.test(style)) { if (!listOpen) { html.push('<ul>'); listOpen = true; } html.push(`<li>${text}</li>`); }
+    else { closeList(); html.push(`<p>${text}</p>`); }
+  }
+  closeList();
+  const words = html.join(' ').replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;
+  return { html: html.join('\n'), words };
+}
+function policySlug(name) { return String(name || '').replace(/\.(docx|pdf)$/i, '').replace(/^DMHC\s*/i, '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80); }
+function policyKind(title) {
+  const t = title.toLowerCase();
+  if (/register/.test(t)) return 'register';
+  if (/policy/.test(t)) return 'policy';
+  if (/procedure|statement/.test(t)) return 'procedure';
+  if (/plan\b/.test(t) && !/form/.test(t)) return 'plan';
+  return 'form or template';
+}
+const POLICY_PUBLIC_HINT = /complaint|feedback|privacy|rights|money|incident|violence|abuse|decision|information booklet|easy read|participant|service agreement|schedule of supports|tenancy|sil information|behaviour support|living alone|transport|mealtime management policy|medication policy|emergency/i;
+function policyAllowed(user, pg) {
+  if (pg.audience === 'public') return true;
+  if (!user) return false;
+  if (pg.audience === 'staff') return !!(user.admin || user.role === 'worker');
+  return true;
+}
+function policyPageHtml(req, pg) {
+  const body = pg.body_html || `<p>This document is a PDF: <a href="/policies/${escHtml(pg.slug)}/file">open it</a>.</p>`;
+  return genPage({ title: pg.title, lede: `${pg.kind === 'policy' ? 'A policy of' : pg.kind === 'procedure' ? 'A procedure of' : 'A document of'} Disability and Mental Health Care Pty Ltd, the registered NDIS provider that runs BookIt. ${pg.audience === 'staff' ? 'For workers and the office.' : 'Published for the people we support and the people who work with us.'}`,
+    meta: [['Kind', pg.kind], ['Edition', pg.edition || `imported ${dmy(String(pg.imported_at).slice(0, 10))}`], ['Source', pg.source_name || 'the office\u2019s policies folder'], ['Audience', pg.audience === 'staff' ? 'staff only' : 'participants and staff']],
+    footer: `${pg.title}. Published on BookIt from the office\u2019s document set; the office keeps it current.` },
+    `<div class="policy-body">${body}</div>`, { base: baseUrl(req), barNote: 'A policy page \u00b7 print or save as PDF \u00b7 back to the list at /policies' })
+    .replace('</head>', '<style>.policy-body h2{margin-top:1.4em}.policy-body h3{margin-top:1.1em}.policy-body table.grid{width:100%;border-collapse:collapse;margin:1em 0;font-size:.95em}.policy-body table.grid th,.policy-body table.grid td{border:1px solid #d8d3cb;padding:6px 8px;vertical-align:top;text-align:left}.policy-body ul{padding-left:1.3em}</style></head>');
+}
+function policiesIndexHtml(req, user) {
+  const pages = db.prepare('SELECT slug, title, kind, audience, words, imported_at FROM policy_pages ORDER BY kind, title').all().filter(pg => policyAllowed(user, pg));
+  const kinds = ['policy', 'procedure', 'plan', 'register', 'form or template'];
+  const body = pages.length ? kinds.map(k => { const list = pages.filter(pg => pg.kind === k); return list.length ? `<h2 style="text-transform:capitalize">${escHtml(k)}${k === 'policy' || k === 'procedure' ? 's' : k === 'form or template' ? 's' : 's'}</h2><ul>${list.map(pg => `<li><a href="/policies/${escHtml(pg.slug)}">${escHtml(pg.title)}</a>${pg.audience === 'staff' ? ' <small>(staff)</small>' : ''}</li>`).join('')}</ul>` : ''; }).join('')
+    : `<p>${user ? 'No documents have been published as pages yet.' : 'The published policies appear here once you are signed in; some are public.'}</p>`;
+  return genPage({ title: 'Policies and procedures', lede: 'The documents Disability and Mental Health Care Pty Ltd works to, published as pages: read any of them here, or print or save one as a PDF from its own page.', meta: [['Published', `${pages.length} document${pages.length === 1 ? '' : 's'}`], ['Kept by', 'the office, from its document set']], footer: 'Policies and procedures, published on BookIt.' }, body, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' });
+}
+route('GET', /^\/api\/admin\/policy-pages$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  json(res, 200, { pages: db.prepare('SELECT slug, title, kind, audience, source_name, source_id, edition, imported_at, imported_by, words, file_mime FROM policy_pages ORDER BY kind, title').all() });
+});
+/* import one document: {name, mime, data (base64)} — the board sends the folder's files one at a time */
+route('POST', /^\/api\/admin\/policy-pages$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const f = body.file || {};
+  const name = clean(f.name, 160);
+  let buf;
+  try { buf = Buffer.from(String(f.data || '').replace(/^data:[^,]*,/, ''), 'base64'); } catch { return json(res, 400, { error: 'Could not read that file.' }); }
+  if (!buf.length || buf.length > 25 * 1024 * 1024) return json(res, 400, { error: 'Up to 25 MB a file.' });
+  const isDocx = buf.subarray(0, 2).toString() === 'PK' && /\.docx$/i.test(name);
+  const isPdf = buf.subarray(0, 5).toString() === '%PDF-';
+  if (!isDocx && !isPdf) return json(res, 400, { error: `${name || 'That file'} is not a Word (.docx) or PDF file. Spreadsheets stay in the folder.` });
+  const slug = policySlug(name) || ('doc-' + Date.now());
+  const title = clean(body.title, 160) || name.replace(/\.(docx|pdf)$/i, '').replace(/^DMHC\s*/i, '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_+$/, '').trim();
+  const kind = ['policy', 'procedure', 'plan', 'register', 'form or template'].includes(body.kind) ? body.kind : policyKind(title);
+  let html = '', words = 0, filePath = '', fileMime = '';
+  if (isDocx) {
+    try { ({ html, words } = docxToHtml(buf)); } catch (e) { return json(res, 400, { error: `${name}: could not read the Word file (${e.message}).` }); }
+    if (words < 20) return json(res, 400, { error: `${name}: the document has almost no text (${words} words) \u2014 is it a scan?` });
+  } else {
+    try { BOOKIT_HARDENING.validateUploadedBuffer(buf, { allowed: ['application/pdf'], maxBytes: 25 * 1024 * 1024 }); } catch (e) { return json(res, 400, { error: `${name}: ${e.message}` }); }
+    filePath = path.join(DOCS_DIR, `policy-${slug}-${Date.now()}.pdf`); fs.writeFileSync(filePath, buf); fileMime = 'application/pdf';
+  }
+  const audience = ['public', 'participants', 'staff'].includes(body.audience) ? body.audience : (POLICY_PUBLIC_HINT.test(title) ? 'participants' : 'staff');
+  const match = db.prepare('SELECT id FROM office_docs WHERE removed_at IS NULL').all().find(d => docPlain(d.title) === docPlain(name));
+  const prev = db.prepare('SELECT file_path FROM policy_pages WHERE slug = ?').get(slug);
+  db.prepare(`INSERT INTO policy_pages (slug, title, kind, audience, body_html, file_path, file_mime, source_name, source_id, edition, imported_at, imported_by, words)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(slug) DO UPDATE SET title = excluded.title, kind = excluded.kind, body_html = excluded.body_html, file_path = excluded.file_path, file_mime = excluded.file_mime, source_name = excluded.source_name, source_id = COALESCE(NULLIF(excluded.source_id,''), policy_pages.source_id), imported_at = excluded.imported_at, imported_by = excluded.imported_by, words = excluded.words`)
+    .run(slug, title, kind, audience, html, filePath, fileMime, name, match ? match.id : '', clean(body.edition, 60), now(), user.name, words);
+  if (prev && prev.file_path && prev.file_path !== filePath) { try { fs.unlinkSync(prev.file_path); } catch {} }
+  json(res, 200, { ok: true, slug, title, kind, audience, words, url: `/policies/${slug}`, pdf: isPdf });
+});
+route('PATCH', /^\/api\/admin\/policy-pages\/([a-z0-9-]+)$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const pg = db.prepare('SELECT slug FROM policy_pages WHERE slug = ?').get(m[1]);
+  if (!pg) return json(res, 404, { error: 'No such page.' });
+  if (body.audience && !['public', 'participants', 'staff'].includes(body.audience)) return json(res, 400, { error: 'Audience is public, participants or staff.' });
+  if (body.audience) db.prepare('UPDATE policy_pages SET audience = ? WHERE slug = ?').run(body.audience, m[1]);
+  if (body.title) db.prepare('UPDATE policy_pages SET title = ? WHERE slug = ?').run(clean(body.title, 160), m[1]);
+  if (body.kind && ['policy', 'procedure', 'plan', 'register', 'form or template'].includes(body.kind)) db.prepare('UPDATE policy_pages SET kind = ? WHERE slug = ?').run(body.kind, m[1]);
+  if (body.edition !== undefined) db.prepare('UPDATE policy_pages SET edition = ? WHERE slug = ?').run(clean(body.edition, 60), m[1]);
+  json(res, 200, { ok: true });
+});
+route('DELETE', /^\/api\/admin\/policy-pages\/([a-z0-9-]+)$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const pg = db.prepare('SELECT file_path FROM policy_pages WHERE slug = ?').get(m[1]);
+  if (!pg) return json(res, 404, { error: 'No such page.' });
+  db.prepare('DELETE FROM policy_pages WHERE slug = ?').run(m[1]);
+  if (pg.file_path) { try { fs.unlinkSync(pg.file_path); } catch {} }
+  json(res, 200, { ok: true });
+});
+route('GET', /^\/api\/admin\/policy-pages\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  csvOut(res, 'bookit-policy-pages', ['Title', 'Kind', 'Audience', 'Page', 'Source file', 'Edition', 'Imported', 'By', 'Words'],
+    db.prepare('SELECT * FROM policy_pages ORDER BY kind, title').all().map(pg => [pg.title, pg.kind, pg.audience, `${APP_URL}/policies/${pg.slug}`, pg.source_name, pg.edition, String(pg.imported_at).slice(0, 10), pg.imported_by, pg.words]));
+});
+
 /* ---------- the public pages, as the server knows them ----------
    The app is one page and a hash router, which is right for the person using
    it and wrong for a search engine, which sees one URL with one title. So the
@@ -17922,7 +18366,8 @@ function serveShell(req, res, pathname) {
 function sitemapXml(req) {
   const base = baseUrl(req);
   const urls = [...Object.keys(PUBLIC_PAGES).map(p => `  <url><loc>${escHtml(base + (p === '/' ? '/' : p))}</loc></url>`),
-    ...suburbIndex().map(e => `  <url><loc>${escHtml(`${base}/support-workers-in/${e.slug}`)}</loc></url>`)].join('\n');
+    ...suburbIndex().map(e => `  <url><loc>${escHtml(`${base}/support-workers-in/${e.slug}`)}</loc></url>`),
+    ...db.prepare("SELECT slug FROM policy_pages WHERE audience = 'public' ORDER BY slug").all().map(pg => `  <url><loc>${escHtml(`${base}/policies/${pg.slug}`)}</loc></url>`)].join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
@@ -18124,6 +18569,27 @@ const server = http.createServer((req, res) => {
 
   if (!pathname.startsWith('/api/')) {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+    if (pathname === '/policies' || /^\/policies\/[a-z0-9-]+(\/file)?$/.test(pathname)) {
+      const viewer = readSession(req.headers.cookie);
+      if (pathname === '/policies') {
+        const html = Buffer.from(policiesIndexHtml(req, viewer));
+        res.setHeader('Content-Security-Policy', 'sandbox allow-scripts allow-modals allow-top-navigation');
+        return sendBuffer(req, res, html, MIME['.html'], 'private, no-store', null, `policies:${viewer ? viewer.id : 0}`, String(Date.now()));
+      }
+      const [, slug, file] = /^\/policies\/([a-z0-9-]+)(\/file)?$/.exec(pathname);
+      const pg = db.prepare('SELECT * FROM policy_pages WHERE slug = ?').get(slug);
+      if (!pg) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end('No such page.'); }
+      if (!policyAllowed(viewer, pg)) { res.writeHead(302, { 'Location': `/#/login?next=${encodeURIComponent(pathname)}`, 'Cache-Control': 'no-store' }); return res.end(); }
+      if (file) {
+        if (!pg.file_path || !fs.existsSync(pg.file_path)) { res.writeHead(404); return res.end('No file.'); }
+        const st = fs.statSync(pg.file_path);
+        res.setHeader('Content-Security-Policy', 'sandbox');
+        return sendFile(req, res, pg.file_path, st, pg.file_mime || 'application/pdf', 'private, no-store');
+      }
+      const html = Buffer.from(policyPageHtml(req, pg));
+      res.setHeader('Content-Security-Policy', 'sandbox allow-scripts allow-modals allow-top-navigation');
+      return sendBuffer(req, res, html, MIME['.html'], pg.audience === 'public' ? 'public, max-age=300' : 'private, no-store', null, `policy:${slug}`, String(pg.imported_at));
+    }
     if (/^\/support-workers-in\/[a-z0-9-]+$/.test(pathname)) {
       const all = suburbIndex();
       const entry = all.find(x => x.slug === pathname.split('/')[2]);

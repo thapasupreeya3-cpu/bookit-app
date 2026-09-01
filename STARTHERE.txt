@@ -274,37 +274,75 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     handling, PBS), and the nominee form.
     Routes: GET /api/me/forms, GET/POST /api/me/forms/:key (?for=id for a
     coordinator or the office). Page: #/form/<key>.
-    THE SHELF, AFTER THIS: of the eleven PDFs in forms/, only three are
-    still blanks — the nominee form, the mealtime plan template and the
-    satisfaction survey; the rest are generated pages or screens and are
-    not filed at boot any more. Blanks the release itself had already
-    filed under a generated or screen key are retired at boot (the office's
-    own uploads are left alone). The board is now "Documents on the shelf"
-    in three groups — written by BookIt, on screen, blank — and only the
-    rows that genuinely take a paper form (needs_blank) show an upload.
+    THEN ALL OF THEM: fourteen screens now — the five above plus the
+    nominee / decision-maker form (participant), the six clinical plans
+    (mealtime, seizures, diabetes, allergy/asthma, transfers, behaviour
+    support summary — entered from the clinician's plan by either side,
+    with the clinician's own signed plan still added to the file as a
+    document), the s73G determination and the annual review record (the
+    office). No participant document is a blank PDF any more; of the
+    eleven PDFs in forms/ only the satisfaction survey is still filed at
+    boot, and it is the paper fallback for a live survey. Blanks the
+    release had filed under a key that is now a page or a screen are
+    retired at boot; the office's own uploads are left alone.
 
-  THE AUDIT PACK CARRIES ALL OF IT
-    Everything above leaves a row, and every row is in the pack (Admin ›
-    Documents › audit pack), listed in its README and INDEX:
-      finance/invoice-register.csv   every invoice — total, paid, balance,
-                                     status — and the withdrawn ones with
-                                     the reason
-      finance/invoices/<INV>.pdf     every invoice as the participant got it
-      finance/night-care.csv         every sleepover: active hours recorded,
-                                     the two included, the extra charged
-                                     and paid, the worker's note
-      finance/fee-lines.csv          establishment fees, non-face-to-face
-                                     time, meet-and-greets (no charge)
-      people/worker-referrals.csv    who referred whom, qualified, paid
-      participants/form-responses.csv forms filled in on screen: answers,
-                                     who confirmed, when, where filed; the
-                                     filed pages themselves sit in each
-                                     participant's folder like any document
-      evidence/removed-records.csv   every erasure, void and held line with
-                                     the typed reason and who did it
-      evidence/kpis.json             the Growth board's numbers, frozen
-    The compliance log (already in the pack) carries the concierge
-    consents, fee lines raised, invoices marked paid, and every removal.
+  THE POLICIES FOLDER, INDEXED
+    The office's policies, procedures, registers, plans and templates live
+    in one Google Drive folder (Disability and Mental Health Care Pty Ltd
+    - Core Documents). BookIt now holds an INDEX of it: every file's name,
+    kind and link — 103 files, listed from the folder on 1 September 2026
+    into docs/policies-folder.json and seeded into a new table,
+    office_docs, at boot. The Documents board opens with it: the folder
+    link, the files grouped by kind (policy, procedure, register, plan,
+    form or template) each opening the real file, a line to add a file the
+    office has put in the folder since, and × to take one out of the index
+    (the file itself stays in the folder). The index is
+    policies/policies-folder.csv in the audit pack.
+    The forms register's 36 company and register rows are matched to the
+    files by name (matchOfficeDoc: subject words in common, aliases such as
+    feedback = complaints, a register row must match a register file);
+    25 match today. "Record the matched documents as held in the folder"
+    records each matched row with the file's own link as the location,
+    logs it, and NAMES the rows it could not find — today: the NDIS
+    certificate of registration, the three certificates of currency, the
+    internal audit schedule, the worker screening policy, the privacy and
+    data-breach policy (the folder has "Privacy and Information Management
+    Policy", which the office can record on the row by hand), the
+    engagement-model template, the participant register and the banning
+    orders register (BookIt is those two), and the restrictive practices
+    register. Nothing is recorded as held that is not actually there.
+    Routes: GET/POST /api/admin/policies-folder, POST
+    /api/admin/policies-folder/files, DELETE .../files/:id,
+    GET /api/admin/policies.csv.
+
+  POLICIES AS PAGES
+    A policy in a Word file in a folder is a policy nobody reads. The
+    office now uploads the folder's documents (Admin › Documents ›
+    "Policies and procedures — published as pages": choose all the .docx
+    and .pdf files at once) and each becomes a page: /policies/<slug>,
+    the same genPage wrapper and print button as the Service Agreement,
+    listed at /policies (linked from the footer), readable by
+    participants and workers without a Google login. BookIt converts the
+    Word file itself — a .docx is a zip of XML; readZip() opens it and
+    docxToHtml() walks word/document.xml for headings (Title/Heading1 →
+    h2, Heading2-3 → h3), paragraphs, lists (numbered or ListParagraph →
+    ul), tables and bold. A PDF is kept as the file and served to read.
+    Each page has an audience: public (no sign-in, in the sitemap),
+    participants (anyone signed in — the default for participant-facing
+    titles: complaints, privacy, rights, money, incidents, decisions,
+    booklets, the SIL pack and so on), or staff (workers and the office);
+    a participants-or-staff page sends a signed-out visitor to sign in.
+    Uploading a file again replaces its page; Unpublish removes it; the
+    folder index shows "page" beside a file that has one. Spreadsheets
+    stay in the folder. Table policy_pages; routes GET/POST/PATCH/DELETE
+    /api/admin/policy-pages, GET /api/admin/policy-pages.csv. The audit
+    pack carries every page as HTML (and the PDFs) under policies/pages/
+    and the register policies/pages.csv. Tested with a real Word file in
+    tests/fixtures.
+    TO PUBLISH THE WHOLE FOLDER: Google Drive › right-click "Disability
+    and Mental Health Care Pty Ltd - Core Documents" › Download › unzip
+    on the laptop › on the board choose every .docx and .pdf (Cmd-A in
+    the file dialog) › Publish. About a minute for 100 files.
 
   THE FORMS REGISTER NO LONGER SAYS "DRIVE"
     The register used to file every non-live document under "File in
@@ -316,11 +354,11 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     Now a participant's or worker's form kept as a file shows "In each
     participant's file" with the numbers (held out of the participants it
     applies to, and expired), like the live rows; the "We hold this —
-    record where" control and the "where it is kept" field (OneDrive
-    folder, filing cabinet, the registered office) appear only on the
+    record where" control and the "where it is kept" field (the policies
+    folder, a filing cabinet, the registered office) appear only on the
     office's own documents — policies, certificates, registers — which are
     the only ones held once. The catalogue notes that referred to the
-    office's folder as "Drive" now say OneDrive, which is what it is.
+    office's folder as "Drive" now say "the policies folder".
 
   THE KILOMETRES ARE CLAIMED NOW
     Provider travel entered by the worker at the end of a shift was charged

@@ -421,7 +421,7 @@ async function main() {
     t('the shelf marks the Service Agreement as generated, with its edition and a link', shelf.status === 200 && agRowShelf && agRowShelf.generated === true && /v1/.test(agRowShelf.edition) && agRowShelf.read_url === '/service-agreement' && !agRowShelf.has_file, JSON.stringify(agRowShelf).slice(0, 160));
     t('… and no PDF was filed under it at boot', !db.prepare("SELECT form_key FROM form_templates WHERE form_key IN ('p-agreement','p-consent-privacy','p-consent-medication','p-schedule')").get());
     t('nor under a screen (risk, exit, money, medication, media)', !db.prepare("SELECT form_key FROM form_templates WHERE form_key IN ('p-risk','p-exit','p-money','p-medication','p-consent-media')").get());
-    t('the nominee form is still a blank on the shelf', shelf.json.templates.some(x => x.key === 'p-advocate' && x.needs_blank && x.has_file), JSON.stringify(shelf.json.templates.find(x => x.key === 'p-advocate')).slice(0, 120));
+    t('the nominee form is a screen now, not a blank', shelf.json.templates.some(x => x.key === 'p-advocate' && x.screen && !x.needs_blank), JSON.stringify(shelf.json.templates.find(x => x.key === 'p-advocate')).slice(0, 120));
     t('the NDIS plan copy never asks for a blank', shelf.json.templates.some(x => x.key === 'p-ndis-plan' && !x.needs_blank));
     /* forms as screens: a participant fills in the photo consent, confirms it, and it is filed like an agreement */
     const scr = await req('GET', '/api/me/forms/p-consent-media', { cookie: ic });
@@ -461,6 +461,45 @@ async function main() {
     t('the register counts a filed screen per participant', !!media && media.state && media.state.filed === true && media.state.held >= 1, JSON.stringify(media && media.state).slice(0, 160));
     const regCsv = await req('GET', '/api/admin/forms.csv', { cookie: ac2 });
     t('the register CSV no longer says "in Drive"', regCsv.status === 200 && !/in Drive/i.test(regCsv.text));
+    /* every participant document is a page or a screen now; the policies live in one folder */
+    const shelf2 = await req('GET', '/api/form-templates', { cookie: ac2 });
+    t('no participant document on the shelf still needs a blank', shelf2.status === 200 && !shelf2.json.templates.some(x => x.needs_blank), shelf2.json.templates.filter(x => x.needs_blank).map(x => x.key).join(' '));
+    t('the nominee form, the clinical plans and the office records are screens', ['p-advocate', 'p-mealtime', 'p-epilepsy', 'p-diabetes', 'p-allergy', 'p-manual', 'p-pbs', 'p-living-arrangement', 'p-annual-review'].every(k => shelf2.json.templates.find(x => x.key === k && x.screen)));
+    const meal = await req('POST', `/api/me/forms/p-mealtime?for=${pidIntro}`, { headers: J2, cookie: ac2, body: { answers: { clinician: 'J. Lee, speech pathologist, 12/08/2026', food: 'IDDSI 6 soft & bite-sized; no bread', drink: 'IDDSI 2 mildly thick', position: 'Upright 90°, stay upright 30 min after', pace: 'Small mouthfuls, one at a time, worker present throughout', signs: 'Coughing, wet voice, holding food in the mouth', emergency: 'Stop, sit forward, encourage cough; call 000 if airway blocked', review: '2027-08-12' }, confirm: true } });
+    t('the office files a mealtime plan from the clinician\'s plan', meal.status === 200 && meal.json.confirmed, meal.status + ' ' + (meal.json && meal.json.error));
+    const pf = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
+    t('the policies folder is indexed: 100+ files with links, grouped by kind', pf.status === 200 && /^https:\/\/drive\.google\.com\//.test(pf.json.url) && pf.json.files.length >= 100 && pf.json.files.every(f => /^https:\/\//.test(f.url) && f.kind), pf.status + ' ' + (pf.json && pf.json.files && pf.json.files.length));
+    const matched = pf.json.documents.filter(x => x.match);
+    t('the register\'s company rows are matched to files by name (25 of 36)', matched.length >= 24 && matched.some(x => x.key === 'pol-incident' && /Incident Management Policy/.test(x.match.title)) && !pf.json.documents.find(x => x.key === 'pol-screening').match, `${matched.length} matched`);
+    const rec = await req('POST', '/api/admin/policies-folder', { headers: J2, cookie: ac2, body: { record_all: true } });
+    const pf2 = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
+    t('one button records the matched documents as held, with the file link, and names the rest', rec.status === 200 && rec.json.recorded >= 24 && rec.json.unmatched.includes('Worker Screening policy and procedure') && pf2.json.documents.find(x => x.key === 'pol-incident').location.includes('drive.google.com'), rec.status + ' ' + JSON.stringify(rec.json).slice(0, 200));
+    const addf = await req('POST', '/api/admin/policies-folder/files', { headers: J2, cookie: ac2, body: { title: 'Worker Screening Policy and Procedure.docx', url: 'https://drive.google.com/file/d/1TESTTESTTESTTEST/view', kind: 'policy' } });
+    const pf3 = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
+    t('a file added to the index is matched straight away', addf.status === 200 && !!pf3.json.documents.find(x => x.key === 'pol-screening').match, addf.status);
+    t('… and can be removed again', (await req('DELETE', '/api/admin/policies-folder/files/1TESTTESTTESTTEST', { cookie: ac2 })).status === 200 && !(await req('GET', '/api/admin/policies-folder', { cookie: ac2 })).json.files.some(f => f.id === '1TESTTESTTESTTEST'));
+    const pcsv = await req('GET', '/api/admin/policies.csv', { cookie: ac2 });
+    t('the policies index is a register in the audit pack', pcsv.status === 200 && pcsv.text.includes('Incident Management Policy') && (await req('GET', '/api/admin/audit-pack', { cookie: ac2 })).json.reports.some(r => r.path === 'policies/policies-folder.csv'));
+    t('a non-https folder link is refused', (await req('POST', '/api/admin/policies-folder', { headers: J2, cookie: ac2, body: { url: 'ftp://nope' } })).status === 400);
+    /* policies as pages: a Word document becomes a page with headings, lists and a table */
+    const docxB64 = fs.readFileSync(path.join(ROOT, 'tests', 'fixtures', 'Feedback and Complaints Policy.docx')).toString('base64');
+    const pub = await req('POST', '/api/admin/policy-pages', { headers: J2, cookie: ac2, body: { file: { name: 'Feedback and Complaints Policy.docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', data: docxB64 } } });
+    t('a Word policy is published as a page', pub.status === 200 && pub.json.slug === 'feedback-and-complaints-policy' && pub.json.kind === 'policy' && pub.json.audience === 'participants' && pub.json.words > 60, pub.status + ' ' + JSON.stringify(pub.json).slice(0, 160));
+    const pgAsParticipant = await req('GET', '/policies/feedback-and-complaints-policy', { cookie: pc });
+    t('a participant can read it: headings, a list, a table and bold survive the conversion', pgAsParticipant.status === 200 && pgAsParticipant.text.includes('<h2>Purpose</h2>') && pgAsParticipant.text.includes('<li>Ask an advocate to complain for you.</li>') && pgAsParticipant.text.includes('<th>Step</th>') && pgAsParticipant.text.includes('<b>Nobody is treated differently for complaining.</b>') && pgAsParticipant.text.includes('window.print()'), pgAsParticipant.status);
+    const pgAnon = await req('GET', '/policies/feedback-and-complaints-policy');
+    t('signed out, a participants-only page sends you to sign in', pgAnon.status === 302);
+    await req('PATCH', '/api/admin/policy-pages/feedback-and-complaints-policy', { headers: J2, cookie: ac2, body: { audience: 'public' } });
+    t('made public, it is readable without signing in and is in the sitemap', (await req('GET', '/policies/feedback-and-complaints-policy')).status === 200 && (await req('GET', '/sitemap.xml')).text.includes('/policies/feedback-and-complaints-policy'));
+    const idx = await req('GET', '/policies', { cookie: wc });
+    t('/policies lists it for a worker', idx.status === 200 && idx.text.includes('Feedback and Complaints Policy'), idx.status);
+    const staffOnly = await req('POST', '/api/admin/policy-pages', { headers: J2, cookie: ac2, body: { file: { name: 'Staff Handbook.docx', data: docxB64 }, audience: 'staff' } });
+    t('a staff-only page is refused to a participant but shown to a worker', staffOnly.status === 200 && (await req('GET', '/policies/staff-handbook', { cookie: pc })).status === 302 && (await req('GET', '/policies/staff-handbook', { cookie: wc })).status === 200);
+    t('a spreadsheet is refused with a plain reason', (await req('POST', '/api/admin/policy-pages', { headers: J2, cookie: ac2, body: { file: { name: 'Worker Register.xlsx', data: Buffer.from('PK\x03\x04junk').toString('base64') } } })).status === 400);
+    const folderNow = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
+    t('the folder index now points at the page for that file', folderNow.json.files.some(f => f.title === 'Feedback and Complaints Policy.docx' && f.page === 'feedback-and-complaints-policy'));
+    const pagesCsv = await req('GET', '/api/admin/policy-pages.csv', { cookie: ac2 });
+    t('published pages are a register in the audit pack', pagesCsv.status === 200 && pagesCsv.text.includes('feedback-and-complaints-policy') && (await req('GET', '/api/admin/audit-pack', { cookie: ac2 })).json.reports.some(r => r.path === 'policies/pages.csv'));
     const rx = await req('GET', '/api/rates');
     t('/api/rates carries the whole price list (extras)', rx.status === 200 && rx.json.extras && rx.json.extras.sleepover.included_active_hours === 2 && rx.json.extras.travel.per_km > 0 && rx.json.extras.referral_bonus.for === 'workers only' && rx.json.extras.meet_and_greet.minutes === 15, rx.status);
     const rp = await req('GET', '/refer-a-worker');
