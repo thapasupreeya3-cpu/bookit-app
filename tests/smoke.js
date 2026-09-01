@@ -455,6 +455,12 @@ async function main() {
     const zip = await req('GET', '/api/admin/audit-pack.zip', { cookie: ac2 });
     const names = [...zip.buf.toString('latin1').matchAll(/PK\x01\x02[\s\S]{24}([\s\S]{2})[\s\S]{2}[\s\S]{2}[\s\S]{12}([\x20-\x7e/]+?\.(?:csv|pdf|json|html|txt))/g)].map(m => m[2]);
     t('the pack zip contains an invoice PDF and the new registers', zip.status === 200 && names.some(n => /^finance\/invoices\/INV-.*\.pdf$/.test(n)) && names.includes('evidence/removed-records.csv') && names.includes('participants/form-responses.csv'), `${zip.status} ${names.filter(n => /invoices|removed|form-responses/.test(n)).slice(0, 6).join(' ')}`);
+    /* the forms register counts filed participant forms per person, and never says Drive */
+    const reg = await req('GET', '/api/admin/forms', { cookie: ac2 });
+    const media = reg.status === 200 ? reg.json.forms.find(f => f.key === 'p-consent-media') : null;
+    t('the register counts a filed screen per participant', !!media && media.state && media.state.filed === true && media.state.held >= 1, JSON.stringify(media && media.state).slice(0, 160));
+    const regCsv = await req('GET', '/api/admin/forms.csv', { cookie: ac2 });
+    t('the register CSV no longer says "in Drive"', regCsv.status === 200 && !/in Drive/i.test(regCsv.text));
     const rx = await req('GET', '/api/rates');
     t('/api/rates carries the whole price list (extras)', rx.status === 200 && rx.json.extras && rx.json.extras.sleepover.included_active_hours === 2 && rx.json.extras.travel.per_km > 0 && rx.json.extras.referral_bonus.for === 'workers only' && rx.json.extras.meet_and_greet.minutes === 15, rx.status);
     const rp = await req('GET', '/refer-a-worker');

@@ -11355,10 +11355,13 @@ function planBoardHtml(d){
 }
 
 /* ---- the forms register --------------------------------------------------
-   Three states, and the honest one is the middle one. "In Drive" is not a
-   tracking system; it is a place a document is. The register says which of the
-   two it is for every form, because the gap between them is where every finding
-   at the last review came from. */
+   Three states. "BookIt tracks it" is live data the site checks itself. "A
+   file" is a document kept as a file: for a participant's or worker's form
+   that means their own BookIt file, counted per person and shown with numbers;
+   for the office's own documents (policies, certificates, registers) it means
+   wherever the office keeps them — OneDrive, a cabinet — and the office records
+   where. "Not built yet" is honest. The gap between the three is where every
+   finding at the last review came from. */
 function auditPackHtml(d){
   if(!d) return '<p class="adm-empty">The audit pack preview couldn\'t be loaded. The download button still works — try <a href="/api/admin/audit-pack.zip" download>downloading the pack</a> directly.</p>';
   const h = d.history || {};
@@ -11428,7 +11431,7 @@ function formRecordHtml(f){
       <button class="adm-btn-sm" data-fr-undo="${esc(f.key)}" type="button">Withdraw</button></p>
       ${formRecordFormHtml(f, true)}`;
   }
-  return `<p class="fr-rec open"><button class="adm-btn-sm" data-fr-edit="${esc(f.key)}" type="button">I have this one</button></p>
+  return `<p class="fr-rec open"><button class="adm-btn-sm" data-fr-edit="${esc(f.key)}" type="button">We hold this — record where</button></p>
     ${formRecordFormHtml(f, false)}`;
 }
 
@@ -11438,7 +11441,7 @@ function formRecordFormHtml(f, held){
     <p class="muted-sm" style="margin:0 0 8px;">Two different dates, and they are not interchangeable. The period is what the <i>document</i> says. The recorded date is today, taken from the server — there is no way to set it, so this can never claim you filed something earlier than you did.</p>
     <label>Period the records cover — from<input type="date" data-frf="covers_from" value="${esc(r.covers_from || '')}"></label>
     <label>to<input type="date" data-frf="covers_to" value="${esc(r.covers_to || '')}"></label>
-    <label>Where it is kept<input type="text" data-frf="location" maxlength="200" placeholder="Filing cabinet, Drive folder, participant's home file…" value="${esc(r.location || '')}"></label>
+    <label>Where it is kept<input type="text" data-frf="location" maxlength="200" placeholder="OneDrive folder, filing cabinet, the registered office…" value="${esc(r.location || '')}"></label>
     <label>Anything worth saying about it<textarea data-frf="note" maxlength="600" rows="2" placeholder="e.g. paper originals held at the participant's home, photographed and filed 29/07/2026">${esc(r.note || '')}</textarea></label>
     <div class="fr-form-actions">
       <button class="btn btn-primary adm-btn-sm" data-fr-save="${esc(f.key)}" type="button">Record it</button>
@@ -11453,7 +11456,7 @@ function formsBoardHtml(d){
     <div class="adm-tile"><b>${c.total}</b><span>Distinct forms</span></div>
     <div class="adm-tile"><b>${c.documents}</b><span>Actual documents (per-person multiplied out)</span></div>
     <div class="adm-tile"><b class="adm-live">${c.live}</b><span>BookIt watches these</span></div>
-    <div class="adm-tile"><b style="color:#8a6d00;">${c.drive}</b><span>In Drive — nothing watches them</span></div>
+    <div class="adm-tile"><b style="color:#8a6d00;">${c.drive}</b><span>Kept as a file — in each person's file, or by the office</span></div>
     <div class="adm-tile"><b style="${c.missing ? 'color:#D94F32;' : ''}">${c.missing}</b><span>Don't exist yet</span></div>
     <div class="adm-tile"><b style="${c.recorded ? 'color:#1C7C43;' : ''}">${c.recorded}</b><span>Recorded as held</span></div>
     <div class="adm-tile"><b style="${c.gaps ? 'color:#D94F32;' : ''}">${c.gaps}</b><span>Live gaps right now</span></div>
@@ -11461,12 +11464,13 @@ function formsBoardHtml(d){
   const filter = `<div class="fr-filter" id="frFilter">
     <button data-fr="all" aria-pressed="true" type="button">Everything (${c.total})</button>
     <button data-fr="missing" aria-pressed="false" type="button">Doesn't exist yet (${c.missing})</button>
-    <button data-fr="drive" aria-pressed="false" type="button">Nothing watching it (${c.drive})</button>
+    <button data-fr="drive" aria-pressed="false" type="button">Kept as a file (${c.drive})</button>
     <button data-fr="live" aria-pressed="false" type="button">BookIt tracks it (${c.live})</button>
     <button data-fr="gaps" aria-pressed="false" type="button">Has a gap now (${d.forms.filter(f => f.state && f.state.gaps.length).length})</button>
-    <button data-fr="unrecorded" aria-pressed="false" type="button">Nobody has said we hold it (${c.unrecorded})</button>
+    <button data-fr="unrecorded" aria-pressed="false" type="button">Office documents not yet recorded (${d.forms.filter(f => f.track !== 'live' && f.scope !== 'participant' && f.scope !== 'worker' && !(f.record && f.record.held)).length})</button>
   </div>`;
-  const trackLabel = { live: 'BookIt tracks it', drive: 'File in Drive', missing: 'Not built yet' };
+  const trackLabel = { live: 'BookIt tracks it', drive: 'A file', missing: 'Not built yet' };
+  const trackFor = f => f.track === 'drive' ? (f.scope === 'participant' ? 'In each participant\'s file' : f.scope === 'worker' ? 'In each worker\'s file' : 'Kept by the office') : (trackLabel[f.track] || f.track);
   const secs = d.scopes.map(sc => {
     const list = d.forms.filter(f => f.scope === sc.key);
     if(!list.length) return '';
@@ -11479,8 +11483,8 @@ function formsBoardHtml(d){
         <td><b>${esc(f.name)}</b>${f.note ? `<br><span class="muted-sm">${esc(f.note)}</span>` : ''}
           ${f.state ? `<br><span class="muted-sm">${f.state.ok}/${f.state.of} ${esc(f.state.unit)} ✓${f.state.expired ? ` · <b style="color:#D94F32;">${f.state.expired} expired</b>` : ''}</span>` : ''}
           ${f.state && f.state.gaps.length ? `<p class="fr-gaps">Missing: ${esc(f.state.gaps.slice(0, 8).join(', '))}${f.state.gaps.length > 8 ? ` +${f.state.gaps.length - 8} more` : ''}</p>` : ''}
-          ${f.track === 'live' ? '' : formRecordHtml(f)}</td>
-        <td><span class="fr-track ${f.track}">${esc(trackLabel[f.track] || f.track)}</span></td>
+          ${f.track === 'live' || f.scope === 'participant' || f.scope === 'worker' ? '' : formRecordHtml(f)}</td>
+        <td><span class="fr-track ${f.track}">${esc(trackFor(f))}</span></td>
         <td>${esc(f.cadence)}</td>
         <td>${esc(f.signed)}</td>
         <td>${f.template === 'DMHC' ? '<span class="adm-live">DMHC\'s own</span>' : f.template === 'BookIt' ? 'Built for you' : esc(f.template)}</td>

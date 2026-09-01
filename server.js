@@ -815,7 +815,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS ai_suggestions (
 db.exec('CREATE INDEX IF NOT EXISTS idx_ai_subject ON ai_suggestions (use_case, subject_kind, subject_id)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_ai_open ON ai_suggestions (reviewed_at, id)');
 
-/* --- "I have it, it just isn't in Drive." ------------------------------
+/* --- "I have it, it just isn't in BookIt." ------------------------------
    51 of the 72 forms are files in a folder. Until now BookIt had no way to
    hear that one of them exists: a form it does not track was reported as a
    gap, and stayed a gap in the audit pack no matter how many times the
@@ -7524,7 +7524,7 @@ const FORMS = [
   { key: 'contractor-agreement', name: 'Engagement model — employment or contractor agreement template', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'Settled: workers engaged through the platform are employees - SCHADS award, superannuation, penalty rates, payroll export. Direct-delivery workers under existing arrangements are engaged as sole-trader contractors or casual employees, all covered under the icare policy. Employment agreements for platform workers are executed before launch; nothing existing is replaced.' },
 
   /* ---------- registers: living lists, never a snapshot ---------- */
-  { key: 'reg-worker', name: 'Worker Register', scope: 'register', track: 'live', live: 'workers', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'BookIt holds the live version. The Drive copy is a quarterly export, not the record.' },
+  { key: 'reg-worker', name: 'Worker Register', scope: 'register', track: 'live', live: 'workers', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'BookIt holds the live version. The OneDrive copy is a quarterly export, not the record.' },
   { key: 'reg-participant', name: 'Participant Register', scope: 'register', track: 'live', live: 'participants', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'Core Module — Information management' },
   { key: 'reg-incident', name: 'Incident Register', scope: 'register', track: 'live', live: 'incidents', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Incident Management and Reportable Incidents) Rules 2018', note: 'BookIt runs the 24-hour and 5-business-day clocks itself.' },
   { key: 'reg-complaints', name: 'Complaints and Feedback Register', scope: 'register', track: 'live', live: 'complaints', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Complaints Management and Resolution) Rules 2018' },
@@ -7533,7 +7533,7 @@ const FORMS = [
   { key: 'reg-ci', name: 'Continuous Improvement Register', scope: 'register', track: 'drive', cadence: 'quarterly', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
   { key: 'reg-restrictive', name: 'Restrictive Practices Register', scope: 'register', track: 'drive', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Restrictive Practices and Behaviour Support) Rules 2018', note: 'Nil is the expected state. A nil register still has to exist and be dated.' },
   { key: 'reg-training', name: 'Training and Development Register (one per worker)', scope: 'register', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: '151 blanks across seven registers. Filling the Worker Register first turns these into transcription.' },
-  { key: 'reg-medicine', name: 'Medicine Register (per participant, per month)', scope: 'register', track: 'drive', cadence: 'monthly', signed: 'Worker on each administration', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'Register 13 in Drive covers 25/11/2025 only and every worker signature cell in it is blank; Drive holds nothing between 26/11/2025 and 30/06/2026. Records held outside Drive were identified 29/07/2026 — record them here with the period they actually cover and the date they were filed. Never fill in a blank cell after the fact: what is missing is filing, and a file note discloses that. What was never written cannot be written now.' },
+  { key: 'reg-medicine', name: 'Medicine Register (per participant, per month)', scope: 'register', track: 'drive', cadence: 'monthly', signed: 'Worker on each administration', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'Register 13 in OneDrive covers 25/11/2025 only and every worker signature cell in it is blank; OneDrive holds nothing between 26/11/2025 and 30/06/2026. Records held outside OneDrive were identified 29/07/2026 — record them here with the period they actually cover and the date they were filed. Never fill in a blank cell after the fact: what is missing is filing, and a file note discloses that. What was never written cannot be written now.' },
 
   /* ---------- one per worker ---------- */
   { key: 'w-agreement', name: 'Signed engagement agreement', scope: 'worker', track: 'drive', cadence: 'once', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
@@ -7547,7 +7547,7 @@ const FORMS = [
   { key: 'w-orientation', name: 'NDIS Worker Orientation Module certificate', scope: 'worker', track: 'live', live: 'doc:ndis-orientation', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
   { key: 'w-firstaid', name: 'First Aid and CPR certificate', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'CPR renews yearly, first aid every three years. The yearly one is what lapses.' },
   { key: 'w-infection', name: 'Infection prevention and control training', scope: 'worker', track: 'live', live: 'doc:infection-control', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment' },
-  { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Certificates held in Drive for every current worker - upload into BookIt worker docs so this register reflects them.' },
+  { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Certificates held in OneDrive for every current worker - upload into BookIt worker docs so this register reflects them.' },
   { key: 'w-medication', name: 'Medication administration training', scope: 'worker', track: 'live', live: 'doc:medication-training', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Management of medication' },
   { key: 'w-hi-competency', name: 'High-intensity skills competency sign-off (catheter, stoma, AD)', scope: 'worker', track: 'missing', cadence: 'annual', signed: 'Clinician or supervisor', template: 'none', requires: 'High Intensity Daily Personal Activities module', note: 'The training has been delivered. No certificate or competency sign-off is in any worker folder. The gap is evidence, not care.' },
   { key: 'w-qualification', name: 'Qualification certificates', scope: 'worker', track: 'live', live: 'doc:qualification', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
@@ -9191,6 +9191,17 @@ function formsRegister() {
   /* what BookIt can actually answer for itself. Everything not in here is a file
      in a folder, and the register says so rather than implying coverage. */
   function liveState(f) {
+    /* v86.9.0: a participant document kept as a file in BookIt — an upload,
+       a screen filled in, a page agreed to — is tracked per person on the
+       Participant files board, so the register counts it here too, instead
+       of calling it "in Drive" and watching nothing */
+    if (f.track === 'drive' && f.scope === 'participant') {
+      const need = participants.filter(p => !f.appliesIf || planFlag(confirmedPlan(p.id), f.appliesIf));
+      const have = need.filter(p => db.prepare(`SELECT 1 FROM participant_docs WHERE participant_id = ? AND form_key = ? AND COALESCE(review_state,'') <> 'superseded' AND (COALESCE(file_path,'') <> '' OR accepted_at IS NOT NULL) AND (expiry_date IS NULL OR expiry_date = '' OR expiry_date >= ?) LIMIT 1`).get(p.id, f.key, today));
+      const expired = need.filter(p => db.prepare(`SELECT 1 FROM participant_docs WHERE participant_id = ? AND form_key = ? AND expiry_date <> '' AND expiry_date < ? LIMIT 1`).get(p.id, f.key, today)).length;
+      return { of: need.length, unit: f.onlyIf ? 'participants it applies to' : 'participants', held: have.length, ok: have.length, expired, filed: true,
+        gaps: f.optional ? [] : need.filter(p => !have.includes(p)).map(p => p.name) };
+    }
     if (f.track !== 'live') return null;
     if (String(f.live || '').startsWith('doc:')) {
       const key = f.live.slice(4);
@@ -10558,7 +10569,7 @@ route('GET', /^\/api\/admin\/forms\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const scope = { company: 'Company', register: 'Register', worker: 'Per worker', participant: 'Per participant' };
-  const track = { live: 'BookIt tracks it', drive: 'File in Drive — nothing watches it', missing: 'Does not exist yet' };
+  const track = { live: 'BookIt tracks it', drive: 'A file — in each person\u2019s BookIt file where it is theirs, kept by the office where it is ours', missing: 'Does not exist yet' };
   const reg = formsRegister();
   const byKey = Object.fromEntries(reg.forms.map(f => [f.key, f]));
   const lines = [['Form', 'Belongs to', 'Where it is tracked', 'How often', 'Who signs', 'Whose template',

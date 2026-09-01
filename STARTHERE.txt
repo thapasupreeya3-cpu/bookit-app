@@ -306,6 +306,22 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     The compliance log (already in the pack) carries the concierge
     consents, fee lines raised, invoices marked paid, and every removal.
 
+  THE FORMS REGISTER NO LONGER SAYS "DRIVE"
+    The register used to file every non-live document under "File in
+    Drive — nothing watches it", with an "I have this one" button on each
+    row. Two things were wrong with that: a participant's consent or plan
+    is not "in Drive", it is in their BookIt file, counted, expiring and
+    chased on the Participant files board; and "I have this one" made no
+    sense for a form that exists once per participant — hold it for whom?
+    Now a participant's or worker's form kept as a file shows "In each
+    participant's file" with the numbers (held out of the participants it
+    applies to, and expired), like the live rows; the "We hold this —
+    record where" control and the "where it is kept" field (OneDrive
+    folder, filing cabinet, the registered office) appear only on the
+    office's own documents — policies, certificates, registers — which are
+    the only ones held once. The catalogue notes that referred to the
+    office's folder as "Drive" now say OneDrive, which is what it is.
+
   THE KILOMETRES ARE CLAIMED NOW
     Provider travel entered by the worker at the end of a shift was charged
     on the participant's statement and nowhere else — never on the invoice,
