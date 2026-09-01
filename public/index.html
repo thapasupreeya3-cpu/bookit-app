@@ -7183,7 +7183,7 @@ window.askRemoval = function(opts){
         <h2 id="rmTitle" style="margin:0 0 8px;font-size:1.25rem;">${esc(opts.title)}</h2>
         <p style="margin:0 0 12px;">${opts.text}</p>
         ${opts.choices ? `<div style="margin:0 0 12px;">${opts.choices.map((c, i) => `<label style="display:block;margin:6px 0;"><input type="radio" name="rmChoice" value="${esc(c.value)}" ${i === 0 ? 'checked' : ''}> <b>${esc(c.label)}</b> — ${esc(c.help)}</label>`).join('')}</div>` : ''}
-        ${opts.tick ? `<label style="display:block;margin:0 0 12px;"><input type="checkbox" name="rmTick"> ${esc(opts.tick)}</label>` : ''}
+        ${opts.tick ? `<label id="rmTickWrap" style="display:block;margin:0 0 12px;padding:10px 12px;background:#FFF6E5;border-radius:10px;${opts.tickOnly ? 'display:none;' : ''}"><input type="checkbox" name="rmTick"> ${opts.tick}</label>` : ''}
         <label for="rmReason" style="display:block;font-weight:600;margin-bottom:4px;">Why? (required — at least 20 characters; it is kept with the record)</label>
         <textarea id="rmReason" rows="3" required minlength="20" style="width:100%;font:inherit;padding:8px 10px;border:1.5px solid #E7DFD4;border-radius:10px;" placeholder="e.g. Trial shift used to test the site on 30 August, not a real support."></textarea>
         <p id="rmErr" style="color:#A5301A;margin:8px 0 0;min-height:1.2em;font-size:.9rem;"></p>
@@ -7192,14 +7192,17 @@ window.askRemoval = function(opts){
     document.body.appendChild(d);
     const form = d.querySelector('form'); const ta = d.querySelector('#rmReason'); ta.focus();
     const close = v => { d.remove(); resolve(v); };
+    /* the tick belongs to one choice only: show it when that choice is picked */
+    if(opts.tickOnly){ form.querySelectorAll('[name=rmChoice]').forEach(r => r.addEventListener('change', () => { const w = d.querySelector('#rmTickWrap'); if(w) w.style.display = form.querySelector('[name=rmChoice]:checked').value === opts.tickOnly ? 'block' : 'none'; })); }
     d.querySelector('[data-rm-cancel]').onclick = () => close(null);
     d.addEventListener('keydown', e => { if(e.key === 'Escape') close(null); });
     form.onsubmit = e => {
       e.preventDefault();
       const reason = ta.value.trim();
       if(reason.length < 20){ d.querySelector('#rmErr').textContent = 'A few more words — at least 20 characters.'; ta.focus(); return; }
-      if(opts.tick && !form.querySelector('[name=rmTick]').checked){ d.querySelector('#rmErr').textContent = 'Tick the box to confirm.'; return; }
       const choice = form.querySelector('[name=rmChoice]:checked');
+      const tickNeeded = opts.tick && (!opts.tickOnly || (choice && choice.value === opts.tickOnly));
+      if(tickNeeded && !form.querySelector('[name=rmTick]').checked){ d.querySelector('#rmErr').textContent = opts.tickOnly ? 'To erase a delivered shift, confirm it was never a real support — or choose Void, which keeps it on file.' : 'Tick the box to confirm.'; return; }
       close({ reason, choice: choice ? choice.value : null, ticked: !!(form.querySelector('[name=rmTick]') || {}).checked });
     };
   });
@@ -7208,9 +7211,14 @@ document.addEventListener('click', async e => {
   const rb = e.target.closest('[data-remove-booking]');
   if(rb){
     const id = rb.dataset.removeBooking;
-    const a = await askRemoval({ title: `Remove shift #${id}`, text: 'A shift that was <b>delivered</b> is a record the provider must keep: choose <b>Void</b> and it leaves every statement, invoice, claim and pay run but stays on file. A shift that was <b>never a real support</b> (a trial, a test, a booking never delivered) can be <b>erased</b>; a copy goes to the erasure log with your reason.',
-      choices: [{ value: 'void', label: 'Void', help: 'keep the record, take it out of everything' }, { value: 'erase', label: 'Erase', help: 'delete it — only for a test or an undelivered booking' }],
-      tick: 'If erasing a delivered shift: this was a test, not a real support.', button: 'Remove' });
+    const delivered = rb.dataset.delivered === '1';
+    const a = await askRemoval({ title: `Remove shift #${id}`, text: delivered
+        ? 'This shift was marked <b>delivered</b>, and a registered provider must keep records of the supports it delivered. <b>Void</b> keeps the record on file but takes it out of every statement, invoice, claim and pay run — the right choice for a real shift entered wrongly. <b>Erase</b> deletes it, and is only for a shift that was never a real support: a trial, a test. A copy of anything erased goes to the erasure log with your reason.'
+        : 'This booking was never delivered, so there is no support record to keep. <b>Erase</b> deletes it (a copy goes to the erasure log with your reason); <b>Void</b> keeps the row but takes it out of everything.',
+      choices: delivered
+        ? [{ value: 'void', label: 'Void', help: 'keep the record, take it out of everything' }, { value: 'erase', label: 'Erase', help: 'delete it — only if it was never a real support' }]
+        : [{ value: 'erase', label: 'Erase', help: 'delete it' }, { value: 'void', label: 'Void', help: 'keep the row, take it out of everything' }],
+      tick: delivered ? '<b>This shift was never a real support</b> — it was a trial or a test — so there is no record to keep and it can be erased. (If it was a real shift, choose Void instead.)' : '', tickOnly: delivered ? 'erase' : '', button: 'Remove' });
     if(!a) return;
     try{
       if(a.choice === 'void') await API.call('/admin/bookings/' + id + '/void', {method:'POST', body:{reason: a.reason}});
@@ -9865,7 +9873,7 @@ async function renderAdminPage(){
     </div>
     ${comps.complaints.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>#</th><th>From</th><th>Complaint</th><th>Status</th><th></th></tr></thead><tbody>${comps.complaints.map(compRow).join('')}</tbody></table></div>` : '<p class="adm-empty">No complaints on the register.</p>'}`;
   const bookings = d.bookings.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>When</th><th>Participant</th><th>Worker</th><th>Service</th><th>Status</th><th></th></tr></thead><tbody>
-    ${d.bookings.map(b => `<tr><td>${admDate(b.date)} ${esc(b.start)} · ${b.hours}h</td><td>${esc(b.participant_name)}</td><td>${esc(b.worker_name)}</td><td>${esc(svcName(b.service))}</td><td>${esc(b.status)}${b.voided ? ' (void)' : ''}${b.invoice_no ? ` · <span style="font-size:.78rem;">${esc(b.invoice_no)}</span>` : b.claim_status ? ` · ${esc(b.claim_status)}` : ''}</td><td>${!b.claim_status && !b.voided ? `<button class="adm-btn-sm" data-remove-booking="${b.id}" type="button" style="color:#A5301A;">Remove…</button>` : ''}</td></tr>`).join('')}
+    ${d.bookings.map(b => `<tr><td>${admDate(b.date)} ${esc(b.start)} · ${b.hours}h</td><td>${esc(b.participant_name)}</td><td>${esc(b.worker_name)}</td><td>${esc(svcName(b.service))}</td><td>${esc(b.status)}${b.voided ? ' (void)' : ''}${b.invoice_no ? ` · <span style="font-size:.78rem;">${esc(b.invoice_no)}</span>` : b.claim_status ? ` · ${esc(b.claim_status)}` : ''}</td><td>${!b.claim_status && !b.voided ? `<button class="adm-btn-sm" data-remove-booking="${b.id}" data-delivered="${b.status === 'completed' ? 1 : 0}" type="button" style="color:#A5301A;">Remove…</button>` : ''}</td></tr>`).join('')}
   </tbody></table></div>` : '<p class="adm-empty">No bookings yet.</p>';
   const contacts = d.contacts.length ? d.contacts.map(x => `
     <div class="info-card" style="margin-bottom:12px;">
@@ -9890,8 +9898,8 @@ async function renderAdminPage(){
     <td><b>$${Number(r.total || 0).toFixed(2)}</b></td>
     <td>${showActions
       ? `${r.flags.length ? `<span style="color:${r.claim_hold ? '#8a6d00' : '#D94F32'};font-size:.78rem;">${esc(r.flags.join(' · '))}</span>` : '<span style="color:#1C7C43;font-size:.78rem;">ready ✓</span>'}
-         <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${r.claim_hold ? `<button class="adm-btn-sm" data-claim-release="${r.id}" type="button" title="Let the next run invoice it after all">Release</button>` : ''}<button class="adm-btn-sm" data-remove-booking="${r.id}" type="button" title="Void or erase this shift, with a reason" style="color:#A5301A;">Remove…</button></div>`
-      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `${r.invoice_no ? `<button class="adm-btn-sm" data-inv-paid="${esc(r.invoice_no)}" type="button" title="Bank transfer received for the whole invoice">Invoice paid</button> <button class="adm-btn-sm" data-inv-withdraw="${esc(r.invoice_no)}" type="button" title="Take the whole invoice back; its lines return to unclaimed" style="color:#A5301A;">Withdraw invoice…</button> ` : ''}${r.claim_status === 'claimed' && !r.invoice_no ? `<button class="adm-btn-sm" data-claim-unclaim="${r.id}" type="button" title="Take this line off the agency claim" style="color:#A5301A;">Unclaim…</button> ` : ''}${!r.claim_status ? `<button class="adm-btn-sm" data-remove-booking="${r.id}" type="button" title="Void or erase this shift, with a reason" style="color:#A5301A;">Remove…</button> ` : ''}<button class="adm-btn-sm" data-claim-paid="${r.id}" type="button">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
+         <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${r.claim_hold ? `<button class="adm-btn-sm" data-claim-release="${r.id}" type="button" title="Let the next run invoice it after all">Release</button>` : ''}<button class="adm-btn-sm" data-remove-booking="${r.id}" data-delivered="${r.status === 'completed' ? 1 : 0}" type="button" title="Void or erase this shift, with a reason" style="color:#A5301A;">Remove…</button></div>`
+      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `${r.invoice_no ? `<button class="adm-btn-sm" data-inv-paid="${esc(r.invoice_no)}" type="button" title="Bank transfer received for the whole invoice">Invoice paid</button> <button class="adm-btn-sm" data-inv-withdraw="${esc(r.invoice_no)}" type="button" title="Take the whole invoice back; its lines return to unclaimed" style="color:#A5301A;">Withdraw invoice…</button> ` : ''}${r.claim_status === 'claimed' && !r.invoice_no ? `<button class="adm-btn-sm" data-claim-unclaim="${r.id}" type="button" title="Take this line off the agency claim" style="color:#A5301A;">Unclaim…</button> ` : ''}${!r.claim_status ? `<button class="adm-btn-sm" data-remove-booking="${r.id}" data-delivered="${r.status === 'completed' ? 1 : 0}" type="button" title="Void or erase this shift, with a reason" style="color:#A5301A;">Remove…</button> ` : ''}<button class="adm-btn-sm" data-claim-paid="${r.id}" type="button">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
   </tr>`;
   const claimTable = (rows, showActions) => `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Date</th><th>Participant</th><th>Funding</th><th>Shift</th><th>Support item</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(r => claimRow(r, showActions)).join('')}</tbody></table></div>`;
   const claims = `
@@ -11119,16 +11127,19 @@ function ladderBoardHtml(d){
   }).join('; ') + '.';
 
   const awardTable = `
+    <div class="info-card" style="margin:0 0 12px;">
+      <p style="margin:0 0 6px;"><b>What this table is.</b> Every worker has a SCHADS classification (Level 1, 2 or 3) and the award sets a minimum hourly rate for each. BookIt pays workers a <b>share</b> of the NDIS price (Bronze ${esc(String((d.settings.shares || {}).bronze ?? ''))}% up to Platinum ${esc(String((d.settings.shares || {}).platinum ?? ''))}%). Whenever that share would be <b>under the worker's award minimum</b>, the pay is lifted to the minimum — the <b>floor</b> — so nobody is ever underpaid. Each row is one kind of hour: the NDIS price, the floor at each level, and <b>what BookIt keeps per hour</b> after paying the worker, from Bronze to Platinum.</p>
+      <p style="margin:0;"><b>Reading it:</b> where two levels show the same figures, the share is above the floor for both and the level makes no difference. A figure in red means the floor is doing the paying — that hour costs you the difference. A single flat figure with no arrow means the ladder no longer moves for that level on that hour.</p>
+    </div>
     ${fails.length ? `<div class="tier-flag warn" style="margin:0 0 12px;">
-      <b>${fails.length} rate${fails.length === 1 ? '' : 's'} would fall below the SCHADS minimum on the tier share alone.</b>
-      The floor is catching every one of them — nobody is being underpaid — but each one costs you the difference, so it is worth knowing which they are.
-      ${fails.filter(f => !f.l.clears_at_top).length ? `<br><b>${fails.filter(f => !f.l.clears_at_top).length} of them don't clear even at Platinum</b>, which means no amount of moving the ladder fixes them — the price limit itself is below the award. Those workers are now paid the floor <i>lifted by their tier</i> rather than the bare floor, so the ladder still moves for them.` : ''}
-    </div>` : '<div class="tier-flag calm" style="margin:0 0 12px;"><b>Every rate clears the award on the tier share alone.</b> The floor is in place but currently isn\'t needed anywhere.</div>'}
+      <b>The floor is paying on ${fails.length} of the ${d.award_check.length * 3} hour-and-level combinations</b> — nobody is underpaid, each costs you the difference in red.
+      ${fails.filter(f => !f.l.clears_at_top).length ? `<br>${fails.filter(f => !f.l.clears_at_top).length} of them are under the award even at Platinum (the NDIS price limit is simply below the award for that level); those workers are paid the floor plus their tier, so the ladder still moves for them.` : ''}
+      <br>Which: ${[...new Set(fails.map(f => `Level ${f.l.level}`))].join(', ')} on ${[...new Set(fails.map(f => f.a.label))].join(', ')}.
+    </div>` : '<div class="tier-flag calm" style="margin:0 0 12px;"><b>Every hour clears the award on the share alone.</b> The floor is in place but currently isn\'t needed anywhere.</div>'}
     ${thin.length ? `<div class="tier-flag warn" style="margin:0 0 12px;">
-      <b>${thin.length} combination${thin.length === 1 ? '' : 's'} of support and classification ${thin.length === 1 ? 'does' : 'do'} not leave the ${d.settings.min_margin}% the platform has to retain.</b>
-      Nobody is underpaid — the award is paid in full and the tier uplift is withheld instead — but these are decided by <b>who gets rostered</b>, not by any pay setting, because the price limit itself is too close to the award.
-      <br>${thin.map(t => `${esc(t.a.label)} at <b>Level ${t.l.level}</b> — keeps $${t.l.margin.toFixed(2)} (${t.l.margin_pct.toFixed(1)}%)`).join('<br>')}
-      <br><br>The rule that follows: <b>${thinRule}</b>
+      <b>${thin.length} combination${thin.length === 1 ? '' : 's'} ${thin.length === 1 ? 'leaves' : 'leave'} BookIt less than the ${d.settings.min_margin}% it needs to run:</b>
+      ${thin.map(t => `${esc(t.a.label)} at Level ${t.l.level} keeps only $${t.l.margin.toFixed(2)} (${t.l.margin_pct.toFixed(1)}%)`).join('; ')}.
+      The worker is still paid the full award; the fix is rostering, not pay: <b>${thinRule}</b>
     </div>` : ''}
     <div class="adm-table-wrap"><table class="adm-table">
       <thead><tr><th>Support item</th><th>NDIS limit</th><th>Penalty</th><th>Level 1 floor</th><th>Level 2 floor</th><th>Level 3 floor</th><th>What you keep, by level<br><span class="muted-sm" style="font-weight:400;">Bronze &rarr; Platinum</span></th></tr></thead>
@@ -11152,7 +11163,12 @@ function ladderBoardHtml(d){
           <td>$${a.price.toFixed(2)}</td>
           <td>×${a.mult.toFixed(2)}</td>
           ${cell(by[1])}${cell(by[2])}${cell(by[3])}
-          <td class="${worst < d.settings.min_margin ? 'lad-fail' : ''}">${a.levels.map(mrow).join('<br>')}</td>
+          <td class="${worst < d.settings.min_margin ? 'lad-fail' : ''}">${(() => {
+            /* levels whose figures are identical are one fact, not three: show them once as L1–L2 */
+            const groups = [];
+            for (const l of a.levels) { const key = `${l.margin.toFixed(2)}|${(a.price - l.paid_top).toFixed(2)}|${l.economic}|${l.ladder_live}`; const g = groups[groups.length - 1]; if (g && g.key === key) g.levels.push(l.level); else groups.push({ key, levels: [l.level], l }); }
+            return groups.map(g => mrow(g.l).replace(`L${g.l.level} `, `L${g.levels[0]}${g.levels.length > 1 ? '–' + g.levels[g.levels.length - 1] : ''} `)).join('<br>');
+          })()}</td>
         </tr>`; }).join('')}</tbody>
     </table></div>
     ${unconfirmed.length ? `<p class="muted-sm" style="margin:9px 0 0;"><b>${unconfirmed.map(a => esc(a.label)).join(' and ')}</b> ${unconfirmed.length === 1 ? 'carries' : 'carry'} a SCHADS shift <b>allowance</b> rather than a penalty rate — 12.5% afternoon, 15% night, each calculated on the ordinary rate and added to the casual loading rather than compounded, which is ×1.10 and ×1.12 against the casual ordinary rate used everywhere else in this table. Permanent night shift (30%) is not offered here because it applies to permanent employees and this ladder assumes casual engagement throughout. Have the bookkeeper confirm the percentages at the next pay run and change them below if they differ — raising a floor can only ever stop an underpayment, never cause one.</p>` : ''}`;
