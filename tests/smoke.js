@@ -363,6 +363,21 @@ async function main() {
     const taId = testAcct.json.user.id;
     const closed = await req('DELETE', `/api/admin/users/${taId}`, { headers: J2, cookie: ac2, body: { reason: 'Test account created while trying the site; no real person.' } });
     t('an account with no delivered shifts is erased outright', closed.status === 200 && closed.json.mode === 'erase' && !db.prepare('SELECT id FROM users WHERE id = ?').get(taId), closed.status + ' ' + JSON.stringify(closed.json));
+    /* an account with history in every table that points at users still closes cleanly */
+    const busy = await req('POST', '/api/register', { headers: J2, body: { role: 'worker', name: 'Busy Trial', email: 'busy.trial@example.com', password: 'longpassword1', suburb: 'Wyong NSW', terms_accepted: true, terms_version: terms2 } });
+    const busyId = busy.json.user.id;
+    let planted = 0;
+    for (const t of db.prepare("SELECT m.name FROM sqlite_master m WHERE m.type = 'table' AND EXISTS (SELECT 1 FROM pragma_foreign_key_list(m.name) f WHERE f.\"table\" = 'users')").all().map(r => r.name)) {
+      const fks = db.prepare(`PRAGMA foreign_key_list("${t}")`).all().filter(f => f.table === 'users').map(f => f.from);
+      const info = db.prepare(`PRAGMA table_info("${t}")`).all();
+      const row = {};
+      for (const c of info) { if (c.name === 'id') continue; if (fks.includes(c.name)) row[c.name] = busyId; else if (c.notnull && c.dflt_value == null) row[c.name] = /TEXT/i.test(c.type) ? new Date().toISOString() : 1; }
+      try { db.prepare(`INSERT INTO "${t}" (${Object.keys(row).map(k => `"${k}"`).join(',')}) VALUES (${Object.keys(row).map(() => '?').join(',')})`).run(...Object.values(row)); planted++; } catch {}
+    }
+    const busyClose = await req('DELETE', `/api/admin/users/${busyId}`, { headers: J2, cookie: ac2, body: { reason: 'Trial worker with a row in every table; the erase must cascade cleanly.' } });
+    const pointing = db.prepare("SELECT m.name FROM sqlite_master m WHERE m.type = 'table' AND EXISTS (SELECT 1 FROM pragma_foreign_key_list(m.name) f WHERE f.\"table\" = 'users')").all().map(r => r.name)
+      .flatMap(t => db.prepare(`PRAGMA foreign_key_list("${t}")`).all().filter(f => f.table === 'users').map(f => db.prepare(`SELECT COUNT(*) AS n FROM "${t}" WHERE "${f.from}" = ?`).get(busyId).n)).reduce((a, b) => a + b, 0);
+    t(`an account with rows in ${planted} tables erases cleanly, nothing left pointing at it`, busyClose.status === 200 && pointing === 0 && !db.prepare('SELECT id FROM users WHERE id = ?').get(busyId), `${busyClose.status} ${busyClose.json && busyClose.json.error} pointing=${pointing}`);
     const ask = await req('DELETE', `/api/admin/users/13`, { headers: J2, cookie: ac2, body: { reason: 'Participant asked to leave; records must be kept for the retention period.' } });
     t('an account with delivered shifts asks for acknowledgement first', ask.status === 409 && ask.json.mode === 'deidentify', ask.status);
     const smokeUser = db.prepare("SELECT id FROM users WHERE email = 'referred.worker@example.com'").get().id;

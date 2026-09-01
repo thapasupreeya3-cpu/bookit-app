@@ -17238,13 +17238,44 @@ function recordErasure(kind, ref, label, snapshot, reason, by) {
   db.prepare('INSERT INTO erasures (kind, ref, label, snapshot, reason, by, at) VALUES (?,?,?,?,?,?,?)').run(kind, Number(ref), String(label || ''), JSON.stringify(snapshot), reason, by, now());
   logCompliance({ worker_id: null, worker_name: '', kind: `remove-${kind}`, result: 'removed', detail: `${kind} #${ref} ${label ? `(${label}) ` : ''}removed by ${by}: ${reason}`, source: 'admin', checked_by: by });
 }
-function eraseBookingRows(id) {
-  for (const t of ['shift_notes', 'reviews', 'cover_offers']) {
-    try { db.prepare(t === 'cover_offers' ? 'DELETE FROM cover_offers WHERE cover_id IN (SELECT id FROM cover WHERE booking_id = ?)' : `DELETE FROM ${t} WHERE booking_id = ?`).run(id); } catch {}
+/* Erasing a row with foreign keys enforced means erasing, or detaching, every
+   row that points at it — and every row that points at those. The schema
+   knows which those are, so the code asks it (PRAGMA foreign_key_list) rather
+   than keeping a list by hand that goes stale. The rule: a child row whose
+   pointer may be NULL is detached (the log line survives, no longer naming
+   the person); a child row whose pointer is NOT NULL is erased, with its own
+   children first. */
+const fkChildren = (() => {
+  let cache = null, pks = null;
+  return () => {
+    if (cache) return { children: cache, pk: t => pks.get(t) || 'rowid' };
+    cache = new Map(); pks = new Map();
+    for (const t of db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all()) {
+      const info = db.prepare(`PRAGMA table_info("${t.name}")`).all();
+      const pk = (info.find(c => c.pk) || {}).name;
+      if (pk) pks.set(t.name, pk);
+      for (const fk of db.prepare(`PRAGMA foreign_key_list("${t.name}")`).all()) {
+        const col = info.find(c => c.name === fk.from) || {};
+        if (!cache.has(fk.table)) cache.set(fk.table, []);
+        /* a pointer that is the row's own primary key (worker_profiles.user_id,
+           mfa.user_id) cannot be set to NULL — that row goes with the parent */
+        cache.get(fk.table).push({ table: t.name, col: fk.from, erase: !!col.notnull || fk.from === pk });
+      }
+    }
+    return { children: cache, pk: t => pks.get(t) || 'rowid' };
+  };
+})();
+function cascadeErase(table, whereSql, params, depth = 0) {
+  if (depth > 6) throw new Error(`cascade too deep at ${table}`);
+  const { children, pk } = fkChildren();
+  for (const ch of children.get(table) || []) {
+    const sub = `SELECT "${pk(table)}" FROM "${table}" WHERE ${whereSql}`;
+    if (ch.erase) cascadeErase(ch.table, `"${ch.col}" IN (${sub})`, params, depth + 1);
+    else db.prepare(`UPDATE "${ch.table}" SET "${ch.col}" = NULL WHERE "${ch.col}" IN (${sub})`).run(...params);
   }
-  try { db.prepare('DELETE FROM cover WHERE booking_id = ?').run(id); } catch {}
-  db.prepare('DELETE FROM bookings WHERE id = ?').run(id);
+  db.prepare(`DELETE FROM "${table}" WHERE ${whereSql}`).run(...params);
 }
+function eraseBookingRows(id) { cascadeErase('bookings', 'id = ?', [id]); }
 route('DELETE', /^\/api\/admin\/bookings\/(\d+)$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
   const reason = reasonOr400(res, body); if (!reason) return;
@@ -17278,17 +17309,6 @@ route('POST', /^\/api\/admin\/bookings\/(\d+)\/void$/, (req, res, m, user, body)
   logCompliance({ worker_id: b.worker_id, worker_name: '', kind: 'void-booking', result: 'void', detail: `Shift #${b.id} (${b.date} ${b.start}) voided by ${user.name}: ${reason}`, source: 'admin', checked_by: user.name });
   json(res, 200, { ok: true, voided: b.id });
 });
-/* a person's tables, in the order the foreign keys allow */
-const USER_TABLES = [
-  ['sessions', 'user_id'], ['mfa', 'user_id'], ['mfa_recovery', 'user_id'], ['notification_prefs', 'user_id'], ['scope_requests', 'user_id'],
-  ['account_links', 'participant_id'], ['delegate_log', 'participant_id'], ['participant_workers', 'participant_id'], ['participant_workers', 'worker_id'],
-  ['participant_docs', 'participant_id'], ['worker_docs', 'worker_id'], ['support_plans', 'participant_id'], ['plan_acks', 'participant_id'], ['plan_acks', 'worker_id'],
-  ['care_web', 'participant_id'], ['care_web', 'worker_id'], ['reviews', 'participant_id'], ['reviews', 'worker_id'], ['shift_notes', 'participant_id'], ['shift_notes', 'worker_id'],
-  ['messages', 'sender_id'], ['conversations', 'participant_id'], ['conversations', 'worker_id'], ['job_applications', 'worker_id'], ['jobs', 'participant_id'],
-  ['module_completions', 'worker_id'], ['screening_events', 'worker_id'], ['cover_offers', 'worker_id'], ['referrals', 'referrer_id'], ['referrals', 'referee_id'],
-  ['survey_invites', 'participant_id'], ['survey_responses', 'participant_id'], ['ai_suggestions', 'participant_id'], ['ai_suggestions', 'worker_id'],
-  ['booking_series', 'participant_id'], ['booking_series', 'worker_id'], ['worker_profiles', 'user_id']
-];
 function removeFiles(uid) {
   for (const t of ['participant_docs', 'worker_docs']) {
     let rows = []; try { rows = db.prepare(`SELECT file_path FROM ${t} WHERE ${t === 'worker_docs' ? 'worker_id' : 'participant_id'} = ?`).all(uid); } catch {}
@@ -17314,16 +17334,15 @@ route('DELETE', /^\/api\/admin\/users\/(\d+)$/, (req, res, m, user, body) => {
     recordErasure(mode === 'erase' ? 'user' : 'user-deidentified', u.id, `${u.role} ${u.name} <${u.email}>`, snapshot, reason, user.name);
     removeFiles(u.id);
     if (mode === 'erase') {
-      for (const b of db.prepare('SELECT id FROM bookings WHERE participant_id = ? OR worker_id = ?').all(u.id, u.id)) eraseBookingRows(b.id);
-      for (const [t, col] of USER_TABLES) { try { db.prepare(`DELETE FROM ${t} WHERE ${col} = ?`).run(u.id); } catch (e) { if (!/no such/.test(e.message)) throw e; } }
-      db.prepare('DELETE FROM users WHERE id = ?').run(u.id);
+      cascadeErase('users', 'id = ?', [u.id]);
     } else {
-      for (const [t, col] of [['sessions', 'user_id'], ['mfa', 'user_id'], ['mfa_recovery', 'user_id'], ['participant_docs', 'participant_id'], ['worker_docs', 'worker_id'], ['account_links', 'participant_id'], ['messages', 'sender_id'], ['conversations', 'participant_id'], ['conversations', 'worker_id'], ['job_applications', 'worker_id'], ['jobs', 'participant_id'], ['cover_offers', 'worker_id'], ['survey_invites', 'participant_id'], ['ai_suggestions', 'participant_id'], ['ai_suggestions', 'worker_id']]) {
-        try { db.prepare(`DELETE FROM ${t} WHERE ${col} = ?`).run(u.id); } catch (e) { if (!/no such/.test(e.message)) throw e; }
+      /* the personal tables go; the service record (bookings, notes, incidents, invoices, complaints) stays */
+      for (const t of ['sessions', 'mfa', 'mfa_recovery', 'participant_docs', 'worker_docs', 'account_links', 'conversations', 'job_applications', 'jobs', 'cover_offers', 'survey_invites', 'ai_suggestions', 'scope_requests', 'notification_prefs', 'standby', 'doc_requests']) {
+        for (const ch of (fkChildren().children.get('users') || []).filter(c => c.table === t)) cascadeErase(t, `"${ch.col}" = ?`, [u.id]);
       }
       db.prepare(`UPDATE users SET name = ?, email = ?, phone = '', suburb = '', ndis_number = '', pm_email = '', nominee_name = '', nominee_phone = '', nominee_email = '', pass = ?, verified = 0, closed_at = ? WHERE id = ?`)
         .run(`Removed ${u.role} #${u.id}`, `removed-${u.id}@invalid.bookit.life`, crypto.randomBytes(32).toString('hex'), now(), u.id);
-      try { db.prepare("UPDATE worker_profiles SET bio = '', photo = '', visible = 0, screening_status = 'closed' WHERE user_id = ?").run(u.id); } catch {}
+      try { db.prepare("UPDATE worker_profiles SET bio = '', photo = '', visible = 0 WHERE user_id = ?").run(u.id); } catch (e) { console.warn('[close-account] profile:', e.message); }
       for (const b of db.prepare("SELECT id FROM bookings WHERE (participant_id = ? OR worker_id = ?) AND status IN ('requested','accepted')").all(u.id, u.id)) {
         db.prepare("UPDATE bookings SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = 'Account closed' WHERE id = ?").run(now(), user.name, b.id);
       }
