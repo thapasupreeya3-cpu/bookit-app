@@ -9439,6 +9439,7 @@ function participantFile(pid) {
   const rowOut = c => ({ key: c.key, label: c.label, signed: c.signed, requires: c.requires,
     owner: c.owner, only_if: c.only_if, sign: c.sign, applies: c.applies_if ? applies(c) : null, optional: c.optional,
     generated: c.generated, template: tplFor(c),
+    screen: FORM_SCREENS[c.key] ? { who: FORM_SCREENS[c.key].who, title: FORM_SCREENS[c.key].title } : null,
     requested_at: (asked[c.key] || {}).requested_at || '',
     requested_by: (asked[c.key] || {}).requested_by || '',
     requested_note: (asked[c.key] || {}).note || '',
@@ -9530,6 +9531,7 @@ function seedFormTemplates() {
        generated from the file now), so their PDFs on the shelf are skipped
        on purpose — named in the log so the count does not read as a fault */
     if (!cat || key === 'p-other') { if (key !== 'p-other') skipped.push(key); continue; }
+    if (cat.generated) { skipped.push(`${key} (BookIt generates this one; a PDF on the shelf would only confuse)`); continue; }
     if (setting('tplseed:' + key, '')) continue;          /* already offered once */
     if (formTemplate(key)) { setSetting('tplseed:' + key, now()); continue; }
     const ext = path.extname(name).toLowerCase();
@@ -9557,7 +9559,15 @@ route('GET', /^\/api\/form-templates$/, (req, res, m, user) => {
   json(res, 200, {
     templates: PDOC_CATALOG.filter(c => c.key !== 'p-other').map(c => {
       const t = by[c.key];
+      const g = c.generated ? GENERATED_DOCS[c.key] : null;
+      const sc = FORM_SCREENS[c.key];
       return { key: c.key, label: c.label, owner: c.owner, only_if: c.only_if, sign: c.sign,
+        /* a document BookIt writes itself is never a blank on a shelf: the
+           participant reads the generated page and agrees to it with a click,
+           and any PDF filed under the same key is ignored */
+        generated: !!c.generated, edition: g && g.version ? g.version() : (sc ? sc.edition : ''), issued: g ? (g.issued || '') : '',
+        screen: sc ? { who: sc.who, edition: sc.edition, fields: sc.fields.length } : null,
+        read_url: c.key === 'p-agreement' ? '/service-agreement' : c.key === 'p-consent-privacy' ? '/privacy-consent' : `/api/me/generated/${c.key}`,
         has_file: Boolean(t && t.file_path), link: (t && t.link) || '',
         file_name: (t && t.file_name) || '', note: (t && t.note) || '',
         version: (t && t.version) || 1, effective_from: (t && t.effective_from) || '',
@@ -10094,10 +10104,16 @@ route('GET', /^\/api\/participant-documents\/(\d+)\/file$/, (req, res, m, user) 
        and same-origin access for this response, so even a PDF that slipped past
        the upload signature and active-content checks cannot reach the session.
        nosniff stops the browser second-guessing the declared type. */
+  /* BookIt's own generated documents (the agreement, the consents, the plans
+     printed from the file) carry a "Print, or save as PDF" button that needs
+     one line of script and the print dialog; they are ours, written by the
+     server, never uploaded, so the sandbox lets those two things through and
+     nothing else. An uploaded file keeps the bare sandbox. */
+  const ours = !!(d.accepted_at && String(d.file_mime || '').startsWith('text/html') && /-accepted-[a-z0-9-]+-\d+\.html$/.test(String(d.file_path || '')));
   res.writeHead(200, {
     'Content-Type': d.file_mime || 'application/octet-stream',
     'Content-Disposition': `inline; filename="${(d.file_name || 'document').replace(/[^\w.\- ]/g, '')}"`,
-    'Content-Security-Policy': 'sandbox',
+    'Content-Security-Policy': ours ? 'sandbox allow-scripts allow-modals' : 'sandbox',
     'X-Content-Type-Options': 'nosniff',
     'Cache-Control': 'no-store, private'
   });
@@ -10656,7 +10672,14 @@ const AUDIT_REPORTS = [
   { path: 'evidence/compliance-log.csv', url: '/api/admin/compliance/log.csv', title: 'Every automated check the platform has ever run, with its result' },
   { path: 'finance/invoices.csv', url: '/api/admin/invoices.csv', title: 'Invoices raised' },
   { path: 'finance/payroll.csv', url: '/api/admin/payroll.csv', title: 'Worker payments including SCHADS on-call allowances' },
-  { path: 'finance/pace-claims.csv', url: '/api/admin/claims/pace.csv', title: 'PACE claim file as submitted' }
+  { path: 'finance/pace-claims.csv', url: '/api/admin/claims/pace.csv', title: 'PACE claim file as submitted' },
+  { path: 'finance/invoice-register.csv', url: '/api/admin/invoice-register.csv', title: 'Every invoice: total, paid, balance, status, and the withdrawn ones with the reason' },
+  { path: 'finance/night-care.csv', url: '/api/admin/night-care.csv', title: 'Every sleepover: active hours recorded, the two included, the extra charged and paid' },
+  { path: 'finance/fee-lines.csv', url: '/api/admin/fee-lines.csv', title: 'Establishment fees, non-face-to-face time and meet-and-greets (no charge)' },
+  { path: 'people/worker-referrals.csv', url: '/api/admin/referrals.csv', title: 'Worker referrals: who, when qualified, bonus, paid' },
+  { path: 'participants/form-responses.csv', url: '/api/admin/form-responses.csv', title: 'Forms filled in on screen: answers, who confirmed, when, where filed' },
+  { path: 'evidence/removed-records.csv', url: '/api/admin/erasures.csv', title: 'Every record erased, voided or held, with the typed reason and who did it' },
+  { path: 'evidence/kpis.json', url: '/api/admin/kpis.json', title: 'The Growth board\u2019s numbers for the last year, frozen at the time of the pack' }
 ];
 
 /* ---------- two registers an auditor asks for that had no export ---------- */
@@ -10824,6 +10847,15 @@ function buildAuditPack(user) {
   }
   add('evidence/monitoring-history.csv', collect('/api/admin/audit-history.csv', user).body || '');
 
+  /* every invoice as the PDF the participant received, regenerated from the
+     bookings so it is the current state; a withdrawn invoice has no bookings
+     left and so no PDF, which is right — it is in the register with its reason */
+  let invoicePdfs = 0;
+  for (const n of db.prepare("SELECT DISTINCT invoice_no FROM bookings WHERE COALESCE(invoice_no,'') <> '' ORDER BY claimed_at DESC").all()) {
+    try { const inv = invoiceFor(n.invoice_no); if (inv && add(`finance/invoices/${safeName(n.invoice_no)}.pdf`, makeInvoicePdf(inv))) invoicePdfs++; }
+    catch (e) { failed.push({ path: `finance/invoices/${n.invoice_no}.pdf`, title: 'invoice PDF', status: e.message }); }
+  }
+
   /* one shift-note file per participant — the thing an auditor asks for by name */
   const participants = db.prepare("SELECT id, name FROM users WHERE role = 'participant' ORDER BY name").all();
   const pNameUse = {};
@@ -10926,8 +10958,13 @@ function packReadme(c) {
   L.push('  evidence/            what the platform did, and the shift notes behind it');
   L.push('  evidence/monitoring-history.csv    one row per day — this is the evidence of ongoing monitoring');
   L.push('  people/              the actual credential files, filed under the worker they belong to');
-  L.push('  participants/        each participant\'s own file — agreements, consents, plans and assessments');
-  L.push('  finance/             invoices, payroll and the PACE claim file');
+  L.push('  participants/        each participant\'s own file — agreements, consents, plans and assessments,');
+  L.push('                       including every form filled in on screen (filed as a page), and form-responses.csv');
+  L.push('  finance/             invoices (the register and every PDF under finance/invoices/), payroll, the PACE');
+  L.push('                       claim file, night-care.csv (sleepover active hours) and fee-lines.csv');
+  L.push('  people/              worker files and worker-referrals.csv');
+  L.push('  evidence/            the compliance log, monitoring history, removed-records.csv (every erasure, void');
+  L.push('                       and held line with its typed reason) and kpis.json');
   L.push('  blank-forms/         the printable blanks for the forms that had no template — open in a browser');
   L.push('  gaps/open-items.csv  everything the system knows is still missing');
   L.push('');
@@ -17396,6 +17433,271 @@ route('POST', /^\/api\/admin\/claims\/(\d+)\/unclaim$/, (req, res, m, user, body
 route('GET', /^\/api\/admin\/erasures$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   json(res, 200, { erasures: db.prepare('SELECT id, kind, ref, label, reason, by, at FROM erasures ORDER BY id DESC LIMIT 200').all() });
+});
+
+
+/* ---------- forms as screens ----------
+   A blank PDF is a round trip: download, print, fill in by hand, photograph,
+   upload, and somebody in the office reads handwriting. A screen is the same
+   questions asked once, answered on the page, confirmed with a click, and
+   filed as a page BookIt wrote — the same mechanism as the Service Agreement:
+   read it, agree, print or save as PDF, and the participant's file keeps the
+   snapshot. Each form is a list of fields; the answers are kept in
+   form_responses (so a draft can be picked up and an old answer read back)
+   and the confirmed document is filed in participant_docs exactly like an
+   accepted agreement, so every board, count and audit pack sees it. */
+db.exec(`CREATE TABLE IF NOT EXISTS form_responses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  participant_id INTEGER NOT NULL REFERENCES users(id),
+  form_key TEXT NOT NULL,
+  answers TEXT NOT NULL DEFAULT '{}',
+  edition TEXT NOT NULL DEFAULT '',
+  saved_at TEXT NOT NULL,
+  saved_by TEXT NOT NULL DEFAULT '',
+  confirmed_at TEXT,
+  confirmed_by TEXT,
+  doc_id INTEGER
+)`);
+db.exec('CREATE INDEX IF NOT EXISTS idx_form_responses_pk ON form_responses(participant_id, form_key)');
+const YN = ['Yes', 'No'];
+const FORM_SCREENS = {
+  'p-consent-media': {
+    title: 'Photo and media consent', who: 'participant', edition: 'screen v1, issued 01/09/2026',
+    lede: 'Whether photos or video of you may be taken during supports, and what they may be used for. You can change any of this at any time by telling the office or your worker.',
+    fields: [
+      { id: 'photos_ok', label: 'Photos or video of me may be taken during supports', type: 'choice', options: YN, required: true },
+      { id: 'uses', label: 'They may be used for', type: 'checklist', options: ['My own support plan and records', 'Sharing with my family, nominee or advocate', 'Showing other workers on my team what my routine looks like', 'BookIt\u2019s website or social media', 'Staff training'] },
+      { id: 'never', label: 'Anything that must never be photographed or shared (a place, a person, a situation)', type: 'textarea' },
+      { id: 'named', label: 'If used publicly, my name may appear with the image', type: 'choice', options: YN },
+      { id: 'review', label: 'Review this consent by', type: 'date', help: 'Usually a year from today. It is reviewed sooner if you ask.' }
+    ],
+    declaration: 'I understand what these images may be used for, that I can withdraw this consent at any time, and that anything already published may take a little time to remove.'
+  },
+  'p-money': {
+    title: 'Money and property declaration', who: 'participant', edition: 'screen v1, issued 01/09/2026',
+    lede: 'What a BookIt worker may and may not do with your money or property during supports. Workers never keep your card or PIN, never borrow, lend, sell or accept gifts, and always give you the receipts.',
+    fields: [
+      { id: 'handles', label: 'A worker may handle my money or property during a shift', type: 'choice', options: YN, required: true },
+      { id: 'what', label: 'What they may handle', type: 'checklist', options: ['Cash you give them for shopping or an outing', 'Your bank card, with you present and you entering the PIN', 'Purchases you ask them to make', 'Your keys, phone or wallet while you are out together'] },
+      { id: 'limit', label: 'Most cash a worker may carry for me in one shift ($)', type: 'text', help: 'A number, e.g. 100. Leave blank for no cash at all.' },
+      { id: 'receipts', label: 'Receipts and change come back to me at the end of the shift, and what was spent goes in the shift note', type: 'choice', options: YN, required: true },
+      { id: 'checker', label: 'Who checks the record (you, or a nominee)', type: 'text', required: true },
+      { id: 'notes', label: 'Anything else about how you want this handled', type: 'textarea' }
+    ],
+    declaration: 'I have read this, it is true, and I understand a worker who does anything outside it is reported to the office the same day.'
+  },
+  'p-medication': {
+    title: 'Medication plan and authority', who: 'participant', edition: 'screen v1, issued 01/09/2026',
+    lede: 'What you take, when, and what a worker does about it. A worker prompts, or hands you medication from its packaging, or administers it — that is the difference this page settles. Where a worker administers, the prescriber\u2019s written authority is also kept on file.',
+    fields: [
+      { id: 'meds', label: 'Each medication: name, dose, when, and how it is taken', type: 'textarea', required: true, help: 'One per line, e.g. "Sertraline 50 mg, morning, tablet".' },
+      { id: 'packaging', label: 'How it is packaged', type: 'choice', options: ['Webster pack / blister pack from the pharmacy', 'Original bottles and boxes', 'A dosette I fill myself', 'Other'], required: true },
+      { id: 'support', label: 'What the worker does', type: 'choice', options: ['Prompts me to take it', 'Hands it to me from the pack and watches me take it', 'Administers it (eye drops, patches, PEG, insulin — needs the prescriber\u2019s authority on file)'], required: true },
+      { id: 'prn', label: 'As-needed (PRN) medication, and exactly when it may be given', type: 'textarea' },
+      { id: 'prescriber', label: 'Prescribing doctor and phone', type: 'text', required: true },
+      { id: 'pharmacy', label: 'Pharmacy and phone', type: 'text' },
+      { id: 'allergies', label: 'Allergies and reactions', type: 'text' },
+      { id: 'storage', label: 'Where it is kept', type: 'text' },
+      { id: 'missed', label: 'If a dose is missed or refused', type: 'textarea', help: 'What the worker does, and who they call.' }
+    ],
+    declaration: 'This is my current medication and I will tell the office when it changes. A worker who administers medication does so only with the prescriber\u2019s authority on file.'
+  },
+  'p-risk': {
+    title: 'Risk assessment', who: 'office', edition: 'screen v1, issued 01/09/2026',
+    lede: 'The risks in this person\u2019s supports, how likely and how serious each is, and the control in place for each. Done with the participant (or their nominee), reviewed every year and after any incident.',
+    fields: [
+      { id: 'setting', label: 'The supports and the settings they happen in', type: 'textarea', required: true },
+      { id: 'risks', label: 'Risks present', type: 'checklist', options: ['Falls', 'Manual handling and transfers', 'Medication', 'Behaviours of concern', 'Choking, mealtime or swallowing', 'Seizures', 'Home environment (stairs, pets, access, other people)', 'Transport and driving', 'Community settings', 'Worker alone with the participant', 'Infection control', 'Financial or property', 'Other'] },
+      { id: 'detail', label: 'For each risk ticked: how likely, how serious, and the control in place', type: 'textarea', required: true, help: 'One per line. The control is the thing a worker does differently because of the risk.' },
+      { id: 'rating', label: 'Overall rating', type: 'choice', options: ['Low', 'Medium', 'High'], required: true },
+      { id: 'involved', label: 'The participant or their nominee took part in this assessment', type: 'choice', options: YN, required: true },
+      { id: 'review', label: 'Review by', type: 'date', required: true },
+      { id: 'assessor', label: 'Assessed by (name and role)', type: 'text', required: true }
+    ],
+    declaration: 'This assessment reflects what the office knows today; it is reviewed on the date above and after any incident, and every worker on the team reads it before their first shift.'
+  },
+  'p-exit': {
+    title: 'Exit and transition record', who: 'both', edition: 'screen v1, issued 01/09/2026',
+    lede: 'What happens when supports through BookIt end: when, why, what has been handed over, and how to reach us afterwards.',
+    fields: [
+      { id: 'end_date', label: 'Last day of supports', type: 'date', required: true },
+      { id: 'reason', label: 'Why supports are ending', type: 'choice', options: ['The participant\u2019s choice', 'Moving away', 'The NDIS plan changed', 'The provider is ending the service', 'Other'], required: true },
+      { id: 'reason_detail', label: 'In their words', type: 'textarea' },
+      { id: 'handover', label: 'What has been handed over, and to whom', type: 'textarea', required: true, help: 'The new provider, family, a coordinator: what they have been given and when.' },
+      { id: 'given', label: 'Documents given to the participant', type: 'checklist', options: ['A copy of the support plan', 'A summary of shift notes', 'The medication plan', 'Final statement and invoices', 'The NDIS plan copy returned'] },
+      { id: 'feedback', label: 'What the participant said about their time with BookIt', type: 'textarea' },
+      { id: 'contact_later', label: 'Happy for us to check in three months from now', type: 'choice', options: YN }
+    ],
+    declaration: 'The supports have ended as recorded here. The participant\u2019s file is kept for the period the law requires and is available to them on request.'
+  }
+};
+function formScreen(key) { return FORM_SCREENS[key] || null; }
+function screenAnswersValid(screen, answers) {
+  const missing = [];
+  for (const f of screen.fields) {
+    const v = answers[f.id];
+    const empty = v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
+    if (f.required && empty) missing.push(f.label);
+    if (!empty && f.type === 'choice' && !f.options.includes(v)) missing.push(`${f.label} (not one of the choices)`);
+    if (!empty && f.type === 'checklist' && (!Array.isArray(v) || v.some(x => !f.options.includes(x)))) missing.push(`${f.label} (not one of the choices)`);
+    if (!empty && f.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(String(v))) missing.push(`${f.label} (date)`);
+  }
+  return missing;
+}
+function cleanAnswers(screen, body) {
+  const out = {};
+  const src = (body && body.answers) || {};
+  for (const f of screen.fields) {
+    const v = src[f.id];
+    if (v === undefined || v === null) continue;
+    if (f.type === 'checklist') out[f.id] = Array.isArray(v) ? v.map(x => clean(String(x), 200)).filter(Boolean).slice(0, 20) : [];
+    else out[f.id] = clean(String(v), f.type === 'textarea' ? 4000 : 300);
+  }
+  return out;
+}
+function screenHtml(key, screen, pers, answers, confirmed, req) {
+  const rows = screen.fields.map(f => {
+    const v = answers[f.id];
+    const shown = Array.isArray(v) ? (v.length ? v.map(escHtml).join('<br>') : '<i>none</i>') : (v ? escHtml(String(f.type === 'date' ? dmy(v) : v)).replace(/\n/g, '<br>') : '<i>not answered</i>');
+    return `<tr><th>${escHtml(f.label)}</th><td>${shown}</td></tr>`;
+  }).join('');
+  const body = `<table class="grid" style="width:100%;border-collapse:collapse;">${rows}</table>
+    <div class="box note"><b>Declaration</b><p>${escHtml(screen.declaration)}</p>
+    ${confirmed ? `<p><b>Confirmed by ${escHtml(confirmed.by)} on ${escHtml(dmy(String(confirmed.at).slice(0, 10)))}</b>${confirmed.ip ? ` (from ${escHtml(confirmed.ip)})` : ''}, on BookIt, by pressing "Confirm and file".</p>` : '<p><i>Draft — not yet confirmed.</i></p>'}</div>`;
+  return genPage({
+    title: screen.title, lede: escHtml(screen.lede),
+    meta: [['Participant', `${pers.name}${pers.ndis_number ? `, NDIS ${pers.ndis_number}` : ''}`], ['Edition', screen.edition], ['Filled in', confirmed ? `${confirmed.by}, ${dmy(String(confirmed.at).slice(0, 10))}` : 'draft']],
+    footer: `${screen.title}, ${screen.edition}. Filled in on BookIt.`
+  }, body, { base: baseUrl(req), barNote: 'Filled in on BookIt \u00b7 confirmed with a click \u00b7 nothing to print or sign' });
+}
+function screenTarget(req, res, user, key) {
+  const screen = formScreen(key);
+  if (!screen) { json(res, 404, { error: 'No screen for that form.' }); return null; }
+  const forId = Number(new URL(req.url, 'http://x').searchParams.get('for')) || 0;
+  let pers;
+  if (user.admin) {
+    pers = forId ? db.prepare("SELECT id, name, ndis_number, email FROM users WHERE id = ? AND role = 'participant'").get(forId) : null;
+    if (!pers) { json(res, 400, { error: 'Which participant? (?for=id)' }); return null; }
+  } else {
+    if (screen.who === 'office') { json(res, 403, { error: 'This one is filled in by the office, with you.' }); return null; }
+    const acting = actFor(req, user, 'documents');
+    if (!acting) { json(res, 403, { error: 'Not permitted.' }); return null; }
+    pers = db.prepare('SELECT id, name, ndis_number, email FROM users WHERE id = ?').get(acting.id);
+  }
+  return { screen, pers };
+}
+route('GET', /^\/api\/me\/forms$/, (req, res, m, user) => {
+  json(res, 200, { screens: Object.entries(FORM_SCREENS).map(([key, sc]) => ({ key, title: sc.title, who: sc.who, edition: sc.edition })) });
+});
+route('GET', /^\/api\/me\/forms\/([a-z0-9-]+)$/, (req, res, m, user) => {
+  const t = screenTarget(req, res, user, m[1]); if (!t) return;
+  const latest = db.prepare('SELECT * FROM form_responses WHERE participant_id = ? AND form_key = ? ORDER BY id DESC LIMIT 1').get(t.pers.id, m[1]);
+  json(res, 200, { key: m[1], screen: t.screen, participant: { id: t.pers.id, name: t.pers.name },
+    answers: latest ? safeJson(latest.answers, {}) : {}, saved_at: latest ? latest.saved_at : '', confirmed_at: latest ? latest.confirmed_at : '', confirmed_by: latest ? latest.confirmed_by : '', doc_id: latest ? latest.doc_id : null,
+    can_confirm: user.admin ? true : t.screen.who !== 'office' });
+});
+route('POST', /^\/api\/me\/forms\/([a-z0-9-]+)$/, (req, res, m, user, body, ip) => {
+  const t = screenTarget(req, res, user, m[1]); if (!t) return;
+  const { screen, pers } = t;
+  const answers = cleanAnswers(screen, body);
+  const confirm = body.confirm === true;
+  if (confirm) {
+    const missing = screenAnswersValid(screen, answers);
+    if (missing.length) return json(res, 400, { error: `Still needed: ${missing.join('; ')}.`, missing });
+    if (!user.admin && body.agree !== true) return json(res, 400, { error: 'Tick the declaration to confirm.' });
+  }
+  const who = user.admin ? `${user.name} (office)` : user.name;
+  let docId = null;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    if (confirm) {
+      const html = screenHtml(m[1], screen, pers, answers, { by: who, at: now(), ip: String(ip || '') }, req);
+      const filePath = path.join(DOCS_DIR, `p${pers.id}-accepted-${m[1]}-${Date.now()}.html`);
+      fs.writeFileSync(filePath, html);
+      const cat = PDOC_MAP[m[1]] || { label: screen.title };
+      /* an earlier confirmation of the same form is superseded, not deleted */
+      db.prepare("UPDATE participant_docs SET review_state = 'superseded' WHERE participant_id = ? AND form_key = ? AND accepted_at IS NOT NULL").run(pers.id, m[1]);
+      const r = db.prepare(`INSERT INTO participant_docs (participant_id, form_key, label, doc_date, note, uploaded_at, uploaded_by, file_name, file_mime, file_path,
+          accepted_at, accepted_ip, accepted_version, verified_at, verified_by, verify_method, verify_note, review_state)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved')`)
+        .run(pers.id, m[1], '', ymd(), `Filled in on BookIt by ${who}.`, now(), who, `${cat.label.replace(/[^\w.\- ]/g, '').trim()} (filled ${dmy(ymd())}).html`, 'text/html; charset=utf-8', filePath,
+             now(), String(ip || ''), screen.edition, now(), user.admin ? user.name : 'BookIt', 'other', 'Confirmed on screen.');
+      docId = Number(r.lastInsertRowid);
+    }
+    db.prepare('INSERT INTO form_responses (participant_id, form_key, answers, edition, saved_at, saved_by, confirmed_at, confirmed_by, doc_id) VALUES (?,?,?,?,?,?,?,?,?)')
+      .run(pers.id, m[1], JSON.stringify(answers), screen.edition, now(), who, confirm ? now() : null, confirm ? who : null, docId);
+    db.exec('COMMIT');
+  } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
+  if (confirm && !user.admin) logCompliance({ worker_id: null, worker_name: '', kind: 'form-screen', result: 'confirmed', detail: `${screen.title} confirmed on screen by ${who} for ${pers.name}.`, source: 'participant', checked_by: who });
+  json(res, 200, { ok: true, saved: true, confirmed: confirm, doc_id: docId, read_url: docId ? `/api/participant-documents/${docId}/file` : '' });
+});
+
+
+/* ---------- the registers the v86.9.0 work adds to the audit pack ----------
+   Everything the office can now do leaves a row somewhere; each of these is a
+   CSV an auditor can open, and each is in the pack automatically because it
+   is listed in AUDIT_REPORTS. Same shape as the older registers: BOM, CRLF,
+   every cell through the spreadsheet-safe filter. */
+function csvOut(res, name, header, rows) {
+  const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
+  const lines = [header.map(q).join(',')].concat(rows.map(r => r.map(q).join(',')));
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${name}-${ymd()}.csv"` });
+  res.end('\ufeff' + lines.join('\r\n'));
+}
+route('GET', /^\/api\/admin\/invoice-register\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const nos = db.prepare("SELECT DISTINCT invoice_no, participant_id FROM bookings WHERE COALESCE(invoice_no,'') <> '' ORDER BY claimed_at DESC").all();
+  const withdrawn = Object.fromEntries(db.prepare("SELECT label, reason, by, at FROM erasures WHERE kind = 'invoice'").all().map(r => [String(r.label).split(' ')[0], r]));
+  const rows = nos.map(n => { const inv = invoiceFor(n.invoice_no); if (!inv) return null;
+    return [inv.invoice_no, inv.date, inv.due_date, inv.participant.name, inv.participant.ndis_number, inv.funding, inv.lines.length, inv.total.toFixed(2), inv.paid.toFixed(2), inv.balance.toFixed(2), inv.balance <= 0 ? 'paid' : (inv.due < ymd() ? 'overdue' : 'due'), inv.paid_at ? String(inv.paid_at).slice(0, 10) : '', inv.pay_url ? 'card link issued' : '']; }).filter(Boolean);
+  for (const [no, w] of Object.entries(withdrawn)) rows.push([no, '', '', String(w.label).replace(no, '').trim(), '', '', '', '', '', '', `withdrawn ${String(w.at).slice(0, 10)} by ${w.by}: ${w.reason}`, '', '']);
+  csvOut(res, 'bookit-invoice-register', ['Invoice', 'Date', 'Due', 'Participant', 'NDIS number', 'Funding', 'Lines', 'Total ($)', 'Paid ($)', 'Balance ($)', 'Status', 'Paid date', 'Card'], rows);
+});
+route('GET', /^\/api\/admin\/night-care\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = db.prepare(`SELECT b.id, b.date, b.start, b.hours, up.name AS participant, uw.name AS worker, b.status, b.active_hours, b.active_extra_hours, b.active_extra_category, b.active_extra_item, b.active_extra_rate, b.active_extra_total, b.active_extra_share, b.active_note, b.total, b.invoice_no, b.claim_status
+    FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id WHERE b.sleepover = 1 ORDER BY b.date DESC`).all()
+    .map(r => [r.id, dmy(r.date), r.start, r.hours, r.participant, r.worker, r.status, (r.total || 0).toFixed(2), r.active_hours ?? '', SLEEPOVER_INCLUDED_ACTIVE_HOURS, r.active_extra_hours || 0, r.active_extra_category || '', r.active_extra_item || '', (r.active_extra_rate || 0).toFixed(2), (r.active_extra_total || 0).toFixed(2), (r.active_extra_share || 0).toFixed(2), r.active_note || '', r.invoice_no || '', r.claim_status || '']);
+  csvOut(res, 'bookit-night-care', ['Shift', 'Date', 'Start', 'Hours', 'Participant', 'Worker', 'Status', 'Night price ($)', 'Active hours recorded', 'Included', 'Extra hours', 'Extra rate category', 'Extra item', 'Extra rate ($)', 'Extra total ($)', 'Extra paid to worker ($)', 'Active-hours note', 'Invoice', 'Claim'], rows);
+});
+route('GET', /^\/api\/admin\/fee-lines\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = db.prepare(`SELECT b.id, b.kind, b.date, up.name AS participant, up.ndis_number, b.service, b.hours, b.unit_price, b.total, b.support_item, b.notes, b.invoice_no, b.claim_status, uw.name AS raised_by
+    FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id WHERE COALESCE(b.kind,'shift') IN ('establishment','nf2f','intro') ORDER BY b.date DESC`).all()
+    .map(r => [r.id, r.kind === 'intro' ? 'meet-and-greet (no charge)' : r.kind === 'nf2f' ? 'non-face-to-face' : 'establishment fee', dmy(r.date), r.participant, r.ndis_number || '', SERVICE_LABELS[r.service] || r.service, r.hours, (r.unit_price || 0).toFixed(2), (r.total || 0).toFixed(2), r.support_item || '', r.notes || '', r.invoice_no || '', r.claim_status || '', r.raised_by]);
+  csvOut(res, 'bookit-fee-lines', ['Line', 'Kind', 'Date', 'Participant', 'NDIS number', 'Service', 'Hours', 'Rate ($)', 'Total ($)', 'Support item', 'Note', 'Invoice', 'Claim', 'Raised by / worker'], rows);
+});
+route('GET', /^\/api\/admin\/referrals\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = db.prepare(`SELECT r.id, a.name AS referrer, b.name AS referee, r.code, r.created, r.qualified_at, r.hours_at_qualify, r.amount, r.paid_at, r.paid_by FROM referrals r JOIN users a ON a.id = r.referrer_id JOIN users b ON b.id = r.referee_id ORDER BY r.id`).all()
+    .map(r => [r.id, r.referrer, r.referee, r.code, String(r.created).slice(0, 10), r.qualified_at ? String(r.qualified_at).slice(0, 10) : '', r.hours_at_qualify || '', (r.amount || 0).toFixed(2), r.paid_at ? String(r.paid_at).slice(0, 10) : '', r.paid_by || '']);
+  csvOut(res, 'bookit-worker-referrals', ['Referral', 'Referred by', 'New worker', 'Code', 'Joined', 'Qualified', 'Hours at qualifying', 'Bonus ($)', 'Paid', 'Paid by'], rows);
+});
+route('GET', /^\/api\/admin\/form-responses\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = db.prepare(`SELECT f.id, u.name AS participant, f.form_key, f.edition, f.saved_at, f.saved_by, f.confirmed_at, f.confirmed_by, f.doc_id, f.answers FROM form_responses f JOIN users u ON u.id = f.participant_id ORDER BY f.id DESC`).all()
+    .map(r => [r.id, r.participant, (FORM_SCREENS[r.form_key] || {}).title || r.form_key, r.edition, String(r.saved_at).slice(0, 16).replace('T', ' '), r.saved_by, r.confirmed_at ? String(r.confirmed_at).slice(0, 16).replace('T', ' ') : 'draft', r.confirmed_by || '', r.doc_id ? `participants/…/${r.form_key} (doc ${r.doc_id})` : '', JSON.stringify(safeJson(r.answers, {}))]);
+  csvOut(res, 'bookit-form-responses', ['Response', 'Participant', 'Form', 'Edition', 'Saved', 'Saved by', 'Confirmed', 'Confirmed by', 'Filed as', 'Answers (JSON)'], rows);
+});
+route('GET', /^\/api\/admin\/erasures\.csv$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = db.prepare('SELECT id, kind, ref, label, reason, by, at FROM erasures ORDER BY id').all()
+    .map(r => [r.id, r.kind, r.ref, r.label, r.reason, r.by, String(r.at).slice(0, 16).replace('T', ' ')]);
+  const voided = db.prepare(`SELECT b.id, b.date, b.start, up.name AS participant, b.cancel_reason, b.cancelled_by, b.cancelled_at FROM bookings b JOIN users up ON up.id = b.participant_id WHERE COALESCE(b.voided,0) = 1 ORDER BY b.id`).all();
+  for (const v of voided) rows.push(['', 'booking-voided', v.id, `${v.participant} ${dmy(v.date)} ${v.start}`, String(v.cancel_reason || '').replace(/^VOID — /, ''), v.cancelled_by || '', String(v.cancelled_at || '').slice(0, 16).replace('T', ' ')]);
+  const held = db.prepare(`SELECT b.id, b.date, b.start, up.name AS participant, b.hold_reason FROM bookings b JOIN users up ON up.id = b.participant_id WHERE COALESCE(b.claim_hold,0) = 1 ORDER BY b.id`).all();
+  for (const h of held) rows.push(['', 'line-held', h.id, `${h.participant} ${dmy(h.date)} ${h.start}`, h.hold_reason || '', '', '']);
+  csvOut(res, 'bookit-removed-records', ['Erasure', 'Kind', 'Record', 'What it was', 'Reason', 'By', 'When'], rows);
+});
+route('GET', /^\/api\/admin\/kpis\.json$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  /* the same numbers the Growth board shows, frozen for the pack */
+  const fake = { url: '/api/admin/kpis?days=365', headers: {} };
+  const out = {};
+  const stub = { writeHead() {}, end(b) { out.body = b; }, setHeader() {} };
+  routes.find(r => r.method === 'GET' && r.pattern.test('/api/admin/kpis')).handler(fake, stub, ['/api/admin/kpis'], user, {}, '');
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename="bookit-kpis-${ymd()}.json"` });
+  res.end(out.body || '{}');
 });
 
 /* ---------- the public pages, as the server knows them ----------

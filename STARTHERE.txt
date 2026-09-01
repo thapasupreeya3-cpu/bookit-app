@@ -249,6 +249,55 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     site", removes it and its note; the trial participant's account, if
     it has no other delivered shift, can then be closed and is erased.
 
+  FORMS AS SCREENS (no more blank PDFs for these five)
+    Five participant documents are now screens instead of PDFs to
+    download, fill in by hand and upload: photo and media consent,
+    money and property declaration, medication plan and authority (the
+    participant fills these in from My documents › "Fill in on screen"),
+    risk assessment (the office, from the participant card › "On screen,
+    with them"), and the exit and transition record (either side). Each
+    screen is a list of questions the server describes (FORM_SCREENS in
+    server.js: field id, label, type, options, required, help, plus a
+    declaration); the page renders whatever the server says, so adding a
+    sixth form is adding an entry there. "Save a draft" keeps the answers
+    (form_responses, a new table); "Confirm and file" checks the required
+    answers, needs the declaration ticked (the participant) or the office's
+    confirmation, and files a page BookIt wrote — the same genPage wrapper
+    as the Service Agreement, the answers as a table, the declaration, and
+    "Confirmed by NAME on DATE" — into participant_docs exactly like an
+    accepted agreement: accepted_at, edition, snapshot on disk, print
+    button allowed. Filling it in again files a new version and marks the
+    old one superseded. The blank-forms shelf shows these rows as "a
+    screen, not a blank" and stops offering the PDF. Still uploads, on
+    purpose: the NDIS plan copy (the NDIA's document), clinical plans
+    written by someone else (mealtime, epilepsy, diabetes, allergy, manual
+    handling, PBS), and the nominee form.
+    Routes: GET /api/me/forms, GET/POST /api/me/forms/:key (?for=id for a
+    coordinator or the office). Page: #/form/<key>.
+
+  THE AUDIT PACK CARRIES ALL OF IT
+    Everything above leaves a row, and every row is in the pack (Admin ›
+    Documents › audit pack), listed in its README and INDEX:
+      finance/invoice-register.csv   every invoice — total, paid, balance,
+                                     status — and the withdrawn ones with
+                                     the reason
+      finance/invoices/<INV>.pdf     every invoice as the participant got it
+      finance/night-care.csv         every sleepover: active hours recorded,
+                                     the two included, the extra charged
+                                     and paid, the worker's note
+      finance/fee-lines.csv          establishment fees, non-face-to-face
+                                     time, meet-and-greets (no charge)
+      people/worker-referrals.csv    who referred whom, qualified, paid
+      participants/form-responses.csv forms filled in on screen: answers,
+                                     who confirmed, when, where filed; the
+                                     filed pages themselves sit in each
+                                     participant's folder like any document
+      evidence/removed-records.csv   every erasure, void and held line with
+                                     the typed reason and who did it
+      evidence/kpis.json             the Growth board's numbers, frozen
+    The compliance log (already in the pack) carries the concierge
+    consents, fee lines raised, invoices marked paid, and every removal.
+
   THE KILOMETRES ARE CLAIMED NOW
     Provider travel entered by the worker at the end of a shift was charged
     on the participant's statement and nowhere else — never on the invoice,

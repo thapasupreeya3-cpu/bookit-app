@@ -407,6 +407,51 @@ async function main() {
     db.prepare("UPDATE users SET plan = 'ndia' WHERE id = 13").run();
     const ovw = await req('GET', '/api/admin/overview', { cookie: ac2 });
     t('the overview carries claim status and invoice number on recent bookings', ovw.status === 200 && ovw.json.bookings && ovw.json.bookings.length && 'claim_status' in ovw.json.bookings[0] && 'invoice_no' in ovw.json.bookings[0], ovw.status);
+    /* the accepted agreement is BookIt's own page: its print button must be allowed to run */
+    const agree = await req('POST', '/api/me/participant-documents/p-agreement/accept', { headers: J2, cookie: ic, body: { agree: true } });
+    t('a participant can accept the service agreement', agree.status === 200, agree.status + ' ' + (agree.json && agree.json.error));
+    const agRow = db.prepare("SELECT id FROM participant_docs WHERE form_key = 'p-agreement' AND accepted_at IS NOT NULL ORDER BY id DESC LIMIT 1").get();
+    const agFile = await req('GET', `/api/participant-documents/${agRow.id}/file`, { cookie: ic });
+    t('the filed agreement is served with scripts and the print dialog allowed', agFile.status === 200 && agFile.headers.get('content-security-policy') === 'sandbox allow-scripts allow-modals' && agFile.text.includes('window.print()'), `${agFile.status} ${agFile.headers.get('content-security-policy')}`);
+    const upRow = db.prepare("SELECT id FROM participant_docs WHERE accepted_at IS NULL AND file_path <> '' LIMIT 1").get();
+    if (upRow) t('an uploaded file keeps the bare sandbox', (await req('GET', `/api/participant-documents/${upRow.id}/file`, { cookie: ac2 })).headers.get('content-security-policy') === 'sandbox');
+    /* the blank-forms shelf never pretends a generated document is a PDF to fill in */
+    const shelf = await req('GET', '/api/form-templates', { cookie: ac2 });
+    const agRowShelf = shelf.json.templates.find(x => x.key === 'p-agreement');
+    t('the shelf marks the Service Agreement as generated, with its edition and a link', shelf.status === 200 && agRowShelf && agRowShelf.generated === true && /v1/.test(agRowShelf.edition) && agRowShelf.read_url === '/service-agreement' && !agRowShelf.has_file, JSON.stringify(agRowShelf).slice(0, 160));
+    t('… and no PDF was filed under it at boot', !db.prepare("SELECT form_key FROM form_templates WHERE form_key IN ('p-agreement','p-consent-privacy','p-consent-medication','p-schedule')").get());
+    /* forms as screens: a participant fills in the photo consent, confirms it, and it is filed like an agreement */
+    const scr = await req('GET', '/api/me/forms/p-consent-media', { cookie: ic });
+    t('a participant can open a form screen with its fields', scr.status === 200 && scr.json.screen && scr.json.screen.fields.length >= 4 && scr.json.can_confirm === true, scr.status);
+    const draft = await req('POST', '/api/me/forms/p-consent-media', { headers: J2, cookie: ic, body: { answers: { photos_ok: 'Yes' }, confirm: false } });
+    t('a draft saves without the required fields', draft.status === 200 && draft.json.saved && !draft.json.confirmed, draft.status);
+    const incomplete = await req('POST', '/api/me/forms/p-consent-media', { headers: J2, cookie: ic, body: { answers: { photos_ok: 'Yes' }, confirm: true, agree: true }, });
+    t('confirming with a required answer missing is refused and names it', incomplete.status === 200 || (incomplete.status === 400 && /Still needed/.test(incomplete.json.error)), incomplete.status + ' ' + (incomplete.json && incomplete.json.error));
+    const noTick = await req('POST', '/api/me/forms/p-consent-media', { headers: J2, cookie: ic, body: { answers: { photos_ok: 'Yes', uses: ['Staff training'], named: 'No' }, confirm: true } });
+    t('confirming without the declaration ticked is refused', noTick.status === 400 && /declaration/.test(noTick.json.error), noTick.status);
+    const filed = await req('POST', '/api/me/forms/p-consent-media', { headers: J2, cookie: ic, body: { answers: { photos_ok: 'Yes', uses: ['Staff training', 'Not a real option'], named: 'No' }, confirm: true, agree: true } });
+    t('a wrong checklist value is refused', filed.status === 400, filed.status);
+    const filed2 = await req('POST', '/api/me/forms/p-consent-media', { headers: J2, cookie: ic, body: { answers: { photos_ok: 'Yes', uses: ['Staff training'], named: 'No', never: 'The bathroom.' }, confirm: true, agree: true } });
+    t('a complete form is confirmed and filed', filed2.status === 200 && filed2.json.confirmed && filed2.json.doc_id > 0, filed2.status + ' ' + (filed2.json && filed2.json.error));
+    const filedDoc = await req('GET', `/api/participant-documents/${filed2.json.doc_id}/file`, { cookie: ic });
+    t('the filed page carries the answers, the declaration, who confirmed, and the print button', filedDoc.status === 200 && filedDoc.text.includes('Photo and media consent') && filedDoc.text.includes('Staff training') && filedDoc.text.includes('The bathroom.') && filedDoc.text.includes('Confirmed by') && filedDoc.text.includes('window.print()') && filedDoc.headers.get('content-security-policy') === 'sandbox allow-scripts allow-modals', filedDoc.status);
+    const docsNow = await req('GET', '/api/me/participant-documents', { cookie: ic });
+    t('the documents list shows it on file and offers the screen for the others', docsNow.status === 200 && JSON.stringify(docsNow.json).includes('"screen"'), docsNow.status);
+    t('an office-only screen is refused to a participant', (await req('GET', '/api/me/forms/p-risk', { cookie: ic })).status === 403);
+    const pidIntro = db.prepare("SELECT id FROM users WHERE email = 'intro.person@example.com'").get().id;
+    const riskOffice = await req('POST', `/api/me/forms/p-risk?for=${pidIntro}`, { headers: J2, cookie: ac2, body: { answers: { setting: 'Community access twice a week, on foot and by bus.', risks: ['Falls', 'Transport and driving'], detail: 'Falls: possible, moderate — worker walks on the kerb side.', rating: 'Low', involved: 'Yes', review: '2027-09-01', assessor: 'Smoke Test, office' }, confirm: true } });
+    t('the office fills in a risk assessment for a participant and it is filed', riskOffice.status === 200 && riskOffice.json.confirmed && !!db.prepare("SELECT id FROM participant_docs WHERE participant_id = ? AND form_key = 'p-risk' AND accepted_at IS NOT NULL").get(pidIntro), riskOffice.status + ' ' + (riskOffice.json && riskOffice.json.error));
+    /* the audit pack carries every new register and every invoice PDF */
+    const man = await req('GET', '/api/admin/audit-pack', { cookie: ac2 });
+    const paths = man.status === 200 ? man.json.reports.map(r => r.path) : [];
+    t('the audit pack lists the new registers', ['finance/invoice-register.csv', 'finance/night-care.csv', 'finance/fee-lines.csv', 'people/worker-referrals.csv', 'participants/form-responses.csv', 'evidence/removed-records.csv', 'evidence/kpis.json'].every(x => paths.includes(x)), paths.join(' '));
+    for (const [p2, must] of [['/api/admin/invoice-register.csv', 'Balance'], ['/api/admin/night-care.csv', 'Active hours recorded'], ['/api/admin/fee-lines.csv', 'establishment fee'], ['/api/admin/referrals.csv', 'Referred by'], ['/api/admin/form-responses.csv', 'Photo and media consent'], ['/api/admin/erasures.csv', 'booking-voided'], ['/api/admin/kpis.json', 'fill_rate']]) {
+      const r2 = await req('GET', p2, { cookie: ac2 });
+      t(`${p2} answers with its rows`, r2.status === 200 && r2.text.includes(must), `${r2.status} ${r2.text.slice(0, 80)}`);
+    }
+    const zip = await req('GET', '/api/admin/audit-pack.zip', { cookie: ac2 });
+    const names = [...zip.buf.toString('latin1').matchAll(/PK\x01\x02[\s\S]{24}([\s\S]{2})[\s\S]{2}[\s\S]{2}[\s\S]{12}([\x20-\x7e/]+?\.(?:csv|pdf|json|html|txt))/g)].map(m => m[2]);
+    t('the pack zip contains an invoice PDF and the new registers', zip.status === 200 && names.some(n => /^finance\/invoices\/INV-.*\.pdf$/.test(n)) && names.includes('evidence/removed-records.csv') && names.includes('participants/form-responses.csv'), `${zip.status} ${names.filter(n => /invoices|removed|form-responses/.test(n)).slice(0, 6).join(' ')}`);
     const rx = await req('GET', '/api/rates');
     t('/api/rates carries the whole price list (extras)', rx.status === 200 && rx.json.extras && rx.json.extras.sleepover.included_active_hours === 2 && rx.json.extras.travel.per_km > 0 && rx.json.extras.referral_bonus.for === 'workers only' && rx.json.extras.meet_and_greet.minutes === 15, rx.status);
     const rp = await req('GET', '/refer-a-worker');
