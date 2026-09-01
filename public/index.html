@@ -9889,7 +9889,8 @@ async function renderAdminPage(){
       : esc(r.support_item || r.item || '—') + (r.invoice_no ? `<br><span style="font-size:.78rem;color:#3E5A64;">${esc(r.invoice_no)}</span>` : '')}</td>
     <td><b>$${Number(r.total || 0).toFixed(2)}</b></td>
     <td>${showActions
-      ? (r.flags.length ? `<span style="color:#D94F32;font-size:.78rem;">${esc(r.flags.join(' · '))}</span>` : '<span style="color:#1C7C43;font-size:.78rem;">ready ✓</span>')
+      ? `${r.flags.length ? `<span style="color:${r.claim_hold ? '#8a6d00' : '#D94F32'};font-size:.78rem;">${esc(r.flags.join(' · '))}</span>` : '<span style="color:#1C7C43;font-size:.78rem;">ready ✓</span>'}
+         <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${r.claim_hold ? `<button class="adm-btn-sm" data-claim-release="${r.id}" type="button" title="Let the next run invoice it after all">Release</button>` : ''}<button class="adm-btn-sm" data-remove-booking="${r.id}" type="button" title="Void or erase this shift, with a reason" style="color:#A5301A;">Remove…</button></div>`
       : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `${r.invoice_no ? `<button class="adm-btn-sm" data-inv-paid="${esc(r.invoice_no)}" type="button" title="Bank transfer received for the whole invoice">Invoice paid</button> <button class="adm-btn-sm" data-inv-withdraw="${esc(r.invoice_no)}" type="button" title="Take the whole invoice back; its lines return to unclaimed" style="color:#A5301A;">Withdraw invoice…</button> ` : ''}${r.claim_status === 'claimed' && !r.invoice_no ? `<button class="adm-btn-sm" data-claim-unclaim="${r.id}" type="button" title="Take this line off the agency claim" style="color:#A5301A;">Unclaim…</button> ` : ''}${!r.claim_status ? `<button class="adm-btn-sm" data-remove-booking="${r.id}" type="button" title="Void or erase this shift, with a reason" style="color:#A5301A;">Remove…</button> ` : ''}<button class="adm-btn-sm" data-claim-paid="${r.id}" type="button">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
   </tr>`;
   const claimTable = (rows, showActions) => `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Date</th><th>Participant</th><th>Funding</th><th>Shift</th><th>Support item</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(r => claimRow(r, showActions)).join('')}</tbody></table></div>`;
@@ -10193,11 +10194,13 @@ document.addEventListener('click', async e => {
   const iw = e.target.closest('[data-inv-withdraw]');
   if(iw){
     const no = iw.dataset.invWithdraw;
-    const a = await askRemoval({ title: `Withdraw invoice ${no}`, text: 'The invoice is taken back: every line on it returns to <b>unclaimed</b>, the participant (or plan manager) is emailed that it should not be paid, the card link stops working, and the lines can then be removed, corrected, or picked up by the next invoicing run. A paid invoice cannot be withdrawn — mark it unpaid first if that was a mistake.', button: 'Withdraw the invoice' });
+    const a = await askRemoval({ title: `Withdraw invoice ${no}`, text: 'The invoice is taken back: the participant (or plan manager) is emailed that it should not be paid, the card link stops working, and every line on it is <b>held</b> in the invoicing table below — no run, by button or overnight, will invoice a held line. From there you remove it (void or erase), fix it, or press Release to let it be invoiced again. A paid invoice cannot be withdrawn — mark it unpaid first if that was a mistake.', button: 'Withdraw the invoice' });
     if(!a) return;
-    try{ const r = await API.call('/admin/invoices/' + encodeURIComponent(no) + '/withdraw', {method:'POST', body:{reason: a.reason}}); toast(`Invoice withdrawn — ${r.lines} line${r.lines === 1 ? '' : 's'} back to unclaimed.`); renderAdminPage(); }catch(err){ toast(err.message); }
+    try{ const r = await API.call('/admin/invoices/' + encodeURIComponent(no) + '/withdraw', {method:'POST', body:{reason: a.reason}}); toast(`Invoice withdrawn — ${r.lines} line${r.lines === 1 ? '' : 's'} now held: remove, fix or release ${r.lines === 1 ? 'it' : 'them'} below.`); renderAdminPage(); }catch(err){ toast(err.message); }
     return;
   }
+  const rl = e.target.closest('[data-claim-release]');
+  if(rl){ try{ await API.call('/admin/claims/' + rl.dataset.claimRelease + '/release', {method:'POST', body:{}}); toast('Released — the next run will invoice it.'); renderAdminPage(); }catch(err){ toast(err.message); } return; }
   const uc = e.target.closest('[data-claim-unclaim]');
   if(uc){
     const a = await askRemoval({ title: `Take shift #${uc.dataset.claimUnclaim} off the claim`, text: 'The line returns to <b>unclaimed</b>. If you have already uploaded a PACE file containing it, withdraw it there as well.', button: 'Unclaim' });

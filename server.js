@@ -156,6 +156,8 @@ for (const col of ['claim_status TEXT DEFAULT \'\'', 'claim_ref TEXT', 'invoice_
 }
 BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE users ADD COLUMN closed_at TEXT`);
 BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN voided INTEGER DEFAULT 0`);
+BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN claim_hold INTEGER DEFAULT 0`);
+BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN hold_reason TEXT DEFAULT ''`);
 /* v86.9.0: inactive night care (active hours inside a sleepover), meet-and-greet
    bookings, group ratios, one-off fee lines. All nullable with defaults; no
    rewrite of the table. */
@@ -4026,7 +4028,7 @@ const dmy = iso => String(iso || '').split('-').reverse().join('/');
 function claimRows(where, ...params) {
   return db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.rate_category, b.unit_price, b.total,
       b.active_extra_hours, b.active_extra_total, b.active_extra_item, b.active_extra_rate, b.active_extra_category, b.kind, b.ratio, b.sleepover,
-      b.km, b.km_total, b.km_from, b.km_to,
+      b.km, b.km_total, b.km_from, b.km_to, b.claim_hold, b.hold_reason,
       b.claim_status, b.claim_ref, b.invoice_no, b.support_item, b.claimed_at, b.paid_at, b.pay_url,
       b.status, b.short_notice, b.notice_hours, b.cancel_code, b.cancel_reason,
       up.id AS pid, up.name AS participant_name, up.email AS participant_email, up.plan AS funding, up.ndis_number, up.pm_email,
@@ -4050,6 +4052,10 @@ function effectiveItem(r) {
 }
 function lineFlags(r) {
   const flags = [];
+  /* a line the office has held (after withdrawing an invoice, or on purpose)
+     waits for a decision — remove it, fix it, or release it — and no run,
+     manual or nightly, will pick it up until then */
+  if (r.claim_hold) flags.push(`held${r.hold_reason ? ' — ' + r.hold_reason : ''}`);
   if (!['ndia', 'plan', 'self'].includes(r.funding)) flags.push('no funding type on the participant profile');
   if (r.funding === 'ndia' && !/^\d{9}$/.test(r.ndis_number || '')) flags.push('NDIS number missing');
   if (r.funding === 'plan' && !r.pm_email) flags.push('plan manager email missing');
@@ -17340,12 +17346,20 @@ route('POST', /^\/api\/admin\/invoices\/([A-Z0-9-]+)\/withdraw$/, (req, res, m, 
   db.exec('BEGIN IMMEDIATE');
   try {
     recordErasure('invoice', rows[0].participant_id, `${m[1]} ${p.name || ''} $${round2(rows.reduce((a, r) => a + (r.total || 0), 0)).toFixed(2)}`, { invoice_no: m[1], booking_ids: rows.map(r => r.id) }, reason, user.name);
-    db.prepare("UPDATE bookings SET invoice_no = '', claim_status = '', claim_ref = NULL, claimed_at = NULL, pay_url = NULL, stripe_session = NULL WHERE invoice_no = ?").run(m[1]);
+    db.prepare("UPDATE bookings SET invoice_no = '', claim_status = '', claim_ref = NULL, claimed_at = NULL, pay_url = NULL, stripe_session = NULL, claim_hold = 1, hold_reason = ? WHERE invoice_no = ?").run(`withdrawn ${ymd()}: ${reason}`.slice(0, 200), m[1]);
     db.exec('COMMIT');
   } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
   if (p.email) notify(rows[0].participant_id, 'invoice', p.email, `Invoice ${m[1]} has been withdrawn — BookIt`, 'An invoice was withdrawn',
     `<p>Invoice <b>${m[1]}</b> has been withdrawn by our office and should not be paid. If a corrected invoice is needed it will arrive separately. Reason given: ${escHtml(reason)}</p>`, 'Open my statement', `${APP_URL}/#/statements`);
-  json(res, 200, { ok: true, lines: rows.length });
+  json(res, 200, { ok: true, lines: rows.length, held: true });
+});
+/* a held line goes back to "ready" once the office has decided it should be invoiced after all */
+route('POST', /^\/api\/admin\/claims\/(\d+)\/release$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const r = db.prepare('SELECT id, claim_hold FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!r || !r.claim_hold) return json(res, 404, { error: 'That shift is not held.' });
+  db.prepare("UPDATE bookings SET claim_hold = 0, hold_reason = '' WHERE id = ?").run(r.id);
+  json(res, 200, { ok: true });
 });
 route('POST', /^\/api\/admin\/claims\/(\d+)\/unclaim$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
@@ -17355,7 +17369,7 @@ route('POST', /^\/api\/admin\/claims\/(\d+)\/unclaim$/, (req, res, m, user, body
   if (r.claim_status === 'paid') return json(res, 409, { error: 'Marked paid — mark it unpaid first.' });
   if (r.invoice_no) return json(res, 409, { error: `This line is on invoice ${r.invoice_no}; withdraw the invoice instead so the participant is told.` });
   recordErasure('claim-line', r.id, r.claim_ref || '', { booking_id: r.id, claim_ref: r.claim_ref }, reason, user.name);
-  db.prepare("UPDATE bookings SET claim_status = '', claim_ref = NULL, claimed_at = NULL WHERE id = ?").run(r.id);
+  db.prepare("UPDATE bookings SET claim_status = '', claim_ref = NULL, claimed_at = NULL, claim_hold = 1, hold_reason = ? WHERE id = ?").run(`unclaimed ${ymd()}: ${reason}`.slice(0, 200), r.id);
   json(res, 200, { ok: true });
 });
 route('GET', /^\/api\/admin\/erasures$/, (req, res, m, user) => {

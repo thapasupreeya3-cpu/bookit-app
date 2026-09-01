@@ -198,10 +198,18 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
       Workers — "Close account…" on each applicant card.
       People — "Close…" on any row that is not an admin, not you and not
         a demo account.
+    A WITHDRAWN OR UNCLAIMED LINE IS HELD (claim_hold = 1, hold_reason):
+    it sits in the "Invoicing — completed shifts" table marked "held —
+    withdrawn <date>: <reason>" and NO run, by button or by the nightly
+    job, will invoice it again until the office decides — Remove… (void or
+    erase), fix it, or Release (back to "ready ✓"). This is why pressing
+    Run after a withdrawal no longer brings the invoice straight back.
     THE ORDER, for something that has already been invoiced: Claims ›
-    Withdraw invoice… (reason) → the shift is unclaimed → Remove… › Erase
+    Withdraw invoice… (reason) → the shift is held → Remove… › Erase
     (reason, and the "this was a test" tick if it was delivered) → then
     Close account… on the participant if the account was only a trial.
+    Remove… is on both tables of the Money board: the claimed table and
+    the invoicing table.
     SHIFTS — "Remove…" opens the dialog:
       Void  — a delivered shift the office wants out of everything but
               which must stay on file: it becomes a cancellation that is
@@ -231,7 +239,8 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     Routes: DELETE /api/admin/bookings/:id (reason, test), POST
     /api/admin/bookings/:id/void (reason), POST
     /api/admin/invoices/:no/withdraw (reason), POST
-    /api/admin/claims/:id/unclaim (reason), DELETE /api/admin/users/:id
+    /api/admin/claims/:id/unclaim (reason), POST
+    /api/admin/claims/:id/release, DELETE /api/admin/users/:id
     (reason, acknowledge), GET /api/admin/erasures. Nothing here is
     reachable from the participant or worker side; "Remove" on a filed
     document (Participant files) is the older, separate action.

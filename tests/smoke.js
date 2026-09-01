@@ -377,6 +377,14 @@ async function main() {
     const wd = await req('POST', '/api/admin/invoices/INV-TEST-WD/withdraw', { headers: J2, cookie: ac2, body: { reason: 'Invoice raised on a trial shift; withdrawing it before removing the shift.' } });
     t('the invoice can be withdrawn with a reason', wd.status === 200 && wd.json.lines === 1 && !db.prepare('SELECT invoice_no FROM bookings WHERE id = ?').get(wdId).invoice_no, wd.status + ' ' + (wd.json && wd.json.error));
     t('… and the participant no longer sees it', !(await req('GET', '/api/me/invoices', { cookie: pc })).json.invoices.some(i => i.invoice_no === 'INV-TEST-WD'));
+    /* the withdrawn line is held: Run does not re-invoice it, and it says so */
+    const rerun = await req('POST', '/api/admin/claims/run', { headers: J2, cookie: ac2, body: {} });
+    t('running claims again does not re-invoice the withdrawn shift', rerun.status === 200 && !db.prepare('SELECT invoice_no FROM bookings WHERE id = ?').get(wdId).invoice_no && rerun.json.needs.some(n => n.id === wdId && n.flags.some(f => /^held/.test(f))), rerun.status + ' ' + JSON.stringify(rerun.json.needs).slice(0, 160));
+    const heldRow = (await req('GET', '/api/admin/claims', { cookie: ac2 })).json.rows ? null : null;
+    const rel = await req('POST', `/api/admin/claims/${wdId}/release`, { headers: J2, cookie: ac2, body: {} });
+    t('released, the next run invoices it again', rel.status === 200 && (await req('POST', '/api/admin/claims/run', { headers: J2, cookie: ac2, body: {} })).status === 200 && !!db.prepare('SELECT invoice_no FROM bookings WHERE id = ?').get(wdId).invoice_no, rel.status);
+    const wd2 = await req('POST', `/api/admin/invoices/${db.prepare('SELECT invoice_no FROM bookings WHERE id = ?').get(wdId).invoice_no}/withdraw`, { headers: J2, cookie: ac2, body: { reason: 'Withdrawing again so the trial shift can be erased.' } });
+    t('withdrawn again, it is held again', wd2.status === 200 && db.prepare('SELECT claim_hold FROM bookings WHERE id = ?').get(wdId).claim_hold === 1, wd2.status);
     const gone = await req('DELETE', `/api/admin/bookings/${wdId}`, { headers: J2, cookie: ac2, body: { reason: 'Trial shift used to test the site, not a real support.', test: true } });
     t('… after which the shift can be erased', gone.status === 200 && !db.prepare('SELECT id FROM bookings WHERE id = ?').get(wdId), gone.status);
     const paidInv = db.prepare("SELECT invoice_no FROM bookings WHERE participant_id = 13 AND claim_status = 'paid' AND invoice_no <> '' LIMIT 1").get();
