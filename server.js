@@ -3803,8 +3803,8 @@ route('GET', /^\/api\/admin\/overview$/, (req, res, m, user) => {
   const paused = db.prepare(`SELECT p.user_id, p.paused_at, p.pause_note, u.name, u.email, u.suburb, u.phone
     FROM worker_profiles p JOIN users u ON u.id = p.user_id
     WHERE COALESCE(p.self_paused, 0) = 1 ORDER BY p.paused_at DESC`).all();
-  const users = db.prepare('SELECT u.id, u.role, u.name, u.email, u.suburb, u.verified, u.created, p.visible FROM users u LEFT JOIN worker_profiles p ON p.user_id = u.id ORDER BY u.id DESC LIMIT 100').all();
-  const bookings = db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.status, b.created,
+  const users = db.prepare('SELECT u.id, u.role, u.name, u.email, u.suburb, u.verified, u.created, u.is_admin, u.closed_at, p.visible FROM users u LEFT JOIN worker_profiles p ON p.user_id = u.id ORDER BY u.id DESC LIMIT 100').all();
+  const bookings = db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.status, b.created, b.claim_status, b.invoice_no, b.voided,
     up.name AS participant_name, uw.name AS worker_name FROM bookings b
     JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id ORDER BY b.id DESC LIMIT 50`).all();
   const contacts = db.prepare('SELECT id, name, email, topic, body, created FROM contact_messages ORDER BY id DESC LIMIT 50').all();
@@ -17244,7 +17244,7 @@ route('DELETE', /^\/api\/admin\/bookings\/(\d+)$/, (req, res, m, user, body) => 
   const reason = reasonOr400(res, body); if (!reason) return;
   const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
   if (!b) return json(res, 404, { error: 'No such shift.' });
-  if (['claimed', 'paid'].includes(b.claim_status || '')) return json(res, 409, { error: `This shift is on invoice ${b.invoice_no || '(agency claim)'} and is ${b.claim_status}. Take it off the claim first (Claims board › unpaid), then remove it.` });
+  if (['claimed', 'paid'].includes(b.claim_status || '')) return json(res, 409, { error: b.invoice_no ? `This shift is on invoice ${b.invoice_no} (${b.claim_status}). Withdraw the invoice first (Claims board › Withdraw invoice…), then remove the shift.` : `This shift is on an agency claim (${b.claim_status}). Take it off the claim first (Claims board › Unclaim…), then remove it.` });
   const delivered = b.status === 'completed' && (b.kind || 'shift') === 'shift';
   if (delivered && body.test !== true) return json(res, 409, { error: 'This shift was delivered, so it is a record the provider must keep. Void it instead (it leaves every statement, invoice and pay run but stays on file), or tick "this was a test, not a real support" if it was one.', can_void: true });
   const p = db.prepare('SELECT name FROM users WHERE id = ?').get(b.participant_id) || {};
@@ -17262,7 +17262,7 @@ route('POST', /^\/api\/admin\/bookings\/(\d+)\/void$/, (req, res, m, user, body)
   const reason = reasonOr400(res, body); if (!reason) return;
   const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
   if (!b) return json(res, 404, { error: 'No such shift.' });
-  if (['claimed', 'paid'].includes(b.claim_status || '')) return json(res, 409, { error: `This shift is on invoice ${b.invoice_no || '(agency claim)'} and is ${b.claim_status}. Take it off the claim first, then void it.` });
+  if (['claimed', 'paid'].includes(b.claim_status || '')) return json(res, 409, { error: b.invoice_no ? `This shift is on invoice ${b.invoice_no} (${b.claim_status}). Withdraw the invoice first, then void the shift.` : `This shift is on an agency claim (${b.claim_status}). Unclaim it first, then void it.` });
   if (b.voided) return json(res, 409, { error: 'Already void.' });
   /* the status column only allows the five working states, so a void is a
      cancellation that is never short-notice, flagged voided: billable(),
@@ -17325,6 +17325,38 @@ route('DELETE', /^\/api\/admin\/users\/(\d+)$/, (req, res, m, user, body) => {
     db.exec('COMMIT');
   } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
   json(res, 200, { ok: true, mode, id: u.id });
+});
+/* an invoice taken back: its lines return to "unclaimed" and can be removed,
+   corrected or re-invoiced by the next run. Refused while it is paid — a paid
+   invoice is a record; mark it unpaid first if that was a mistake. An agency
+   claim (no invoice number) is withdrawn line by line from the Claims board. */
+route('POST', /^\/api\/admin\/invoices\/([A-Z0-9-]+)\/withdraw$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const reason = reasonOr400(res, body); if (!reason) return;
+  const rows = db.prepare('SELECT id, claim_status, total, participant_id FROM bookings WHERE invoice_no = ?').all(m[1]);
+  if (!rows.length) return json(res, 404, { error: 'No such invoice.' });
+  if (rows.some(r => r.claim_status === 'paid')) return json(res, 409, { error: 'This invoice has been marked paid. If that was a mistake, mark it unpaid first (Invoice paid › unpaid), then withdraw it.' });
+  const p = db.prepare('SELECT name, email FROM users WHERE id = ?').get(rows[0].participant_id) || {};
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    recordErasure('invoice', rows[0].participant_id, `${m[1]} ${p.name || ''} $${round2(rows.reduce((a, r) => a + (r.total || 0), 0)).toFixed(2)}`, { invoice_no: m[1], booking_ids: rows.map(r => r.id) }, reason, user.name);
+    db.prepare("UPDATE bookings SET invoice_no = '', claim_status = '', claim_ref = NULL, claimed_at = NULL, pay_url = NULL, stripe_session = NULL WHERE invoice_no = ?").run(m[1]);
+    db.exec('COMMIT');
+  } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
+  if (p.email) notify(rows[0].participant_id, 'invoice', p.email, `Invoice ${m[1]} has been withdrawn — BookIt`, 'An invoice was withdrawn',
+    `<p>Invoice <b>${m[1]}</b> has been withdrawn by our office and should not be paid. If a corrected invoice is needed it will arrive separately. Reason given: ${escHtml(reason)}</p>`, 'Open my statement', `${APP_URL}/#/statements`);
+  json(res, 200, { ok: true, lines: rows.length });
+});
+route('POST', /^\/api\/admin\/claims\/(\d+)\/unclaim$/, (req, res, m, user, body) => {
+  if (!requireAdmin(user, res)) return;
+  const reason = reasonOr400(res, body); if (!reason) return;
+  const r = db.prepare('SELECT id, claim_status, invoice_no, claim_ref FROM bookings WHERE id = ?').get(Number(m[1]));
+  if (!r || !r.claim_status) return json(res, 404, { error: 'That shift is not on a claim.' });
+  if (r.claim_status === 'paid') return json(res, 409, { error: 'Marked paid — mark it unpaid first.' });
+  if (r.invoice_no) return json(res, 409, { error: `This line is on invoice ${r.invoice_no}; withdraw the invoice instead so the participant is told.` });
+  recordErasure('claim-line', r.id, r.claim_ref || '', { booking_id: r.id, claim_ref: r.claim_ref }, reason, user.name);
+  db.prepare("UPDATE bookings SET claim_status = '', claim_ref = NULL, claimed_at = NULL WHERE id = ?").run(r.id);
+  json(res, 200, { ok: true });
 });
 route('GET', /^\/api\/admin\/erasures$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;

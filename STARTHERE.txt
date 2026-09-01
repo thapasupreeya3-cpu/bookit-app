@@ -185,8 +185,24 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     to the compliance log, and the erased rows are copied to a new table,
     erasures (kind, ref, label, snapshot, reason, by, at), so the audit
     trail still knows they existed.
-    SHIFTS — the "Remove…" button on a Claims-board row (only while the
-    line is unclaimed) opens the dialog:
+    WHERE THE BUTTONS ARE (account menu › Admin):
+      Bookings & rosters › Recent bookings — "Remove…" on any shift that
+        is not on a claim: requested, accepted, cancelled or completed.
+      Claims — "Remove…" on an unclaimed line; "Withdraw invoice…" on a
+        line that carries an invoice number (takes the whole invoice
+        back; every line returns to unclaimed, the participant or plan
+        manager is emailed not to pay it, the card link dies); "Unclaim…"
+        on an agency line (no invoice number). A paid invoice cannot be
+        withdrawn — mark it unpaid first if that was a mistake.
+      Participant files — "Close account…" on each participant card.
+      Workers — "Close account…" on each applicant card.
+      People — "Close…" on any row that is not an admin, not you and not
+        a demo account.
+    THE ORDER, for something that has already been invoiced: Claims ›
+    Withdraw invoice… (reason) → the shift is unclaimed → Remove… › Erase
+    (reason, and the "this was a test" tick if it was delivered) → then
+    Close account… on the participant if the account was only a trial.
+    SHIFTS — "Remove…" opens the dialog:
       Void  — a delivered shift the office wants out of everything but
               which must stay on file: it becomes a cancellation that is
               never short-notice with voided = 1, total and worker share
@@ -213,7 +229,9 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     accounts are refused (revoke admin first); your own account is
     refused from here.
     Routes: DELETE /api/admin/bookings/:id (reason, test), POST
-    /api/admin/bookings/:id/void (reason), DELETE /api/admin/users/:id
+    /api/admin/bookings/:id/void (reason), POST
+    /api/admin/invoices/:no/withdraw (reason), POST
+    /api/admin/claims/:id/unclaim (reason), DELETE /api/admin/users/:id
     (reason, acknowledge), GET /api/admin/erasures. Nothing here is
     reachable from the participant or worker side; "Remove" on a filed
     document (Participant files) is the older, separate action.

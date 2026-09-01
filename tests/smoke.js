@@ -369,6 +369,21 @@ async function main() {
     const de = await req('DELETE', `/api/admin/users/${smokeUser}`, { headers: J2, cookie: ac2, body: { reason: 'Worker has left; closing the account and de-identifying it.', acknowledge: true } });
     const du = db.prepare('SELECT name, email, closed_at FROM users WHERE id = ?').get(smokeUser);
     t('… and with it is closed and de-identified, shifts kept', de.status === 200 && de.json.mode === 'deidentify' && du && du.name === `Removed worker #${smokeUser}` && du.closed_at && db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE worker_id = ? AND status = 'completed'").get(smokeUser).n >= 20, de.status + ' ' + JSON.stringify(du));
+    /* ---- withdrawing an invoice: lines go back to unclaimed and can then be removed ---- */
+    const wdId = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, rate_category, unit_price, worker_share, total, support_item, invoice_no, claim_status, claimed_at, created) VALUES (13,10,'personal-care','2026-08-22','10:00',2,'completed',?,'approved','weekday-day',73.58,50,147.16,'01_011_0107_1_1','INV-TEST-WD','claimed',?,?)").run(now2, now2, now2).lastInsertRowid);
+    db.prepare("UPDATE users SET plan = 'self' WHERE id = 13").run();
+    const stuck = await req('DELETE', `/api/admin/bookings/${wdId}`, { headers: J2, cookie: ac2, body: { reason: 'Trial shift on an invoice, trying to remove it directly.', test: true } });
+    t('a shift on an invoice cannot be removed until the invoice is withdrawn', stuck.status === 409 && /Withdraw the invoice/.test(stuck.json.error), stuck.status + ' ' + (stuck.json && stuck.json.error));
+    const wd = await req('POST', '/api/admin/invoices/INV-TEST-WD/withdraw', { headers: J2, cookie: ac2, body: { reason: 'Invoice raised on a trial shift; withdrawing it before removing the shift.' } });
+    t('the invoice can be withdrawn with a reason', wd.status === 200 && wd.json.lines === 1 && !db.prepare('SELECT invoice_no FROM bookings WHERE id = ?').get(wdId).invoice_no, wd.status + ' ' + (wd.json && wd.json.error));
+    t('… and the participant no longer sees it', !(await req('GET', '/api/me/invoices', { cookie: pc })).json.invoices.some(i => i.invoice_no === 'INV-TEST-WD'));
+    const gone = await req('DELETE', `/api/admin/bookings/${wdId}`, { headers: J2, cookie: ac2, body: { reason: 'Trial shift used to test the site, not a real support.', test: true } });
+    t('… after which the shift can be erased', gone.status === 200 && !db.prepare('SELECT id FROM bookings WHERE id = ?').get(wdId), gone.status);
+    const paidInv = db.prepare("SELECT invoice_no FROM bookings WHERE participant_id = 13 AND claim_status = 'paid' AND invoice_no <> '' LIMIT 1").get();
+    t('a paid invoice cannot be withdrawn', paidInv && (await req('POST', `/api/admin/invoices/${paidInv.invoice_no}/withdraw`, { headers: J2, cookie: ac2, body: { reason: 'Trying to withdraw a paid invoice, which should be refused.' } })).status === 409);
+    db.prepare("UPDATE users SET plan = 'ndia' WHERE id = 13").run();
+    const ovw = await req('GET', '/api/admin/overview', { cookie: ac2 });
+    t('the overview carries claim status and invoice number on recent bookings', ovw.status === 200 && ovw.json.bookings && ovw.json.bookings.length && 'claim_status' in ovw.json.bookings[0] && 'invoice_no' in ovw.json.bookings[0], ovw.status);
     const rx = await req('GET', '/api/rates');
     t('/api/rates carries the whole price list (extras)', rx.status === 200 && rx.json.extras && rx.json.extras.sleepover.included_active_hours === 2 && rx.json.extras.travel.per_km > 0 && rx.json.extras.referral_bonus.for === 'workers only' && rx.json.extras.meet_and_greet.minutes === 15, rx.status);
     const rp = await req('GET', '/refer-a-worker');
