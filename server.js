@@ -8338,6 +8338,80 @@ function pdocOwner(signed) {
    annual review record — so those stay in the catalogue as optional slots.
    The three records BookIt *is* (support plan, care plans, shift notes) stay
    out, for the reason given above. */
+/* the screens are declared here, ahead of the catalogue and the boot filing, which both read them */
+const YN = ['Yes', 'No'];
+const FORM_SCREENS = {
+  'p-consent-media': {
+    title: 'Photo and media consent', who: 'participant', edition: 'screen v1, issued 01/09/2026',
+    lede: 'Whether photos or video of you may be taken during supports, and what they may be used for. You can change any of this at any time by telling the office or your worker.',
+    fields: [
+      { id: 'photos_ok', label: 'Photos or video of me may be taken during supports', type: 'choice', options: YN, required: true },
+      { id: 'uses', label: 'They may be used for', type: 'checklist', options: ['My own support plan and records', 'Sharing with my family, nominee or advocate', 'Showing other workers on my team what my routine looks like', 'BookIt\u2019s website or social media', 'Staff training'] },
+      { id: 'never', label: 'Anything that must never be photographed or shared (a place, a person, a situation)', type: 'textarea' },
+      { id: 'named', label: 'If used publicly, my name may appear with the image', type: 'choice', options: YN },
+      { id: 'review', label: 'Review this consent by', type: 'date', help: 'Usually a year from today. It is reviewed sooner if you ask.' }
+    ],
+    declaration: 'I understand what these images may be used for, that I can withdraw this consent at any time, and that anything already published may take a little time to remove.'
+  },
+  'p-money': {
+    title: 'Money and property declaration', who: 'participant', edition: 'screen v1, issued 01/09/2026',
+    lede: 'What a BookIt worker may and may not do with your money or property during supports. Workers never keep your card or PIN, never borrow, lend, sell or accept gifts, and always give you the receipts.',
+    fields: [
+      { id: 'handles', label: 'A worker may handle my money or property during a shift', type: 'choice', options: YN, required: true },
+      { id: 'what', label: 'What they may handle', type: 'checklist', options: ['Cash you give them for shopping or an outing', 'Your bank card, with you present and you entering the PIN', 'Purchases you ask them to make', 'Your keys, phone or wallet while you are out together'] },
+      { id: 'limit', label: 'Most cash a worker may carry for me in one shift ($)', type: 'text', help: 'A number, e.g. 100. Leave blank for no cash at all.' },
+      { id: 'receipts', label: 'Receipts and change come back to me at the end of the shift, and what was spent goes in the shift note', type: 'choice', options: YN, required: true },
+      { id: 'checker', label: 'Who checks the record (you, or a nominee)', type: 'text', required: true },
+      { id: 'notes', label: 'Anything else about how you want this handled', type: 'textarea' }
+    ],
+    declaration: 'I have read this, it is true, and I understand a worker who does anything outside it is reported to the office the same day.'
+  },
+  'p-medication': {
+    title: 'Medication plan and authority', who: 'participant', edition: 'screen v1, issued 01/09/2026',
+    lede: 'What you take, when, and what a worker does about it. A worker prompts, or hands you medication from its packaging, or administers it — that is the difference this page settles. Where a worker administers, the prescriber\u2019s written authority is also kept on file.',
+    fields: [
+      { id: 'meds', label: 'Each medication: name, dose, when, and how it is taken', type: 'textarea', required: true, help: 'One per line, e.g. "Sertraline 50 mg, morning, tablet".' },
+      { id: 'packaging', label: 'How it is packaged', type: 'choice', options: ['Webster pack / blister pack from the pharmacy', 'Original bottles and boxes', 'A dosette I fill myself', 'Other'], required: true },
+      { id: 'support', label: 'What the worker does', type: 'choice', options: ['Prompts me to take it', 'Hands it to me from the pack and watches me take it', 'Administers it (eye drops, patches, PEG, insulin — needs the prescriber\u2019s authority on file)'], required: true },
+      { id: 'prn', label: 'As-needed (PRN) medication, and exactly when it may be given', type: 'textarea' },
+      { id: 'prescriber', label: 'Prescribing doctor and phone', type: 'text', required: true },
+      { id: 'pharmacy', label: 'Pharmacy and phone', type: 'text' },
+      { id: 'allergies', label: 'Allergies and reactions', type: 'text' },
+      { id: 'storage', label: 'Where it is kept', type: 'text' },
+      { id: 'missed', label: 'If a dose is missed or refused', type: 'textarea', help: 'What the worker does, and who they call.' }
+    ],
+    declaration: 'This is my current medication and I will tell the office when it changes. A worker who administers medication does so only with the prescriber\u2019s authority on file.'
+  },
+  'p-risk': {
+    title: 'Risk assessment', who: 'office', edition: 'screen v1, issued 01/09/2026',
+    lede: 'The risks in this person\u2019s supports, how likely and how serious each is, and the control in place for each. Done with the participant (or their nominee), reviewed every year and after any incident.',
+    fields: [
+      { id: 'setting', label: 'The supports and the settings they happen in', type: 'textarea', required: true },
+      { id: 'risks', label: 'Risks present', type: 'checklist', options: ['Falls', 'Manual handling and transfers', 'Medication', 'Behaviours of concern', 'Choking, mealtime or swallowing', 'Seizures', 'Home environment (stairs, pets, access, other people)', 'Transport and driving', 'Community settings', 'Worker alone with the participant', 'Infection control', 'Financial or property', 'Other'] },
+      { id: 'detail', label: 'For each risk ticked: how likely, how serious, and the control in place', type: 'textarea', required: true, help: 'One per line. The control is the thing a worker does differently because of the risk.' },
+      { id: 'rating', label: 'Overall rating', type: 'choice', options: ['Low', 'Medium', 'High'], required: true },
+      { id: 'involved', label: 'The participant or their nominee took part in this assessment', type: 'choice', options: YN, required: true },
+      { id: 'review', label: 'Review by', type: 'date', required: true },
+      { id: 'assessor', label: 'Assessed by (name and role)', type: 'text', required: true }
+    ],
+    declaration: 'This assessment reflects what the office knows today; it is reviewed on the date above and after any incident, and every worker on the team reads it before their first shift.'
+  },
+  'p-exit': {
+    title: 'Exit and transition record', who: 'both', edition: 'screen v1, issued 01/09/2026',
+    lede: 'What happens when supports through BookIt end: when, why, what has been handed over, and how to reach us afterwards.',
+    fields: [
+      { id: 'end_date', label: 'Last day of supports', type: 'date', required: true },
+      { id: 'reason', label: 'Why supports are ending', type: 'choice', options: ['The participant\u2019s choice', 'Moving away', 'The NDIS plan changed', 'The provider is ending the service', 'Other'], required: true },
+      { id: 'reason_detail', label: 'In their words', type: 'textarea' },
+      { id: 'handover', label: 'What has been handed over, and to whom', type: 'textarea', required: true, help: 'The new provider, family, a coordinator: what they have been given and when.' },
+      { id: 'given', label: 'Documents given to the participant', type: 'checklist', options: ['A copy of the support plan', 'A summary of shift notes', 'The medication plan', 'Final statement and invoices', 'The NDIS plan copy returned'] },
+      { id: 'feedback', label: 'What the participant said about their time with BookIt', type: 'textarea' },
+      { id: 'contact_later', label: 'Happy for us to check in three months from now', type: 'choice', options: YN }
+    ],
+    declaration: 'The supports have ended as recorded here. The participant\u2019s file is kept for the period the law requires and is available to them on request.'
+  }
+};
+
 const PDOC_CATALOG = FORMS.filter(f => f.scope === 'participant' && !f.retired && (f.track !== 'live' || f.upload)).map(f => ({
   key: f.key,
   label: f.name,
@@ -9532,6 +9606,7 @@ function seedFormTemplates() {
        on purpose — named in the log so the count does not read as a fault */
     if (!cat || key === 'p-other') { if (key !== 'p-other') skipped.push(key); continue; }
     if (cat.generated) { skipped.push(`${key} (BookIt generates this one; a PDF on the shelf would only confuse)`); continue; }
+    if (FORM_SCREENS[key]) { skipped.push(`${key} (a screen now; the PDF is not offered)`); continue; }
     if (setting('tplseed:' + key, '')) continue;          /* already offered once */
     if (formTemplate(key)) { setSetting('tplseed:' + key, now()); continue; }
     const ext = path.extname(name).toLowerCase();
@@ -9549,6 +9624,15 @@ function seedFormTemplates() {
     } catch (e) { console.error('form template seed:', key, e.message); }
   }
   if (filed) console.log(`Blank forms: ${filed} filed from forms/ — participants can download them now.${skipped.length ? ` ${skipped.length} skipped, not in the participant catalogue: ${skipped.join(', ')}.` : ''}`);
+  /* v86.9.0: a blank the release itself filed under a key that is now generated
+     or a screen is retired — nobody agreed to a blank, so nothing is lost; the
+     office's own uploads (a different updated_by) are left where they are */
+  try {
+    const stale = db.prepare("SELECT form_key, file_path FROM form_templates WHERE updated_by = 'Shipped with the release'").all()
+      .filter(t => (PDOC_MAP[t.form_key] || {}).generated || FORM_SCREENS[t.form_key]);
+    for (const t of stale) { db.prepare('DELETE FROM form_templates WHERE form_key = ?').run(t.form_key); try { if (t.file_path) fs.unlinkSync(t.file_path); } catch {} }
+    if (stale.length) console.log(`Blank forms: retired ${stale.length} shipped PDF(s) that a generated page or a screen replaced: ${stale.map(t => t.form_key).join(', ')}.`);
+  } catch (e) { console.warn('[boot] retiring shipped blanks:', e.message); }
 }
 try { seedFormTemplates(); } catch (e) { console.error('form template seed:', e.message); }
 
@@ -9567,6 +9651,9 @@ route('GET', /^\/api\/form-templates$/, (req, res, m, user) => {
            and any PDF filed under the same key is ignored */
         generated: !!c.generated, edition: g && g.version ? g.version() : (sc ? sc.edition : ''), issued: g ? (g.issued || '') : '',
         screen: sc ? { who: sc.who, edition: sc.edition, fields: sc.fields.length } : null,
+        /* a blank is only wanted where somebody outside BookIt writes on paper:
+           the nominee form, a clinician's plan, the office's own determinations */
+        needs_blank: !c.generated && !sc && !['p-ndis-plan', 'p-intake', 'p-emergency', 'p-satisfaction', 'p-plan-dates', 'p-notes', 'p-care-plans', 'p-support-plan', 'p-schedule'].includes(c.key),
         read_url: c.key === 'p-agreement' ? '/service-agreement' : c.key === 'p-consent-privacy' ? '/privacy-consent' : `/api/me/generated/${c.key}`,
         has_file: Boolean(t && t.file_path), link: (t && t.link) || '',
         file_name: (t && t.file_name) || '', note: (t && t.note) || '',
@@ -17459,78 +17546,6 @@ db.exec(`CREATE TABLE IF NOT EXISTS form_responses (
   doc_id INTEGER
 )`);
 db.exec('CREATE INDEX IF NOT EXISTS idx_form_responses_pk ON form_responses(participant_id, form_key)');
-const YN = ['Yes', 'No'];
-const FORM_SCREENS = {
-  'p-consent-media': {
-    title: 'Photo and media consent', who: 'participant', edition: 'screen v1, issued 01/09/2026',
-    lede: 'Whether photos or video of you may be taken during supports, and what they may be used for. You can change any of this at any time by telling the office or your worker.',
-    fields: [
-      { id: 'photos_ok', label: 'Photos or video of me may be taken during supports', type: 'choice', options: YN, required: true },
-      { id: 'uses', label: 'They may be used for', type: 'checklist', options: ['My own support plan and records', 'Sharing with my family, nominee or advocate', 'Showing other workers on my team what my routine looks like', 'BookIt\u2019s website or social media', 'Staff training'] },
-      { id: 'never', label: 'Anything that must never be photographed or shared (a place, a person, a situation)', type: 'textarea' },
-      { id: 'named', label: 'If used publicly, my name may appear with the image', type: 'choice', options: YN },
-      { id: 'review', label: 'Review this consent by', type: 'date', help: 'Usually a year from today. It is reviewed sooner if you ask.' }
-    ],
-    declaration: 'I understand what these images may be used for, that I can withdraw this consent at any time, and that anything already published may take a little time to remove.'
-  },
-  'p-money': {
-    title: 'Money and property declaration', who: 'participant', edition: 'screen v1, issued 01/09/2026',
-    lede: 'What a BookIt worker may and may not do with your money or property during supports. Workers never keep your card or PIN, never borrow, lend, sell or accept gifts, and always give you the receipts.',
-    fields: [
-      { id: 'handles', label: 'A worker may handle my money or property during a shift', type: 'choice', options: YN, required: true },
-      { id: 'what', label: 'What they may handle', type: 'checklist', options: ['Cash you give them for shopping or an outing', 'Your bank card, with you present and you entering the PIN', 'Purchases you ask them to make', 'Your keys, phone or wallet while you are out together'] },
-      { id: 'limit', label: 'Most cash a worker may carry for me in one shift ($)', type: 'text', help: 'A number, e.g. 100. Leave blank for no cash at all.' },
-      { id: 'receipts', label: 'Receipts and change come back to me at the end of the shift, and what was spent goes in the shift note', type: 'choice', options: YN, required: true },
-      { id: 'checker', label: 'Who checks the record (you, or a nominee)', type: 'text', required: true },
-      { id: 'notes', label: 'Anything else about how you want this handled', type: 'textarea' }
-    ],
-    declaration: 'I have read this, it is true, and I understand a worker who does anything outside it is reported to the office the same day.'
-  },
-  'p-medication': {
-    title: 'Medication plan and authority', who: 'participant', edition: 'screen v1, issued 01/09/2026',
-    lede: 'What you take, when, and what a worker does about it. A worker prompts, or hands you medication from its packaging, or administers it — that is the difference this page settles. Where a worker administers, the prescriber\u2019s written authority is also kept on file.',
-    fields: [
-      { id: 'meds', label: 'Each medication: name, dose, when, and how it is taken', type: 'textarea', required: true, help: 'One per line, e.g. "Sertraline 50 mg, morning, tablet".' },
-      { id: 'packaging', label: 'How it is packaged', type: 'choice', options: ['Webster pack / blister pack from the pharmacy', 'Original bottles and boxes', 'A dosette I fill myself', 'Other'], required: true },
-      { id: 'support', label: 'What the worker does', type: 'choice', options: ['Prompts me to take it', 'Hands it to me from the pack and watches me take it', 'Administers it (eye drops, patches, PEG, insulin — needs the prescriber\u2019s authority on file)'], required: true },
-      { id: 'prn', label: 'As-needed (PRN) medication, and exactly when it may be given', type: 'textarea' },
-      { id: 'prescriber', label: 'Prescribing doctor and phone', type: 'text', required: true },
-      { id: 'pharmacy', label: 'Pharmacy and phone', type: 'text' },
-      { id: 'allergies', label: 'Allergies and reactions', type: 'text' },
-      { id: 'storage', label: 'Where it is kept', type: 'text' },
-      { id: 'missed', label: 'If a dose is missed or refused', type: 'textarea', help: 'What the worker does, and who they call.' }
-    ],
-    declaration: 'This is my current medication and I will tell the office when it changes. A worker who administers medication does so only with the prescriber\u2019s authority on file.'
-  },
-  'p-risk': {
-    title: 'Risk assessment', who: 'office', edition: 'screen v1, issued 01/09/2026',
-    lede: 'The risks in this person\u2019s supports, how likely and how serious each is, and the control in place for each. Done with the participant (or their nominee), reviewed every year and after any incident.',
-    fields: [
-      { id: 'setting', label: 'The supports and the settings they happen in', type: 'textarea', required: true },
-      { id: 'risks', label: 'Risks present', type: 'checklist', options: ['Falls', 'Manual handling and transfers', 'Medication', 'Behaviours of concern', 'Choking, mealtime or swallowing', 'Seizures', 'Home environment (stairs, pets, access, other people)', 'Transport and driving', 'Community settings', 'Worker alone with the participant', 'Infection control', 'Financial or property', 'Other'] },
-      { id: 'detail', label: 'For each risk ticked: how likely, how serious, and the control in place', type: 'textarea', required: true, help: 'One per line. The control is the thing a worker does differently because of the risk.' },
-      { id: 'rating', label: 'Overall rating', type: 'choice', options: ['Low', 'Medium', 'High'], required: true },
-      { id: 'involved', label: 'The participant or their nominee took part in this assessment', type: 'choice', options: YN, required: true },
-      { id: 'review', label: 'Review by', type: 'date', required: true },
-      { id: 'assessor', label: 'Assessed by (name and role)', type: 'text', required: true }
-    ],
-    declaration: 'This assessment reflects what the office knows today; it is reviewed on the date above and after any incident, and every worker on the team reads it before their first shift.'
-  },
-  'p-exit': {
-    title: 'Exit and transition record', who: 'both', edition: 'screen v1, issued 01/09/2026',
-    lede: 'What happens when supports through BookIt end: when, why, what has been handed over, and how to reach us afterwards.',
-    fields: [
-      { id: 'end_date', label: 'Last day of supports', type: 'date', required: true },
-      { id: 'reason', label: 'Why supports are ending', type: 'choice', options: ['The participant\u2019s choice', 'Moving away', 'The NDIS plan changed', 'The provider is ending the service', 'Other'], required: true },
-      { id: 'reason_detail', label: 'In their words', type: 'textarea' },
-      { id: 'handover', label: 'What has been handed over, and to whom', type: 'textarea', required: true, help: 'The new provider, family, a coordinator: what they have been given and when.' },
-      { id: 'given', label: 'Documents given to the participant', type: 'checklist', options: ['A copy of the support plan', 'A summary of shift notes', 'The medication plan', 'Final statement and invoices', 'The NDIS plan copy returned'] },
-      { id: 'feedback', label: 'What the participant said about their time with BookIt', type: 'textarea' },
-      { id: 'contact_later', label: 'Happy for us to check in three months from now', type: 'choice', options: YN }
-    ],
-    declaration: 'The supports have ended as recorded here. The participant\u2019s file is kept for the period the law requires and is available to them on request.'
-  }
-};
 function formScreen(key) { return FORM_SCREENS[key] || null; }
 function screenAnswersValid(screen, answers) {
   const missing = [];

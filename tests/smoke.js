@@ -420,6 +420,9 @@ async function main() {
     const agRowShelf = shelf.json.templates.find(x => x.key === 'p-agreement');
     t('the shelf marks the Service Agreement as generated, with its edition and a link', shelf.status === 200 && agRowShelf && agRowShelf.generated === true && /v1/.test(agRowShelf.edition) && agRowShelf.read_url === '/service-agreement' && !agRowShelf.has_file, JSON.stringify(agRowShelf).slice(0, 160));
     t('… and no PDF was filed under it at boot', !db.prepare("SELECT form_key FROM form_templates WHERE form_key IN ('p-agreement','p-consent-privacy','p-consent-medication','p-schedule')").get());
+    t('nor under a screen (risk, exit, money, medication, media)', !db.prepare("SELECT form_key FROM form_templates WHERE form_key IN ('p-risk','p-exit','p-money','p-medication','p-consent-media')").get());
+    t('the nominee form is still a blank on the shelf', shelf.json.templates.some(x => x.key === 'p-advocate' && x.needs_blank && x.has_file), JSON.stringify(shelf.json.templates.find(x => x.key === 'p-advocate')).slice(0, 120));
+    t('the NDIS plan copy never asks for a blank', shelf.json.templates.some(x => x.key === 'p-ndis-plan' && !x.needs_blank));
     /* forms as screens: a participant fills in the photo consent, confirms it, and it is filed like an agreement */
     const scr = await req('GET', '/api/me/forms/p-consent-media', { cookie: ic });
     t('a participant can open a form screen with its fields', scr.status === 200 && scr.json.screen && scr.json.screen.fields.length >= 4 && scr.json.can_confirm === true, scr.status);

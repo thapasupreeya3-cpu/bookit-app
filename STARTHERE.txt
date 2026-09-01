@@ -274,6 +274,14 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     handling, PBS), and the nominee form.
     Routes: GET /api/me/forms, GET/POST /api/me/forms/:key (?for=id for a
     coordinator or the office). Page: #/form/<key>.
+    THE SHELF, AFTER THIS: of the eleven PDFs in forms/, only three are
+    still blanks — the nominee form, the mealtime plan template and the
+    satisfaction survey; the rest are generated pages or screens and are
+    not filed at boot any more. Blanks the release itself had already
+    filed under a generated or screen key are retired at boot (the office's
+    own uploads are left alone). The board is now "Documents on the shelf"
+    in three groups — written by BookIt, on screen, blank — and only the
+    rows that genuinely take a paper form (needs_blank) show an upload.
 
   THE AUDIT PACK CARRIES ALL OF IT
     Everything above leaves a row, and every row is in the pack (Admin ›

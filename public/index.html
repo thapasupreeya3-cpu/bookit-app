@@ -10194,7 +10194,7 @@ async function renderAdminPage(){
     (pMissingN || 0) + (plans && plans.counts.critical ? plans.counts.critical : 0),
     H('Audit pack — one download, everything in it') + auditPackHtml(pack)
     + `<p class="muted-sm" style="margin:0 0 14px;">Participant files and support plans have moved to <a href="#/admin/compliance" data-cmp-go="participants">Compliance › Participants</a>, beside the worker checks.</p>`
-    + H('Blank forms — what a participant can download') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>'
+    + H('Documents on the shelf — written, on screen, or a blank') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>'
     + H('Forms register — where every document lives')
     + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')
     + '<div class="info-card" id="admDocReqCard" style="margin-top:18px;" hidden></div>');
@@ -14685,11 +14685,11 @@ async function renderBlankForms(){
   const OWNER_LABEL = { participant: 'theirs to fill in', cosigned: 'they sign, we write',
     clinical: 'a clinician writes it', office: 'ours', ndia: 'a copy of the NDIS plan' };
   host.innerHTML = `
-    <p class="muted-sm" style="margin:0 0 12px;">Put a blank up once and it shows on every participant's documents page, beside the row that asks for it. PDF, Word, JPG or PNG up to 8 MB — or a link, if the blank lives somewhere else. Replacing one raises its version number and <b>keeps the old file</b>, because somebody agreed to that text and has to be able to read it back.</p>
+    <p class="muted-sm" style="margin:0 0 12px;"><b>Most participant documents no longer need a blank.</b> The agreement and the consents are written by BookIt and agreed with a click; five forms are screens, filled in and confirmed on the page and filed with Print. A blank is only wanted where somebody outside BookIt writes on paper — the nominee form, a clinician's plan, the office's own determinations — and only those rows take a file below. PDF, Word, JPG or PNG up to 8 MB, or a link. Replacing one raises its version and keeps the old file.</p>
     <div class="adm-table-wrap"><table class="adm-table"><thead><tr>
       <th>Form</th><th>Whose</th><th>Blank on file</th><th style="min-width:330px;">Put one up</th>
     </tr></thead><tbody>
-    ${(d.templates || []).map(t => t.screen ? `<tr>
+    ${[...(d.templates || [])].sort((a, b) => (a.generated ? 0 : a.screen ? 1 : 2) - (b.generated ? 0 : b.screen ? 1 : 2)).filter(t => t.generated || t.screen || t.needs_blank).map(t => t.screen ? `<tr>
       <td><b>${esc(t.label)}</b>${t.only_if ? `<br><span class="muted-sm">${esc(t.only_if)}</span>` : ''}</td>
       <td><span class="muted-sm">${t.screen.who === 'office' ? 'the office fills it in on screen, with the participant' : t.screen.who === 'both' ? 'either side, on screen' : 'the participant, on screen'}</span></td>
       <td><span class="muted-sm"><b>A screen, not a blank</b> — ${t.screen.fields} questions, confirmed with a click, filed as a page with Print. ${esc(t.screen.edition)}.${t.has_file ? ' The PDF filed here is no longer offered to participants.' : ''}</span></td>
