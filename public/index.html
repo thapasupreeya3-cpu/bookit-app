@@ -9572,7 +9572,7 @@ async function renderAdminPage(){
       <div style="display:flex;gap:12px;align-items:flex-start;">
         <div class="wc-avatar" style="background:#0E6B62;width:56px;height:56px;">${w.photo ? `<img src="${w.photo}" alt="Photo of ${esc(w.name)}">` : '<span style="font-size:.7rem;text-align:center;line-height:1.2;">no<br>photo</span>'}</div>
         <div style="flex:1;">
-      <h3 style="margin:0 0 4px;">${esc(w.name)} <button class="adm-btn-sm" type="button" data-remove-user="${w.user_id}" data-name="${esc(w.name)}" style="color:#A5301A;float:right;" title="Close this account, with a reason">Close account…</button> <span style="font-weight:400;font-size:.85rem;color:#3E5A64;">· ${esc(w.suburb || 'no suburb')} · applied ${fmtStamp(w.created)}</span></h3>
+      <h3 style="margin:0 0 4px;">${esc(w.name)} ${w.user_id !== (API.me || {}).id ? `<button class="adm-btn-sm" type="button" data-remove-user="${w.user_id}" data-name="${esc(w.name)}" style="color:#A5301A;float:right;" title="Close this account, with a reason">Close account…</button>` : ''} <span style="font-weight:400;font-size:.85rem;color:#3E5A64;">· ${esc(w.suburb || 'no suburb')} · applied ${fmtStamp(w.created)}</span></h3>
       <p style="margin:6px 0;font-size:.92rem;">${esc(w.email || '')}${w.phone ? ' · ' + esc(w.phone) : ''} · email ${w.verified ? 'verified ✓' : '<b>not verified yet</b>'}</p>
       <p style="margin:6px 0;">${(w.services || []).map(s => `<span class="adm-badge">${esc(svcName(s))}</span>`).join('') || '<i>no services picked</i>'}</p>
       ${w.bio ? `<p style="margin:8px 0 0;font-size:.92rem;color:#3E5A64;">“${esc(w.bio)}”</p>` : ''}
@@ -9788,7 +9788,7 @@ async function renderAdminPage(){
           <h3 style="margin:0;">${esc(p.name)}</h3>
           <span class="adm-badge" ${p.held === p.of ? 'style="background:#DBF2E4;border-color:#1C7C43;color:#1C7C43;"' : ''}>${p.held} of ${p.of} on file</span>
           <span style="flex:1;"></span>
-          <button class="adm-btn-sm" type="button" data-remove-user="${p.id}" data-name="${esc(p.name)}" style="color:#A5301A;" title="Close this account, with a reason">Close account…</button>
+          ${p.id !== (API.me || {}).id ? `<button class="adm-btn-sm" type="button" data-remove-user="${p.id}" data-name="${esc(p.name)}" style="color:#A5301A;" title="Close this account, with a reason">Close account…</button>` : '<span class="muted-sm">your account</span>'}
           <span style="font-size:.8rem;color:#3E5A64;">${esc(p.email || '')}</span>
         </div>
         <div class="ob-bar" style="margin:8px 0 10px;" role="img" aria-label="${p.held} of ${p.of} documents on file"><i style="width:${pct}%;"></i></div>

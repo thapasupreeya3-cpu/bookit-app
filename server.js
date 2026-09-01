@@ -7393,7 +7393,7 @@ route('GET', /^\/api\/support-plan\/(\d+)\/brief$/, (req, res, m, user) => {
 /* admin: every participant, what tier they are, and what is overdue */
 route('GET', /^\/api\/admin\/support-plans$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const people = db.prepare("SELECT id, name, email, suburb FROM users WHERE role = 'participant' ORDER BY name").all();
+  const people = db.prepare("SELECT id, name, email, suburb FROM users WHERE role = 'participant' AND COALESCE(is_admin, 0) = 0 AND closed_at IS NULL ORDER BY name").all();
   const today = ymd();
   const rows = people.map(u => {
     const conf = confirmedPlan(u.id);
@@ -10106,7 +10106,9 @@ route('GET', /^\/api\/participant-documents\/(\d+)\/file$/, (req, res, m, user) 
 
 route('GET', /^\/api\/admin\/participant-documents$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const people = db.prepare("SELECT id, name, email, suburb FROM users WHERE role = 'participant' ORDER BY name").all()
+  /* the office's own accounts are not participants with a file to keep: an
+     admin who happens to hold a participant-role login is left off this board */
+  const people = db.prepare("SELECT id, name, email, suburb FROM users WHERE role = 'participant' AND COALESCE(is_admin, 0) = 0 AND closed_at IS NULL ORDER BY name").all()
     .map(p => {
       const inv = openInvite(p.id);
       const last = db.prepare("SELECT answered_at FROM survey_invites WHERE participant_id = ? AND answered_at <> '' ORDER BY answered_at DESC LIMIT 1").get(p.id);
