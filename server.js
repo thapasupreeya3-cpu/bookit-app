@@ -7497,7 +7497,7 @@ route('POST', /^\/api\/admin\/support-plans\/(\d+)\/care-plan$/, (req, res, m, u
 const FORMS = [
   /* ---------- governance: the company holds one of each ---------- */
   { key: 'cert-registration', name: 'NDIS certificate of registration + scope', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'NDIS Commission', template: 'n/a', requires: 'NDIS Act — registration', note: 'Current certificate runs to 21/01/2029. Mid-term audit window opens 21/07/2027.' },
-  { key: 'policy-register', name: 'Policy Register', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management', note: 'Currently lists 24 documents including the five added July 2026.' },
+  { key: 'policy-register', name: 'Policy Register', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Governance and operational management', note: 'Generated at /policies/policy-register from the documents published on the site, with each one\u2019s version, approval and review dates; it cannot disagree with the documents.' },
   { key: 'doc-list-core', name: 'Document List — Core', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Information management' },
   { key: 'gov-review', name: 'Governing Personnel Skills and Performance Review', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
   { key: 'coi-declaration', name: 'Conflict of Interest Declaration (governing person)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management', note: 'A nil declaration is still evidence. An empty register is not.' },
@@ -18102,12 +18102,23 @@ function policyPageHtml(req, pg) {
     `<div class="policy-body">${body}</div>`, { base: baseUrl(req), barNote: 'A policy page \u00b7 print or save as PDF \u00b7 back to the list at /policies' })
     .replace('</head>', '<style>.policy-body h2{margin-top:1.4em}.policy-body h3{margin-top:1.1em}.policy-body table.grid{width:100%;border-collapse:collapse;margin:1em 0;font-size:.95em}.policy-body table.grid th,.policy-body table.grid td{border:1px solid #d8d3cb;padding:6px 8px;vertical-align:top;text-align:left}.policy-body ul{padding-left:1.3em}</style></head>');
 }
+/* the Policy Register: the office's register of its documents, generated from what is published so it cannot drift from the pages */
+function policyRegisterHtml(req, user) {
+  const pages = db.prepare('SELECT slug, title, kind, audience, edition, imported_at, imported_by FROM policy_pages ORDER BY kind, title').all().filter(pg => policyAllowed(user, pg));
+  const part = (ed, rx) => { const m = rx.exec(ed || ''); return m ? m[1] : ''; };
+  const rows = pages.map(pg => `<tr><td><a href="/policies/${escHtml(pg.slug)}">${escHtml(pg.title)}</a></td><td>${escHtml(pg.kind)}</td><td>${escHtml(part(pg.edition, /^v([^,]+)/) || '\u2014')}</td><td>${escHtml(part(pg.edition, /approved ([^,]+)/) || dmy(String(pg.imported_at).slice(0, 10)))}</td><td>${escHtml(part(pg.edition, /review (.+)$/) || '\u2014')}</td><td>${escHtml(pg.imported_by === 'release' ? 'Supriya Thapa' : pg.imported_by)}</td></tr>`).join('');
+  const body = `<p>Every policy, procedure, plan, register and information document Disability and Mental Health Care Pty Ltd works to, with its version, approval and review dates. The register is drawn from the documents themselves as published on this site, so a document and its register entry cannot disagree.</p>
+    <table class="grid"><tr><th>Document</th><th>Kind</th><th>Version</th><th>Approved</th><th>Review due</th><th>Approval authority</th></tr>${rows}</table>
+    <p>A document must undergo an earlier review if there is a modification in laws or regulations, an occurrence of an incident, a complaint, or any other substantial event or alteration that makes a prompt review necessary.</p>`;
+  return genPage({ title: 'Policy Register', lede: 'The register of the documents published on this site.', meta: [['Documents', String(pages.length)], ['Kept by', 'the office; generated from the published pages']], footer: 'Policy Register, generated on BookIt from the published documents.' }, body, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' });
+}
 function policiesIndexHtml(req, user) {
   const pages = db.prepare('SELECT slug, title, kind, audience, words, imported_at FROM policy_pages ORDER BY kind, title').all().filter(pg => policyAllowed(user, pg));
   const kinds = ['policy', 'procedure', 'plan', 'register', 'form or template'];
   const body = pages.length ? kinds.map(k => { const list = pages.filter(pg => pg.kind === k); return list.length ? `<h2 style="text-transform:capitalize">${escHtml(k)}${k === 'policy' || k === 'procedure' ? 's' : k === 'form or template' ? 's' : 's'}</h2><ul>${list.map(pg => `<li><a href="/policies/${escHtml(pg.slug)}">${escHtml(pg.title)}</a>${pg.audience === 'staff' ? ' <small>(staff)</small>' : ''}</li>`).join('')}</ul>` : ''; }).join('')
     : `<p>${user ? 'No documents have been published as pages yet.' : 'The published policies appear here once you are signed in; some are public.'}</p>`;
-  return genPage({ title: 'Policies and procedures', lede: 'The documents Disability and Mental Health Care Pty Ltd works to, published as pages: read any of them here, or print or save one as a PDF from its own page.', meta: [['Published', `${pages.length} document${pages.length === 1 ? '' : 's'}`], ['Kept by', 'the office, from its document set']], footer: 'Policies and procedures, published on BookIt.' }, body, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' });
+  const register = pages.length ? `<p><a href="/policies/policy-register">The Policy Register</a>: every document with its version, approval and review dates.</p>` : '';
+  return genPage({ title: 'Policies and procedures', lede: 'The documents Disability and Mental Health Care Pty Ltd works to, published as pages: read any of them here, or print or save one as a PDF from its own page.', meta: [['Published', `${pages.length} document${pages.length === 1 ? '' : 's'}`], ['Kept by', 'the office, from its document set']], footer: 'Policies and procedures, published on BookIt.' }, body + register, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' });
 }
 route('GET', /^\/api\/admin\/policy-pages$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
@@ -18169,6 +18180,77 @@ route('GET', /^\/api\/admin\/policy-pages\.csv$/, (req, res, m, user) => {
   csvOut(res, 'bookit-policy-pages', ['Title', 'Kind', 'Audience', 'Page', 'Source file', 'Edition', 'Imported', 'By', 'Words'],
     db.prepare('SELECT * FROM policy_pages ORDER BY kind, title').all().map(pg => [pg.title, pg.kind, pg.audience, `${APP_URL}/policies/${pg.slug}`, pg.source_name, pg.edition, String(pg.imported_at).slice(0, 10), pg.imported_by, pg.words]));
 });
+
+
+/* ---------- the office's documents, built in ----------
+   The text of each policy, procedure and plan lives in content/policies/ —
+   one plain-text file per document, in the shape the documents were written:
+   "Company | Title" on the first line, headings as short lines, list items
+   with "- ", and the approval block at the end. At boot each is published as
+   a page (policy_pages, imported_by 'release'), so a fresh install has every
+   policy on the site with nothing uploaded, the same way it has the Service
+   Agreement. A document the office later re-uploads from Word replaces the
+   built-in text for that page until the next release changes it. */
+const POLICY_H2 = /^(introduction|purpose|scope|ndis indicators( \(objectives\))?|policy statement|relevant legislation|related documents|responsibilities and roles|roles and responsibilities|definitions|procedures?|training|policy review and updates|review|monitoring and review|appendix.*|part [a-z0-9]+.*|section \d+.*)$/i;
+function policyTextToHtml(text) {
+  const lines = String(text || '').replace(/\r/g, '').split('\n');
+  const html = []; let listOpen = false, approval = [], inList = false, tableOpen = false, tableRow = 0;
+  const closeList = () => { if (listOpen) { html.push('</ul>'); listOpen = false; } };
+  const closeTable = () => { if (tableOpen) { html.push('</table>'); tableOpen = false; tableRow = 0; } };
+  const isHeading = l => l.length <= 70 && !/[.;:]$/.test(l) && !/^- /.test(l) && l.split(' ').length <= 9 && /^[A-Z0-9"“(]/.test(l);
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i].trim();
+    if (!l) { closeList(); closeTable(); continue; }
+    if (i === 0 && l.includes('|')) continue;                       /* the title line: genPage writes the title */
+    /* a table: consecutive lines "| cell | cell |"; the first row is the header; a "| :-: |" rule is skipped */
+    if (/^\|.*\|$/.test(l)) {
+      const cells = l.slice(1, -1).split('|').map(c => c.trim());
+      if (cells.every(c => /^:?-+:?$/.test(c))) continue;
+      closeList();
+      if (!tableOpen) { html.push('<table class="grid">'); tableOpen = true; tableRow = 0; }
+      const tag = tableRow === 0 ? 'th' : 'td';
+      html.push(`<tr>${cells.map(c => `<${tag}>${escHtml(c)}</${tag}>`).join('')}</tr>`);
+      tableRow++;
+      continue;
+    }
+    closeTable();
+    const app = /^(Approval Authority|Version|Approval Date|Review Date|Date of Approval|Next Review):\s*(.+)$/i.exec(l);
+    if (app) { closeList(); approval.push([app[1], app[2]]); continue; }
+    if (/^- /.test(l)) { if (!listOpen) { html.push('<ul>'); listOpen = true; } html.push(`<li>${escHtml(l.slice(2))}</li>`); continue; }
+    closeList();
+    if (isHeading(l)) { html.push(POLICY_H2.test(l) ? `<h2>${escHtml(l)}</h2>` : `<h3>${escHtml(l)}</h3>`); continue; }
+    html.push(`<p>${escHtml(l)}</p>`);
+  }
+  closeList(); closeTable();
+  /* a document written without the standard policy headings (an information pack, a plan) gets its headings at the top level */
+  if (!html.some(h => h.startsWith('<h2>'))) for (let i = 0; i < html.length; i++) html[i] = html[i].replace(/^<h3>(.*)<\/h3>$/, '<h2>$1</h2>');
+  if (approval.length) html.push(`<table class="grid approval">${approval.map(([k, v]) => `<tr><th>${escHtml(k)}</th><td>${escHtml(v)}</td></tr>`).join('')}</table>`);
+  const words = html.join(' ').replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;
+  const version = (approval.find(([k]) => /^version$/i.test(k)) || [])[1] || '';
+  const approved = (approval.find(([k]) => /approval date|date of approval/i.test(k)) || [])[1] || '';
+  const review = (approval.find(([k]) => /review date|next review/i.test(k)) || [])[1] || '';
+  return { html: html.join('\n'), words, edition: version ? `v${version}${approved ? `, approved ${approved}` : ''}${review ? `, review ${review}` : ''}` : '' };
+}
+(function seedBuiltInPolicies() {
+  let index;
+  try { index = JSON.parse(fs.readFileSync(path.join(__dirname, 'content', 'policies', 'index.json'), 'utf8')); } catch (e) { console.warn('[policies] no built-in documents:', e.message); return; }
+  let published = 0, kept = 0;
+  for (const d of index.documents || []) {
+    let text;
+    try { text = fs.readFileSync(path.join(__dirname, 'content', 'policies', d.file), 'utf8'); } catch (e) { console.warn(`[policies] ${d.file}: ${e.message}`); continue; }
+    const { html, words, edition } = policyTextToHtml(text);
+    const cur = db.prepare('SELECT imported_by, edition FROM policy_pages WHERE slug = ?').get(d.slug);
+    /* the office's own upload of the same document wins over the release copy */
+    if (cur && cur.imported_by !== 'release') { kept++; continue; }
+    db.prepare(`INSERT INTO policy_pages (slug, title, kind, audience, body_html, file_path, file_mime, source_name, source_id, edition, imported_at, imported_by, words)
+      VALUES (?,?,?,?,?,'','',?,?,?,?,'release',?)
+      ON CONFLICT(slug) DO UPDATE SET title = excluded.title, kind = excluded.kind, body_html = excluded.body_html, source_name = excluded.source_name, source_id = excluded.source_id, edition = excluded.edition, words = excluded.words,
+        audience = CASE WHEN policy_pages.imported_by = 'release' THEN policy_pages.audience ELSE excluded.audience END`)
+      .run(d.slug, d.title, d.kind || policyKind(d.title), d.audience || 'participants', html, d.source || '', d.source_id || '', edition || d.edition || '', now(), words);
+    published++;
+  }
+  console.log(`Policies: ${published} built-in document(s) published as pages${kept ? `, ${kept} kept as the office uploaded them` : ''}.`);
+})();
 
 /* ---------- the public pages, as the server knows them ----------
    The app is one page and a hash router, which is right for the person using
@@ -18577,6 +18659,11 @@ const server = http.createServer((req, res) => {
         return sendBuffer(req, res, html, MIME['.html'], 'private, no-store', null, `policies:${viewer ? viewer.id : 0}`, String(Date.now()));
       }
       const [, slug, file] = /^\/policies\/([a-z0-9-]+)(\/file)?$/.exec(pathname);
+      if (slug === 'policy-register' && !file) {
+        const html = Buffer.from(policyRegisterHtml(req, viewer));
+        res.setHeader('Content-Security-Policy', 'sandbox allow-scripts allow-modals allow-top-navigation');
+        return sendBuffer(req, res, html, MIME['.html'], 'private, no-store', null, `policy-register:${viewer ? viewer.id : 0}`, String(Date.now()));
+      }
       const pg = db.prepare('SELECT * FROM policy_pages WHERE slug = ?').get(slug);
       if (!pg) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end('No such page.'); }
       if (!policyAllowed(viewer, pg)) { res.writeHead(302, { 'Location': `/#/login?next=${encodeURIComponent(pathname)}`, 'Cache-Control': 'no-store' }); return res.end(); }

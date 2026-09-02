@@ -1,0 +1,136 @@
+Disability and Mental Health Care Pty Ltd | Digital Platform Service Policy and Procedure
+
+Introduction
+
+Purpose
+
+Disability and Mental Health Care Pty Ltd operates BookIt, an online platform through which participants and their representatives can find, message and book Disability and Mental Health Care Pty Ltd support workers. This policy sets out how Disability and Mental Health Care Pty Ltd operates the platform as an NDIS Digital Platform Service (registration group 0137), and the procedures by which the conditions of registration that apply to digital platform providers are met, monitored and evidenced. The platform is designed so that these conditions are enforced by the software itself rather than recorded in a register and checked by hand.
+
+Scope
+
+This Policy applies to all Workers and Key Management Personnel affiliated with Disability and Mental Health Care Pty Ltd, and to every account held on the platform. It governs the operation of the platform itself: the admission and removal of Workers, the service agreements made through the platform, the complaints and incidents received through it, the information it holds, and the records it produces. The delivery of the supports booked through the platform remains governed by the existing policies of Disability and Mental Health Care Pty Ltd. All Workers must acknowledge that they have read, understood and will comply with the contents of this Policy.
+
+NDIS Indicators (Objectives)
+
+No quality indicators have been published for registration group 0137. This Policy therefore takes as its objectives the two conditions imposed on digital platform providers by section 13D of the National Disability Insurance Scheme (Provider Registration and Practice Standards) Rules 2018:
+
+- Disability and Mental Health Care Pty Ltd must not allow a person to represent, via the platform, that the person is able to provide supports to a participant under the participant's plan unless the person holds a current worker screening clearance.
+- Disability and Mental Health Care Pty Ltd must check, and display on the platform, whether a banning order is in force against a person under the National Disability Insurance Scheme Act 2013, whether a banning order is in force under the Aged Care Act 2024, and whether a banning order made under the Aged Care Quality and Safety Commission Act 2018 before the commencement of the Aged Care Act 2024 remains in force.
+
+Policy Statement
+
+Disability and Mental Health Care Pty Ltd is committed to operating the platform so that no person can hold themselves out through it as able to provide supports without a current worker screening clearance; so that the three banning register checks are performed, kept current and displayed; so that the agreements and records made through the platform are complete, attributable and retained; and so that a complaint or incident received through the platform enters the same management systems as one received any other way. These commitments are enforced by the platform automatically and continuously, and no Worker or Key Management Personnel is able to override the enforcement of a condition of registration.
+
+Relevant legislation
+
+All relevant legislation to this Policy is outlined in the Legislation Register. This Policy specifically implements section 13D of the National Disability Insurance Scheme (Provider Registration and Practice Standards) Rules 2018, as amended by the National Disability Insurance Scheme (Provider Registration and Practice Standards) Amendment (Digital Platform Providers) Rules 2026, and is read together with the National Disability Insurance Scheme (Practice Standards—Worker Screening) Rules 2018.
+
+Related documents
+
+- 0137 Digital Platform Service: Scope and Operating Procedure
+- Policy Register
+- Risk Management Policy and Risk Management Register
+- Human Resources Management Policy
+- Incident Management Policy
+- Feedback and Complaints Policy
+- Privacy and Information Management Policy
+- Emergency and Disaster Management Policy and Business Continuity Plan
+- Worker Register
+- Service Agreement (the current version, and every archived version held on the platform)
+
+Responsibilities and Roles
+
+Supriya Thapa is the responsible person for the NDIS Digital Platform Service and is responsible for the development and review of this Policy. No delegate is appointed; this is a deliberate arrangement for a sole-director company. It is expected that Supriya Thapa ensures this Policy remains compliant with all applicable laws, regulations and standards.
+
+Key Management Personnel play a vital role in ensuring the effective implementation of this Policy throughout Disability and Mental Health Care Pty Ltd. It is the responsibility of all Key Management Personnel to not only assist Workers in understanding and complying with this Policy but also to comply with it themselves.
+
+Workers are responsible for keeping the credentials on their platform profile current, for understanding the contents of this Policy and for complying with all procedures applicable to them.
+
+Definitions
+
+Disability and Mental Health Care Pty Ltd means Disability and Mental Health Care Pty Ltd ABN 19658578575.
+
+The Platform (BookIt) means the digital platform operated by Disability and Mental Health Care Pty Ltd through which a participant may find, message and book Workers, and through which service agreements, bookings, records and payment records are made and held.
+
+Worker Screening Clearance means a current clearance to work with people with disability issued under the worker screening law of a State or Territory and recorded in the NDIS Worker Screening Database.
+
+Banning Order means a banning order in force under the National Disability Insurance Scheme Act 2013 or the Aged Care Act 2024, or a banning order made under the Aged Care Quality and Safety Commission Act 2018 before the commencement of the Aged Care Act 2024 that remains in force.
+
+Compliance Log means the platform's append-only record of every automated check it has run, with the result, the time and the rule applied.
+
+Service Agreement means the agreement between Disability and Mental Health Care Pty Ltd and a participant, made on the platform by the participant's recorded acceptance of a numbered version of the agreement.
+
+Key Management Personnel means Supriya Thapa and other key management personnel involved in Disability and Mental Health Care Pty Ltd from time to time.
+
+Director means Supriya Thapa.
+
+Worker means a permanent, fixed term or casual member of staff, a contractor or volunteer employed or otherwise engaged by Disability and Mental Health Care Pty Ltd and includes the Director.
+
+Procedures
+
+Admission of a Worker to the platform
+
+- Before a Worker's profile can be seen by any participant, the platform requires all of the following, and refuses approval while any one of them is missing: a worker screening check on file, current and verified; the clearance status confirmed with the screening unit and recorded; each of the three banning registers checked, with the result and the date of each check recorded and displayed; a profile photo; and approval by the office.
+- Verification of a screening document is performed by a person: the document is opened, the name, check number and expiry are compared with the screening unit's record, and the verification is recorded with the verifier's name and the date.
+- The clearance status is recorded separately from the document, because a clearance may be suspended or revoked by the screening unit while the card itself still appears current. Both the document and the status must be current for the profile to be visible.
+- Each of the three banning registers is checked and answered on its own. A result recorded for one register is never treated as an answer for another.
+- In addition to the conditions of registration, Disability and Mental Health Care Pty Ltd does not admit a Worker to the platform without a current CPR certificate (HLTAID009). First aid (HLTAID011) and CPR are recorded as separate documents because their renewal periods differ: three years and one year respectively. This is a requirement Disability and Mental Health Care Pty Ltd imposes on itself, enforced by the platform in the same way as the conditions of registration.
+- Demonstration accounts used to test the platform before launch are not Workers, do not represent that they can provide supports, and are removed by the launch routine before the platform opens.
+
+Ongoing monitoring, suspension and withdrawal
+
+- The platform re-tests a Worker's eligibility whenever anything about the Worker changes, and sweeps every profile on a schedule twice each day. A profile that no longer meets the requirements is withdrawn automatically: it is removed from search, cannot be booked and cannot be messaged, and the Compliance Log records the reason.
+- Expiring credentials are notified to the Worker and to the office at 60, 30 and 14 days before expiry. On expiry of the worker screening check, the profile is withdrawn.
+- The clearance status is re-confirmed with the screening unit at least every 90 days; a confirmation older than that produces a warning, and the profile is withdrawn if it is not re-confirmed within a further 14 days. Each banning register is re-checked at least every 90 days, with 30 days' grace. These intervals are settings held in the platform's administration console and may be shortened by the Director at any time without a software change.
+- A clearance recorded as suspended, revoked, excluded or pending, or a banning order recorded on any of the three registers, withdraws the profile the same day it is recorded.
+- No Worker or Key Management Personnel can override a withdrawal that enforces a condition of registration. The platform's override facility reaches only the requirements Disability and Mental Health Care Pty Ltd imposes on itself, and every use of it is recorded with the name of the person who used it.
+
+Service agreements made on the platform
+
+- The Service Agreement is made on the platform. The participant opens the current version of the agreement, confirms that they have read it and records their agreement. The platform records who agreed, when, from what address and to which version.
+- Every version of the agreement is retained. Publishing a replacement raises the version number and archives the version it replaces; no version is ever deleted, and the exact text a participant agreed to remains readable for as long as the record is held.
+- Agreement cannot be recorded to a document that has not been published on the platform.
+- A participant can see their own agreements at any time: the document, the version, the date they agreed and a link to the exact text of that version.
+
+Requirements before a booking
+
+- Before a participant's first booking, the platform requires three things, each of which the participant can complete in minutes: a record of how the supports are funded; the Service Agreement; and a support plan confirmed on the platform. A booking attempted before these are in place is refused, and the refusal names each missing item and links to where it is completed.
+- Nothing else gates a booking. The remaining documents on a participant's file are completed by the office, or by a clinician or prescriber where required, on the cadence recorded in the forms register.
+
+Complaints received through the platform
+
+- The platform provides a complaint pathway on its contact page. A complaint may be made anonymously, and may be made by an advocate or family member on a participant's behalf. The complainant is given a reference so that the complaint can be identified later even where no name was left.
+- A complaint received through the platform is written to the complaints register at the moment it is received, with the channel recorded. Acknowledgement is due within 2 business days; a complaint not acknowledged in time is escalated by email to the office, repeatedly, until it is acknowledged. Thereafter the complaint is managed under the Feedback and Complaints Policy of Disability and Mental Health Care Pty Ltd.
+- The NDIS Quality and Safeguards Commission's contact number, 1800 035 544, is published on the platform, and the platform's terms state plainly that making a complaint never affects a person's access to supports.
+
+Incidents connected with the platform
+
+- A Worker who becomes aware of a reportable incident notifies Disability and Mental Health Care Pty Ltd; Disability and Mental Health Care Pty Ltd notifies the Commission. Notification is made within 24 hours for an incident involving death, serious injury, abuse or neglect, or unlawful sexual or physical contact, and within 5 business days otherwise. The written report that follows a reportable incident is provided within 14 days. Incidents are managed under the Incident Management Policy of Disability and Mental Health Care Pty Ltd.
+- Where a Worker was engaged directly by a participant through the platform, Disability and Mental Health Care Pty Ltd treats a reportable incident arising from that engagement as reportable by Disability and Mental Health Care Pty Ltd, taking the conservative position in the absence of Commission guidance on the boundary.
+
+Information management and security
+
+- The platform holds NDIS numbers, plan management details, support plans, shift notes, incident and complaint records, service agreements and uploaded documents. All participant and worker information is stored in Australia. Nothing is stored offshore.
+- Access is scoped to role: a Worker sees only the participants they are booked with, and nothing on a participant's file is shared with Workers beyond the brief prepared for a shift.
+- Documents uploaded to the platform are validated before they are filed, and files that carry active or embedded content are refused.
+- No money passes through the platform. Card payment is switched off. Payment is made to Disability and Mental Health Care Pty Ltd's bank account, by the payer, against an invoice the platform raises from the completed shift, at rates never above the NDIA price limits.
+- The Privacy and Information Management Policy of Disability and Mental Health Care Pty Ltd applies to all information the platform holds, and the platform publishes its privacy terms to every account holder.
+
+Records and audit
+
+- The platform produces its registers as dated exports: the forms register, worker credentials, the participant register, participant documents, the incident register, the complaints register, out-of-scope requests, the conditions-of-registration board, support plans, the Compliance Log, invoices, payroll and claims. A single audit pack download collects all of them.
+- Records made or held on the platform are retained for at least 7 years. Records of who occupied a risk assessed role, and when, are maintained in the Worker Register.
+
+Availability and continuity
+
+- The availability of the platform is a recorded risk on the Risk Management Register. Before the platform opens to participants, automated off-server backup with a tested restore, and monitoring that alerts a person to an outage, will be in place.
+- An outage of the platform does not suspend the obligations of Disability and Mental Health Care Pty Ltd. While the platform is unavailable, bookings, complaints and incident notifications continue by telephone and email in accordance with the Emergency and Disaster Management Policy and the Business Continuity Plan.
+
+Policy review and updates
+
+This Policy is to be amended and updated according to the requirements to comply with the applicable laws and regulations. This Policy must undergo an earlier review if there is a modification in laws or regulations, an occurrence of an incident, a complaint, or any other substantial event or alteration that deems a prompt review of the Policy necessary.
+
+Approval Authority: Supriya Thapa
+Version: 1
+Approval Date: August 2026
+Review Date: August 2027

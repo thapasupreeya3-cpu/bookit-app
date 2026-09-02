@@ -315,9 +315,57 @@ WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
     /api/admin/policies-folder/files, DELETE .../files/:id,
     GET /api/admin/policies.csv.
 
-  POLICIES AS PAGES
-    A policy in a Word file in a folder is a policy nobody reads. The
-    office now uploads the folder's documents (Admin › Documents ›
+  POLICIES AS PAGES — BUILT IN
+    The text of each of the office's documents lives in the repository,
+    content/policies/, one plain-text file per document in the shape the
+    documents were written (first line "Company | Title"; a short line is
+    a heading; "- " is a list item; "| a | b |" rows are a table; the
+    approval block last), listed in index.json with slug, kind, audience
+    and the Drive file it came from. At boot every one is published as a
+    page (policy_pages, imported_by 'release'), so a fresh install has
+    all of them with nothing uploaded — the same way it has the Service
+    Agreement. To change a document, change the text file and raise its
+    Version line. Thirty-seven documents, the whole of the office's
+    Drive folder as read on 1–2 September 2026:
+      policies (20): feedback and complaints; privacy and information
+        management; participant rights and responsibilities; incident
+        management; violence, abuse, neglect, exploitation and
+        discrimination; participant money and property; management of
+        medication; mealtime management; assessment and provision of
+        supports; emergency and disaster management; work health and
+        safety; conflict of interest; infection prevention and control;
+        risk management; continuous improvement; governance and
+        operational management; human resources management (staff);
+        supported independent living; behaviour support and restrictive
+        practices; digital platform service.
+      procedures (6): living alone safeguards (s73G); transport and
+        vehicle safety; supported decision-making; tenancy and support
+        separation statement; 0137 digital platform service scope and
+        operating procedure (staff); feedback, complaints and incident
+        considerations (staff).
+      plans (3): business continuity, emergency response and disaster
+        management; training and development (staff); business plan
+        (staff).
+      registers and information (8): legislation register; delegation
+        of authority (staff); participant information booklet, and its
+        Easy Read; SIL information pack; feedback and complaints summary;
+        the two position descriptions (staff).
+    The Policy Register is not transcribed: /policies/policy-register is
+    generated from the published pages — title, kind, version, approval
+    and review dates, approval authority — so it cannot disagree with the
+    documents. Each document's edition now carries its review date ("v1,
+    approved August 2025, review August 2027"). Skipped: the Continuous
+    Improvement Plan, a blank template with one example row.
+    Edits made in transcribing, for the office to know: personal contact
+    details became the company's (hello@bookit.life, the Wyong address);
+    the 0137 procedure page leaves out the server's address and the
+    director's screening number; the business plan leaves out the named
+    workers; the legislation register's superseded references were
+    brought up to date (NSW WHS Regulation 2017, WA WHS Act 2020, Vic
+    Guardianship and Administration Act 2019, Disability Services and
+    Inclusion Act 2023). The Policy Register in the folder lists a
+    Support Coordination Policy that is not in the folder.
+    The upload path stays for documents not yet built in. The office (Admin › Documents ›
     "Policies and procedures — published as pages": choose all the .docx
     and .pdf files at once) and each becomes a page: /policies/<slug>,
     the same genPage wrapper and print button as the Service Agreement,

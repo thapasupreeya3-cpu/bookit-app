@@ -1,0 +1,95 @@
+Disability and Mental Health Care Pty Ltd | 0137 Digital Platform Service: Scope and Operating Procedure
+
+Registration group 0137, scope statement and operating procedure. Completed 11 August 2026. Delegate position and hosting settled, and the card-payment environment verification completed, 13 August 2026. No items remain open.
+
+Document owner: Supriya Thapa, Director. Effective date: 11 August 2026. Applies to all activity conducted through the Platform, and all personnel with any role in operating it. Next review: 11 August 2027, or on any change to the Platform, the Provider Registration Rules, or the conditions of registration.
+
+Read with the Governance and Operational Management Policy, Risk Management Policy, Privacy and Information Management Policy, Feedback and Complaints Policy, Incident Management Policy, Human Resources Management Policy and Continuous Improvement Policy.
+
+The Platform
+
+Platform name: BookIt. Operator: Disability and Mental Health Care Pty Ltd, ABN 19 658 578 575. Web address: bookit.life.
+
+Status at 11 August 2026: pre-launch. The Platform is built and running, and is not open to the public. No participant and no support worker is using it. There are no live participant accounts, no active worker listings and no bookings placed through it. Public access is held behind a site-wide password, and while that password is set every page and API response is served with a noindex, nofollow directive so the site cannot be found through a search engine. The demonstration accounts used during development are removed by a single launch routine, which also reports any record left pointing at a deleted account, and that routine is run immediately before the password is lifted. DMHC is seeking registration for 0137 before opening the Platform rather than after. Nothing in this procedure describes a control that is planned but absent; the controls described under How the Platform operates and Conditions of registration are in the software now and can be demonstrated on the day.
+
+Why the Platform falls within registration group 0137
+
+An online application, website or system is an NDIS digital platform where all of the following are true. Each is answered here for the Platform.
+
+- The system acts as an intermediary between participants seeking NDIS supports and the people who provide those supports. Yes: the Platform connects participants with support workers; it does not itself deliver the support.
+- Payments for those supports are processed through the system using NDIS funds from participants' plans. Card payment is switched on only by a single environment variable on the server, verified unset in the running production service environment on 13 August 2026 by the Director (process environment check over SSH on the production server).
+- The main purpose of the system is connecting participants with NDIS supports. Yes: the Platform exists to connect NDIS participants with support workers; it has no material non-NDIS purpose.
+
+Registration group 0137 is assessed against the Core Module through a certification audit. No separate module applies.
+
+Responsible person for 0137
+
+Name and role: Supriya Thapa, Director and sole key personnel. Risk assessed role type A, key personnel. NDIS Worker Screening clearance held (recorded in the Worker Register), expiry 16 July 2030. Date role assessed: 1 August 2025 (Worker Register, Table 1).
+
+Accountable for the operation of the Platform and its compliance with the NDIS Practice Standards, the NDIS Code of Conduct and the conditions of registration; verification of worker screening before a worker is listed; the handling of feedback, complaints and incidents arising through the Platform; the security of participant and worker information held in the Platform; and reporting to the NDIS Commission.
+
+Evidence held: Position Description (Principal Role, Supriya Thapa); Governing Personnel Skills and Performance Review; resume; NDIS Worker Orientation Module certificate; Worker Screening clearance; Working With Children Check; 100 points of identification.
+
+Delegate: no delegate is appointed. This is a deliberate design for a sole-director company. If the Director is unavailable, no new worker listing is activated until the Director is available again. Existing listings are unaffected, because the automated checks described under Conditions of registration continue to run and any listing that fails a check is suspended automatically. Suspensions and reinstatements are recorded in the Worker Register.
+
+How the Platform operates
+
+Worker onboarding
+
+No person may offer supports through the Platform until every step below is complete and recorded. The Director performs and records each check.
+
+- Identity verified to 100 points and right to work in Australia confirmed. Record: copies held in the worker's file.
+- NDIS Worker Screening Check verified in two separate ways, both of which must hold. A screening document must be on file, current, and verified by a person on the team; and the clearance itself must be confirmed with the screening unit and not be suspended, revoked, excluded or merely pending. A card is not accepted at face value, because a document can still read 2030 after the clearance behind it was withdrawn. Record: Worker Register, Table 2.
+- All three banning orders registers named in the conditions are searched: the NDIS Commission's register, aged care banning orders under the Aged Care Act 2024, and aged care orders made under the Aged Care Quality and Safety Commission Act 2018 before that Act commenced. Each is answered and dated separately. Record: worker profile, with the result, date and source per register.
+- NDIS Worker Orientation Module completion certificate obtained. Record: worker file; Training and Development Register.
+- Qualifications and role-relevant competencies obtained and recorded. Record: Training and Development Register.
+- Worker Declarations signed, including acknowledgement of the NDIS Code of Conduct and DMHC's policies. Record: worker file.
+- Contractor Services Agreement executed. Record: worker file.
+- Worker listing activated on the Platform. The system refuses the activation if any check above is missing, expired or unverified, and records the activation date. Record: Worker Register.
+
+Ongoing: screening expiry dates are monitored against the Worker Register. A listing is suspended immediately on expiry, on notice of an interim bar, suspension, revocation or exclusion, or on any banning order. Suspension is recorded in the Worker Register and in the Incident Management Register where a participant may have been affected.
+
+Participant journey
+
+- A participant creates an account and is given the Participant Information Booklet, DMHC's privacy information and the feedback and complaints pathway before any connection is made.
+- The participant searches and selects a worker. DMHC does not make the selection for the participant.
+- Consent to share the participant's information with a selected worker is obtained and recorded before the information is released.
+- Bookings, cancellations and payments: a participant requests a booking with the worker they have chosen, and the worker accepts it. Cancellation notice windows are published per service: seven days for personal care, community participation and daily tasks, and 48 hours for employment support, household tasks and transport. A cancellation inside the window is recorded as short notice, with the actual notice period stored on the booking so a cancellation is never confused with a no-show. A shift is priced only once it has been completed and approved; the participant has a set number of days to approve the timesheet or query it, after which it is approved automatically so the worker is paid on time, and approving is not treated as agreeing the shift was perfect. Invoicing and claiming then follow the participant's funding lane. No money passes through the Platform.
+
+Who provides the support
+
+This distinction must be stated plainly to every participant and worker, and must appear in the Platform's terms. The Platform is an intermediary. Where a participant engages a worker through the Platform, that worker provides the support. DMHC operates the Platform that connects them and is responsible for the safeguards set out in this procedure. This is separate from DMHC's direct service delivery. DMHC separately delivers supports under registration groups 0102, 0107, 0108, 0115, 0120 and 0125 as the participant's provider under a service agreement. Where DMHC is the provider, DMHC is responsible for the support itself. The two arrangements must not be conflated in participant-facing material, in records, or in claims.
+
+How the Core Module applies to Platform activity
+
+- Rights and responsibilities (standards 6 to 10): participants receive the Participant Information Booklet and privacy information on account creation. Information sharing with a worker occurs only with recorded consent. Platform material states the participant's right to choose, change or decline a worker at any time.
+- Governance and operational management (11): the Director is the responsible person for 0137 and is accountable for the Platform. Decisions are recorded through the management meeting record. The Delegation of Authority applies.
+- Risk management (12): Platform-specific risks are recorded in the Risk Management Register: an unscreened or barred worker listed, participant harm arising from a Platform connection, data breach, and misuse of participant information.
+- Quality management (13): issues arising through the Platform are recorded in the Continuous Improvement Register and reviewed against the Internal Audit Schedule.
+- Information management (14): participant and worker information held in the Platform is covered by the Privacy and Information Management Policy. Where it is held: a single database file on a dedicated Linux server under DMHC's control, with uploaded documents and photographs in separate directories alongside it, outside the web root and reachable only through authenticated routes. The server is an AWS Lightsail instance (Ubuntu) in the AWS Sydney region; all data is stored in Australia and does not leave the Sydney region. Server access requires the AWS account credentials and SSH key held by the Director; point-in-time backup of the whole server, including the database, is taken as Lightsail instance snapshots. Who can reach it: participants and workers see only their own records. Administrator rights are a stored fact on the account, set only through a provisioning path that is logged, and never inferred from an email address; over an encrypted connection administrator rights additionally require two-step authentication, and an account without two-step enrolled does not hold them, whatever the flag says. How access is logged: administrator use is written to a compliance log that is append-only; nothing in the system updates or deletes a row of it. Backup: a scheduled job takes a full audit snapshot every 24 hours and records its own last run, duration and outcome, so a sweep that stops working is visible rather than silent. If something goes wrong: data breach response under the Privacy and Information Management Policy, assessed and responded to within 1 business day, notified to the OAIC and to affected individuals where the Notifiable Data Breaches threshold is met, and recorded in the Incident Management Register.
+- Feedback and complaints (15): the Platform displays DMHC's complaints pathway and the NDIS Commission's contact details. Complaints received through the Platform are entered in the Feedback and Complaints Register and handled under the Feedback and Complaints Policy, whether they concern the Platform itself or a worker engaged through it.
+- Incident management (16): incidents arising in connection with the Platform are recorded in the Incident Management Register. Reportable incidents are notified to the NDIS Commission within the required timeframes under the Incident Management Policy. This applies to incidents involving a worker listed on the Platform, not only to incidents in DMHC's direct service delivery.
+- Human resource management (17): the onboarding steps above apply to every worker listed. The Worker Register records screening for both directly engaged workers and Platform-listed workers.
+- Continuity of supports (18): an outage does not strand a support that is already arranged. Bookings and the contact details of both parties are held by DMHC independently of anyone's ability to reach the site, so DMHC contacts the participant and the worker directly and the shift goes ahead. No participant currently relies on the Platform for access to supports, because it is pre-launch. A Platform outage scenario is to be added to the Business Continuity, Emergency Response and Disaster Management Plan before launch, covering who declares an outage, how everyone with a shift in the next 48 hours is contacted, how bookings are taken and recorded while the system is down, and how those records are reconciled once it returns.
+
+Conditions of registration from 1 January 2027
+
+These conditions do not bind DMHC on 24 August 2026. All four are nevertheless already built into the Platform and operating, and can be demonstrated during the audit. Each item below describes what the software does today, not what is planned.
+
+- Confirm a worker holds a valid NDIS Worker Screening Check before that worker can offer supports on the Platform. Built and operating. The system refuses to activate a worker listing unless both of two separate things hold: a screening document on file, current and verified by a person on the team; and a clearance status confirmed with the screening unit that is not suspended, revoked, excluded or pending. An application is not a clearance, and the software says so in those words. This refusal is treated as a condition of registration rather than a house rule. An administrator who selects "approve anyway" receives the same refusal; the override reaches DMHC's own requirements, such as a missing profile photo, and does not reach these. Met, in place now.
+- Check whether any banning order is in force against a worker, and publish that information. Built and operating, against all three registers. The condition names three, not one: the NDIS Commission's banning orders register, aged care banning orders under the Aged Care Act 2024, and aged care orders made under the Aged Care Quality and Safety Commission Act 2018 before that Act commenced. Each carries its own result, date and source, because a clear answer on one says nothing about the other two. A worker who has never been checked against any one of the three cannot be listed. Re-checks fall due on a 90-day cycle with a 30-day grace period, after which the listing is withdrawn automatically; the office is emailed before that happens rather than after. What was found on each register, and when it was last looked at, is displayed on the worker's own profile. Met, in place now.
+- Check and display worker credentials on the Platform. Built and operating. A credential appears on a worker's profile only after someone on the team has verified it and recorded how they satisfied themselves: original sighted, number checked against the issuing register, or confirmed with the issuer directly. That record is kept and is what an auditor is shown. Anything not verified is not listed. There is no third state in which a worker's own claim sits on a profile with a tick beside it. What DMHC itself may deliver is derived from the certificate data rather than written into page copy, so every claim made anywhere on the site is traceable to the certificate. Met, in place now.
+- Ongoing monitoring and re-verification. Built and operating. A scheduled sweep runs every 12 hours. It emails the worker and the office as each credential approaches expiry and again once it passes, and a second cycle chases banning-order re-checks before they fall due rather than after a profile has already come down. An expired check, a suspended, revoked or excluded clearance, a banning order, or an overdue register check each withdraw the profile automatically (off search, unbookable and unmessageable) and it returns by itself once the problem is fixed. Every sweep records its own last run, duration, outcome and any error, so a job that silently stops is visible on the administrator's screen. Met, in place now.
+
+Records and review
+
+- Worker screening verification records, onboarding records and Platform listing activation and suspension dates are retained for 7 years.
+- Participant consent records and information-sharing records are retained under the Privacy and Information Management Policy.
+- This procedure is reviewed annually, and immediately on any change to the Platform, to the Provider Registration Rules, or to the conditions of registration for 0137.
+
+This procedure describes DMHC's intended operating practice. It is not legal advice and should be reviewed by a suitably qualified adviser before the conditions of registration take effect.
+
+Approval Authority: Supriya Thapa (Director)
+Version: 1.0
+Approval Date: 11 August 2026
+Review Date: 11 August 2027

@@ -1,0 +1,179 @@
+Disability and Mental Health Care Pty Ltd | Business Continuity, Emergency Response, and Disaster Management Plan
+
+Introduction
+
+Purpose
+
+The purpose of this Business Continuity, Emergency Response, and Disaster Management Plan is to outline strategies and procedures to ensure the continuity of essential services in the event of a disruption or disaster.
+
+Objectives
+
+The objectives of this plan are to:
+
+- undertake risk management assessment;
+- define and prioritise our critical business functions;
+- detail our immediate response to a critical incident;
+- detail strategies and actions to be taken to enable us to stay in business; and
+- review and update this plan on a regular basis.
+
+The Prevention, Preparedness, Response and Recovery (PPRR) framework
+
+This plan incorporates the Prevention, Preparedness, Response and Recovery (PPRR) framework. This framework sets out key stages for:
+
+- Prevention: risk management planning identifies and manages the likelihood and/or effects of risk associated with an incident.
+- Preparedness: business impact analysis identifies and prioritises key activities of a business adversely affected by disruptions.
+- Response: incident response planning outlines immediate actions to respond to an incident in terms of containment, control and minimising impacts.
+- Recovery: recovery planning outlines actions to recover from an incident to minimise disruption and recovery times.
+
+Definitions
+
+Disability and Mental Health Care Pty Ltd means Disability and Mental Health Care Pty Ltd ABN 19658578575.
+
+Key Management Personnel means Supriya Thapa and other key management personnel involved in Disability and Mental Health Care Pty Ltd from time to time.
+
+Director means Supriya Thapa.
+
+Worker means a permanent, fixed term or casual member of staff, a contractor or volunteer employed or otherwise engaged by Disability and Mental Health Care Pty Ltd and includes the Director.
+
+Risk Management means a method involving the identification of hazards, assessing the risks associated with these hazards, and planning and implementing control measures to eliminate or minimise the risks from the identified hazards.
+
+An incident is defined as an act, omission, event, or circumstance. It may mean any of the following: acts, omissions, events, or circumstances that occur in connection with providing NDIS supports or services to a person with disability and have, or could have, caused harm to the person with disability; acts by a person with disability that occur in connection with providing NDIS supports or services to the person with disability and which have caused serious harm, or a risk of serious harm, to another person; or reportable incidents that have or are alleged to have occurred in connection with providing NDIS supports or services to a person with disability.
+
+Sensitive information means a category of personal information that usually receives a higher degree of privacy protection. This encompasses details related to health, genetic makeup, racial or ethnic background, political viewpoints, association with a political group, religious or philosophical beliefs, affiliation to a professional or trade association or union, sexual orientation or behaviour, criminal history, and certain kinds of biometric information.
+
+Risk Management
+
+Risk management plan: Disability and Mental Health Care Pty Ltd's Risk Management Register details risk to the business.
+
+Insurance: certificates of currency and policy details are included in the emergency kit.
+
+Business impact analysis
+
+| Risk | Impact on loss | Preventative action | Contingency plans |
+| Natural disasters such as floods, fires, earthquakes or severe weather events | Inability to provide supports and services to Participants. This negatively impacts revenue and will put Participants at risk who rely on the supports and services provided by Disability and Mental Health Care Pty Ltd. | Regular workplace inspections and necessary repairs, installation of disaster prevention equipment, disaster preparedness training for Workers. | Participant Emergency Plans, evacuation procedures, emergency contact procedures, relocation to a backup location, a communication plan to keep Workers and Participants informed, and the continuity of supports plan below. |
+| COVID-19 and other infectious disease | Workers and Participants are at increased risk of infection and sickness. This may lead to an inability to provide supports and services to Participants, which negatively impacts revenue and puts Participants who rely on those supports at risk. | Health and hygiene practices and education, vaccination encouragement, sanitation measures, health screenings. | Remote work capabilities if possible, infection control procedures, a communication plan for health updates. |
+| Worker shortages | Disruption of service delivery or increased workload for existing Workers, which may lead to a decline in the quality of services provided. | Worker support and wellbeing programs, effective recruitment and retention strategies, regular feedback and communication, efficient HR practices. | Another competent Worker or management personnel with the required skills temporarily takes up the responsibilities of the unavailable worker. If this proves unsustainable or extends beyond a few weeks, temporary assistance is brought in from an external labour hire or contracting service, or the role is recruited for. If the absence becomes permanent, a new worker is hired. Throughout these changes Participants are thoroughly informed and their agreement on alternative arrangements sought. |
+| Privacy and confidentiality breaches | See the Risk Management Register. | Robust information security, worker training, Worker confidentiality agreements, regular audits, and the processes in the Privacy and Information Management Policy. | An incident response plan to address breaches, data recovery from backups, a system repair or replacement plan, and Participant communication for potential data breaches. |
+| Unplanned Director or Key Management Personnel absence | Critical business functions may be reliant on the presence of the Director and/or Key Management Personnel. In their absence effective and efficient operations may decline, which could lead to a decline in revenue and quality of services provided. | Cross-training for key tasks, succession plans for management positions, and detailed job documentation for guidance. | Assign duties to a qualified individual or bring in interim management, and communicate all changes transparently to minimise disruption. |
+
+Incident Response Plan
+
+Disability and Mental Health Care Pty Ltd's Incident Response Plan prepares for a timely response to critical incidents, reduces the impact of those incidents on business operations, and prepares key Workers to provide an effective response to minimise disruption in the event of an emergency.
+
+Immediate response checklist
+
+- Assess the severity of the incident.
+- Evacuate the site if necessary.
+- Account for everyone.
+- Identify any injuries to persons.
+- Contact emergency services.
+- Implement the incident response plan.
+- Start an event log.
+- Activate Workers and resources.
+- Appoint a spokesperson.
+- Gain more information as a priority.
+- Brief team members on the incident.
+- Allocate specific roles and responsibilities.
+- Identify any damage.
+- Identify critical activities that have been disrupted.
+- Keep Workers informed.
+- Contact key stakeholders.
+- Understand and comply with any regulatory or compliance requirements.
+- Initiate the media and public relations response.
+
+Emergency Plans
+
+Medical emergencies
+
+- If a medical emergency arises, immediately call 000. Be prepared to describe the condition of the person, the location, and any other relevant details.
+- All Workers should be trained in basic first aid and CPR. Training should include recognising signs of medical distress, initiating emergency response, and providing basic care until medical professionals arrive.
+- A file for each participant containing emergency contacts, medical history, allergies, and any relevant health conditions should be maintained. This information should be quickly accessible in an emergency.
+- Following the emergency, all involved parties should be gathered for a debriefing. What happened should be discussed, how the situation was handled, and any potential improvements. The incident should be documented in an incident report and any necessary external parties, such as insurance providers or oversight bodies, should be notified.
+
+Fire emergencies
+
+- In case of fire, prioritise human life over property. Follow the established escape routes to evacuate the premises, moving towards the nearest exit, and then assemble at the designated safe assembly point. Call 000.
+- Smoke alarms should be installed in every workplace location and monthly checks should be conducted to ensure they are working properly. Replace batteries annually, or as needed.
+- All Workers should be trained in the location, use, and maintenance of fire extinguishers. This training should be refreshed annually.
+- Fire drills should be conducted regularly, ensuring that each drill involves all parties present at the workplace and covers all exit routes. Record the efficiency and any potential areas for improvement.
+
+Natural disasters (floods, earthquakes, severe storms)
+
+- Develop a specific plan for each type of natural disaster likely to occur in the workplace region, including Participants' homes. This should include potential shelter locations, evacuation routes, and communication systems.
+- Subscribe to and monitor national and local disaster alert systems. Share any impending disaster alerts with all Workers and Participants promptly.
+- Identify the safest route to assist Participants and Workers to evacuate to the nearest relief centre and leave as soon as practicable.
+- Schedule disaster-specific drills at least annually. Evaluate and revise the plan based on the drill's outcome.
+- Consider preparation of an emergency supply kit including enough water, non-perishable food, medicine, blankets, flashlights, and batteries to last at least 72 hours. Also consider the specific needs of the Participants when preparing the kit.
+
+Violent incidents
+
+- If a violent incident arises, immediately call 000.
+- Workers are encouraged to report suspicious activity or threats to management immediately. Management should evaluate and respond appropriately, potentially including contacting law enforcement.
+- Establish lockdown procedures that include locking doors, closing blinds, turning off lights, and hiding out of sight. Conduct drills to ensure all Workers and participants understand and can follow these procedures.
+- Implement an alert system, such as a silent alarm or coded announcement, to notify Workers of a potential threat without escalating the situation.
+- Provide Workers with training on de-escalation techniques, recognising potential threats, and responding to active-attacker situations.
+
+Power outages
+
+- Contact the power company to determine the cause of the outage.
+- Store emergency lighting that can be turned on in the event of a power outage. Regularly check these lights to ensure they are functioning properly.
+- Maintain a list of participants' family contacts and have a plan for communicating about the power outage and the steps being taken.
+- Store data in a cloud storage backup system.
+
+Infectious or hazardous exposure
+
+- Any potential exposure should be reported immediately to a supervisor or management. Communicate transparently with Workers, participants, and families about the situation and the steps being taken to address it.
+- Develop procedures for isolating any potentially infected persons from others.
+- If a potentially hazardous material is found, the area should be evacuated and quarantined until professionals can address the situation.
+- For infectious diseases, the area should be thoroughly cleaned and disinfected. If a hazardous material was involved, cleanup should be left to a professional cleaning service.
+- Train all Workers on how to recognise signs of infectious disease or hazardous material exposure, including basic prevention measures such as proper handwashing and disinfection practices.
+- Ensure that PPE like gloves, masks, and gowns is available and Workers know how to use it properly.
+
+Cybersecurity breaches
+
+- Use firewalls, secure networks, and regularly updated anti-virus software to protect digital systems. Regularly back up data in a secure location.
+- Regularly train all Workers on safe internet practices, such as identifying phishing attempts, choosing strong passwords, and not sharing sensitive information.
+- Follow incident procedures in response to a breach: isolate affected systems, identify what was accessed, and report the breach to the relevant authorities.
+- Notify affected individuals and other stakeholders about the breach. Be transparent about what happened, what information was potentially accessed, and what steps are being taken in response.
+- Work with cybersecurity professionals to clean digital systems, recover lost data if possible, and strengthen cyber security to prevent future breaches. After a breach, retrain Workers on cybersecurity practices and update them on any new procedures put in place.
+
+Emergency Kit
+
+An emergency kit will be kept in the residence of the Director and on Disability and Mental Health Care Pty Ltd's cloud-based storage system. The emergency kit must contain:
+
+- this Plan;
+- a list of Workers and contact details;
+- contact details of emergency services;
+- the evacuation plan (if applicable);
+- insurance details;
+- financial and banking information;
+- product lists and specifications (if applicable); and
+- the crisis and recovery checklist.
+
+Crisis and recovery checklist
+
+Details of the crisis: record details of any injured people, including Workers, Participants and other members of the public; photograph or record damage to buildings, equipment, company vehicles and stock; record the impact on business functions; record any anticipated damage to the business's reputation.
+
+Update Workers: conduct a critical incident debrief within 48 hours (preferably within 24 hours) following a crisis. Hold a meeting with Workers to ask them about their reactions to the crisis; Workers may need time and space to process their thoughts and feelings. Encourage deeply affected Workers to seek support from other Workers or from counselling services and monitor progress in the months following a crisis. Inform Workers about the recovery process and schedule regular updates. Advise Workers about colleagues who may be injured. Keep Workers informed about what is expected of them, whether they should turn up for work the next day, and reassure them about job security.
+
+Contact the insurer: contact the insurance company to make a claim before beginning to clean up and remove goods. Photograph or record damage to premises, fixtures, vehicles, stock, customer records and equipment to support claims.
+
+Seek support: apply for any government support programs to help the recovery of Disability and Mental Health Care Pty Ltd after a crisis. Investigate support that might be available from banks and other businesses; support is often available after a natural disaster.
+
+Tax assistance: consider contacting the Australian Taxation Office (ATO) to find out about assistance available for individuals and businesses affected by natural disasters, including whether the ATO can fast-track a refund or assistance, extra time to pay any outstanding liabilities, and more time to meet activity statement, income tax and other lodgement obligations.
+
+Emotional and crisis support: if appropriate, contact Lifeline on 13 11 14 for confidential emotional and crisis support, or Beyond Blue for depression and anxiety support, and read the mental health and wellbeing resources for businesses.
+
+Review the recovery processes: record what has been learned from the crisis; review and update the recovery plan and this Plan; consider and record what went well and what did not, and the key lessons learned; implement the changes needed to improve.
+
+Event Log
+
+Use the event log to record information, decisions and actions in the period immediately following the critical incident or event.
+
+| Date | Time | Information, decisions and actions | Person responsible |
+|  |  |  |  |
+
+Approval Authority: Supriya Thapa
+Version: 1
+Approval Date: August 2025
+Review Date: August 2027

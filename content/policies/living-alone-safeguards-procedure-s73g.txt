@@ -1,0 +1,80 @@
+Disability and Mental Health Care Pty Ltd | Living Alone Safeguards Procedure (s73G Condition)
+
+Introduction
+
+Purpose
+
+Disability and Mental Health Care Pty Ltd's registration is subject to a condition imposed under section 73G of the National Disability Insurance Scheme Act 2013 requiring additional safeguards for participants who live alone. The purpose of this Procedure is to define those safeguards and how we evidence them. Auditors will assess this condition by name at the mid-term audit.
+
+Scope
+
+This Procedure applies to every participant we support who lives alone (no co-resident adult), and to any participant whose circumstances temporarily match that situation (for example a co-resident away for an extended period).
+
+Relevant legislation
+
+All legislation relevant to this document is outlined in the Legislation Register.
+
+Related documents
+
+- Participant Risk Assessment Form
+- Home Risk Assessment Checklist
+- Participant Emergency Plan
+- Incident Management Policy
+- Supported Decision-Making Procedure
+- Assessment and Provision of Supports Policy
+
+Responsibilities and Roles
+
+- Supriya Thapa is responsible for the development and review of this document and for ensuring it remains compliant with all applicable laws, regulations and standards.
+- Key Management Personnel are responsible for its effective implementation, for assisting Workers to understand and comply with it, and for complying with it themselves.
+- Workers are responsible for understanding this document and complying with all procedures applicable to them.
+
+Definitions
+
+Disability and Mental Health Care Pty Ltd means Disability and Mental Health Care Pty Ltd ABN 19 658 578 575, a registered NDIS provider (4-LO5XNY0).
+
+Key Management Personnel means Supriya Thapa and other key management personnel involved in Disability and Mental Health Care Pty Ltd from time to time.
+
+Worker means a permanent, fixed term or casual member of staff, a contractor or volunteer employed or otherwise engaged by Disability and Mental Health Care Pty Ltd, and includes the Director.
+
+BookIt means the Disability and Mental Health Care Pty Ltd service-delivery platform (bookit.life) that holds our booking, credential, incident, complaint and roster records.
+
+Missed contact means a scheduled support visit or scheduled contact that does not occur, or a participant who cannot be reached at an agreed check-in.
+
+Procedures
+
+Identification and assessment
+
+- Living-alone status is identified at intake (Participant Intake Form) and re-checked at every review and change of circumstance.
+- For each participant living alone, the Participant Risk Assessment is completed with specific attention to: medical events and falls; fire and home hazards (Home Risk Assessment Checklist); social isolation; medication management when no worker is present; weather emergencies; and the consequences of a missed support visit.
+- A Participant Emergency Plan is completed and kept current: emergency contacts, GP, medications, entry arrangements (key safe or contact holding a key), and the participant's preferred emergency responses.
+
+The safeguard plan, agreed with the participant
+
+- With the participant (per the Supported Decision-Making Procedure), we agree and record: the schedule of support visits and any additional welfare check-ins (phone or in person); who is contacted if the participant does not answer; and what "unaccounted for" means for them.
+- Every shift is checked in and completed in BookIt, so there is a timestamped record that each scheduled support actually occurred. This is our primary evidence of the safeguard operating.
+- The safeguard plan is reviewed at least every six months, and immediately after any incident, hospitalisation, or change in support needs.
+
+Missed contact escalation ladder
+
+- If a Worker cannot attend a scheduled visit: they notify the office immediately so a replacement or a phone check-in is arranged the same day. A visit is never silently skipped.
+- If the participant does not answer at a scheduled visit: the Worker attempts all agreed contact methods (knock, doorbell, phone, waiting period), checks agreed indicators, and phones the office while still on site.
+- If the participant remains unaccounted for: the office phones the participant's emergency contacts; if they cannot confirm the participant is safe, we request a police welfare check (000 if there are signs of immediate danger). The Worker does not simply leave.
+- Every missed-contact event and its outcome is recorded in the incident system the same day, and the safeguard plan is reviewed within one week.
+
+Out of hours
+
+Participants who live alone are given the Disability and Mental Health Care Pty Ltd contact number and the 24/7 urgent line, in their preferred format, and know they can use it at any time.
+
+Records and audit evidence
+
+Evidence of this condition operating comprises: the flagged intake forms; the risk assessments and emergency plans in participant files; BookIt's timestamped shift records; and incident register entries for any missed contact. Quarterly exports are filed in the Core Documents folder.
+
+Policy review and updates
+
+This document is to be amended and updated as required to remain compliant with applicable law, the NDIS Practice Standards, and the conditions of registration. It will be reviewed no later than the review date below, and earlier if legislation, the Practice Standards, or our operations change.
+
+Approval Authority: Supriya Thapa (Director)
+Version: 1
+Approval Date: 1 July 2026
+Review Date: 1 July 2027

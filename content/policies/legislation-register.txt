@@ -1,0 +1,59 @@
+Disability and Mental Health Care Pty Ltd | Legislation Register
+
+Introduction
+
+Disability and Mental Health Care Pty Ltd understands that delivering quality and safe services is rooted in strong compliance measures. We are dedicated to upholding all pertinent regulatory, legislative, and contractual obligations. This legislation register is to be read in conjunction with Disability and Mental Health Care Pty Ltd's policies.
+
+In developing this register, Disability and Mental Health Care Pty Ltd has undertaken extensive research into legislation relevant to the NDIS. This includes not only legislation directly applicable to the services outlined in our current business plan, but also legislation that may not presently apply. This broader approach has been adopted to ensure we understand the full legislative landscape and are well positioned should we wish to expand our service offerings in future. Our intent is to be as thorough as possible and ensure our operations are both compliant and future-proofed.
+
+Human resources
+
+| Topic | Legislative or contractual reference | Our document reference |
+| NDIS worker screening | Commonwealth: NDIS Quality and Safeguards Commission Practice Standards; NDIS (Practice Standards—Worker Screening) Rules 2018; funding body service agreements. | Human Resources Management Policy; worker records; position descriptions. |
+| Working with children checks | Commonwealth: funding body service agreements. NSW: Children and Young Persons (Care and Protection) Act 1998; Child Safe Standards. Vic: Worker Screening Act 2020; Child Safe Standards; Children, Youth and Families Act 2005. Qld: Working with Children (Risk Management and Screening) and Other Legislation Amendment Act 2019. SA: Child Safety (Prohibited Persons) Act 2016 and Regulations 2019. WA: Working with Children (Criminal Record Checking) Act 2004. ACT: Working with Vulnerable People (Background Checking) Act 2011. Tas: Registration to Work with Vulnerable People Act 2013. NT: Care and Protection of Children Act 2007. | Human Resources Management Policy; worker records; position descriptions. |
+| Payroll compliance | Commonwealth: Fair Work Act 2009; National Employment Standards; Social, Community, Home Care and Disability Services Industry Award 2010; Nurses Award 2010. | Work Health and Safety Policy; Human Resources Management Policy; Privacy and Information Management Policy; Feedback and Complaints Policy. |
+| Privacy | Commonwealth: Privacy Act 1988; National Disability Insurance Scheme Act 2013; NDIS (Protection and Disclosure of Information) Rules 2018. NSW: Privacy and Personal Information Protection Act 1998; Health Records and Information Privacy Act 2002. Vic: Health Records Act 2001; Privacy and Data Protection Act 2014. Qld: Information Privacy Act 2009. SA: Public Health Act 2011. WA: Freedom of Information Act 1992. ACT: Information Privacy Act 2014; Health Records (Privacy and Access) Act 1997. Tas: Personal Information Protection Act 2004. NT: Information Act 2002. | Privacy and Information Management Policy; Participant Rights and Responsibilities Policy. |
+| Equal employment opportunity | Commonwealth: Equal Employment Opportunity (Commonwealth Authorities) Act 1987; Equal Opportunity for Women in the Workplace Amendment Act 1999; Workplace Gender Equality Act 2012. NSW: Anti-Discrimination Act 1977. Vic: Equal Opportunity Act 2010 as amended 2011. Qld: Anti-Discrimination Act 1991. SA: Equal Opportunity Act 1984. WA: Equal Opportunity Act 1984. ACT: Discrimination Act 1991. Tas: Anti-Discrimination Act 1998. NT: Anti-Discrimination Act 1992. | Work Health and Safety Policy; Human Resources Management Policy. |
+| Discrimination and harassment | Commonwealth: Disability Discrimination Act 1992; Sex Discrimination Act 1984; NDIS Code of Conduct Rules 2018. | Work Health and Safety Policy; Feedback and Complaints Policy. |
+| Parental leave | Commonwealth: Paid Parental Leave Act 2010. | Human Resources Management Policy. |
+| Staff qualifications | Commonwealth: NDIS Quality and Safeguards Commission Practice Standards. | Human Resources Management Policy. |
+
+Finance
+
+| Topic | Legislative or contractual reference | Our document reference |
+| Australian Taxation Office | Commonwealth: A New Tax System (Goods and Services Tax) Act 1999; PAYG withholding under the Taxation Administration Act 1953. | Tax returns; BAS statements; Service Agreement. |
+| State governments | Payroll tax; workers compensation. | Tax returns. |
+| Service pricing | Commonwealth: NDIS Pricing Arrangements and Price Limits. | Service Agreements and Schedule of Supports. |
+
+Information systems
+
+| Topic | Legislative or contractual reference | Our document reference |
+| IT systems usage | Commonwealth: Privacy Act 1988; Privacy Amendment (Enhancing Privacy Protection) Act 2012 (Australian Privacy Principles); Freedom of Information Act 1982. NSW: Health Records and Information Privacy Act 2002; Privacy and Personal Information Protection Act 1998. Vic: Health Records Act 2001; Privacy and Data Protection Act 2014; Charter of Human Rights and Responsibilities Act 2006. Qld: Information Privacy Act 2009. SA: Public Health Act 2011. WA: Freedom of Information Act 1992. ACT: Information Privacy Act 2014; Health Records (Privacy and Access) Act 1997. Tas: Personal Information Protection Act 2004. NT: Information Act 2002. | Privacy and Information Management Policy. |
+
+Quality and governance
+
+| Topic | Legislative or contractual reference | Our document reference |
+| Complaints management | Commonwealth: NDIS Quality and Safeguards Commission Practice Standards; NDIS (Complaints Management and Resolution) Rules 2018. | Feedback and Complaints Policy; Continuous Improvement Policy; Incident Management Policy; Participant Rights and Responsibilities Policy; Feedback and Complaints Form. |
+| Certification maintenance | Commonwealth: certification to the NDIS Practice Standards; registered provider agreements; NDIS (Provider Definition) Rule 2018; NDIS (Provider Registration and Practice Standards) Rules 2018. | Continuous Improvement Policy. |
+| Records management | Commonwealth: Privacy Act 1988; Taxation Administration Act 1953; NDIS Terms of Business for Registered Providers. NSW: Health Records and Information Privacy Act 2002. Vic: Health Records Act 2001; Privacy and Data Protection Act 2014; Victorian Protective Data Security Standards. Qld: Information Privacy Act 2009. SA: Public Health Act 2011. WA: State Records Act 2000. ACT: Health Records (Privacy and Access) Act 1997. Tas: Personal Information Protection Act 2004. NT: Information Act 2002. | Privacy and Information Management Policy. |
+| Quality management system | Commonwealth: NDIS Quality and Safeguards Commission Practice Standards; NDIS Quality Indicators Guidelines 2018; NDIS Quality and Safeguards Commission and Other Measures Act 2017. | Continuous Improvement Policy; Continuous Improvement Register. |
+| Governance | Commonwealth: Corporations Act 2001; NDIS Quality and Safeguards Commission Practice Standards; NDIA Terms of Business. | Delegation of Authority; Governance and Operational Management Policy; Business Plan; Risk Management Register; Conflict of Interest Register. |
+
+Work health and safety
+
+| Topic | Legislative or contractual reference | Our document reference |
+| Work health and safety generally | NSW: Work Health and Safety Act 2011 and Regulation 2017; SafeWork NSW. Vic: Occupational Health and Safety Act 2004 and Regulations 2017; WorkSafe Victoria. Qld: Work Health and Safety Act 2011 and Regulation 2011; WorkSafe Queensland. SA: Work Health and Safety Act 2012 and Regulations 2012; ReturnToWork SA. WA: Work Health and Safety Act 2020 and Regulations 2022. ACT: Work Health and Safety Act 2011 and Regulation 2011; WorkSafe ACT. Tas: Work Health and Safety Act 2012 and Regulations 2012; WorkSafe Tasmania. NT: Work Health and Safety (National Uniform Legislation) Act 2011 and Regulations 2011. | Risk Management Policy; Business Continuity Plan; Risk Management Register; Infection Prevention and Control Policy; Incident Management Policy; Work Health and Safety Policy; certificates of insurance. |
+| Emergency preparedness | Commonwealth: AS 3745 (Planning for emergencies in facilities); Vulnerable People Register; Building Code of Australia requirements for fire risk management. | Business Continuity Plan; Risk Management Register; Infection Prevention and Control Policy; Incident Management Policy; Work Health and Safety Policy. |
+| Incident management | Commonwealth: NDIS (Incident Management and Reportable Incidents) Rules 2018. State and territory work health and safety Acts and Regulations as listed above. | Incident Management Policy; Incident Report Form; Incident Register; notifiable and mandatory reporting; restrictive practices reporting (NSW RPA system). |
+
+Service delivery
+
+| Topic | Legislative or contractual reference | Our document reference |
+| Human rights | Commonwealth: Australian Human Rights Commission Act 1986; Disability Discrimination Act 1992; Age Discrimination Act 2004; Racial Discrimination Act 1975; Sex Discrimination Act 1984; Australian Consumer Law. NSW: Anti-Discrimination Act 1977. Vic: Charter of Human Rights and Responsibilities Act 2006. Qld: Human Rights Act 2019. SA: Equal Opportunity Act 1984. WA: Equal Opportunity Act 1984. ACT: Human Rights Act 2004. Tas: Anti-Discrimination Act 1998. NT: Anti-Discrimination Act 1992. | Participant Rights and Responsibilities Policy; Assessment and Provision of Supports Policy; Participant Support Plan; Worker Declarations. |
+| NDIS and other funders | Commonwealth: service and provider agreements; National Disability Insurance Scheme Act 2013; Disability Services and Inclusion Act 2023; Disability Discrimination Act 1992; Carer Recognition Act 2010. NSW: Guardianship Act 1987; Powers of Attorney Act 2003; NSW Trustee and Guardian Act 2009; Children and Young Persons (Care and Protection) Act 1998; Community Services (Complaints, Reviews and Monitoring) Act 1993; Anti-Discrimination Act 1977. Vic: Disability Act 2006 as amended; Guardianship and Administration Act 2019. Qld: Disability Services Act 2006; Carers (Recognition) Act 2008; Guardianship and Administration Act 2000; Powers of Attorney Act 1998; Child Protection Act 1999. SA: Children and Young People (Safety) Act 2017; Powers of Attorney and Agency Act 1984; Guardianship and Administration Act 1993; Carers Recognition Act 2005. WA: Disability Services Act 1993. ACT: Disability Services Act 1991; Guardianship and Management of Property Act 1991. Tas: Disability Services Act 2011 and Regulations 2015; Guardianship and Administration Act 1995. NT: Disability Services Act 1993; NDIS (Authorisations) Act 2019. | Service Agreement; Participant Rights and Responsibilities Policy; Supported Decision-Making Procedure. |
+| Assistance with medications | NSW: Poisons and Therapeutic Goods Act 1966 and Regulation 2008. Vic: Drugs, Poisons and Controlled Substances Regulations 2017. Qld: Medicines and Poisons Act 2019. SA: Controlled Substances Act 1984. WA: Medicines and Poisons Act 2014 and Regulations 2016. ACT: Medicines, Poisons and Therapeutic Goods Act 2008 and Regulation 2008. Tas: Poisons Act 1971 and Regulations 2018. NT: Medicines, Poisons and Therapeutic Goods Act 2012. | Management of Medication Policy. |
+
+Approval Authority: Supriya Thapa
+Version: 1
+Approval Date: August 2025
+Review Date: August 2027
