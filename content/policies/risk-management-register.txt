@@ -1,0 +1,337 @@
+Disability and Mental Health Care Pty Ltd | Risk Management Register
+
+Each risk in this register records the date it was identified, a description, its impact, the impact and probability levels, the mitigation strategy, and who actions it. All risks below were identified in August 2025 and are actioned by Supriya Thapa.
+
+Business risks
+
+Privacy and Confidentiality Breaches
+
+| Impact level | Probability level |
+| High | Low |
+
+This risk refers to the potential of unauthorised individuals gaining access to sensitive personal participant information, or authorised individuals misusing or improperly disclosing this information. This could involve both electronic data and physical records, and could result from factors such as weak system security, poor information management practices, worker negligence, or malicious actions.
+
+Breaches of privacy and confidentiality can lead to a number of negative outcomes, including:
+
+- Damage to the participant's privacy, which can cause emotional distress and potential harm if the disclosed information is used maliciously.
+- Loss of trust in Disability and Mental Health Care Pty Ltd by participants, their families, and the public.
+- Legal consequences such as fines or lawsuits, given the strong legal protections around personal information.
+- Reputational damage to Disability and Mental Health Care Pty Ltd, which could affect participant recruitment and retention, relationships with partners, and public perception.
+
+To mitigate this risk, Disability and Mental Health Care Pty Ltd will implement a number of measures:
+
+- Robust information security: implement strong data protection measures, including firewalls, encryption, secure storage facilities, and access controls for both physical and electronic information.
+- Worker training: provide training to all Workers on the importance of participant confidentiality, appropriate handling of personal information, and information security practices.
+- Confidentiality agreements: require all Workers, volunteers, and contractors to sign confidentiality agreements that outline their responsibilities and the consequences of breaches.
+- Regular audits: regularly audit information handling and storage practices to identify and address any potential vulnerabilities.
+- Privacy and Information Management Policy: the policy outlines how personal information is collected, used, stored, and disclosed, as well as participants' rights around their information.
+- Incident response: use the Incident Management Policy for responding to privacy breaches.
+
+Personal Protective Equipment (PPE)
+
+| Impact level | Probability level |
+| Medium | Medium |
+
+One significant risk is the potential for inadequate protection if PPE is not carefully selected, fitted, or maintained. Ill-fitting PPE may leave workers vulnerable to exposure, while damaged or expired equipment may offer diminished protection.
+
+PPE can sometimes create a false sense of security, leading to complacency regarding other critical safety measures. Additionally, improper use or non-compliance with PPE protocols can result in discomfort, reduced mobility, or even injuries.
+
+Protective barriers (eye shields, gloves, gowns and masks) are to be used whenever there is a potential for exposure to blood and body substances. General purpose utility gloves should be worn for housekeeping tasks including cleaning clinical instruments and handling chemical disinfectants. Utility gloves are to be discarded if they are peeled, torn or punctured or have other evidence of deterioration. Use the Incident Management Policy for investigating and responding to incidents.
+
+Infection
+
+| Impact level | Probability level |
+| Medium | Medium |
+
+This risk refers to the potential challenges for public health. Microbial transmission in healthcare, communities, and beyond can have severe consequences if not managed well. This risk shows the need for strong infection control measures like hand hygiene, sanitation, and using personal protective equipment.
+
+The potential impacts of infection include the spread of illnesses among both participants and employees. This can disrupt schedules, delay service, and infections can compromise workplace safety if employees are not able to perform tasks effectively.
+
+Ensuring the health and safety of all our participants, workers, and the wider community is our top priority. Individuals with disabilities may face heightened risks of contracting infectious diseases due to underlying health conditions and potential challenges in implementing preventive measures. We are committed to maintaining the highest standards of cleanliness, hygiene, and disease control to create a safe and healthy environment for everyone engaged in our services. Workers are provided with the necessary training to implement practices that prevent the spread of infections, referring to the procedures in the Infection Prevention and Control Policy, with annual training enforced.
+
+Financial risk
+
+| Impact level | Probability level |
+| High | Medium |
+
+This risk refers to the potential financial challenges that could negatively impact the organisation. These could include unforeseen expenses, reduction in funding sources, budgeting errors, economic instability, fraud, or financial mismanagement.
+
+The potential impacts of financial risks include:
+
+- Reduction in service provision due to lack of funds.
+- Inability to meet financial obligations such as salaries, utility bills, or rent.
+- Reduction in Workers, leading to increased workload for remaining Workers and potential decrease in service quality.
+- Damage to Disability and Mental Health Care Pty Ltd's reputation if financial instability becomes public knowledge.
+- In severe cases, closure of Disability and Mental Health Care Pty Ltd.
+
+To mitigate this risk, Disability and Mental Health Care Pty Ltd will implement a number of measures:
+
+- Financial planning and budgeting: implement a robust financial planning and budgeting process. Regularly monitor and review budgets against actual income and expenses.
+- Financial audits: regularly conduct internal and external financial audits to identify any discrepancies, fraud, or financial mismanagement.
+- Contingency planning: develop a contingency plan that outlines how the organisation will respond to various financial scenarios, including a reserve fund for unexpected expenses or a plan for scaling back services in a financially responsible manner.
+- Training: train relevant Workers in financial management and budgeting to reduce the risk of errors.
+- Regulatory compliance: ensure compliance with all financial reporting and regulatory requirements to avoid fines or penalties.
+
+Non-compliance with Legal and Regulatory Requirements
+
+| Impact level | Probability level |
+| High | Medium |
+
+This risk refers to the potential scenario where Disability and Mental Health Care Pty Ltd fails to comply with applicable laws, regulations, standards, or guidelines. This could be in areas such as providing disability support services, maintaining privacy and confidentiality of participant information, fulfilling employment obligations, or meeting financial reporting requirements.
+
+The potential impacts of non-compliance can be severe and include:
+
+- Legal penalties, including fines and sanctions.
+- Damage to the organisation's reputation, potentially leading to loss of participants and decreased trust from stakeholders.
+- Loss of funding or accreditation if non-compliance is with the funding body or accreditation standards.
+- Increased scrutiny from regulators and the public.
+- In severe cases, cessation of operations until compliance is achieved.
+
+To mitigate this risk, Disability and Mental Health Care Pty Ltd will implement a number of measures:
+
+- Regular training: regularly train all Workers on the legal and regulatory requirements relevant to their roles.
+- Compliance audits: regularly conduct internal or external compliance audits to identify any areas of non-compliance and develop action plans to address them.
+- Policies and procedures: develop clear, comprehensive policies and procedures that align with legal and regulatory requirements, regularly reviewed and updated to keep pace with changes in legislation.
+- Legal and regulatory updates: stay informed of any changes to laws, regulations, or standards, through updates from regulatory bodies, industry events, or advice from legal professionals.
+- Documentation: keep thorough and accurate records to demonstrate compliance, including records of Worker training, policies and procedures, service delivery records, privacy practices, and employment records.
+- Incident management: refer to the Incident Management Policy to deal with any incidents that occur.
+
+Technology failures
+
+| Impact level | Probability level |
+| Medium | Medium |
+
+This risk relates to potential issues arising from the malfunction, breakdown, or failure of the technology systems utilised in the organisation's operations. This could include software systems, hardware equipment, data storage solutions, communication systems, or any other technology used for service delivery, participant care, administration, or communication.
+
+The potential impacts of a failure of communication systems can be significant:
+
+- Delay or inability to provide crucial support services to participants.
+- Inefficiencies or disruptions to internal operations and team collaboration.
+- Loss of trust or dissatisfaction from participants and stakeholders due to delayed or missed communication.
+- Potential breaches of confidentiality or privacy if the failure is related to a cybersecurity incident.
+- Financial costs to repair or replace the failed system.
+- Data loss: if data storage systems fail without appropriate backup solutions, vital information about participants, Workers, or operations could be lost.
+
+To mitigate this risk, Disability and Mental Health Care Pty Ltd will implement a number of measures:
+
+- Regular maintenance and updates: conduct regular maintenance of all technological systems and ensure that software and hardware are updated as needed.
+- Backup systems: maintain robust data backup systems to prevent data loss and minimise downtime in the event of a technology failure.
+- Worker training: provide Workers with the necessary training to properly use technology systems, identify potential issues, and take appropriate action if a failure occurs.
+- Technology audit: regularly review and audit technology systems and procedures to identify potential weaknesses or areas for improvement.
+
+Inadequate Emergency Response
+
+| Impact level | Probability level |
+| High | Medium |
+
+This risk pertains to potential issues that could arise from an insufficient or ineffective response to emergencies or crises that impact participants, Workers, or the organisation. These emergencies could include medical crises, incidents of violence or abuse, natural disasters, or other unexpected events that require immediate attention and response.
+
+The potential impacts of inadequate emergency response include:
+
+- Immediate harm or risk to participants or Workers, including physical injury or emotional distress.
+- Long-term harm to participants: for participants, particularly those with disabilities, an ineffective emergency response could result in long-term health or psychological impacts.
+- Legal and financial consequences, particularly if the organisation is found to have been negligent in its duty of care.
+- Damage to reputation, leading to a loss of trust from participants, their families, and the wider community.
+
+To mitigate this risk, Disability and Mental Health Care Pty Ltd will implement a number of measures:
+
+- Emergency response plans: develop comprehensive emergency response plans for a variety of potential scenarios. See the Business Continuity Plan.
+- Worker training: regularly train all Workers in emergency response procedures, including first aid, crisis de-escalation, and the specific steps outlined in the emergency response plans.
+- Regular drills: conduct regular emergency drills to ensure that Workers are familiar with the response procedures and can perform them effectively under pressure.
+- Communication systems: ensure that robust communication systems are in place to facilitate quick and effective communication during emergencies.
+- Review and improvement: after any emergency event, conduct a thorough review of the response to identify any areas for improvement and update the emergency response plans as needed.
+
+Safety of participants and Workers
+
+| Impact level | Probability level |
+| High | Medium |
+
+This risk refers to potential incidents that may result in physical harm or injury to participants or Workers. These may include slips, falls, accidents during transportation, health emergencies, violence, or other unforeseen events that lead to physical harm.
+
+Potential consequences of this risk can include:
+
+- Immediate physical harm or injury to the participant or Worker.
+- Emotional trauma for participants, Workers, and families involved.
+- Temporary or permanent disability that may affect quality of life or work capability.
+- Legal and financial implications, including potential lawsuits, increased insurance costs, or compensation payouts.
+- Reputational damage if safety incidents are seen as a result of negligence or inadequate safety measures.
+
+To mitigate this risk, Disability and Mental Health Care Pty Ltd will implement a number of measures:
+
+- Safety training: conduct safety training sessions for all Workers, covering topics such as safe handling techniques, emergency procedures, and prevention of common accidents.
+- Emergency preparedness: develop emergency response plans and procedures for various scenarios, including health emergencies, violent incidents, and natural disasters.
+- Safety inspections and audits: regularly inspect and audit the premises and transportation vehicles for potential safety hazards and rectify them promptly.
+- Personal Protective Equipment (PPE): provide appropriate PPE for Workers and ensure its proper usage.
+- Safety policies and procedures: develop and implement clear policies and procedures that prioritise safety.
+- Incident reporting and investigation: use the Incident Management Policy for investigating and responding to incidents.
+- Regular communication: regularly communicate with participants and their families about safety measures and encourage them to report any concerns.
+
+Human Resources risks
+
+| Impact level | Probability level |
+| Medium | Medium |
+
+This risk refers to potential issues related to human resources management that could impact the organisation's ability to deliver its services effectively. High Worker turnover rates, Worker burnout, difficulties in attracting or retaining skilled Workers, or recruitment challenges can all pose a significant risk to operations.
+
+The potential impacts of these human resource risks include:
+
+- Worker shortages, leading to disruption of service delivery or increased workload for existing Workers.
+- Decline in the quality of service delivery if experienced Workers are replaced by less experienced or untrained individuals.
+- Increased costs associated with recruitment and training of new Workers.
+- Decreased Worker morale and productivity, which can further affect service delivery and participant satisfaction.
+- Damage to reputation, particularly if service quality declines or there are publicised issues with Worker management.
+
+To mitigate this risk, Disability and Mental Health Care Pty Ltd will implement a number of measures:
+
+- Worker support and well-being programs: implement programs to support Workers' well-being, including flexible work arrangements, employee assistance programs, and stress management resources, to help reduce burnout and turnover rates.
+- Effective recruitment and retention strategies: develop and implement strategies to attract and retain skilled Workers, such as competitive compensation packages, career development opportunities, and a positive work culture.
+- Regular training and development: provide regular training and development opportunities to equip Workers with necessary skills and knowledge, increase their job satisfaction, and enhance their performance.
+- Regular feedback and communication: encourage regular feedback and open communication between management and Workers to identify and address issues early.
+- Efficient HR practices: employ efficient HR practices to reduce administrative burden and focus on strategic HR management.
+
+Lack of Appropriate Skills or Knowledge in Workers
+
+| Impact level | Probability level |
+| High | Low |
+
+This risk refers to the potential scenario where Workers may not have sufficient skills or knowledge to effectively provide care or respond appropriately to emergencies. This could result from insufficient training, high Worker turnover leading to inexperienced Workers, or lack of continual professional development opportunities.
+
+Potential impacts of inadequate Worker training can include:
+
+- Inadequate care provided to participants, which can negatively impact their health, wellbeing, and quality of life.
+- Inappropriate or ineffective responses to emergencies, potentially leading to harm to participants or Workers.
+- Decreased participant and family satisfaction, and loss of trust in the organisation.
+- Increased Worker turnover if employees feel ill-equipped or unsupported in their roles.
+- Legal implications and financial losses due to negligence claims or failure to comply with industry standards and regulations.
+
+To mitigate this risk, Disability and Mental Health Care Pty Ltd will implement a number of measures:
+
+- Comprehensive induction training: ensure all new Workers receive comprehensive induction training as outlined in the HR Policy.
+- Ongoing professional development: offer regular professional development opportunities covering both hard skills (specific care techniques, use of equipment) and soft skills (communication, problem-solving).
+- Competency assessments: regularly assess Worker competency in key areas of their roles to identify any gaps in skills or knowledge.
+- Mentorship and supervision: assign experienced Workers to mentor new Workers and provide regular supervision and feedback to support their learning and development.
+- Policies and procedures: have clear, up-to-date policies and procedures that guide workers in their roles and provide a point of reference for best practices.
+- Training documentation: keep comprehensive records of all training provided in individualised training and development registers.
+
+Participant risks
+
+Inadequate Participant Support Planning
+
+| Impact level | Probability level |
+| High | Medium |
+
+This risk pertains to potential issues arising from a lack of proper assessment of participant needs and preferences, which could result in support plans that are not suitable or sufficient. These inadequate support plans could fail to meet the participant's needs, neglect to consider their preferences, or exclude critical aspects of their care or development.
+
+The potential impacts of inadequate participant support planning include:
+
+- Inappropriate support: participants may receive support that is unsuitable for their specific needs or circumstances, potentially leading to ineffective care or unmet goals.
+- Dissatisfaction: participants and their families may become dissatisfied if the support provided does not meet their expectations or the individual's needs.
+- Health and safety risks: inadequate support planning could lead to increased health and safety risks for participants if their specific care needs are not appropriately addressed.
+- Financial and operational consequences: inefficient use of resources, Worker time, and funding due to ineffective support plans.
+- Damage to reputation: persistent issues with participant support planning could harm trust among participants, families, and the wider community.
+
+To mitigate this risk, Disability and Mental Health Care Pty Ltd will implement a number of measures:
+
+- Comprehensive assessment processes: establish thorough assessment processes that fully consider each participant's needs, preferences, and circumstances, including medical evaluations, personal interviews, and consultations with family members or other caregivers.
+- Worker training: ensure that workers are well-trained in conducting assessments and developing support plans, with a clear understanding of the need for person-centred, individualised planning.
+- Regular reviews: implement regular reviews of support plans to ensure they continue to meet the participant's needs and accommodate any changes in their condition or circumstances.
+- Participant and family involvement: involve participants and their families in the planning process, respecting their input and acknowledging their expertise regarding the participant's needs and preferences.
+- Quality assurance: develop quality assurance processes to regularly evaluate and improve support planning processes.
+
+Inadequate Accessibility or Inclusion
+
+| Impact level | Probability level |
+| Medium | Low |
+
+This risk relates to the potential failure to offer services and supports that are fully accessible and inclusive. All participants, regardless of their abilities or backgrounds, should have equal access to supports and be able to fully participate in all aspects of the provided services. The inability to provide this can result in marginalisation or discrimination.
+
+The potential impacts of inadequate accessibility or inclusion include:
+
+- Unmet needs: participants may be unable to access the supports they require, or they may be excluded from participation in activities, leading to unmet needs and goals.
+- Legal consequences: the failure to provide accessible and inclusive services may constitute a breach of disability rights laws and regulations.
+- Dissatisfaction and disengagement: participants and their families may become dissatisfied and disengage from services if they feel that the services are not inclusive or accessible.
+- Damage to reputation: repeated instances of exclusion or inaccessibility could make it harder to attract new participants or secure funding.
+
+To mitigate this risk, Disability and Mental Health Care Pty Ltd will implement a number of measures:
+
+- Accessibility audits: regularly conduct accessibility audits of all physical spaces, digital platforms, and communication methods to identify and rectify any barriers to access.
+- Inclusive practices: cultivate an inclusive culture, ensuring that all policies, procedures, and practices promote inclusion and respect for diversity.
+- Worker training: provide regular training for Workers on the principles of accessibility and inclusion, and the practical steps they can take to promote these principles in their work.
+- Participant feedback: regularly seek feedback from participants and their families regarding the accessibility and inclusiveness of services and supports, and act upon this feedback.
+- Partnerships and collaboration: work in collaboration with other organisations, community groups, or experts to enhance the accessibility and inclusiveness of services and supports.
+
+Abuse, Neglect, Exploitation
+
+| Impact level | Probability level |
+| High | High |
+
+This risk involves situations where participants may be subjected to physical, emotional, or sexual abuse, financial exploitation, or neglect. This includes any form of maltreatment that results in harm, potential for harm, or threat of harm to a participant.
+
+The potential impacts of abuse, neglect, or exploitation include:
+
+- Harm to participants: participants can suffer physical injuries, emotional trauma, financial losses, and other harm.
+- Legal consequences: abuses can result in legal actions, including lawsuits, fines, and potential criminal charges against responsible individuals.
+- Loss of trust: such incidents can severely damage the trust participants and their families have in the organisation, which could result in them discontinuing the use of services.
+- Damage to reputation: reports of abuse, neglect, or exploitation can lead to severe reputational damage.
+
+To mitigate these risks, the following measures should be implemented:
+
+- Rigorous screening: implement rigorous screening processes for all potential employees, including background checks and comprehensive interviews.
+- Training: regularly train Workers on recognising signs of abuse, neglect, or exploitation, and on procedures to report such incidents.
+- Policies and procedures: implement and enforce clear policies and procedures to prevent abuse, neglect, and exploitation, including a zero-tolerance policy for any form of abuse.
+- Regular audits: conduct regular audits of services, including unannounced visits, to assess for signs of abuse, neglect, or exploitation.
+- Support and resources for Workers: provide adequate support and resources for Workers to manage stress and prevent burnout, as overworked or stressed employees can be more likely to neglect or mistreat participants.
+- Encourage reporting: create a culture that encourages reporting of any suspicion or evidence of abuse, neglect, or exploitation, and assure protection for those who report from any form of retaliation.
+- Participant empowerment: educate participants about their rights and ensure they know how and where to report any concerns.
+
+Participant Reliance on Service Delivery and Service Delivery Interruptions
+
+| Impact level | Probability level |
+| Medium | Low |
+
+This risk pertains to unexpected events that disrupt the normal provision of services to participants. Such disruptions may arise due to natural disasters (floods, fires, or earthquakes), infrastructure failures (power outages or internet downtime), Worker shortages (sickness, strikes, or unexpected resignations), or other unforeseen events like pandemics.
+
+The potential impacts of service delivery interruptions are manifold:
+
+- Delays or cancellations of services, leading to unmet participant needs.
+- Increased stress or workload on remaining Workers, potentially impacting the quality of care.
+- Potential harm or discomfort to participants, particularly if vital services are interrupted.
+- Financial losses due to disruptions in operations.
+- Damage to reputation if participants perceive the response to the interruption as inadequate.
+
+To mitigate this risk, Disability and Mental Health Care Pty Ltd will implement a number of measures:
+
+- Contingency planning: develop contingency plans for various scenarios that could disrupt service delivery, outlining how the organisation will continue to operate and provide services.
+- Worker training: regularly train Workers on the contingency plans and their roles during a service interruption.
+- Backup resources: where possible, maintain backup resources, such as reserve Workers.
+- Regular maintenance: conduct regular maintenance and inspections of infrastructure and facilities to prevent failures.
+- Communication: keep participants and stakeholders informed during service interruptions.
+- Partner collaboration: collaborate with other organisations and agencies to provide mutual support during service disruptions.
+- Health and safety measures: implement robust health and safety measures to prevent Worker shortages due to illness or injury.
+
+Extended One-to-One Support in a Participant's Own Home
+
+| Impact level | Probability level |
+| High | Medium |
+
+This risk pertains to situations where a single NDIS worker provides personal support to a participant in their own home for an extended period of time. The close and ongoing nature of the relationship might lead to several potential issues, such as over-dependence, complacency, abuse, or neglect.
+
+Potential impacts of this risk include:
+
+- Over-dependence: the participant may become overly reliant on a single worker, which may hinder their ability to adapt to changes or other caregivers.
+- Neglect or abuse: the lack of oversight or variety in support Workers may increase the risk of neglect or abuse, whether intentional or unintentional.
+- Burnout: the support worker might experience burnout due to the intensity and duration of the support, which can impact the quality of care provided.
+- Lack of fresh perspectives: a single worker may lack the diverse perspectives that a team approach can bring to a participant's care.
+- Complacency: the worker may become complacent over time, potentially missing changes in the participant's condition or needs.
+
+To mitigate these risks, the following measures should be implemented:
+
+- Regular monitoring and supervision: implement a robust monitoring system to supervise the work of the support worker, including regular check-ins, participant feedback, and random audits.
+- Training and support for workers: provide ongoing training and support for workers to prevent burnout, enhance their skills, and reinforce the importance of maintaining professional boundaries.
+- Encourage reporting: encourage the participant and their family to report any concerns or changes in the participant's condition, and make sure they are aware of their rights and the procedures to report any issues.
+- Continuity plan: develop a continuity plan to manage situations when a support worker is unavailable due to illness, vacation, or other reasons, so the participant's support needs continue to be met.
+
+Approval Authority: Supriya Thapa
+Version: 1
+Approval Date: August 2025
+Review Date: August 2027

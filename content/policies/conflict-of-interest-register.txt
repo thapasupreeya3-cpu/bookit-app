@@ -1,0 +1,13 @@
+Disability and Mental Health Care Pty Ltd | Conflict of Interest Register
+
+The register records one row per declared conflict of interest with the following columns:
+
+- Date
+- Name of person declaring conflict of interest
+- Position title
+- Service where conflict of interest found
+- Details of situation
+- Actions taken
+- Signature
+
+Version: 1

@@ -1,0 +1,22 @@
+Disability and Mental Health Care Pty Ltd | Incident Management Register
+
+This Incident Management Register is intended to capture important incident-related information and should be treated as a confidential document. Please ensure that all incidents are reported, investigated and managed in accordance with the Incident Management Policy. The register records one row per incident with the following columns:
+
+- Reference number.
+- Incident date, time and location — or, if unknown, the time, date and location the incident was first identified.
+- Incident type — for example abuse or neglect, injury or fall, medication error, behavioural incident, or other.
+- Details of the person involved: name and contact details.
+- Staff involved: name and position or role.
+- Witnesses: name and contact details.
+- Incident form completed? Y/N.
+- Incident reported to the NDIS and relevant external bodies? Y/N — if so, the NDIS incident reference number and the date and time the incident was reported.
+- Description of the incident: a detailed description, including relevant facts and the impact or harm caused to a person with a disability, updated as new information is discovered.
+- Investigation and assessment: details of the assessment or investigation undertaken in accordance with the Incident Management Policy.
+- Actions taken in response, including immediate actions, preventive measures, corrective actions and follow-up actions.
+- Outcome of the investigation: details or a reference to the investigative report.
+- The affected person's response and any further action required.
+- Date the incident was resolved.
+- Actions taken to prevent further incidents.
+- Signature of the Incident Manager: full name, signature and date.
+
+Version: 1

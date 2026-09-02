@@ -1,0 +1,24 @@
+Disability and Mental Health Care Pty Ltd | Mealtime - Fluid Chart
+
+Use this chart to record the participant's intake and output each shift.
+
+The chart records the participant's name, phone number, date of birth, carer or emergency contact details, address and allergies.
+
+The chart
+
+One row per hour, from 0100 through 2400, with a total row at the end. Each row records:
+
+- Intake — oral (description and mL), enteral / PEG feed (feed type and mL), other (description and amount), and the progressive intake total.
+- Output — urine via IDC, SPC or intermittent catheter (total mL after emptying the catheter), vomit (approximate amount), bowel (small, medium or large), other, and the progressive output total in mL.
+
+Key abbreviations
+
+- PEG: Percutaneous Endoscopic Gastrostomy
+- NGT: Nasogastric Tube
+- JEJ: Jejunostomy tube
+- IDC: Indwelling Catheter
+- SPC: Suprapubic Catheter
+- IMC: Intermittent Catheter
+- PUIT: Passed Urine in Toilet
+
+Version: 1

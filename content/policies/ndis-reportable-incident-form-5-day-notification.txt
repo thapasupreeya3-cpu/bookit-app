@@ -1,0 +1,156 @@
+Disability and Mental Health Care Pty Ltd | NDIS Reportable Incident Form 5-Day Notification
+
+The completed form and all attachments are saved and emailed to reportableincident@ndiscommission.gov.au.
+
+Provider details
+
+- Provider name and provider registration ID
+- Outlet name and registration group
+- State
+- Date the report was created
+
+Primary contact person
+
+The provider's primary contact for this incident or allegation:
+
+- Primary contact name, mobile and email address
+- Risk assessed position
+
+Incident category
+
+The categories of incidents are defined in section 73Z of the National Disability Insurance Scheme Act 2013 (Cth) and section 16 of the NDIS Rules. A secondary category may be included if the incident or allegation falls into more than one category — for example, where a person is physically assaulted and confined, it may be reportable as a physical assault and an unauthorised restrictive practice.
+
+The primary category, and optionally a secondary category, are chosen from:
+
+- Death of a person with disability
+- Serious injury of a person with disability
+- Abuse of a person with disability
+- Neglect of a person with disability
+- Unlawful sexual acts or offences
+- Unlawful physical contact or offences
+- Sexual misconduct against a person with disability
+- Unauthorised use of a restrictive practice
+
+Incident details
+
+If an internal incident report has been completed, it is provided to the NDIS Commission with this report.
+
+- Reportable incident ID and the provider's internal reference number
+- Incident location, and location type: residential address, in the community, specialist disability accommodation, service outlet, or other
+- Time and date of the incident or allegation, or if the date is unknown, the reason why
+- Time and date the first worker became aware of the incident, and that worker's name and role
+- Time and date the NDIS provider became aware of the incident
+- Name and role of the person who reported the incident or allegation to key personnel
+- A description of the incident or allegation, and the circumstances leading up to it
+
+The impacted person
+
+The person with disability who has been impacted or affected by this incident or allegation. All reportable incidents must have one person with disability impacted by the incident; if there are multiple people with disability impacted, an additional form must be filled in for each.
+
+- Title, first name, last name and NDIS participant number
+- Gender, date of birth, and age at the time of the incident
+- Primary disability and any other disability, chosen from: autism, intellectual disability, cerebral palsy, psychosocial disability, other neurological, other physical, acquired brain injury, visual impairment, hearing impairment, other sensory or speech, multiple sclerosis, stroke, spinal cord injury, or other
+- Phone number, email, address, address type, and length of time residing at this address
+- Whether the person is of Aboriginal or Torres Strait Islander descent
+- Language preference and country of birth
+- Deceased date (if applicable) and whether a guardian is appointed
+- Any behaviours of concern: food-related, eating non-food items, property damage, physical aggression, verbal aggression, harm to self, unintentional self-risk, leaving premises without support, refusal to do things, repetitive or unusual habits, offending behaviour, sexually inappropriate behaviour, or other
+- Whether the person requires informal decision-making support
+- How the person communicates: verbal communication, adjusted verbal language, electronic communication, picture communication, sign language, other signing, use of gestures, interpreter, or other
+
+Support people
+
+Support people for the person with disability impacted by the incident, who may include family, friends, legal guardians, and advocates. For up to two support people (with additional people in an attachment): title, first name, last name, relationship to the impacted person, whether they have been contacted, phone number, email, and preferred method of contact.
+
+Subjects of allegation
+
+A subject of allegation is a person who has been accused of a reportable incident. The form records whether there is a subject of allegation for this incident. A subject of allegation may be a worker within the organisation or another person, for example a resident living in the same house; there may be more than one.
+
+For a worker who is a subject of allegation:
+
+- Title, first name, last name and NDIS Worker Screening number
+- Position at the time of the allegation, gender, date of birth, phone number and email
+- Employment status with the provider at the time of the allegation: permanent full time, permanent part time, temporary full time, temporary part time, casual, contracted labour hire, volunteer, or contractor
+- Employment start date
+- Whether the person is aware of the allegation made against them, the date they were made aware and who informed them — or, if they are not aware, why not
+- Working with children or vulnerable people check number and the state where it was obtained
+- Driver's licence number and the state where it was obtained, and passport number
+
+For a person with disability who is a subject of allegation: the same identifying, disability, address, background, behaviour and communication details as recorded for the impacted person.
+
+For another person who is a subject of allegation: title, first name, last name, relationship to the person, whether they have been contacted about the incident for further information, gender, date of birth, phone number and email.
+
+Witnesses
+
+A witness can be any person who knows something about the incident. For up to two witnesses (with more in an attachment): title, first name, last name, relationship to the impacted person, position at the time of the allegation, gender, date of birth, phone number and email.
+
+Immediate action taken
+
+- Have the Police been informed of the incident or allegation? If so, the officer's name, police station and police event number; if not, why not
+- Is there a detailed police report? If yes, its date; if no, why not
+- Are police investigating the incident?
+- Are the impacted person's family or guardian aware of the incident? If not, why haven't they been contacted?
+- If the impacted person is under 18, has the relevant child protection agency been contacted? If not, why not?
+- Details of any other immediate action taken
+
+Support for the impacted person
+
+This section is not completed if the incident is of the category "death of a person with disability".
+
+- Any support that has been offered or provided to the person with disability impacted by the incident (for example medical treatment, counselling, access to advocacy, removal of the source of harm)
+- Any further action being considered for the impacted person
+- Any immediate action taken in respect of the worker who is the subject of the allegation (for example increased supervision, restriction on current duties, transfer to other duties, suspension with or without pay)
+- Any further action being considered in respect of that worker
+
+Risk assessment
+
+If a risk assessment has been completed, it is provided to the NDIS Commission with this report.
+
+- Has a risk assessment been undertaken in response to this incident? Yes, no, or in progress
+- If yes, the date it was completed and its details
+- If no, the reason for not undertaking one
+- If in progress, when it was started and when it is expected to be finished
+
+Death of a person with disability (if applicable)
+
+Only completed if the incident is of the category "death of a person with disability".
+
+- Swallowing, breathing or choking risks the person had: asthma, recurring respiratory infections, chronic pulmonary disease or emphysema, gastroesophageal reflux, swallowing difficulties, help with meals, dental aid, no teeth, some teeth, tube feeding, nil by mouth, or none
+- Lifestyle risks: smoking, obesity, overweight, diabetes, high blood pressure, or none
+- Mobility restrictions: wheelchair, walking frame, walking stick, prosthesis, or none
+- Other health issues: cancer, epilepsy, osteoporosis, constipation, urinary incontinence, faecal incontinence, or none
+- Last recorded weight and height before death, and calculated BMI
+- All medications the person was prescribed at the time of death, and any additional medications prescribed in the 12 months prior, each with dosage and whether regular or PRN
+- Any medication incidents involving the person in the 12 months prior to their death
+- All up-to-date immunisations prior to death (for example influenza, pneumococcal), with dates
+- Details of the regular or last general practitioner visited (name, practice, date of last visit), and of any other health practitioners visited
+- Any relevant incidents in the 12 months prior to death, for example choking incidents, falls, or unexplained injury
+- Behaviours of concern demonstrated in the 12 months prior to death (from the standard list, with any other described)
+- All illnesses in the 12 months prior to death which resulted in treatment by a doctor, with dates
+- Whether the person was admitted to hospital in the 12 months prior to death, and if so the reason for admission and the hospital
+- Any additional relevant information not already captured
+
+Unauthorised use of a restrictive practice (if applicable)
+
+- Restrictive practice type: mechanical restraint, physical restraint, seclusion, environmental restraint, or chemical restraint — and the subtype
+- Does the person have a current NDIS behaviour support plan, and if yes, which plan
+- The behaviours of concern
+- Is this a one-off emergency use that is unlikely to recur?
+- Have you sought state or territory authorisation and consent to use the restrictive practice?
+- Have you sought an amendment to the existing behaviour support plan?
+- Have you initiated an NDIS behaviour support assessment and plan?
+
+Attachments
+
+Up to ten attachments are listed with the report.
+
+Declaration
+
+I declare that:
+
+- I am duly authorised by the organisation identified in this form to submit this reportable incident report notification.
+- I understand that this information is being collected by the NDIS Quality and Safeguards Commission (NDIS Commission) for the purposes outlined in the National Disability Insurance Scheme Act 2013 and the NDIS (Incident Management and Reportable Incidents) Rules 2018.
+- To the best of my knowledge, the information provided in this application is true, correct, and accurate.
+- I acknowledge that the giving of false or misleading information to the Commonwealth is a serious offence under section 137.1 of the schedule to the Criminal Code Act 1995.
+
+The declaration records the full name, position at the organisation, and date.

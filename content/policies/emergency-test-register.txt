@@ -1,0 +1,13 @@
+Disability and Mental Health Care Pty Ltd | Emergency Test Register
+
+This register should be implemented in accordance with the Emergency and Disaster Management Policy. It records one row per test with the following columns:
+
+- Test number
+- Type of test
+- Description of emergency plan type
+- Date, start time and end time
+- Notes and recommendations
+- Results
+- Tester signature
+
+Version: 1

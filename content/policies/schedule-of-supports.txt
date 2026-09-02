@@ -1,0 +1,38 @@
+Disability and Mental Health Care Pty Ltd | Schedule of Supports
+
+Attachment to the SIL Service Agreement — completed with the participant for each agreement and at every review.
+
+Participant and agreement details
+
+- Participant name and NDIS number
+- Plan dates (from and to)
+- Plan management: NDIA-managed, plan-managed or self-managed
+- Home / dwelling
+- Agreement reference
+- Schedule commencement and review due dates
+
+Section 1. Supports and pricing
+
+Prices are the NDIS Pricing Arrangements price limits current at the date of service (2026-27 shown as a guide; limits update each 1 July and this Schedule is re-issued). Public holidays are billed at the public-holiday limit. The example row is a guide only — delete it when completing.
+
+| Support item number | Support | Days / times | Ratio | Hours / week | $ / week |
+| 01_801_0115_1_1 | Assistance in SIL — weekday daytime (example: morning routine, meals, household tasks) | Mon-Fri 7am-11am | 1:1 | 20 | $1,471.60 |
+| 01_832_0115_1_1 | Night-time sleepover (flat per night — includes up to 2 hours of active support; extra active hours at the applicable hourly rate) | (nights) | | | |
+
+The Schedule totals the amount per week and the estimated amount per plan year (weekly multiplied by 52).
+
+Section 2. Weekly roster of care — summary
+
+The live roster (workers, exact times, changes over time) is maintained in the BookIt platform and forms part of this Schedule; every generated shift is recorded against this participant. The summary grid records, for each day Monday through Sunday: day hours, evening hours, and whether there is a sleepover.
+
+Section 3. What is included and what is not
+
+Included: the supports itemised above, delivered per the roster of care, with workers screened, trained and insured by us.
+
+Not included (and never billed to your NDIS plan by us): rent or board, groceries, utilities, personal spending, activity entry fees.
+
+Changes: you can request a change to this Schedule at any time; changes are agreed with you per our Supported Decision-Making Procedure and a re-issued Schedule replaces this one. Where your funding or the NDIS price limits change, we re-issue this Schedule.
+
+Agreement to this Schedule
+
+The Schedule is signed and dated by the participant (or their representative) and by a named representative of Disability and Mental Health Care Pty Ltd.

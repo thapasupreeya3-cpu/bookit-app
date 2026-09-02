@@ -1,0 +1,17 @@
+Disability and Mental Health Care Pty Ltd | Feedback and Complaints Register
+
+This Feedback and Complaints Register should be completed in accordance with the Feedback and Complaints Policy. The register records one row per complaint with the following columns:
+
+- Date and time
+- Mode of complaint: in person, phone, or by post
+- Reference number: reference to the internal complaint form or the NDIS reference number
+- Anonymous (Y/N): was the complaint submitted anonymously?
+- Name and contact details: name, phone number, email, and the relationship to the complainant if a representative
+- Description of complaint: full description of the complaint
+- Response action and reason: details of the response and reasons for the action or decision
+- Date actioned and date completed
+- Status: status of the complaint process
+- Complaint satisfaction: details of the participant's response and satisfaction with the outcome
+- Complaint Manager signature: full name and signature of the Complaint Manager, and the date signed
+
+Version: 1

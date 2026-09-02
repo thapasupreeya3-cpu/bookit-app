@@ -1,0 +1,125 @@
+Disability and Mental Health Care Pty Ltd | WHS Risk Management Matrix
+
+For each risk type, the matrix sets out the risk factors and the possible controls.
+
+Physical injury
+
+Risk factors: uneven or slippery surfaces leading to slips and falls; incorrect techniques used during manual handling of participants; equipment malfunction or misuse.
+
+Possible controls:
+
+- Implement regular safety audits to identify and rectify hazards.
+- Provide comprehensive training on proper lifting and handling techniques.
+- Implement a regular maintenance schedule for all equipment and enforce safety guidelines for usage.
+
+Psychological harm
+
+Risk factors: high workload leading to stress and burnout; dealing with complex or difficult behaviours of participants; lack of support for Workers dealing with traumatic or stressful situations.
+
+Possible controls:
+
+- Ensure adequate Worker levels to prevent overload.
+- Train Workers in effective communication, de-escalation strategies and coping mechanisms.
+- Establish a strong support system including access to counselling services and regular check-ins with supervisors.
+
+Infectious diseases
+
+Risk factors: close contact with participants increasing the risk of disease transmission; inadequate hand hygiene practices; inadequate cleaning and disinfection practices.
+
+Possible controls:
+
+- Encourage and enforce regular and effective hand hygiene.
+- Provide appropriate PPE and training on its usage.
+- Implement a thorough cleaning and disinfection protocol.
+
+Medication errors
+
+Risk factors: miscommunication or lack of clarity leading to incorrect dosage; similar looking or sounding medication leading to the wrong medication being given; lack of double-checking mechanisms.
+
+Possible controls:
+
+- Implement a thorough medication management policy, including double-checking doses and comprehensive training on medication administration.
+- Consider organised medication dispensing systems.
+- Regular medication audits to identify and rectify any errors or discrepancies.
+
+Abuse or neglect
+
+Risk factors: insufficient training or supervision may lead to unintentional neglect; stress, frustration, or lack of understanding may lead to abuse; lack of clear guidelines and procedures for reporting and managing suspected abuse or neglect.
+
+Possible controls:
+
+- Provide thorough training for Workers on recognising signs of abuse and neglect and appropriate responses.
+- Develop clear, easy-to-follow policies and procedures for reporting suspected abuse or neglect.
+- Regular supervision and performance reviews to identify any issues early.
+
+Privacy breaches
+
+Risk factors: unintentional sharing of sensitive participant information; cyber attacks on inadequately protected systems; improper disposal of participant information.
+
+Possible controls:
+
+- Regular training for all Workers on privacy policies and data handling procedures.
+- Regular audits to ensure data security measures are adequate.
+- Develop and implement a policy for secure storage and disposal of participant information.
+
+Fire safety
+
+Risk factors: malfunctioning or outdated electrical equipment; leaving heating sources unattended; improper storage and handling of flammable materials.
+
+Possible controls:
+
+- Regular safety inspections to identify and rectify potential fire hazards.
+- Training for all Workers on fire safety procedures, including emergency evacuation.
+- Ensure proper storage and disposal of flammable materials.
+
+Food safety
+
+Risk factors: cross-contamination during food preparation; inadequate or improper food storage and cooking temperatures; lack of hand hygiene.
+
+Possible controls:
+
+- Food safety training for all Workers involved in food preparation.
+- Regular inspections of food storage and preparation areas.
+- Strict adherence to hand hygiene and other food handling practices.
+
+Transportation accidents
+
+Risk factors: ageing or unsafe vehicles; drivers without appropriate training or licensing; inadequate vehicle maintenance.
+
+Possible controls:
+
+- Regular safety inspections of all vehicles.
+- Thorough vetting and training of all drivers.
+- Regular maintenance schedule for all vehicles.
+
+Burnout and stress
+
+Risk factors: high workloads without adequate breaks or time off; emotional stress from working with complex participants; long or unpredictable working hours.
+
+Possible controls:
+
+- Implement policies to ensure work-life balance, such as predictable schedules and mandatory time off.
+- Provide access to mental health resources and counselling.
+- Encourage regular breaks and self-care among Workers.
+
+Challenging behaviour
+
+Risk factors: participants with mental health issues or behavioural challenges; lack of Worker training in dealing with challenging behaviours; insufficient support systems for Workers.
+
+Possible controls:
+
+- Specialised training for Workers on handling challenging behaviours and mental health issues.
+- Provide strong support systems for Workers, including counselling and debriefing sessions.
+- Ensure appropriate Worker levels and support for complex cases.
+
+Non-compliance with regulations
+
+Risk factors: lack of awareness or understanding of regulatory requirements; lack of monitoring or enforcement of compliance; rapid changes in the regulatory landscape.
+
+Possible controls:
+
+- Regular training and updates on NDIS regulations.
+- Regular internal audits to ensure compliance.
+- Implement a robust compliance management system with clear responsibilities and procedures.
+
+Version: 1

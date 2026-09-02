@@ -1,0 +1,18 @@
+Disability and Mental Health Care Pty Ltd | Continuous Improvement Register
+
+To be completed in accordance with the Continuous Improvement Policy. The register records one row per improvement activity with the following columns:
+
+- Item number: a unique identifier for each improvement activity.
+- Date identified: the date when the improvement opportunity was first identified.
+- Source of improvement: information on how the improvement opportunity was identified (for example client feedback, staff suggestion, audit findings).
+- Description of opportunity for improvement: detailed description of the current issue or opportunity for improvement.
+- Desired outcome: clear statement of what successful improvement would look like.
+- Responsible party: the person responsible for implementing the improvement.
+- Action plan: a summary of the steps to be taken to achieve the desired improvement, including resources required and any dependencies or risks.
+- Target date: the date by which the improvement should be implemented.
+- Status: current progress (for example planning, in progress, completed, on hold).
+- Outcome and evaluations: a review of the effectiveness of the improvement once implemented, including any measures or indicators of success.
+- Follow up actions: any additional actions required after the improvement has been implemented (for example training needs or communication to stakeholders).
+- Date closed: date when the process has been completed and no further action is required.
+
+Version: 1

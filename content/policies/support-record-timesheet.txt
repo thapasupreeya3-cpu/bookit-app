@@ -1,0 +1,13 @@
+Disability and Mental Health Care Pty Ltd | Support Record Timesheet
+
+The timesheet records the worker's name and the start and end dates of the period, then one row per support delivered:
+
+- Day and date
+- Participant name
+- Support item
+- Start time and end time
+- Billable hours
+
+The timesheet is signed and dated for and on behalf of Disability and Mental Health Care Pty Ltd ABN 19658578575 and by the worker, each with their printed name.
+
+Version: 1

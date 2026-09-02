@@ -1,0 +1,20 @@
+Disability and Mental Health Care Pty Ltd | Continuous Improvement Plan
+
+The plan records one row per improvement activity, mapped to the NDIS Practice Standards, with the following columns:
+
+- NDIS Practice Standard
+- Activity
+- How the activity will be achieved
+- Updates or changes
+- Progress
+- Person responsible
+- Planned completion date
+- Actual completion date
+- Review date
+
+Worked example
+
+| NDIS Practice Standard | Activity | How achieved | Updates or changes | Progress | Person responsible |
+| Emergency and Disaster Management | Raise staff and volunteer awareness of evacuation plans | Discuss at staff meeting; hold a drill | Participant Emergency Plan updated | Complete | Director |
+
+Version: 1
