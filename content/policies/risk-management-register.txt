@@ -331,6 +331,12 @@ To mitigate these risks, the following measures should be implemented:
 - Encourage reporting: encourage the participant and their family to report any concerns or changes in the participant's condition, and make sure they are aware of their rights and the procedures to report any issues.
 - Continuity plan: develop a continuity plan to manage situations when a support worker is unavailable due to illness, vacation, or other reasons, so the participant's support needs continue to be met.
 
+Register entries
+
+New or reassessed risks are entered here. The risks described above are the baseline identified in August 2025.
+
+| Date identified | Risk | Description and impact | Impact level | Probability level | Mitigation strategy | Actioned by | Review date |
+
 Approval Authority: Supriya Thapa
 Version: 1
 Approval Date: August 2025

@@ -1,19 +1,13 @@
 Disability and Mental Health Care Pty Ltd | Medicine Register
 
-The register records the participant's name, date of birth and NDIS number, then one row per movement of medication with these columns:
-
-- Date and time
-- Address
-- Name of medication
-- Name of prescriber
-- Dosage (mg/tab)
-- Quantity in, quantity out, and balance
-- Medication returned / storage locked?
-- Signature of worker
-- Notes
+Each movement of medication is recorded with the participant it belongs to, the date and time, the address, the medication and prescriber, the dosage, the quantity in and out and the running balance, whether the medication was returned and storage locked, the worker's sign-off, and any notes.
 
 Storage requirement
 
 Medications must be stored in a secure, lockable location, in original packaging or dispensed medications repackaged in a Dose Administration Aid (DAA) and in accordance with pharmaceutical storage requirements.
+
+Register entries
+
+| Participant (name, DOB, NDIS no.) | Date and time | Address | Name of medication | Name of prescriber | Dosage (mg/tab) | Quantity in | Quantity out | Balance | Returned and storage locked (Y/N) | Worker (name and signed) | Notes |
 
 Version: 1

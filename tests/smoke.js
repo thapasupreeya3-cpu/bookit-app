@@ -500,11 +500,32 @@ async function main() {
     t('the folder index points at the built-in page for that file', folderNow.json.files.some(f => f.title === 'Feedback and Complaints Policy.docx' && f.page === 'feedback-and-complaints-policy'));
     const pagesCsv = await req('GET', '/api/admin/policy-pages.csv', { cookie: ac2 });
     t('published pages are a register in the audit pack', pagesCsv.status === 200 && pagesCsv.text.includes('uploaded-test-policy') && pagesCsv.text.includes('feedback-and-complaints-policy') && (await req('GET', '/api/admin/audit-pack', { cookie: ac2 })).json.reports.some(r => r.path === 'policies/pages.csv'));
-    /* the built-in policies: every document in content/policies is a page on a fresh install */
+    /* the built-in policies: every document in content/policies is a page on a fresh install.
+       Registers, checklists and timesheets are short by nature, so the check is that each page
+       has real content, not a word count meant for policies; a slug the office has since
+       uploaded over (as this run does with Staff Handbook.docx) is theirs, not the release's. */
     const builtIn = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'policies', 'index.json'), 'utf8')).documents;
-    t(`the ${builtIn.length} built-in documents are all published`, builtIn.length >= 10 && builtIn.every(d => db.prepare("SELECT 1 FROM policy_pages WHERE slug = ? AND imported_by = 'release' AND words > 300").get(d.slug)), builtIn.filter(d => !db.prepare('SELECT 1 FROM policy_pages WHERE slug = ?').get(d.slug)).map(d => d.slug).join(' '));
+    t(`the ${builtIn.length} built-in documents are all published`, builtIn.length >= 10 && builtIn.every(d => db.prepare("SELECT 1 FROM policy_pages WHERE slug = ? AND (imported_by <> 'release' OR words > 40)").get(d.slug)), builtIn.filter(d => !db.prepare('SELECT 1 FROM policy_pages WHERE slug = ?').get(d.slug)).map(d => d.slug).join(' '));
     const bi = await req('GET', '/policies/feedback-and-complaints-policy');
     t('a built-in policy is a public page with its sections and approval block', bi.status === 200 && bi.text.includes('<h2>Policy Statement</h2>') && bi.text.includes('1800 035 544') && bi.text.includes('Approval Authority') && bi.text.includes('v1, approved August 2025'), bi.status);
+    /* the fill layer: a register keeps shared entries, a form keeps a copy per person */
+    const regPage = await req('GET', '/policies/incident-management-register', { cookie: wc });
+    t('a register page carries the fill layer for a worker, with the sandbox opened for it', regPage.status === 200 && regPage.text.includes('id="policy-fill"') && regPage.text.includes('data-kind="register"') && regPage.text.includes('policy-fill.js') && String(regPage.headers.get('content-security-policy')).includes('allow-same-origin'), regPage.status);
+    const polPage = await req('GET', '/policies/feedback-and-complaints-policy', { cookie: wc });
+    t('a policy page does not: no fill hooks, sandbox unchanged', polPage.status === 200 && !polPage.text.includes('policy-fill') && !String(polPage.headers.get('content-security-policy')).includes('allow-same-origin'));
+    const fillRow = ['INC-T1', '01/09/2026', 'Injury or fall', 'Test person', 'Worker', '', 'Y', 'N', 'A test entry', '', '', '', '', '', '', ''];
+    const w1 = await req('POST', '/api/policy-fill/incident-management-register', { headers: J2, cookie: wc, body: { base_id: null, data: { tables: { 0: [fillRow] } } } });
+    const r1 = await req('GET', '/api/policy-fill/incident-management-register', { cookie: ac2 });
+    t('a worker adds a register entry and the office reads it back', w1.status === 200 && r1.status === 200 && r1.json.scope === 'shared' && r1.json.data.tables[0][0][0] === 'INC-T1' && r1.json.id === w1.json.id, `${w1.status} ${r1.status}`);
+    const stale = await req('POST', '/api/policy-fill/incident-management-register', { headers: J2, cookie: ac2, body: { base_id: null, data: { tables: { 0: [] } } } });
+    t('a save on a stale copy of a register is refused, so no one\u2019s entry is lost', stale.status === 409, stale.status);
+    t('a participant may not read a staff register; nobody may fill a policy', (await req('GET', '/api/policy-fill/incident-management-register', { cookie: pc })).status === 403 && (await req('GET', '/api/policy-fill/feedback-and-complaints-policy', { cookie: wc })).status === 404);
+    const f1 = await req('POST', '/api/policy-fill/feedback-and-complaints-form', { headers: J2, cookie: pc, body: { base_id: null, data: { items: [{ label: 'Date', checked: true, value: '01/09/2026' }], by: { name: 'Test', notes: 'a note', junk: 'dropped' } } } });
+    const f2 = await req('GET', '/api/policy-fill/feedback-and-complaints-form', { cookie: pc });
+    const f3 = await req('GET', '/api/policy-fill/feedback-and-complaints-form', { cookie: wc });
+    t('a form is a personal copy: the participant sees theirs, the worker does not', f1.status === 200 && f2.json.scope === 'personal' && f2.json.data.by.notes === 'a note' && f2.json.data.by.junk === undefined && f3.status === 200 && f3.json.id === null, `${f1.status} ${f2.status} ${f3.status}`);
+    const fills = await req('GET', '/api/admin/policy-fills', { cookie: ac2 });
+    t('the office sees everything filled in, and can open a person\u2019s copy', fills.status === 200 && fills.json.fills.some(f => f.slug === 'incident-management-register' && f.scope === 'shared') && fills.json.fills.some(f => f.slug === 'feedback-and-complaints-form' && f.owner) && (await req('GET', '/api/admin/policy-fills', { cookie: wc })).status === 403, fills.status);
     const preg = await req('GET', '/policies/policy-register');
     t('the Policy Register is generated from the published pages: public rows signed out, with review dates', preg.status === 200 && preg.text.includes('Feedback and Complaints Policy') && preg.text.includes('August 2027') && !preg.text.includes('Human Resources Management Policy'), preg.status);
     const regA = await req('GET', '/policies/policy-register', { cookie: ac2 });

@@ -1,17 +1,11 @@
 Disability and Mental Health Care Pty Ltd | Feedback and Complaints Register
 
-This Feedback and Complaints Register should be completed in accordance with the Feedback and Complaints Policy. The register records one row per complaint with the following columns:
+This Feedback and Complaints Register should be completed in accordance with the Feedback and Complaints Policy. Each entry records when the complaint was received and how (in person, by phone, or by post); the reference number (the internal complaint form or the NDIS reference); whether it was anonymous; the complainant's name and contact details (and their relationship to the participant if a representative); a full description; the response, the reason for the action or decision, and the dates actioned and completed; the status of the process; the participant's satisfaction with the outcome; and the Complaint Manager's sign-off.
 
-- Date and time
-- Mode of complaint: in person, phone, or by post
-- Reference number: reference to the internal complaint form or the NDIS reference number
-- Anonymous (Y/N): was the complaint submitted anonymously?
-- Name and contact details: name, phone number, email, and the relationship to the complainant if a representative
-- Description of complaint: full description of the complaint
-- Response action and reason: details of the response and reasons for the action or decision
-- Date actioned and date completed
-- Status: status of the complaint process
-- Complaint satisfaction: details of the participant's response and satisfaction with the outcome
-- Complaint Manager signature: full name and signature of the Complaint Manager, and the date signed
+Complaints lodged through the BookIt feedback form are also kept in the live complaints register on the office board; this page is the register document for complaints recorded by hand.
+
+Register entries
+
+| Date and time | Mode (in person, phone, post) | Reference number | Anonymous (Y/N) | Name and contact details | Description of complaint | Response, action and reason | Date actioned | Date completed | Status | Complainant satisfaction with outcome | Complaint Manager (name and date signed) |
 
 Version: 1

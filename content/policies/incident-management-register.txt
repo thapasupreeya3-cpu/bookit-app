@@ -1,22 +1,13 @@
 Disability and Mental Health Care Pty Ltd | Incident Management Register
 
-This Incident Management Register is intended to capture important incident-related information and should be treated as a confidential document. Please ensure that all incidents are reported, investigated and managed in accordance with the Incident Management Policy. The register records one row per incident with the following columns:
+This Incident Management Register is intended to capture important incident-related information and should be treated as a confidential document. Please ensure that all incidents are reported, investigated and managed in accordance with the Incident Management Policy.
 
-- Reference number.
-- Incident date, time and location — or, if unknown, the time, date and location the incident was first identified.
-- Incident type — for example abuse or neglect, injury or fall, medication error, behavioural incident, or other.
-- Details of the person involved: name and contact details.
-- Staff involved: name and position or role.
-- Witnesses: name and contact details.
-- Incident form completed? Y/N.
-- Incident reported to the NDIS and relevant external bodies? Y/N — if so, the NDIS incident reference number and the date and time the incident was reported.
-- Description of the incident: a detailed description, including relevant facts and the impact or harm caused to a person with a disability, updated as new information is discovered.
-- Investigation and assessment: details of the assessment or investigation undertaken in accordance with the Incident Management Policy.
-- Actions taken in response, including immediate actions, preventive measures, corrective actions and follow-up actions.
-- Outcome of the investigation: details or a reference to the investigative report.
-- The affected person's response and any further action required.
-- Date the incident was resolved.
-- Actions taken to prevent further incidents.
-- Signature of the Incident Manager: full name, signature and date.
+Each entry records the incident date, time and location (or, if unknown, when and where it was first identified); the incident type (for example abuse or neglect, injury or fall, medication error, behavioural incident); the person involved, the staff involved and any witnesses; whether an incident form was completed and whether the incident was reported to the NDIS Commission or other external bodies (with the reference number and the date and time reported); a detailed description including the impact or harm caused, updated as new information is discovered; the investigation and assessment undertaken under the Incident Management Policy; the actions taken (immediate, preventive, corrective and follow-up); the outcome of the investigation; the affected person's response and any further action; the date resolved; and the Incident Manager's sign-off.
+
+Incidents logged through BookIt's own incident reporting are also kept in the live incident register on the office board; this page is the register document for incidents recorded by hand.
+
+Register entries
+
+| Ref no. | Date, time and location | Incident type | Person involved | Staff involved | Witnesses | Incident form completed (Y/N) | Reported to NDIS or external body (Y/N, reference, date) | Description of incident | Investigation and assessment | Actions taken | Outcome | Affected person's response and further action | Date resolved | Actions to prevent recurrence | Incident Manager (name and date signed) |
 
 Version: 1

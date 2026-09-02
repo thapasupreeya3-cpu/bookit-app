@@ -1,13 +1,9 @@
 Disability and Mental Health Care Pty Ltd | Conflict of Interest Register
 
-The register records one row per declared conflict of interest with the following columns:
+Each declared conflict of interest is recorded here in accordance with the Conflict of Interest Policy, with the date, who declared it, their position, the service where the conflict was found, the details of the situation, the actions taken to manage it, and the declarer's sign-off. A Conflict of Interest Declaration is completed for each entry.
 
-- Date
-- Name of person declaring conflict of interest
-- Position title
-- Service where conflict of interest found
-- Details of situation
-- Actions taken
-- Signature
+Register entries
+
+| Date | Name of person declaring | Position title | Service where conflict found | Details of situation | Actions taken | Signed (name and date) |
 
 Version: 1

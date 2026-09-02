@@ -1,42 +1,29 @@
 Disability and Mental Health Care Pty Ltd | Training and Development Register
 
-Use this form to record formal and informal training received by a worker. This should be included in the administrative files for the worker. The register records the worker's name and job title, and includes formal qualifications and skills, task-specific training, and participant-specific training.
+Use this register to record formal and informal training received by a worker. It is kept in the administrative file for each worker. Each entry names the worker, so one register serves the whole team; filter or sort by worker name when reviewing.
 
 Formal qualifications and skills
 
-Record formal training from an external provider that has resulted in recognised qualifications, skills or licences — for example Cert III, Cert IV, or a Diploma. The columns are:
+Record formal training from an external provider that has resulted in recognised qualifications, skills or licences — for example Cert III, Cert IV, a Diploma, or CPR training. Documentation sighted might be a certificate from the training provider; comments might note why the qualification is needed for the role.
 
-- Qualification / skill (for example CPR training)
-- Date completed
-- Training provider
-- Documentation sighted (for example a certificate from the training provider)
-- Expiry date (if applicable)
-- Comments (for example, needed for the support worker role)
+Register entries: formal qualifications
+
+| Worker | Qualification or skill | Date completed | Training provider | Documentation sighted | Expiry date | Comments |
 
 Task-specific training
 
-Record on-job or informal training where the worker was assessed as competent to perform tasks required for their job — for example manual handling procedures, medication administration, infection control. The columns are:
+Record on-job or informal training where the worker was assessed as competent to perform tasks required for their job — for example manual handling procedures, medication administration, or infection control. How assessed is online, in house, or an external training organisation; the outcome is certification received, further training required, or work experience required.
 
-- Task
-- How assessed (online, in house, or an external training organisation)
-- Trained by
-- Outcome (certification received, further training required, or work experience required)
-- Date completed
-- Feedback
-- Worker signature and supervisor signature
-- Review date (if applicable)
+Register entries: task-specific training
+
+| Worker | Task | How assessed | Trained by | Outcome | Date completed | Feedback | Worker and supervisor sign-off | Review date |
 
 Participant-specific training
 
-Record worker training on participant-specific needs. This may include but is not limited to Support Plans, Emergency Plans, Medication Plans, Mealtime Management Plans, medical emergency protocols and plans, and specific needs or monitoring arrangements. The columns are:
+Record worker training on participant-specific needs. This may include Support Plans, Emergency Plans, Medication Plans, Mealtime Management Plans, medical emergency protocols, and specific procedures such as in-home evacuation or seizure response. The date completed should be in line with plan reviews or circumstantial changes.
 
-- Participant
-- Training on (for example a Support Plan, Emergency Plan or Epilepsy Plan)
-- Trained by
-- Outcome (for example, trained on participant-specific needs, in-home evacuation procedures, and response actions to seizures and escalation procedures)
-- Date completed (in line with plan reviews or circumstantial changes)
-- Feedback
-- Worker signature and supervisor signature
-- Review date (if applicable)
+Register entries: participant-specific training
+
+| Worker | Participant | Training on | Trained by | Outcome | Date completed | Feedback | Worker and supervisor sign-off | Review date |
 
 Version: 1

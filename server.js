@@ -18010,6 +18010,21 @@ db.exec(`CREATE TABLE IF NOT EXISTS policy_pages (
   imported_by TEXT DEFAULT '',
   words INTEGER DEFAULT 0
 )`);
+/* What people write INTO the fillable pages. A register (kind 'register')
+   has one shared, current set of entries for the whole company; a form or
+   template has one copy per signed-in person. Every save is a new row and
+   the newest is the current one, so nothing typed is ever overwritten or
+   lost: earlier versions stay for the audit trail. */
+db.exec(`CREATE TABLE IF NOT EXISTS policy_fills (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  owner_id INTEGER,
+  data TEXT NOT NULL DEFAULT '{}',
+  saved_at TEXT NOT NULL,
+  saved_by TEXT NOT NULL DEFAULT ''
+)`);
+db.exec('CREATE INDEX IF NOT EXISTS idx_policy_fills_cur ON policy_fills(slug, scope, owner_id, id)');
 /* the zip reader: central directory, then each entry inflated */
 function readZip(buf) {
   const out = new Map();
@@ -18094,12 +18109,19 @@ function policyAllowed(user, pg) {
   if (pg.audience === 'staff') return !!(user.admin || user.role === 'worker');
   return true;
 }
-function policyPageHtml(req, pg) {
+function policyPageHtml(req, pg, viewer) {
   const body = pg.body_html || `<p>This document is a PDF: <a href="/policies/${escHtml(pg.slug)}/file">open it</a>.</p>`;
+  /* registers and forms are fillable on the page itself (see policy-fill.js
+     and /api/policy-fill); a register is written to by workers and the
+     office, a form by anyone signed in who may see it. */
+  const fillable = policyFillable(pg) && !!pg.body_html;
+  const canSave = fillable && !!viewer && (pg.kind !== 'register' || !!(viewer.admin || viewer.role === 'worker'));
+  const fill = fillable ? `<div id="policy-fill" data-slug="${escHtml(pg.slug)}" data-kind="${escHtml(pg.kind)}" data-can-save="${canSave ? 1 : 0}" data-who="${escHtml(viewer ? viewer.name : '')}"></div>` : '';
   return genPage({ title: pg.title, lede: `${pg.kind === 'policy' ? 'A policy of' : pg.kind === 'procedure' ? 'A procedure of' : 'A document of'} Disability and Mental Health Care Pty Ltd, the registered NDIS provider that runs BookIt. ${pg.audience === 'staff' ? 'For workers and the office.' : 'Published for the people we support and the people who work with us.'}`,
     meta: [['Kind', pg.kind], ['Edition', pg.edition || `imported ${dmy(String(pg.imported_at).slice(0, 10))}`], ['Source', pg.source_name || 'the office\u2019s policies folder'], ['Audience', pg.audience === 'staff' ? 'staff only' : 'participants and staff']],
     footer: `${pg.title}. Published on BookIt from the office\u2019s document set; the office keeps it current.` },
-    `<div class="policy-body">${body}</div>`, { base: baseUrl(req), barNote: 'A policy page \u00b7 print or save as PDF \u00b7 back to the list at /policies' })
+    `${fill}<div class="policy-body">${body}</div>`, { base: baseUrl(req), barNote: fillable ? (pg.kind === 'register' ? 'A register \u00b7 add entries below, or print it \u00b7 back to the list at /policies' : 'A form \u00b7 fill it in on screen, save or print it \u00b7 back to the list at /policies') : 'A policy page \u00b7 print or save as PDF \u00b7 back to the list at /policies' })
+    .replace('</body>', fillable ? '<script src="/assets/policy-fill.js" defer></script></body>' : '</body>')
     .replace('</head>', '<style>.policy-body h2{margin-top:1.4em}.policy-body h3{margin-top:1.1em}.policy-body table.grid{width:100%;border-collapse:collapse;margin:1em 0;font-size:.95em}.policy-body table.grid th,.policy-body table.grid td{border:1px solid #d8d3cb;padding:6px 8px;vertical-align:top;text-align:left}.policy-body ul{padding-left:1.3em}</style></head>');
 }
 /* the Policy Register: the office's register of its documents, generated from what is published so it cannot drift from the pages */
@@ -18174,6 +18196,81 @@ route('DELETE', /^\/api\/admin\/policy-pages\/([a-z0-9-]+)$/, (req, res, m, user
   db.prepare('DELETE FROM policy_pages WHERE slug = ?').run(m[1]);
   if (pg.file_path) { try { fs.unlinkSync(pg.file_path); } catch {} }
   json(res, 200, { ok: true });
+});
+
+/* ---------- the fill layer behind the fillable policy pages ---------- */
+function policyFillable(pg) { return !!pg && (pg.kind === 'register' || pg.kind === 'form or template'); }
+/* safeJson above admits arrays only; a fill is an object */
+function policyFillParse(text) { try { const x = JSON.parse(text); return x && typeof x === 'object' && !Array.isArray(x) ? x : {}; } catch { return {}; } }
+function policyFillTarget(user, res, slug) {
+  const pg = db.prepare('SELECT slug, kind, audience FROM policy_pages WHERE slug = ?').get(slug);
+  if (!pg || !policyFillable(pg)) { json(res, 404, { error: 'No such fillable page.' }); return null; }
+  if (!policyAllowed(user, pg)) { json(res, 403, { error: 'Not permitted.' }); return null; }
+  const scope = pg.kind === 'register' ? 'shared' : 'personal';
+  const staff = !!(user.admin || user.role === 'worker');
+  return { pg, scope, owner: scope === 'personal' ? user.id : null, canWrite: scope === 'shared' ? staff : true };
+}
+function policyFillLatest(slug, scope, owner) {
+  return scope === 'shared'
+    ? db.prepare('SELECT * FROM policy_fills WHERE slug = ? AND scope = ? ORDER BY id DESC LIMIT 1').get(slug, scope)
+    : db.prepare('SELECT * FROM policy_fills WHERE slug = ? AND scope = ? AND owner_id = ? ORDER BY id DESC LIMIT 1').get(slug, scope, owner);
+}
+/* the saved data is plain text in plain shapes and nothing else: a register
+   is { tables: { '0': [[cell, ...], ...] } }, a form is { items: [{ label,
+   checked, value }], by: { name, role, date, notes } } */
+function policyFillClean(data) {
+  const str = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').slice(0, max);
+  const out = {};
+  if (data && data.tables && typeof data.tables === 'object') {
+    out.tables = {};
+    for (const k of Object.keys(data.tables).slice(0, 12)) {
+      if (!/^\d{1,2}$/.test(k) || !Array.isArray(data.tables[k])) continue;
+      out.tables[k] = data.tables[k].slice(0, 2000).map(row => Array.isArray(row) ? row.slice(0, 40).map(c => str(c, 4000)) : []);
+    }
+  }
+  if (data && Array.isArray(data.items)) {
+    out.items = data.items.slice(0, 600).map(it => ({ label: str(it && it.label, 600), checked: !!(it && it.checked), value: str(it && it.value, 2000) }));
+  }
+  if (data && data.by && typeof data.by === 'object') {
+    out.by = {};
+    for (const k of ['name', 'role', 'date', 'notes']) if (k in data.by) out.by[k] = str(data.by[k], k === 'notes' ? 8000 : 200);
+  }
+  return out;
+}
+route('GET', /^\/api\/policy-fill\/([a-z0-9-]+)$/, (req, res, m, user) => {
+  const t = policyFillTarget(user, res, m[1]); if (!t) return;
+  const cur = policyFillLatest(t.pg.slug, t.scope, t.owner);
+  json(res, 200, { slug: t.pg.slug, kind: t.pg.kind, scope: t.scope, can_write: t.canWrite,
+    id: cur ? cur.id : null, data: cur ? policyFillParse(cur.data) : {}, saved_at: cur ? cur.saved_at : '', saved_by: cur ? cur.saved_by : '' });
+});
+route('POST', /^\/api\/policy-fill\/([a-z0-9-]+)$/, (req, res, m, user, body) => {
+  const t = policyFillTarget(user, res, m[1]); if (!t) return;
+  if (!t.canWrite) return json(res, 403, { error: 'Only workers and the office can write to a register.' });
+  const data = policyFillClean(body && body.data);
+  const text = JSON.stringify(data);
+  if (text.length > 1500000) return json(res, 413, { error: 'That is too much to keep on one page. Split the register, or shorten the entries.' });
+  const cur = policyFillLatest(t.pg.slug, t.scope, t.owner);
+  const baseId = body && body.base_id != null ? Number(body.base_id) : null;
+  if (t.scope === 'shared' && (cur ? cur.id : null) !== baseId) return json(res, 409, { error: 'Someone else saved this register after you loaded it. Reload to see their entries, then add yours again.' });
+  const who = user.admin ? `${user.name} (office)` : user.name;
+  const r = db.prepare('INSERT INTO policy_fills (slug, scope, owner_id, data, saved_at, saved_by) VALUES (?,?,?,?,?,?)').run(t.pg.slug, t.scope, t.owner, text, now(), who);
+  json(res, 200, { ok: true, id: Number(r.lastInsertRowid), saved_at: now(), saved_by: who });
+});
+/* the office's view: what has been filled in, by whom, and when */
+route('GET', /^\/api\/admin\/policy-fills$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const rows = db.prepare(`SELECT f.slug, f.scope, f.owner_id, u.name AS owner, p.title, p.kind, f.saved_at, f.saved_by,
+      (SELECT COUNT(*) FROM policy_fills x WHERE x.slug = f.slug AND x.scope = f.scope AND COALESCE(x.owner_id, 0) = COALESCE(f.owner_id, 0)) AS versions
+    FROM policy_fills f LEFT JOIN users u ON u.id = f.owner_id LEFT JOIN policy_pages p ON p.slug = f.slug
+    WHERE f.id = (SELECT MAX(id) FROM policy_fills y WHERE y.slug = f.slug AND y.scope = f.scope AND COALESCE(y.owner_id, 0) = COALESCE(f.owner_id, 0))
+    ORDER BY f.saved_at DESC`).all();
+  json(res, 200, { fills: rows.map(r => ({ ...r, url: `/policies/${r.slug}` })) });
+});
+route('GET', /^\/api\/admin\/policy-fills\/([a-z0-9-]+)\/(\d+)$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const cur = db.prepare('SELECT * FROM policy_fills WHERE slug = ? AND owner_id = ? ORDER BY id DESC LIMIT 1').get(m[1], Number(m[2]));
+  if (!cur) return json(res, 404, { error: 'Nothing saved.' });
+  json(res, 200, { id: cur.id, data: policyFillParse(cur.data), saved_at: cur.saved_at, saved_by: cur.saved_by });
 });
 route('GET', /^\/api\/admin\/policy-pages\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
@@ -18673,9 +18770,14 @@ const server = http.createServer((req, res) => {
         res.setHeader('Content-Security-Policy', 'sandbox');
         return sendFile(req, res, pg.file_path, st, pg.file_mime || 'application/pdf', 'private, no-store');
       }
-      const html = Buffer.from(policyPageHtml(req, pg));
-      res.setHeader('Content-Security-Policy', 'sandbox allow-scripts allow-modals allow-top-navigation');
-      return sendBuffer(req, res, html, MIME['.html'], pg.audience === 'public' ? 'public, max-age=300' : 'private, no-store', null, `policy:${slug}`, String(pg.imported_at));
+      const html = Buffer.from(policyPageHtml(req, pg, viewer));
+      /* A fillable page saves through /api/policy-fill with the person's
+         session cookie, which a sandboxed (opaque-origin) page cannot send;
+         so for a signed-in viewer of a register or form the page keeps its
+         own origin. Everyone else gets the full sandbox as before. */
+      const live = policyFillable(pg) && !!viewer;
+      res.setHeader('Content-Security-Policy', live ? 'sandbox allow-scripts allow-modals allow-top-navigation allow-same-origin allow-forms' : 'sandbox allow-scripts allow-modals allow-top-navigation');
+      return sendBuffer(req, res, html, MIME['.html'], pg.audience === 'public' && !live ? 'public, max-age=300' : 'private, no-store', null, `policy:${slug}:${live ? viewer.id : 0}`, String(pg.imported_at));
     }
     if (/^\/support-workers-in\/[a-z0-9-]+$/.test(pathname)) {
       const all = suburbIndex();
