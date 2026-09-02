@@ -532,6 +532,15 @@ async function main() {
     t('forms register rows carry their BookIt page', frm.status === 200 && frm.json.forms.some(f => f.key === 'reg-restrictive' && f.page === 'restrictive-practices-register') && frm.json.forms.some(f => f.key === 'policy-register' && f.page === 'policy-register') && frm.json.forms.every(f => f.scope === 'worker' || f.scope === 'participant' ? !f.page : true), frm.status);
     const recAll2 = await req('POST', '/api/admin/policies-folder', { headers: J2, cookie: ac2, body: { record_all: true } });
     t('recording from the folder counts pages written on BookIt, and never names a live register as missing', recAll2.status === 200 && !recAll2.json.unmatched.some(n => /Restrictive Practices Register|Internal Audit|Participant Register|Banning orders|Worker Register/.test(n)) && recAll2.json.unmatched.some(n => /Certificate of currency/.test(n)), recAll2.json.unmatched.join('; '));
+    /* v86.11.0: the file is tiered the way the established platforms tier theirs */
+    const frm2 = await req('GET', '/api/admin/forms', { cookie: ac2 });
+    const hiRow = frm2.json.forms.find(f => f.key === 'w-hi-competency'), licRow = frm2.json.forms.find(f => f.key === 'w-licence'), wwccRow = frm2.json.forms.find(f => f.key === 'w-wwcc');
+    t('high-intensity competency is "not offered", never "missing", and is not counted as a document', hiRow.track === 'na' && frm2.json.counts.missing === 0 && frm2.json.counts.not_offered === 1 && !hiRow.state, hiRow.track);
+    t('the driver licence and WWCC are add-ons asked only of the workers they apply to', licRow.appliesTo === 'transport' && licRow.state.unit === 'workers it applies to' && licRow.state.of <= frm2.json.workers && wwccRow.appliesTo === 'children', `${licRow.state.of}/${frm2.json.workers}`);
+    const epi = frm2.json.forms.find(f => f.key === 'p-epilepsy');
+    t('a clinical plan row carries the timing states: due within four weeks, and expired-but-accepted', epi.track === 'drive' && Array.isArray(epi.state.due) && Array.isArray(epi.state.renewing));
+    const polIdx = await req('GET', '/policies');
+    t('/policies is organised for everyone, participants, and workers, with the agreement and prices first', polIdx.status === 200 && polIdx.text.includes('data-tab="public"') && polIdx.text.includes('data-tab="participants"') && polIdx.text.includes('data-tab="staff"') && polIdx.text.includes('href="/service-agreement"') && polIdx.text.includes('href="/pricing"') && polIdx.text.includes('Start here'), polIdx.status);
     const preg = await req('GET', '/policies/policy-register');
     t('the Policy Register is generated from the published pages: public rows signed out, with review dates', preg.status === 200 && preg.text.includes('Feedback and Complaints Policy') && preg.text.includes('August 2027') && !preg.text.includes('Human Resources Management Policy'), preg.status);
     const regA = await req('GET', '/policies/policy-register', { cookie: ac2 });

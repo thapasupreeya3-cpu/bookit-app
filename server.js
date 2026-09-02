@@ -7543,15 +7543,15 @@ const FORMS = [
   { key: 'w-id', name: '100 points of identification', scope: 'worker', track: 'live', live: 'doc:id-points', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
   { key: 'w-rtw', name: 'Right to work — visa grant / VEVO check', scope: 'worker', track: 'live', live: 'doc:visa', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Migration Act — work rights', note: 'Condition 8105 caps a subclass 500 holder at 48 hours a fortnight. That is a rostering constraint, not just a file.' },
   { key: 'w-screening', name: 'NDIS Worker Screening Check', scope: 'worker', track: 'live', live: 'doc:ndis-screening', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018', note: 'Blocks bookings on an expired or unverified check. This IS the criminal history check — the NDIS check is a nationally coordinated police check plus a risk assessment, so a separate National Police Certificate is not a second requirement and is not tracked as one. Workers who uploaded one anyway keep it on file.' },
-  { key: 'w-wwcc', name: 'Working with Children Check', scope: 'worker', track: 'live', live: 'doc:wwcc', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'State child protection legislation' },
+  { key: 'w-wwcc', appliesTo: 'children', name: 'Working with Children Check', scope: 'worker', track: 'live', live: 'doc:wwcc', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'State child protection legislation', note: 'An add-on, the way the established platforms treat it: asked of a worker linked to, or booked by, a participant under 18. Everyone else is covered by the NDIS Worker Screening Check.' },
   { key: 'w-orientation', name: 'NDIS Worker Orientation Module certificate', scope: 'worker', track: 'live', live: 'doc:ndis-orientation', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
   { key: 'w-firstaid', name: 'First Aid and CPR certificate', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'CPR renews yearly, first aid every three years. The yearly one is what lapses.' },
   { key: 'w-infection', name: 'Infection prevention and control training', scope: 'worker', track: 'live', live: 'doc:infection-control', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment' },
   { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Certificates held in the policies folder for every current worker - upload into BookIt worker docs so this register reflects them.' },
   { key: 'w-medication', name: 'Medication administration training', scope: 'worker', track: 'live', live: 'doc:medication-training', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Management of medication' },
-  { key: 'w-hi-competency', name: 'High-intensity skills competency sign-off (catheter, stoma, AD)', scope: 'worker', track: 'missing', cadence: 'annual', signed: 'Clinician or supervisor', template: 'none', requires: 'High Intensity Daily Personal Activities module', note: 'The training has been delivered. No certificate or competency sign-off is in any worker folder. The gap is evidence, not care.' },
+  { key: 'w-hi-competency', name: 'High-intensity skills competency sign-off (catheter, stoma, AD)', scope: 'worker', track: 'na', cadence: 'annual', signed: 'Clinician or supervisor', template: 'none', requires: 'High Intensity Daily Personal Activities module', note: 'Not offered: DMHC does not deliver high-intensity daily personal activities, so no worker is asked for this. An enquiry that needs it is referred on (the High-intensity enquiries list). The row stays here so the day that changes, the requirement is already written down.' },
   { key: 'w-qualification', name: 'Qualification certificates', scope: 'worker', track: 'live', live: 'doc:qualification', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
-  { key: 'w-licence', name: 'Driver licence + vehicle registration, CTP and comprehensive insurance', scope: 'worker', track: 'live', live: 'doc:driver-licence', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Needed by anyone rostered on 0108 transport. Nobody has a licence recorded.' },
+  { key: 'w-licence', appliesTo: 'transport', name: 'Driver licence + vehicle registration, CTP and comprehensive insurance', scope: 'worker', track: 'live', live: 'doc:driver-licence', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'An add-on: asked only of a worker who offers transport on their profile. Needed by anyone rostered on 0108 transport. Nobody has a licence recorded.' },
   { key: 'w-supervision', name: 'Supervision and performance review record', scope: 'worker', track: 'drive', cadence: 'annual', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
 
   /* ---------- one per participant ---------- */
@@ -9316,6 +9316,21 @@ function pdocHolders() {
    the audit pack embeds it and the nightly snapshot counts it — all three from
    this one function, so a number on the admin screen and the same number in the
    audit zip cannot disagree. */
+/* v86.11.0 — the facts the add-on and timing rules read */
+function workerOffers(workerId, service) {
+  const p = db.prepare('SELECT services FROM worker_profiles WHERE user_id = ?').get(workerId);
+  return !!p && safeJson(p.services, []).includes(service);
+}
+function workerSupportsChild(workerId) {
+  return !!db.prepare(`SELECT 1 FROM users u WHERE u.role = 'participant' AND u.under_18 = 1 AND (
+      EXISTS (SELECT 1 FROM participant_workers pw WHERE pw.participant_id = u.id AND pw.worker_id = ?)
+      OR EXISTS (SELECT 1 FROM bookings b WHERE b.participant_id = u.id AND b.worker_id = ? AND b.status IN ('accepted','completed'))) LIMIT 1`).get(workerId, workerId);
+}
+/* the day supports started: the first booking that went ahead, or null before one has */
+function serviceStart(participantId) {
+  const r = db.prepare(`SELECT MIN(date) AS d FROM bookings WHERE participant_id = ? AND status IN ('accepted','completed')`).get(participantId);
+  return r && r.d ? String(r.d).slice(0, 10) : null;
+}
 function formsRegister() {
   const today = ymd();
   const workers = db.prepare("SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id ORDER BY u.name").all();
@@ -9336,10 +9351,29 @@ function formsRegister() {
        of calling it "in Drive" and watching nothing */
     if (f.track === 'drive' && f.scope === 'participant') {
       const need = participants.filter(p => !f.appliesIf || planFlag(confirmedPlan(p.id), f.appliesIf));
-      const have = need.filter(p => db.prepare(`SELECT 1 FROM participant_docs WHERE participant_id = ? AND form_key = ? AND COALESCE(review_state,'') <> 'superseded' AND (COALESCE(file_path,'') <> '' OR accepted_at IS NOT NULL) AND (expiry_date IS NULL OR expiry_date = '' OR expiry_date >= ?) LIMIT 1`).get(p.id, f.key, today));
+      /* v86.11.0 — the rules the established platforms write down, applied here:
+         a clinical plan (the appliesIf rows) is due within four weeks of
+         supports starting, so a new participant is "due by", not "missing";
+         and a plan that has expired is accepted for three months while the
+         clinician renews it, and only then becomes a gap. */
+      const grace = ymd(new Date(Date.now() - 90 * 864e5));
+      const current = p => db.prepare(`SELECT 1 FROM participant_docs WHERE participant_id = ? AND form_key = ? AND COALESCE(review_state,'') <> 'superseded' AND (COALESCE(file_path,'') <> '' OR accepted_at IS NOT NULL) AND (expiry_date IS NULL OR expiry_date = '' OR expiry_date >= ?) LIMIT 1`).get(p.id, f.key, today);
+      const lapsed = p => f.appliesIf && db.prepare(`SELECT 1 FROM participant_docs WHERE participant_id = ? AND form_key = ? AND COALESCE(review_state,'') <> 'superseded' AND (COALESCE(file_path,'') <> '' OR accepted_at IS NOT NULL) AND expiry_date <> '' AND expiry_date < ? AND expiry_date >= ? LIMIT 1`).get(p.id, f.key, today, grace);
+      const have = need.filter(p => current(p) || lapsed(p));
+      const renewing = need.filter(p => !current(p) && lapsed(p)).map(p => p.name);
       const expired = need.filter(p => db.prepare(`SELECT 1 FROM participant_docs WHERE participant_id = ? AND form_key = ? AND expiry_date <> '' AND expiry_date < ? LIMIT 1`).get(p.id, f.key, today)).length;
+      const dueBy = {};
+      const missing = need.filter(p => !have.includes(p));
+      const gaps = f.optional ? [] : missing.filter(p => {
+        if (!f.appliesIf) return true;
+        const start = serviceStart(p.id);
+        if (!start) { dueBy[p.name] = 'before supports start'; return false; }
+        const due = ymd(new Date(new Date(start).getTime() + 28 * 864e5));
+        if (due >= today) { dueBy[p.name] = dmy(due); return false; }
+        return true;
+      }).map(p => p.name);
       return { of: need.length, unit: f.onlyIf ? 'participants it applies to' : 'participants', held: have.length, ok: have.length, expired, filed: true,
-        gaps: f.optional ? [] : need.filter(p => !have.includes(p)).map(p => p.name) };
+        gaps, renewing, due: Object.entries(dueBy).map(([n, d]) => `${n} (due ${d})`) };
     }
     if (f.track !== 'live') return null;
     if (String(f.live || '').startsWith('doc:')) {
@@ -9353,11 +9387,15 @@ function formsRegister() {
             const expired = rows.some(d => d.expiry_date && d.expiry_date < today);
             return { held: 1, ok: good ? 1 : 0, expired: expired ? 1 : 0 };
           })();
-      const st = workers.map(of);
-      return { of: workers.length, unit: 'workers',
+      /* an add-on is asked only of the workers it applies to: transport of a
+         worker who offers it, the WWCC of a worker who supports a child */
+      const pool = f.appliesTo === 'transport' ? workers.filter(w => workerOffers(w.id, 'transport'))
+        : f.appliesTo === 'children' ? workers.filter(w => workerSupportsChild(w.id)) : workers;
+      const st = pool.map(of);
+      return { of: pool.length, unit: f.appliesTo ? 'workers it applies to' : 'workers',
         held: st.filter(x => x.held).length, ok: st.filter(x => x.ok).length,
         expired: st.filter(x => x.expired).length,
-        gaps: workers.filter((w, i) => !st[i].ok).map(w => w.name) };
+        gaps: pool.filter((w, i) => !st[i].ok).map(w => w.name) };
     }
     if (f.live === 'support_plan') {
       const ok = participants.filter(p => !!confirmedPlan(p.id));
@@ -9584,14 +9622,15 @@ function formsRegister() {
       live: byTrack('live').length,
       drive: byTrack('drive').length,
       missing: byTrack('missing').length,
+      not_offered: byTrack('na').length,
       /* of the forms BookIt cannot see, how many has someone actually put their
          name to. This is the number that moves when the office says "I have
          that one" — and the only way it moves is by someone saying so, dated. */
       recorded: forms.filter(f => f.record && f.record.held).length,
-      unrecorded: forms.filter(f => f.track !== 'live' && !(f.record && f.record.held)).length,
+      unrecorded: forms.filter(f => f.track !== 'live' && f.track !== 'na' && !(f.record && f.record.held)).length,
       /* the number worth quoting: how many separate documents exist once the
          per-person forms are multiplied out */
-      documents: forms.reduce((n, f) => n + f.copies, 0),
+      documents: forms.reduce((n, f) => n + (f.track === 'na' ? 0 : f.copies), 0),
       gaps: forms.reduce((n, f) => n + (f.state ? f.state.gaps.length : 0), 0),
       /* documents BookIt is actually holding the file for, rather than a note
          about where the file is. The number that turns "we have it somewhere"
@@ -10718,7 +10757,7 @@ route('GET', /^\/api\/admin\/forms\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const scope = { company: 'Company', register: 'Register', worker: 'Per worker', participant: 'Per participant' };
-  const track = { live: 'BookIt tracks it', drive: 'A file — in each person\u2019s BookIt file where it is theirs, kept by the office where it is ours', missing: 'Does not exist yet' };
+  const track = { live: 'BookIt tracks it', drive: 'A file — in each person\u2019s BookIt file where it is theirs, kept by the office where it is ours', missing: 'Does not exist yet', na: 'Not offered by DMHC (the requirement is recorded for the day it is)' };
   const reg = formsRegister();
   const byKey = Object.fromEntries(reg.forms.map(f => [f.key, f]));
   const lines = [['Form', 'Belongs to', 'Where it is tracked', 'How often', 'Who signs', 'Whose template',
@@ -18154,13 +18193,55 @@ function policyRegisterHtml(req, user) {
     <p>A document must undergo an earlier review if there is a modification in laws or regulations, an occurrence of an incident, a complaint, or any other substantial event or alteration that makes a prompt review necessary.</p>`;
   return genPage({ title: 'Policy Register', lede: 'The register of the documents published on this site.', meta: [['Documents', String(pages.length)], ['Kept by', 'the office; generated from the published pages']], footer: 'Policy Register, generated on BookIt from the published documents.' }, body, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' });
 }
+/* v86.11.0 — the Policies page, organised the way the established platforms
+   organise theirs: by who a document is for, with the few documents anyone
+   deals with first at the top (the agreement, privacy, conduct, complaints,
+   incidents, transport, cancellations), and everything else beneath by kind.
+   Three tabs: everyone, participants, workers and the office. */
+const POLICY_START = {
+  public: ['privacy-and-information-management-policy', 'participant-rights-and-responsibilities-policy', 'feedback-and-complaints-policy', 'feedback-and-complaints-form',
+    'incident-management-policy', 'violence-abuse-neglect-exploitation-and-discrimination-policy', 'transport-and-vehicle-safety-procedure', 'privacy-consent-form', 'privacy-consent-form-easy-read', 'advocate-or-support-person-request-form'],
+  participants: ['participant-intake-form', 'referral-form', 'participant-support-plan', 'participant-emergency-plan', 'participant-risk-assessment-form',
+    'medication-consent-form', 'medication-plan-and-administration-form', 'mealtime-management-plan', 'participant-money-and-property-declaration', 'participant-satisfaction-survey', 'participant-exit-and-transition-form'],
+  staff: ['staff-handbook', 'position-description-template', 'worker-declarations', 'worker-induction-checklist', 'incident-report-form', 'ndis-reportable-incident-form-5-day-notification',
+    'support-record-timesheet', 'human-resources-management-policy', 'work-health-and-safety-policy']
+};
 function policiesIndexHtml(req, user) {
-  const pages = db.prepare('SELECT slug, title, kind, audience, words, imported_at FROM policy_pages ORDER BY kind, title').all().filter(pg => policyAllowed(user, pg));
+  const all = db.prepare('SELECT slug, title, kind, audience, words, imported_at FROM policy_pages ORDER BY title').all();
+  const pages = all.filter(pg => policyAllowed(user, pg));
+  const staff = !!(user && (user.admin || user.role === 'worker'));
   const kinds = ['policy', 'procedure', 'plan', 'register', 'form or template'];
-  const body = pages.length ? kinds.map(k => { const list = pages.filter(pg => pg.kind === k); return list.length ? `<h2 style="text-transform:capitalize">${escHtml(k)}${k === 'policy' || k === 'procedure' ? 's' : k === 'form or template' ? 's' : 's'}</h2><ul>${list.map(pg => `<li><a href="/policies/${escHtml(pg.slug)}">${escHtml(pg.title)}</a>${pg.audience === 'staff' ? ' <small>(staff)</small>' : ''}</li>`).join('')}</ul>` : ''; }).join('')
-    : `<p>${user ? 'No documents have been published as pages yet.' : 'The published policies appear here once you are signed in; some are public.'}</p>`;
-  const register = pages.length ? `<p><a href="/policies/policy-register">The Policy Register</a>: every document with its version, approval and review dates.</p>` : '';
-  return genPage({ title: 'Policies and procedures', lede: 'The documents Disability and Mental Health Care Pty Ltd works to, published as pages: read any of them here, or print or save one as a PDF from its own page.', meta: [['Published', `${pages.length} document${pages.length === 1 ? '' : 's'}`], ['Kept by', 'the office, from its document set']], footer: 'Policies and procedures, published on BookIt.' }, body + register, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' });
+  const kindLabel = { policy: 'Policies', procedure: 'Procedures', plan: 'Plans', register: 'Registers', 'form or template': 'Forms and templates' };
+  const item = pg => `<li><a href="/policies/${escHtml(pg.slug)}">${escHtml(pg.title)}</a>${pg.kind === 'register' && staff ? ' <small>(add entries)</small>' : pg.kind === 'form or template' ? ' <small>(fill in on screen)</small>' : ''}</li>`;
+  const tabs = [
+    { key: 'public', label: 'For everyone', aud: 'public', lede: 'The documents anyone can read before they sign anything: how we handle your information, how you complain, what happens when something goes wrong.',
+      top: `<ul class="pol-start"><li><a href="/service-agreement">The Service Agreement</a> — the terms between DMHC and you, the same for everyone, accepted by click on your documents page.</li><li><a href="/pricing">Prices and cancellations</a> — every rate, and the short-notice cancellation rule.</li><li><a href="/safety">Safety and verification</a> — what every worker is checked for before their first shift.</li><li><a href="/specialist-supports">What we do and do not provide</a> — DMHC does not deliver high-intensity daily personal activities; an enquiry that needs them is referred on.</li></ul>` },
+    { key: 'participants', label: 'For participants', aud: 'participants', lede: 'Your file: what we ask you for, only where your support needs it. A clinical plan is due within four weeks of supports starting, and an expired one is accepted for three months while your clinician renews it.', top: '' },
+    { key: 'staff', label: 'For workers and the office', aud: 'staff', lede: 'The worker file, the handbook, the incident forms, and the registers the office keeps.', top: '' }
+  ];
+  const panes = tabs.map((t, i) => {
+    const list = pages.filter(pg => pg.audience === t.aud);
+    const startSlugs = POLICY_START[t.key] || [];
+    const start = startSlugs.map(sl => list.find(pg => pg.slug === sl)).filter(Boolean);
+    const rest = list.filter(pg => !start.includes(pg));
+    let body = t.top;
+    if (!list.length && !t.top) body += `<p>${t.aud === 'staff' && !staff ? 'Sign in as a worker or the office to see these.' : t.aud === 'participants' && !user ? 'Sign in to see your documents.' : 'Nothing published here yet.'}</p>`;
+    if (start.length) body += `<h3>Start here</h3><ul>${start.map(item).join('')}</ul>`;
+    body += kinds.map(k => { const l = rest.filter(pg => pg.kind === k); return l.length ? `<h3>${kindLabel[k]}</h3><ul>${l.map(item).join('')}</ul>` : ''; }).join('');
+    return `<section class="pol-pane" data-pane="${t.key}"${i ? ' hidden' : ''}><p class="pol-lede">${t.lede}</p>${body}</section>`;
+  }).join('');
+  const nav = `<div class="pol-tabs no-print" role="tablist">${tabs.map((t, i) => `<button type="button" class="pol-tab${i ? '' : ' on'}" role="tab" data-tab="${t.key}" aria-selected="${i ? 'false' : 'true'}">${t.label} <small>(${pages.filter(pg => pg.audience === t.aud).length})</small></button>`).join('')}</div>
+<div class="pol-search no-print"><input type="search" placeholder="Type part of a document's name" aria-label="Search the documents"></div>`;
+  const register = `<p class="pol-foot"><a href="/policies/policy-register">The Policy Register</a>: every document with its version, approval and review dates.</p>`;
+  const script = `<script>(function(){var tabs=document.querySelectorAll('.pol-tab'),panes=document.querySelectorAll('.pol-pane'),q=document.querySelector('.pol-search input');
+function show(k){tabs.forEach(function(b){var on=b.getAttribute('data-tab')===k;b.classList.toggle('on',on);b.setAttribute('aria-selected',on?'true':'false');});panes.forEach(function(p){p.hidden=p.getAttribute('data-pane')!==k;});if(q){q.value='';filter('');}}
+function filter(v){var n=v.trim().toLowerCase();panes.forEach(function(p){if(p.hidden)return;p.querySelectorAll('li').forEach(function(li){li.hidden=!!n&&li.textContent.toLowerCase().indexOf(n)<0;});p.querySelectorAll('h3').forEach(function(h){var ul=h.nextElementSibling;h.hidden=!!n&&ul&&!ul.querySelector('li:not([hidden])');});});}
+tabs.forEach(function(b){b.addEventListener('click',function(){show(b.getAttribute('data-tab'));});});if(q)q.addEventListener('input',function(){filter(q.value);});
+var h=(location.hash||'').replace('#','');if(h&&document.querySelector('.pol-tab[data-tab="'+h+'"]'))show(h);})();</script>`;
+  return genPage({ title: 'Policies and procedures', lede: 'The documents Disability and Mental Health Care Pty Ltd works to, published as pages: read any of them here, fill in a form on screen, or print or save one as a PDF from its own page.',
+    meta: [['Published', `${pages.length} document${pages.length === 1 ? '' : 's'}`], ['Kept by', 'the office, from its document set']], footer: 'Policies and procedures, published on BookIt.' }, nav + panes + register, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' })
+    .replace('</head>', '<style>.pol-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:.4em 0 .8em;border-bottom:2px solid #d8d3cb}.pol-tab{font:inherit;font-weight:700;font-size:.95em;background:none;border:0;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;color:#555;margin-bottom:-2px}.pol-tab.on{color:#2f5d50;border-bottom-color:#2f5d50}.pol-tab small{font-weight:400;color:#777}.pol-search input{font:inherit;padding:8px 12px;border:1px solid #b9b3aa;border-radius:8px;width:min(420px,100%);margin:0 0 .8em}.pol-lede{color:#444;margin:.2em 0 1em}.pol-pane h3{margin:1.2em 0 .4em}.pol-pane ul{padding-left:1.3em;margin:0}.pol-pane li{margin:0 0 .35em}.pol-pane small{color:#777}.pol-start li{margin:0 0 .6em}.pol-foot{margin-top:1.6em;border-top:1px solid #d8d3cb;padding-top:1em}@media print{.pol-pane[hidden]{display:block}.no-print{display:none}}</style></head>')
+    .replace('</body>', script + '</body>');
 }
 route('GET', /^\/api\/admin\/policy-pages$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;

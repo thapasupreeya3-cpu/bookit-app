@@ -4255,6 +4255,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   .fr-track.live{background:#DBF2E4;border-color:#2E6B4F;color:#215239;}
   .fr-track.drive{background:#FFF4D6;border-color:#F5B841;color:#7A5C00;}
   .fr-track.missing{background:#FDECE7;border-color:#D94F32;color:#A5301A;}
+  .fr-track.na{background:#EEEDEA;border-color:#9A958D;color:#4F4B45;}
   .fr-gaps{margin:4px 0 0;font-size:.78rem;color:#A5301A;line-height:1.5;}
   .fr-rec{margin:6px 0 0;font-size:.8rem;color:#215239;line-height:1.55;}
   .fr-rec.open{color:#7A5C00;}
@@ -11573,6 +11574,7 @@ function formsBoardHtml(d){
     <div class="adm-tile"><b class="adm-live">${c.live}</b><span>BookIt watches these</span></div>
     <div class="adm-tile"><b style="color:#8a6d00;">${c.drive}</b><span>Kept as a file — in each person's file, or by the office</span></div>
     <div class="adm-tile"><b style="${c.missing ? 'color:#D94F32;' : ''}">${c.missing}</b><span>Don't exist yet</span></div>
+    ${c.not_offered ? `<div class="adm-tile"><b>${c.not_offered}</b><span>Not offered (high intensity)</span></div>` : ''}
     <div class="adm-tile"><b style="${c.recorded ? 'color:#1C7C43;' : ''}">${c.recorded}</b><span>Recorded as held</span></div>
     <div class="adm-tile"><b style="${c.gaps ? 'color:#D94F32;' : ''}">${c.gaps}</b><span>Live gaps right now</span></div>
   </div>`;
@@ -11584,13 +11586,13 @@ function formsBoardHtml(d){
     <button data-fr="gaps" aria-pressed="false" type="button">Has a gap now (${d.forms.filter(f => f.state && f.state.gaps.length).length})</button>
     <button data-fr="unrecorded" aria-pressed="false" type="button">Office documents not yet recorded (${d.forms.filter(f => f.track !== 'live' && f.scope !== 'participant' && f.scope !== 'worker' && !(f.record && f.record.held)).length})</button>
   </div>`;
-  const trackLabel = { live: 'BookIt tracks it', drive: 'A file', missing: 'Not built yet' };
+  const trackLabel = { live: 'BookIt tracks it', drive: 'A file', missing: 'Not built yet', na: 'Not offered' };
   const trackFor = f => f.track === 'drive' ? (f.scope === 'participant' ? 'In each participant\'s file' : f.scope === 'worker' ? 'In each worker\'s file' : 'Kept by the office') : (trackLabel[f.track] || f.track);
   /* what still needs the office's attention on a row: a company document or
      register nobody has recorded as held (and BookIt does not track), a form
      that does not exist yet, or a per-person set with a gap right now */
-  const attention = f => f.track === 'missing' || (f.state && f.state.gaps.length > 0)
-    || ((f.scope === 'company' || f.scope === 'register') && f.track !== 'live' && !(f.record && f.record.held));
+  const attention = f => f.track !== 'na' && (f.track === 'missing' || (f.state && f.state.gaps.length > 0)
+    || ((f.scope === 'company' || f.scope === 'register') && f.track !== 'live' && !(f.record && f.record.held)));
   const tabLabel = { company: 'Company documents', register: 'Registers', worker: 'Per worker', participant: 'Per participant' };
   if(!d.scopes.some(sc => sc.key === FR_TAB)) FR_TAB = d.scopes[0] ? d.scopes[0].key : 'company';
   const tabs = `<div class="cmp-tabs" role="tablist" aria-label="Forms register sections">${d.scopes.map(sc => {
@@ -11611,7 +11613,10 @@ function formsBoardHtml(d){
         <td><b>${esc(f.name)}</b>${f.page ? ` <a href="/policies/${esc(f.page)}" target="_blank" rel="noopener" class="muted-sm">${f.scope === 'register' && f.track !== 'live' ? 'Open the register — add entries' : 'Open the page'} ↗</a>` : ''}${f.note ? `<br><span class="muted-sm">${esc(f.note)}</span>` : ''}
           ${f.state ? `<br><span class="muted-sm">${f.state.ok}/${f.state.of} ${esc(f.state.unit)} ✓${f.state.expired ? ` · <b style="color:#D94F32;">${f.state.expired} expired</b>` : ''}</span>` : ''}
           ${f.state && f.state.gaps.length ? `<p class="fr-gaps">Missing: ${esc(f.state.gaps.slice(0, 8).join(', '))}${f.state.gaps.length > 8 ? ` +${f.state.gaps.length - 8} more` : ''}</p>` : ''}
-          ${f.track === 'live' || f.scope === 'participant' || f.scope === 'worker' ? '' : formRecordHtml(f)}</td>
+          ${f.state && f.state.due && f.state.due.length ? `<p class="muted-sm" style="margin:4px 0 0;">Due within four weeks of supports starting: ${esc(f.state.due.slice(0, 6).join(', '))}${f.state.due.length > 6 ? ` +${f.state.due.length - 6} more` : ''}</p>` : ''}
+          ${f.state && f.state.renewing && f.state.renewing.length ? `<p class="muted-sm" style="margin:4px 0 0;color:#7A5C00;">Expired, accepted for three months while it is renewed: ${esc(f.state.renewing.slice(0, 6).join(', '))}</p>` : ''}
+          ${f.appliesTo ? `<br><span class="muted-sm">Add-on: ${f.appliesTo === 'transport' ? 'only workers who offer transport' : 'only workers supporting someone under 18'}</span>` : ''}
+          ${f.track === 'live' || f.track === 'na' || f.scope === 'participant' || f.scope === 'worker' ? '' : formRecordHtml(f)}</td>
         <td><span class="fr-track ${f.track}">${esc(trackFor(f))}</span></td>
         <td>${esc(f.cadence)}</td>
         <td>${esc(f.signed)}</td>
