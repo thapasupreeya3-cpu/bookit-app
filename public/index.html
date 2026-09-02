@@ -4256,6 +4256,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   .fr-track.drive{background:#FFF4D6;border-color:#F5B841;color:#7A5C00;}
   .fr-track.missing{background:#FDECE7;border-color:#D94F32;color:#A5301A;}
   .fr-track.na{background:#EEEDEA;border-color:#9A958D;color:#4F4B45;}
+  .fr-track.page{background:#DBF2E4;border-color:#2E6B4F;color:#215239;}
   .fr-gaps{margin:4px 0 0;font-size:.78rem;color:#A5301A;line-height:1.5;}
   .fr-rec{margin:6px 0 0;font-size:.8rem;color:#215239;line-height:1.55;}
   .fr-rec.open{color:#7A5C00;}
@@ -10297,7 +10298,7 @@ async function renderAdminPage(){
   const docPane = (key, inner) => `<div class="cmp-pane" data-doc-pane="${key}"${key === DOC_TAB ? '' : ' hidden'}>${inner}</div>`;
   g('documents', 'Documents', 'Files, forms, plans and the audit pack',
     (pMissingN || 0) + (plans && plans.counts.critical ? plans.counts.critical : 0),
-    `<div class="cmp-tabs" role="tablist">${docTab('pages', 'Policies and procedures — published as pages', 0)}${docTab('screens', 'Participant documents — on screen', 0)}${docTab('register', 'Forms register', frGaps)}${docTab('audit', 'Audit pack', 0)}</div>`
+    `<div class="cmp-tabs" role="tablist">${docTab('register', 'Forms register', frGaps)}${docTab('pages', 'Policies and procedures — published as pages', 0)}${docTab('screens', 'Participant documents — on screen', 0)}${docTab('audit', 'Audit pack', 0)}</div>`
     + docPane('pages', H('Policies and procedures — published as pages') + '<div class="info-card" id="admPolicyPages"><p class="adm-empty">Loading…</p></div>')
     + docPane('screens', H('Participant documents — written by BookIt, or on screen') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>')
     + docPane('register', `<p class="muted-sm" style="margin:0 0 14px;">Participant files and support plans have moved to <a href="#/admin/compliance" data-cmp-go="participants">Compliance › Participants</a>, beside the worker checks.</p>`
@@ -11562,7 +11563,7 @@ function formRecordFormHtml(f, held){
 }
 
 /* v86.11.3 — which section of the Documents board is open; survives a re-render */
-let DOC_TAB = 'pages';
+let DOC_TAB = 'register';
 function docShowTab(key){
   DOC_TAB = key;
   document.querySelectorAll('[data-doc-tab]').forEach(b => { const on = b.dataset.docTab === key; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
@@ -11587,7 +11588,8 @@ function formsBoardHtml(d){
     <div class="adm-tile"><b>${c.total}</b><span>Distinct forms</span></div>
     <div class="adm-tile"><b>${c.documents}</b><span>Actual documents (per-person multiplied out)</span></div>
     <div class="adm-tile"><b class="adm-live">${c.live}</b><span>BookIt watches these</span></div>
-    <div class="adm-tile"><b style="color:#8a6d00;">${c.drive}</b><span>Kept as a file — in each person's file, or by the office</span></div>
+    <div class="adm-tile"><b class="adm-live">${d.forms.filter(f => f.track === 'drive' && f.page).length}</b><span>A page on BookIt</span></div>
+    <div class="adm-tile"><b style="color:#8a6d00;">${c.drive - d.forms.filter(f => f.track === 'drive' && f.page).length}</b><span>Kept as a file — in each person's file, or by the office</span></div>
     <div class="adm-tile"><b style="${c.missing ? 'color:#D94F32;' : ''}">${c.missing}</b><span>Don't exist yet</span></div>
     ${c.not_offered ? `<div class="adm-tile"><b>${c.not_offered}</b><span>Not offered (high intensity)</span></div>` : ''}
     <div class="adm-tile"><b style="${c.recorded ? 'color:#1C7C43;' : ''}">${c.recorded}</b><span>Recorded as held</span></div>
@@ -11596,13 +11598,15 @@ function formsBoardHtml(d){
   const filter = `<div class="fr-filter" id="frFilter">
     <button data-fr="all" aria-pressed="true" type="button">Everything (${c.total})</button>
     <button data-fr="missing" aria-pressed="false" type="button">Doesn't exist yet (${c.missing})</button>
-    <button data-fr="drive" aria-pressed="false" type="button">Kept as a file (${c.drive})</button>
+    <button data-fr="page" aria-pressed="false" type="button">A page on BookIt (${d.forms.filter(f => f.track === 'drive' && f.page).length})</button>
+    <button data-fr="drive" aria-pressed="false" type="button">Kept as a file (${c.drive - d.forms.filter(f => f.track === 'drive' && f.page).length})</button>
     <button data-fr="live" aria-pressed="false" type="button">BookIt tracks it (${c.live})</button>
     <button data-fr="gaps" aria-pressed="false" type="button">Has a gap now (${d.forms.filter(f => f.state && f.state.gaps.length).length})</button>
     <button data-fr="unrecorded" aria-pressed="false" type="button">Office documents not yet recorded (${d.forms.filter(f => f.track !== 'live' && f.scope !== 'participant' && f.scope !== 'worker' && !(f.record && f.record.held)).length})</button>
   </div>`;
   const trackLabel = { live: 'BookIt tracks it', drive: 'A file', missing: 'Not built yet', na: 'Not offered' };
-  const trackFor = f => f.track === 'drive' ? (f.scope === 'participant' ? 'In each participant\'s file' : f.scope === 'worker' ? 'In each worker\'s file' : 'Kept by the office') : (trackLabel[f.track] || f.track);
+  const trackKey = f => f.track === 'drive' && f.page ? 'page' : f.track;
+  const trackFor = f => trackKey(f) === 'page' ? 'A page on BookIt' : f.track === 'drive' ? (f.scope === 'participant' ? 'In each participant\'s file' : f.scope === 'worker' ? 'In each worker\'s file' : 'Kept by the office') : (trackLabel[f.track] || f.track);
   /* what still needs the office's attention on a row: a company document or
      register nobody has recorded as held (and BookIt does not track), a form
      that does not exist yet, or a per-person set with a gap right now */
@@ -11624,7 +11628,7 @@ function formsBoardHtml(d){
     return `<div class="cmp-pane" data-fr-pane="${esc(sc.key)}"${sc.key === FR_TAB ? '' : ' hidden'}><h3 class="fr-sec">${esc(sc.label)}${per} <span class="muted-sm">(${list.length})</span></h3>
     <div class="adm-table-wrap"><table class="adm-table">
       <thead><tr><th>Form</th><th>Tracked</th><th>How often</th><th>Who signs</th><th>Template</th><th>What requires it</th></tr></thead><tbody>
-      ${list.map(f => `<tr data-fr-row data-fr-track="${f.track}" data-fr-gap="${f.state && f.state.gaps.length ? 1 : 0}" data-fr-rec="${f.record && f.record.held ? 1 : 0}">
+      ${list.map(f => `<tr data-fr-row data-fr-track="${trackKey(f)}" data-fr-gap="${f.state && f.state.gaps.length ? 1 : 0}" data-fr-rec="${f.record && f.record.held ? 1 : 0}">
         <td><b>${esc(f.name)}</b>${f.page ? ` <a href="/policies/${esc(f.page)}" target="_blank" rel="noopener" class="muted-sm">${f.scope === 'register' && f.track !== 'live' ? 'Open the register — add entries' : 'Open the page'} ↗</a>` : ''}${f.note ? `<br><span class="muted-sm">${esc(f.note)}</span>` : ''}
           ${f.state ? `<br><span class="muted-sm">${f.state.ok}/${f.state.of} ${esc(f.state.unit)} ✓${f.state.expired ? ` · <b style="color:#D94F32;">${f.state.expired} expired</b>` : ''}</span>` : ''}
           ${f.state && f.state.gaps.length ? `<p class="fr-gaps">Missing: ${esc(f.state.gaps.slice(0, 8).join(', '))}${f.state.gaps.length > 8 ? ` +${f.state.gaps.length - 8} more` : ''}</p>` : ''}
@@ -11632,7 +11636,7 @@ function formsBoardHtml(d){
           ${f.state && f.state.renewing && f.state.renewing.length ? `<p class="muted-sm" style="margin:4px 0 0;color:#7A5C00;">Expired, accepted for three months while it is renewed: ${esc(f.state.renewing.slice(0, 6).join(', '))}</p>` : ''}
           ${f.appliesTo ? `<br><span class="muted-sm">Add-on: ${f.appliesTo === 'transport' ? 'only workers who offer transport' : 'only workers supporting someone under 18'}</span>` : ''}
           ${f.track === 'live' || f.track === 'na' || f.scope === 'participant' || f.scope === 'worker' ? '' : formRecordHtml(f)}</td>
-        <td><span class="fr-track ${f.track}">${esc(trackFor(f))}</span></td>
+        <td><span class="fr-track ${trackKey(f)}">${esc(trackFor(f))}</span></td>
         <td>${esc(f.cadence)}</td>
         <td>${esc(f.signed)}</td>
         <td>${f.template === 'DMHC' ? '<span class="adm-live">DMHC\'s own</span>' : f.template === 'BookIt' ? 'Built for you' : esc(f.template)}</td>
