@@ -10291,15 +10291,20 @@ async function renderAdminPage(){
       + '<p class="muted-sm" style="margin:0 0 10px;">Every check, who did it, what they checked it against and what they found — written once and never edited. This is the answer to "show me how you satisfy your conditions".</p>'
       + complianceLog));
 
+  /* v86.11.3 — one tab per section, the way the Compliance board is laid out */
+  const frGaps = frm ? frm.counts.gaps + frm.counts.missing + frm.forms.filter(f => (f.scope === 'company' || f.scope === 'register') && f.track !== 'live' && f.track !== 'na' && !(f.record && f.record.held)).length : 0;
+  const docTab = (key, label, n) => `<button type="button" class="cmp-tab${key === DOC_TAB ? ' on' : ''}" data-doc-tab="${key}" role="tab" aria-selected="${key === DOC_TAB}">${label}${n ? ` <span class="cmp-n">${n}</span>` : ''}</button>`;
+  const docPane = (key, inner) => `<div class="cmp-pane" data-doc-pane="${key}"${key === DOC_TAB ? '' : ' hidden'}>${inner}</div>`;
   g('documents', 'Documents', 'Files, forms, plans and the audit pack',
     (pMissingN || 0) + (plans && plans.counts.critical ? plans.counts.critical : 0),
-    H('Audit pack — one download, everything in it') + auditPackHtml(pack)
-    + `<p class="muted-sm" style="margin:0 0 14px;">Participant files and support plans have moved to <a href="#/admin/compliance" data-cmp-go="participants">Compliance › Participants</a>, beside the worker checks.</p>`
-    + H('Policies and procedures — published as pages') + '<div class="info-card" id="admPolicyPages"><p class="adm-empty">Loading…</p></div>'
-    + H('Participant documents — written by BookIt, or on screen') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>'
-    + H('Forms register — where every document lives')
-    + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')
-    + '<div class="info-card" id="admDocReqCard" style="margin-top:18px;" hidden></div>');
+    `<div class="cmp-tabs" role="tablist">${docTab('pages', 'Policies and procedures — published as pages', 0)}${docTab('screens', 'Participant documents — on screen', 0)}${docTab('register', 'Forms register', frGaps)}${docTab('audit', 'Audit pack', 0)}</div>`
+    + docPane('pages', H('Policies and procedures — published as pages') + '<div class="info-card" id="admPolicyPages"><p class="adm-empty">Loading…</p></div>')
+    + docPane('screens', H('Participant documents — written by BookIt, or on screen') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>')
+    + docPane('register', `<p class="muted-sm" style="margin:0 0 14px;">Participant files and support plans have moved to <a href="#/admin/compliance" data-cmp-go="participants">Compliance › Participants</a>, beside the worker checks.</p>`
+      + H('Forms register — where every document lives')
+      + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')
+      + '<div class="info-card" id="admDocReqCard" style="margin-top:18px;" hidden></div>')
+    + docPane('audit', H('Audit pack — one download, everything in it') + auditPackHtml(pack)));
 
   g('money', 'Money', 'Claims, invoicing and the pay ladder', 0,
     H('Claims &amp; payments') + claims
@@ -11556,7 +11561,14 @@ function formRecordFormHtml(f, held){
   </div>`;
 }
 
-/* v86.10.0 — which Documents tab is open; survives a re-render of the page */
+/* v86.11.3 — which section of the Documents board is open; survives a re-render */
+let DOC_TAB = 'pages';
+function docShowTab(key){
+  DOC_TAB = key;
+  document.querySelectorAll('[data-doc-tab]').forEach(b => { const on = b.dataset.docTab === key; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  document.querySelectorAll('[data-doc-pane]').forEach(p => { p.hidden = p.dataset.docPane !== key; });
+}
+/* v86.10.0 — which forms-register tab is open; survives a re-render of the page */
 let FR_TAB = 'company';
 function frShowTab(key){
   FR_TAB = key;
@@ -11632,6 +11644,8 @@ function formsBoardHtml(d){
 
 document.addEventListener('input', e => { const i = e.target.closest('[data-fr-search]'); if(i) frSearch(i.value); });
 document.addEventListener('click', e => {
+  const dt = e.target.closest('[data-doc-tab]');
+  if(dt){ docShowTab(dt.dataset.docTab); return; }
   const ft = e.target.closest('[data-fr-tab]');
   if(ft){ frShowTab(ft.dataset.frTab); const i = document.querySelector('[data-fr-search]'); if(i){ i.value = ''; frSearch(''); } return; }
   const b = e.target.closest('#frFilter button');
