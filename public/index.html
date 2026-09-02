@@ -7316,6 +7316,7 @@ window.renderPolicyPagesCard = async function(){
   const inp = 'font:inherit;font-size:.85rem;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;';
   const kinds = ['policy', 'procedure', 'plan', 'register', 'form or template'];
   host.innerHTML = `
+    <p style="margin:0 0 8px;"><button class="adm-btn-sm" type="button" data-policies-record-all>Record every published document as held on the forms register</button> <span class="muted-sm">— each company document and register that has a page here is recorded as held at that page; the rest are named so you can add them.</span></p>
     <p style="margin:0 0 8px;"><b>Every document here is a page on the site</b> — the same wrapper and print button as the Service Agreement, at <a href="/policies" target="_blank" rel="noopener">/policies</a>, readable by participants and workers without a Google login, and in the audit pack. ${d.pages.length} published.</p>
     <p class="muted-sm" style="margin:0 0 10px;">To publish the whole folder: in Google Drive, right-click the folder › Download (a zip), unzip it, then choose all the .docx and .pdf files below at once. Word files become pages; PDFs open as the file. Spreadsheets stay in the folder. Uploading a file again replaces its page.</p>
     <form id="admPolicyUpload" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
@@ -7404,7 +7405,7 @@ document.addEventListener('submit', async e => {
 });
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-policies-record-all]'); if(!b) return;
-  try{ const r = await API.call('/admin/policies-folder', {method:'POST', body:{record_all: true}}); toast(`${r.recorded} document${r.recorded === 1 ? '' : 's'} recorded as held in the folder${r.unmatched.length ? `; ${r.unmatched.length} not found in it by name` : ''}.`); renderPoliciesCard(); renderAdminPage(); }catch(err){ toast(err.message); }
+  try{ const r = await API.call('/admin/policies-folder', {method:'POST', body:{record_all: true}}); toast(`${r.recorded} document${r.recorded === 1 ? '' : 's'} recorded as held${r.unmatched.length ? `; still to add: ${r.unmatched.join(', ')}` : ''}.`); renderAdminPage(); }catch(err){ toast(err.message); }
 });
 window.paintExtras = async function(){
   const tb = $('#pExtrasTable tbody'); const rh = $('#refHours'), rb = $('#refBonus');
@@ -10296,7 +10297,6 @@ async function renderAdminPage(){
     H('Audit pack — one download, everything in it') + auditPackHtml(pack)
     + `<p class="muted-sm" style="margin:0 0 14px;">Participant files and support plans have moved to <a href="#/admin/compliance" data-cmp-go="participants">Compliance › Participants</a>, beside the worker checks.</p>`
     + H('Policies and procedures — published as pages') + '<div class="info-card" id="admPolicyPages"><p class="adm-empty">Loading…</p></div>'
-    + H('The folder they came from') + '<div class="info-card" id="admPolicies"><p class="adm-empty">Loading…</p></div>'
     + H('Participant documents — written by BookIt, or on screen') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>'
     + H('Forms register — where every document lives')
     + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')

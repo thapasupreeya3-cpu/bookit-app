@@ -473,7 +473,7 @@ async function main() {
     t('the register\'s company rows are matched to files by name (25 of 36)', matched.length >= 24 && matched.some(x => x.key === 'pol-incident' && /Incident Management Policy/.test(x.match.title)) && !pf.json.documents.find(x => x.key === 'pol-screening').match, `${matched.length} matched`);
     const rec = await req('POST', '/api/admin/policies-folder', { headers: J2, cookie: ac2, body: { record_all: true } });
     const pf2 = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
-    t('one button records the matched documents as held, with the file link, and names the rest', rec.status === 200 && rec.json.recorded >= 24 && rec.json.unmatched.includes('Worker Screening policy and procedure') && pf2.json.documents.find(x => x.key === 'pol-incident').location.includes('drive.google.com'), rec.status + ' ' + JSON.stringify(rec.json).slice(0, 200));
+    t('one button records the matched documents as held, at their page on BookIt, and names the rest', rec.status === 200 && rec.json.recorded >= 24 && rec.json.unmatched.includes('Worker Screening policy and procedure') && pf2.json.documents.find(x => x.key === 'pol-incident').location.includes('/policies/incident-management-policy'), rec.status + ' ' + JSON.stringify(rec.json).slice(0, 200));
     const addf = await req('POST', '/api/admin/policies-folder/files', { headers: J2, cookie: ac2, body: { title: 'Worker Screening Policy and Procedure.docx', url: 'https://drive.google.com/file/d/1TESTTESTTESTTEST/view', kind: 'policy' } });
     const pf3 = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
     t('a file added to the index is matched straight away', addf.status === 200 && !!pf3.json.documents.find(x => x.key === 'pol-screening').match, addf.status);
@@ -541,6 +541,11 @@ async function main() {
     t('a clinical plan row carries the timing states: due within four weeks, and expired-but-accepted', epi.track === 'drive' && Array.isArray(epi.state.due) && Array.isArray(epi.state.renewing));
     const polIdx = await req('GET', '/policies');
     t('/policies is organised for everyone, participants, and workers, with the agreement and prices first', polIdx.status === 200 && polIdx.text.includes('data-tab="public"') && polIdx.text.includes('data-tab="participants"') && polIdx.text.includes('data-tab="staff"') && polIdx.text.includes('href="/service-agreement"') && polIdx.text.includes('href="/pricing"') && polIdx.text.includes('Start here'), polIdx.status);
+    /* v86.11.1: a template for something done on screen says so, and is not a second place to fill it in */
+    const tmpl = await req('GET', '/policies/participant-risk-assessment-form', { cookie: wc });
+    t('the Risk Assessment page is marked as done on screen and offers no fill layer', tmpl.status === 200 && tmpl.text.includes('class="on-screen') && !tmpl.text.includes('id="policy-fill"') && (await req('GET', '/api/policy-fill/participant-risk-assessment-form', { cookie: wc })).status === 404, tmpl.status);
+    const recPages = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
+    t('every company document that is held is held at its BookIt page, not a file in a folder', recPages.json.documents.filter(x => x.held).every(x => /\/policies\//.test(x.location)), recPages.json.documents.filter(x => x.held && !/\/policies\//.test(x.location)).map(x => x.name).join(', '));
     const preg = await req('GET', '/policies/policy-register');
     t('the Policy Register is generated from the published pages: public rows signed out, with review dates', preg.status === 200 && preg.text.includes('Feedback and Complaints Policy') && preg.text.includes('August 2027') && !preg.text.includes('Human Resources Management Policy'), preg.status);
     const regA = await req('GET', '/policies/policy-register', { cookie: ac2 });

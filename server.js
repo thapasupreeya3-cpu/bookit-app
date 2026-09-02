@@ -17956,7 +17956,7 @@ const POLICIES_FOLDER_DEFAULT = 'https://drive.google.com/drive/folders/1KBGpvBi
 const DOC_STOP = new Set(['and', 'or', 'of', 'the', 'a', 'an', 'for', 'to', 'in', 'dmhc', 'form', 'template', 'docx', 'pdf', 'xlsx', 'copy', 'filled', 'ndis', 'per', 'month', 'policy', 'procedure', 'register', 'one']);
 const DOC_ALIAS = { feedback: 'complaint', complaints: 'complaint' };
 function docTokens(t) {
-  return new Set(String(t || '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/\.(docx|pdf|xlsx)$/, '').replace(/[^a-z0-9]+/g, ' ').split(' ').filter(w => w && !DOC_STOP.has(w)).map(w => DOC_ALIAS[w] || w.replace(/(ies|s)$/, '')));
+  return new Set(String(t || '').replace(/supported independent living/ig, 'SIL').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/\.(docx|pdf|xlsx)$/, '').replace(/[^a-z0-9]+/g, ' ').split(' ').filter(w => w && !DOC_STOP.has(w)).map(w => DOC_ALIAS[w] || w.replace(/(ies|s)$/, '')));
 }
 const docPlain = t => String(t || '').toLowerCase().replace(/\.(docx|pdf|xlsx)$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
 /* the file in the folder that best matches a register row, or null */
@@ -17967,13 +17967,15 @@ const docPlain = t => String(t || '').toLowerCase().replace(/\.(docx|pdf|xlsx)$/
 function officeDocCandidates() {
   const files = db.prepare('SELECT id, title, kind, url FROM office_docs WHERE removed_at IS NULL').all();
   const pages = db.prepare('SELECT slug, title, kind FROM policy_pages').all().map(pg => ({ id: `page:${pg.slug}`, title: pg.title, kind: pg.kind, url: `/policies/${pg.slug}`, slug: pg.slug }));
+  /* the Policy Register is generated from the pages, so it is not a row in the table */
+  pages.push({ id: 'page:policy-register', title: 'Policy Register', kind: 'register', url: '/policies/policy-register', slug: 'policy-register' });
   return files.concat(pages);
 }
 function matchOfficeDoc(form, docs) {
   docs = docs || officeDocCandidates();
   const want = docTokens(form.name);
   /* a name made only of the common words ("Policy Register") matches by the whole title */
-  if (!want.size) return docs.find(d => docPlain(d.title) === docPlain(form.name)) || null;
+  if (!want.size) { const same = docs.filter(d => docPlain(d.title) === docPlain(form.name)); return same.find(d => d.slug) || same[0] || null; }
   let best = null, bestScore = 0;
   for (const d of docs) {
     const have = docTokens(d.title);
@@ -17983,7 +17985,8 @@ function matchOfficeDoc(form, docs) {
        complaints policy row) — one shared word out of several is not */
     if (!(shared >= 2 || (shared >= 1 && shared === have.size) || (shared >= 1 && shared === want.size && have.size <= want.size + 1))) continue;
     let score = shared / want.size + shared / Math.max(1, have.size) * 0.25;
-    if (/register/i.test(form.name) !== (d.kind === 'register')) score *= 0.4;
+    if (/register/i.test(form.name) !== (d.kind === 'register') && docPlain(d.title) !== docPlain(form.name)) score *= 0.4;
+    if (d.slug) score *= 1.05; /* the page on BookIt, over the same-named file in a folder */
     if (score > bestScore) { best = d; bestScore = score; }
   }
   return bestScore >= 0.5 ? best : null;
@@ -18168,20 +18171,50 @@ function policyAllowed(user, pg) {
   if (pg.audience === 'staff') return !!(user.admin || user.role === 'worker');
   return true;
 }
+/* v86.11.1 — a built-in page that is DMHC's paper template for something
+   BookIt now does on screen and files per person. The page stays published
+   as the reference copy (read it, print it), but it is not filled in here:
+   the copy that counts is the one on the participant's file, so the page
+   says so and points there instead of offering a second place to fill it. */
+const POLICY_ON_SCREEN = {
+  'participant-intake-form': { done: 'the intake, printed from the account and the confirmed support plan', where: 'documents' },
+  'referral-form': { done: 'the intake, printed from the account and the confirmed support plan', where: 'documents' },
+  'participant-support-plan': { done: 'the Support Plan, confirmed by the participant on screen', where: 'plan' },
+  'participant-emergency-plan': { done: 'the Emergency and Disaster Plan, derived from the support plan', where: 'documents' },
+  'participant-risk-assessment-form': { done: 'the Risk Assessment, written by the office on screen', where: 'documents' },
+  'participant-exit-and-transition-form': { done: 'the Exit and transition record, filled in on screen', where: 'documents' },
+  'participant-money-and-property-declaration': { done: 'the Money and property declaration, filled in on screen', where: 'documents' },
+  'medication-plan-and-administration-form': { done: 'the Medication plan and authority, filled in on screen', where: 'documents' },
+  'medication-consent-form': { done: 'the Consent to medication assistance, accepted by click', where: 'documents' },
+  'mealtime-management-plan': { done: 'the Mealtime management plan, filled in on screen', where: 'documents' },
+  'advocate-or-support-person-request-form': { done: 'the Advocate, nominee or decision-maker form, filled in on screen', where: 'documents' },
+  'privacy-consent-form': { done: 'the Privacy and information-sharing consent, accepted by click', where: 'documents' },
+  'schedule-of-supports': { done: 'the Supports and prices schedule, printed from the file', where: 'documents' },
+  'participant-satisfaction-survey': { done: 'the Participant Satisfaction Survey, sent from the office and answered in BookIt', where: 'documents' },
+  'participant-file-notes': { done: 'shift notes, written by the worker after each shift and kept append-only', where: 'notes' },
+  'support-record-timesheet': { done: 'the shift record, kept from every booking that went ahead', where: 'bookings' }
+};
+function policyOnScreenHtml(pg, viewer, base) {
+  const on = POLICY_ON_SCREEN[pg.slug]; if (!on) return '';
+  const staff = !!(viewer && (viewer.admin || viewer.role === 'worker'));
+  const link = !viewer ? `${base}/#/login` : staff ? `${base}/#/admin/compliance` : on.where === 'plan' ? `${base}/#/account/plan` : on.where === 'notes' ? `${base}/#/account/notes` : on.where === 'bookings' ? `${base}/#/bookings` : `${base}/#/account/documents`;
+  const label = !viewer ? 'Sign in to BookIt' : staff ? 'Open Compliance \u203a Participants' : on.where === 'plan' ? 'Open my support plan' : on.where === 'notes' ? 'Open my notes' : on.where === 'bookings' ? 'Open my bookings' : 'Open my documents';
+  return `<div class="on-screen no-print"><b>This is done on screen in BookIt.</b> The copy that counts is ${escHtml(on.done)}, kept on each participant\u2019s file. This page is DMHC\u2019s template, published to read or print. <a href="${escHtml(link)}">${label}</a></div>`;
+}
 function policyPageHtml(req, pg, viewer) {
   const body = pg.body_html || `<p>This document is a PDF: <a href="/policies/${escHtml(pg.slug)}/file">open it</a>.</p>`;
   /* registers and forms are fillable on the page itself (see policy-fill.js
      and /api/policy-fill); a register is written to by workers and the
      office, a form by anyone signed in who may see it. */
-  const fillable = policyFillable(pg) && !!pg.body_html;
+  const fillable = policyFillable(pg) && !!pg.body_html && !POLICY_ON_SCREEN[pg.slug];
   const canSave = fillable && !!viewer && (pg.kind !== 'register' || !!(viewer.admin || viewer.role === 'worker'));
   const fill = fillable ? `<div id="policy-fill" data-slug="${escHtml(pg.slug)}" data-kind="${escHtml(pg.kind)}" data-can-save="${canSave ? 1 : 0}" data-who="${escHtml(viewer ? viewer.name : '')}"></div>` : '';
   return genPage({ title: pg.title, lede: `${pg.kind === 'policy' ? 'A policy of' : pg.kind === 'procedure' ? 'A procedure of' : 'A document of'} Disability and Mental Health Care Pty Ltd, the registered NDIS provider that runs BookIt. ${pg.audience === 'staff' ? 'For workers and the office.' : 'Published for the people we support and the people who work with us.'}`,
     meta: [['Kind', pg.kind], ['Edition', pg.edition || `imported ${dmy(String(pg.imported_at).slice(0, 10))}`], ['Source', pg.source_name || 'the office\u2019s policies folder'], ['Audience', pg.audience === 'staff' ? 'staff only' : 'participants and staff']],
     footer: `${pg.title}. Published on BookIt from the office\u2019s document set; the office keeps it current.` },
-    `${fill}<div class="policy-body">${body}</div>`, { base: baseUrl(req), barNote: fillable ? (pg.kind === 'register' ? 'A register \u00b7 add entries below, or print it \u00b7 back to the list at /policies' : 'A form \u00b7 fill it in on screen, save or print it \u00b7 back to the list at /policies') : 'A policy page \u00b7 print or save as PDF \u00b7 back to the list at /policies' })
+    `${policyOnScreenHtml(pg, viewer, baseUrl(req))}${fill}<div class="policy-body">${body}</div>`, { base: baseUrl(req), barNote: fillable ? (pg.kind === 'register' ? 'A register \u00b7 add entries below, or print it \u00b7 back to the list at /policies' : 'A form \u00b7 fill it in on screen, save or print it \u00b7 back to the list at /policies') : 'A policy page \u00b7 print or save as PDF \u00b7 back to the list at /policies' })
     .replace('</body>', fillable ? '<script src="/assets/policy-fill.js" defer></script></body>' : '</body>')
-    .replace('</head>', '<style>.policy-body h2{margin-top:1.4em}.policy-body h3{margin-top:1.1em}.policy-body table.grid{width:100%;border-collapse:collapse;margin:1em 0;font-size:.95em}.policy-body table.grid th,.policy-body table.grid td{border:1px solid #d8d3cb;padding:6px 8px;vertical-align:top;text-align:left}.policy-body ul{padding-left:1.3em}</style></head>');
+    .replace('</head>', '<style>.on-screen{border:1px solid #2f5d50;border-radius:8px;background:#eef4f2;padding:10px 12px;margin:.6em 0 1em;font-size:.95em}.on-screen a{font-weight:700;margin-left:6px}.policy-body h2{margin-top:1.4em}.policy-body h3{margin-top:1.1em}.policy-body table.grid{width:100%;border-collapse:collapse;margin:1em 0;font-size:.95em}.policy-body table.grid th,.policy-body table.grid td{border:1px solid #d8d3cb;padding:6px 8px;vertical-align:top;text-align:left}.policy-body ul{padding-left:1.3em}</style></head>');
 }
 /* the Policy Register: the office's register of its documents, generated from what is published so it cannot drift from the pages */
 function policyRegisterHtml(req, user) {
@@ -18212,7 +18245,7 @@ function policiesIndexHtml(req, user) {
   const staff = !!(user && (user.admin || user.role === 'worker'));
   const kinds = ['policy', 'procedure', 'plan', 'register', 'form or template'];
   const kindLabel = { policy: 'Policies', procedure: 'Procedures', plan: 'Plans', register: 'Registers', 'form or template': 'Forms and templates' };
-  const item = pg => `<li><a href="/policies/${escHtml(pg.slug)}">${escHtml(pg.title)}</a>${pg.kind === 'register' && staff ? ' <small>(add entries)</small>' : pg.kind === 'form or template' ? ' <small>(fill in on screen)</small>' : ''}</li>`;
+  const item = pg => `<li><a href="/policies/${escHtml(pg.slug)}">${escHtml(pg.title)}</a>${POLICY_ON_SCREEN[pg.slug] ? ' <small>(done in BookIt; this is the template)</small>' : pg.kind === 'register' && staff ? ' <small>(add entries)</small>' : pg.kind === 'form or template' ? ' <small>(fill in on screen)</small>' : ''}</li>`;
   const tabs = [
     { key: 'public', label: 'For everyone', aud: 'public', lede: 'The documents anyone can read before they sign anything: how we handle your information, how you complain, what happens when something goes wrong.',
       top: `<ul class="pol-start"><li><a href="/service-agreement">The Service Agreement</a> — the terms between DMHC and you, the same for everyone, accepted by click on your documents page.</li><li><a href="/pricing">Prices and cancellations</a> — every rate, and the short-notice cancellation rule.</li><li><a href="/safety">Safety and verification</a> — what every worker is checked for before their first shift.</li><li><a href="/specialist-supports">What we do and do not provide</a> — DMHC does not deliver high-intensity daily personal activities; an enquiry that needs them is referred on.</li></ul>` },
@@ -18305,7 +18338,7 @@ function policyFillable(pg) { return !!pg && (pg.kind === 'register' || pg.kind 
 function policyFillParse(text) { try { const x = JSON.parse(text); return x && typeof x === 'object' && !Array.isArray(x) ? x : {}; } catch { return {}; } }
 function policyFillTarget(user, res, slug) {
   const pg = db.prepare('SELECT slug, kind, audience FROM policy_pages WHERE slug = ?').get(slug);
-  if (!pg || !policyFillable(pg)) { json(res, 404, { error: 'No such fillable page.' }); return null; }
+  if (!pg || !policyFillable(pg) || POLICY_ON_SCREEN[pg.slug]) { json(res, 404, { error: 'No such fillable page.' }); return null; }
   if (!policyAllowed(user, pg)) { json(res, 403, { error: 'Not permitted.' }); return null; }
   const scope = pg.kind === 'register' ? 'shared' : 'personal';
   const staff = !!(user.admin || user.role === 'worker');
