@@ -1,0 +1,39 @@
+Disability and Mental Health Care Pty Ltd | Internal Audit Schedule
+
+Purpose
+
+Disability and Mental Health Care Pty Ltd audits its own practice against the NDIS Practice Standards and its policies, so that gaps are found and fixed by the office before an external auditor finds them. This schedule sets out what is audited, how often, and by whom, and the audit register beneath it records each audit that was completed and what came of it. Findings feed the Continuous Improvement Register.
+
+Audit programme
+
+Each area is audited at least once in every twelve months. The schedule is reviewed annually and after any reportable incident, substantiated complaint, or change to the Practice Standards.
+
+- Governance and operational management: the Policy Register, policy review dates, delegations, conflicts of interest, meeting minutes, insurance currency and registration.
+- Risk management: the Risk Management Register, WHS Risk Management Matrix, hazard and home risk assessments, and the Emergency Test Register.
+- Quality management: the Continuous Improvement Register and Plan, and this schedule.
+- Information management: privacy consents, information sharing, record keeping and retention.
+- Feedback and complaints: the Feedback and Complaints Register, response times, and outcomes.
+- Incident management: the Incident Management Register, reportable incident notifications and their timeliness.
+- Human resource management: worker screening, right to work, inductions, training and development registers, supervision and performance reviews.
+- Continuity of supports: emergency and disaster plans, participant emergency plans, cover arrangements.
+- Provision of supports: intake, support plans, risk assessments, service agreements, exit and transition records, participant satisfaction.
+- Safe environment and mealtime, medication and behaviour support: medicine registers, medication consents and plans, mealtime plans, the Restrictive Practices Register.
+
+Method
+
+- The auditor samples files and registers, checks them against the relevant policy and standard, and records the finding as conformant, an observation, or a non-conformance.
+- Each non-conformance is given an action, an owner and a due date, and is entered in the Continuous Improvement Register.
+- The Director signs off each completed audit and reviews open actions at the management meeting.
+
+Register entries: schedule
+
+| Audit area | Practice Standard or policy | Scheduled month | Auditor | Status (scheduled, in progress, completed) |
+
+Register entries: completed audits
+
+| Date completed | Audit area | Auditor | What was sampled | Findings (conformant, observation, non-conformance) | Actions and owner | Due date | Entered in Continuous Improvement Register (Y/N, item no.) | Signed off by (name and date) |
+
+Approval Authority: Supriya Thapa, Director
+Version: 1
+Approval Date: September 2026
+Review Date: September 2027

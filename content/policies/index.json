@@ -846,6 +846,24 @@
    "audience": "staff",
    "source": "Conflict of Interest Declaration.docx",
    "source_id": "1GvUlWXFY2MTVHN76khhI96f0DcF0BU0t"
+  },
+  {
+   "slug": "restrictive-practices-register",
+   "file": "restrictive-practices-register.txt",
+   "title": "Restrictive Practices Register",
+   "kind": "register",
+   "audience": "staff",
+   "source": "Written on BookIt for the office (a nil register the Rules require)",
+   "source_id": ""
+  },
+  {
+   "slug": "internal-audit-schedule",
+   "file": "internal-audit-schedule.txt",
+   "title": "Internal Audit Schedule",
+   "kind": "register",
+   "audience": "staff",
+   "source": "Written on BookIt for the office",
+   "source_id": ""
   }
  ]
 }

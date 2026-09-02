@@ -11552,6 +11552,19 @@ function formRecordFormHtml(f, held){
   </div>`;
 }
 
+/* v86.10.0 — which Documents tab is open; survives a re-render of the page */
+let FR_TAB = 'company';
+function frShowTab(key){
+  FR_TAB = key;
+  document.querySelectorAll('[data-fr-tab]').forEach(b => { const on = b.dataset.frTab === key; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+  document.querySelectorAll('[data-fr-pane]').forEach(p => { p.hidden = p.dataset.frPane !== key; });
+}
+/* the search box narrows the open tab to the rows that mention the words */
+function frSearch(q){
+  const pane = document.querySelector(`[data-fr-pane="${FR_TAB}"]`); if(!pane) return;
+  const needle = String(q || '').trim().toLowerCase();
+  pane.querySelectorAll('[data-fr-row]').forEach(r => { r.hidden = !!needle && !r.textContent.toLowerCase().includes(needle); });
+}
 function formsBoardHtml(d){
   const c = d.counts;
   const tiles = `<div class="adm-tiles">
@@ -11573,16 +11586,29 @@ function formsBoardHtml(d){
   </div>`;
   const trackLabel = { live: 'BookIt tracks it', drive: 'A file', missing: 'Not built yet' };
   const trackFor = f => f.track === 'drive' ? (f.scope === 'participant' ? 'In each participant\'s file' : f.scope === 'worker' ? 'In each worker\'s file' : 'Kept by the office') : (trackLabel[f.track] || f.track);
+  /* what still needs the office's attention on a row: a company document or
+     register nobody has recorded as held (and BookIt does not track), a form
+     that does not exist yet, or a per-person set with a gap right now */
+  const attention = f => f.track === 'missing' || (f.state && f.state.gaps.length > 0)
+    || ((f.scope === 'company' || f.scope === 'register') && f.track !== 'live' && !(f.record && f.record.held));
+  const tabLabel = { company: 'Company documents', register: 'Registers', worker: 'Per worker', participant: 'Per participant' };
+  if(!d.scopes.some(sc => sc.key === FR_TAB)) FR_TAB = d.scopes[0] ? d.scopes[0].key : 'company';
+  const tabs = `<div class="cmp-tabs" role="tablist" aria-label="Forms register sections">${d.scopes.map(sc => {
+    const list = d.forms.filter(f => f.scope === sc.key); if(!list.length) return '';
+    const n = list.filter(attention).length;
+    return `<button type="button" class="cmp-tab${sc.key === FR_TAB ? ' on' : ''}" data-fr-tab="${esc(sc.key)}" role="tab" aria-selected="${sc.key === FR_TAB}">${esc(tabLabel[sc.key] || sc.label)} <span class="muted-sm">(${list.length})</span>${n ? ` <span class="cmp-n" title="${n} need${n === 1 ? 's' : ''} attention">${n}</span>` : ''}</button>`;
+  }).join('')}</div>
+  <div class="cmp-search"><input type="search" data-fr-search placeholder="Type part of a document's name" autocomplete="off" aria-label="Search this tab"></div>`;
   const secs = d.scopes.map(sc => {
     const list = d.forms.filter(f => f.scope === sc.key);
     if(!list.length) return '';
     const per = sc.key === 'worker' ? ` — × ${d.workers} worker${d.workers === 1 ? '' : 's'}`
       : sc.key === 'participant' ? ` — × ${d.participants} participant${d.participants === 1 ? '' : 's'}` : '';
-    return `<h3 class="fr-sec">${esc(sc.label)}${per} <span class="muted-sm">(${list.length})</span></h3>
+    return `<div class="cmp-pane" data-fr-pane="${esc(sc.key)}"${sc.key === FR_TAB ? '' : ' hidden'}><h3 class="fr-sec">${esc(sc.label)}${per} <span class="muted-sm">(${list.length})</span></h3>
     <div class="adm-table-wrap"><table class="adm-table">
       <thead><tr><th>Form</th><th>Tracked</th><th>How often</th><th>Who signs</th><th>Template</th><th>What requires it</th></tr></thead><tbody>
       ${list.map(f => `<tr data-fr-row data-fr-track="${f.track}" data-fr-gap="${f.state && f.state.gaps.length ? 1 : 0}" data-fr-rec="${f.record && f.record.held ? 1 : 0}">
-        <td><b>${esc(f.name)}</b>${f.note ? `<br><span class="muted-sm">${esc(f.note)}</span>` : ''}
+        <td><b>${esc(f.name)}</b>${f.page ? ` <a href="/policies/${esc(f.page)}" target="_blank" rel="noopener" class="muted-sm">${f.scope === 'register' && f.track !== 'live' ? 'Open the register — add entries' : 'Open the page'} ↗</a>` : ''}${f.note ? `<br><span class="muted-sm">${esc(f.note)}</span>` : ''}
           ${f.state ? `<br><span class="muted-sm">${f.state.ok}/${f.state.of} ${esc(f.state.unit)} ✓${f.state.expired ? ` · <b style="color:#D94F32;">${f.state.expired} expired</b>` : ''}</span>` : ''}
           ${f.state && f.state.gaps.length ? `<p class="fr-gaps">Missing: ${esc(f.state.gaps.slice(0, 8).join(', '))}${f.state.gaps.length > 8 ? ` +${f.state.gaps.length - 8} more` : ''}</p>` : ''}
           ${f.track === 'live' || f.scope === 'participant' || f.scope === 'worker' ? '' : formRecordHtml(f)}</td>
@@ -11591,12 +11617,15 @@ function formsBoardHtml(d){
         <td>${esc(f.signed)}</td>
         <td>${f.template === 'DMHC' ? '<span class="adm-live">DMHC\'s own</span>' : f.template === 'BookIt' ? 'Built for you' : esc(f.template)}</td>
         <td><span class="muted-sm">${esc(f.requires)}</span></td>
-      </tr>`).join('')}</tbody></table></div>`;
+      </tr>`).join('')}</tbody></table></div></div>`;
   }).join('');
-  return tiles + filter + secs + `<p class="muted-sm" style="margin:14px 0 0;"><b>${c.total}</b> distinct forms become <b>${c.documents}</b> separate documents once the per-worker and per-participant sets are multiplied out. That second number is the one an audit actually walks through. <a href="/api/admin/forms.csv" download>Download the register as CSV</a>.</p>`;
+  return tiles + tabs + filter + secs + `<p class="muted-sm" style="margin:14px 0 0;"><b>${c.total}</b> distinct forms become <b>${c.documents}</b> separate documents once the per-worker and per-participant sets are multiplied out. That second number is the one an audit actually walks through. <a href="/api/admin/forms.csv" download>Download the register as CSV</a>.</p>`;
 }
 
+document.addEventListener('input', e => { const i = e.target.closest('[data-fr-search]'); if(i) frSearch(i.value); });
 document.addEventListener('click', e => {
+  const ft = e.target.closest('[data-fr-tab]');
+  if(ft){ frShowTab(ft.dataset.frTab); const i = document.querySelector('[data-fr-search]'); if(i){ i.value = ''; frSearch(''); } return; }
   const b = e.target.closest('#frFilter button');
   if(b){
     const want = b.dataset.fr;

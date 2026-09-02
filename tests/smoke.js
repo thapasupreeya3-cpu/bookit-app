@@ -526,6 +526,12 @@ async function main() {
     t('a form is a personal copy: the participant sees theirs, the worker does not', f1.status === 200 && f2.json.scope === 'personal' && f2.json.data.by.notes === 'a note' && f2.json.data.by.junk === undefined && f3.status === 200 && f3.json.id === null, `${f1.status} ${f2.status} ${f3.status}`);
     const fills = await req('GET', '/api/admin/policy-fills', { cookie: ac2 });
     t('the office sees everything filled in, and can open a person\u2019s copy', fills.status === 200 && fills.json.fills.some(f => f.slug === 'incident-management-register' && f.scope === 'shared') && fills.json.fills.some(f => f.slug === 'feedback-and-complaints-form' && f.owner) && (await req('GET', '/api/admin/policy-fills', { cookie: wc })).status === 403, fills.status);
+    /* v86.10.0: the forms register knows the page each company document and register is published as,
+       a page written on BookIt counts as held, and BookIt's own live registers are never "not in the folder" */
+    const frm = await req('GET', '/api/admin/forms', { cookie: ac2 });
+    t('forms register rows carry their BookIt page', frm.status === 200 && frm.json.forms.some(f => f.key === 'reg-restrictive' && f.page === 'restrictive-practices-register') && frm.json.forms.some(f => f.key === 'policy-register' && f.page === 'policy-register') && frm.json.forms.every(f => f.scope === 'worker' || f.scope === 'participant' ? !f.page : true), frm.status);
+    const recAll2 = await req('POST', '/api/admin/policies-folder', { headers: J2, cookie: ac2, body: { record_all: true } });
+    t('recording from the folder counts pages written on BookIt, and never names a live register as missing', recAll2.status === 200 && !recAll2.json.unmatched.some(n => /Restrictive Practices Register|Internal Audit|Participant Register|Banning orders|Worker Register/.test(n)) && recAll2.json.unmatched.some(n => /Certificate of currency/.test(n)), recAll2.json.unmatched.join('; '));
     const preg = await req('GET', '/policies/policy-register');
     t('the Policy Register is generated from the published pages: public rows signed out, with review dates', preg.status === 200 && preg.text.includes('Feedback and Complaints Policy') && preg.text.includes('August 2027') && !preg.text.includes('Human Resources Management Policy'), preg.status);
     const regA = await req('GET', '/policies/policy-register', { cookie: ac2 });

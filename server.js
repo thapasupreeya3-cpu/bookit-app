@@ -7503,7 +7503,7 @@ const FORMS = [
   { key: 'coi-declaration', name: 'Conflict of Interest Declaration (governing person)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management', note: 'A nil declaration is still evidence. An empty register is not.' },
   { key: 'mgmt-minutes', name: 'Management meeting agenda + minutes', scope: 'company', track: 'drive', cadence: 'monthly', signed: 'Chair', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
   { key: 'staff-minutes', name: 'Staff meeting agenda + minutes', scope: 'company', track: 'drive', cadence: 'monthly', signed: 'Chair', template: 'DMHC', requires: 'Core Module — Human resource management' },
-  { key: 'internal-audit', name: 'Internal Audit Schedule + completed audits', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
+  { key: 'internal-audit', name: 'Internal Audit Schedule + register of completed audits', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
   { key: 'ci-plan', name: 'Continuous Improvement Plan', scope: 'company', track: 'drive', cadence: 'quarterly', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
   { key: 'risk-plan', name: 'Risk Management Plan + risk register', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management' },
   { key: 'continuity-plan', name: 'Business continuity / emergency and disaster management plan', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Continuity of supports' },
@@ -9554,12 +9554,22 @@ function formsRegister() {
       gaps };
   }
 
+  /* the page on BookIt a company document or register is published as, so the
+     board can open it — matched by name, the way the folder index is */
+  const cands = officeDocCandidates();
+  const pageBySourceId = Object.fromEntries(db.prepare('SELECT slug, source_id FROM policy_pages WHERE source_id <> \'\'').all().map(pg => [pg.source_id, pg.slug]));
+  const pageOf = f => {
+    if (f.scope !== 'company' && f.scope !== 'register') return '';
+    if (f.key === 'policy-register') return 'policy-register'; /* generated from the pages, so never in the table itself */
+    const m = matchOfficeDoc(f, cands);
+    return m ? (m.slug || pageBySourceId[m.id] || '') : '';
+  };
   const forms = FORMS.map(f => {
     /* a live form answers for itself; a record on one would be a person's
        word competing with the data, so it is not offered and not read. */
     const record = f.track === 'live' ? null : recordOf(f.key);
     const state = liveState(f) || participantFileState(f, record);
-    return { ...f, state, record,
+    return { ...f, state, record, page: pageOf(f),
       /* the copies you actually have to produce at audit. A per-worker form is
          one form on paper and seven documents in a folder, and the difference is
          the whole reason the Worker Register has 82 blanks in it. */
@@ -17911,8 +17921,17 @@ function docTokens(t) {
 }
 const docPlain = t => String(t || '').toLowerCase().replace(/\.(docx|pdf|xlsx)$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
 /* the file in the folder that best matches a register row, or null */
-function matchOfficeDoc(form) {
-  const docs = db.prepare('SELECT * FROM office_docs WHERE removed_at IS NULL').all();
+/* the candidates a register row can be matched to: the files in the office's
+   folder, and the documents published as pages on BookIt (a page IS a held
+   document — the register written on BookIt for a gap in the folder counts
+   the same as a file would) */
+function officeDocCandidates() {
+  const files = db.prepare('SELECT id, title, kind, url FROM office_docs WHERE removed_at IS NULL').all();
+  const pages = db.prepare('SELECT slug, title, kind FROM policy_pages').all().map(pg => ({ id: `page:${pg.slug}`, title: pg.title, kind: pg.kind, url: `/policies/${pg.slug}`, slug: pg.slug }));
+  return files.concat(pages);
+}
+function matchOfficeDoc(form, docs) {
+  docs = docs || officeDocCandidates();
   const want = docTokens(form.name);
   /* a name made only of the common words ("Policy Register") matches by the whole title */
   if (!want.size) return docs.find(d => docPlain(d.title) === docPlain(form.name)) || null;
@@ -17948,10 +17967,11 @@ route('POST', /^\/api\/admin\/policies-folder$/, (req, res, m, user, body) => {
   const where = url || setting('policies_folder_url', POLICIES_FOLDER_DEFAULT);
   let recorded = 0; const unmatched = [];
   if (body.record_all === true) {
-    for (const f of FORMS.filter(f => f.scope === 'company' || f.scope === 'register')) {
+    const cands = officeDocCandidates();
+    for (const f of FORMS.filter(f => (f.scope === 'company' || f.scope === 'register') && f.track !== 'live')) {
       const cur = db.prepare('SELECT held FROM form_records WHERE form_key = ?').get(f.key);
       if (cur && cur.held) continue;
-      const match = matchOfficeDoc(f);
+      const match = matchOfficeDoc(f, cands);
       /* only a document that is actually in the folder is recorded as held there;
          the rest are named so the office can add the file or record it elsewhere */
       if (!match) { unmatched.push(f.name); continue; }
