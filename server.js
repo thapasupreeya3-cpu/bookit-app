@@ -9605,9 +9605,18 @@ function formsRegister() {
   const forms = FORMS.map(f => {
     /* a live form answers for itself; a record on one would be a person's
        word competing with the data, so it is not offered and not read. */
-    const record = f.track === 'live' ? null : recordOf(f.key);
+    const page = pageOf(f);
+    /* v86.11.2 — a page on BookIt IS the document: a company document or
+       register that is published here is held, at that page, from the day it
+       was published, with nothing for the office to press. A record someone
+       typed (a certificate kept in a drawer, a file held elsewhere) still wins. */
+    const typed = f.track === 'live' ? null : recordOf(f.key);
+    const pageRow = page ? db.prepare('SELECT imported_at FROM policy_pages WHERE slug = ?').get(page) : null;
+    const record = typed && typed.held ? typed
+      : page && f.track !== 'live' && f.track !== 'na' ? { form_key: f.key, held: 1, covers_from: '', covers_to: '', location: `its page on BookIt, /policies/${page}`, note: '', recorded_by: 'BookIt', recorded_at: pageRow ? pageRow.imported_at : now(), auto: 1 }
+      : typed;
     const state = liveState(f) || participantFileState(f, record);
-    return { ...f, state, record, page: pageOf(f),
+    return { ...f, state, record, page,
       /* the copies you actually have to produce at audit. A per-worker form is
          one form on paper and seven documents in a folder, and the difference is
          the whole reason the Worker Register has 82 blanks in it. */
@@ -10766,14 +10775,15 @@ route('GET', /^\/api\/admin\/forms\.csv$/, (req, res, m, user) => {
   for (const f of FORMS) {
     const r = (byKey[f.key] || {}).record;
     const held = f.track === 'live' ? 'BookIt answers this one'
-      : r ? (r.held ? 'Yes — recorded by hand' : 'No — recorded as not held')
+      : f.track === 'na' ? 'Not offered'
+      : r ? (r.held ? (r.auto ? 'Yes — a page on BookIt' : 'Yes — recorded by hand') : 'No — recorded as not held')
       : 'Not recorded';
     /* deliberately DD/MM/YYYY and deliberately side by side. A period ending
        long before the date it was recorded is the disclosure, not a defect to
        be smoothed over, and an auditor should be able to see it in one row. */
     const covers = r && (r.covers_from || r.covers_to)
       ? `${r.covers_from ? dmy(r.covers_from) : 'unstated'} to ${r.covers_to ? dmy(r.covers_to) : 'unstated'}` : '';
-    lines.push([f.name, scope[f.scope] || f.scope, track[f.track] || f.track, f.cadence, f.signed,
+    lines.push([f.name, scope[f.scope] || f.scope, ((byKey[f.key] || {}).page && f.track === 'drive' ? `A page on BookIt: /policies/${(byKey[f.key] || {}).page}` : track[f.track]) || f.track, f.cadence, f.signed,
       f.template === 'DMHC' ? "DMHC's own form"
         : f.template === 'BookIt'
           /* the URL goes in this cell rather than a fourteenth column: the row

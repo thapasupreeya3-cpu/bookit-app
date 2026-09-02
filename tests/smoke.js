@@ -546,6 +546,14 @@ async function main() {
     t('the Risk Assessment page is marked as done on screen and offers no fill layer', tmpl.status === 200 && tmpl.text.includes('class="on-screen') && !tmpl.text.includes('id="policy-fill"') && (await req('GET', '/api/policy-fill/participant-risk-assessment-form', { cookie: wc })).status === 404, tmpl.status);
     const recPages = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
     t('every company document that is held is held at its BookIt page, not a file in a folder', recPages.json.documents.filter(x => x.held).every(x => /\/policies\//.test(x.location)), recPages.json.documents.filter(x => x.held && !/\/policies\//.test(x.location)).map(x => x.name).join(', '));
+    /* v86.11.2: a page on BookIt is held, with nothing to press */
+    const behKey = (await req('GET', '/api/admin/forms', { cookie: ac2 })).json.forms.find(f => /Behaviour Support and Restrictive Practices policy/.test(f.name)).key;
+    await req('DELETE', `/api/admin/forms/record/${behKey}`, { headers: J2, cookie: ac2, body: {} }); /* a typed record wins, so withdraw the one the button made */
+    const frm3 = await req('GET', '/api/admin/forms', { cookie: ac2 });
+    const beh = frm3.json.forms.find(f => f.key === behKey);
+    t('a company document that is a page here is held at that page automatically', beh && beh.page && beh.record && beh.record.held === 1 && beh.record.auto === 1 && /\/policies\//.test(beh.record.location), JSON.stringify(beh && beh.record));
+    const csv = await req('GET', '/api/admin/forms.csv', { cookie: ac2 });
+    t('… and the register CSV says so', csv.status === 200 && csv.text.includes('Yes — a page on BookIt') && csv.text.includes('A page on BookIt: /policies/'));
     const preg = await req('GET', '/policies/policy-register');
     t('the Policy Register is generated from the published pages: public rows signed out, with review dates', preg.status === 200 && preg.text.includes('Feedback and Complaints Policy') && preg.text.includes('August 2027') && !preg.text.includes('Human Resources Management Policy'), preg.status);
     const regA = await req('GET', '/policies/policy-register', { cookie: ac2 });

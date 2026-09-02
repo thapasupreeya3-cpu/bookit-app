@@ -7316,7 +7316,6 @@ window.renderPolicyPagesCard = async function(){
   const inp = 'font:inherit;font-size:.85rem;padding:7px 9px;border-radius:9px;border:1.5px solid #E7DFD4;';
   const kinds = ['policy', 'procedure', 'plan', 'register', 'form or template'];
   host.innerHTML = `
-    <p style="margin:0 0 8px;"><button class="adm-btn-sm" type="button" data-policies-record-all>Record every published document as held on the forms register</button> <span class="muted-sm">— each company document and register that has a page here is recorded as held at that page; the rest are named so you can add them.</span></p>
     <p style="margin:0 0 8px;"><b>Every document here is a page on the site</b> — the same wrapper and print button as the Service Agreement, at <a href="/policies" target="_blank" rel="noopener">/policies</a>, readable by participants and workers without a Google login, and in the audit pack. ${d.pages.length} published.</p>
     <p class="muted-sm" style="margin:0 0 10px;">To publish the whole folder: in Google Drive, right-click the folder › Download (a zip), unzip it, then choose all the .docx and .pdf files below at once. Word files become pages; PDFs open as the file. Spreadsheets stay in the folder. Uploading a file again replaces its page.</p>
     <form id="admPolicyUpload" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
@@ -11526,6 +11525,10 @@ function auditPackHtml(d){
    late filing rather than as a tidy row. */
 function formRecordHtml(f){
   const r = f.record;
+  if(r && r.held && r.auto){
+    /* held because it is a page here: nothing to record, nothing to withdraw */
+    return `<p class="fr-rec"><b>Held</b> — its page on BookIt${r.recorded_at ? `, published ${fmtAU(String(r.recorded_at).slice(0,10))}` : ''}.</p>`;
+  }
   if(r && r.held){
     const covers = (r.covers_from || r.covers_to)
       ? `covering ${r.covers_from ? fmtAU(r.covers_from) : 'unstated'} to ${r.covers_to ? fmtAU(r.covers_to) : 'unstated'}` : '';
