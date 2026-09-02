@@ -232,7 +232,7 @@
    "title": "0137 Digital Platform Service: Scope and Operating Procedure",
    "kind": "procedure",
    "audience": "staff",
-   "source": "0137 Digital Platform Service \u2014 Scope and Operating Procedure.pdf",
+   "source": "0137 Digital Platform Service — Scope and Operating Procedure.pdf",
    "source_id": "1sJMr_sxvR1isHVABrMJebS2OKTgixsHr"
   },
   {
@@ -333,6 +333,519 @@
    "audience": "staff",
    "source": "Position Description - Director.docx",
    "source_id": "1zUNugcvsAlrZEDNWCDaWyuKLr1vHYm8t"
+  },
+  {
+   "slug": "staff-handbook",
+   "file": "staff-handbook.txt",
+   "title": "Staff Handbook",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Staff Handbook.docx",
+   "source_id": "1-On7zloXSPiV78rk5stljRMY5gyTWldm"
+  },
+  {
+   "slug": "position-description-template",
+   "file": "position-description-template.txt",
+   "title": "Position Description Template",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Position Description Template.docx",
+   "source_id": "12_3kggEJu35QJDZHgIp8b8zv-iqMde1Q"
+  },
+  {
+   "slug": "pre-employment-form",
+   "file": "pre-employment-form.txt",
+   "title": "Pre-Employment Form",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Pre-Employment Form.docx",
+   "source_id": "139TZP8F13-KKDbAg_f73qoHPRZNfQHeP"
+  },
+  {
+   "slug": "job-candidate-interview-form",
+   "file": "job-candidate-interview-form.txt",
+   "title": "Job Candidate Interview Form",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Job Candidate Interview Form.docx",
+   "source_id": "16XJsUYzdEGDdRBSox0Ck9Ey_Mjny-ovO"
+  },
+  {
+   "slug": "potential-staff-reference-check-form",
+   "file": "potential-staff-reference-check-form.txt",
+   "title": "Potential Staff Reference Check Form",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Potential Staff Reference Check Form.docx",
+   "source_id": "1r1PYdgnIvqwqMxfnJLGLbBUzb_fDBSmA"
+  },
+  {
+   "slug": "worker-declarations",
+   "file": "worker-declarations.txt",
+   "title": "Worker Declarations",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Worker Declarations.docx",
+   "source_id": "1A-7o_qPXDhIfqrtnNx6nJMx-Y_oltJ1E"
+  },
+  {
+   "slug": "worker-induction-checklist",
+   "file": "worker-induction-checklist.txt",
+   "title": "Worker Induction Checklist",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Worker Induction Checklist.docx",
+   "source_id": "1NRxxx_qIrlo_dFazByfeSUhPEzf0-zyL"
+  },
+  {
+   "slug": "staff-performance-appraisal",
+   "file": "staff-performance-appraisal.txt",
+   "title": "Staff Performance Appraisal",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Staff Performance Appraisal.docx",
+   "source_id": "13-NcKjD6TTc-59Mo65W2JO1yeJEUmQ3y"
+  },
+  {
+   "slug": "performance-improvement-plan",
+   "file": "performance-improvement-plan.txt",
+   "title": "Performance Improvement Plan",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Performance Improvement Plan.docx",
+   "source_id": "1ARU6O57gJVU-jhu_pAaW0hc-hy54DYYl"
+  },
+  {
+   "slug": "governing-personnel-skills-and-performance-review",
+   "file": "governing-personnel-skills-and-performance-review.txt",
+   "title": "Governing Personnel Skills and Performance Review",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Governing Personnel Skills and Performance Review.docx",
+   "source_id": "1mGjK9v0JeHj0Csno8j9AtECma9ZqMgT1"
+  },
+  {
+   "slug": "worker-exit-checklist",
+   "file": "worker-exit-checklist.txt",
+   "title": "Worker Exit Checklist",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Worker Exit Checklist.docx",
+   "source_id": "1s4Uvb6wWRkNTLGS4yJ62ZA3GscV-ASUu"
+  },
+  {
+   "slug": "worker-exit-interview-form",
+   "file": "worker-exit-interview-form.txt",
+   "title": "Worker Exit Interview Form",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Worker Exit Interview Form.docx",
+   "source_id": "1mhA_2axDtfh2Q8gmp3EnyuAVVRhD94XT"
+  },
+  {
+   "slug": "training-evaluation-form",
+   "file": "training-evaluation-form.txt",
+   "title": "Training Evaluation Form",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Training Evaluation Form.docx",
+   "source_id": "1ZIFufQ9ag7oTw28chiGV7mZoOuQlSXin"
+  },
+  {
+   "slug": "medication-competency-assessment",
+   "file": "medication-competency-assessment.txt",
+   "title": "Medication Competency Assessment",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Medication Competency Assessment.docx",
+   "source_id": "1ao81N5pdVGHOhSk_b9FPRf5Ygv-dWi7e"
+  },
+  {
+   "slug": "staff-meeting-agenda-and-minutes",
+   "file": "staff-meeting-agenda-and-minutes.txt",
+   "title": "Staff Meeting (Agenda and Minutes)",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Staff Meeting (Agenda and Minutes).docx",
+   "source_id": "11bsFlZDP39H7RRc8Xxxs45cte2Ctpg3m"
+  },
+  {
+   "slug": "management-meeting-agenda-and-minutes",
+   "file": "management-meeting-agenda-and-minutes.txt",
+   "title": "Management Meeting (Agenda and Minutes)",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Management Meeting (Agenda and Minutes).docx",
+   "source_id": "1V5Zy_RP77SUb_eXEiX8D9zrM5EhxxZSd"
+  },
+  {
+   "slug": "risk-management-register",
+   "file": "risk-management-register.txt",
+   "title": "Risk Management Register",
+   "kind": "register",
+   "audience": "staff",
+   "source": "Risk Management Register.docx",
+   "source_id": "1j-3kyE5BWHQcOYHI-ClP39ByP6BcsyWW"
+  },
+  {
+   "slug": "conflict-of-interest-register",
+   "file": "conflict-of-interest-register.txt",
+   "title": "Conflict of Interest Register",
+   "kind": "register",
+   "audience": "staff",
+   "source": "Conflict of Interest Register.docx",
+   "source_id": "1eFdK8YIdDdWWtkQrmsYZZSNe-DMA_ZyR"
+  },
+  {
+   "slug": "continuous-improvement-register",
+   "file": "continuous-improvement-register.txt",
+   "title": "Continuous Improvement Register",
+   "kind": "register",
+   "audience": "staff",
+   "source": "Continuous Improvement Register.docx",
+   "source_id": "1xBFk6Bhk03qgYA_sORPz7y-KQOAsd-6P"
+  },
+  {
+   "slug": "training-and-development-register",
+   "file": "training-and-development-register.txt",
+   "title": "Training and Development Register",
+   "kind": "register",
+   "audience": "staff",
+   "source": "Training and Development Register.docx",
+   "source_id": "1vrLZCzbzAqNk7WbOxyLxnGxefkKw6sEv"
+  },
+  {
+   "slug": "incident-management-register",
+   "file": "incident-management-register.txt",
+   "title": "Incident Management Register",
+   "kind": "register",
+   "audience": "staff",
+   "source": "Incident Management Register.docx",
+   "source_id": "1CkP9mKvOdW3t7bDZ2yLT0rk2vjfR7KKr"
+  },
+  {
+   "slug": "feedback-and-complaints-register",
+   "file": "feedback-and-complaints-register.txt",
+   "title": "Feedback and Complaints Register",
+   "kind": "register",
+   "audience": "staff",
+   "source": "Feedback and Complaints Register.docx",
+   "source_id": "1Sj2PxcC4ADJy9b_e4hcEou64liixwV9X"
+  },
+  {
+   "slug": "emergency-test-register",
+   "file": "emergency-test-register.txt",
+   "title": "Emergency Test Register",
+   "kind": "register",
+   "audience": "staff",
+   "source": "Emergency Test Register.docx",
+   "source_id": "1HQcFLB1FaHkER1vAU6mVpwHoUcsIFp2O"
+  },
+  {
+   "slug": "medicine-register",
+   "file": "medicine-register.txt",
+   "title": "Medicine Register",
+   "kind": "register",
+   "audience": "staff",
+   "source": "Medicine Register.docx",
+   "source_id": "1Hon_AaqJZHET_pFTbOHhhnA6D9E3_z5K"
+  },
+  {
+   "slug": "document-list-core",
+   "file": "document-list-core.txt",
+   "title": "Document List (Core)",
+   "kind": "register",
+   "audience": "staff",
+   "source": "Document List - Core.docx",
+   "source_id": "1q8rwZJytlPQ1amDRdw59xf7diozG9lDb"
+  },
+  {
+   "slug": "continuous-improvement-plan",
+   "file": "continuous-improvement-plan.txt",
+   "title": "Continuous Improvement Plan",
+   "kind": "plan",
+   "audience": "staff",
+   "source": "Continuous Improvement Plan.docx",
+   "source_id": "1FUoai-VXQu5KuIbWn48j10Xo8SRUai7U"
+  },
+  {
+   "slug": "whs-risk-management-matrix",
+   "file": "whs-risk-management-matrix.txt",
+   "title": "WHS Risk Management Matrix",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "WHS Risk Management Matrix.docx",
+   "source_id": "1-APBeJWiRtlvm1vmLJzpnE7CO-klQIED"
+  },
+  {
+   "slug": "hazard-identification-checklist",
+   "file": "hazard-identification-checklist.txt",
+   "title": "Hazard Identification Checklist",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Hazard Identification Checklist.docx",
+   "source_id": "1ppZxfAKI4pDbYayGk7OyPt2PXm_-eM4p"
+  },
+  {
+   "slug": "home-risk-assessment-checklist",
+   "file": "home-risk-assessment-checklist.txt",
+   "title": "Home Risk Assessment Checklist",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Home Risk Assessment Checklist.docx",
+   "source_id": "1_NLbnCus4UlBullMWrjh75WbUHgyCPeI"
+  },
+  {
+   "slug": "incident-report-form",
+   "file": "incident-report-form.txt",
+   "title": "Incident Report Form",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Incident Report Form.docx",
+   "source_id": "1_lksKEptVtKabJuO1cIiLmOh-6pBarVW"
+  },
+  {
+   "slug": "medication-incident-report-form",
+   "file": "medication-incident-report-form.txt",
+   "title": "Medication Incident Report Form",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Medication Incident Report Form.docx",
+   "source_id": "1URu4ulR5lbCdUCWh1gzc2X2lW_3vXsco"
+  },
+  {
+   "slug": "ndis-reportable-incident-form-5-day-notification",
+   "file": "ndis-reportable-incident-form-5-day-notification.txt",
+   "title": "NDIS Reportable Incident Form 5-Day Notification",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "NDIS Reportable Incident Form 5-Day Notification.docx",
+   "source_id": "19aiJva3IfpZOvjOJMagqCN-UrLBtOMkv"
+  },
+  {
+   "slug": "participant-intake-form",
+   "file": "participant-intake-form.txt",
+   "title": "Participant Intake Form",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Participant Intake Form.docx",
+   "source_id": "1Q2f_e85q4hrxGGwSz976Bm-DT7o5EDde"
+  },
+  {
+   "slug": "referral-form",
+   "file": "referral-form.txt",
+   "title": "Referral Form",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Referral Form.docx",
+   "source_id": "1RAmbK2mVwxzMZq6FeBKRXa_11X4oRkMd"
+  },
+  {
+   "slug": "participant-induction-checklist",
+   "file": "participant-induction-checklist.txt",
+   "title": "Participant Induction Checklist",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Participant Induction Checklist.docx",
+   "source_id": "1Z949JQgy296kKhYvFWqaMwIpDJteQ2PQ"
+  },
+  {
+   "slug": "participant-support-plan",
+   "file": "participant-support-plan.txt",
+   "title": "Participant Support Plan",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Participant Support Plan.docx",
+   "source_id": "1ALxedJz_kGwuAjHJpoRzrtVFz-ThcIi7"
+  },
+  {
+   "slug": "participant-risk-assessment-form",
+   "file": "participant-risk-assessment-form.txt",
+   "title": "Participant Risk Assessment Form",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Participant Risk Assessment Form.docx",
+   "source_id": "181qGWFFBAIot9ydWelJtzyDWZJNBNMby"
+  },
+  {
+   "slug": "participant-emergency-plan",
+   "file": "participant-emergency-plan.txt",
+   "title": "Participant Emergency Plan",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Participant Emergency Plan.docx",
+   "source_id": "1T2TBRFPIRD9EtYNVI42vc35rYTN-c3tk"
+  },
+  {
+   "slug": "participant-file-notes",
+   "file": "participant-file-notes.txt",
+   "title": "Participant File Notes",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Participant File Notes.docx",
+   "source_id": "1zAKeWWg-TUcSdJB6WzyTUS0JPB-fl9CL"
+  },
+  {
+   "slug": "participant-exit-and-transition-form",
+   "file": "participant-exit-and-transition-form.txt",
+   "title": "Participant Exit and Transition Form",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Participant Exit and Transition Form.docx",
+   "source_id": "1bqzRrGVaxlicVDBs9Mmch8GHJQhVVeCB"
+  },
+  {
+   "slug": "participant-satisfaction-survey",
+   "file": "participant-satisfaction-survey.txt",
+   "title": "Participant Satisfaction Survey",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Participant Satisfaction Survey.docx",
+   "source_id": "1uDrhSP-76c9yxGbWrOmjY4oZ90joJic0"
+  },
+  {
+   "slug": "advocate-or-support-person-request-form",
+   "file": "advocate-or-support-person-request-form.txt",
+   "title": "Advocate or Support Person Request Form",
+   "kind": "form or template",
+   "audience": "public",
+   "source": "Advocate or Support Person Request Form.docx",
+   "source_id": "1ldCYdEPAk27UAxBWpK2EhjaNOMMzgqBk"
+  },
+  {
+   "slug": "feedback-and-complaints-form",
+   "file": "feedback-and-complaints-form.txt",
+   "title": "Feedback and Complaints Form",
+   "kind": "form or template",
+   "audience": "public",
+   "source": "Feedback and Complaints Form.docx",
+   "source_id": "1hB200zINpD1nwIVToDPCX2kQVHlwaAcI"
+  },
+  {
+   "slug": "privacy-consent-form",
+   "file": "privacy-consent-form.txt",
+   "title": "Privacy Consent Form",
+   "kind": "form or template",
+   "audience": "public",
+   "source": "Privacy Consent Form.docx",
+   "source_id": "1R4i-6iYsacWjxRGHSsR5GkQ2ESjaETkW"
+  },
+  {
+   "slug": "privacy-consent-form-easy-read",
+   "file": "privacy-consent-form-easy-read.txt",
+   "title": "Privacy Consent Form (Easy Read)",
+   "kind": "form or template",
+   "audience": "public",
+   "source": "Privacy Consent Form (Easy Read).docx",
+   "source_id": "1XZ8FOeVGe5tGDepmQhyfjelXUj7RNZw0"
+  },
+  {
+   "slug": "participant-money-and-property-declaration",
+   "file": "participant-money-and-property-declaration.txt",
+   "title": "Participant Money and Property Declaration",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Participant Money and Property Declaration.docx",
+   "source_id": "1s_dBRFlvreHdiSPrjnSbHTppDaExW-bD"
+  },
+  {
+   "slug": "risk-indemnity-form",
+   "file": "risk-indemnity-form.txt",
+   "title": "Risk Indemnity Form",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Risk Indemnity Form.docx",
+   "source_id": "1rNg2plYAL1mVrzsyQjHTbvTtf_OQpchN"
+  },
+  {
+   "slug": "medication-consent-form",
+   "file": "medication-consent-form.txt",
+   "title": "Medication Consent Form",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Medication Consent Form.docx",
+   "source_id": "1EZDZFsgAm1UlJI4Ovq3T-qTIorGpKvAq"
+  },
+  {
+   "slug": "medication-plan-and-administration-form",
+   "file": "medication-plan-and-administration-form.txt",
+   "title": "Medication Plan and Administration Form",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Medication Plan and Administration Form.docx",
+   "source_id": "19zMp_17ygjzObfAhgAVrKI0EKobpkM9l"
+  },
+  {
+   "slug": "mealtime-management-plan",
+   "file": "mealtime-management-plan.txt",
+   "title": "Mealtime Management Plan",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Mealtime Management Plan.docx",
+   "source_id": "1ge4bgfN1-WiPpU5fW-bG8l6LT-hPv_u5"
+  },
+  {
+   "slug": "mealtime-risk-assessment-checklist",
+   "file": "mealtime-risk-assessment-checklist.txt",
+   "title": "Mealtime Risk Assessment Checklist",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "Mealtime Risk Assessment Checklist.docx",
+   "source_id": "1-x8xwZjjn6NvZg6tgpTX_P10JkKenGCI"
+  },
+  {
+   "slug": "mealtime-fluid-chart",
+   "file": "mealtime-fluid-chart.txt",
+   "title": "Mealtime - Fluid Chart",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Mealtime - Fluid Chart.docx",
+   "source_id": "1vJRlxW-DAL3SAV9jfcmHJWHfBHB4nnzG"
+  },
+  {
+   "slug": "sil-service-agreement",
+   "file": "sil-service-agreement.txt",
+   "title": "SIL Service Agreement",
+   "kind": "form or template",
+   "audience": "public",
+   "source": "SIL Service Agreement.docx",
+   "source_id": "1Ia9bpBgSgvvdFV-SD98xfifeZJIlRSax"
+  },
+  {
+   "slug": "schedule-of-supports",
+   "file": "schedule-of-supports.txt",
+   "title": "Schedule of Supports",
+   "kind": "form or template",
+   "audience": "public",
+   "source": "DMHCScheduleofSupports.docx",
+   "source_id": "1OXwQibIHiX0ovZqGFgJjOiPwbSEKDk21"
+  },
+  {
+   "slug": "sda-and-sil-collaboration-agreement",
+   "file": "sda-and-sil-collaboration-agreement.txt",
+   "title": "SDA and SIL Collaboration Agreement",
+   "kind": "form or template",
+   "audience": "participants",
+   "source": "DMHCSDAandSILCollaborationAgreement.docx",
+   "source_id": "1M2FEpNgsNeBC9XBsvUAySnlJcCjZrI8g"
+  },
+  {
+   "slug": "support-record-timesheet",
+   "file": "support-record-timesheet.txt",
+   "title": "Support Record Timesheet",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Support Record Timesheet.docx",
+   "source_id": "1gSkMEwzPPEk74TIq0w03LzJPmPn4T6Y3"
+  },
+  {
+   "slug": "conflict-of-interest-declaration",
+   "file": "conflict-of-interest-declaration.txt",
+   "title": "Conflict of Interest Declaration",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Conflict of Interest Declaration.docx",
+   "source_id": "1GvUlWXFY2MTVHN76khhI96f0DcF0BU0t"
   }
  ]
 }
