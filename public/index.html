@@ -11532,8 +11532,10 @@ function auditPackHtml(d){
 function formRecordHtml(f){
   const r = f.record;
   if(r && r.held && r.auto){
-    /* held because it is a page here: nothing to record, nothing to withdraw */
-    return `<p class="fr-rec"><b>Held</b> — its page on BookIt${r.recorded_at ? `, published ${fmtAU(String(r.recorded_at).slice(0,10))}` : ''}.</p>`;
+    /* held because it is a page here, or a file in the office's indexed folder: nothing to record, nothing to withdraw */
+    return r.file
+      ? `<p class="fr-rec"><b>Held</b> — a file in the office's Drive: <a href="${esc(r.file)}" target="_blank" rel="noopener noreferrer">${esc(r.location.replace(/ — https?:\/\/\S+$/, ''))}</a>.</p>`
+      : `<p class="fr-rec"><b>Held</b> — its page on BookIt${r.recorded_at ? `, published ${fmtAU(String(r.recorded_at).slice(0,10))}` : ''}.</p>`;
   }
   if(r && r.held){
     const covers = (r.covers_from || r.covers_to)
@@ -11606,7 +11608,7 @@ function formsBoardHtml(d){
   </div>`;
   const trackLabel = { live: 'BookIt tracks it', drive: 'A file', missing: 'Not built yet', na: 'Not offered' };
   const trackKey = f => f.track === 'drive' && f.page ? 'page' : f.track;
-  const trackFor = f => trackKey(f) === 'page' ? 'A page on BookIt' : f.track === 'drive' ? (f.scope === 'participant' ? 'In each participant\'s file' : f.scope === 'worker' ? 'In each worker\'s file' : 'Kept by the office') : (trackLabel[f.track] || f.track);
+  const trackFor = f => trackKey(f) === 'page' ? 'A page on BookIt' : f.track === 'drive' ? (f.scope === 'participant' ? 'In each participant\'s file' : f.scope === 'worker' ? 'In each worker\'s file' : f.record && f.record.auto && f.record.file ? 'A file in the Drive' : 'Kept by the office') : (trackLabel[f.track] || f.track);
   /* what still needs the office's attention on a row: a company document or
      register nobody has recorded as held (and BookIt does not track), a form
      that does not exist yet, or a per-person set with a gap right now */

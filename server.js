@@ -7496,7 +7496,7 @@ route('POST', /^\/api\/admin\/support-plans\/(\d+)\/care-plan$/, (req, res, m, u
    `cadence`: once | annual | monthly | quarterly | per-event | expiry | on-change */
 const FORMS = [
   /* ---------- governance: the company holds one of each ---------- */
-  { key: 'cert-registration', name: 'NDIS certificate of registration + scope', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'NDIS Commission', template: 'n/a', requires: 'NDIS Act — registration', note: 'Current certificate runs to 21/01/2029. Mid-term audit window opens 21/07/2027.' },
+  { key: 'cert-registration', name: 'NDIS certificate of registration + scope', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'NDIS Commission', template: 'n/a', requires: 'NDIS Act — registration', note: 'Current certificate runs to 21/01/2029; mid-term audit window opens 21/07/2027. The certificate itself is not in the Drive — download it from the NDIS Commission portal and add it as a page under Policies and procedures.' },
   { key: 'policy-register', name: 'Policy Register', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Governance and operational management', note: 'Generated at /policies/policy-register from the documents published on the site, with each one\u2019s version, approval and review dates; it cannot disagree with the documents.' },
   { key: 'doc-list-core', name: 'Document List — Core', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Information management' },
   { key: 'gov-review', name: 'Governing Personnel Skills and Performance Review', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
@@ -7507,9 +7507,9 @@ const FORMS = [
   { key: 'ci-plan', name: 'Continuous Improvement Plan', scope: 'company', track: 'drive', cadence: 'quarterly', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
   { key: 'risk-plan', name: 'Risk Management Plan + risk register', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management' },
   { key: 'continuity-plan', name: 'Business continuity / emergency and disaster management plan', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Continuity of supports' },
-  { key: 'insurance-pl', name: 'Certificate of currency — Public and Products Liability', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management', note: 'Held in the Business folder, renews about November. Copy into Core Documents.' },
-  { key: 'insurance-pi', name: 'Certificate of currency — Professional Indemnity', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management' },
-  { key: 'insurance-wc', name: 'Certificate of currency — Workers Compensation', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Workers compensation legislation (NSW)', note: 'The premium rate on this certificate is the number that sets the platform margin floor.' },
+  { key: 'insurance-pl', name: 'Certificate of currency — Public and Products Liability', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management', note: 'Combined with Professional Indemnity on one BizCover certificate: policy BMM/133782/000/26/P, Lloyd\'s (DUAL), $10,000,000 public and products liability, 8 July 2026 to 8 July 2027. Held in the 07 Business Insurance folder.' },
+  { key: 'insurance-pi', name: 'Certificate of currency — Professional Indemnity', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management', note: 'Combined with Public Liability on one BizCover certificate: policy BMM/133782/000/26/P, $1,000,000 any one claim, $2,000,000 aggregate, 8 July 2026 to 8 July 2027. Held in the 07 Business Insurance folder.' },
+  { key: 'insurance-wc', name: 'Certificate of currency — Workers Compensation', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Workers compensation legislation (NSW)', note: 'icare Workers Insurance policy 225909501, 30 April 2026 to 30 April 2027, WIC 872910 Home Care Services. Held in the 07 Business Insurance folder. The premium rate on this certificate is the number that sets the platform margin floor.' },
   { key: 'pol-incident', name: 'Incident Management policy and procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Incident Management and Reportable Incidents) Rules 2018' },
   { key: 'pol-complaints', name: 'Complaints Management and Resolution policy', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Complaints Management and Resolution) Rules 2018' },
   { key: 'pol-screening', name: 'Worker Screening policy and procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018' },
@@ -9596,25 +9596,35 @@ function formsRegister() {
      board can open it — matched by name, the way the folder index is */
   const cands = officeDocCandidates();
   const pageBySourceId = Object.fromEntries(db.prepare('SELECT slug, source_id FROM policy_pages WHERE source_id <> \'\'').all().map(pg => [pg.source_id, pg.slug]));
-  const pageOf = f => {
-    if (f.scope !== 'company' && f.scope !== 'register') return '';
-    if (f.key === 'policy-register') return 'policy-register'; /* generated from the pages, so never in the table itself */
+  const matchOf = f => {
+    if (f.scope !== 'company' && f.scope !== 'register') return null;
+    if (f.key === 'policy-register') return { slug: 'policy-register', title: 'Policy Register', url: '/policies/policy-register' }; /* generated from the pages, so never in the table itself */
     const m = matchOfficeDoc(f, cands);
-    return m ? (m.slug || pageBySourceId[m.id] || '') : '';
+    if (!m) return null;
+    const slug = m.slug || pageBySourceId[m.id] || '';
+    return { ...m, slug };
   };
+  const pageOf = f => { const m = matchOf(f); return m ? m.slug : ''; };
   const forms = FORMS.map(f => {
     /* a live form answers for itself; a record on one would be a person's
        word competing with the data, so it is not offered and not read. */
-    const page = pageOf(f);
+    const match = matchOf(f);
+    const page = match ? match.slug : '';
     /* v86.11.2 — a page on BookIt IS the document: a company document or
        register that is published here is held, at that page, from the day it
-       was published, with nothing for the office to press. A record someone
-       typed (a certificate kept in a drawer, a file held elsewhere) still wins. */
+       was published, with nothing for the office to press. v86.11.5: the
+       same for a file in the office's indexed folder (a certificate an insurer
+       issued, say) — matched by name, held at that file. A record someone
+       typed still wins. */
     const typed = f.track === 'live' ? null : recordOf(f.key);
     const pageRow = page ? db.prepare('SELECT imported_at FROM policy_pages WHERE slug = ?').get(page) : null;
-    const record = typed && typed.held ? typed
-      : page && f.track !== 'live' && f.track !== 'na' ? { form_key: f.key, held: 1, covers_from: '', covers_to: '', location: `its page on BookIt, /policies/${page}`, note: '', recorded_by: 'BookIt', recorded_at: pageRow ? pageRow.imported_at : now(), auto: 1 }
-      : typed;
+    const auto = match && f.track !== 'live' && f.track !== 'na'
+      ? { form_key: f.key, held: 1, covers_from: '', covers_to: '', note: '', recorded_by: 'BookIt', auto: 1,
+          location: page ? `its page on BookIt, /policies/${page}` : `${match.title} — ${match.url}`,
+          file: page ? '' : match.url,
+          recorded_at: page ? (pageRow ? pageRow.imported_at : now()) : (match.modified ? `${match.modified}T00:00:00.000Z` : now()) }
+      : null;
+    const record = typed && typed.held ? typed : (auto || typed);
     const state = liveState(f) || participantFileState(f, record);
     return { ...f, state, record, page,
       /* the copies you actually have to produce at audit. A per-worker form is
@@ -17975,7 +17985,7 @@ const docPlain = t => String(t || '').toLowerCase().replace(/\.(docx|pdf|xlsx)$/
    document — the register written on BookIt for a gap in the folder counts
    the same as a file would) */
 function officeDocCandidates() {
-  const files = db.prepare('SELECT id, title, kind, url FROM office_docs WHERE removed_at IS NULL').all();
+  const files = db.prepare('SELECT id, title, kind, url, modified FROM office_docs WHERE removed_at IS NULL').all();
   const pages = db.prepare('SELECT slug, title, kind FROM policy_pages').all().map(pg => ({ id: `page:${pg.slug}`, title: pg.title, kind: pg.kind, url: `/policies/${pg.slug}`, slug: pg.slug }));
   /* the Policy Register is generated from the pages, so it is not a row in the table */
   pages.push({ id: 'page:policy-register', title: 'Policy Register', kind: 'register', url: '/policies/policy-register', slug: 'policy-register' });

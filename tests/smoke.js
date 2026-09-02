@@ -470,10 +470,10 @@ async function main() {
     const pf = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
     t('the policies folder is indexed: 100+ files with links, grouped by kind', pf.status === 200 && /^https:\/\/drive\.google\.com\//.test(pf.json.url) && pf.json.files.length >= 100 && pf.json.files.every(f => /^https:\/\//.test(f.url) && f.kind), pf.status + ' ' + (pf.json && pf.json.files && pf.json.files.length));
     const matched = pf.json.documents.filter(x => x.match);
-    t('the register\'s company rows are matched to files by name (25 of 36)', matched.length >= 24 && matched.some(x => x.key === 'pol-incident' && /Incident Management Policy/.test(x.match.title)) && !pf.json.documents.find(x => x.key === 'pol-screening').match, `${matched.length} matched`);
+    t('the register\'s company rows are matched to pages and files by name (all but the registration certificate)', matched.length >= 30 && matched.some(x => x.key === 'pol-incident' && /Incident Management Policy/.test(x.match.title)) && !pf.json.documents.find(x => x.key === 'cert-registration').match && !!pf.json.documents.find(x => x.key === 'pol-screening').match, `${matched.length} matched`);
     const rec = await req('POST', '/api/admin/policies-folder', { headers: J2, cookie: ac2, body: { record_all: true } });
     const pf2 = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
-    t('one button records the matched documents as held, at their page on BookIt, and names the rest', rec.status === 200 && rec.json.recorded >= 24 && rec.json.unmatched.includes('Worker Screening policy and procedure') && pf2.json.documents.find(x => x.key === 'pol-incident').location.includes('/policies/incident-management-policy'), rec.status + ' ' + JSON.stringify(rec.json).slice(0, 200));
+    t('one button records the matched documents as held, at their page on BookIt, and names the rest', rec.status === 200 && rec.json.recorded >= 24 && rec.json.unmatched.join() === 'NDIS certificate of registration + scope' && pf2.json.documents.find(x => x.key === 'pol-incident').location.includes('/policies/incident-management-policy'), rec.status + ' ' + JSON.stringify(rec.json).slice(0, 200));
     const addf = await req('POST', '/api/admin/policies-folder/files', { headers: J2, cookie: ac2, body: { title: 'Worker Screening Policy and Procedure.docx', url: 'https://drive.google.com/file/d/1TESTTESTTESTTEST/view', kind: 'policy' } });
     const pf3 = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
     t('a file added to the index is matched straight away', addf.status === 200 && !!pf3.json.documents.find(x => x.key === 'pol-screening').match, addf.status);
@@ -531,7 +531,7 @@ async function main() {
     const frm = await req('GET', '/api/admin/forms', { cookie: ac2 });
     t('forms register rows carry their BookIt page', frm.status === 200 && frm.json.forms.some(f => f.key === 'reg-restrictive' && f.page === 'restrictive-practices-register') && frm.json.forms.some(f => f.key === 'policy-register' && f.page === 'policy-register') && frm.json.forms.every(f => f.scope === 'worker' || f.scope === 'participant' ? !f.page : true), frm.status);
     const recAll2 = await req('POST', '/api/admin/policies-folder', { headers: J2, cookie: ac2, body: { record_all: true } });
-    t('recording from the folder counts pages written on BookIt, and never names a live register as missing', recAll2.status === 200 && !recAll2.json.unmatched.some(n => /Restrictive Practices Register|Internal Audit|Participant Register|Banning orders|Worker Register/.test(n)) && recAll2.json.unmatched.some(n => /Certificate of currency/.test(n)), recAll2.json.unmatched.join('; '));
+    t('recording from the folder counts pages written on BookIt, and never names a live register as missing', recAll2.status === 200 && !recAll2.json.unmatched.some(n => /Restrictive Practices Register|Internal Audit|Participant Register|Banning orders|Worker Register/.test(n)) && recAll2.json.unmatched.join() === 'NDIS certificate of registration + scope', recAll2.json.unmatched.join('; '));
     /* v86.11.0: the file is tiered the way the established platforms tier theirs */
     const frm2 = await req('GET', '/api/admin/forms', { cookie: ac2 });
     const hiRow = frm2.json.forms.find(f => f.key === 'w-hi-competency'), licRow = frm2.json.forms.find(f => f.key === 'w-licence'), wwccRow = frm2.json.forms.find(f => f.key === 'w-wwcc');
@@ -545,7 +545,7 @@ async function main() {
     const tmpl = await req('GET', '/policies/participant-risk-assessment-form', { cookie: wc });
     t('the Risk Assessment page is marked as done on screen and offers no fill layer', tmpl.status === 200 && tmpl.text.includes('class="on-screen') && !tmpl.text.includes('id="policy-fill"') && (await req('GET', '/api/policy-fill/participant-risk-assessment-form', { cookie: wc })).status === 404, tmpl.status);
     const recPages = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
-    t('every company document that is held is held at its BookIt page, not a file in a folder', recPages.json.documents.filter(x => x.held).every(x => /\/policies\//.test(x.location)), recPages.json.documents.filter(x => x.held && !/\/policies\//.test(x.location)).map(x => x.name).join(', '));
+    t('every company document that is held is held at its BookIt page, or at a certificate in the office\'s Drive', recPages.json.documents.filter(x => x.held).every(x => /\/policies\/|drive\.google\.com/.test(x.location)), recPages.json.documents.filter(x => x.held && !/\/policies\/|drive\.google\.com/.test(x.location)).map(x => x.name).join(', '));
     /* v86.11.2: a page on BookIt is held, with nothing to press */
     const behKey = (await req('GET', '/api/admin/forms', { cookie: ac2 })).json.forms.find(f => /Behaviour Support and Restrictive Practices policy/.test(f.name)).key;
     await req('DELETE', `/api/admin/forms/record/${behKey}`, { headers: J2, cookie: ac2, body: {} }); /* a typed record wins, so withdraw the one the button made */
@@ -554,6 +554,11 @@ async function main() {
     t('a company document that is a page here is held at that page automatically', beh && beh.page && beh.record && beh.record.held === 1 && beh.record.auto === 1 && /\/policies\//.test(beh.record.location), JSON.stringify(beh && beh.record));
     const csv = await req('GET', '/api/admin/forms.csv', { cookie: ac2 });
     t('… and the register CSV says so', csv.status === 200 && csv.text.includes('Yes — a page on BookIt') && csv.text.includes('A page on BookIt: /policies/'));
+    /* v86.11.5: the three written documents and the two certificates close the register's gaps */
+    const frm4 = await req('GET', '/api/admin/forms', { cookie: ac2 });
+    const heldKeys = frm4.json.forms.filter(f => f.scope === 'company' && f.record && f.record.held).map(f => f.key);
+    t('worker screening, data breach response, the engagement agreement and the insurance certificates are all held', ['pol-screening', 'pol-privacy', 'contractor-agreement', 'insurance-pl', 'insurance-pi', 'insurance-wc'].every(k => heldKeys.includes(k)), heldKeys.join(' '));
+    t('… and the only company document not held is the registration certificate, which is not in the Drive', frm4.json.forms.filter(f => f.scope === 'company' && f.track === 'drive' && !(f.record && f.record.held)).map(f => f.key).join(',') === 'cert-registration');
     const preg = await req('GET', '/policies/policy-register');
     t('the Policy Register is generated from the published pages: public rows signed out, with review dates', preg.status === 200 && preg.text.includes('Feedback and Complaints Policy') && preg.text.includes('August 2027') && !preg.text.includes('Human Resources Management Policy'), preg.status);
     const regA = await req('GET', '/policies/policy-register', { cookie: ac2 });

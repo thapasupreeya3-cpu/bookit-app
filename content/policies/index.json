@@ -864,6 +864,33 @@
    "audience": "staff",
    "source": "Written on BookIt for the office",
    "source_id": ""
+  },
+  {
+   "slug": "worker-screening-policy-and-procedure",
+   "file": "worker-screening-policy-and-procedure.txt",
+   "title": "Worker Screening Policy and Procedure",
+   "kind": "policy",
+   "audience": "public",
+   "source": "Written on BookIt for the office",
+   "source_id": ""
+  },
+  {
+   "slug": "data-breach-response-procedure",
+   "file": "data-breach-response-procedure.txt",
+   "title": "Data Breach Response Procedure",
+   "kind": "procedure",
+   "audience": "public",
+   "source": "Written on BookIt for the office",
+   "source_id": ""
+  },
+  {
+   "slug": "employment-agreement-template",
+   "file": "employment-agreement-template.txt",
+   "title": "Employment Agreement Template",
+   "kind": "form or template",
+   "audience": "staff",
+   "source": "Written on BookIt from DMHC's Letter of Appointment",
+   "source_id": ""
   }
  ]
 }

@@ -1,0 +1,65 @@
+Disability and Mental Health Care Pty Ltd | Worker Screening Policy and Procedure
+
+Purpose
+
+Disability and Mental Health Care Pty Ltd (DMHC) engages only workers who are cleared to work with people with disability. This policy sets out who must be screened, what a clearance means, how DMHC verifies and monitors it, and what happens when a clearance changes. It gives effect to the National Disability Insurance Scheme (Practice Standards — Worker Screening) Rules 2018 and the NDIS Worker Screening Check arrangements in each state and territory.
+
+Scope
+
+This policy applies to every person DMHC engages in a risk assessed role: key personnel, anyone who delivers supports or services to a participant, and anyone whose normal duties bring them into more than incidental contact with participants. It applies to employees, contractors, volunteers, students on placement and any personnel supplied by another provider.
+
+Policy statement
+
+- No person performs a risk assessed role for DMHC without a current NDIS Worker Screening Check clearance, or an acceptable check while an application is pending where the Rules allow it.
+- DMHC identifies and records in writing every risk assessed role it uses, and the person who assessed it.
+- DMHC verifies every clearance directly in the NDIS Worker Screening Database, never from a copy of a card or letter alone, and links each worker to DMHC so it is told of any change in status.
+- A person with an interim bar, suspension, revocation, exclusion or NDIS banning order does not work for DMHC in a risk assessed role from the moment DMHC becomes aware of it.
+- Screening is one check among several: DMHC also verifies identity, right to work, the NDIS Worker Orientation Module, first aid, and the training the role needs, and checks the NDIS Commission's banning orders and compliance actions register.
+
+Definitions
+
+Risk assessed role means a role of key personnel; a role for which the normal duties include the direct delivery of specified supports or services to a person with disability; or a role for which the normal duties are likely to require more than incidental contact with a person with disability.
+
+Clearance means a current NDIS Worker Screening Check clearance decision recorded in the NDIS Worker Screening Database.
+
+Acceptable check means a check recognised under the Rules and the transitional arrangements in the worker's state or territory, held while an NDIS Worker Screening Check application is being assessed.
+
+Procedure
+
+1. Identifying risk assessed roles. The Director assesses every role before it is filled and records the title, the duties, the category (key personnel; direct delivery; more than incidental contact), the date of the assessment and who made it. The list is reviewed whenever a role changes and at least annually.
+
+2. Before a person starts. The person applies for an NDIS Worker Screening Check through their state or territory Worker Screening Unit, nominating Disability and Mental Health Care Pty Ltd, NDIS provider 4-LO5XNY0, as the employer. DMHC verifies the application in the NDIS Worker Screening Database within the time the Rules allow. DMHC also collects and verifies 100 points of identification, evidence of the right to work in Australia, the NDIS Worker Orientation Module certificate, a first aid and CPR certificate, and any qualification or training the role needs. A Working with Children Check is required for a worker who supports a participant under 18.
+
+3. While an application is pending. A person whose NDIS Worker Screening Check application has been lodged and verified may start in a risk assessed role only where the Rules and the state or territory arrangements permit it, only with an acceptable check, and only under supervision arranged and recorded by the Director. The arrangement ends the moment a clearance or exclusion decision is made.
+
+4. Recording and monitoring. BookIt holds each worker's clearance number, expiry and verification on their file, and blocks bookings when a clearance has expired or has not been verified. DMHC remains linked to the worker in the NDIS Worker Screening Database so that any change in status is notified. The Director re-checks the NDIS Commission's banning orders register for every worker quarterly, and the result is recorded in BookIt's compliance log.
+
+5. When a status changes. If DMHC is notified, or becomes aware in any way, of an interim bar, suspension, revocation, exclusion, banning order or an allegation of misconduct involving a worker, the Director stands the worker down from every risk assessed role immediately, records the action, arranges cover for affected participants, and reports the matter where the Incident Management Policy or the Rules require. The worker returns to the role only when a current clearance is confirmed in the database.
+
+6. Personnel supplied by another provider. Where another provider supplies personnel to deliver DMHC's supports, the written agreement requires that provider to use only cleared workers, to disclose clearance information before and during the engagement, to answer DMHC's information and investigation requests, and to withdraw immediately any person with an adverse status. DMHC verifies each such person in the database as it would its own worker.
+
+7. Records. DMHC keeps, for each worker, the record of the role assessment, the clearance verification with the date and the person who verified it, the identity and right-to-work evidence, and every status change and the action taken. Records are kept for seven years after the engagement ends, in accordance with the Privacy and Information Management Policy.
+
+8. Review. Screening records are sampled in the Internal Audit Schedule, and this policy is reviewed annually and whenever the Rules or the state or territory arrangements change.
+
+Relevant legislation
+
+- National Disability Insurance Scheme Act 2013 (Cth), including section 73ZS and the conditions of registration
+- National Disability Insurance Scheme (Practice Standards — Worker Screening) Rules 2018
+- National Disability Insurance Scheme (Provider Registration and Practice Standards) Rules 2018
+- Child Protection (Working with Children) Act 2012 (NSW) and the equivalent legislation in each state and territory
+- Privacy Act 1988 (Cth)
+
+Related documents
+
+- Human Resources Management Policy
+- Worker Declarations and Worker Induction Checklist
+- Position Description: Disability Support Worker
+- Incident Management Policy
+- Privacy and Information Management Policy
+- Internal Audit Schedule
+
+Approval Authority: Supriya Thapa, Director
+Version: 1
+Approval Date: September 2026
+Review Date: September 2027
