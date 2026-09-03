@@ -5588,6 +5588,87 @@ function board0137() {
   };
 }
 
+/* v86.12.0 — the pipeline. Where each participant is on the way to their
+   first booking, and each worker to their first shift, read from the same
+   gates the app enforces (firstBookingBlockers, platformStatus) so the board
+   can never disagree with what a person actually sees. Aggregate first —
+   one bar per stage, who it is waiting on — with the people behind each bar
+   sorted by how long they have been there. Built for hundreds: the counts
+   are the page; the names are the drill-down. */
+const PIPELINE_P = [
+  ['verify-email', 'Confirm email', 'them'], ['billing', 'Say how supports are funded', 'them'],
+  ['p-agreement', 'Agree the Service Agreement', 'them'], ['p-consent-privacy', 'Agree the privacy consent', 'them'],
+  ['ndis-plan', 'Upload the NDIS plan', 'them'], ['ndis-plan-check', 'Office checks the NDIS plan', 'office'],
+  ['nominee', 'Name who manages the account (under 18)', 'them'], ['support-plan', 'Confirm the support plan', 'them'],
+  ['plan-review', 'Office reviews the support plan', 'office'], ['plan-review-due', 'Update the support plan (review due)', 'them'],
+  ['specialised-plans', 'Clinical plans overdue (four weeks past start)', 'them'], ['risk-assessment', 'Office writes the risk assessment', 'office'],
+  ['first-booking', 'Ready — no shift yet', 'them'], ['active', 'Active', '']
+];
+const PIPELINE_W = [
+  ['verify-email', 'Confirm email', 'them'], ['identity', '100 points of ID', 'them'], ['right-to-work', 'Right to work', 'them'],
+  ['screening-file', 'Upload the NDIS Worker Screening Check', 'them'], ['screening-verify', 'Office verifies the screening in the NWSD', 'office'],
+  ['screening-status', 'Clearance not clear (pending, suspended, excluded)', 'them'], ['training', 'Orientation module and first aid', 'them'],
+  ['banning', 'Office checks the banning orders register', 'office'], ['visible', 'Profile not yet visible', 'office'],
+  ['first-shift', 'Ready — no shift yet', 'them'], ['active', 'Active', '']
+];
+function pipelineParticipant(p) {
+  const blockers = firstBookingBlockers(p.id, false);
+  if (blockers.length) return { key: blockers[0].key, who: blockers[0].yours ? 'them' : 'office', detail: blockers[0].what };
+  const plan = confirmedPlan(p.id);
+  const overdue = [];
+  for (const f of FORMS.filter(f => f.scope === 'participant' && f.track === 'drive' && f.appliesIf)) {
+    if (!planFlag(plan, f.appliesIf)) continue;
+    const start = serviceStart(p.id);
+    if (!start || ymd(new Date(new Date(start).getTime() + 28 * 864e5)) >= ymd()) continue;
+    const ok = db.prepare(`SELECT 1 FROM participant_docs WHERE participant_id = ? AND form_key = ? AND COALESCE(review_state,'') <> 'superseded' AND (COALESCE(file_path,'') <> '' OR accepted_at IS NOT NULL) AND (expiry_date IS NULL OR expiry_date = '' OR expiry_date >= ?) LIMIT 1`).get(p.id, f.key, ymd(new Date(Date.now() - 90 * 864e5)));
+    if (!ok) overdue.push(f.name);
+  }
+  if (overdue.length) return { key: 'specialised-plans', who: 'them', detail: overdue.join(', ') };
+  const risk = db.prepare("SELECT 1 FROM participant_docs WHERE participant_id = ? AND form_key = 'p-risk' AND COALESCE(review_state,'') <> 'superseded' LIMIT 1").get(p.id);
+  if (!risk) return { key: 'risk-assessment', who: 'office', detail: 'No risk assessment on file' };
+  const first = serviceStart(p.id);
+  if (!first) return { key: 'first-booking', who: 'them', detail: 'Ready to book' };
+  const pr = planReviewState(p.id);
+  return { key: 'active', who: '', detail: pr && pr.review_due ? `Plan review due ${dmy(pr.review_due)}` : '' };
+}
+function pipelineWorker(w) {
+  if (!w.verified) return { key: 'verify-email', who: 'them', detail: 'Email not confirmed' };
+  const o = onboardingSummary(w.id);
+  if (!o.id_ok) return { key: 'identity', who: 'them', detail: `${o.id_points} of 100 points${o.has_primary ? '' : ', no primary document'}` };
+  if (!o.right_to_work) return { key: 'right-to-work', who: 'them', detail: 'No right-to-work evidence' };
+  const st = platformStatus(w.id);
+  const b = st.blocks.join(' ');
+  if (/No NDIS worker screening check on file|has expired/.test(b)) return { key: 'screening-file', who: 'them', detail: b };
+  if (/not been verified/.test(b)) return { key: 'screening-verify', who: 'office', detail: b };
+  if (/suspended|revoked|exclusion|pending/.test(b)) return { key: 'screening-status', who: 'them', detail: b };
+  if (!o.orientation || !o.first_aid) return { key: 'training', who: 'them', detail: [!o.orientation && 'orientation module', !o.first_aid && 'first aid'].filter(Boolean).join(', ') + ' missing' };
+  if (/banning/i.test(b)) return { key: 'banning', who: 'office', detail: b };
+  if (!st.ok || !w.visible) return { key: 'visible', who: 'office', detail: st.blocks.join(' ') || 'Hidden' };
+  const first = db.prepare("SELECT MIN(date) AS d FROM bookings WHERE worker_id = ? AND status IN ('accepted','completed')").get(w.id);
+  if (!first || !first.d) return { key: 'first-shift', who: 'them', detail: 'Ready for a shift' };
+  return { key: 'active', who: '', detail: '' };
+}
+function pipelineBuild(defs, people, place) {
+  const stages = defs.map(([key, label, who]) => ({ key, label, who, count: 0, people: [] }));
+  const byKey = Object.fromEntries(stages.map(s => [s.key, s]));
+  const today = Date.now();
+  for (const p of people) {
+    const r = place(p);
+    const st = byKey[r.key] || byKey.active;
+    st.count++;
+    const days = Math.max(0, Math.floor((today - new Date(p.created || today).getTime()) / 864e5));
+    st.people.push({ id: p.id, name: p.name, days, waiting: r.who || st.who, detail: r.detail || '' });
+  }
+  for (const st of stages) { st.people.sort((a, b) => b.days - a.days); st.stuck = st.key === 'active' ? 0 : st.people.filter(x => x.days >= 14).length; st.people = st.people.slice(0, 60); }
+  return { total: people.length, active: byKey.active.count, waiting_office: stages.filter(s => s.who === 'office').reduce((n, s) => n + s.count, 0), stuck: stages.reduce((n, s) => n + s.stuck, 0), stages };
+}
+route('GET', /^\/api\/admin\/pipeline$/, (req, res, m, user) => {
+  if (!requireAdmin(user, res)) return;
+  const notDemo = u => !isDemoWorker(u.email);
+  const parts = db.prepare("SELECT id, name, email, created FROM users WHERE role = 'participant' AND COALESCE(closed_at,'') = '' ORDER BY created").all().filter(notDemo);
+  const workers = db.prepare("SELECT u.id, u.name, u.email, u.created, u.verified, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker' AND COALESCE(u.closed_at,'') = '' ORDER BY u.created").all().filter(notDemo);
+  json(res, 200, { generated_at: now(), participants: pipelineBuild(PIPELINE_P, parts, pipelineParticipant), workers: pipelineBuild(PIPELINE_W, workers, pipelineWorker) });
+});
 route('GET', /^\/api\/admin\/compliance\/0137$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   json(res, 200, board0137());
@@ -7496,7 +7577,7 @@ route('POST', /^\/api\/admin\/support-plans\/(\d+)\/care-plan$/, (req, res, m, u
    `cadence`: once | annual | monthly | quarterly | per-event | expiry | on-change */
 const FORMS = [
   /* ---------- governance: the company holds one of each ---------- */
-  { key: 'cert-registration', name: 'NDIS certificate of registration + scope', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'NDIS Commission', template: 'n/a', requires: 'NDIS Act — registration', note: 'Current certificate runs to 21/01/2029; mid-term audit window opens 21/07/2027. The certificate itself is not in the Drive — download it from the NDIS Commission portal and add it as a page under Policies and procedures.' },
+  { key: 'cert-registration', expires: '2029-01-21', name: 'NDIS certificate of registration + scope', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'NDIS Commission', template: 'n/a', requires: 'NDIS Act — registration', note: 'Current certificate runs to 21/01/2029; mid-term audit window opens 21/07/2027. The certificate itself is not in the Drive — download it from the NDIS Commission portal and add it as a page under Policies and procedures.' },
   { key: 'policy-register', name: 'Policy Register', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Governance and operational management', note: 'Generated at /policies/policy-register from the documents published on the site, with each one\u2019s version, approval and review dates; it cannot disagree with the documents.' },
   { key: 'doc-list-core', name: 'Document List — Core', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Information management' },
   { key: 'gov-review', name: 'Governing Personnel Skills and Performance Review', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
@@ -7507,9 +7588,9 @@ const FORMS = [
   { key: 'ci-plan', name: 'Continuous Improvement Plan', scope: 'company', track: 'drive', cadence: 'quarterly', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
   { key: 'risk-plan', name: 'Risk Management Plan + risk register', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management' },
   { key: 'continuity-plan', name: 'Business continuity / emergency and disaster management plan', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Continuity of supports' },
-  { key: 'insurance-pl', name: 'Certificate of currency — Public and Products Liability', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management', note: 'Combined with Professional Indemnity on one BizCover certificate: policy BMM/133782/000/26/P, Lloyd\'s (DUAL), $10,000,000 public and products liability, 8 July 2026 to 8 July 2027. Held in the 07 Business Insurance folder.' },
-  { key: 'insurance-pi', name: 'Certificate of currency — Professional Indemnity', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management', note: 'Combined with Public Liability on one BizCover certificate: policy BMM/133782/000/26/P, $1,000,000 any one claim, $2,000,000 aggregate, 8 July 2026 to 8 July 2027. Held in the 07 Business Insurance folder.' },
-  { key: 'insurance-wc', name: 'Certificate of currency — Workers Compensation', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Workers compensation legislation (NSW)', note: 'icare Workers Insurance policy 225909501, 30 April 2026 to 30 April 2027, WIC 872910 Home Care Services. Held in the 07 Business Insurance folder. The premium rate on this certificate is the number that sets the platform margin floor.' },
+  { key: 'insurance-pl', expires: '2027-07-08', name: 'Certificate of currency — Public and Products Liability', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management', note: 'Combined with Professional Indemnity on one BizCover certificate: policy BMM/133782/000/26/P, Lloyd\'s (DUAL), $10,000,000 public and products liability, 8 July 2026 to 8 July 2027. Held in the 07 Business Insurance folder.' },
+  { key: 'insurance-pi', expires: '2027-07-08', name: 'Certificate of currency — Professional Indemnity', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Core Module — Governance and operational management', note: 'Combined with Public Liability on one BizCover certificate: policy BMM/133782/000/26/P, $1,000,000 any one claim, $2,000,000 aggregate, 8 July 2026 to 8 July 2027. Held in the 07 Business Insurance folder.' },
+  { key: 'insurance-wc', expires: '2027-04-30', name: 'Certificate of currency — Workers Compensation', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'Insurer', template: 'n/a', requires: 'Workers compensation legislation (NSW)', note: 'icare Workers Insurance policy 225909501, 30 April 2026 to 30 April 2027, WIC 872910 Home Care Services. Held in the 07 Business Insurance folder. The premium rate on this certificate is the number that sets the platform margin floor.' },
   { key: 'pol-incident', name: 'Incident Management policy and procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Incident Management and Reportable Incidents) Rules 2018' },
   { key: 'pol-complaints', name: 'Complaints Management and Resolution policy', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Complaints Management and Resolution) Rules 2018' },
   { key: 'pol-screening', name: 'Worker Screening policy and procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018' },
@@ -9625,6 +9706,8 @@ function formsRegister() {
           recorded_at: page ? (pageRow ? pageRow.imported_at : now()) : (match.modified ? `${match.modified}T00:00:00.000Z` : now()) }
       : null;
     const record = typed && typed.held ? typed : (auto || typed);
+    /* a document with a known expiry (a certificate, the registration) carries it, so the board can warn before it lapses */
+    if (record && record.held && f.expires && !record.covers_to) record.covers_to = f.expires;
     const state = liveState(f) || participantFileState(f, record);
     return { ...f, state, record, page,
       /* the copies you actually have to produce at audit. A per-worker form is

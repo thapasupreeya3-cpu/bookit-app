@@ -4257,6 +4257,18 @@ html.high-contrast .care-stage-block{display:none!important;}
   .fr-track.missing{background:#FDECE7;border-color:#D94F32;color:#A5301A;}
   .fr-track.na{background:#EEEDEA;border-color:#9A958D;color:#4F4B45;}
   .fr-track.page{background:#DBF2E4;border-color:#2E6B4F;color:#215239;}
+  .pipe{display:flex;flex-direction:column;gap:4px}
+  .pipe-row summary{display:grid;grid-template-columns:minmax(12em,2fr) 3fr 3em 5em auto;gap:10px;align-items:center;cursor:pointer;padding:5px 6px;border-radius:6px;list-style:none}
+  .pipe-row summary::-webkit-details-marker{display:none}
+  .pipe-row.empty summary{opacity:.55;cursor:default}
+  .pipe-row.office summary{background:rgba(217,79,50,.08)}
+  .pipe-bar{height:12px;border-radius:6px;background:rgba(127,127,127,.15);overflow:hidden}
+  .pipe-bar i{display:block;height:100%;background:#2E6B4F;border-radius:6px}
+  .pipe-row.office .pipe-bar i{background:#D94F32}
+  .pipe-n{font-weight:700;text-align:right}
+  .pipe-who{font-size:.85em;color:#777}
+  .pipe-people{margin:4px 0 8px 12px;padding-left:1em;font-size:.93em}
+  .pipe-people li{margin:0 0 4px}
   .fr-gaps{margin:4px 0 0;font-size:.78rem;color:#A5301A;line-height:1.5;}
   .fr-rec{margin:6px 0 0;font-size:.8rem;color:#215239;line-height:1.55;}
   .fr-rec.open{color:#7A5C00;}
@@ -7311,6 +7323,23 @@ window.renderFormScreen = async function(){
 /* ---------- the policies folder card ---------- */
 
 /* ---------- policies as pages: the office drops the folder's files in, each becomes a page ---------- */
+/* v86.12.0 — the pipeline card: one bar per stage, who it is waiting on, the people behind it */
+window.renderPipelineCard = async function(){
+  const host = $('#admPipeline'); if(!host) return;
+  let d; try{ d = await API.call('/admin/pipeline'); }catch(e){ host.innerHTML = `<p class="adm-empty">${esc(e.message)}</p>`; return; }
+  const funnel = (title, unit, x) => {
+    const max = Math.max(1, ...x.stages.map(s => s.count));
+    return `<h4 style="margin:14px 0 4px;">${title}</h4>
+      <p class="muted-sm" style="margin:0 0 10px;">${x.total} ${unit} · <b style="color:#2E6B4F;">${x.active} active</b> · ${x.waiting_office ? `<b style="color:#D94F32;">${x.waiting_office} waiting on the office</b>` : 'none waiting on the office'} · ${x.stuck ? `<b style="color:#D94F32;">${x.stuck} stuck 14+ days</b>` : 'nobody stuck 14+ days'}</p>
+      <div class="pipe">${x.stages.map(s => `<details class="pipe-row${s.count ? '' : ' empty'}${s.who === 'office' && s.count ? ' office' : ''}">
+        <summary><span class="pipe-label">${esc(s.label)}</span><span class="pipe-bar"><i style="width:${Math.round(100 * s.count / max)}%"></i></span><span class="pipe-n">${s.count}</span><span class="pipe-who">${s.count && s.who ? (s.who === 'office' ? 'the office' : 'them') : ''}</span>${s.stuck ? `<span class="cmp-n" title="14 days or more">${s.stuck}</span>` : ''}</summary>
+        ${s.people.length ? `<ul class="pipe-people">${s.people.map(p => `<li><a href="#/admin/compliance" data-cmp-go="${unit === 'participants' ? 'participants' : 'workers'}" data-cmp-name="${esc(p.name)}">${esc(p.name)}</a> <span class="muted-sm">${p.days} day${p.days === 1 ? '' : 's'} since joining${p.detail ? ` · ${esc(p.detail)}` : ''}</span></li>`).join('')}${s.count > s.people.length ? `<li class="muted-sm">and ${s.count - s.people.length} more</li>` : ''}</ul>` : ''}
+      </details>`).join('')}</div>`;
+  };
+  host.innerHTML = `<p class="muted-sm" style="margin:0 0 6px;">Read from the same gates the app enforces, so a person's stage here is exactly what they see on their own home page. A bar marked <b>the office</b> is work waiting on you; <b>them</b> is waiting on the person, who has been told. Open a bar for the names, longest-waiting first.</p>`
+    + funnel('Participants — to their first booking', 'participants', d.participants)
+    + funnel('Support workers — to their first shift', 'workers', d.workers);
+};
 window.renderPolicyPagesCard = async function(){
   const host = $('#admPolicyPages'); if(!host) return;
   let d; try{ d = await API.call('/admin/policy-pages', {noFor:true}); }catch(e){ host.innerHTML = `<p class="adm-empty">${esc(e.message)}</p>`; return; }
@@ -10273,7 +10302,8 @@ async function renderAdminPage(){
   const cmpPane = (key, inner) => `<div class="cmp-pane" data-cmp-pane="${key}"${key === CMP_TAB ? '' : ' hidden'}>${inner}</div>`;
   g('compliance', 'Compliance', 'Verify a worker, verify a participant, the registers',
     wUrgent + rUrgent,
-    `<div class="cmp-tabs" role="tablist">${tab('workers', 'Support workers', wUrgent)}${tab('participants', 'Participants', pUrgent)}${tab('registers', 'Incidents, complaints & scope', rUrgent)}${tab('log', 'Evidence log', 0)}</div>`
+    `<div class="cmp-tabs" role="tablist">${tab('pipeline', 'Pipeline', 0)}${tab('workers', 'Support workers', wUrgent)}${tab('participants', 'Participants', pUrgent)}${tab('registers', 'Incidents, complaints & scope', rUrgent)}${tab('log', 'Evidence log', 0)}</div>`
+    + cmpPane('pipeline', H('Pipeline — where everyone is on the way to their first shift') + '<div class="info-card" id="admPipeline"><p class="adm-empty">Loading…</p></div>')
     + cmpPane('workers', cmpSearch('workers', workerNames, 'Type a worker\'s name to verify them')
       + H('Credentials and documents — verify, reject, re-file') + credentials
       + H('The 0137 conditions — screening, banning registers, evidence, displayed ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + complianceVerify
@@ -11612,7 +11642,8 @@ function formsBoardHtml(d){
   /* what still needs the office's attention on a row: a company document or
      register nobody has recorded as held (and BookIt does not track), a form
      that does not exist yet, or a per-person set with a gap right now */
-  const attention = f => f.track !== 'na' && (f.track === 'missing' || (f.state && f.state.gaps.length > 0)
+  const daysUntil = d => Math.floor((new Date(d).getTime() - Date.now()) / 864e5);
+  const attention = f => f.track !== 'na' && (f.track === 'missing' || (f.state && f.state.gaps.length > 0) || (f.record && f.record.held && f.record.covers_to && daysUntil(f.record.covers_to) <= 60)
     || ((f.scope === 'company' || f.scope === 'register') && f.track !== 'live' && !(f.record && f.record.held)));
   const tabLabel = { company: 'Company documents', register: 'Registers', worker: 'Per worker', participant: 'Per participant' };
   if(!d.scopes.some(sc => sc.key === FR_TAB)) FR_TAB = d.scopes[0] ? d.scopes[0].key : 'company';
@@ -11639,7 +11670,7 @@ function formsBoardHtml(d){
           ${f.appliesTo ? `<br><span class="muted-sm">Add-on: ${f.appliesTo === 'transport' ? 'only workers who offer transport' : 'only workers supporting someone under 18'}</span>` : ''}
           ${f.track === 'live' || f.track === 'na' || f.scope === 'participant' || f.scope === 'worker' ? '' : formRecordHtml(f)}</td>
         <td><span class="fr-track ${trackKey(f)}">${esc(trackFor(f))}</span></td>
-        <td>${esc(f.cadence)}</td>
+        <td>${f.record && f.record.held && f.record.covers_to ? `expires ${fmtAU(f.record.covers_to)}${daysUntil(f.record.covers_to) <= 60 ? ` <span class="fr-gaps" style="display:inline;">(${daysUntil(f.record.covers_to) < 0 ? 'lapsed' : 'renew now'})</span>` : ''}` : esc(f.cadence)}</td>
         <td>${esc(f.signed)}</td>
         <td>${f.template === 'DMHC' ? '<span class="adm-live">DMHC\'s own</span>' : f.template === 'BookIt' ? 'Built for you' : esc(f.template)}</td>
         <td><span class="muted-sm">${esc(f.requires)}</span></td>
@@ -14842,6 +14873,7 @@ function reviewChip(dd){
 async function renderBlankForms(){
   if(window.renderPoliciesCard) renderPoliciesCard();
   if(window.renderPolicyPagesCard) renderPolicyPagesCard();
+  if(window.renderPipelineCard) renderPipelineCard();
   const host = $('#admBlankForms');
   if(!host) return;
   let d;
