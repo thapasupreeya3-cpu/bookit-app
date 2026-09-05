@@ -1,4 +1,4 @@
-# BookIt operations — Lightsail
+# The Care Web operations — Lightsail
 
 Everything here assumes the layout the guide describes: one Lightsail instance in
 ap-southeast-2, Ubuntu 24.04, Caddy in front of Node on 127.0.0.1:3000, the service
@@ -13,8 +13,8 @@ ap-southeast-2, Ubuntu 24.04, Caddy in front of Node on 127.0.0.1:3000, the serv
 1. Note the commit you are on: `git -C ~/bookit-app rev-parse --short HEAD`.
 2. Take a backup first (section 2 below, even a one-off run).
 3. Upload the release over the same paths on GitHub, commit, then `sudo bookit-update`.
-4. Verify: `curl -s https://bookit.life/api/version` says 86.8.0; open
-   `https://bookit.life/services/transport` (a 200, with its own title in the tab);
+4. Verify: `curl -s https://thecareweb.com.au/api/version` says 86.8.0; open
+   `https://thecareweb.com.au/services/transport` (a 200, with its own title in the tab);
    sign in; open a worker profile signed out and signed in (short name, then full name);
    drag the scrubber on a service-page video; `cd ~/bookit-app && npm run check`.
 5. Pin Node. `.nvmrc` says 22.23.2 — the current Node 22 LTS, a security release

@@ -46,7 +46,7 @@ Key Management Personnel means Supriya Thapa and other key management personnel 
 
 Worker means a permanent, fixed term or casual member of staff, a contractor or volunteer employed or otherwise engaged by Disability and Mental Health Care Pty Ltd, and includes the Director.
 
-BookIt means the Disability and Mental Health Care Pty Ltd service-delivery platform (bookit.life) that holds our booking, credential, incident, complaint and roster records.
+The Care Web means the Disability and Mental Health Care Pty Ltd service-delivery platform (thecareweb.com.au) that holds our booking, credential, incident, complaint and roster records.
 
 Decision supporter means a person the participant chooses to help them understand, weigh and communicate decisions, for example a family member, friend, advocate or independent supporter.
 
@@ -63,7 +63,7 @@ Everyday decisions, especially in shared living
 
 - Daily choices (meals, activities, routines, visitors, how a support is delivered) belong to the participant. Workers offer real options, not a fait accompli.
 - In SIL houses, decisions that affect the household (routines, shared spaces, filling a vacancy) are made with residents, not for them: regular resident meetings are held, each resident's views are sought in their preferred communication mode, and outcomes are minuted and kept in the house records.
-- Rosters of care are built with the participant and adjusted at their request. The BookIt roster records each version and when it changed.
+- Rosters of care are built with the participant and adjusted at their request. The Care Web roster records each version and when it changed.
 
 Major decisions
 

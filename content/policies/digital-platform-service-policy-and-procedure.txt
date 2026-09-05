@@ -4,7 +4,7 @@ Introduction
 
 Purpose
 
-Disability and Mental Health Care Pty Ltd operates BookIt, an online platform through which participants and their representatives can find, message and book Disability and Mental Health Care Pty Ltd support workers. This policy sets out how Disability and Mental Health Care Pty Ltd operates the platform as an NDIS Digital Platform Service (registration group 0137), and the procedures by which the conditions of registration that apply to digital platform providers are met, monitored and evidenced. The platform is designed so that these conditions are enforced by the software itself rather than recorded in a register and checked by hand.
+Disability and Mental Health Care Pty Ltd operates The Care Web, an online platform through which participants and their representatives can find, message and book Disability and Mental Health Care Pty Ltd support workers. This policy sets out how Disability and Mental Health Care Pty Ltd operates the platform as an NDIS Digital Platform Service (registration group 0137), and the procedures by which the conditions of registration that apply to digital platform providers are met, monitored and evidenced. The platform is designed so that these conditions are enforced by the software itself rather than recorded in a register and checked by hand.
 
 Scope
 
@@ -50,7 +50,7 @@ Definitions
 
 Disability and Mental Health Care Pty Ltd means Disability and Mental Health Care Pty Ltd ABN 19658578575.
 
-The Platform (BookIt) means the digital platform operated by Disability and Mental Health Care Pty Ltd through which a participant may find, message and book Workers, and through which service agreements, bookings, records and payment records are made and held.
+The Platform (The Care Web) means the digital platform operated by Disability and Mental Health Care Pty Ltd through which a participant may find, message and book Workers, and through which service agreements, bookings, records and payment records are made and held.
 
 Worker Screening Clearance means a current clearance to work with people with disability issued under the worker screening law of a State or Territory and recorded in the NDIS Worker Screening Database.
 

@@ -1,0 +1,48 @@
+{
+  "method": "In-memory Chromium render of supplied application HTML and JavaScript, with an isolated local HTTP API adapter. Native page navigation was blocked by managed browser policy.",
+  "checks": [
+    {
+      "check": "Participant Bookings places visits before setup information",
+      "result": "PASS"
+    },
+    {
+      "check": "Worker Bookings and availability settings render",
+      "result": "PASS"
+    },
+    {
+      "check": "Newest-message page includes latest message",
+      "result": "PASS"
+    },
+    {
+      "check": "Load earlier messages retains current messages",
+      "result": "PASS"
+    },
+    {
+      "check": "Forward polling retrieves newly sent messages",
+      "result": "PASS"
+    },
+    {
+      "check": "Note draft autosaves and reopens with entered text",
+      "result": "PASS"
+    },
+    {
+      "check": "Worker availability form persists entered service areas",
+      "result": "PASS"
+    },
+    {
+      "check": "Admin opens Today and incident follow-ups",
+      "result": "PASS"
+    },
+    {
+      "check": "Worker and admin narrow layouts inspected at 390px",
+      "result": "PASS"
+    }
+  ],
+  "script_errors_on_worker_and_admin_checked_routes": [],
+  "limitations": [
+    "Not a native-origin end-to-end test",
+    "Cookies, CSP, native navigation, real email and media playback require staging checks",
+    "Worker narrow layout had a one-pixel scroll-width difference (391px at 390px viewport)"
+  ],
+  "production_data_used": false
+}

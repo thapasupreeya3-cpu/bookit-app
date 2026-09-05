@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light">
-<title>BookIt — Find NDIS support workers who fit your life</title>
-<meta name="description" content="BookIt is operated by Disability &amp; Mental Health Care Pty Ltd, a registered NDIS provider, for finding, booking and managing verified support workers — employment support, personal care, transport, daily tasks, household help and community participation.">
+<title>The Care Web — Find NDIS support workers who fit your life</title>
+<meta name="description" content="The Care Web is operated by Disability &amp; Mental Health Care Pty Ltd, a registered NDIS provider, for finding, booking and managing verified support workers — employment support, personal care, transport, daily tasks, household help and community participation.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="BookIt — Support workers who fit your life">
+<meta property="og:title" content="The Care Web — Support workers who fit your life">
 <meta property="og:description" content="Find, book and manage your own verified NDIS support workers. You choose who, when and how.">
-<meta property="og:image" content="https://bookit.life/assets/photos/og.jpg">
+<meta property="og:image" content="https://thecareweb.com.au/assets/photos/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://bookit.life/assets/photos/og.jpg">
+<meta name="twitter:image" content="https://thecareweb.com.au/assets/photos/og.jpg">
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 48"><circle cx="27" cy="24" r="22" fill="%230E6B62"/><circle cx="63" cy="24" r="22" fill="%23F5B841"/><path d="M45 11.35 A22 22 0 0 1 45 36.65 A22 22 0 0 1 45 11.35 Z" fill="%230A544D"/><path d="M52 25 l9 9 17 -18" stroke="%2317313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'>
 <link rel="preload" href="/assets/fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/sora-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -179,7 +179,10 @@ header.site{
 html.high-contrast header.site{background:#fff;}
 .nav-wrap{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:var(--maxw);margin:0 auto;gap:16px;}
 .logo{display:flex;align-items:center;gap:2px;text-decoration:none;color:var(--ink);font-family:var(--font-head);font-weight:800;font-size:1.5rem;letter-spacing:-.02em;}
-.logo svg.oo{height:.68em;width:auto;flex:none;margin:.12em 1px 0;}
+.logo svg.oo{height:.68em;width:auto;flex:none;margin:.12em 4px 0 0;}
+.logo .wm{display:inline-flex;align-items:baseline;letter-spacing:-.02em}
+.logo .wm-the{font-weight:500;opacity:.72;margin-right:.08em}
+.logo .wm-web{font-weight:500;opacity:.72;margin-left:.06em}
 nav.main{display:flex;align-items:center;gap:4px;}
 nav.main > ul{display:flex;list-style:none;gap:2px;align-items:center;}
 nav.main a.nav-link, nav.main button.nav-link{
@@ -1748,6 +1751,20 @@ html.high-contrast .care-stage-block{display:none!important;}
 @media (max-width:699px){.care-stage{aspect-ratio:4/3;border-radius:16px;}}
 </style>
   <script src="/assets/bookit-worker-load-guard.js" defer></script>
+<style>
+#page-bookings .page-hero,#page-admin .page-hero,#page-account .page-hero,#page-messages .page-hero{padding-top:28px;padding-bottom:22px;}
+#page-bookings .page-hero h1,#page-admin .page-hero h1,#page-account .page-hero h1,#page-messages .page-hero h1{font-size:clamp(1.8rem,4vw,2.7rem);}
+.review-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}
+.review-grid label{display:block;font-size:.9rem;}
+.review-grid input,.review-grid select,.review-grid textarea{display:block;box-sizing:border-box;width:100%;font:inherit;padding:9px;margin-top:5px;border:1px solid var(--line,#d4d4d4);border-radius:8px;}
+.review-panel{padding:18px;margin:14px 0;border:1.5px solid var(--line,#dedede);border-radius:12px;background:var(--white,#fff);}
+.review-panel summary{cursor:pointer;font-weight:700;padding:8px;}
+.review-note-state{font-size:.85rem;min-height:1.5em;}
+.review-dialog{max-width:680px;width:calc(100% - 32px);max-height:85vh;overflow:auto;border:1px solid var(--line,#ddd);border-radius:16px;padding:24px;box-sizing:border-box;}
+.review-dialog::backdrop{background:rgba(0,0,0,.4);}
+@media(max-width:900px){#page-admin .set-layout.no-sub .set-body{display:block;margin-top:18px;}.review-dialog{padding:16px;}}
+</style>
+<script src="/assets/bookit-review-improvements.js"></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
@@ -1755,7 +1772,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 <!-- ============ HEADER ============ -->
 <header class="site">
   <div class="nav-wrap">
-    <a href="#/" class="logo" aria-label="BookIt — home">b<svg class="oo" viewBox="0 0 90 48" aria-hidden="true"><circle class="o1" cx="27" cy="24" r="22" fill="#0E6B62"/><circle class="o2" cx="63" cy="24" r="22" fill="#F5B841"/><path class="lens" d="M45 11.35 A22 22 0 0 1 45 36.65 A22 22 0 0 1 45 11.35 Z" fill="#0A544D"/><path class="tick" d="M52 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>kit</a>
+    <a href="#/" class="logo" aria-label="The Care Web — home"><svg class="oo" viewBox="0 0 90 48" aria-hidden="true"><circle class="o1" cx="27" cy="24" r="22" fill="#0E6B62"/><circle class="o2" cx="63" cy="24" r="22" fill="#F5B841"/><path class="lens" d="M45 11.35 A22 22 0 0 1 45 36.65 A22 22 0 0 1 45 11.35 Z" fill="#0A544D"/><path class="tick" d="M52 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="wm"><span class="wm-the">the</span>care<span class="wm-web">web</span></span></a>
 
     <nav class="main" id="mainNav" aria-label="Main navigation">
       <button class="nav-close" id="navClose" aria-label="Close menu" type="button">
@@ -1879,7 +1896,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 <div id="actBar" class="act-bar" hidden></div>
 
 <!-- ================= HOME ================= -->
-<section class="page" id="page-home" data-title="BookIt — Find NDIS support workers who fit your life">
+<section class="page" id="page-home" data-title="The Care Web — Find NDIS support workers who fit your life">
   <div class="hero">
     <div class="hero-rings" aria-hidden="true"><i></i><i></i><i></i></div>
     <div class="container hero-grid">
@@ -1887,7 +1904,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <span class="kicker">NDIS registered provider · Available across Australia, with our largest worker pools in Sydney, Melbourne and Brisbane</span>
         <h1>Support workers who fit <span class="u rotator" id="heroRotate" aria-hidden="true" data-words="your life|your work week|your mornings|your day out|your routine|your home|your community"><span class="rot-word">your life</span></span><span class="sr-only">your life</span>, not the other way around.</h1>
         <p class="lead">Find, book and manage your own team of verified support workers — for work, home, daily living and getting out into your community. You choose who, when and how. We handle the rest.</p>
-        <p class="lead" style="font-size:1rem;margin-top:-6px;"><b>Agency-managed? You can book here.</b> BookIt is run by a registered NDIS provider, so NDIA-managed, plan-managed and self-managed participants are all welcome — and if your worker can't make a shift, we find cover or tell you by 7am.</p>
+        <p class="lead" style="font-size:1rem;margin-top:-6px;"><b>Agency-managed? You can book here.</b> The Care Web is run by a registered NDIS provider, so NDIA-managed, plan-managed and self-managed participants are all welcome — and if your worker can't make a shift, we find cover or tell you by 7am.</p>
         <div class="hero-ctas">
           <a href="#/find-workers" class="btn btn-primary btn-lg">Browse support workers</a>
           <a href="#/get-started" class="btn btn-secondary btn-lg">Create a free account</a>
@@ -1921,7 +1938,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   <div class="oo-marquee" aria-hidden="true"><div class="mq-track"><span>Employment support <i>0102</i></span><span class="mq-oo"></span><span>Personal care <i>0107</i></span><span class="mq-oo"></span><span>Travel &amp; transport <i>0108</i></span><span class="mq-oo"></span><span>Daily tasks &amp; shared living <i>0115</i></span><span class="mq-oo"></span><span>Household tasks <i>0120</i></span><span class="mq-oo"></span><span>Community participation <i>0125</i></span><span class="mq-oo"></span><span>Employment support <i>0102</i></span><span class="mq-oo"></span><span>Personal care <i>0107</i></span><span class="mq-oo"></span><span>Travel &amp; transport <i>0108</i></span><span class="mq-oo"></span><span>Daily tasks &amp; shared living <i>0115</i></span><span class="mq-oo"></span><span>Household tasks <i>0120</i></span><span class="mq-oo"></span><span>Community participation <i>0125</i></span><span class="mq-oo"></span></div></div>
 
   <!-- value strip -->
-  <div class="value-strip" role="region" aria-label="Why choose BookIt">
+  <div class="value-strip" role="region" aria-label="Why choose The Care Web">
     <div class="container">
       <div class="strip-heads">
         <div class="sh"><b>One</b><span>platform</span></div>
@@ -2089,7 +2106,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= SERVICES OVERVIEW ================= -->
-<section class="page" id="page-services" data-title="Support services — BookIt">
+<section class="page" id="page-services" data-title="Support services — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Support services</nav>
@@ -2110,7 +2127,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= SERVICE: EMPLOYMENT ================= -->
-<section class="page" id="page-services-employment" data-title="Employment support (0102) — BookIt">
+<section class="page" id="page-services-employment" data-title="Employment support (0102) — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/services">Support services</a> / Employment support</nav>
@@ -2175,7 +2192,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= SERVICE: PERSONAL CARE ================= -->
-<section class="page" id="page-services-personal-care" data-title="Personal care (0107) — BookIt">
+<section class="page" id="page-services-personal-care" data-title="Personal care (0107) — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/services">Support services</a> / Personal care</nav>
@@ -2202,7 +2219,7 @@ html.high-contrast .care-stage-block{display:none!important;}
       <div>
         <div class="info-card">
           <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 114.1 1.9c-.8.7-1.6 1.2-1.6 2.6M12 17h.01"/></svg> First &mdash; where the line sits</h3>
-          <p id="pcScopeLine">BookIt provides <b>standard-intensity</b> personal care.</p>
+          <p id="pcScopeLine">The Care Web provides <b>standard-intensity</b> personal care.</p>
           <p style="margin-bottom:0;">If a <b>high intensity daily personal activity</b> is part of your day, that's a <a href="#/specialist-supports">specialist support</a> &mdash; we arrange it rather than turn you away. You get one team coordinating the week and a provider registered for the clinical part, working alongside each other.</p>
         </div>
         <div class="info-card">
@@ -2241,7 +2258,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= SERVICE: TRANSPORT ================= -->
-<section class="page" id="page-services-transport" data-title="Travel & transport (0108) — BookIt">
+<section class="page" id="page-services-transport" data-title="Travel & transport (0108) — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/services">Support services</a> / Travel & transport</nav>
@@ -2305,7 +2322,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= SERVICE: DAILY TASKS / SHARED LIVING ================= -->
-<section class="page" id="page-services-daily-tasks" data-title="Daily tasks & shared living (0115/0138) — BookIt">
+<section class="page" id="page-services-daily-tasks" data-title="Daily tasks & shared living (0115/0138) — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/services">Support services</a> / Daily tasks & shared living</nav>
@@ -2370,7 +2387,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= SERVICE: HOUSEHOLD ================= -->
-<section class="page" id="page-services-household" data-title="Household tasks (0120) — BookIt">
+<section class="page" id="page-services-household" data-title="Household tasks (0120) — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/services">Support services</a> / Household tasks</nav>
@@ -2434,7 +2451,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= SERVICE: COMMUNITY ================= -->
-<section class="page" id="page-services-community" data-title="Community participation (0125) — BookIt">
+<section class="page" id="page-services-community" data-title="Community participation (0125) — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/services">Support services</a> / Community participation</nav>
@@ -2499,7 +2516,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= HOW IT WORKS ================= -->
-<section class="page" id="page-services-overnight" data-title="Overnight support: sleepovers and active nights — BookIt">
+<section class="page" id="page-services-overnight" data-title="Overnight support: sleepovers and active nights — The Care Web">
   <div class="container" style="max-width:860px;">
     <p class="eyebrow">Overnight support</p>
     <h1>Inactive night care, and active nights</h1>
@@ -2531,11 +2548,11 @@ html.high-contrast .care-stage-block{display:none!important;}
     </div>
   </div>
 </section>
-<section class="page" id="page-refer" data-title="Refer a support worker — BookIt">
+<section class="page" id="page-refer" data-title="Refer a support worker — The Care Web">
   <div class="container" style="max-width:860px;">
     <p class="eyebrow">For support workers</p>
     <h1>Know a good support worker? Refer them.</h1>
-    <p class="lede">The best workers are found by workers. Give someone you would want on your own roster your referral code; once they have completed <b id="refHours">50</b> hours with BookIt, you are paid a <b id="refBonus">$150</b> bonus on your next pay run. No cap on how many.</p>
+    <p class="lede">The best workers are found by workers. Give someone you would want on your own roster your referral code; once they have completed <b id="refHours">50</b> hours with The Care Web, you are paid a <b id="refBonus">$150</b> bonus on your next pay run. No cap on how many.</p>
     <div class="grid-2" style="margin-top:22px;">
       <div class="card">
         <h2 style="margin-top:0;">How it works</h2>
@@ -2559,10 +2576,10 @@ html.high-contrast .care-stage-block{display:none!important;}
     </div>
   </div>
 </section>
-<section class="page" id="page-form-screen" data-title="Fill in a form — BookIt">
+<section class="page" id="page-form-screen" data-title="Fill in a form — The Care Web">
   <div class="container" style="max-width:820px;"><div id="formScreen"><p class="muted-sm">Loading…</p></div></div>
 </section>
-<section class="page" id="page-shifts" data-title="Open shifts — BookIt">
+<section class="page" id="page-shifts" data-title="Open shifts — The Care Web">
   <div class="container" style="max-width:860px;">
     <p class="eyebrow">For workers</p>
     <h1>Open shifts near you</h1>
@@ -2570,11 +2587,11 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div id="shiftsList"><p class="muted-sm">Loading…</p></div>
   </div>
 </section>
-<section class="page" id="page-how-it-works" data-title="How it works — BookIt">
+<section class="page" id="page-how-it-works" data-title="How it works — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / How it works</nav>
-      <h1>How BookIt works</h1>
+      <h1>How The Care Web works</h1>
       <p class="lead">The control of hiring your own team, without the paperwork, risk or admin. Here's the full journey — from signing up to your hundredth booking.</p>
     </div>
   </div>
@@ -2664,7 +2681,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= PRICING ================= -->
-<section class="page" id="page-pricing" data-title="Pricing — BookIt">
+<section class="page" id="page-pricing" data-title="Pricing — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Pricing</nav>
@@ -2675,7 +2692,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <div class="ph-card"><span class="tag">Your worker earns</span><div class="big">$53.35<sup>/hr</sup></div><p>Including 12% super — 72.5% of your rate on day one, rising to 76.5%. Never below the SCHADS Award.</p></div>
         <div class="ph-card"><span class="tag">Gap fees</span><div class="big">$0</div><p>Never billed above the published maximum prices — so we never ask you for a top-up</p></div>
       </div>
-      <p class="muted-sm" style="margin-top:14px;max-width:62em;">Different support items, times, intensity levels and locations have different rates — employment support and household tasks have their own limits, shown below. Your exact agreed price is shown before you book. BookIt supports self-managed, plan-managed and NDIA-managed participants; a booking can be paid from NDIS funding where the support is included in your plan and meets the applicable claiming requirements.</p>
+      <p class="muted-sm" style="margin-top:14px;max-width:62em;">Different support items, times, intensity levels and locations have different rates — employment support and household tasks have their own limits, shown below. Your exact agreed price is shown before you book. The Care Web supports self-managed, plan-managed and NDIA-managed participants; a booking can be paid from NDIS funding where the support is included in your plan and meets the applicable claiming requirements.</p>
     </div>
   </div>
 
@@ -2703,10 +2720,10 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
       <div id="pExtras" style="margin-top:26px;">
         <h2 class="mb-2">Everything else on the price list</h2>
-        <p class="tbl-note" style="margin-top:0;">Every charge that can ever appear on a BookIt invoice, and the two things that are free. Live from the same rate table as the hours above.</p>
+        <p class="tbl-note" style="margin-top:0;">Every charge that can ever appear on a Care Web invoice, and the two things that are free. Live from the same rate table as the hours above.</p>
         <div class="table-wrap"><table id="pExtrasTable"><thead><tr><th scope="col">What</th><th scope="col">Price</th><th scope="col">How it works</th></tr></thead><tbody><tr><td colspan="3"><span class="muted-sm">Loading…</span></td></tr></tbody></table></div>
       </div>
-      <p class="tbl-note" style="margin-top:14px;">Managing plans for clients on BookIt? <a href="#/for-plan-managers">The plan managers' page</a> covers claims, statements and scoped access in one read.</p>
+      <p class="tbl-note" style="margin-top:14px;">Managing plans for clients on The Care Web? <a href="#/for-plan-managers">The plan managers' page</a> covers claims, statements and scoped access in one read.</p>
       <div id="pClaimSection" hidden style="margin-top:26px;">
         <h2 class="mb-2">What your plan is charged against</h2>
         <div class="table-wrap">
@@ -2768,17 +2785,30 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= FIND WORKERS ================= -->
-<section class="page" id="page-find-workers" data-title="Find support workers — BookIt">
+<section class="page" id="page-find-workers" data-title="Find support workers — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Find workers</nav>
       <h1>Find your kind of support worker</h1>
-      <p class="lead">Every profile below is a real style of worker you'll find on BookIt — verified, insured and interviewed. Narrow by service, day, language, gender, rating or shared interests — no account needed, and the filtered page is a link you can send to anyone.</p>
+      <p class="lead">Every profile below is a real style of worker you'll find on The Care Web — verified, insured and interviewed. Narrow by service, day, language, gender, rating or shared interests — no account needed, and the filtered page is a link you can send to anyone.</p>
       <p class="lead demo-note" id="findWorkersDemo" hidden></p>
     </div>
   </div>
   <section class="block">
     <div class="container">
+      <form id="reviewVisitFilter" class="review-panel" aria-label="Find availability for a whole visit">
+        <h2 style="font-size:1.15rem;margin:0 0 12px;">Check a specific visit</h2>
+        <div class="review-grid">
+          <label>Visit date<input name="date" type="date" required></label>
+          <label>Start time<input name="start" type="time" required value="09:00"></label>
+          <label>Hours<input name="hours" type="number" min="0.25" max="10" step="0.25" required value="2"></label>
+          <label>Visit suburb and state, or postcode<input name="place" maxlength="100" placeholder="e.g. Ryde NSW"></label>
+        </div>
+        <p class="muted-sm">Uses the service selected below. Locations are matched to declared areas, not estimated travel distances. The final booking is checked again.</p>
+        <button class="btn btn-primary btn-sm" type="submit">Check this visit</button>
+        <button class="btn btn-secondary btn-sm" type="button" id="reviewClearVisit">Clear visit dates</button>
+        <p id="reviewVisitStatus" role="status" class="muted-sm"></p>
+      </form>
       <div class="filter-bar" role="search" aria-label="Filter support workers">
         <div class="fb-svc">
           <label for="filterService">Service&nbsp;</label>
@@ -2849,7 +2879,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= WORKER PROFILE PAGE ================= -->
-<section class="page" id="page-worker" data-title="Worker profile — BookIt">
+<section class="page" id="page-worker" data-title="Worker profile — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/find-workers">Find workers</a> / <span id="wpCrumb">Profile</span></nav>
@@ -2861,7 +2891,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= FOR SUPPORT WORKERS ================= -->
-<section class="page" id="page-support-workers" data-title="Become a support worker — BookIt">
+<section class="page" id="page-support-workers" data-title="Become a support worker — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / For support workers</nav>
@@ -2991,12 +3021,12 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= SAFETY ================= -->
-<section class="page" id="page-safety" data-title="Safety & quality — BookIt">
+<section class="page" id="page-safety" data-title="Safety & quality — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Safety & quality</nav>
       <h1>Safety isn't a feature. It's the foundation.</h1>
-      <p class="lead">Everything on BookIt is built to the NDIS Practice Standards — from how we screen workers to how we respond at 3am when something isn't right.</p>
+      <p class="lead">Everything on The Care Web is built to the NDIS Practice Standards — from how we screen workers to how we respond at 3am when something isn't right.</p>
     </div>
   </div>
 
@@ -3076,7 +3106,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= HOW WE CHECK EVERY WORKER ================= -->
-<section class="page" id="page-specialist-supports" data-title="Specialist supports — BookIt">
+<section class="page" id="page-specialist-supports" data-title="Specialist supports — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/services/personal-care">Personal care</a> / Specialist supports</nav>
@@ -3123,7 +3153,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 </section>
 
-<section class="page" id="page-verification" data-title="How we check every worker — BookIt">
+<section class="page" id="page-verification" data-title="How we check every worker — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/safety">Safety &amp; quality</a> / How we check every worker</nav>
@@ -3135,7 +3165,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   <section class="block">
     <div class="container narrow">
       <h2>The two checks we do for everyone</h2>
-      <p>Every person who takes a booking through BookIt holds a current <b>NDIS Worker Screening Check</b>, and we confirm the clearance itself with the screening unit rather than taking the card at face value. A card can still read 2029 after a clearance has been suspended, so the date on the document is not the thing we rely on.</p>
+      <p>Every person who takes a booking through The Care Web holds a current <b>NDIS Worker Screening Check</b>, and we confirm the clearance itself with the screening unit rather than taking the card at face value. A card can still read 2029 after a clearance has been suspended, so the date on the document is not the thing we rely on.</p>
       <p>We also check each worker against <b>three separate banning orders registers</b> — the NDIS Quality and Safeguards Commission's register, aged care banning orders made under the <i>Aged Care Act 2024</i>, and aged care orders made under the earlier <i>Aged Care Quality and Safety Commission Act 2018</i> before that Act commenced. All three are named in the conditions, and a clear answer on one says nothing about the other two. We check again on a rolling cycle rather than once at induction — because the registers change, and a check done two years ago tells you about two years ago. What we found on each, and roughly when we looked, is written on the worker's own profile.</p>
 
       <h2 style="margin-top:34px;">What "verified" means on a profile</h2>
@@ -3157,11 +3187,11 @@ html.high-contrast .care-stage-block{display:none!important;}
         <blockquote>
           worker screening check requirements ensuring that only persons who hold a worker screening clearance may use the platform; and requirements to check and display certain information about persons providing supports on the platform, such as whether a banning order against a person is in force.
         </blockquote>
-        <p style="margin-top:12px;font-size:.92rem;">We read the first as a gate on using the platform, not a filing obligation — so an uncleared worker isn't hidden from search while still able to take a booking; they can't do either. And we read the second as it's written: check <i>and</i> display, worker by worker. Both are built into how BookIt works rather than added on top of it.</p>
+        <p style="margin-top:12px;font-size:.92rem;">We read the first as a gate on using the platform, not a filing obligation — so an uncleared worker isn't hidden from search while still able to take a booking; they can't do either. And we read the second as it's written: check <i>and</i> display, worker by worker. Both are built into how The Care Web works rather than added on top of it.</p>
       </div>
 
       <h2 style="margin-top:34px;">Who employs your worker</h2>
-      <p>Everyone you can book through BookIt is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd, a registered NDIS provider — registration <b>4-LO5XNY0</b>, ABN 19 658 578 575. That means award pay, superannuation, workers compensation and supervision sit with us, not with you.</p>
+      <p>Everyone you can book through The Care Web is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd, a registered NDIS provider — registration <b>4-LO5XNY0</b>, ABN 19 658 578 575. That means award pay, superannuation, workers compensation and supervision sit with us, not with you.</p>
 
       <div class="btns" style="margin-top:26px;">
         <a href="#/find-workers" class="btn btn-primary btn-lg">Find a worker</a>
@@ -3172,12 +3202,12 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= ABOUT ================= -->
-<section class="page" id="page-about" data-title="About us — BookIt">
+<section class="page" id="page-about" data-title="About us — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / About us</nav>
       <h1>Support should feel like it's on your side</h1>
-      <p class="lead">BookIt was started by people who'd lived both sides of the roster — participants tired of strangers at the door, and workers tired of being treated like line items.</p>
+      <p class="lead">The Care Web was started by people who'd lived both sides of the roster — participants tired of strangers at the door, and workers tired of being treated like line items.</p>
     </div>
   </div>
 
@@ -3206,8 +3236,8 @@ html.high-contrast .care-stage-block{display:none!important;}
           <p>NDIS participants of every age and plan type, their families and nominees, support coordinators building reliable teams — and the support workers who make it all real.</p>
         </div>
         <div class="info-card">
-          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg> The company behind BookIt</h3>
-          <p>BookIt is owned and operated by <b>Disability &amp; Mental Health Care Pty Ltd</b> — a registered NDIS provider (Registration 4-LO5XNY0, ABN 19 658 578 575) based in NSW and registered to deliver supports throughout Australia. Same registered accountability, new way to book your supports.</p>
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg> The company behind The Care Web</h3>
+          <p>The Care Web is owned and operated by <b>Disability &amp; Mental Health Care Pty Ltd</b> — a registered NDIS provider (Registration 4-LO5XNY0, ABN 19 658 578 575) based in NSW and registered to deliver supports throughout Australia. Same registered accountability, new way to book your supports.</p>
         </div>
       </div>
     </div>
@@ -3219,19 +3249,19 @@ html.high-contrast .care-stage-block{display:none!important;}
       <p class="lead mt-1" style="margin-left:auto;margin-right:auto;">Questions, feedback, partnership ideas — we answer fast, and a human always replies.</p>
       <div class="hero-ctas mt-3" style="justify-content:center;">
         <a href="#/contact" class="btn btn-primary">Contact us</a>
-        <a href="#/get-started" class="btn btn-secondary">Join BookIt</a>
+        <a href="#/get-started" class="btn btn-secondary">Join The Care Web</a>
       </div>
     </div>
   </section>
 </section>
 
 <!-- ================= FAQ ================= -->
-<section class="page" id="page-faq" data-title="FAQ & help — BookIt">
+<section class="page" id="page-faq" data-title="FAQ & help — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / FAQ & help</nav>
       <h1>Frequently asked questions</h1>
-      <p class="lead">Straight answers about how BookIt works — for participants, families and support workers. Can't find yours? <a href="#/contact">Ask us directly</a>.</p>
+      <p class="lead">Straight answers about how The Care Web works — for participants, families and support workers. Can't find yours? <a href="#/contact">Ask us directly</a>.</p>
     </div>
   </div>
   <section class="block">
@@ -3242,7 +3272,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= CONTACT ================= -->
-<section class="page" id="page-contact" data-title="Contact us — BookIt">
+<section class="page" id="page-contact" data-title="Contact us — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Contact</nav>
@@ -3275,7 +3305,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         </div>
         <div class="info-card">
           <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg> Email</h3>
-          <p>hello@bookit.life<br>workers@bookit.life</p>
+          <p>hello@thecareweb.com.au<br>workers@thecareweb.com.au</p>
         </div>
         <div class="info-card">
           <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> Accessibility & interpreters</h3>
@@ -3287,7 +3317,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= LEGAL ================= -->
-<section class="page" id="page-legal" data-title="Privacy & terms — BookIt">
+<section class="page" id="page-legal" data-title="Privacy & terms — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Privacy & terms</nav>
@@ -3300,22 +3330,22 @@ html.high-contrast .care-stage-block{display:none!important;}
       <div class="info-card" id="lg-privacy">
         <h3>Privacy policy</h3>
         <p class="muted-sm">In plain language, structured to the Australian Privacy Principles — the formal wording is being settled with our legal reviewer before launch.</p>
-        <p><b>Who we are.</b> BookIt is operated by Disability &amp; Mental Health Care Pty Ltd (ABN 19 658 578 575), a registered NDIS provider. Privacy contact: <b>privacy@bookit.life</b> or 0488 114 368.</p>
+        <p><b>Who we are.</b> The Care Web is operated by Disability &amp; Mental Health Care Pty Ltd (ABN 19 658 578 575), a registered NDIS provider. Privacy contact: <b>privacy@thecareweb.com.au</b> or 0488 114 368.</p>
         <p><b>What we collect.</b> Account details (name, email, phone, suburb); NDIS details you choose to give (NDIS number, how your plan is managed, plan-manager contact); your support plan and the supports you're seeking — which can include health and disability information; documents you or the office add to your file; booking, message, payment and statement records; and for workers, credentials, screening checks, qualifications and payroll details. Security logs are kept to protect accounts.</p>
         <p><b>How we collect and hold it.</b> Directly from you through forms and bookings, from your authorised representative, or from workers and staff recording the support they deliver. It is held on servers in Australia (primary hosting: AWS Sydney) with access restricted by role — a worker never sees your file, only the short brief from your support plan and, if you allow it, the clinical plans they must follow on a shift.</p>
         <p><b>Why we use it.</b> To create and run your account, match and roster workers safely, deliver and record supports, process NDIS or private payments, meet our obligations as a registered provider (worker screening, incidents, complaints), and improve the service.</p>
-        <p><b>Who we share it with.</b> The workers you book (the short brief only); your authorised representative, nominee or plan manager; the NDIA where claiming requires; the NDIS Commission and other bodies where the law requires; and the service providers that operate BookIt (hosting, email, payments). We never sell personal information.</p>
+        <p><b>Who we share it with.</b> The workers you book (the short brief only); your authorised representative, nominee or plan manager; the NDIA where claiming requires; the NDIS Commission and other bodies where the law requires; and the service providers that operate The Care Web (hosting, email, payments). We never sell personal information.</p>
         <p><b>Overseas disclosure.</b> We aim to keep all personal information in Australia and are verifying every supporting system (backups, email, monitoring) before launch. If any provider holds data overseas, this policy will name the countries before that happens.</p>
-        <p><b>Access, correction and deletion.</b> Download everything we hold about you any time from your Profile ("A copy of your data"). Ask us to correct anything at privacy@bookit.life. You can ask us to delete your account; some records must be kept for the periods NDIS rules and other laws set, and we'll tell you which ones and for how long.</p>
-        <p><b>Complaints.</b> Contact privacy@bookit.life first. If you're not satisfied, you can complain to the Office of the Australian Information Commissioner (oaic.gov.au).</p>
+        <p><b>Access, correction and deletion.</b> Download everything we hold about you any time from your Profile ("A copy of your data"). Ask us to correct anything at privacy@thecareweb.com.au. You can ask us to delete your account; some records must be kept for the periods NDIS rules and other laws set, and we'll tell you which ones and for how long.</p>
+        <p><b>Complaints.</b> Contact privacy@thecareweb.com.au first. If you're not satisfied, you can complain to the Office of the Australian Information Commissioner (oaic.gov.au).</p>
       </div>
       <div class="info-card" id="lg-collection">
         <h3>Collection notice</h3>
-        <p>Disability &amp; Mental Health Care Pty Ltd collects the information in our sign-up and booking forms to create your BookIt account, assess the supports you are seeking, safely match and roster workers, manage bookings and process NDIS or private payments. Name, email and password are required to create an account — without them we can't open one; everything else is optional at sign-up and can be added later. Health and disability information you choose to share (for example in your support plan or the high-intensity support questions) is collected with your consent and used only to plan and deliver safe support. Information may be shared with workers you choose, your authorised representative or plan manager, the NDIA where claiming requires, and the service providers that operate BookIt. The Privacy policy above covers access, correction and complaints.</p>
+        <p>Disability &amp; Mental Health Care Pty Ltd collects the information in our sign-up and booking forms to create your The Care Web account, assess the supports you are seeking, safely match and roster workers, manage bookings and process NDIS or private payments. Name, email and password are required to create an account — without them we can't open one; everything else is optional at sign-up and can be added later. Health and disability information you choose to share (for example in your support plan or the high-intensity support questions) is collected with your consent and used only to plan and deliver safe support. Information may be shared with workers you choose, your authorised representative or plan manager, the NDIA where claiming requires, and the service providers that operate The Care Web. The Privacy policy above covers access, correction and complaints.</p>
       </div>
       <div class="info-card" id="lg-terms">
         <h3>Website &amp; platform terms</h3>
-        <p>BookIt is a platform of Disability &amp; Mental Health Care Pty Ltd (ABN 19 658 578 575), a registered NDIS provider. BookIt connects participants with employed support workers. Bookings are made through the platform; rates are published on the Pricing page; cancellation terms follow the NDIS Pricing Arrangements and your service agreement. Everyone on the platform follows the NDIS Code of Conduct.</p>
+        <p>The Care Web is a platform of Disability &amp; Mental Health Care Pty Ltd (ABN 19 658 578 575), a registered NDIS provider. The Care Web connects participants with employed support workers. Bookings are made through the platform; rates are published on the Pricing page; cancellation terms follow the NDIS Pricing Arrangements and your service agreement. Everyone on the platform follows the NDIS Code of Conduct.</p>
       </div>
       <div class="info-card" id="lg-agreement">
         <h3>Participant service agreement</h3>
@@ -3339,14 +3369,14 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
       <div class="info-card" id="lg-accessibility">
         <h3>Accessibility statement</h3>
-        <p>Every page carries the accessibility panel — larger text, an easier-to-read font, reduced motion and high contrast — plus an Easy Read version of the service, National Relay Service and interpreter access, and forms that work with a keyboard and a screen reader. We're not finished: if something on this site is hard for you to use, tell us and we'll fix it — hello@bookit.life or 0488 114 368.</p>
+        <p>Every page carries the accessibility panel — larger text, an easier-to-read font, reduced motion and high contrast — plus an Easy Read version of the service, National Relay Service and interpreter access, and forms that work with a keyboard and a screen reader. We're not finished: if something on this site is hard for you to use, tell us and we'll fix it — hello@thecareweb.com.au or 0488 114 368.</p>
       </div>
     </div>
   </section>
 </section>
 
 <!-- ================= GET STARTED ================= -->
-<section class="page" id="page-get-started" data-title="Get started — BookIt">
+<section class="page" id="page-get-started" data-title="Get started — The Care Web">
   <div class="page-hero">
     <div class="container center">
       <h1 style="margin:0 auto;">Let's get you started</h1>
@@ -3432,7 +3462,7 @@ html.high-contrast .care-stage-block{display:none!important;}
             <input type="checkbox" id="pTerms" required style="width:18px;height:18px;margin-top:3px;flex:none;">
             <span class="muted-sm">I have read and accept the <a href="#/legal" target="_blank">terms and privacy policy</a>, including the collection of health and disability information I choose to share, used only to plan and deliver safe support.</span>
           </label>
-          <p class="form-note full" style="grid-column:1/-1;margin:0;">Disability &amp; Mental Health Care Pty Ltd collects this information to create your BookIt account, assess the supports you're seeking, safely match and roster workers, manage bookings and process NDIS or private payments. Some information may be shared with workers you choose, your authorised representative or plan manager, and the NDIA where claiming requires. <a href="#/legal" target="_blank">Collection notice &amp; privacy policy</a>.</p>
+          <p class="form-note full" style="grid-column:1/-1;margin:0;">Disability &amp; Mental Health Care Pty Ltd collects this information to create your The Care Web account, assess the supports you're seeking, safely match and roster workers, manage bookings and process NDIS or private payments. Some information may be shared with workers you choose, your authorised representative or plan manager, and the NDIA where claiming requires. <a href="#/legal" target="_blank">Collection notice &amp; privacy policy</a>.</p>
           <button type="submit" class="btn btn-primary btn-lg full" style="grid-column:1/-1;">Create my free profile</button>
           <p class="form-note full" style="grid-column:1/-1;">By continuing you agree to our <a href="#/legal">terms and privacy policy</a>. No payment details required.</p>
         </form>
@@ -3458,7 +3488,7 @@ html.high-contrast .care-stage-block{display:none!important;}
               <label class="choice-pill"><input type="checkbox" name="wSvc" value="household"><span>Household</span></label>
               <label class="choice-pill"><input type="checkbox" name="wSvc" value="community"><span>Community</span></label>
             </div>
-            <p class="muted-sm" style="margin:10px 0 0;"><b>What you won't be asked to do.</b> BookIt delivers standard-intensity supports only. You will never be rostered for high intensity daily personal activities &mdash; complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, catheter insertion or changes, subcutaneous injections, or complex wound management. If a participant ever asks you for one of those on shift, don't do it: stop, and tell us the same day.</p>
+            <p class="muted-sm" style="margin:10px 0 0;"><b>What you won't be asked to do.</b> The Care Web delivers standard-intensity supports only. You will never be rostered for high intensity daily personal activities &mdash; complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, catheter insertion or changes, subcutaneous injections, or complex wound management. If a participant ever asks you for one of those on shift, don't do it: stop, and tell us the same day.</p>
           </div>
           <div class="field full">
             <label>Do you have an NDIS Worker Screening Check?</label>
@@ -3665,7 +3695,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </style>
 
 <!-- ================= MY CLIENTS (coordinator) ================= -->
-<section class="page" id="page-clients" data-title="My clients — BookIt">
+<section class="page" id="page-clients" data-title="My clients — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / My clients</nav>
@@ -3681,7 +3711,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= PEOPLE WITH ACCESS (participant) ================= -->
-<section class="page" id="page-access" data-title="People with access — BookIt">
+<section class="page" id="page-access" data-title="People with access — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / People with access</nav>
@@ -3697,7 +3727,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= INVITE LANDING ================= -->
-<section class="page" id="page-invite" data-title="You've been invited — BookIt">
+<section class="page" id="page-invite" data-title="You've been invited — The Care Web">
   <section class="block" style="padding-top:56px;">
     <div class="container">
       <div id="inviteWrap" class="invite-card"><p class="muted-sm">Checking your invitation…</p></div>
@@ -3706,7 +3736,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= CALCULATOR ================= -->
-<section class="page" id="page-calculator" data-title="What will a shift cost? — BookIt">
+<section class="page" id="page-calculator" data-title="What will a shift cost? — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/pricing">Pricing</a> / Calculator</nav>
@@ -3778,7 +3808,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= JOBS BOARD ================= -->
-<section class="page" id="page-jobs" data-title="Open jobs — BookIt">
+<section class="page" id="page-jobs" data-title="Open jobs — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Jobs</nav>
@@ -3817,7 +3847,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= ONE JOB ================= -->
-<section class="page" id="page-job" data-title="Job — BookIt">
+<section class="page" id="page-job" data-title="Job — The Care Web">
   <section class="block" style="padding-top:40px;">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb" style="margin-bottom:14px;"><a href="#/">Home</a> / <a href="#/jobs">Jobs</a> / <span id="jobCrumb">Post</span></nav>
@@ -3827,7 +3857,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= POST A JOB ================= -->
-<section class="page" id="page-post-job" data-title="Post a job — BookIt">
+<section class="page" id="page-post-job" data-title="Post a job — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / <a href="#/jobs">Jobs</a> / Post</nav>
@@ -3843,7 +3873,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= MY JOB POSTS ================= -->
-<section class="page" id="page-my-jobs" data-title="My job posts — BookIt">
+<section class="page" id="page-my-jobs" data-title="My job posts — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / My job posts</nav>
@@ -3857,7 +3887,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= MY APPLICATIONS ================= -->
-<section class="page" id="page-my-applications" data-title="My applications — BookIt">
+<section class="page" id="page-my-applications" data-title="My applications — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / My applications</nav>
@@ -3871,7 +3901,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= STATEMENTS ================= -->
-<section class="page" id="page-statements" data-title="Invoices & statements — BookIt">
+<section class="page" id="page-statements" data-title="Invoices & statements — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Invoices &amp; statements</nav>
@@ -3885,7 +3915,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= SECURITY ================= -->
-<section class="page" id="page-security" data-title="Security & sign-in — BookIt">
+<section class="page" id="page-security" data-title="Security & sign-in — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Security &amp; sign-in</nav>
@@ -3899,12 +3929,12 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= EARNINGS ================= -->
-<section class="page" id="page-earnings" data-title="My earnings — BookIt">
+<section class="page" id="page-earnings" data-title="My earnings — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / My earnings</nav>
       <h1>My earnings</h1>
-      <p class="lead">What BookIt owes you for work already done — per shift, per fortnight, and for the year — before tax and including super. No waiting for a payslip to find out.</p>
+      <p class="lead">What The Care Web owes you for work already done — per shift, per fortnight, and for the year — before tax and including super. No waiting for a payslip to find out.</p>
     </div>
   </div>
   <section class="block">
@@ -3913,12 +3943,12 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= THE LADDER ================= -->
-<section class="page" id="page-ladder" data-title="The BookIt ladder — BookIt">
+<section class="page" id="page-ladder" data-title="The Care Web ladder — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / The ladder</nav>
-      <h1>The BookIt ladder</h1>
-      <p class="lead">Four levels, earned with hours. A level is recognition of time worked through BookIt over the last twelve months &mdash; and for workers, it sets the share of every hour that is theirs.</p>
+      <h1>The Care Web ladder</h1>
+      <p class="lead">Four levels, earned with hours. A level is recognition of time worked through The Care Web over the last twelve months &mdash; and for workers, it sets the share of every hour that is theirs.</p>
     </div>
   </div>
   <section class="block">
@@ -3927,7 +3957,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= TRAINING ================= -->
-<section class="page" id="page-training" data-title="Training — BookIt">
+<section class="page" id="page-training" data-title="Training — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Training</nav>
@@ -3941,7 +3971,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= FOR PLAN MANAGERS ================= -->
-<section class="page" id="page-for-plan-managers" data-title="For plan managers — BookIt">
+<section class="page" id="page-for-plan-managers" data-title="For plan managers — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / For plan managers</nav>
@@ -3966,11 +3996,11 @@ html.high-contrast .care-stage-block{display:none!important;}
         </div>
         <div class="info-card">
           <h3 style="margin:0 0 8px;">A person, when you need one</h3>
-          <p>Queries about a line item: <a href="#/contact">hello@bookit.life</a> — include the invoice number and we answer with the shift note attached, because the note is the proof the support happened. Transport labour claims under the 0125 set (0108 has no hourly labour items) — <a href="#/calculator">the calculator shows which item any shift claims</a>.</p>
+          <p>Queries about a line item: <a href="#/contact">hello@thecareweb.com.au</a> — include the invoice number and we answer with the shift note attached, because the note is the proof the support happened. Transport labour claims under the 0125 set (0108 has no hourly labour items) — <a href="#/calculator">the calculator shows which item any shift claims</a>.</p>
         </div>
       </div>
       <div class="info-card" style="margin-top:18px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
-        <p style="margin:0;"><b>Managing a plan for someone on BookIt?</b> Ask them to invite you — it takes them under a minute.</p>
+        <p style="margin:0;"><b>Managing a plan for someone on The Care Web?</b> Ask them to invite you — it takes them under a minute.</p>
         <a class="btn btn-primary" href="#/contact">Talk to us</a>
       </div>
       <div class="card" style="margin-top:18px;" id="referralCard">
@@ -3994,12 +4024,12 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= FOR FAMILIES ================= -->
-<section class="page" id="page-for-families" data-title="For families & carers — BookIt">
+<section class="page" id="page-for-families" data-title="For families & carers — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / For families &amp; carers</nav>
       <h1>For families &amp; carers</h1>
-      <p class="lead">You want to know three things: who is coming to the house, whether they're properly checked, and what happened on the shift. Here is how BookIt answers each — and how to help without taking over.</p>
+      <p class="lead">You want to know three things: who is coming to the house, whether they're properly checked, and what happened on the shift. Here is how The Care Web answers each — and how to help without taking over.</p>
     </div>
   </div>
   <section class="block">
@@ -4034,11 +4064,11 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= LOCATIONS ================= -->
-<section class="page" id="page-locations" data-title="Where BookIt works — BookIt">
+<section class="page" id="page-locations" data-title="Where The Care Web works — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Locations</nav>
-      <h1>Where BookIt works</h1>
+      <h1>Where The Care Web works</h1>
       <p class="lead">Available across Australia by design, with the deepest coverage where our worker pools are. An honest map beats a marketing one: here is where you'll find the most choice today.</p>
     </div>
   </div>
@@ -4071,7 +4101,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= ACCOUNT SETTINGS ================= -->
-<section class="page" id="page-account" data-title="Settings — BookIt">
+<section class="page" id="page-account" data-title="Settings — The Care Web">
   <div class="page-hero page-hero-slim">
     <div class="container">
       <h1>Settings</h1>
@@ -4082,7 +4112,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 </section>
 
-<section class="page" id="page-messages" data-title="Messages — BookIt">
+<section class="page" id="page-messages" data-title="Messages — The Care Web">
   <section class="block" style="padding-top:40px;">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb" style="margin-bottom:14px;"><a href="#/">Home</a> / Messages</nav>
@@ -4127,10 +4157,10 @@ html.high-contrast .care-stage-block{display:none!important;}
             </div>
             <div class="thread-safety">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/></svg>
-            For your safety, keep chats and bookings on BookIt. Never share bank details or passwords.
+            For your safety, keep chats and bookings on The Care Web. Never share bank details or passwords.
             </div>
             <div class="thread-body" id="threadBody" aria-live="polite"></div>
-            <p id="threadReadOnly" hidden style="margin:0;padding:12px 16px;background:#FDF4EC;border-top:1.5px solid #E8C9A8;color:#7a4a12;font-size:.92rem;">This worker is currently unavailable on BookIt, so this conversation is <b>read-only</b> for now. You can still read everything here. <a href="#/contact">Contact BookIt</a> if you need help arranging another worker.</p>
+            <p id="threadReadOnly" hidden style="margin:0;padding:12px 16px;background:#FDF4EC;border-top:1.5px solid #E8C9A8;color:#7a4a12;font-size:.92rem;">This worker is currently unavailable on The Care Web, so this conversation is <b>read-only</b> for now. You can still read everything here. <a href="#/contact">Contact The Care Web</a> if you need help arranging another worker.</p>
             <form class="composer" id="composer">
               <label for="composerInput" class="sr-only" style="position:absolute;left:-9999px;">Type a message</label>
               <div class="att-staged" id="attStaged" hidden>
@@ -4139,7 +4169,7 @@ html.high-contrast .care-stage-block{display:none!important;}
                 <span id="attStagedChip"></span>
                 <button type="button" class="att-x" id="attRemove" aria-label="Don't send this document">✕</button>
               </div>
-              <button type="button" class="att-clip" id="attClip" hidden aria-label="Attach a document" title="Attach a document you already hold on BookIt">
+              <button type="button" class="att-clip" id="attClip" hidden aria-label="Attach a document" title="Attach a document you already hold on The Care Web">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
               </button>
               <textarea id="composerInput" rows="1" placeholder="Type a message…" aria-label="Type a message"></textarea>
@@ -4156,12 +4186,12 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= EASY READ ================= -->
-<section class="page" id="page-easy-read" data-title="Easy Read — BookIt">
+<section class="page" id="page-easy-read" data-title="Easy Read — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Easy Read</nav>
       <span class="kicker">Easy Read</span>
-      <h1>About BookIt — Easy Read</h1>
+      <h1>About The Care Web — Easy Read</h1>
       <p class="lead">This page is in Easy Read. It uses short sentences, big text and pictures.</p>
       <div class="hero-ctas mt-3">
         <a href="#/" class="btn btn-secondary">Go to the main website</a>
@@ -4257,6 +4287,8 @@ html.high-contrast .care-stage-block{display:none!important;}
   .fr-track.missing{background:#FDECE7;border-color:#D94F32;color:#A5301A;}
   .fr-track.na{background:#EEEDEA;border-color:#9A958D;color:#4F4B45;}
   .fr-track.page{background:#DBF2E4;border-color:#2E6B4F;color:#215239;}
+  .ooa-dialog{border:1px solid #d8d3cb;border-radius:12px;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .ooa-dialog::backdrop{background:rgba(20,20,20,.45)}
   .pipe{display:flex;flex-direction:column;gap:4px}
   .pipe-row summary{display:grid;grid-template-columns:minmax(12em,2fr) 3fr 3em 5em auto;gap:10px;align-items:center;cursor:pointer;padding:5px 6px;border-radius:6px;list-style:none}
   .pipe-row summary::-webkit-details-marker{display:none}
@@ -4472,12 +4504,12 @@ html.high-contrast .care-stage-block{display:none!important;}
 </style>
 
 <!-- ================= BOOKINGS ================= -->
-<section class="page" id="page-bookings" data-title="My bookings — BookIt">
+<section class="page" id="page-bookings" data-title="My bookings — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / My bookings</nav>
       <h1>My bookings</h1>
-      <p class="lead">Requests, confirmations and history — all in one place. Nothing is ever charged until a worker accepts and the shift is done.</p>
+      <p class="lead">Requests, confirmations and history — all in one place. Requests are not charged. Delivered support is billed after approval; accepted short-notice cancellations may also be charged under your service agreement.</p>
     </div>
   </div>
   <section class="block">
@@ -4489,7 +4521,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= SUPPORT PLAN ================= -->
-<section class="page" id="page-support-plan" data-title="Your support plan &mdash; BookIt">
+<section class="page" id="page-support-plan" data-title="Your support plan &mdash; The Care Web">
   <style>
     .sp-strip{background:rgba(255,255,255,.78);border:1.5px solid #E7DFD4;border-radius:18px;padding:18px 20px;margin-bottom:20px;border-left:6px solid #0E6B62;}
     .sp-strip.t1{border-left-color:#D94F32;} .sp-strip.t2{border-left-color:#F5B841;} .sp-strip.t0{border-left-color:#C8BCA9;}
@@ -4552,7 +4584,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </section>
 
 <!-- ================= EMAIL FLOWS ================= -->
-<section class="page" id="page-reset" data-title="Choose a new password — BookIt">
+<section class="page" id="page-reset" data-title="Choose a new password — The Care Web">
   <div class="page-hero">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Reset password</nav>
@@ -4572,7 +4604,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 </section>
 
-<section class="page" id="page-pay-success" data-title="Payment received — BookIt">
+<section class="page" id="page-pay-success" data-title="Payment received — The Care Web">
   <section class="block">
     <div class="container center" style="max-width:640px;padding-top:70px;">
       <div class="info-card">
@@ -4584,7 +4616,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 </section>
 
-<section class="page" id="page-verified" data-title="Email confirmed — BookIt">
+<section class="page" id="page-verified" data-title="Email confirmed — The Care Web">
   <section class="block">
     <div class="container center" style="max-width:640px;padding-top:70px;">
       <div class="info-card">
@@ -4596,20 +4628,20 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 </section>
 
-<section class="page" id="page-verify-failed" data-title="Link expired — BookIt">
+<section class="page" id="page-verify-failed" data-title="Link expired — The Care Web">
   <section class="block">
     <div class="container center" style="max-width:640px;padding-top:70px;">
       <div class="info-card">
         <h3>That link has expired</h3>
         <p>Confirmation links last 7 days, and each new email replaces the older ones. No drama — log in and press <b>Resend email</b> on the yellow banner, and a fresh link will be in your inbox in seconds.</p>
-        <p style="margin-top:18px;"><a class="btn btn-primary" href="#/">Back to BookIt</a></p>
+        <p style="margin-top:18px;"><a class="btn btn-primary" href="#/">Back to The Care Web</a></p>
       </div>
     </div>
   </section>
 </section>
 
 <!-- ================= ADMIN ================= -->
-<section class="page" id="page-admin" data-title="Admin — BookIt">
+<section class="page" id="page-admin" data-title="Admin — The Care Web">
   <style>
     .ap-top{display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap;}
     .adm-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:8px;}
@@ -4687,7 +4719,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     </div>
     <div class="foot-grid">
       <div class="foot-brand">
-        <a href="#/" class="logo" aria-label="BookIt home">b<svg class="oo" viewBox="0 0 90 48" aria-hidden="true"><circle class="o1" cx="27" cy="24" r="22" fill="#2AA396"/><circle class="o2" cx="63" cy="24" r="22" fill="#F5B841"/><path class="lens" d="M45 11.35 A22 22 0 0 1 45 36.65 A22 22 0 0 1 45 11.35 Z" fill="#9BD9CB"/><path class="tick" d="M52 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>kit</a>
+        <a href="#/" class="logo" aria-label="The Care Web home"><svg class="oo" viewBox="0 0 90 48" aria-hidden="true"><circle class="o1" cx="27" cy="24" r="22" fill="#2AA396"/><circle class="o2" cx="63" cy="24" r="22" fill="#F5B841"/><path class="lens" d="M45 11.35 A22 22 0 0 1 45 36.65 A22 22 0 0 1 45 11.35 Z" fill="#9BD9CB"/><path class="tick" d="M52 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="wm"><span class="wm-the">the</span>care<span class="wm-web">web</span></span></a>
         <p>Find, book and manage NDIS support workers you choose — employed, verified and insured. Support that fits your life, right across Australia.</p>
         <span class="ndis-badge">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>
@@ -4749,10 +4781,10 @@ html.high-contrast .care-stage-block{display:none!important;}
       </nav>
     </div>
     <div class="foot-ack">
-      BookIt acknowledges the Traditional Custodians of Country throughout Australia and their continuing connection to land, waters and community. We pay our respects to Elders past and present, and extend that respect to all Aboriginal and Torres Strait Islander people. We welcome everyone — every body, every background, every identity.
+      The Care Web acknowledges the Traditional Custodians of Country throughout Australia and their continuing connection to land, waters and community. We pay our respects to Elders past and present, and extend that respect to all Aboriginal and Torres Strait Islander people. We welcome everyone — every body, every background, every identity.
     </div>
     <div class="foot-legal">
-      <span>BookIt is operated by Disability &amp; Mental Health Care Pty Ltd · ABN 19 658 578 575 · Registered NDIS Provider · Registration 4-LO5XNY0 · © 2026</span>
+      <span>The Care Web is operated by Disability &amp; Mental Health Care Pty Ltd · ABN 19 658 578 575 · Registered NDIS Provider · Registration 4-LO5XNY0 · © 2026</span>
       <span>Rates shown align with the <a href="#/pricing">NDIS Pricing Arrangements and Price Limits 2026–27</a>.</span>
     </div>
   </div>
@@ -4795,7 +4827,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   <div class="modal">
     <button class="close-x" data-close aria-label="Close booking dialog" type="button">✕</button>
     <h2 id="bkTitle">Request a booking</h2>
-    <p class="muted-sm">with <b id="bkWorkerName"></b> — they'll accept or suggest another time. Nothing is charged until after the shift.</p>
+    <p class="muted-sm">with <b id="bkWorkerName"></b> — they'll accept or suggest another time. An accepted short-notice cancellation may be charged under your service agreement. Otherwise, delivered support is billed after approval.</p>
     <form class="form-grid" id="bookingForm">
       <div class="field"><label for="bkService">Support type</label><select id="bkService" required></select><p class="muted-sm" id="bkRateLine" style="margin:6px 0 0;"></p></div>
       <div class="field"><label for="bkDate">Date</label><input id="bkDate" type="date" required></div>
@@ -4843,7 +4875,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   <div class="modal">
     <button class="close-x" data-close aria-label="Close" type="button">✕</button>
     <h2 id="dpTitle">Attach a document you hold</h2>
-    <p class="muted-sm" id="dpIntro">No uploading — this is a pointer to a document already on BookIt, with its live verification status carried along.</p>
+    <p class="muted-sm" id="dpIntro">No uploading — this is a pointer to a document already on The Care Web, with its live verification status carried along.</p>
     <div id="dpList" class="dp-list" role="list"></div>
   </div>
 </div>
@@ -4911,8 +4943,8 @@ const ICONS = {
 
 /* Easy Read content */
 const ER_SECTIONS = [
-  { title:'What is BookIt?', cards:[
-    {icon:'smile', tile:'ic-teal', text:'BookIt is a website. It helps you find support workers.'},
+  { title:'What is The Care Web?', cards:[
+    {icon:'smile', tile:'ic-teal', text:'The Care Web is a website. It helps you find support workers.'},
     {icon:'people', tile:'ic-amber', text:'A support worker is a person who helps you do everyday things.'},
     {icon:'check', tile:'ic-coral', text:'You choose which workers you want. It is up to you.'},
     {icon:'shield', tile:'ic-teal', text:'We check every worker first. This helps keep you safe.'}
@@ -4988,9 +5020,9 @@ const WORKERS = [
 WORKERS.forEach(w => { w.demo = true; });
 
 const FAQS = [
-  {q:'What is BookIt?', a:'BookIt is operated by <b>Disability &amp; Mental Health Care Pty Ltd</b>, a registered NDIS provider, and lets you find, book and manage your own support workers. Unlike directories or gig apps, every worker is <b>our employee</b> — screened, insured and paid under the SCHADS Award — while you stay in control of who supports you and when.', home:true},
-  {q:'Who runs BookIt?', a:'BookIt is built and operated by <b>Disability &amp; Mental Health Care Pty Ltd</b> (ABN 19 658 578 575), an NSW-based registered NDIS provider — NDIS registration <b>4-LO5XNY0</b>, registered to deliver supports throughout Australia (current registration period to January 2029). Registration means we\'re audited against the NDIS Practice Standards, covered by the NDIS Code of Conduct, and accountable to the NDIS Quality and Safeguards Commission.'},
-  {q:'Who can use BookIt?', a:'Anyone with an NDIS plan — whether it\'s <b>self-managed, plan-managed or NDIA-managed</b>. Because we\'re a registered provider, all three plan types can book with us. Families, nominees and support coordinators can manage an account on a participant\'s behalf. You can also book privately without NDIS funding.', home:true},
+  {q:'What is The Care Web?', a:'The Care Web is operated by <b>Disability &amp; Mental Health Care Pty Ltd</b>, a registered NDIS provider, and lets you find, book and manage your own support workers. Unlike directories or gig apps, every worker is <b>our employee</b> — screened, insured and paid under the SCHADS Award — while you stay in control of who supports you and when.', home:true},
+  {q:'Who runs The Care Web?', a:'The Care Web is built and operated by <b>Disability &amp; Mental Health Care Pty Ltd</b> (ABN 19 658 578 575), an NSW-based registered NDIS provider — NDIS registration <b>4-LO5XNY0</b>, registered to deliver supports throughout Australia (current registration period to January 2029). Registration means we\'re audited against the NDIS Practice Standards, covered by the NDIS Code of Conduct, and accountable to the NDIS Quality and Safeguards Commission.'},
+  {q:'Who can use The Care Web?', a:'Anyone with an NDIS plan — whether it\'s <b>self-managed, plan-managed or NDIA-managed</b>. Because we\'re a registered provider, all three plan types can book with us. Families, nominees and support coordinators can manage an account on a participant\'s behalf. You can also book privately without NDIS funding.', home:true},
   {q:'What supports can I book?', a:'We focus on six NDIS registration groups: employment support (0102), personal care (0107), travel & transport (0108), daily tasks & shared living (0115/0138), household tasks (0120) and community participation (0125). See <a href="#/services">Support services</a> for what each covers.', home:true},
   {q:'How much does it cost?', a:'Joining is free — you only pay for booked support. We bill at the NDIA\'s published maximum prices: <b>$73.58/hr</b> weekday daytime (2026–27), with evening, weekend and public-holiday bookings at the applicable published rate — never above the maximums, and we never ask you for a top-up. A booking can be paid from NDIS funding where the support is included in your plan and meets the claiming requirements. Full details on the <a href="#/pricing">Pricing page</a>.', home:true},
   {q:'How does messaging work?', a:'Once you\'ve found a worker you like, message them directly on the platform — ask questions, share what great support looks like for you, and arrange a free meet and greet before booking anything. Conversations stay on-platform so there\'s a record if anything ever needs sorting out, and our team can step in if something doesn\'t feel right. Try the demo via the chat icon in the menu.'},
@@ -4998,8 +5030,8 @@ const FAQS = [
   {q:'Are workers employees or contractors?', a:'Employees — always. That means we handle super, tax, workers\' compensation and public liability insurance, and every shift is covered. You get the flexibility of choosing your own team without the risks of engaging contractors.'},
   {q:'What if I need to cancel a booking?', a:'Life happens. Cancellation rules depend on the support item and the current NDIS Pricing Arrangements — the exact window for your booking is shown before you confirm and in your service agreement. With plenty of notice a cancellation is free; short-notice cancellations may be charged, and your worker still gets paid for the shift.'},
   {q:'Can my worker drive me in their car?', a:'Yes. Workers providing transport hold a police check, a valid licence and appropriate insurance. A per-kilometre vehicle allowance applies, which can be claimed from your plan where funded (0108 Assist-Travel/Transport).'},
-  {q:'What can\'t I book on BookIt?', a:'We\'re registered for personal care at <b>standard intensity</b> (registration group 0107), not for <b>high intensity daily personal activities</b> (0104) — so complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections and complex wound management are <b>specialist supports</b>: we arrange them rather than deliver them. We don\'t provide nursing either. Tell us and we\'ll introduce you to a provider registered for it who you engage directly, then roster the rest of your plan around them — <a href="#/specialist-supports">how that works</a>. We <b>are</b> registered for Supported Independent Living (Registration Group 138) — SIL is arranged as a package rather than booked shift-by-shift, so <a href="#/contact">talk to us</a> about SIL and shared-living arrangements and we\'ll set it up properly.'},
-  {q:'Where is BookIt available?', a:'We\'re available across Australia, with the deepest worker pools in greater Sydney, Melbourne and Brisbane. Enter your suburb on <a href="#/find-workers">Find workers</a> to see who\'s nearby.'},
+  {q:'What can\'t I book on The Care Web?', a:'We\'re registered for personal care at <b>standard intensity</b> (registration group 0107), not for <b>high intensity daily personal activities</b> (0104) — so complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections and complex wound management are <b>specialist supports</b>: we arrange them rather than deliver them. We don\'t provide nursing either. Tell us and we\'ll introduce you to a provider registered for it who you engage directly, then roster the rest of your plan around them — <a href="#/specialist-supports">how that works</a>. We <b>are</b> registered for Supported Independent Living (Registration Group 138) — SIL is arranged as a package rather than booked shift-by-shift, so <a href="#/contact">talk to us</a> about SIL and shared-living arrangements and we\'ll set it up properly.'},
+  {q:'Where is The Care Web available?', a:'We\'re available across Australia, with the deepest worker pools in greater Sydney, Melbourne and Brisbane. Enter your suburb on <a href="#/find-workers">Find workers</a> to see who\'s nearby.'},
   {q:'How do workers get paid?', a:'Automatically, fortnightly, straight from your approved shift hours — including super and penalty rates. Workers see their full pay breakdown for every shift before they accept it.'},
   {q:'Is my information safe?', a:'Your data is encrypted in transit and held on Australian servers (AWS Sydney); before launch we are verifying every supporting system — backups, email, monitoring — meets the same bar. It is never sold, and you control what appears on your profile. Our <a href="#/legal">privacy policy</a> sets out how we work to the Privacy Act and the NDIS Practice Standards.'}
 ];
@@ -5056,7 +5088,7 @@ function bookingEndLocal(b){ return new Date(bookingStartLocal(b).getTime() + Nu
 function bookingProviderLocked(b){ return ['finding','office','uncovered','failed','referred','allied'].includes(String(b.cover_state || '')); }
 const SVC_NAME = Object.fromEntries(SERVICES.map(s => [s.slug, s.name]));
 /* The eight supports in NDIS Practice Standards Supplementary Module 1 (high intensity daily
-   personal activities, registration group 0104). DMHC holds 0107, not 0104, so BookIt screens
+   personal activities, registration group 0104). DMHC holds 0107, not 0104, so The Care Web screens
    for these at signup and routes rather than refuses. Mirror of HI_SUPPORTS in server.js —
    change both together. The catheter label says "inserting, changing or irrigating" on purpose:
    emptying a leg bag and washing around an established catheter is ordinary 0107 personal care,
@@ -5385,7 +5417,7 @@ $('#forgotForm').addEventListener('submit', async e => {
   const note = $('#forgotNote');
   note.hidden = false;
   if(!(window.API && API.online)){
-    note.textContent = 'Demo mode — password reset emails need the live BookIt server.';
+    note.textContent = 'Demo mode — password reset emails need the live The Care Web server.';
     return;
   }
   try{
@@ -5398,7 +5430,7 @@ $('#resetForm').addEventListener('submit', async e => {
   const pw = $('#resetPw').value;
   if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
   if(pw !== $('#resetPw2').value){ toast('Those two passwords don\'t match — try again.'); return; }
-  if(!(window.API && API.online)){ toast('Demo mode — password resets need the live BookIt server.'); return; }
+  if(!(window.API && API.online)){ toast('Demo mode — password resets need the live The Care Web server.'); return; }
   const qs = location.hash.split('?')[1] || '';
   const token = new URLSearchParams(qs).get('token') || '';
   try{
@@ -5517,7 +5549,7 @@ function tierCoinSvg(key, px, opts){
     chev += `<path d="${d}" fill="none" stroke="${c.light}" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 1.7)" opacity=".5"/>`
           + `<path d="${d}" fill="none" stroke="${c.deep}" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round"/>`;
   }
-  return `<svg class="medal" width="${px}" height="${px}" viewBox="0 0 96 96" role="img" aria-label="${esc((opts && opts.label) || tierLabelOf(key))} — BookIt ladder level">`
+  return `<svg class="medal" width="${px}" height="${px}" viewBox="0 0 96 96" role="img" aria-label="${esc((opts && opts.label) || tierLabelOf(key))} — The Care Web ladder level">`
     + `<circle cx="48" cy="48" r="45" fill="url(#tmRim-${key})" stroke="${c.edge}" stroke-width="1.4"/>`
     + `<circle cx="48" cy="48" r="41.4" fill="none" stroke="${c.light}" stroke-width="1.6" stroke-dasharray="1.8 3.2" opacity=".65"/>`
     + `<circle cx="48" cy="48" r="36" fill="url(#tmDisc-${key})"/>`
@@ -5533,13 +5565,13 @@ function tierMedalSvg(key, px, opts){
   if(px < 30) return tierCoinSvg(key, px, opts);
   if(!TIER_ART[key]) key = 'bronze';
   const label = esc((opts && opts.label) || tierLabelOf(key));
-  return `<img class="medal" src="/assets/tiers/tier-${key}.svg" width="${px}" height="${px}" alt="${label} — BookIt ladder level" loading="lazy" decoding="async">`;
+  return `<img class="medal" src="/assets/tiers/tier-${key}.svg" width="${px}" height="${px}" alt="${label} — The Care Web ladder level" loading="lazy" decoding="async">`;
 }
 function tierChipHtml(key, label, link){
   if(!TIER_ART[key]) return '';
   const inner = `${tierMedalSvg(key, 16, { label })}<span>${esc(label || tierLabelOf(key))}</span>`;
   return link
-    ? `<a class="tier-chip tc-${key}" href="${link}" title="BookIt ladder level — see how the levels work">${inner}</a>`
+    ? `<a class="tier-chip tc-${key}" href="${link}" title="The Care Web ladder level — see how the levels work">${inner}</a>`
     : `<span class="tier-chip tc-${key}">${inner}</span>`;
 }
 
@@ -5771,10 +5803,11 @@ function workerCard(w){
           ${w.demo ? '<span class="wc-demo">Demo</span>' : VERIFIED_ROSETTE}
           ${w.tier ? tierChipHtml(w.tier, tierLabelOf(w.tier), '#/ladder') : ''}
         </div>
-        ${w.next_free ? `<div class="wc-meta" style="color:#1C7C43;font-weight:600;">Next free: ${esc(w.next_free.label)}</div>` : ''}
-        <div class="wc-meta">${esc(w.suburb)} · ${esc(w.exp)} · ${w.shifts ? `★ ${w.rating.toFixed(1)} (${w.shifts} shifts)` : 'New to BookIt'}</div>
+        ${w.next_free ? `<div class="wc-meta" style="color:#1C7C43;font-weight:600;">Estimated 2-hour daytime gap: ${esc(w.next_free.label)}</div>` : ''}
+        <div class="wc-meta">${esc(w.suburb)} · ${esc(w.exp)} · ${w.shifts ? `★ ${w.rating.toFixed(1)} (${w.shifts} shifts)` : 'New to The Care Web'}</div>
       </div>
     </div>
+    ${w.visit_match ? `<p class="muted-sm"><b>Fits this visit:</b> ${esc(w.visit_match.basis)}${w.visit_match.location_checked ? ' · service area checked' : ' · location not checked'}.</p>` : ''}
     <p class="wc-bio">${esc(w.bio)}</p>
     <div class="wc-tags">${w.services.map(s => `<span class="wc-tag">${SVC_NAME[s]}</span>`).join('')}${(w.interests || []).slice(0, 3).map(t => `<span class="wc-int">${esc(t)}</span>`).join('')}${(w.interests || []).length > 3 ? `<span class="wc-int">+${w.interests.length - 3}</span>` : ''}</div>
     ${String(w.langs || 'English') !== 'English' ? `<p class="muted-sm" style="margin:6px 0 0;">Speaks ${esc(w.langs)}</p>` : ''}
@@ -5966,12 +5999,12 @@ async function renderWorkerPage(id){
   const first = esc(w.name.split(' ')[0]);
   const own = window.API && API.online && API.me && API.me.id === w.id;
   $('#wpCrumb').textContent = w.name;
-  document.title = w.name + ' — support worker on BookIt';
+  document.title = w.name + ' — support worker on The Care Web';
   const langList = String(w.langs || 'English').split(',').map(s => s.trim()).filter(Boolean);
   const stats = [];
   stats.push(w.shifts ? [`★ ${Number(w.rating).toFixed(1)}`, `${w.shifts} rated shifts`] : ['☆ New', 'no ratings yet']);
   if(w.completed) stats.push([w.completed, w.completed === 1 ? 'shift completed' : 'shifts completed']);
-  stats.push(w.member_since ? [w.member_since, 'joined BookIt'] : [esc(String(w.exp).replace(/ experience$/,'')), 'experience']);
+  stats.push(w.member_since ? [w.member_since, 'joined The Care Web'] : [esc(String(w.exp).replace(/ experience$/,'')), 'experience']);
   stats.push([langList.length === 1 ? esc(langList[0]) : `${langList.length} languages`, langList.length === 1 ? 'language spoken' : 'spoken']);
   /* Every line here is a document a person on our team has verified — the
      server sends nothing else. The shield used to be drawn beside seeded free
@@ -5979,14 +6012,14 @@ async function renderWorkerPage(id){
      condition is about, so it went. */
   /* A demo profile must never wear the same badge as a real one. The two
      condition lines below already say "demonstration profile", but a green
-     "Verified by BookIt" sitting beside a fictional certificate is a
+     "Verified by The Care Web" sitting beside a fictional certificate is a
      verification claim in its own right — and an untrue one. Same shield rule
      as everywhere else: the tick is only drawn over something we checked. */
   const creds = (w.checks || [])
     .map(d => typeof d === 'string' ? { label: d, valid_to: '' } : d)   /* offline demo data is a plain list */
     .map(d => w.demo
       ? `<div class="cred-line cred-line-demo">${WP_WARN}<div><b>${esc(d.label)}</b><span class="cred-badge demo">Demo data</span><small>Fictional — nobody verified this certificate.</small></div></div>`
-      : `<div class="cred-line">${WP_SHIELD}<div><b>${esc(d.label)}</b><span class="cred-badge">Verified by BookIt</span><small>${d.valid_to ? 'Valid to ' + esc(d.valid_to) : 'No expiry'}</small></div></div>`).join('');
+      : `<div class="cred-line">${WP_SHIELD}<div><b>${esc(d.label)}</b><span class="cred-badge">Verified by The Care Web</span><small>${d.valid_to ? 'Valid to ' + esc(d.valid_to) : 'No expiry'}</small></div></div>`).join('');
 
   /* The two conditions of registration, said plainly, on the profile of the
      person they are about — which is where the condition puts them. */
@@ -6067,7 +6100,7 @@ async function renderWorkerPage(id){
             </div>`).join('')
           : w.shifts
             ? `<p style="font-size:1rem;"><b style="font-family:var(--font-head);font-size:1.55rem;color:var(--teal);">★ ${Number(w.rating).toFixed(1)}</b> &nbsp;from ${w.shifts} rated shifts.</p><p class="muted-sm" style="margin-top:6px;">Ratings are collected after every completed shift.</p>`
-            : `<p><b>No reviews yet — ${first} is new to BookIt.</b> Every great worker starts somewhere. Book a free meet &amp; greet and see if you click.</p>`}
+            : `<p><b>No reviews yet — ${first} is new to The Care Web.</b> Every great worker starts somewhere. Book a free meet &amp; greet and see if you click.</p>`}
       </div>
       </div>
       <div class="wp-pane" id="wpPane-checks" role="tabpanel" aria-labelledby="wpTab-checks">
@@ -6075,7 +6108,7 @@ async function renderWorkerPage(id){
         <h2>Checks &amp; credentials</h2>
         <p class="wp-cred-lead">${w.demo
           ? 'This is a demonstration profile, so nothing here was really checked — but this is the shape of what we hold on every real worker.'
-          : `Every check BookIt requires is current for ${first}, and each one was confirmed by a person on our team. ${first}'s profile comes down automatically if any of them lapses.`}</p>
+          : `Every check The Care Web requires is current for ${first}, and each one was confirmed by a person on our team. ${first}'s profile comes down automatically if any of them lapses.`}</p>
         <details class="wp-creds">
           <summary>See every check and credential</summary>
           <h3 class="cred-head">What we check for every worker</h3>
@@ -6086,12 +6119,12 @@ async function renderWorkerPage(id){
         <div class="wp-trustbox"${w.demo ? ' style="background:#FFF8E8;border-color:#F5B841;"' : ''}>${w.demo
           /* Two separate claims live in this box, and only one of them is about
              the person on screen. That this profile is invented has to be said
-             plainly. How BookIt treats real workers is true whether or not this
+             plainly. How The Care Web treats real workers is true whether or not this
              particular profile is — and it is the thing a visitor came here to
              find out — so it stays, worded so it can't be read as a claim about
              the fictional person above it. */
-          ? `<b>This is a demonstration profile.</b> ${esc(w.name)} is not a real person and none of the credentials above were checked — they exist so you can see how a profile works. Real BookIt workers are <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b> — and nothing appears on a real profile until someone on our team has verified it. `
-          : 'Every BookIt worker is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b>. Nothing appears above until someone on our team has verified it, and a profile is withdrawn automatically the moment a check lapses. '}<a href="#/verification">How we check every worker →</a></div>
+          ? `<b>This is a demonstration profile.</b> ${esc(w.name)} is not a real person and none of the credentials above were checked — they exist so you can see how a profile works. Real The Care Web workers are <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b> — and nothing appears on a real profile until someone on our team has verified it. `
+          : 'Every The Care Web worker is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b>. Nothing appears above until someone on our team has verified it, and a profile is withdrawn automatically the moment a check lapses. '}<a href="#/verification">How we check every worker →</a></div>
       </div>
       </div>
     </div>
@@ -7039,7 +7072,7 @@ const ROUTES = {
   const el = $('#pcScopeLine');
   if(!el) return;
   const dont = HI_WE_DONT();
-  el.innerHTML = `BookIt provides <b>standard-intensity</b> personal care. ${dont.length
+  el.innerHTML = `The Care Web provides <b>standard-intensity</b> personal care. ${dont.length
     ? `We're registered for 0107, and ${holds0104() ? `for ${HI_WE_DO().length} of the eight` : 'not for'} <b>high intensity daily personal activities</b> (0104), so ${esc(hiProse(dont, 'and'))} ${dont.length === 1 ? 'is a' : 'are'} <a href="#/specialist-supports">specialist support${dont.length === 1 ? '' : 's'}</a> we arrange rather than deliver.`
     : `We're registered for 0107 and for all eight <b>high intensity daily personal activities</b> (0104).`}`;
 })();
@@ -7084,7 +7117,7 @@ function route(){
   $$('.page').forEach(p => { if(p !== page) p.classList.remove('active'); });
   const wasActive = page.classList.contains('active');
   if(!wasActive) page.classList.add('active');
-  document.title = page.dataset.title || 'BookIt';
+  document.title = page.dataset.title || 'The Care Web';
   // nav current state
   $$('nav.main a.nav-link').forEach(a => {
     const href = a.getAttribute('href').replace(/^#/, '');
@@ -7147,13 +7180,13 @@ window.renderShiftsPage = async function(){
     if(!d.shifts.length){ wrap.innerHTML = '<div class="info-card"><p><b>Nothing open for you right now.</b> The cascade offers you shifts by text and email as they come up; this page is the same list, for when you want to look.</p></div>'; return; }
     wrap.innerHTML = d.shifts.map(s => `<div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;">
       <div><b>${esc(s.label)}${s.sleepover ? ' — sleepover' : ''}</b><br><span class="muted-sm">${esc(fmtAU(s.date))} at ${esc(s.start)} · ${s.sleepover ? 'one night' : s.hours + ' hours'} · ${esc(s.suburb || '')}</span><br><span style="color:#1C7C43;font-weight:600;">You would be paid $${Number(s.pay).toFixed(2)}</span></div>
-      <button type="button" class="btn btn-primary btn-sm" data-claim-shift="${s.cover_id}">Take this shift</button></div>`).join('');
+      <button type="button" class="btn btn-primary btn-sm" data-claim-shift="${s.cover_id}">Review and accept</button></div>`).join('');
   }catch(err){ wrap.innerHTML = `<div class="info-card"><p>${esc(err.message)}</p></div>`; }
 };
 document.addEventListener('click', async e => {
   const c = e.target.closest('[data-claim-shift]'); if(!c) return;
   c.disabled = true;
-  try{ const r = await API.call('/cover/' + c.dataset.claimShift + '/claim', {method:'POST', body:{}}); toast('The shift is yours — it is in My bookings.'); renderShiftsPage(); }
+  try{ const done=await BookItReview.acceptCover(Number(c.dataset.claimShift)); if(done){toast('The shift is yours — it is in My bookings.');renderShiftsPage();}else c.disabled=false; }
   catch(err){ toast(err.message); c.disabled = false; }
 });
 
@@ -7350,6 +7383,7 @@ window.renderPolicyPagesCard = async function(){
     <p class="muted-sm" style="margin:0 0 10px;">To publish the whole folder: in Google Drive, right-click the folder › Download (a zip), unzip it, then choose all the .docx and .pdf files below at once. Word files become pages; PDFs open as the file. Spreadsheets stay in the folder. Uploading a file again replaces its page.</p>
     <form id="admPolicyUpload" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
       <input type="file" name="files" accept=".docx,.pdf" multiple required style="font-size:.85rem;">
+      <input type="text" name="title" placeholder="Title for the page (one file only) — e.g. Certificate of Currency — Workers Compensation" style="${inp};min-width:22em;" maxlength="160">
       <select name="audience" style="${inp}"><option value="">Audience: decide by title (participant-facing ones for participants, the rest staff)</option><option value="public">Public — anyone, no sign-in</option><option value="participants">Participants and staff (signed in)</option><option value="staff">Staff only</option></select>
       <button class="adm-btn-sm" type="submit">Publish as pages</button>
       <span id="admPolicyProgress" class="muted-sm"></span>
@@ -7366,13 +7400,15 @@ document.addEventListener('submit', async e => {
   if(e.target.id !== 'admPolicyUpload') return;
   e.preventDefault();
   const form = e.target, files = [...form.querySelector('[name=files]').files], audience = form.querySelector('[name=audience]').value, prog = $('#admPolicyProgress');
+  /* v86.12.1 — a title typed here names the page (and is what the forms register matches on); it applies when one file is chosen */
+  const title = files.length === 1 ? (form.querySelector('[name=title]').value || '').trim() : '';
   let ok = 0; const bad = [];
   for(const [i, f] of files.entries()){
     prog.textContent = `Publishing ${i + 1} of ${files.length}: ${f.name}…`;
     if(!/\.(docx|pdf)$/i.test(f.name)){ bad.push(`${f.name}: not a .docx or .pdf`); continue; }
     try{
       const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
-      await API.call('/admin/policy-pages', {method:'POST', noFor:true, body:{ file: { name: f.name, mime: f.type, data }, audience }});
+      await API.call('/admin/policy-pages', {method:'POST', noFor:true, body:{ file: { name: f.name, mime: f.type, data }, audience, title }});
       ok++;
     }catch(err){ bad.push(err.message); }
   }
@@ -7468,7 +7504,33 @@ route();
 updateMsgBadge();
 </script>
 <script>
-/* ============ BookIt live backend wiring ============ */
+/* ============ The Care Web live backend wiring ============ */
+/* v86.14.1 — the out-of-area warning: how far, how long, a link to the route
+   on Google Maps, and a deliberate yes. A <dialog> where the browser has one,
+   the plain confirm box where it does not. */
+function outOfAreaDialog(tr){
+  const body = tr.known
+    ? `This visit is <b>${esc(tr.text)}</b> — the worker's stated area.${tr.source === 'google' ? '' : ' That is an estimate from the map, not a promise.'}`
+    : `This visit is outside the worker's stated area${tr.reason ? ` (${esc(tr.reason)})` : ''}, and The Care Web can't estimate the travel.`;
+  if(typeof HTMLDialogElement !== 'function') return Promise.resolve(window.confirm(`Out of area.\n\n${body.replace(/<[^>]+>/g, '')}\n\nGo ahead anyway?`));
+  return new Promise(resolve => {
+    const d = document.createElement('dialog');
+    d.className = 'ooa-dialog';
+    d.innerHTML = `<form method="dialog" style="margin:0;max-width:26rem;">
+      <h3 style="margin:0 0 .5rem;font-size:1.1rem;">Out of area</h3>
+      <p style="margin:0 0 .6rem;line-height:1.45;">${body}</p>
+      ${tr.maps ? `<p style="margin:0 0 .9rem;"><a href="${esc(tr.maps)}" target="_blank" rel="noopener noreferrer">See the route on Google Maps ↗</a></p>` : ''}
+      <p class="muted-sm" style="margin:0 0 1rem;">The worker will see the same distance before accepting, and the booking will show that you both confirmed.</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;"><button type="button" class="btn btn-secondary btn-sm" value="cancel">Cancel</button><button type="button" class="btn btn-sm" value="ok" autofocus>Go ahead anyway</button></div>
+    </form>`;
+    document.body.appendChild(d);
+    const done = v => { try { d.close(); } catch(e){} d.remove(); resolve(v); };
+    d.querySelector('[value=ok]').addEventListener('click', () => done(true));
+    d.querySelector('[value=cancel]').addEventListener('click', () => done(false));
+    d.addEventListener('cancel', e => { e.preventDefault(); done(false); });
+    d.showModal();
+  });
+}
 window.API = {
   online: false, me: null, unread: 0, actingFor: null,
   async call(path, opts = {}){
@@ -7485,6 +7547,12 @@ window.API = {
     let data = {};
     try { data = await res.json(); } catch(e){}
     if(!res.ok){
+      /* v86.14.0 — outside the worker's stated area is a warning the person
+         confirms, not a wall: say how far and how long, ask, and if they say
+         yes, send the same request again with their confirmation on it */
+      if(data.code === 'out_of_area' && data.confirm && opts.body && opts.body.out_of_area_ok !== true){
+        if(await outOfAreaDialog(data.travel || {})) return API.call(path, { ...opts, body: { ...opts.body, out_of_area_ok: true } });
+      }
       const err = new Error(data.error || `Something went wrong (error ${res.status}) — please try again.`);
       err.status = res.status; err.data = data;
       throw err;
@@ -7524,12 +7592,12 @@ function updateAuthUI(){
   if(hint){
     hint.innerHTML = API.online
       ? (API.demo === false
-          ? 'Log in with your BookIt account email. Forgot your password? Use the link below.'
+          ? 'Log in with your The Care Web account email. Forgot your password? Use the link below.'
           : 'Try a demo account — participant: <b>demo@demo.bookit.life</b> · worker: <b>sarah@demo.bookit.life</b> · password <b>demo1234</b>')
       : 'This is a demo — accounts aren\'t connected yet. <a href="#/get-started" data-close>Create a profile instead →</a>';
   }
   const note = $('#workersNote');
-  if(note && API.online) note.textContent = 'Live worker profiles from the BookIt database — workers appear here after their required checks, profile photo and office approval are complete.';
+  if(note && API.online) note.textContent = 'Live worker profiles from The Care Web database — workers appear here after their required checks, profile photo and office approval are complete.';
 }
 
 /* ---------- account chip + menu ---------- */
@@ -7567,7 +7635,7 @@ function renderAcctChip(){
     if(!sh){ sh = document.createElement('span'); sh.setAttribute('aria-hidden','true'); fr.after(sh); }
     sh.className = `tier-shine tf-${m.tier}`;
     sh.style.setProperty('--tier-art', `url(/assets/tiers/tier-${m.tier}.svg)`);
-    wrap.title = `${tierLabelOf(m.tier)} — your BookIt ladder level`;
+    wrap.title = `${tierLabelOf(m.tier)} — your The Care Web ladder level`;
     pip.hidden = true; pip.innerHTML = '';
   } else {
     wrap.className = 'acct-av';
@@ -7807,6 +7875,7 @@ function revealPendingSection(){
   const el = document.getElementById(PENDING_SECTION);
   if(!el) return; /* not rendered yet — stay armed for the render's own call */
   PENDING_SECTION = null;
+  for(let ancestor=el;ancestor;ancestor=ancestor.parentElement){if(ancestor.tagName==='DETAILS')ancestor.open=true;}
   const det = el.querySelector('details'); if(det) det.open = true;
   setTimeout(() => {
     el.scrollIntoView({behavior:'smooth', block:'center'});
@@ -7831,7 +7900,7 @@ $('#btnDismissVerify').addEventListener('click', () => { $('#verifyBanner').hidd
 
 async function loadWorkersLive(){
   try{
-    const d = await API.call('/workers');
+    const d = await API.call('/workers' + (window.BookItReview?.workerQuery() || ''));
     WORKERS.length = 0;
     d.workers.forEach(w => WORKERS.push(w));
     syncFilterOptions();
@@ -7839,10 +7908,11 @@ async function loadWorkersLive(){
     else renderWorkerGrid();
     $('#homeWorkers').innerHTML = WORKERS.slice(0, 3).map(workerCard).join('');
     demoNote('homeWorkersDemo', WORKERS.slice(0, 3), DEMO_NOTE_HOME);
+    return true;
   }catch (error) {
       console.error('[workers] Unable to load live worker profiles', error);
       try {
-        if (typeof workers !== 'undefined' && Array.isArray(workers)) workers.length = 0;
+        WORKERS.length = 0;
         const grid = document.getElementById('workerGrid') || document.getElementById('workersGrid') || document.querySelector('[data-worker-grid]') || document.querySelector('.workers-grid');
         if (grid) {
           grid.replaceChildren();
@@ -7903,9 +7973,15 @@ async function renderMessagesOnline(){
   else { $('#threadEmpty').style.display = ''; $('#threadContent').hidden = true; }
   $('#msgLayout').classList.toggle('show-thread', !!active);
 }
-async function renderThreadOnline(convo){
+async function renderThreadOnline(convo, older=false){
   let d;
-  try { d = await API.call('/conversations/' + convo.id + '/messages'); } catch(e){ return; }
+  const cursor=older ? BookItReview.messageCursor(convo.id) : BookItReview.latestMessage(convo.id);
+  if(older&&!cursor)return;
+  try { d = await API.call('/conversations/' + convo.id + '/messages'+(cursor?(older?'?before=':'?after=')+cursor:'')); } catch(e){ toast('Messages could not be loaded. Please retry.'); return; }
+  if(convo.id!==LIVE.activeCid)return;
+  const fetchedIds=d.messages.map(x=>x.id);
+  const moreNew=d.has_newer;
+  d=BookItReview.mergeMessages(convo.id,d,older);
   $('#threadEmpty').style.display = 'none';
   $('#threadContent').hidden = false;
   const av = $('#threadAvatar');
@@ -7918,8 +7994,9 @@ async function renderThreadOnline(convo){
   pb.style.display = isWorker ? '' : 'none';
   if(isWorker) pb.dataset.worker = convo.other.id;
   const atBottom = $('#threadBody').scrollHeight - $('#threadBody').scrollTop - $('#threadBody').clientHeight < 80;
-  $('#threadBody').innerHTML = '<div class="day-divider">Meet & greets are always free</div>' +
-    d.messages.map(x => `<div class="bubble ${x.mine ? 'me' : 'them'}" data-mid="${x.id}">${esc(x.body || '')}${msgAttHtml(x.attachment)}<time>${fmtStamp(x.created)}</time></div>`).join('');
+  const oldHeight=$('#threadBody').scrollHeight,oldTop=$('#threadBody').scrollTop;
+  $('#threadBody').innerHTML = (d.has_more?'<button class="btn btn-secondary btn-sm" type="button" id="reviewOlderMessages">Load earlier messages</button>':'') + '<div class="day-divider">Meet & greets are always free</div>' +
+    d.messages.map(x => `<div class="bubble ${x.mine ? 'me' : 'them'}" data-mid="${x.id}">${x.author?`<small>${esc(x.author.name)} · ${esc(x.author.role)}</small><br>`:''}${esc(x.body || '')}${msgAttHtml(x.attachment)}<time>${fmtStamp(x.created)}</time></div>`).join('');
   /* the clip appears once a live thread is open — the picker explains any
      empty state itself, so the button never has to guess */
   const ro = d.worker_active === false;
@@ -7936,7 +8013,10 @@ async function renderThreadOnline(convo){
     const fl = document.querySelector(`#threadBody .bubble[data-mid="${ATT.flashMid}"]`);
     if(fl) fl.classList.add('flash');
   }
-  if(atBottom) $('#threadBody').scrollTop = $('#threadBody').scrollHeight;
+  if(older)$('#threadBody').scrollTop=oldTop+$('#threadBody').scrollHeight-oldHeight;
+  else if(atBottom) $('#threadBody').scrollTop = $('#threadBody').scrollHeight;
+  if(document.visibilityState!=='hidden' && fetchedIds.length)API.call('/conversations/'+convo.id+'/read',{method:'POST',body:{message_ids:fetchedIds}}).catch(()=>{});
+  if(moreNew&&convo.id===LIVE.activeCid)setTimeout(()=>renderThreadOnline(convo),0);
 }
 async function openConvoOnline(cid, focus){
   LIVE.activeCid = cid;
@@ -8089,7 +8169,7 @@ async function renderBookingsPage(){
   if(!wrap) return;
   const invNote = $('#bookingsInvoiceNote'); if(invNote){ invoiceBanner().then(html => { invNote.innerHTML = html; }); }
   if(!API.online){
-    wrap.innerHTML = '<div class="info-card"><p><b>Bookings run on the live BookIt server.</b> This preview is demo-only — on the deployed site this page shows real requests, confirmations and history.</p></div>';
+    wrap.innerHTML = '<div class="info-card"><p><b>Bookings run on the live The Care Web server.</b> This preview is demo-only — on the deployed site this page shows real requests, confirmations and history.</p></div>';
     return;
   }
   if(!API.me){
@@ -8122,7 +8202,7 @@ async function renderBookingsPage(){
   const hiCard = vrole() === 'participant' && !API.actingFor ? `
     <div class="info-card" id="cardHi" style="margin-bottom:18px;">
       <h3 style="margin:0 0 6px;">Specialist supports</h3>
-      <p class="muted-sm" style="margin:0 0 12px;">Tick anything a BookIt worker would be asked to do <b>for</b> you. These eight are the high intensity daily personal activities named in the NDIS Practice Standards. ${holds0104()
+      <p class="muted-sm" style="margin:0 0 12px;">Tick anything a Care Web worker would be asked to do <b>for</b> you. These eight are the high intensity daily personal activities named in the NDIS Practice Standards. ${holds0104()
         ? `We're registered to deliver ${HI_WE_DO().length} of them; for the rest we arrange a provider who is, and roster around them.`
         : `We arrange these through a provider registered for them rather than delivering them ourselves — <a href="#/specialist-supports">here's how that works</a>.`} Everyday showering, dressing, toileting and continence help are <b>not</b> on this list, and neither is emptying or cleaning around a catheter you already have. Most people tick nothing.</p>
       <div class="choice-row" id="hiPills">
@@ -8215,13 +8295,13 @@ async function renderBookingsPage(){
           </div>
           <p class="muted-sm" style="margin-top:8px;">A photo of a signed page is fine — it does not need to be a scan.</p>
         </details>
-        <p class="muted-sm" style="margin-top:10px;">Need a blank to sign? Every form we use is printable from <a href="/templates" target="_blank">bookit.life/templates</a>.</p>
+        <p class="muted-sm" style="margin-top:10px;">Need a blank to sign? Every form we use is printable from <a href="/templates" target="_blank">thecareweb.com.au/templates</a>.</p>
       </div>`;
     }
   }
   let workerCards = '';
   if(vrole() === 'worker'){
-    let docs = [], sum = {}, prof = { bio: '', photo: null, visible: 0, days: [1,1,1,1,1,0,0], langs: 'English', exp: 'New to BookIt' };
+    let docs = [], sum = {}, prof = { bio: '', photo: null, visible: 0, days: [1,1,1,1,1,0,0], langs: 'English', exp: 'New to The Care Web' };
     let dreqs = [];
     try{ const dres = await API.call('/me/documents'); docs = dres.documents || []; sum = dres.summary || {}; dreqs = dres.requests || []; }catch(e){}
     try{ prof = (await API.call('/me/profile')).profile || prof; }catch(e){}
@@ -8252,7 +8332,7 @@ async function renderBookingsPage(){
           </div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;">
             <label style="font-size:.85rem;">Languages you speak<br><input id="mpLangs" value="${esc(prof.langs || 'English')}" placeholder="English, Auslan" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:210px;"></label>
-            <label style="font-size:.85rem;">Experience<br><input id="mpExp" value="${esc(prof.exp || 'New to BookIt')}" placeholder="e.g. 4 yrs experience" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:180px;"></label>
+            <label style="font-size:.85rem;">Experience<br><input id="mpExp" value="${esc(prof.exp || 'New to The Care Web')}" placeholder="e.g. 4 yrs experience" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;width:180px;"></label>
             <label style="font-size:.85rem;">Gender <span class="muted-sm" style="font-weight:400;">(optional — participants can filter by it)</span><br>
               <select id="mpGender" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E7DFD4;">
                 <option value="" ${!prof.gender ? 'selected' : ''}>Rather not say</option>
@@ -8307,7 +8387,7 @@ async function renderBookingsPage(){
     <div class="info-card" id="cardCreds" style="margin-bottom:18px;">
       <h3 style="margin:0 0 6px;">My documents & credentials</h3>
       ${reqPanel}
-      <p class="muted-sm" style="margin:0 0 12px;">Everything BookIt needs to get you working — ID first, then your checks, training and qualifications. Expiry dates are watched automatically; a lapsed screening pauses your profile until it's renewed.</p>
+      <p class="muted-sm" style="margin:0 0 12px;">Everything The Care Web needs to get you working — ID first, then your checks, training and qualifications. Expiry dates are watched automatically; a lapsed screening pauses your profile until it's renewed.</p>
       <div class="ob-head">
         <b style="font-size:.9rem;">Onboarding ${obDone} of ${obItems.length} complete</b>
         <div class="ob-bar" role="img" aria-label="Onboarding ${obDone} of ${obItems.length} complete"><i style="width:${Math.round(obDone / obItems.length * 100)}%;"></i></div>
@@ -8367,10 +8447,12 @@ async function renderBookingsPage(){
   const wActive = d.worker_active !== false;
   const trainLock = d.training_lock || '', trainDays = d.training_overdue_days || 0;
   const wdBanner = vrole() === 'worker' && !wActive ? `<div class="info-card" style="margin-bottom:18px;border-left:6px solid #D94F32;">
-    <p style="margin:0;"><b>Your profile isn't active on BookIt right now</b>, so accepting and completing shifts is paused, and we're looking for cover for anything upcoming. <a href="#/contact">Contact the office</a> — they can help you get back on.</p>
+    <p style="margin:0;"><b>Your profile isn't active on The Care Web right now</b>, so accepting and completing shifts is paused, and we're looking for cover for anything upcoming. <a href="#/contact">Contact the office</a> — they can help you get back on.</p>
   </div>` : '';
+  const reviewAccountCards = `<details class="review-panel" id="bookingAccountDetails"><summary>Setup, account details and support information</summary><p class="muted-sm">Routine details are also in <a href="#/account">Settings</a>. ${vrole()==='worker'?'<a href="#/account/availability">Set your service areas, hours and leave</a>.':''}</p>${billingCard + planCard + pdocCard + hiCard + seriesCard + cover.mid + workerCards + incidentCard}</details>`;
+  const reviewSummary = window.BookItReview ? BookItReview.bookingSummary(d) : '';
   if(!d.bookings.length){
-    wrap.innerHTML = cover.top + wdBanner + billingCard + planCard + pdocCard + hiCard + seriesCard + cover.mid + workerCards + incidentCard + '<div class="info-card"><p><b>No bookings yet.</b> ' + (vrole() === 'participant'
+    wrap.innerHTML = reviewSummary + cover.top + wdBanner + reviewAccountCards + '<div class="info-card"><p><b>No bookings yet.</b> ' + (vrole() === 'participant'
       ? 'Find a worker you like, have a chat, then hit "Request a booking" on their profile.'
       : 'When participants request you, their bookings appear here for you to accept or decline.') + '</p></div>';
     revealPendingSection();
@@ -8389,7 +8471,7 @@ async function renderBookingsPage(){
       </div>`;
     }
   }
-  wrap.innerHTML = cover.top + wdBanner + apprBanner + billingCard + planCard + pdocCard + hiCard + seriesCard + cover.mid + workerCards + incidentCard + d.bookings.map(b => `
+  wrap.innerHTML = reviewSummary + cover.top + wdBanner + apprBanner + d.bookings.map(b => `
     <div class="bk-card">
       <div class="wc-avatar" style="background:${b.other_color};">${b.other_name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
       <div class="bk-main">
@@ -8405,7 +8487,7 @@ async function renderBookingsPage(){
           <label style="font-size:.82rem;">Start<input type="time" data-mv-start="${b.id}" value="${b.start}" style="display:block;font:inherit;padding:6px 8px;border-radius:8px;border:1.5px solid #E7DFD4;margin-top:3px;"></label>
           <button type="button" class="btn btn-primary btn-sm" data-mv-save="${b.id}">Move it</button>
         </div>` : ''}
-        ${coverStripHtml(b)}
+        ${outOfAreaHtml(b)}${coverStripHtml(b)}
         ${b.status === 'completed' && b.total ? `<span class="muted-sm"><b>$${Number(b.total).toFixed(2)}</b> — ${b.rate_category === 'sleepover' ? '1 night flat' : `${b.hours}h × $${Number(b.unit_price).toFixed(2)}`} (${RATE_LABEL[b.rate_category] || b.rate_category} rate)${b.approval_state === 'approved' ? ' · <b style="color:#1C7C43;">Approved ✓</b>' : ''}</span>` : ''}
         ${apprPanelHtml(b)}
         ${vrole() === 'participant' && b.status === 'completed' && !b.reviewed ? `
@@ -8418,14 +8500,14 @@ async function renderBookingsPage(){
           </span>
         </div>` : ''}
         ${vrole() === 'participant' && b.status === 'completed' && b.reviewed ? '<span class="muted-sm" style="color:#1C7C43;">Reviewed ✓ — thank you!</span>' : ''}
-        ${vrole() === 'worker' && ['accepted','completed'].includes(b.status) ? `
+        ${vrole() === 'worker' && b.status === 'accepted' && bookingEndLocal(b)>new Date() && !bookingProviderLocked(b) ? `
         <button type="button" class="btn btn-secondary btn-sm" data-brief="${b.id}" data-brief-p="${b.participant_id}" style="align-self:flex-start;margin-top:8px;">Read their support plan</button>
         <div data-brief-out="${b.id}" hidden></div>` : ''}
         ${b.status === 'completed' && b.note_count ? `
         <button type="button" class="btn btn-secondary btn-sm" data-note-read="${b.id}" style="align-self:flex-start;margin-top:8px;">Read the shift note${b.note_count > 1 ? ` (${b.note_count})` : ''}</button>
         <div class="note-out" data-note-out="${b.id}" hidden></div>` : ''}
         ${vrole() === 'worker' && b.status === 'accepted' && bookingEndLocal(b) <= new Date() && wActive && !bookingProviderLocked(b) ? `
-        <div class="note-box" data-note-form="${b.id}" hidden>
+        <div class="note-box" data-note-form="${b.id}" hidden><p class="review-note-state" role="status" aria-live="polite">Draft not yet loaded.</p>
           <b style="font-size:.92rem;">Your shift note</b>
           <p class="muted-sm" style="margin:4px 0 9px;">What you did together and how it went — a few lines is plenty. ${esc(b.other_name.split(' ')[0])} and their support coordinator can read this, and it's the record that the shift happened.</p>
           <textarea class="note-body" rows="4" maxlength="4000" placeholder="e.g. Arrived 10am. We did the fortnightly shop and put it all away. ${esc(b.other_name.split(' ')[0])} was in good spirits and managed the trolley on their own today, which is new. Home and settled by 12."></textarea>
@@ -8462,7 +8544,7 @@ async function renderBookingsPage(){
         ${vrole() === 'worker' && ['requested','accepted'].includes(b.status) && !b.cover_state && wActive && (b.status === 'accepted' || bookingStartLocal(b) > new Date()) ? `<button class="btn btn-secondary btn-sm" data-cant="${b.id}" type="button">I can't make it</button>` : ''}
         ${vrole() === 'participant' && b.cover_state === 'finding' ? `<button class="btn btn-secondary btn-sm" data-standdown="${b.id}" type="button">Don't find cover</button>` : ''}
       </div>
-    </div>`).join('');
+    </div>`).join('') + reviewAccountCards;
   revealPendingSection();
   /* the chain of who's been asked is a second call per shift, so it paints after the list */
   d.bookings.filter(b => b.cover_state === 'finding').forEach(b => paintCoverChain(b.id));
@@ -8551,7 +8633,7 @@ async function renderSupportPlanPage(){
   const wrap = $('#supportPlanContent');
   if(!wrap) return;
   if(!API.online){
-    wrap.innerHTML = '<div class="info-card"><p><b>Support plans run on the live BookIt server.</b> This preview is demo-only.</p></div>';
+    wrap.innerHTML = '<div class="info-card"><p><b>Support plans run on the live The Care Web server.</b> This preview is demo-only.</p></div>';
     return;
   }
   if(!API.me){
@@ -8820,7 +8902,7 @@ async function paintBrief(bookingId, participantId){
       ${b.plans && (b.plans.plans.length || b.plans.withheld) ? `<h4>Plans you must follow</h4>${b.plans.plans.length
         ? `<p>${b.plans.plans.map(pl => `<a href="${esc(pl.url)}" target="_blank" rel="noopener noreferrer">${esc(pl.label)}</a>${pl.doc_date ? ' — dated ' + fmtAU(pl.doc_date) : ''}${pl.expired ? ' <b style="color:#A5301A;">— past its review date; check with the office before you rely on it</b>' : ''}`).join('<br>')}</p>
            <p class="muted-sm">Read these before the shift. Opening one is recorded in the participant's access log with your name.</p>` : ''}${b.plans.withheld
-        ? `<p class="muted-sm">${b.plans.withheld} clinical plan${b.plans.withheld === 1 ? '' : 's'} on file but not shared in BookIt. The participant's arrangement for the day: <i>${esc(b.plans.note || 'ask the office')}</i></p>` : ''}` : ''}
+        ? `<p class="muted-sm">${b.plans.withheld} clinical plan${b.plans.withheld === 1 ? '' : 's'} on file but not shared in The Care Web. The participant's arrangement for the day: <i>${esc(b.plans.note || 'ask the office')}</i></p>` : ''}` : ''}
       ${b.care_plans && b.care_plans.length ? `<h4>Other care plans named</h4><p>${b.care_plans.map(c =>
         esc(c.name) + (c.on_file ? ' — on file; if it is not linked above, ask the office for a copy' : ' — not yet filed')).join('<br>')}</p>` : ''}
       <h4>Emergency contact</h4><p>${esc(b.emergency.name || 'Not recorded')}${b.emergency.relationship ? ' (' + esc(b.emergency.relationship) + ')' : ''}${b.emergency.phone ? ' — ' + esc(b.emergency.phone) : ''}</p>
@@ -8933,13 +9015,13 @@ document.addEventListener('click', async e => {
   const nOpen = e.target.closest('[data-note-open]');
   if(nOpen){
     const form = $(`[data-note-form="${nOpen.dataset.noteOpen}"]`);
-    if(form){ form.hidden = false; nOpen.hidden = true; const t = form.querySelector('.note-body'); if(t) t.focus(); }
+    if(form){ form.hidden = false; nOpen.hidden = true; await BookItReview.loadDraft(form); const t = form.querySelector('.note-body'); if(t) t.focus(); }
     return;
   }
   const nCancel = e.target.closest('[data-note-cancel]');
   if(nCancel){
     const form = nCancel.closest('.note-box');
-    if(form) form.hidden = true;
+    if(form){ await BookItReview.saveDraft(form); form.hidden = true; }
     const btn = $(`[data-note-open="${nCancel.dataset.noteCancel}"]`);
     if(btn) btn.hidden = false;
     return;
@@ -8966,9 +9048,11 @@ document.addEventListener('click', async e => {
     const detail = form.querySelector('.note-scope-detail').value;
     nSave.disabled = true;
     try{
+      await BookItReview.saveDraft(form,true);
       const activeEl = form.querySelector('.note-active');
       const extra = activeEl ? { active_hours: Number(activeEl.value), active_note: (form.querySelector('.note-active-note') || {}).value || '' } : {};
       const r = await API.call('/bookings/' + id, {method:'PATCH', body:{status:'completed', note: body, scope, scope_detail: detail, ...extra}});
+      BookItReview.finishDraft(form);
       toast(scope
         ? 'Shift completed and your note is saved. Thanks for flagging that — the office has been alerted and will call you.'
         : (r.invoice ? `Shift completed — note saved and $${r.invoice.total.toFixed(2)} recorded for invoicing. 🎉` : 'Shift completed — note saved.'));
@@ -9404,7 +9488,7 @@ function screeningHtml(d){
       </p>
       <details style="margin-top:7px;">
         <summary class="muted-sm" style="cursor:pointer;">Record what the register says</summary>
-        <p class="muted-sm" style="margin:7px 0;">Open <a href="${esc(w.unit_url)}" target="_blank" rel="noopener">${esc(w.unit || 'the NDIS Commission Portal')}</a> and the <a href="${esc(d.portal)}" target="_blank" rel="noopener">NWSD</a> and find them. ${w.linked ? '' : '<b>Link them to BookIt while you are there</b> — that is what makes the Commission email us about every later change.'}</p>
+        <p class="muted-sm" style="margin:7px 0;">Open <a href="${esc(w.unit_url)}" target="_blank" rel="noopener">${esc(w.unit || 'the NDIS Commission Portal')}</a> and the <a href="${esc(d.portal)}" target="_blank" rel="noopener">NWSD</a> and find them. ${w.linked ? '' : '<b>Link them to The Care Web while you are there</b> — that is what makes the Commission email us about every later change.'}</p>
         <div style="padding:9px 11px;border:1px dashed var(--line);border-radius:10px;margin:0 0 9px;background:#fbfaf7;">
           <b style="font-size:.83rem;">Don't retype it — paste it</b>
           <p class="muted-sm" style="margin:3px 0 6px;">Select the record on the NWSD page, copy, and paste here. It reads the three fields out and fills them in below for you to check.</p>
@@ -9443,7 +9527,7 @@ function screeningHtml(d){
   const needy = d.workers.filter(w => w.needs), fine = d.workers.filter(w => !w.needs);
   return '<div class="info-card">'
     + `<p style="margin:0 0 4px;"><b>${d.waiting} to look at</b> of ${d.workers.length} worker${d.workers.length===1?'':'s'}.</p>`
-    + `<p class="muted-sm" style="margin:0 0 12px;">There is no API for this — the clearance data sits with the screening units and the Commission, and neither publishes a feed. What there is instead is better: <b>link a worker to BookIt in the NWSD once</b> and the Commission emails us every time their status changes. ${esc(d.employer_id_hint)}</p>`
+    + `<p class="muted-sm" style="margin:0 0 12px;">There is no API for this — the clearance data sits with the screening units and the Commission, and neither publishes a feed. What there is instead is better: <b>link a worker to The Care Web in the NWSD once</b> and the Commission emails us every time their status changes. ${esc(d.employer_id_hint)}</p>`
     + `<p class="muted-sm" style="margin:0 0 12px;">A clearance is three fields, not a tick: <b>Worker Status</b>, <b>expiry</b> and <b>Eligible to work</b>. All three have to pass or the profile stays off — a clearance can sit on the record while eligibility says no, and that is the row a person skims past.</p>`
     + (needy.length ? needy.map(row).join('') : '<p class="adm-empty">Nobody is waiting.</p>')
     + (fine.length ? `<details style="margin-top:12px;"><summary class="muted-sm" style="cursor:pointer;">${fine.length} passing and current</summary>${fine.map(row).join('')}</details>` : '')
@@ -9567,8 +9651,8 @@ async function renderAdminPage(){
   if(!wrap) return;
   if(!(API.online && API.me && API.me.admin)){
     wrap.innerHTML = '<div class="info-card"><p><b>Admins only.</b> ' + (API.online
-      ? 'Log in with an admin account to manage BookIt. (Admins are set with the ADMIN_EMAILS server setting.)'
-      : 'The admin dashboard needs the live BookIt server.') + '</p></div>';
+      ? 'Log in with an admin account to manage The Care Web. (Admins are set with the ADMIN_EMAILS server setting.)'
+      : 'The admin dashboard needs the live The Care Web server.') + '</p></div>';
     return;
   }
   let d;
@@ -9639,7 +9723,7 @@ async function renderAdminPage(){
   const hiRows = d.high_intensity || [];
   const hiOpenN = hiRows.filter(r => !r.hi_referred_at).length;
   const highIntensity = hiRows.length ? `
-    <p class="muted-sm" style="margin:0 0 12px;">These participants told us they need a support inside <b>Supplementary Module 1 &mdash; high intensity daily personal activities</b> (registration group <b>0104</b>). Disability &amp; Mental Health Care holds <b>0107</b>, so BookIt does not deliver them. Ring the participant, introduce them to a provider registered for 0104 that <b>they</b> engage directly, then write one line about what was said. That line is the record.</p>
+    <p class="muted-sm" style="margin:0 0 12px;">These participants told us they need a support inside <b>Supplementary Module 1 &mdash; high intensity daily personal activities</b> (registration group <b>0104</b>). Disability &amp; Mental Health Care holds <b>0107</b>, so The Care Web does not deliver them. Ring the participant, introduce them to a provider registered for 0104 that <b>they</b> engage directly, then write one line about what was said. That line is the record.</p>
     <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Participant</th><th>Contact</th><th>Told us</th><th>What they need</th><th>Also asked for</th><th style="min-width:270px;">Outcome</th></tr></thead><tbody>
       ${hiRows.map(r => `<tr style="${r.hi_referred_at ? 'opacity:.62;' : ''}">
         <td><b>${esc(r.name)}</b>${r.suburb ? `<br><span class="muted-sm">${esc(r.suburb)}</span>` : ''}</td>
@@ -9697,7 +9781,7 @@ async function renderAdminPage(){
     ${snFlagged.length ? `
     <div class="info-card" style="border-color:#D94F32;background:#FDF6EC;margin-bottom:16px;">
       <h3 style="margin:0 0 6px;">${snFlagged.length} worker${snFlagged.length > 1 ? 's were' : ' was'} asked to do something outside scope</h3>
-      <p class="muted-sm" style="margin:0 0 10px;">Ring the worker today. If what was asked sits inside <b>0104</b> the answer is that BookIt doesn't deliver it &mdash; introduce the participant to a provider who is registered for it. If it actually happened rather than only being asked for, it belongs in the incident register too.</p>
+      <p class="muted-sm" style="margin:0 0 10px;">Ring the worker today. If what was asked sits inside <b>0104</b> the answer is that The Care Web doesn't deliver it &mdash; introduce the participant to a provider who is registered for it. If it actually happened rather than only being asked for, it belongs in the incident register too.</p>
       ${snFlagged.map(r => `<div style="border-top:1px solid #E7DFD4;padding:11px 0;">
         <b>${esc(r.worker_name)}</b> <span class="muted-sm">with ${esc(r.participant_name)} &middot; ${esc(svcName(r.service))} &middot; ${fmtAU(r.date)}</span>
         <p style="margin:6px 0 0;font-size:.92rem;">&ldquo;${esc(r.scope_detail)}&rdquo;</p>
@@ -9783,7 +9867,7 @@ async function renderAdminPage(){
         const pl = (credById[w.user_id] || {}).platform;
         if(!pl || pl.ok) return '';
         return `<div class="vr-box" style="border-color:#D94F32;background:#FDF3F0;">
-          <p style="margin:0 0 4px;font-size:.86rem;"><b class="c37-no">Can't be approved yet — this would breach BookIt's 0137 conditions of registration:</b></p>
+          <p style="margin:0 0 4px;font-size:.86rem;"><b class="c37-no">Can't be approved yet — this would breach The Care Web's 0137 conditions of registration:</b></p>
           <p style="margin:0;font-size:.85rem;line-height:1.6;">${pl.blocks.map(x => '• ' + esc(x)).join('<br>')}</p>
           <p style="margin:6px 0 0;font-size:.78rem;color:#3E5A64;">Fix these on the 0137 board below. The override doesn't apply to them.</p>
         </div>`;
@@ -9792,7 +9876,7 @@ async function renderAdminPage(){
         <button class="btn btn-primary" data-adm-act="approve" data-uid="${w.user_id}" type="button">Approve — make visible</button>
         <label style="font-size:.82rem;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="ov-${w.user_id}"> approve anyway (profile photo still missing)</label>
       </div>
-      <p style="margin:10px 0 0;font-size:.8rem;color:#3E5A64;">The 0137 conditions above <b>can't</b> be overridden — a person without a screening clearance may not use the platform, full stop. The profile-photo requirement is a BookIt rule, so that one is your call and the override is recorded.</p>
+      <p style="margin:10px 0 0;font-size:.8rem;color:#3E5A64;">The 0137 conditions above <b>can't</b> be overridden — a person without a screening clearance may not use the platform, full stop. The profile-photo requirement is a Care Web rule, so that one is your call and the override is recorded.</p>
         </div>
       </div>
     </div>`).join('') : '<p class="adm-empty">No workers waiting — all caught up. 🎉</p>';
@@ -9816,7 +9900,7 @@ async function renderAdminPage(){
     <div style="margin-top:6px;"><button class="adm-btn-sm" data-req-doc="${w.id}" type="button">＋ ask for a document</button></div></td>
   </tr>`; }).join('');
   /* ---------- 0137 conditions board ----------
-     BookIt is applying to be registered for 0137 NDIS Digital Platform Service,
+     The Care Web is applying to be registered for 0137 NDIS Digital Platform Service,
      and that registration carries two conditions: only people holding a worker
      screening clearance may use the platform, and we must check and display
      certain information about the people on it — including whether a banning
@@ -9908,7 +9992,7 @@ async function renderAdminPage(){
     </tr>`).join('');
     compliance = `
       <details class="info-card" style="margin-bottom:14px;"><summary style="cursor:pointer;font-weight:700;">About the 0137 conditions, the counts and the re-check settings</summary>
-        <p style="margin:10px 0 8px;"><b>Registration group 0137 — NDIS Digital Platform Service</b> carries two conditions of registration. BookIt enforces both in code, so a worker who stops meeting them comes off the platform the same day rather than at the next audit.</p>
+        <p style="margin:10px 0 8px;"><b>Registration group 0137 — NDIS Digital Platform Service</b> carries two conditions of registration. The Care Web enforces both in code, so a worker who stops meeting them comes off the platform the same day rather than at the next audit.</p>
         <blockquote style="margin:0 0 10px;padding:8px 14px;border-left:4px solid #0E6B62;background:rgba(255,255,255,.6);font-size:.9rem;line-height:1.65;">
           • worker screening check requirements ensuring that only persons who hold a worker screening clearance may use the platform; and<br>
           • requirements to check and display certain information about persons providing supports on the platform, such as whether a banning order against a person is in force.
@@ -9955,7 +10039,7 @@ async function renderAdminPage(){
   /* ---------- participant files ----------
      The other half of the filing cabinet. Worker credentials answer "is this
      person safe to send out"; this answers "is this person's support properly
-     agreed, consented to and planned" — and until now BookIt held a note about
+     agreed, consented to and planned" — and until now The Care Web held a note about
      where that answer lived instead of the answer itself. Each person's card
      leads with what is missing, because a list of what you hold is a list
      nobody needs to read. */
@@ -9993,7 +10077,7 @@ async function renderAdminPage(){
         ${docRows || '<p class="adm-empty" style="margin:0 0 8px;">Nothing on file for this person yet.</p>'}
         ${(p.outstanding || []).length ? `<p style="margin:10px 0 0;font-size:.86rem;"><b style="color:#D94F32;">Not on file (${p.outstanding.length}):</b>
           ${p.outstanding.map(o => esc(o.label) + (o.requested_at ? ` <span style="color:#8a6d00;font-size:.78rem;">(asked ${fmtAU(o.requested_at.slice(0,10))})</span>` : '')).join(' · ')}</p>
-          <p class="muted-sm" style="margin:4px 0 0;">If you hold one of these on paper, file it below — or add the row without a file, which records that it exists and where, without claiming BookIt has a copy.</p>` : ''}
+          <p class="muted-sm" style="margin:4px 0 0;">If you hold one of these on paper, file it below — or add the row without a file, which records that it exists and where, without claiming The Care Web has a copy.</p>` : ''}
         ${(p.not_applicable || []).length ? `<p class="muted-sm" style="margin:4px 0 0;">Not asked for — their plan says these don't apply: ${p.not_applicable.map(o => esc(o.label)).join(', ')}.</p>` : ''}
         ${(p.renew || []).length ? `<p style="margin:6px 0 0;font-size:.86rem;color:#8a6d00;"><b>Needs a fresh click:</b> ${p.renew.map(r => esc(r.label)).join(', ')} — accepted at an earlier version; they have been asked on their page.</p>` : ''}
         <p style="margin:8px 0 0;font-size:.82rem;color:#3E5A64;line-height:1.7;">Printed from the file: <a href="/api/admin/participants/${p.id}/generated/p-intake" target="_blank">intake form</a> · <a href="/api/admin/participants/${p.id}/generated/p-emergency" target="_blank">emergency &amp; disaster plan</a> · <a href="/api/admin/participants/${p.id}/generated/p-schedule" target="_blank">schedule of supports (current)</a><br>
@@ -10112,7 +10196,7 @@ async function renderAdminPage(){
       ${claimTable(cl.unclaimed, true)}
       <p style="margin:12px 0 4px;">
         <button class="btn btn-primary" id="admRunClaims" type="button">▶ Run claims &amp; invoices</button>
-        <span style="font-size:.85rem;color:#3E5A64;margin-left:10px;">NDIA-managed shifts join the claim file below · plan-managed and self-managed shifts get a PDF invoice emailed automatically from hello@bookit.life. Lines with red notes are skipped until fixed.</span>
+        <span style="font-size:.85rem;color:#3E5A64;margin-left:10px;">NDIA-managed shifts join the claim file below · plan-managed and self-managed shifts get a PDF invoice emailed automatically from hello@thecareweb.com.au. Lines with red notes are skipped until fixed.</span>
       </p>`
       : '<p class="adm-empty">Nothing waiting to be claimed — all completed shifts are processed. 🎉</p>'}
     ${cl.claimed.length ? `
@@ -10186,7 +10270,7 @@ async function renderAdminPage(){
       <ol style="margin:0 0 10px 20px;font-size:.92rem;line-height:1.7;">
         <li>${ln.demo_accounts ? '<button class="adm-btn-sm" id="admLaunchSweep" type="button">Remove all demo data</button> — deletes the 12 demo workers, the demo participant, and every demo conversation & booking. Permanent.' : 'Demo data removed ✓'}</li>
         <li>On the server: <code>sudo nano /etc/bookit.env</code> → delete the <code>SITE_PASSWORD</code> line, add <code>SEED_DEMO=off</code>, save, then <code>sudo systemctl restart bookit</code>.</li>
-        <li>That's launch — bookit.life is live and indexable. 🎉</li>
+        <li>That's launch — thecareweb.com.au is live and indexable. 🎉</li>
       </ol>
       <p class="muted-sm" style="margin:0;">Do step 1 only when you're ready — demo data can't be restored (a fresh database would re-seed it, but your real accounts live in this one).</p>
     </div>`;
@@ -10243,7 +10327,7 @@ async function renderAdminPage(){
 
     <h3 style="margin-top:22px;">Worker referrals</h3>
     ${refs ? `<p class="muted-sm">$${Number(refs.bonus).toFixed(2)} after ${refs.qualify_hours} completed hours. Settings: referral_bonus, referral_qualify_hours.</p>
-    ${refs.referrals.length ? `<table class="rt"><thead><tr><th>Referred by</th><th>New worker</th><th>Joined</th><th>Status</th><th></th></tr></thead><tbody>${refs.referrals.map(r => `<tr><td>${esc(r.referrer_name)}</td><td>${esc(r.referee_name)}</td><td>${esc(fmtAU(r.created.slice(0,10)))}</td><td>${r.paid_at ? 'Paid ' + esc(fmtAU(r.paid_at.slice(0,10))) : r.qualified_at ? `<b style="color:#1C7C43;">Payable $${Number(r.amount).toFixed(2)}</b>` : 'Not yet qualified'}</td><td>${r.qualified_at && !r.paid_at ? `<button class="adm-btn-sm" type="button" data-ref-paid="${r.id}">Mark paid</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="muted-sm">No referrals yet.</p>'}` : ''}
+    ${refs.referrals.length ? `<table class="rt"><thead><tr><th>Referred by</th><th>New worker</th><th>Joined</th><th>Status</th><th></th></tr></thead><tbody>${refs.referrals.map(r => `<tr><td>${esc(r.referrer_name)}</td><td>${esc(r.referee_name)}</td><td>${esc(fmtAU(r.created.slice(0,10)))}</td><td>${r.review_required ? 'Review required — qualifying hours changed' : r.paid_at ? 'Paid ' + esc(fmtAU(r.paid_at.slice(0,10))) : r.qualified_at ? `<b style="color:#1C7C43;">Payable $${Number(r.amount).toFixed(2)}</b>` : 'Not yet qualified'}</td><td>${r.qualified_at && !r.paid_at && !r.review_required ? `<button class="adm-btn-sm" type="button" data-ref-paid="${r.id}">Mark paid</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="muted-sm">No referrals yet.</p>'}` : ''}
 
     <h3 style="margin-top:22px;">Open an account for someone on the phone</h3>
     <p class="muted-sm">Concierge onboarding. They set their own password from the email; the plan, agreement and consent stay theirs to do. Consent is recorded in words.</p>
@@ -10275,14 +10359,14 @@ async function renderAdminPage(){
       <input name="ungroup" type="number" placeholder="Booking # to ungroup" style="${inpStyle}">
       <button class="adm-btn-sm" type="button" data-ungroup>Ungroup</button>
     </form>`;
-  g('growth', 'Growth & money', 'KPIs, referrals, concierge, fee lines, groups', refs && refs.referrals ? refs.referrals.filter(r => r.qualified_at && !r.paid_at).length : 0, growthHtml);
+  g('growth', 'Growth & money', 'KPIs, referrals, concierge, fee lines, groups', refs && refs.referrals ? refs.referrals.filter(r => r.qualified_at && !r.paid_at && !r.review_required).length : 0, growthHtml);
   g('overview', 'Overview', 'Is everything running, and the numbers', stest ? stest.counts.fail : 0,
     tiles + H('Is everything actually running? ', stest && stest.counts.fail ? red(stest.counts.fail + ' failing')
       : stest && stest.counts.warn ? `<span style="color:#B4761A;">(${stest.counts.warn} to look at)</span>` : '') + selfTestHtml(stest));
 
   g('today', 'Today', 'The queues that go stale in hours',
     (cvr ? cvr.open.length : 0) + (c.pending || 0) + hiOpenN + snFlagged.length,
-    H('Cover — when a worker can\'t make it ', cvr && cvr.open.length ? red(cvr.open.length + ' open') : '')
+    '<div id="reviewTodayActions"></div>' + H('Cover — when a worker can\'t make it ', cvr && cvr.open.length ? red(cvr.open.length + ' open') : '')
     + (cvr ? officeQueueHtml(cvr.office) + coverBoardHtml(cvr) : '<p class="adm-empty">The cover board couldn\'t be loaded.</p>')
     + H('Workers awaiting approval ', c.pending ? `(${c.pending})` : '') + pending
     + H('High-intensity enquiries ', hiOpenN ? red(hiOpenN + ' to call') : '') + highIntensity
@@ -10330,7 +10414,7 @@ async function renderAdminPage(){
     (pMissingN || 0) + (plans && plans.counts.critical ? plans.counts.critical : 0),
     `<div class="cmp-tabs" role="tablist">${docTab('register', 'Forms register', frGaps)}${docTab('pages', 'Policies and procedures — published as pages', 0)}${docTab('screens', 'Participant documents — on screen', 0)}${docTab('audit', 'Audit pack', 0)}</div>`
     + docPane('pages', H('Policies and procedures — published as pages') + '<div class="info-card" id="admPolicyPages"><p class="adm-empty">Loading…</p></div>')
-    + docPane('screens', H('Participant documents — written by BookIt, or on screen') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>')
+    + docPane('screens', H('Participant documents — written by The Care Web, or on screen') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>')
     + docPane('register', `<p class="muted-sm" style="margin:0 0 14px;">Participant files and support plans have moved to <a href="#/admin/compliance" data-cmp-go="participants">Compliance › Participants</a>, beside the worker checks.</p>`
       + H('Forms register — where every document lives')
       + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')
@@ -10359,7 +10443,7 @@ async function renderAdminPage(){
 
   const sub = (location.hash.split('/')[2] || '').replace(/[^a-z-]/g, '');
   const cur = G.find(x => x.slug === sub) || null;
-  const pane = cur || G[0];
+  const pane = cur || G.find(x=>x.slug==='today') || G[0];
   const rows = G.map(x => `<a class="sr-row${x.slug === pane.slug ? ' on' : ''}" href="#/admin/${x.slug}"${
       cur && x.slug === cur.slug ? ' aria-current="page"' : ''}><span class="sr-txt"><b>${x.label}${
       x.urgent ? ` <span style="color:#D94F32;">·&nbsp;${x.urgent}</span>` : ''}</b><small>${x.blurb}</small></span><span class="sr-go" aria-hidden="true">›</span></a>`).join('');
@@ -10375,6 +10459,7 @@ async function renderAdminPage(){
       ${pane.html}
     </div>
   </div>`;
+  if(window.BookItReview) BookItReview.todayActions();
 }
 document.addEventListener('submit', async e => {
   const f = e.target;
@@ -11083,7 +11168,7 @@ function careWebHtml(d){
   return `
   <div class="info-card" id="cardCareWeb" style="margin-bottom:18px;">
     <h3 style="margin:0 0 6px;">My care web</h3>
-    <p class="muted-sm" style="margin:0 0 4px;">The people you're happy to have in your home, in the order <b>you</b> want them asked. If a worker can't make a shift, BookIt asks this list first — top to bottom, automatically, in minutes. Nobody has to ring around, and the booking stays in place while we look.</p>
+    <p class="muted-sm" style="margin:0 0 4px;">The people you're happy to have in your home, in the order <b>you</b> want them asked. If a worker can't make a shift, The Care Web asks this list first — top to bottom, automatically, in minutes. Nobody has to ring around, and the booking stays in place while we look.</p>
     <p class="muted-sm" style="margin:0 0 10px;">Drag to reorder, or use the ▲▼ buttons. Untick <b>auto</b> for anyone you'd rather be asked about first.</p>
     ${web.length ? `<ol class="cw-list" id="cwList">${items}</ol>` : `
       <p class="muted-sm" style="margin:14px 0 0;padding:14px;background:#FFF6E3;border:1.5px solid #F5B841;border-radius:12px;">
@@ -11123,7 +11208,7 @@ function offersHtml(d){
         ${o.pay ? `<div class="of-pay" style="margin-top:5px;">$${o.pay.toFixed(2)} to you${o.rate_label ? ` <span class="muted-sm" style="font-weight:400;">(${esc(o.rate_label)} rate, incl. super)</span>` : ''}</div>` : ''}
         ${o.reason ? `<div class="muted-sm" style="margin-top:4px;">Reason given: “${esc(o.reason)}”</div>` : ''}
         <div class="of-acts">
-          <button type="button" class="btn btn-primary btn-sm" data-offer-yes="${o.id}">Yes, I can cover it</button>
+          <button type="button" class="btn btn-primary btn-sm" data-offer-yes="${o.id}" data-cover-id="${o.cover_id}">Yes, I can cover it</button>
           <button type="button" class="btn btn-secondary btn-sm" data-offer-no="${o.id}">Can't do it</button>
           <span class="of-clock">${o.tier === 'web' ? 'Asked first — you\'re in their care web · ' : ''}${offerClock(o.expires_at)}</span>
         </div>
@@ -11171,6 +11256,13 @@ function standbyHtml(d){
   </div>`;
 }
 
+/* v86.14.0 — a visit outside the worker's stated area, and who confirmed it */
+function outOfAreaHtml(b){
+  let o = null; try { o = b.out_of_area ? JSON.parse(b.out_of_area) : null; } catch(e){}
+  if(!o) return '';
+  const who = [o.confirmed_by, ...((o.also || []).map(x => x.confirmed_by))].filter(Boolean).map(w => w === 'participant' ? 'the participant' : w === 'worker' ? 'the worker' : 'the office');
+  return `<p class="muted-sm" style="margin:6px 0 0;"><b>Out of area</b> — ${o.known ? esc(o.text) : "outside the worker's stated area"}; confirmed by ${esc(who.join(' and '))}.${o.maps ? ` <a href="${esc(o.maps)}" target="_blank" rel="noopener noreferrer">Route on Google Maps ↗</a>` : ''}</p>`;
+}
 /* ------------------------------------------ the strip on a booking being covered */
 function coverStripHtml(b){
   if(b.cover_state === 'finding') return `
@@ -11187,7 +11279,7 @@ function coverStripHtml(b){
   if(b.cover_state === 'referred' || b.cover_state === 'allied') return `
     <div class="cv-strip done">
       <b>Covered by a partner provider ✓</b>
-      Nobody on BookIt was free, so a provider we hold an agreement with is delivering this one. We stay responsible for it either way.
+      Nobody on The Care Web was free, so a provider we hold an agreement with is delivering this one. We stay responsible for it either way.
     </div>`;
   if(b.cover_state === 'office') return `
     <div class="cv-strip">
@@ -11196,7 +11288,7 @@ function coverStripHtml(b){
     </div>`;
   if(b.cover_state === 'failed' || b.cover_state === 'uncovered') return `
     <div class="cv-strip">
-      <b>We couldn't find cover for this one.</b> The office has been told and someone will call you. We're sorry — that's a failure on our side, not yours. You will not be charged for BookIt's inability to staff the shift.
+      <b>We couldn't find cover for this one.</b> The office has been told and someone will call you. We're sorry — that's a failure on our side, not yours. You will not be charged for The Care Web's inability to staff the shift.
     </div>`;
   return '';
 }
@@ -11334,7 +11426,7 @@ function ladderBoardHtml(d){
 
   const awardTable = `
     <div class="info-card" style="margin:0 0 12px;">
-      <p style="margin:0 0 6px;"><b>What this table is.</b> Every worker has a SCHADS classification (Level 1, 2 or 3) and the award sets a minimum hourly rate for each. BookIt pays workers a <b>share</b> of the NDIS price (Bronze ${esc(String((d.settings.shares || {}).bronze ?? ''))}% up to Platinum ${esc(String((d.settings.shares || {}).platinum ?? ''))}%). Whenever that share would be <b>under the worker's award minimum</b>, the pay is lifted to the minimum — the <b>floor</b> — so nobody is ever underpaid. Each row is one kind of hour: the NDIS price, the floor at each level, and <b>what BookIt keeps per hour</b> after paying the worker, from Bronze to Platinum.</p>
+      <p style="margin:0 0 6px;"><b>What this table is.</b> Every worker has a SCHADS classification (Level 1, 2 or 3) and the award sets a minimum hourly rate for each. The Care Web pays workers a <b>share</b> of the NDIS price (Bronze ${esc(String((d.settings.shares || {}).bronze ?? ''))}% up to Platinum ${esc(String((d.settings.shares || {}).platinum ?? ''))}%). Whenever that share would be <b>under the worker's award minimum</b>, the pay is lifted to the minimum — the <b>floor</b> — so nobody is ever underpaid. Each row is one kind of hour: the NDIS price, the floor at each level, and <b>what The Care Web keeps per hour</b> after paying the worker, from Bronze to Platinum.</p>
       <p style="margin:0;"><b>Reading it:</b> where two levels show the same figures, the share is above the floor for both and the level makes no difference. A figure in red means the floor is doing the paying — that hour costs you the difference. A single flat figure with no arrow means the ladder no longer moves for that level on that hour.</p>
     </div>
     ${fails.length ? `<div class="tier-flag warn" style="margin:0 0 12px;">
@@ -11343,7 +11435,7 @@ function ladderBoardHtml(d){
       <br>Which: ${[...new Set(fails.map(f => `Level ${f.l.level}`))].join(', ')} on ${[...new Set(fails.map(f => f.a.label))].join(', ')}.
     </div>` : '<div class="tier-flag calm" style="margin:0 0 12px;"><b>Every hour clears the award on the share alone.</b> The floor is in place but currently isn\'t needed anywhere.</div>'}
     ${thin.length ? `<div class="tier-flag warn" style="margin:0 0 12px;">
-      <b>${thin.length} combination${thin.length === 1 ? '' : 's'} ${thin.length === 1 ? 'leaves' : 'leave'} BookIt less than the ${d.settings.min_margin}% it needs to run:</b>
+      <b>${thin.length} combination${thin.length === 1 ? '' : 's'} ${thin.length === 1 ? 'leaves' : 'leave'} The Care Web less than the ${d.settings.min_margin}% it needs to run:</b>
       ${thin.map(t => `${esc(t.a.label)} at Level ${t.l.level} keeps only $${t.l.margin.toFixed(2)} (${t.l.margin_pct.toFixed(1)}%)`).join('; ')}.
       The worker is still paid the full award; the fix is rostering, not pay: <b>${thinRule}</b>
     </div>` : ''}
@@ -11493,9 +11585,9 @@ function planBoardHtml(d){
 }
 
 /* ---- the forms register --------------------------------------------------
-   Three states. "BookIt tracks it" is live data the site checks itself. "A
+   Three states. "The Care Web tracks it" is live data the site checks itself. "A
    file" is a document kept as a file: for a participant's or worker's form
-   that means their own BookIt file, counted per person and shown with numbers;
+   that means their own The Care Web file, counted per person and shown with numbers;
    for the office's own documents (policies, certificates, registers) it means
    wherever the office keeps them — the policies folder, a cabinet — and the office records
    where. "Not built yet" is honest. The gap between the three is where every
@@ -11565,7 +11657,7 @@ function formRecordHtml(f){
     /* held because it is a page here, or a file in the office's indexed folder: nothing to record, nothing to withdraw */
     return r.file
       ? `<p class="fr-rec"><b>Held</b> — a file in the office's Drive: <a href="${esc(r.file)}" target="_blank" rel="noopener noreferrer">${esc(r.location.replace(/ — https?:\/\/\S+$/, ''))}</a>.</p>`
-      : `<p class="fr-rec"><b>Held</b> — its page on BookIt${r.recorded_at ? `, published ${fmtAU(String(r.recorded_at).slice(0,10))}` : ''}.</p>`;
+      : `<p class="fr-rec"><b>Held</b> — its page on The Care Web${r.recorded_at ? `, published ${fmtAU(String(r.recorded_at).slice(0,10))}` : ''}.</p>`;
   }
   if(r && r.held){
     const covers = (r.covers_from || r.covers_to)
@@ -11619,8 +11711,8 @@ function formsBoardHtml(d){
   const tiles = `<div class="adm-tiles">
     <div class="adm-tile"><b>${c.total}</b><span>Distinct forms</span></div>
     <div class="adm-tile"><b>${c.documents}</b><span>Actual documents (per-person multiplied out)</span></div>
-    <div class="adm-tile"><b class="adm-live">${c.live}</b><span>BookIt watches these</span></div>
-    <div class="adm-tile"><b class="adm-live">${d.forms.filter(f => f.track === 'drive' && f.page).length}</b><span>A page on BookIt</span></div>
+    <div class="adm-tile"><b class="adm-live">${c.live}</b><span>The Care Web watches these</span></div>
+    <div class="adm-tile"><b class="adm-live">${d.forms.filter(f => f.track === 'drive' && f.page).length}</b><span>A page on The Care Web</span></div>
     <div class="adm-tile"><b style="color:#8a6d00;">${c.drive - d.forms.filter(f => f.track === 'drive' && f.page).length}</b><span>Kept as a file — in each person's file, or by the office</span></div>
     <div class="adm-tile"><b style="${c.missing ? 'color:#D94F32;' : ''}">${c.missing}</b><span>Don't exist yet</span></div>
     ${c.not_offered ? `<div class="adm-tile"><b>${c.not_offered}</b><span>Not offered (high intensity)</span></div>` : ''}
@@ -11630,17 +11722,17 @@ function formsBoardHtml(d){
   const filter = `<div class="fr-filter" id="frFilter">
     <button data-fr="all" aria-pressed="true" type="button">Everything (${c.total})</button>
     <button data-fr="missing" aria-pressed="false" type="button">Doesn't exist yet (${c.missing})</button>
-    <button data-fr="page" aria-pressed="false" type="button">A page on BookIt (${d.forms.filter(f => f.track === 'drive' && f.page).length})</button>
+    <button data-fr="page" aria-pressed="false" type="button">A page on The Care Web (${d.forms.filter(f => f.track === 'drive' && f.page).length})</button>
     <button data-fr="drive" aria-pressed="false" type="button">Kept as a file (${c.drive - d.forms.filter(f => f.track === 'drive' && f.page).length})</button>
-    <button data-fr="live" aria-pressed="false" type="button">BookIt tracks it (${c.live})</button>
+    <button data-fr="live" aria-pressed="false" type="button">The Care Web tracks it (${c.live})</button>
     <button data-fr="gaps" aria-pressed="false" type="button">Has a gap now (${d.forms.filter(f => f.state && f.state.gaps.length).length})</button>
     <button data-fr="unrecorded" aria-pressed="false" type="button">Office documents not yet recorded (${d.forms.filter(f => f.track !== 'live' && f.scope !== 'participant' && f.scope !== 'worker' && !(f.record && f.record.held)).length})</button>
   </div>`;
-  const trackLabel = { live: 'BookIt tracks it', drive: 'A file', missing: 'Not built yet', na: 'Not offered' };
+  const trackLabel = { live: 'The Care Web tracks it', drive: 'A file', missing: 'Not built yet', na: 'Not offered' };
   const trackKey = f => f.track === 'drive' && f.page ? 'page' : f.track;
-  const trackFor = f => trackKey(f) === 'page' ? 'A page on BookIt' : f.track === 'drive' ? (f.scope === 'participant' ? 'In each participant\'s file' : f.scope === 'worker' ? 'In each worker\'s file' : f.record && f.record.auto && f.record.file ? 'A file in the Drive' : 'Kept by the office') : (trackLabel[f.track] || f.track);
+  const trackFor = f => trackKey(f) === 'page' ? 'A page on The Care Web' : f.track === 'drive' ? (f.scope === 'participant' ? 'In each participant\'s file' : f.scope === 'worker' ? 'In each worker\'s file' : f.record && f.record.auto && f.record.file ? 'A file in the Drive' : 'Kept by the office') : (trackLabel[f.track] || f.track);
   /* what still needs the office's attention on a row: a company document or
-     register nobody has recorded as held (and BookIt does not track), a form
+     register nobody has recorded as held (and The Care Web does not track), a form
      that does not exist yet, or a per-person set with a gap right now */
   const daysUntil = d => Math.floor((new Date(d).getTime() - Date.now()) / 864e5);
   const attention = f => f.track !== 'na' && (f.track === 'missing' || (f.state && f.state.gaps.length > 0) || (f.record && f.record.held && f.record.covers_to && daysUntil(f.record.covers_to) <= 60)
@@ -11672,7 +11764,7 @@ function formsBoardHtml(d){
         <td><span class="fr-track ${trackKey(f)}">${esc(trackFor(f))}</span></td>
         <td>${f.record && f.record.held && f.record.covers_to ? `expires ${fmtAU(f.record.covers_to)}${daysUntil(f.record.covers_to) <= 60 ? ` <span class="fr-gaps" style="display:inline;">(${daysUntil(f.record.covers_to) < 0 ? 'lapsed' : 'renew now'})</span>` : ''}` : esc(f.cadence)}</td>
         <td>${esc(f.signed)}</td>
-        <td>${f.template === 'DMHC' ? '<span class="adm-live">DMHC\'s own</span>' : f.template === 'BookIt' ? 'Built for you' : esc(f.template)}</td>
+        <td>${f.template === 'DMHC' ? '<span class="adm-live">DMHC\'s own</span>' : f.template === 'The Care Web' ? 'Built for you' : esc(f.template)}</td>
         <td><span class="muted-sm">${esc(f.requires)}</span></td>
       </tr>`).join('')}</tbody></table></div></div>`;
   }).join('');
@@ -11832,7 +11924,7 @@ function coverBoardHtml(d){
       <td>${a.agreement_ref ? esc(a.agreement_ref) + (a.agreement_date ? '<br><span class="muted-sm">' + fmtAU(a.agreement_date) + '</span>' : '') : '<b style="color:#D94F32;">none — never offered</b>'}</td>
       <td>${a.insurance_expiry ? (a.insurance_expiry < today ? `<b style="color:#D94F32;">expired ${fmtAU(a.insurance_expiry)}</b>` : fmtAU(a.insurance_expiry)) : '<span class="muted-sm">not recorded</span>'}</td>
       <td><button class="adm-btn-sm" data-allied-off="${a.id}" type="button">${a.active ? 'Deactivate' : 'Deactivated'}</button></td>
-    </tr>`).join('')}</tbody></table></div>` : '<p class="adm-empty">No partner providers on file. Until one is added with a signed agreement reference, the cascade stops at the BookIt pool.</p>';
+    </tr>`).join('')}</tbody></table></div>` : '<p class="adm-empty">No partner providers on file. Until one is added with a signed agreement reference, the cascade stops at The Care Web pool.</p>';
 
   const alliedForm = `
     <details style="margin-top:12px;"><summary style="cursor:pointer;color:#0E6B62;font-weight:600;">＋ Add a partner provider</summary>
@@ -11942,7 +12034,8 @@ document.addEventListener('click', async e => {
     const id = btn.dataset[yes ? 'offerYes' : 'offerNo'];
     btn.disabled = true;
     try{
-      await API.call(`/me/offers/${id}/${yes ? 'accept' : 'decline'}`, {method:'POST', body:{}});
+      if(yes){if(!await BookItReview.acceptCover(Number(yes.dataset.coverId))){btn.disabled=false;return;}}
+      else await API.call(`/me/offers/${id}/decline`, {method:'POST', body:{}});
       toast(yes ? 'Locked in — it\'s in your bookings now. Thank you, that\'s a real difference to someone\'s day.'
         : 'No worries — it\'s moved on to the next person already. Saying no never counts against you.');
       if(yes) celebrateTier();
@@ -12024,7 +12117,8 @@ document.addEventListener('click', async e => {
   if(ofa){
     ofa.disabled = true;
     try{
-      const r = await API.call(`/admin/bookings/${ofa.dataset.ofAssign}/office-assign`, {method:'POST', body:{worker_id: Number(ofa.dataset.ofWorker)}});
+      const proof=await BookItReview.officeEvidence(Number(ofa.dataset.ofAssign));if(!proof){ofa.disabled=false;return;}
+      const r = await API.call(`/admin/bookings/${ofa.dataset.ofAssign}/office-assign`, {method:'POST', body:{worker_id: Number(ofa.dataset.ofWorker),...proof}});
       toast(`${r.worker} recorded — the participant has been told.`);
       renderAdminPage();
     }catch(err){ toast(err.message); ofa.disabled = false; }
@@ -12045,7 +12139,7 @@ document.addEventListener('click', async e => {
         if(!list.length) return '';
         return `<h5>${esc(d.labels[t] || t)}</h5>` + list.map(x => x.allied
           ? `<span class="cb-cand">${esc(x.name)} · ${esc(x.email)}${x.phone ? ' · ' + esc(x.phone) : ''} · ${Math.round(x.share * 100)}%</span>`
-          : `<span class="cb-cand">${esc(x.name)}${x.phone ? ' · ' + esc(x.phone) : ''}<button class="adm-btn-sm" data-cb-assign="${id}" data-cb-worker="${x.id}" type="button">assign</button></span>`).join('');
+          : `<span class="cb-cand">${esc(x.name)}${x.phone ? ' · ' + esc(x.phone) : ''}<button class="adm-btn-sm" data-cb-assign="${id}" data-cb-worker="${x.id}" type="button">send offer</button></span>`).join('');
       }).join('');
       box.innerHTML = blocks || '<p class="muted-sm">Nobody is free and screened for this shift at any tier. This is the case that needs a phone call.</p>';
     }catch(err){ box.innerHTML = '<span class="muted-sm">' + esc(err.message) + '</span>'; }
@@ -12056,7 +12150,7 @@ document.addEventListener('click', async e => {
     asg.disabled = true;
     try{
       await API.call(`/admin/cover/${asg.dataset.cbAssign}/assign`, {method:'POST', body:{worker_id: Number(asg.dataset.cbWorker)}});
-      toast('Assigned — the participant and the worker have both been told.');
+      toast('Offer sent — the worker must accept before this visit is covered.');
       renderAdminPage();
     }catch(err){ toast(err.message); asg.disabled = false; }
     return;
@@ -12597,7 +12691,7 @@ async function renderJobPage(id){
     return;
   }
   $('#jobCrumb').textContent = j.title;
-  document.title = j.title + ' — BookIt';
+  document.title = j.title + ' — The Care Web';
   const owner = !!j.applicants;
   const isWorker = API.me && API.me.role === 'worker';
   const facts = `
@@ -13432,6 +13526,7 @@ async function openPlanAckPanel(bookingId, gate){
   let briefHtml = '';
   try{
     const d = await API.call('/support-plan/' + pid + '/brief', {noFor:true});
+    box.dataset.planId=d.plan_id; box.dataset.planVersion=d.plan_version;
     const b = d.brief;
     briefHtml = `<div class="sp-brief" style="margin:10px 0;">
       <p class="muted-sm" style="margin:0 0 8px;">v${b.version}, confirmed ${fmtAU(String(b.confirmed_at).slice(0, 10))}</p>
@@ -13462,7 +13557,7 @@ document.addEventListener('click', async e => {
     return;
   }
   try{
-    await API.call('/bookings/' + go.dataset.ackBk, {method:'PATCH', body:{status:'accepted', plan_ack:true}});
+    await API.call('/bookings/' + go.dataset.ackBk, {method:'PATCH', body:{status:'accepted', plan_ack:true,plan_id:Number(panel.dataset.planId),plan_version:Number(panel.dataset.planVersion)}});
     toast('Accepted — and your acknowledgement of the plan is on the record.');
     celebrateTier();
     renderBookingsPage();
@@ -13481,7 +13576,7 @@ async function spExtras(){
   const team = ack.team || [];
   const teamRows = team.length ? team.map(w => `
     <div class="log-line"><span><b>${esc(w.name)}</b> — ${w.ack && w.ack.acked
-      ? `read v${w.ack.version} ✓ ${w.ack.acked_at ? fmtStamp(w.ack.acked_at) : ''}`
+      ? `${w.ack.ack_source==='office-recorded'?'office recorded plan confirmation':'read'} v${w.ack.version} ✓ ${w.ack.acked_at ? fmtStamp(w.ack.acked_at) : ''}`
       : '<b style="color:#A5301A;">has not read the current version</b>'}</span></div>`).join('')
     : '<p class="muted-sm">Nobody has worked a shift with you yet — workers appear here the moment they accept one.</p>';
   const verRows = (vers && vers.versions || []).map(v => `
@@ -13526,7 +13621,7 @@ document.addEventListener('click', async e => {
 
 
 /* ============ Build 12 — a document in a message is a pointer ============
-   The paperclip is a picker over documents already held on BookIt — no file
+   The paperclip is a picker over documents already held on The Care Web — no file
    input, nothing re-uploaded, nothing forked. The message stores which
    document; every read resolves the pointer fresh, so the chip beside a
    certificate in a three-week-old thread shows what the document IS, not
@@ -13589,7 +13684,7 @@ async function attOpenPicker(){
     const group = docs.filter(x => x.group === key);
     if(!group.length) continue;
     html += `<div class="dp-group">${label}</div>`;
-    if(key === 'identity') html += '<p class="dp-caution">Identity documents are for the BookIt team — think twice before sending one to another person. It is rarely needed.</p>';
+    if(key === 'identity') html += '<p class="dp-caution">Identity documents are for The Care Web team — think twice before sending one to another person. It is rarely needed.</p>';
     html += group.map(x => `
       <button type="button" class="dp-row" data-dp-kind="${acE(x.kind)}" data-dp-id="${x.id}" data-dp-name="${acE(x.name)}">
         ${acE(x.name)} ${docChips(x)}
@@ -13766,7 +13861,7 @@ async function renderLadderPage(){
   </div>`;
 
   const forOthers = (!me || me.role !== 'worker' || me.admin) ? `
-    <p class="tier-note" style="margin-top:22px;">A level is recognition of hours worked through BookIt — it never changes what a participant pays. Prices are the published NDIS limits, whoever the worker is: see <a href="#/pricing">pricing</a>.</p>
+    <p class="tier-note" style="margin-top:22px;">A level is recognition of hours worked through The Care Web — it never changes what a participant pays. Prices are the published NDIS limits, whoever the worker is: see <a href="#/pricing">pricing</a>.</p>
     ${!me ? `<p class="tier-note">Thinking about support work? <a href="#/support-workers">See pay, perks and how to apply &rarr;</a></p>` : ''}
     ${me && me.admin ? `<p class="tier-note">Office view: shares, bands and the award check live on the <a href="#/admin">admin board</a>, under the ladder.</p>` : ''}` : '';
 
@@ -13777,7 +13872,7 @@ async function renderLadderPage(){
 
   wrap.innerHTML = you
     + `<h2 style="margin:${mine ? '30px' : '4px'} 0 4px;">The four levels</h2>
-       <p class="muted-sm" style="max-width:58em;margin:0 0 6px;">Levels are earned with hours worked through BookIt over a rolling twelve months. Each one is a bigger share of the same published NDIS price — the price itself never moves.</p>`
+       <p class="muted-sm" style="max-width:58em;margin:0 0 6px;">Levels are earned with hours worked through The Care Web over a rolling twelve months. Each one is a bigger share of the same published NDIS price — the price itself never moves.</p>`
     + cards + rules + forOthers + hist;
 }
 window.renderLadderPage = renderLadderPage;
@@ -13821,7 +13916,7 @@ async function renderEarningsPage(){
     </tr>`;
   const next = tier.next;
   let refHtml = '';
-  try{ const R = await API.call('/me/referrals'); refHtml = `<div class="info-card" style="margin-bottom:16px;"><p style="margin:0 0 6px;"><b>Know a good support worker?</b> Give them your code <b style="font-family:monospace;">${esc(R.code)}</b> or this link, and once they have completed ${R.qualify_hours} hours with BookIt you are paid <b>$${Number(R.bonus).toFixed(2)}</b> on your next pay run.</p><p style="margin:0;font-size:.9rem;"><input readonly value="${esc(R.link)}" style="width:100%;max-width:520px;font:inherit;font-size:.85rem;padding:6px 8px;border:1.5px solid #E7DFD4;border-radius:8px;" onclick="this.select()"></p>${R.referrals.length ? `<p class="muted-sm" style="margin:8px 0 0;">${R.referrals.map(x => `${esc(x.who)}: ${x.paid_at ? 'paid' : x.qualified_at ? 'payable — on your next pay' : `${Number(x.hours).toFixed(1)} of ${R.qualify_hours} hours`}`).join(' · ')}</p>` : ''}</div>`; }catch(e){}
+  try{ const R = await API.call('/me/referrals'); refHtml = `<div class="info-card" style="margin-bottom:16px;"><p style="margin:0 0 6px;"><b>Know a good support worker?</b> Give them your code <b style="font-family:monospace;">${esc(R.code)}</b> or this link, and once they have completed ${R.qualify_hours} hours with The Care Web you are paid <b>$${Number(R.bonus).toFixed(2)}</b> on your next pay run.</p><p style="margin:0;font-size:.9rem;"><input readonly value="${esc(R.link)}" style="width:100%;max-width:520px;font:inherit;font-size:.85rem;padding:6px 8px;border:1.5px solid #E7DFD4;border-radius:8px;" onclick="this.select()"></p>${R.referrals.length ? `<p class="muted-sm" style="margin:8px 0 0;">${R.referrals.map(x => `${esc(x.who)}: ${x.review_required ? 'review required — qualifying hours changed' : x.paid_at ? 'paid' : x.qualified_at ? 'payable — on your next pay' : `${Number(x.hours).toFixed(1)} of ${R.qualify_hours} hours`}`).join(' · ')}</p>` : ''}</div>`; }catch(e){}
   wrap.innerHTML = `${refHtml}
     <div class="st-presets" role="group" aria-label="Pay period">
       ${(d.periods || []).slice(0, 4).map((p, i) => `
@@ -14028,7 +14123,7 @@ const HIDDEN_WORDS = {
   self: ['Hidden — by you', 'You paused it yourself. Nothing has been deleted; switch it back on whenever you like.'],
   checks: ['Hidden — a check has lapsed', 'A credential the platform requires has expired or is unconfirmed. Fix the document on your Bookings page and visibility comes back with it.'],
   approval: ['Hidden — awaiting approval', 'The team hasn\'t approved your profile yet. Photo and screening check on file are what unlock it.'],
-  blocked: ['Hidden — by the BookIt team', 'The office has stopped your profile from showing. This is not about your documents — contact hello@bookit.life and a person will tell you exactly why and what happens next.']
+  blocked: ['Hidden — by The Care Web team', 'The office has stopped your profile from showing. This is not about your documents — contact hello@thecareweb.com.au and a person will tell you exactly why and what happens next.']
 };
 async function renderAccountPage(){
   const wrap = $('#acctWrapPage'); if(!wrap) return;
@@ -14065,7 +14160,7 @@ async function renderAccountPage(){
   const dataCard = `
   <div class="info-card" style="margin-bottom:18px;" id="cardMyData">
     <h3 style="margin:0 0 6px;">A copy of your data</h3>
-    <p class="muted-sm" style="margin:0 0 10px;">Everything BookIt holds about you, as one file, right now — Australian Privacy Principle 12, self-service instead of a request form. The download itself is logged, because who took a copy of what is the first question after any breach.</p>
+    <p class="muted-sm" style="margin:0 0 10px;">Everything The Care Web holds about you, as one file, right now — Australian Privacy Principle 12, self-service instead of a request form. The download itself is logged, because who took a copy of what is the first question after any breach.</p>
     <a class="btn btn-secondary btn-sm" href="/api/me/export" download>Download my data</a>
   </div>`;
 
@@ -14176,7 +14271,7 @@ async function renderAccountPage(){
   const identityCard = `
   <div class="info-card" style="margin-bottom:18px;" id="cardIdentity">
     <div style="display:flex;gap:12px;align-items:center;flex-direction:column;text-align:center;">
-      ${me.role === 'worker' && me.tier ? `<span class="acct-av ringed framed ring-lg tr-${me.tier}" title="${esc(tierLabelOf(me.tier))} — your BookIt ladder level"><img class="tier-frame tf-${me.tier}" src="/assets/tiers/tier-${me.tier}.svg" alt="" aria-hidden="true">` : ''}<span class="wc-avatar" id="profAvatar" style="background:var(--teal);width:104px;height:104px;font-size:2rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="Your photo">` : acctInitials(me.name || '')}</span>${me.role === 'worker' && me.tier ? `</span>` : ''}
+      ${me.role === 'worker' && me.tier ? `<span class="acct-av ringed framed ring-lg tr-${me.tier}" title="${esc(tierLabelOf(me.tier))} — your The Care Web ladder level"><img class="tier-frame tf-${me.tier}" src="/assets/tiers/tier-${me.tier}.svg" alt="" aria-hidden="true">` : ''}<span class="wc-avatar" id="profAvatar" style="background:var(--teal);width:104px;height:104px;font-size:2rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="Your photo">` : acctInitials(me.name || '')}</span>${me.role === 'worker' && me.tier ? `</span>` : ''}
       <div style="min-width:0;">
         <b style="font-family:var(--font-head);font-size:1.3rem;display:block;">${esc(me.name || '')}</b>
         <span class="muted-sm">${roleLabel}${me.admin ? ' · Admin' : ''}${me.suburb ? ' · ' + esc(me.suburb) : ''}</span>
@@ -14196,7 +14291,7 @@ async function renderAccountPage(){
      Workers manage their visibility here too, beside the profile it hides. */
   const pageH1 = document.querySelector('#page-account .page-hero-slim h1');
   if(pageH1) pageH1.textContent = subRaw === 'profile' ? 'Profile' : 'Settings';
-  document.title = (subRaw === 'profile' ? 'Profile' : 'Settings') + ' — BookIt';
+  document.title = (subRaw === 'profile' ? 'Profile' : 'Settings') + ' — The Care Web';
   if(subRaw === 'profile'){
     /* Build 21 — everything about *you* lives here, profile-style: photo up
        top, then your details, emergency contact, support plan, supports and
@@ -14282,6 +14377,7 @@ async function renderAccountPage(){
   }
 
   if(me.role === 'worker' && !me.admin){
+    S.push(['availability','Availability & service areas','Whole-visit hours, suburbs, leave and travel buffers','<div id="reviewAvailability"><p>Loading availability…</p></div>']);
     S.push(['credentials', 'Credentials & checks', 'Screening, training, expiry dates', '<div id="miniCreds"><p class="muted-sm">Loading…</p></div>']);
     S.push(['earnings', 'Earnings & pay tier', 'Pay lines, super, next rate', '<div id="miniEarnings"><p class="muted-sm">Loading…</p></div>']);
     S.push(['training', 'Training', 'Required, done, due', '<div id="miniTraining"><p class="muted-sm">Loading…</p></div>']);
@@ -14291,7 +14387,7 @@ async function renderAccountPage(){
   S.push(['notifications', 'Emails & notifications', 'Which emails reach you', notCard || card('cardNotifsFallback', 'Emails', '<p class="muted-sm">Couldn’t load your email settings just now — refresh to try again.</p>')]);
   S.push(['accessibility', 'Accessibility', 'Text size, font, motion, contrast', a11yCard]);
   S.push(['security', 'Sign-in & security', 'Password, two-step, devices', pwCard + '<div id="miniSecurity"><p class="muted-sm">Loading…</p></div>']);
-  S.push(['help', 'Help & contact', 'A real person, plain answers', card('cardHelpLink', 'Help & contact', `<p style="margin:0 0 6px;font-size:1.05rem;"><b>0488 114 368</b> · <a href="mailto:hello@bookit.life">hello@bookit.life</a></p><p class="mini-note" style="margin:0 0 8px;"><b>In an emergency, always call 000 first.</b> National Relay Service and interpreters (TIS 131 450) welcome.</p><p style="margin:0;font-size:.9rem;"><a href="#/contact"><b>Send us a message →</b></a> &nbsp;·&nbsp; <a href="#/faq"><b>FAQ &amp; help →</b></a></p>`)]);
+  S.push(['help', 'Help & contact', 'A real person, plain answers', card('cardHelpLink', 'Help & contact', `<p style="margin:0 0 6px;font-size:1.05rem;"><b>0488 114 368</b> · <a href="mailto:hello@thecareweb.com.au">hello@thecareweb.com.au</a></p><p class="mini-note" style="margin:0 0 8px;"><b>In an emergency, always call 000 first.</b> National Relay Service and interpreters (TIS 131 450) welcome.</p><p style="margin:0;font-size:.9rem;"><a href="#/contact"><b>Send us a message →</b></a> &nbsp;·&nbsp; <a href="#/faq"><b>FAQ &amp; help →</b></a></p>`)]);
 
   const cur = S.find(x => x[0] === subRaw) || null;
   const paneSec = cur || S[0];
@@ -14317,6 +14413,7 @@ async function renderAccountPage(){
 
   /* Build 22: the pane IS the page — no redirects, the real thing renders
      right here (pickWrap points each renderer at the mini container). */
+  if(rowOn === 'availability') BookItReview.renderAvailability();
   if(rowOn === 'billing' || rowOn === 'statements') renderStatementsPage();
   else if(rowOn === 'documents') renderPdocsMini();
   else if(rowOn === 'access') renderAccessPage();
@@ -14461,7 +14558,7 @@ async function renderPdocsMini(){
   <div class="info-card" style="margin-bottom:12px;" id="cardSharing">
     <h3 style="margin:0 0 4px;">What a worker can read</h3>
     <p class="mini-note" style="margin:0 0 10px;">Your workers don't see your documents. The only exception is the clinical plans your support needs — medication, seizures, mealtimes, transfers, behaviour support. A worker booked with you can read those before the shift, and every time one is opened it is recorded in your access log.</p>
-    <label style="font-size:.88rem;display:flex;gap:8px;align-items:flex-start;"><input type="checkbox" id="shareOn" ${sh.on ? 'checked' : ''} style="margin-top:3px;"> <span>Let my booked workers read my clinical plans in BookIt <span class="muted-sm">(recommended)</span></span></label>
+    <label style="font-size:.88rem;display:flex;gap:8px;align-items:flex-start;"><input type="checkbox" id="shareOn" ${sh.on ? 'checked' : ''} style="margin-top:3px;"> <span>Let my booked workers read my clinical plans in The Care Web <span class="muted-sm">(recommended)</span></span></label>
     <div id="shareNoteWrap" style="margin-top:8px;display:${sh.on ? 'none' : 'block'};">
       <label style="font-size:.82rem;">If not, how will a worker get the plan on the day?<br><input id="shareNote" maxlength="400" value="${esc(sh.note || '')}" placeholder="e.g. the red folder on the kitchen bench; Mum is home for every shift" style="font:inherit;padding:7px 9px;border-radius:10px;border:1.5px solid #E7DFD4;margin-top:4px;width:min(100%,420px);"></label>
     </div>
@@ -14651,7 +14748,7 @@ document.addEventListener('click', async e => {
   if(id === 'shareGo'){
     try{
       const r = await API.call('/me/plan-sharing', {method:'POST', body:{ share: $('#shareOn').checked, note: $('#shareNote') ? $('#shareNote').value.trim() : '' }});
-      toast(r.on ? 'Saved — your booked workers can read your clinical plans in BookIt.' : 'Saved — plans are not shared in BookIt; your arrangement is on file.');
+      toast(r.on ? 'Saved — your booked workers can read your clinical plans in The Care Web.' : 'Saved — plans are not shared in The Care Web; your arrangement is on file.');
       renderPdocsMini();
     }catch(err){ toast(err.message); }
     return;
@@ -14882,7 +14979,7 @@ async function renderBlankForms(){
   const OWNER_LABEL = { participant: 'theirs to fill in', cosigned: 'they sign, we write',
     clinical: 'a clinician writes it', office: 'ours', ndia: 'a copy of the NDIS plan' };
   host.innerHTML = `
-    <p class="muted-sm" style="margin:0 0 12px;"><b>No participant document is a blank PDF any more.</b> The agreement, the schedule and the consents are written by BookIt and agreed with a click; everything else is a screen — filled in on the page, confirmed with a click, filed with Print. A clinician's own signed plan is still added to the participant's file as a document (My documents › Add a document), and the screen is the summary a worker follows. If a row below ever shows an upload, it is one the office chose to keep as a paper form.</p>
+    <p class="muted-sm" style="margin:0 0 12px;"><b>No participant document is a blank PDF any more.</b> The agreement, the schedule and the consents are written by The Care Web and agreed with a click; everything else is a screen — filled in on the page, confirmed with a click, filed with Print. A clinician's own signed plan is still added to the participant's file as a document (My documents › Add a document), and the screen is the summary a worker follows. If a row below ever shows an upload, it is one the office chose to keep as a paper form.</p>
     <div class="adm-table-wrap"><table class="adm-table"><thead><tr>
       <th>Form</th><th>Whose</th><th>Blank on file</th><th style="min-width:330px;">Put one up</th>
     </tr></thead><tbody>
@@ -14892,7 +14989,7 @@ async function renderBlankForms(){
       <td><span class="muted-sm"><b>A screen, not a blank</b> — ${t.screen.fields} questions, confirmed with a click, filed as a page with Print. ${esc(t.screen.edition)}.${t.has_file ? ' The PDF filed here is no longer offered to participants.' : ''}</span></td>
       <td><span class="muted-sm">Open it from the participant card (Participant files) or, for their own forms, they open it from My documents.</span></td></tr>` : t.generated ? `<tr>
       <td><b>${esc(t.label)}</b>${t.only_if ? `<br><span class="muted-sm">${esc(t.only_if)}</span>` : ''}</td>
-      <td><span class="muted-sm">written by BookIt · agreed with a click</span></td>
+      <td><span class="muted-sm">written by The Care Web · agreed with a click</span></td>
       <td><a href="${esc(t.read_url)}" target="_blank" rel="noopener">Read the current edition</a><br><span class="muted-sm"><b>${esc(t.edition || 'current')}</b> — generated by the server, the same for everyone, nothing to fill in. The participant's file keeps a snapshot of the edition they agreed to.</span></td>
       <td><span class="muted-sm">Nothing to put up: this one is not a blank form. To change its text, change it in the code and raise the edition — everyone is then asked to agree again, with seven days' notice.</span></td></tr>` : `<tr>
       <td><b>${esc(t.label)}</b>${t.only_if ? `<br><span class="muted-sm">${esc(t.only_if)}</span>` : ''}</td>
@@ -15375,6 +15472,7 @@ document.addEventListener('click', async e => {
   }
 })();
 </script>
+
 
 </body>
 </html>

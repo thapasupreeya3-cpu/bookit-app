@@ -1,0 +1,9 @@
+{
+  "version": "87.0.0",
+  "base_version": "86.12.0",
+  "base_archive": "bookit-app-main(2).zip",
+  "base_archive_sha256": "e02c3e55c5ef7315010fc7b6657595f8f839cc745fe437554429b05b21f686b6",
+  "base_commit": "e9e4a8d3f94491369b39315a2a757f13f8746cf0",
+  "scope": "Latest source-based assessment, not the earlier guide-only review",
+  "unchanged_assets": "Existing scenes, photographs, artwork, vendor assets and self-hosted font files stay in the base repository."
+}

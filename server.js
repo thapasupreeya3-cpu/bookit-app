@@ -1,3 +1,11 @@
+// v86.13.0 — shared assignment, access, availability, messaging and referral rules.
+const BOOKIT_TIME = require('./lib/booking-time');
+const BOOKIT_AVAILABILITY = require('./lib/worker-availability');
+const BOOKIT_ASSIGNMENT = require('./lib/assignment-policy');
+const BOOKIT_TRAVEL = require('./lib/travel');
+const BOOKIT_PLAN_ACCESS = require('./lib/plan-access');
+const BOOKIT_MESSAGES = require('./lib/message-pagination');
+const BOOKIT_REFERRALS = require('./lib/referral-policy');
 const BOOKIT_HARDENING = require('./lib/bookit-hardening');
 const BOOKIT_VERSION = require('./lib/version');
 const BOOKIT_MIGRATIONS = require('./lib/migration-runner');
@@ -8,7 +16,7 @@ const BOOKIT_BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
 const BOOKIT_STARTUP_CHECK = BOOKIT_HARDENING.assertProductionEnvironment({ rootDir: __dirname });
 
 /* ============================================================
-   BookIt — backend server (zero dependencies)
+   The Care Web — backend server (zero dependencies)
    Node 22+ (uses built-in node:sqlite). Run:  node server.js
    Env: PORT (default 3000) · SECRET (session key; auto-generated
         to .secret if unset) · AUTO_REPLY=off to disable the demo
@@ -65,7 +73,7 @@ db.exec(`
     bio TEXT DEFAULT '',
     services TEXT DEFAULT '[]',
     langs TEXT DEFAULT 'English',
-    exp TEXT DEFAULT 'New to BookIt',
+    exp TEXT DEFAULT 'New to The Care Web',
     color TEXT DEFAULT '#0E6B62',
     rating REAL DEFAULT 0,
     shifts INTEGER DEFAULT 0,
@@ -185,7 +193,7 @@ for (const col of ["svc_interest TEXT DEFAULT '[]'", "hi_flags TEXT DEFAULT '[]'
 }
 /* migration (participant file build, v86): three paper forms became fields.
    The intake form, the advocate/nominee form and the "copy of the NDIS plan"
-   row each asked for things BookIt did not hold; these are those things, and
+   row each asked for things The Care Web did not hold; these are those things, and
    only those things, collected as fields rather than documents. Deliberately
    no date of birth: the account page promises not
    to ask for one, and nothing here needs it — "under 18" is a declaration,
@@ -587,7 +595,7 @@ for (const col of ['standby_optin INTEGER NOT NULL DEFAULT 0', 'standby_max INTE
        against a person is in force.
 
    Read them carefully. The first is a *gate on platform access*, not a filing
-   obligation — an uncleared worker must not be able to use BookIt at all, so
+   obligation — an uncleared worker must not be able to use The Care Web at all, so
    the state has to be a thing the code can refuse on, not a PDF in a folder.
    The second is *check AND display*, and it is worded at the level of the
    individual worker, so each profile has to carry its own answer.
@@ -726,7 +734,7 @@ db.exec('CREATE INDEX IF NOT EXISTS idx_scr_worker ON screening_events (worker_i
 /* --- Build 26: the clocks, the job ledger and the AI trail ----------------
 
    Three tables and a handful of columns, all serving one idea: a deadline
-   that nothing watches is not a deadline, it is a hope. BookIt already
+   that nothing watches is not a deadline, it is a hope. The Care Web already
    computed its deadlines correctly and then never looked at them again —
    `notify_due` was written on insert and read only when somebody happened to
    open the register. The 24 hours could pass in silence.
@@ -815,8 +823,8 @@ db.exec(`CREATE TABLE IF NOT EXISTS ai_suggestions (
 db.exec('CREATE INDEX IF NOT EXISTS idx_ai_subject ON ai_suggestions (use_case, subject_kind, subject_id)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_ai_open ON ai_suggestions (reviewed_at, id)');
 
-/* --- "I have it, it just isn't in BookIt." ------------------------------
-   51 of the 72 forms are files in a folder. Until now BookIt had no way to
+/* --- "I have it, it just isn't in The Care Web." ------------------------------
+   51 of the 72 forms are files in a folder. Until now The Care Web had no way to
    hear that one of them exists: a form it does not track was reported as a
    gap, and stayed a gap in the audit pack no matter how many times the
    office said "we've got that one". That is the wrong default. Not in
@@ -848,9 +856,9 @@ db.exec(`CREATE TABLE IF NOT EXISTS form_records (
 );`);
 
 /* --- the participant's side of the same filing cabinet.
-   Worker documents have lived in BookIt since the compliance build. The
+   Worker documents have lived in The Care Web since the compliance build. The
    participant's never did: the service agreement, the risk assessment, the
-   consents and the copy of the NDIS plan were in a Drive folder, and BookIt
+   consents and the copy of the NDIS plan were in a Drive folder, and The Care Web
    only ever held a note saying so. That made "where is this person's file"
    a question with two answers, and an auditor asking it got the wrong one.
    One row per document, keyed to the form in the register it satisfies, so
@@ -1749,7 +1757,7 @@ const ITEM_NAMES = {
    own list. From the 2026-27 schedule; regenerate when the schedule changes. */
 const COMPANY_NAME = 'Disability & Mental Health Care Pty Ltd';
 const COMPANY_ADDRESS = process.env.COMPANY_ADDRESS || '16 Crystal Crescent, Wyong NSW 2259';
-const COMPANY_EMAIL = process.env.COMPANY_EMAIL || 'hello@bookit.life';
+const COMPANY_EMAIL = process.env.COMPANY_EMAIL || 'hello@thecareweb.com.au';
 const COMPANY_PHONE = process.env.COMPANY_PHONE || '0488 114 368';
 const INVOICE_DUE_DAYS = () => Math.max(1, numSetting('invoice_due_days', 14));
 function itemName(code, fallback) { return ITEM_NAMES[code] || fallback || code || ''; }
@@ -1812,7 +1820,7 @@ function makeInvoicePdf(inv) {
   const rule = y => ops.push('0.9 0.87 0.83 RG 0.7 w', `40 ${y} m 555 ${y} l S`);
   const cols = { date: 40, desc: 95, item: 318, when: 405, rate: 470, amt: 515 };
   const header = (pageNo) => {
-    T(40, 795, 22, 'FB', 'BookIt', TEAL);
+    T(40, 795, 22, 'FB', 'The Care Web', TEAL);
     T(40, 781, 8.5, 'F', COMPANY_NAME + ' · ABN 19 658 578 575', SOFT);
     T(40, 770, 8.5, 'F', COMPANY_ADDRESS, SOFT);
     T(40, 759, 8.5, 'F', `Registered NDIS provider ${NDIS_REG_NO} · ${COMPANY_EMAIL} · ${COMPANY_PHONE}`, SOFT);
@@ -1861,11 +1869,11 @@ function makeInvoicePdf(inv) {
     else { T(40, y, 9, 'F', 'Please pay from plan funds by bank transfer to:'); y -= 12; }
     for (const b of bankLines()) { T(52, y, 9, 'F', b); y -= 12; }
     T(40, y, 9, 'F', `Payment reference: ${inv.invoice_no}`); y -= 12;
-    if (inv.pay_url) { T(40, y, 9, 'F', 'Or pay by card from the link in your BookIt account (Statements & invoices).'); y -= 12; }
+    if (inv.pay_url) { T(40, y, 9, 'F', 'Or pay by card from the link in your The Care Web account (Statements & invoices).'); y -= 12; }
     if (inv.self) { T(40, y, 9, 'F', 'Self-managed: claim this invoice back through the myplace participant portal.', SOFT); y -= 12; }
   }
   T(40, y - 4, 8.5, 'F', 'Prices are at or below the NDIS Pricing Arrangements and Price Limits 2026-27. No GST applies.', SOFT);
-  T(40, 60, 8, 'F', `Questions about this invoice? ${COMPANY_EMAIL} · ${COMPANY_PHONE}. Thank you for choosing BookIt.`, SOFT);
+  T(40, 60, 8, 'F', `Questions about this invoice? ${COMPANY_EMAIL} · ${COMPANY_PHONE}. Thank you for choosing The Care Web.`, SOFT);
   flush();
   /* the file: one content stream per page */
   const objects = ['<< /Type /Catalog /Pages 2 0 R >>'];
@@ -2068,7 +2076,7 @@ function gateValid(cookieHeader) {
   return m[1].length === expected.length && crypto.timingSafeEqual(Buffer.from(m[1]), Buffer.from(expected));
 }
 function gatePage(wrong) {
-  return `<!DOCTYPE html><html lang="en-AU"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex, nofollow"><title>BookIt — private preview</title>
+  return `<!DOCTYPE html><html lang="en-AU"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex, nofollow"><title>The Care Web — private preview</title>
 <style>body{font-family:system-ui,sans-serif;background:#FAF6F0;color:#17313A;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;}
 .card{background:#fff;border:1px solid #E7DFD4;border-radius:20px;box-shadow:0 18px 50px rgba(23,49,58,.14);padding:40px;max-width:400px;width:100%;text-align:center;}
 .logo{font-weight:800;font-size:1.6rem;display:flex;align-items:center;justify-content:center;gap:2px;margin-bottom:14px;}
@@ -2083,7 +2091,7 @@ button:hover{background:#0A544D;}
 <body><div class="card">
 <div class="logo">b<svg viewBox="0 0 94 48" aria-hidden="true"><circle cx="23" cy="24" r="22" fill="#0E6B62"/><circle cx="69" cy="24" r="22" fill="#F5B841"/><path d="M57 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>kit</div>
 <h1>Private preview</h1>
-<p>BookIt isn't open to the public just yet. Enter the access password to look around.</p>
+<p>The Care Web isn't open to the public just yet. Enter the access password to look around.</p>
 ${wrong ? '<p class="err">That password did not match — try again.</p>' : ''}
 <form method="POST" action="/gate"><input type="password" name="pw" placeholder="Access password" autofocus required><button type="submit">Enter</button></form>
 </div></body></html>`;
@@ -2091,7 +2099,7 @@ ${wrong ? '<p class="err">That password did not match — try again.</p>' : ''}
 
 /* ---------- email (zero-dependency SMTP over TLS) ----------
    Sends through your Zoho mailbox. Set:
-     SMTP_USER = hello@bookit.life
+     SMTP_USER = hello@thecareweb.com.au
      SMTP_PASS = that mailbox's password (or a Zoho app password if MFA is on)
    Optional: SMTP_HOST (default smtppro.zoho.com.au — Zoho AU, paid org),
      SMTP_PORT (465 SSL), MAIL_FROM (defaults to SMTP_USER — must be the
@@ -2104,7 +2112,7 @@ const SMTP_HOST = process.env.SMTP_HOST || 'smtppro.zoho.com.au';
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
-const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER || 'hello@bookit.life';
+const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER || 'hello@thecareweb.com.au';
 const APP_URL = (process.env.APP_URL || '').replace(/\/+$/, '');
 /* Resend HTTPS API (api.resend.com) — needed on hosts that block outbound
    SMTP (Railway Free/Trial/Hobby all do). Set RESEND_API_KEY to use it;
@@ -2117,7 +2125,7 @@ const EMAIL_ON = Boolean(RESEND_KEY || (SMTP_USER && SMTP_PASS));
    Set STRIPE_SECRET_KEY (sk_live_… from dashboard.stripe.com → Developers → API keys)
    and the feature switches on: self-managed invoices get a hosted "pay by card" link.
    Set STRIPE_WEBHOOK_SECRET (whsec_… — add a webhook in the Stripe dashboard pointing
-   at https://bookit.life/api/stripe/webhook for the checkout.session.completed event)
+   at https://thecareweb.com.au/api/stripe/webhook for the checkout.session.completed event)
    and paid shifts mark themselves paid the moment the card goes through.
    No keys set = feature dormant, invoices show bank transfer only. */
 const STRIPE_KEY = process.env.STRIPE_SECRET_KEY || '';
@@ -2192,7 +2200,7 @@ function handleStripeWebhook(req, res, raw) {
         if (MAIL_FROM) sendMail(MAIL_FROM, `Card payment received — ${invNo}`,
           `💳 $${total.toFixed(2)} paid by card`,
           `<p>Invoice <b>${escHtml(invNo)}</b> has been paid by card through Stripe — <b>$${total.toFixed(2)}</b> across ${rows.length} shift${rows.length > 1 ? 's' : ''}. The shifts are marked paid automatically.</p>`,
-          'Open claims', `${APP_URL || 'https://bookit.life'}/#/admin`).catch(() => {});
+          'Open claims', `${APP_URL || 'https://thecareweb.com.au'}/#/admin`).catch(() => {});
       }
     }
   }
@@ -2233,7 +2241,7 @@ function b64wrap(str) { return Buffer.from(str, 'utf8').toString('base64').repla
 function smtpSend(to, subject, html, text, replyTo, attachments) {
   return new Promise((resolve, reject) => {
     const boundary = 'bk' + crypto.randomBytes(12).toString('hex');
-    const msgId = `<${crypto.randomBytes(12).toString('hex')}@bookit.life>`;
+    const msgId = `<${crypto.randomBytes(12).toString('hex')}@thecareweb.com.au>`;
     const altPart =
       `--${boundary}\r\n` +
       `Content-Type: text/plain; charset=utf-8\r\n` +
@@ -2262,7 +2270,7 @@ function smtpSend(to, subject, html, text, replyTo, attachments) {
         `--${mix}--\r\n`;
     }
     const data =
-      `From: =?UTF-8?B?${Buffer.from('BookIt', 'utf8').toString('base64')}?= <${MAIL_FROM}>\r\n` +
+      `From: =?UTF-8?B?${Buffer.from('The Care Web', 'utf8').toString('base64')}?= <${MAIL_FROM}>\r\n` +
       `To: <${to}>\r\n` +
       (replyTo ? `Reply-To: <${replyTo}>\r\n` : '') +
       `Subject: =?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=\r\n` +
@@ -2273,7 +2281,7 @@ function smtpSend(to, subject, html, text, replyTo, attachments) {
       `\r\n` +
       bodyPart;
     const steps = [
-      { expect: 220, send: () => 'EHLO bookit.life\r\n' },
+      { expect: 220, send: () => 'EHLO thecareweb.com.au\r\n' },
       { expect: 250, send: () => 'AUTH LOGIN\r\n' },
       { expect: 334, send: () => Buffer.from(SMTP_USER, 'utf8').toString('base64') + '\r\n' },
       { expect: 334, send: () => Buffer.from(SMTP_PASS, 'utf8').toString('base64') + '\r\n' },
@@ -2312,7 +2320,7 @@ async function resendSend(to, subject, html, text, replyTo, attachments) {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: `BookIt <${MAIL_FROM}>`, to: [to], subject, html, text,
+      from: `The Care Web <${MAIL_FROM}>`, to: [to], subject, html, text,
       ...(replyTo ? { reply_to: replyTo } : {}),
       ...(attachments && attachments.length ? { attachments: attachments.map(a => ({ filename: a.filename, content: a.buffer.toString('base64') })) } : {})
     }),
@@ -2345,9 +2353,9 @@ function emailHtml(heading, bodyHtml, ctaText, ctaUrl) {
 ${btn}
 </td></tr>
 <tr><td style="padding:18px 34px 26px;border-top:1px solid #F0EAE0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#7d8f96;line-height:1.6;">
-BookIt &middot; operated by Disability &amp; Mental Health Care Pty Ltd<br>
+The Care Web &middot; operated by Disability &amp; Mental Health Care Pty Ltd<br>
 ABN 19 658 578 575 &middot; Registered NDIS Provider 4-LO5XNY0<br>
-You&#39;re receiving this because of activity on your BookIt account.
+You&#39;re receiving this because of activity on your The Care Web account.
 </td></tr>
 </table>
 </td></tr></table>
@@ -2361,7 +2369,7 @@ function sendMail(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo, atta
   const text = bodyHtml.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>\s*<p[^>]*>/gi, '\n\n').replace(/<[^>]+>/g, '')
     .replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&middot;/g, '·').trim()
     + (ctaUrl ? `\n\n${ctaText}: ${ctaUrl}` : '')
-    + '\n\n— BookIt · Disability & Mental Health Care Pty Ltd · ABN 19 658 578 575';
+    + '\n\n— The Care Web · Disability & Mental Health Care Pty Ltd · ABN 19 658 578 575';
   if (!EMAIL_ON) { console.info('[mail disabled] transactional email suppressed; token and recipient were not logged'); return Promise.resolve('skipped-off'); }
   const transport = RESEND_KEY ? resendSend : smtpSend;
   return transport(dest, subject, html, text, replyTo, attachments).then(
@@ -2398,8 +2406,8 @@ function readEmailToken(kind, token, extraFor) {
 }
 function sendVerifyEmail(req, u) {
   const url2 = `${baseUrl(req)}/verify-email?token=${makeEmailToken('v', u.id, 7 * 864e5)}`;
-  return sendMail(u.email, 'Confirm your email — BookIt',
-    `Welcome to BookIt, ${firstName(u.name)}!`,
+  return sendMail(u.email, 'Confirm your email — The Care Web',
+    `Welcome to The Care Web, ${firstName(u.name)}!`,
     `<p>Your account is live. One quick thing — press the button below so we know this address is really yours. That's what keeps password resets and booking updates flowing to the right inbox.</p><p>The link works for 7 days.</p>`,
     'Confirm my email', url2);
 }
@@ -2476,21 +2484,21 @@ function seed() {
     const uid = Number(r.lastInsertRowid);
     insProf.run(uid, w.bio, JSON.stringify(w.services), w.langs, w.exp, w.color, w.rating, w.shifts, JSON.stringify(w.checks), JSON.stringify(w.days));
     for (const label of w.checks) {
-      insDoc.run(uid, CRED_KEY[label] || 'other', label, inThreeYears, now(), now(), 'BookIt (demo seed)',
+      insDoc.run(uid, CRED_KEY[label] || 'other', label, inThreeYears, now(), now(), 'The Care Web (demo seed)',
         'sighted-original', 'Demo data — this is a fictional profile, not a real credential.');
       /* A demo profile with no CPR row would now be blocked by the same rule
          as everybody else, and a demonstration that cannot be demonstrated is
          no use. Seeded on the real one-year clock, so the two speeds show. */
       if (label === 'First Aid & CPR') {
-        insDoc.run(uid, 'cpr', 'CPR (HLTAID009)', inOneYear, now(), now(), 'BookIt (demo seed)',
+        insDoc.run(uid, 'cpr', 'CPR (HLTAID009)', inOneYear, now(), now(), 'The Care Web (demo seed)',
           'sighted-original', 'Demo data — this is a fictional profile, not a real credential.');
       }
     }
-    db.prepare(`UPDATE worker_profiles SET screening_status = 'cleared', screening_status_at = ?, screening_status_by = 'BookIt (demo seed)',
+    db.prepare(`UPDATE worker_profiles SET screening_status = 'cleared', screening_status_at = ?, screening_status_by = 'The Care Web (demo seed)',
       screening_source = 'Demo data — not a real clearance', banning_result = 'clear', banning_checked_at = ?,
       banning_aged_result = 'clear', banning_aged_at = ?, banning_aged_source = 'Demo data — register not actually checked',
       banning_acqsc_result = 'clear', banning_acqsc_at = ?, banning_acqsc_source = 'Demo data — register not actually checked',
-      banning_checked_by = 'BookIt (demo seed)', banning_source = 'Demo data — register not actually checked' WHERE user_id = ?`)
+      banning_checked_by = 'The Care Web (demo seed)', banning_source = 'Demo data — register not actually checked' WHERE user_id = ?`)
       .run(now(), now(), now(), now(), uid);
   }
   for (const [em, [g, ints]] of Object.entries(DEMO_IDENT)) {
@@ -2503,7 +2511,7 @@ function seed() {
 }
 seed();
 /* v86.4: demo participants' plans are reviewed by definition */
-try { db.prepare("UPDATE support_plans SET reviewed_at = COALESCE(NULLIF(confirmed_at,''), ?), reviewed_by = 'BookIt demo' WHERE COALESCE(reviewed_at,'') = '' AND participant_id IN (SELECT id FROM users WHERE email LIKE '%@demo.bookit.life')").run(now()); } catch (e) { console.error('demo plan review:', e.message); }
+try { db.prepare("UPDATE support_plans SET reviewed_at = COALESCE(NULLIF(confirmed_at,''), ?), reviewed_by = 'The Care Web demo' WHERE COALESCE(reviewed_at,'') = '' AND participant_id IN (SELECT id FROM users WHERE email LIKE '%@demo.bookit.life')").run(now()); } catch (e) { console.error('demo plan review:', e.message); }
 
 /* ---------- data access ---------- */
 /* Note what is NOT here any more: the `checks` column. It was seeded free text
@@ -2580,10 +2588,10 @@ function memberOf(user, convoId) {
 
 /* --- 8. the kilometre.
    0108 Assist-Travel/Transport is one of the six registration groups and
-   until now there was no field anywhere in BookIt that could hold a
+   until now there was no field anywhere in The Care Web that could hold a
    kilometre. The NDIS price limit for provider travel — transporting a
    participant in the worker's own car — is $1.00/km for ordinary vehicles
-   under the 2026-27 arrangements; BookIt pays the ATO cents-per-kilometre
+   under the 2026-27 arrangements; The Care Web pays the ATO cents-per-kilometre
    rate to the worker, which is the higher of the two and the reason a
    worker will actually agree to drive. Both are settings, not constants
    in the source, because both move on 1 July. --- */
@@ -2623,7 +2631,7 @@ const APPROVAL_RULE = `You have ${APPROVAL_DEEM_DAYS} days from the end of a shi
 
 /* --- 13. the cancellation window.
    The NDIS short-notice rule is 7 clear days for personal care and
-   community access, 2 clear business days for everything else. BookIt
+   community access, 2 clear business days for everything else. The Care Web
    charges nothing for a cancellation outside the window, and the full
    shift inside it — which is the published NDIS position, and the reason
    a worker can afford to hold a Tuesday morning open. --- */
@@ -2786,7 +2794,7 @@ const MAIL_KINDS = {
   cover:      { label: 'Cover offers and standby shifts', optional: true },
   jobs:       { label: 'New jobs near you, and applications to your job', optional: true },
   rewards:    { label: 'Reward tier movement', optional: true },
-  news:       { label: 'Product news from BookIt', optional: true },
+  news:       { label: 'Product news from The Care Web', optional: true },
   security:   { label: 'Sign-in, password and account security', optional: false },
   compliance: { label: 'Documents, screening and safeguarding', optional: false }
 };
@@ -3241,19 +3249,16 @@ function setRelation(pid, wid, relation, note, byId) {
 function blockedPair(pid, wid) { return relationOf(pid, wid) === 'blocked'; }
 
 /* --- 11. has this worker read the current version of the plan? --- */
-function currentPlan(pid) {
-  return db.prepare("SELECT * FROM support_plans WHERE participant_id = ? AND status = 'confirmed' ORDER BY version DESC LIMIT 1").get(Number(pid)) || null;
-}
 function planAck(pid, wid) {
-  const plan = currentPlan(pid);
+  const plan = confirmedPlan(pid);
   if (!plan) return { required: false, plan: null, acked: true, reason: 'no-plan' };
-  const a = db.prepare('SELECT acked_at FROM plan_acks WHERE plan_id = ? AND worker_id = ?').get(plan.id, Number(wid));
+  const a = db.prepare('SELECT acked_at,ack_source,recorded_by FROM plan_acks WHERE plan_id = ? AND worker_id = ?').get(plan.id, Number(wid));
   const exp = plan.review_due || '';
   const expired = exp ? exp < ymd() : false;
   return {
     required: true, plan_id: plan.id, version: plan.version || 1,
     updated: plan.updated || plan.created || '', expires: exp, expired,
-    acked: !!a, acked_at: a ? a.acked_at : null
+    acked: !!a, acked_at: a ? a.acked_at : null, ack_source:a?.ack_source||null, recorded_by:a?.recorded_by||null
   };
 }
 
@@ -3396,11 +3401,11 @@ function hiAlert(req, who, flags, when) {
   const out = hiUnheld(flags);
   if (!out.length) return;
   const partner = publicPartner();
-  sendMail(MAIL_FROM, 'Specialist support requested — BookIt',
+  sendMail(MAIL_FROM, 'Specialist support requested — The Care Web',
     'Someone has asked for a support outside our registration',
     `<p><b>${escHtml(who.name)}</b> (${escHtml(who.email)}${who.suburb ? ', ' + escHtml(who.suburb) : ''}) told us ${escHtml(when)} that they need:</p>
      <ul>${out.map(k => `<li>${escHtml(hiLabel(k))} <span style="color:#7A6E5F;">(${escHtml((hiSupport(k) || {}).clause || '')})</span></li>`).join('')}</ul>
-     <p>These sit inside NDIS Practice Standards Supplementary Module 1 — high intensity daily personal activities, registration group <b>0104</b>. Disability &amp; Mental Health Care does not hold them, so under s13C of the Registration Rules BookIt must not deliver them.</p>
+     <p>These sit inside NDIS Practice Standards Supplementary Module 1 — high intensity daily personal activities, registration group <b>0104</b>. Disability &amp; Mental Health Care does not hold them, so under s13C of the Registration Rules The Care Web must not deliver them.</p>
      <p><b>Call them before any shift is booked.</b> Everything else on their plan we can still support, and coordinate around whoever does the clinical part. ${partner
        ? `Introduce them to <b>${escHtml(partner.name)}</b>${partner.ndis ? ` (NDIS ${escHtml(partner.ndis)})` : ''}${partner.phone ? `, ${escHtml(partner.phone)}` : ''}, who they engage directly.`
        : 'Introduce them to a provider registered for 0104, who they engage directly.'}</p>
@@ -3427,12 +3432,12 @@ function scopeProblem(scope, detail) {
    screening question can't give us: it catches needs that appear after sign-up. */
 function scopeAlert(req, bk, workerName, partName, detail) {
   if (!MAIL_FROM) return;
-  sendMail(MAIL_FROM, 'Out-of-scope request flagged on a shift — BookIt',
+  sendMail(MAIL_FROM, 'Out-of-scope request flagged on a shift — The Care Web',
     'A worker was asked to do something outside their scope',
     `<p><b>${escHtml(workerName)}</b> has flagged their <b>${SERVICE_LABELS[bk.service] || escHtml(bk.service)}</b> shift with <b>${escHtml(partName)}</b> on <b>${prettyDate(bk.date)}</b>.</p>
      <p><b>What they were asked to do:</b></p>
      <blockquote style="margin:0;padding:8px 14px;border-left:3px solid #D94F32;background:#FDF6EC;">${escHtml(detail)}</blockquote>
-     <p><b>Call the worker today.</b> If what was asked sits inside high intensity daily personal activities (registration group <b>0104</b>) then BookIt doesn't deliver it — introduce the participant to a provider registered for 0104 and record that against their account.</p>
+     <p><b>Call the worker today.</b> If what was asked sits inside high intensity daily personal activities (registration group <b>0104</b>) then The Care Web doesn't deliver it — introduce the participant to a provider registered for 0104 and record that against their account.</p>
      <p>If it actually happened rather than only being asked for, it belongs in the incident register too.</p>`,
     'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
 }
@@ -3515,7 +3520,7 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
     /* vetting: new workers start hidden (visible = 0) until an admin approves them */
     db.prepare('INSERT INTO worker_profiles (user_id, bio, services, visible) VALUES (?,?,?,0)')
       .run(uid, clean(body.bio, 600), JSON.stringify(services));
-    if (MAIL_FROM) sendMail(MAIL_FROM, 'New worker application — BookIt',
+    if (MAIL_FROM) sendMail(MAIL_FROM, 'New worker application — The Care Web',
       'A new support worker has applied',
       `<p><b>${escHtml(name)}</b> (${escHtml(suburb) || 'no suburb given'}) has registered as a worker and is waiting for approval.</p><p><b>Email:</b> ${escHtml(email)}<br><b>Services:</b> ${services.map(s => SERVICE_LABELS[s] || s).join(', ') || '—'}</p><p>Their profile stays hidden from Find Workers until you approve it.</p>`,
       'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
@@ -3590,7 +3595,7 @@ route('POST', /^\/api\/login\/mfa$/, (req, res, m, user, body, ip) => {
   if (usedRecovery) {
     const left = db.prepare('SELECT COUNT(*) n FROM mfa_recovery WHERE user_id = ? AND used_at IS NULL').get(row.id).n;
     securityMail(req, row, 'A recovery code was used on your account',
-      `<p>Someone signed in to your BookIt account using a recovery code rather than your authenticator app, from ${escHtml(deviceName(req.headers['user-agent']))}.</p>
+      `<p>Someone signed in to your The Care Web account using a recovery code rather than your authenticator app, from ${escHtml(deviceName(req.headers['user-agent']))}.</p>
        <p>You have <b>${left}</b> recovery ${left === 1 ? 'code' : 'codes'} left. If this was you and you have lost your phone, set up your authenticator app again from Account \u203a Security. If it wasn\u2019t you, change your password now \u2014 that signs out every device.</p>`);
   }
   newDeviceAlert(req, row, ip);
@@ -3629,7 +3634,7 @@ route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
   if (pm && !EMAIL_RE.test(pm)) return json(res, 400, { error: 'That plan manager email doesn\'t look right.' });
   const nextPlan = plan || user.plan;
   if (nextPlan === 'plan' && !pm) return json(res, 400, { error: 'Plan-managed accounts need your plan manager\'s email address, or invoices have nowhere to go.' });
-  if (nextPlan === 'ndia' && !/^\d{9}$/.test(nd)) return json(res, 400, { error: 'Agency-managed accounts need your 9-digit NDIS number, or BookIt can\'t claim.' });
+  if (nextPlan === 'ndia' && !/^\d{9}$/.test(nd)) return json(res, 400, { error: 'Agency-managed accounts need your 9-digit NDIS number, or The Care Web can\'t claim.' });
   /* v86: the dates of the plan being claimed against. The copy of the plan
      was never the point; the end date was. A claim outside the plan dates is
      rejected by the NDIA,
@@ -3660,7 +3665,7 @@ route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
        who made the change, so "I never asked for that" has an answer. */
     logAccess(user.id, user, 'funding-changed',
       `Funding changed from ${was.plan || '(not set)'} to ${nextPlan}${pm ? ` — invoices to ${pm}` : ''}. ${pending.n} uninvoiced completed shift${pending.n === 1 ? '' : 's'} affected.`, nextPlan);
-    if (MAIL_FROM) sendMail(MAIL_FROM, `Funding type changed: ${user.name} — BookIt`, 'A participant changed how they pay',
+    if (MAIL_FROM) sendMail(MAIL_FROM, `Funding type changed: ${user.name} — The Care Web`, 'A participant changed how they pay',
       `<p><b>${escHtml(user.name)}</b> changed their funding from <b>${escHtml(was.plan || 'not set')}</b> to <b>${escHtml(nextPlan)}</b>${pm ? ` and named <b>${escHtml(pm)}</b> as plan manager` : ''}.</p>
        <p>${pending.n} completed shift${pending.n === 1 ? '' : 's'} ($${pending.amt.toFixed(2)}) had not been invoiced and will now be billed the new way. Anything already claimed is unchanged.</p>`,
       'Open claims', `${baseUrl(req)}/#/admin`).catch(() => {});
@@ -3700,9 +3705,9 @@ route('POST', /^\/api\/forgot$/, (req, res, m, user, body, ip) => {
   if (row) {
     const token = makeEmailToken('r', row.id, 45 * 60e3, String(row.pass).slice(0, 16));
     const url2 = `${baseUrl(req)}/#/reset?token=${token}`;
-    sendMail(row.email, 'Reset your BookIt password',
+    sendMail(row.email, 'Reset your The Care Web password',
       `Hi ${firstName(row.name)},`,
-      `<p>Someone (hopefully you) asked to reset the password on your BookIt account. Press the button to choose a new one — the link works for 45 minutes.</p><p>If this wasn't you, ignore this email and nothing changes.</p>`,
+      `<p>Someone (hopefully you) asked to reset the password on your The Care Web account. Press the button to choose a new one — the link works for 45 minutes.</p><p>If this wasn't you, ignore this email and nothing changes.</p>`,
       'Choose a new password', url2).catch(() => {});
   }
   json(res, 200, { ok: true });
@@ -3744,10 +3749,10 @@ route('POST', /^\/api\/email-test$/, async (req, res, m, user, body, ip) => {
   if (!EMAIL_ON) return json(res, 200, { ok: false, error: 'Email is not configured yet — set SMTP_USER and SMTP_PASS.' });
   if (user.email.endsWith('@demo.bookit.life')) return json(res, 400, { error: 'Demo accounts never receive email — log in with a real account to test.' });
   try {
-    await sendMail(user.email, 'BookIt email test',
+    await sendMail(user.email, 'The Care Web email test',
       `It works, ${firstName(user.name)}!`,
-      `<p>This test email was sent by your BookIt server through <b>${RESEND_KEY ? 'the Resend API' : escHtml(SMTP_HOST)}</b>. Welcome emails, password resets and booking updates are all go.</p>`,
-      'Open BookIt', baseUrl(req));
+      `<p>This test email was sent by your The Care Web server through <b>${RESEND_KEY ? 'the Resend API' : escHtml(SMTP_HOST)}</b>. Welcome emails, password resets and booking updates are all go.</p>`,
+      'Open The Care Web', baseUrl(req));
     json(res, 200, { ok: true, sent_to: user.email, via: RESEND_KEY ? 'resend-api' : `${SMTP_HOST}:${SMTP_PORT}` });
   } catch (e) {
     json(res, 502, { ok: false, error: e.message });
@@ -3872,7 +3877,7 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user, bod
         blocked_0137: true,
         blocks: st.blocks,
         /* Careful with this sentence. Most of these blocks ARE conditions of
-           registration; the CPR one is BookIt's own rule enforced just as
+           registration; the CPR one is The Care Web's own rule enforced just as
            hard. Telling an auditor that a house rule is a condition of
            registration is a claim they can check and find wrong, so the
            wording names the effect rather than the source. */
@@ -3891,9 +3896,9 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user, bod
   db.prepare('UPDATE worker_profiles SET visible = 1 WHERE user_id = ?').run(uid);
   logCompliance({ worker_id: uid, worker_name: w.name, kind: 'platform-access', result: 'granted',
     detail: 'Profile approved and made visible — 0137 conditions met at time of approval.', checked_by: user.name });
-  sendMail(w.email, 'Your BookIt profile is live', `Great news, ${firstName(w.name)} 🎉`,
-    `<p>Your checks are in order and your profile has been approved — you're now visible in <b>Find Workers</b> across BookIt.</p><p>Participants can message you and request bookings from today. Keep your availability up to date, reply promptly, and welcome aboard!</p>`,
-    'Open BookIt', `${baseUrl(req)}/#/find-workers`).catch(() => {});
+  sendMail(w.email, 'Your The Care Web profile is live', `Great news, ${firstName(w.name)} 🎉`,
+    `<p>Your checks are in order and your profile has been approved — you're now visible in <b>Find Workers</b> across The Care Web.</p><p>Participants can message you and request bookings from today. Keep your availability up to date, reply promptly, and welcome aboard!</p>`,
+    'Open The Care Web', `${baseUrl(req)}/#/find-workers`).catch(() => {});
   json(res, 200, { ok: true });
 });
 
@@ -4144,11 +4149,11 @@ async function runClaims(lanes, actor) {
           'line_items[0][quantity]': 1,
           'line_items[0][price_data][currency]': 'aud',
           'line_items[0][price_data][unit_amount]': Math.round(total * 100),
-          'line_items[0][price_data][product_data][name]': `BookIt invoice ${invNo} — NDIS supports for ${first.participant_name}`,
+          'line_items[0][price_data][product_data][name]': `The Care Web invoice ${invNo} — NDIS supports for ${first.participant_name}`,
           'metadata[invoice_no]': invNo,
           customer_email: dest,
-          success_url: `${APP_URL || 'https://bookit.life'}/#/pay-success`,
-          cancel_url: `${APP_URL || 'https://bookit.life'}/#/statements`
+          success_url: `${APP_URL || 'https://thecareweb.com.au'}/#/pay-success`,
+          cancel_url: `${APP_URL || 'https://thecareweb.com.au'}/#/statements`
         });
         payUrl = session.url || '';
         if (payUrl) db.prepare('UPDATE bookings SET stripe_session = ?, pay_url = ? WHERE invoice_no = ?').run(session.id || '', payUrl, invNo);
@@ -4158,17 +4163,17 @@ async function runClaims(lanes, actor) {
     const pdf = makeInvoicePdf(inv);
     let emailed = false;
     try {
-      await sendMail(dest, `Invoice ${invNo} — BookIt supports for ${first.participant_name} — $${total.toFixed(2)} due ${inv.due_date}`,
+      await sendMail(dest, `Invoice ${invNo} — The Care Web supports for ${first.participant_name} — $${total.toFixed(2)} due ${inv.due_date}`,
         `Invoice ${invNo}`,
         `<p>Please find attached invoice <b>${invNo}</b> for NDIS supports delivered to <b>${escHtml(first.participant_name)}</b> — total <b>$${total.toFixed(2)}</b> (GST-free), due <b>${inv.due_date}</b>.</p>
-         <p>${self ? 'You can pay by card from the button below or from your BookIt account, or by bank transfer using the details on the invoice.' : 'Please pay from plan funds by bank transfer using the details on the invoice.'} The payment reference is the invoice number.</p>
-         <p>Every line is also on the statement in ${self ? 'your' : 'the participant\u2019s'} BookIt account, with the shift note beside it.</p>`,
+         <p>${self ? 'You can pay by card from the button below or from your The Care Web account, or by bank transfer using the details on the invoice.' : 'Please pay from plan funds by bank transfer using the details on the invoice.'} The payment reference is the invoice number.</p>
+         <p>Every line is also on the statement in ${self ? 'your' : 'the participant\u2019s'} The Care Web account, with the shift note beside it.</p>`,
         payUrl ? 'Pay by card' : 'Open my statement', payUrl || `${APP_URL}/#/statements`, MAIL_FROM, [{ filename: `${invNo}.pdf`, mime: 'application/pdf', buffer: pdf }]);
       emailed = EMAIL_ON;
     } catch (e) { console.error(`[claims] invoice email failed for ${invNo}: ${e.message}`); }
     if (self) {
       const pu = db.prepare('SELECT id FROM users WHERE id = ?').get(first.pid);
-      if (pu) notify(pu.id, 'invoice', first.participant_email, `Your BookIt invoice ${invNo} is ready`, 'An invoice is ready',
+      if (pu) notify(pu.id, 'invoice', first.participant_email, `Your The Care Web invoice ${invNo} is ready`, 'An invoice is ready',
         `<p>Invoice ${invNo} for $${total.toFixed(2)} is due by ${inv.due_date}. It is in your account under Statements &amp; invoices, with the PDF and a Pay by card button.</p>`, 'Open it', `${APP_URL}/#/statements`);
     }
     invoices.push({ invoice_no: invNo, participant: first.participant_name, to: dest, lines: group.length, total, emailed, pay_url: payUrl, due: inv.due_date, by: actor });
@@ -4377,7 +4382,7 @@ function docStatus(d) {
      warning could never fire: docStage() only ever looks at documents this
      function has already called 'expiring'. Tying the two together means the
      product also stops contradicting its own email — a worker told on Monday
-     that their check is expiring should not open BookIt on Tuesday and read
+     that their check is expiring should not open The Care Web on Tuesday and read
      "valid". That happens twice and they stop reading the emails, which costs
      far more than a slightly earlier amber badge. Every consumer of this
      function treats 'expiring' as still-current, so widening it changes what
@@ -4606,7 +4611,7 @@ function daysSince(iso) {
   return Math.floor((Date.now() - t) / 864e5);
 }
 
-function isDemoWorker(email) { return Boolean(email) && email.endsWith('@demo.bookit.life'); }
+function isDemoWorker(email) { return Boolean(email) && (email.endsWith('@demo.bookit.life') || email.endsWith('@demo.thecareweb.com.au')); }
 
 /* Write to the evidence trail. Append only — nothing in the codebase updates
    or deletes a row of this table, and that is the point of it. */
@@ -4716,7 +4721,7 @@ function platformStatus(workerId) {
   }
   const bage = registers[0].age_days;
 
-  /* ---- a current CPR certificate, which is a BookIt rule rather than a
+  /* ---- a current CPR certificate, which is a Care Web rule rather than a
      condition of registration, and is a block anyway.
 
      0137's two conditions are worker screening and banning orders; training
@@ -4785,7 +4790,7 @@ function platformEligible(workerId, email) {
 
 /* Make `visible` tell the truth, right now.
 
-   BookIt already had a single flag every access path consults — nineteen
+   The Care Web already had a single flag every access path consults — nineteen
    queries say `p.visible = 1`. Rather than teach nineteen queries about 0137,
    the flag is kept honest at source: a worker who fails a condition cannot be
    visible, and the moment the condition is met again they come back.
@@ -4827,9 +4832,9 @@ function holdFutureShifts(workerId, workerName, why, req) {
     source: 'safety hold' });
   const laterToday = fut.filter(b => b.date === today && bookingStart(b) > new Date());
   if (MAIL_FROM && laterToday.length)
-    sendMail(MAIL_FROM, 'A withdrawn worker has a shift later TODAY — BookIt', 'Check today\'s shift now',
+    sendMail(MAIL_FROM, 'A withdrawn worker has a shift later TODAY — The Care Web', 'Check today\'s shift now',
       `<p><b>${escHtml(workerName)}</b> was withdrawn and has ${laterToday.length} shift(s) still to start today. Urgent cover is running; keep an eye on the board in case nobody says yes.</p>`,
-      'Open the cover board', `${(req ? baseUrl(req) : (APP_URL || 'https://bookit.life'))}/#/admin`).catch(() => {});
+      'Open the cover board', `${(req ? baseUrl(req) : (APP_URL || 'https://thecareweb.com.au'))}/#/admin`).catch(() => {});
   return held;
 }
 
@@ -4843,7 +4848,7 @@ function holdFutureShifts(workerId, workerName, why, req) {
 function workerBookingGate(workerId, b) {
   const w = db.prepare("SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(workerId);
   if (!w || !w.visible || !platformEligible(workerId, w.email))
-    return { error: "Your profile isn't active on BookIt right now, so booking actions are paused. The office can help you get back on.", read_only: true };
+    return { error: "Your profile isn't active on The Care Web right now, so booking actions are paused. The office can help you get back on.", read_only: true };
   const openCover = db.prepare("SELECT id FROM cover WHERE booking_id = ? AND status = 'open'").get(b.id);
   if (openCover || ['finding','office','uncovered','failed','referred','allied'].includes(String(b.cover_state || ''))) {
     const office = ['office','uncovered','failed'].includes(String(b.cover_state || ''));
@@ -4860,16 +4865,16 @@ function reconcileVisibility(workerId, why, req) {
     FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'`).get(workerId);
   if (!w || isDemoWorker(w.email)) return null;
   const st = platformStatus(workerId);
-  const base = req ? baseUrl(req) : (APP_URL || 'https://bookit.life');
+  const base = req ? baseUrl(req) : (APP_URL || 'https://thecareweb.com.au');
 
   if (!st.ok && w.visible) {
     db.prepare('UPDATE worker_profiles SET visible = 0, auto_hidden = 1 WHERE user_id = ?').run(workerId);
     logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'auto-withdrawn',
       detail: `${why}. Platform access withdrawn automatically: ${st.blocks.join(' ')}`, source: '0137 conditions of registration' });
-    sendMail(w.email, 'Your BookIt profile is paused — BookIt', `Your profile is paused, ${firstName(w.name)}`,
-      `<p>Your profile has been hidden and new bookings are paused, because of the checks BookIt has to keep current for every worker on the platform:</p><ul>${st.blocks.map(b => `<li>${escHtml(b)}</li>`).join('')}</ul><p>This is a requirement of BookIt's registration, not a judgement about you. As soon as it's sorted your profile switches back on automatically.</p>`,
+    sendMail(w.email, 'Your The Care Web profile is paused — The Care Web', `Your profile is paused, ${firstName(w.name)}`,
+      `<p>Your profile has been hidden and new bookings are paused, because of the checks The Care Web has to keep current for every worker on the platform:</p><ul>${st.blocks.map(b => `<li>${escHtml(b)}</li>`).join('')}</ul><p>This is a requirement of The Care Web's registration, not a judgement about you. As soon as it's sorted your profile switches back on automatically.</p>`,
       'Update my credentials', `${base}/#/bookings`).catch(() => {});
-    if (MAIL_FROM) sendMail(MAIL_FROM, `Worker withdrawn from the platform: ${w.name} — BookIt`, 'Platform access withdrawn',
+    if (MAIL_FROM) sendMail(MAIL_FROM, `Worker withdrawn from the platform: ${w.name} — The Care Web`, 'Platform access withdrawn',
       `<p><b>${escHtml(w.name)}</b> was withdrawn from Find Workers.</p><ul>${st.blocks.map(b => `<li>${escHtml(b)}</li>`).join('')}</ul>`,
       'Open the 0137 board', `${base}/#/admin`).catch(() => {});
     const held = holdFutureShifts(workerId, w.name, st.blocks.join(' '), req);
@@ -4880,9 +4885,9 @@ function reconcileVisibility(workerId, why, req) {
     db.prepare('UPDATE worker_profiles SET visible = 1, auto_hidden = 0 WHERE user_id = ?').run(workerId);
     logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'restored',
       detail: `${why}. All 0137 conditions met again — profile restored automatically.`, source: '0137 conditions of registration' });
-    sendMail(w.email, 'Your BookIt profile is live again', `You're back on, ${firstName(w.name)}`,
+    sendMail(w.email, 'Your The Care Web profile is live again', `You're back on, ${firstName(w.name)}`,
       '<p>Your checks are current again, so your profile is visible in <b>Find Workers</b> and participants can book you from now.</p>',
-      'Open BookIt', `${base}/#/find-workers`).catch(() => {});
+      'Open The Care Web', `${base}/#/find-workers`).catch(() => {});
     return { worker: w.name, restored: true };
   }
 
@@ -5028,7 +5033,7 @@ route('POST', /^\/api\/me\/documents$/, (req, res, m, user, body, ip) => {
       }, user.name);
     } catch (e) { console.error('screening record:', e.message); }
   }
-  if (MAIL_FROM) sendMail(MAIL_FROM, 'Credential uploaded — BookIt', 'A worker updated their credentials',
+  if (MAIL_FROM) sendMail(MAIL_FROM, 'Credential uploaded — The Care Web', 'A worker updated their credentials',
     `<p><b>${escHtml(user.name)}</b> added a <b>${DOC_TYPES[docType]}</b>${expiry ? ` (expires ${escHtml(expiry)})` : ''}${clean(body.check_number, 40) ? ` — number ${escHtml(clean(body.check_number, 40))}` : ''}.</p>${answered ? `<p>This answers the request raised on ${dmy(answered.requested_at.slice(0, 10))}${answered.note ? ` — "${escHtml(answered.note)}"` : ''}.</p>` : ''}<p>Verify it against the NDIS Worker Screening Database, then press Verify in the Credentials section.</p>`,
     'Open credentials', `${baseUrl(req)}/#/admin`).catch(() => {});
   json(res, 200, { ok: true, id: Number(r.lastInsertRowid), review: 'submitted', answered_request: Boolean(answered) });
@@ -5076,11 +5081,12 @@ route('POST', /^\/api\/me\/photo$/, (req, res, m, user, body, ip) => {
 route('GET', /^\/api\/me\/profile$/, (req, res, m, user) => {
   if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
   const p = db.prepare(`SELECT bio, services, visible, photo, photo_at, days, langs, exp,
-    gender, interests, self_paused, paused_at, pause_note, auto_hidden, platform_block FROM worker_profiles WHERE user_id = ?`).get(user.id) || {};
+    gender, interests, service_areas, availability_windows, leave_dates, travel_buffer_minutes, self_paused, paused_at, pause_note, auto_hidden, platform_block FROM worker_profiles WHERE user_id = ?`).get(user.id) || {};
   json(res, 200, { profile: {
+    service_areas:safeJson(p.service_areas,[]),availability_windows:safeJson(p.availability_windows,null),leave_dates:safeJson(p.leave_dates,[]),travel_buffer_minutes:p.travel_buffer_minutes||0,
     bio: p.bio || '', services: JSON.parse(p.services || '[]'), visible: p.visible,
     photo: p.photo ? `/photos/${user.id}?v=${encodeURIComponent(p.photo_at || '')}` : null,
-    days: JSON.parse(p.days || '[1,1,1,1,1,0,0]'), langs: p.langs || 'English', exp: p.exp || 'New to BookIt',
+    days: JSON.parse(p.days || '[1,1,1,1,1,0,0]'), langs: p.langs || 'English', exp: p.exp || 'New to The Care Web',
     gender: p.gender || '', interests: safeJson(p.interests, []),
     /* Three different invisibilities, named. A screen that only knows
        `visible` can only say "you are hidden", which leaves the worker
@@ -5093,11 +5099,12 @@ route('GET', /^\/api\/me\/profile$/, (req, res, m, user) => {
 
 route('POST', /^\/api\/me\/profile$/, (req, res, m, user, body) => {
   if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
-  const sets = ['bio = ?'];
-  const vals = [clean(body.bio, 600)];
+  const sets=[],vals=[];
+  if(body.bio!==undefined){sets.push('bio = ?');vals.push(clean(body.bio,600));}
+  try { for(const [key,value] of Object.entries(BOOKIT_AVAILABILITY.normalise(body))){sets.push(`${key} = ?`);vals.push(value);} } catch(e){return json(res,400,{error:e.message});}
   if (Array.isArray(body.days) && body.days.length === 7) { sets.push('days = ?'); vals.push(JSON.stringify(body.days.map(x => (x ? 1 : 0)))); }
   if (body.langs !== undefined) { sets.push('langs = ?'); vals.push(clean(body.langs, 120) || 'English'); }
-  if (body.exp !== undefined) { sets.push('exp = ?'); vals.push(clean(body.exp, 40) || 'New to BookIt'); }
+  if (body.exp !== undefined) { sets.push('exp = ?'); vals.push(clean(body.exp, 40) || 'New to The Care Web'); }
   if (body.services !== undefined) {
     const svcs = Array.isArray(body.services) ? [...new Set(body.services.filter(x => SERVICES.includes(x)))].slice(0, SERVICES.length) : [];
     sets.push('services = ?'); vals.push(JSON.stringify(svcs));
@@ -5113,6 +5120,7 @@ route('POST', /^\/api\/me\/profile$/, (req, res, m, user, body) => {
     const tags = [...new Set(raw.map(t => clean(t, 24)).filter(Boolean))].slice(0, 8);
     sets.push('interests = ?'); vals.push(JSON.stringify(tags));
   }
+  if(!sets.length)return json(res,400,{error:'Nothing to change.'});
   db.prepare(`UPDATE worker_profiles SET ${sets.join(', ')} WHERE user_id = ?`).run(...vals, user.id);
   json(res, 200, { ok: true });
 });
@@ -5121,7 +5129,7 @@ route('POST', /^\/api\/me\/documents\/(\d+)\/delete$/, (req, res, m, user) => {
   if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
   const d = db.prepare('SELECT * FROM worker_docs WHERE id = ? AND worker_id = ?').get(Number(m[1]), user.id);
   if (!d) return json(res, 404, { error: 'No such document.' });
-  if (d.verified_at) return json(res, 400, { error: 'That one\'s been verified — ask the BookIt team to update it.' });
+  if (d.verified_at) return json(res, 400, { error: 'That one\'s been verified — ask The Care Web team to update it.' });
   if (d.file_path) { try { fs.unlinkSync(d.file_path); } catch {} }
   db.prepare('DELETE FROM worker_docs WHERE id = ?').run(d.id);
   json(res, 200, { ok: true });
@@ -5231,7 +5239,7 @@ route('POST', /^\/api\/admin\/documents\/(\d+)\/reject$/, (req, res, m, user, bo
   raiseRequest('worker', d.worker_id, d.doc_type, reason, user.name, clean((body || {}).due_date, 10));
   const changed = reconcileVisibility(d.worker_id, 'Document rejected', req);
   notify(d.worker_id, 'compliance', d.worker_email,
-    `We need another copy of your ${DOC_TYPES[d.doc_type] || 'document'} — BookIt`,
+    `We need another copy of your ${DOC_TYPES[d.doc_type] || 'document'} — The Care Web`,
     `Hello ${firstName(d.worker_name)}`,
     `<p>We couldn't accept the <b>${escHtml(what)}</b> you sent us.</p>
      <p><b>Why:</b> ${escHtml(reason)}</p>
@@ -5376,7 +5384,7 @@ route('POST', /^\/api\/admin\/documents\/(\d+)\/delete$/, (req, res, m, user) =>
    screening has lapsed. Runs on boot, twice a day, and on demand. */
 function credentialSweep(req) {
   const actions = [];
-  const base = req ? baseUrl(req) : APP_URL || 'https://bookit.life';
+  const base = req ? baseUrl(req) : APP_URL || 'https://thecareweb.com.au';
   const workers = db.prepare(`SELECT u.id, u.name, u.email, p.visible FROM users u
     JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker'`).all();
   for (const w of workers) {
@@ -5388,11 +5396,11 @@ function credentialSweep(req) {
         db.prepare('UPDATE worker_docs SET warned_stage = ? WHERE id = ?').run(stage, d.id);
         const what = `${DOC_TYPES[d.doc_type] || d.doc_type}${d.check_number ? ` (${d.check_number})` : ''}`;
         const when = st === 'expired' ? 'has EXPIRED' : `expires in ${days} day${days === 1 ? '' : 's'} (${d.expiry_date})`;
-        sendMail(w.email, `Your ${DOC_TYPES[d.doc_type] || 'credential'} ${st === 'expired' ? 'has expired' : 'is expiring'} — BookIt`,
+        sendMail(w.email, `Your ${DOC_TYPES[d.doc_type] || 'credential'} ${st === 'expired' ? 'has expired' : 'is expiring'} — The Care Web`,
           `Heads up, ${firstName(w.name)}`,
-          `<p>Your <b>${escHtml(what)}</b> ${escHtml(when)}.</p><p>${st === 'expired' ? 'You can\'t deliver supports until a current check is on file — please renew it and upload the new details today.' : 'Renewals can be lodged up to 90 days early — please update your credentials in BookIt as soon as you have the new document.'}</p>`,
+          `<p>Your <b>${escHtml(what)}</b> ${escHtml(when)}.</p><p>${st === 'expired' ? 'You can\'t deliver supports until a current check is on file — please renew it and upload the new details today.' : 'Renewals can be lodged up to 90 days early — please update your credentials in The Care Web as soon as you have the new document.'}</p>`,
           'Update my credentials', `${base}/#/bookings`).catch(() => {});
-        if (MAIL_FROM) sendMail(MAIL_FROM, `Credential ${st === 'expired' ? 'EXPIRED' : 'expiring'}: ${w.name} — BookIt`,
+        if (MAIL_FROM) sendMail(MAIL_FROM, `Credential ${st === 'expired' ? 'EXPIRED' : 'expiring'}: ${w.name} — The Care Web`,
           `${w.name} — ${DOC_TYPES[d.doc_type] || d.doc_type}`,
           `<p><b>${escHtml(w.name)}</b>'s <b>${escHtml(what)}</b> ${escHtml(when)}.</p>`,
           'Open credentials', `${base}/#/admin`).catch(() => {});
@@ -5410,7 +5418,7 @@ function credentialSweep(req) {
       const stage = overdue ? `ban-overdue-${Math.floor(age / 7)}` : 'ban-due';
       if (setting(`banwarn:${w.id}`, '') !== stage) {
         setSetting(`banwarn:${w.id}`, stage);
-        sendMail(MAIL_FROM, `Banning-order re-check ${overdue ? 'OVERDUE' : 'due'}: ${w.name} — BookIt`,
+        sendMail(MAIL_FROM, `Banning-order re-check ${overdue ? 'OVERDUE' : 'due'}: ${w.name} — The Care Web`,
           `${w.name} — banning orders register`,
           `<p>The banning orders register was last checked for <b>${escHtml(w.name)}</b> ${age} days ago. The re-check window is ${st.banning.window_days} days${overdue ? `, and after a further ${banningGraceDays()}-day grace period their profile will be withdrawn automatically` : ''}.</p>`,
           'Open the 0137 board', `${base}/#/admin`).catch(() => {});
@@ -5468,20 +5476,20 @@ function credentialSweep(req) {
             ? 'Send us an up-to-date copy whenever you can and we\'ll put it on your file. Nothing changes about your supports in the meantime.'
             : 'Nothing to do today — this is just so the date doesn\'t catch you by surprise.');
       notify(p.id, 'compliance', p.email,
-        `Your ${what} ${gone ? 'has expired' : 'is expiring'} — BookIt`,
+        `Your ${what} ${gone ? 'has expired' : 'is expiring'} — The Care Web`,
         `Hello ${firstName(p.name)}`,
         `<p>Your <b>${escHtml(what)}</b> ${escHtml(when)}.</p><p>${next}</p>`,
         'Open my documents', `${base}/#/bookings`).catch(() => {});
       for (const c of coordsFor(p.id, 'documents')) {
         notify(c.id, 'compliance', c.email,
-          `${p.name}: ${what} ${gone ? 'has expired' : 'is expiring'} — BookIt`,
+          `${p.name}: ${what} ${gone ? 'has expired' : 'is expiring'} — The Care Web`,
           `${p.name} — ${what}`,
           `<p><b>${escHtml(p.name)}</b>'s <b>${escHtml(what)}</b> ${escHtml(when)}.</p>
            <p>You are getting this because you hold access to their documents.</p>`,
           'Open their documents', `${base}/#/bookings`).catch(() => {});
       }
       if (MAIL_FROM) sendMail(MAIL_FROM,
-        `Participant document ${gone ? 'EXPIRED' : 'expiring'}: ${p.name} — BookIt`,
+        `Participant document ${gone ? 'EXPIRED' : 'expiring'}: ${p.name} — The Care Web`,
         `${p.name} — ${what}`,
         `<p><b>${escHtml(p.name)}</b>'s <b>${escHtml(what)}</b> ${escHtml(when)}.</p>`,
         'Open the participant files', `${base}/#/admin`).catch(() => {});
@@ -5786,13 +5794,19 @@ route('POST', /^\/api\/incidents$/, (req, res, m, user, body, ip) => {
     .run(user.id, user.name, clean(body.participant_name, 80), clean(body.worker_name, 80),
       clean(body.occurred_at, 25) || created, clean(body.location, 120), category, reportable,
       description, clean(body.immediate_action, 2000), due, created);
-  if (reportable && MAIL_FROM) sendMail(MAIL_FROM, `⚠ REPORTABLE INCIDENT logged — BookIt`,
+  if (reportable && MAIL_FROM) sendMail(MAIL_FROM, `⚠ REPORTABLE INCIDENT logged — The Care Web`,
     'Reportable incident — the clock is running',
     `<p><b>${escHtml(INCIDENT_CATS[category])}</b> logged by ${escHtml(user.name)}.</p><p><b>Notify the NDIS Commission ${REPORTABLE_24H.includes(category) ? 'within 24 HOURS' : 'within 5 business days'}</b> via the Commission portal, then record it in the incident register. Full written report within 14 days.</p><p>${escHtml(description.slice(0, 300))}</p>`,
     'Open the incident register', `${baseUrl(req)}/#/admin`).catch(() => {});
   json(res, 200, { ok: true, id: Number(r.lastInsertRowid), reportable, notify_due: due });
 });
 
+
+route('GET', /^\/api\/admin\/today-actions$/, (req,res,m,user)=>{
+  if(!requireAdmin(user,res))return;
+  const rows=db.prepare("SELECT id,participant_name,category,status,notify_due,commission_notified_at,report_due,report_filed_at,action_owner FROM incidents WHERE status<>'closed' ORDER BY COALESCE(notify_due,report_due,'9999'),id").all();
+  json(res,200,{incidents:rows.map(i=>({id:i.id,participant:i.participant_name,category:INCIDENT_CATS[i.category]||i.category,owner:i.action_owner||'',due:!i.commission_notified_at?i.notify_due:!i.report_filed_at?i.report_due:null,action:!i.commission_notified_at&&i.notify_due?'Record Commission notification':!i.report_filed_at&&i.report_due?'Follow up written report':'Review incident',status:i.status})),note:'Deadlines are the existing incident-register values. This queue does not establish statutory compliance.'});
+});
 route('GET', /^\/api\/admin\/incidents$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   json(res, 200, { incidents: db.prepare('SELECT * FROM incidents ORDER BY id DESC LIMIT 500').all().map(incidentOut), categories: INCIDENT_CATS });
@@ -5802,6 +5816,7 @@ route('POST', /^\/api\/admin\/incidents\/(\d+)$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
   const i = db.prepare('SELECT * FROM incidents WHERE id = ?').get(Number(m[1]));
   if (!i) return json(res, 404, { error: 'No such incident.' });
+  if(body.action==='owner'){const owner=clean(body.owner,100);db.prepare('UPDATE incidents SET action_owner=? WHERE id=?').run(owner,i.id);logCompliance({kind:'incident-owner',result:'assigned',detail:`Incident #${i.id} action owner: ${owner||'unassigned'}`,source:'office',checked_by:user.name});return json(res,200,{ok:true});}
   if (body.action === 'notified') db.prepare('UPDATE incidents SET commission_notified_at = ?, status = ? WHERE id = ?').run(now(), 'investigating', i.id);
   else if (body.action === 'investigating') db.prepare('UPDATE incidents SET status = ? WHERE id = ?').run('investigating', i.id);
   else if (body.action === 'close') db.prepare('UPDATE incidents SET status = ?, closed_at = ?, lessons = ? WHERE id = ?').run('closed', now(), clean(body.lessons, 2000), i.id);
@@ -5872,7 +5887,7 @@ route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
        run — but it is not a shift that was worked, and calling it one would
        misstate hours worked in a payroll audit. */
     lines.push([q(r.worker_name), q(r.worker_email), q(r.date), q(r.start), r.hours, q(SERVICE_LABELS[r.service] || r.service),
-      q(r.status === 'cancelled' ? 'Short-notice cancellation' : r.rate_category === 'intro' ? `Meet-and-greet (${INTRO_PAID_HOURS()} h, paid by BookIt)` : 'Shift'),
+      q(r.status === 'cancelled' ? 'Short-notice cancellation' : r.rate_category === 'intro' ? `Meet-and-greet (${INTRO_PAID_HOURS()} h, paid by The Care Web)` : 'Shift'),
       q((INVOICE_RATES[r.rate_category] || {}).label || r.rate_category), (r.worker_share || 0).toFixed(2), q(r.rate_category === 'intro' ? 'not claimable' : (r.claim_status || 'unclaimed'))].join(','));
   }
   /* SCHADS cl.26 on-call allowance. This is payable whether or not the worker was
@@ -5891,9 +5906,10 @@ route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
      run, one row each, so the bookkeeper sees them beside the shifts. They
      stay on every run until the office presses Mark paid — pressing it is
      the record that the money went. Not claimable: it is our cost. */
+  reviewReferrals();
   const rb = db.prepare(`SELECT r.id, r.qualified_at, r.amount, a.name, a.email, b.name AS referee
     FROM referrals r JOIN users a ON a.id = r.referrer_id JOIN users b ON b.id = r.referee_id
-    WHERE r.qualified_at IS NOT NULL AND r.paid_at IS NULL ORDER BY a.name`).all();
+    WHERE r.qualified_at IS NOT NULL AND r.paid_at IS NULL AND COALESCE(r.review_required,0)=0 ORDER BY a.name`).all();
   for (const r of rb) {
     lines.push([q(r.name), q(r.email), q(String(r.qualified_at).slice(0, 10)), q(''), '', q('Worker referral'), q('Referral bonus'),
       q(`Referred ${r.referee} — qualified ${String(r.qualified_at).slice(0, 10)} (referral #${r.id}, mark paid in Admin › Growth & money)`),
@@ -5933,7 +5949,29 @@ route('GET', /^\/api\/workers$/, (req, res, m, user) => {
        conditions, at approval and again on every sweep — but the search page
        is the front door, so it re-asks rather than trusting the flag. */
     .filter(r => platformEligible(r.user_id, r.email));
-  json(res, 200, { workers: rows.map(r => { const w = forVisitor(withReviewAgg(publicWorker(r)), user); w.next_free = nextFree(r.user_id, r.days); return w; }) });
+  const q=new URL(req.url,'http://localhost').searchParams;
+  const wantsInterval=['date','start','hours'].some(k=>q.has(k));
+  let proposed=null;
+  if(wantsInterval){proposed={date:q.get('date'),start:q.get('start'),hours:Number(q.get('hours')),service:q.get('service')||'',kind:'shift'};if(!incomingInterval(res,proposed.date,proposed.start,proposed.hours))return;if(bookingStart(proposed)<=new Date())return json(res,400,{error:'Choose a future visit.'});}
+  let pers=null;
+  if(user?.role==='participant')pers=user;
+  else if(user?.role==='coordinator')pers=actFor(req,user,'workers');
+  const matches=[];
+  for(const r of rows){
+    let fit=null;
+    if(proposed){
+      if(proposed.service&&!safeJson(r.services,[]).includes(proposed.service))continue;
+      if(pers && blockedPair(pers.id,r.user_id))continue;
+      if(moduleState(r.user_id).lock==='hard')continue;
+      fit=BOOKIT_AVAILABILITY.availability(r,proposed,q.get('place')||pers?.suburb||undefined);
+      if(!fit.ok||bookingClash(r.user_id,proposed.date,proposed.start,proposed.hours,{statuses:['accepted','completed','requested'],participantId:pers?.id||-1,bufferMinutes:r.travel_buffer_minutes||0}))continue;
+    }
+    const w=forVisitor(withReviewAgg(publicWorker(r)),user);
+    w.next_free=nextFree(r.user_id,r.days);
+    if(fit)w.visit_match={basis:fit.basis,location_checked:!!(q.get('place')||pers?.suburb),travel_buffer_minutes:r.travel_buffer_minutes||0};
+    matches.push(w);
+  }
+  json(res,200,{workers:matches,interval_checked:!!proposed,location_checked:!!(q.get('place')||pers?.suburb)});
 });
 /* The first two-hour daytime slot in the next fortnight that the worker's
    own weekday pattern allows and the diary does not already hold. An
@@ -5948,7 +5986,8 @@ function nextFree(workerId, daysJson) {
     const date = ymd(d);
     for (const h of [9, 11, 13, 15]) {
       const start = `${String(h).padStart(2, '0')}:00`;
-      if (!bookingClash(workerId, date, start, 2, { statuses: ['requested', 'accepted'] })) return { date, start, label: `${d.toLocaleDateString('en-AU', { weekday: 'short' })} ${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}` };
+      const p=assignmentContext().profile(workerId);
+      if (p && BOOKIT_AVAILABILITY.availability(p,{date,start,hours:2},undefined).ok && !bookingClash(workerId, date, start, 2, { statuses: ['requested', 'accepted'],bufferMinutes:p.travel_buffer_minutes||0 })) return { date, start, label: `${d.toLocaleDateString('en-AU', { weekday: 'short' })} ${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}` };
     }
   }
   return null;
@@ -6041,10 +6080,62 @@ route('GET', /^\/api\/rates$/, (req, res) => {
       establishment_fee: { price: ESTABLISHMENT_FEE, once: true, who_pays: 'the participant\u2019s plan, once, from Core', conditions: 'new to us; a substantial ongoing program of personal care or participation (the Pricing Arrangements name 20 hours a month for at least three months); agreed in the service agreement; claimable once per participant' },
       non_face_to_face: { rate: INVOICE_RATES['weekday-day'].price, per: 'hour, at the weekday daytime rate for the support it relates to' },
       group: { available: setting('group_supports', 'off') === 'on', ratios: [2, 3], note: 'each participant pays the hourly price divided by the ratio' },
-      referral_bonus: { amount: REFERRAL_BONUS(), after_hours: REFERRAL_QUALIFY_HOURS(), for: 'workers only' }
+      referral_bonus: { amount: REFERRAL_BONUS(), after_hours: REFERRAL_QUALIFY_HOURS(), for: 'workers only', qualifying_work:BOOKIT_REFERRALS.DESCRIPTION }
     }
   });
 });
+
+
+function assignmentContext() {
+  return {
+    completeBooking: b => b && b.id ? {...db.prepare('SELECT * FROM bookings WHERE id=?').get(b.id),...b} : b,
+    profile: wid => db.prepare('SELECT p.*,u.email,u.suburb,u.closed_at FROM worker_profiles p JOIN users u ON u.id=p.user_id WHERE p.user_id=?').get(wid),
+    participantClosed: pid => {const p=db.prepare('SELECT closed_at FROM users WHERE id=?').get(pid); return !p||!!p.closed_at;},
+    participantPlace: pid => db.prepare('SELECT suburb FROM users WHERE id=?').get(pid)?.suburb || '',
+    withdrawnFromOpenCover: (wid,bid) => !!(bid && db.prepare("SELECT id FROM cover WHERE booking_id=? AND from_worker_id=? AND status='open'").get(bid,wid)),
+    travel: (p, place) => { const areas = safeJson(p.service_areas, []); return BOOKIT_TRAVEL.estimate(areas.length ? areas : [p.suburb], place, 'NSW'); },
+    platformEligible, moduleState, blockedPair, planAck, bookingClash
+  };
+}
+/* v86.14.0 — who confirmed an out-of-area visit, and the estimate they saw */
+function noteOutOfArea(bookingId, fit, who) {
+  if (!fit || !fit.out_of_area || !bookingId) return;
+  const cur = db.prepare('SELECT out_of_area FROM bookings WHERE id = ?').get(bookingId);
+  const prev = cur && cur.out_of_area ? safeJsonObj(cur.out_of_area) : null;
+  const entry = { ...fit.out_of_area, confirmed_by: who, confirmed_at: now() };
+  const next = prev && prev.confirmed_by ? { ...prev, also: [...(prev.also || []), entry] } : entry;
+  db.prepare('UPDATE bookings SET out_of_area = ? WHERE id = ?').run(JSON.stringify(next), bookingId);
+}
+/* v86.14.1 — the out-of-area answer, with Google's drive time when the office has a key */
+async function outOfAreaReply(res, fit) {
+  try { fit.travel = await BOOKIT_TRAVEL.withLive(fit.travel); } catch {}
+  if (fit.travel && fit.travel.known) fit.error = `Out of area: this visit is ${fit.travel.text}. Confirm to go ahead anyway.`;
+  return json(res, 409, fit);
+}
+function safeJsonObj(t) { try { const x = JSON.parse(t); return x && typeof x === 'object' ? x : null; } catch { return null; } }
+function assignmentCheck(wid,b,options={}) {
+  const full=assignmentContext().completeBooking(b);
+  if(full?.sleepover && (!(Number(full.hours)>=SLEEPOVER_HOURS_MIN && Number(full.hours)<=SLEEPOVER_HOURS_MAX) || !(String(full.start)>='20:00'||String(full.start)<='01:00')))return {error:'A sleepover must last 8–10 hours and start between 20:00 and 01:00.',code:'sleepover_shape'};
+  return BOOKIT_ASSIGNMENT.evaluate(assignmentContext(),Number(wid),full,options);
+}
+function currentPlanAccess(wid,pid) {
+  const ctx=assignmentContext();
+  ctx.activeBookings=(w,p)=>db.prepare("SELECT * FROM bookings WHERE worker_id=? AND participant_id=? AND status IN ('requested','accepted') AND COALESCE(voided,0)=0").all(w,p);
+  ctx.activeOffers=(w,p)=>db.prepare("SELECT b.* FROM cover_offers o JOIN cover c ON c.id=o.cover_id JOIN bookings b ON b.id=c.booking_id WHERE o.worker_id=? AND b.participant_id=? AND o.response IS NULL AND o.expires_at>? AND c.status='open' AND b.cover_state='finding' AND b.status IN ('requested','accepted')").all(w,p,now());
+  ctx.candidate=(w,b)=>assignmentCheck(w,b);
+  return BOOKIT_PLAN_ACCESS.mayReadCurrent(ctx,Number(wid),Number(pid));
+}
+function recordAssignmentAck(wid,fit,proof,req,source='worker') {
+  const a=fit.ack;
+  if (!a?.required || a.acked) return;
+  db.prepare(`INSERT INTO plan_acks(plan_id,participant_id,version,worker_id,acked_at,ip,ack_source,recorded_by)
+    VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(plan_id,worker_id) DO NOTHING`).run(a.plan_id,fit.booking.participant_id,a.version,wid,now(),String(req?.socket?.remoteAddress||'').slice(0,45),source,source==='worker'?String(wid):String(proof.recorded_by||''));
+}
+function incomingInterval(res,date,start,hours) {
+  const error=BOOKIT_TIME.intervalError({date,start,hours});
+  if(error){json(res,400,{error,invalid_interval:true});return false;}return true;
+}
+function referralHours(workerId){return BOOKIT_REFERRALS.hours(db,workerId);}
 
 route('GET', /^\/api\/conversations$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
@@ -6099,8 +6190,8 @@ route('GET', /^\/api\/conversations\/(\d+)\/messages$/, (req, res, m, user) => {
      opening the thread therefore marks it read for the participant as well,
      which is the honest reading of one flag: somebody on your side has seen
      this. Per-reader receipts would need their own table and nothing asks. */
-  db.prepare('UPDATE messages SET read_at = ? WHERE convo_id = ? AND sender_id NOT IN (?, ?) AND read_at IS NULL').run(now(), convo.id, user.id, convo.as_id);
-  const msgs = db.prepare('SELECT id, sender_id, body, created, doc_kind, doc_id, doc_name FROM messages WHERE convo_id = ? ORDER BY id ASC LIMIT 500').all(convo.id);
+  let page;try{page=BOOKIT_MESSAGES.page(db,convo.id,new URL(req.url,'http://localhost').searchParams);}catch(e){return json(res,400,{error:e.message});}
+  const msgs=page.messages;
   const thrW = db.prepare("SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(convo.worker_id);
   const workerActive = !!(thrW && thrW.visible && platformEligible(convo.worker_id, thrW.email));
   /* Anyone who is neither of the two named parties is a delegate writing on
@@ -6113,13 +6204,22 @@ route('GET', /^\/api\/conversations\/(\d+)\/messages$/, (req, res, m, user) => {
     const u = db.prepare('SELECT name, role FROM users WHERE id = ?').get(x.sender_id);
     if (u) third.set(x.sender_id, { name: u.name, role: u.role === 'coordinator' ? 'support coordinator' : u.role });
   }
-  json(res, 200, { worker_active: workerActive, messages: msgs.map(x => ({
+  json(res, 200, { worker_active: workerActive, has_more:page.has_more, older_cursor:page.older_cursor, has_newer:page.has_newer||false, newer_cursor:page.newer_cursor||null, messages: msgs.map(x => ({
     id: x.id, mine: x.sender_id === user.id || x.sender_id === convo.as_id, body: x.body, created: x.created,
     author: third.get(x.sender_id) || null,
     /* resolved on every read, deliberately. If a certificate expired last
        week, the message that shared it in March says so today. */
     attachment: messageAttachment(x)
   })) });
+});
+
+route('POST', /^\/api\/conversations\/(\d+)\/read$/, (req,res,m,user,body)=>{
+  if(!user)return json(res,401,{error:'Please log in.'});
+  const c=memberOf(user,Number(m[1]));if(!c)return json(res,404,{error:'Conversation not found.'});
+  const ids=body.message_ids;
+  if(!Array.isArray(ids)||!ids.length||ids.length>500||ids.some(i=>!Number.isSafeInteger(i)||i<1))return json(res,400,{error:'Choose up to 500 displayed message IDs.'});
+  db.prepare(`UPDATE messages SET read_at=? WHERE convo_id=? AND sender_id NOT IN (?,?) AND read_at IS NULL AND id IN (${ids.map(()=>'?').join(',')})`).run(now(),c.id,user.id,c.as_id,...ids);
+  json(res,200,{ok:true});
 });
 
 route('POST', /^\/api\/conversations\/(\d+)\/messages$/, (req, res, m, user, body) => {
@@ -6133,8 +6233,8 @@ route('POST', /^\/api\/conversations\/(\d+)\/messages$/, (req, res, m, user, bod
   const thrW = db.prepare("SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(convo.worker_id);
   if (!thrW || !thrW.visible || !platformEligible(convo.worker_id, thrW.email)) {
     return json(res, 409, { read_only: true, error: user.id === convo.worker_id
-      ? "Your profile isn't active on BookIt right now, so messaging is paused. The office can help you get back on."
-      : 'This worker is currently unavailable on BookIt, so this conversation is read-only for now. Contact BookIt if you need help arranging another worker.' });
+      ? "Your profile isn't active on The Care Web right now, so messaging is paused. The office can help you get back on."
+      : 'This worker is currently unavailable on The Care Web, so this conversation is read-only for now. Contact The Care Web if you need help arranging another worker.' });
   }
   const text = clean(body.body, 2000);
   /* An attachment can travel on its own. Forcing a covering sentence just
@@ -6436,15 +6536,16 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   if (blockedPair(pers.id, workerId)) return json(res, 400, { error: 'That worker has been blocked from this account. Remove the block on the Team page if that was a mistake.' });
   const service = clean(body.service, 30);
   if (!SERVICES.includes(service)) return json(res, 400, { error: 'Please choose a service.' });
-  const date = clean(body.date, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: 'Please choose a date.' });
-  const start = clean(body.start, 5);
-  if (!/^\d{2}:\d{2}$/.test(start)) return json(res, 400, { error: 'Please choose a start time.' });
-  const hours = Number(body.hours);
+  const date = body.date;
+  if (!BOOKIT_TIME.validDate(date)) return json(res, 400, { error: 'Please choose a date.' });
+  const start = body.start;
+  if (!BOOKIT_TIME.validTime(start)) return json(res, 400, { error: 'Please choose a start time.' });
+  const hours = body.intro === true ? INTRO_HOURS : Number(body.hours);
   /* a meet-and-greet is one hour, unpaid, and needs only a confirmed email
      and a funding lane — the way to meet a worker before the paperwork */
   const intro = body.intro === true;   /* fifteen minutes, not a shift — see INTRO_HOURS */
   if (!intro && !(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
+  if (!incomingInterval(res,date,start,hours)) return;
   if (bookingStart({ date, start }) <= new Date())
     return json(res, 409, { error: 'That start time has already passed. Choose a future time.' });
   const sleepover = body.sleepover && ['personal-care', 'daily-tasks'].includes(service) ? 1 : 0;
@@ -6491,7 +6592,8 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   }
 
   const repeat = ['weekly', 'fortnightly'].includes(clean(body.repeat, 20)) ? clean(body.repeat, 20) : '';
-  const until = /^\d{4}-\d{2}-\d{2}$/.test(clean(body.repeat_until, 10)) ? clean(body.repeat_until, 10) : '';
+  if(body.repeat_until && !BOOKIT_TIME.validDate(body.repeat_until))return json(res,400,{error:'Choose a real end date for the repeating visits.'});
+  const until=body.repeat_until||'';
   const count = Math.max(0, Math.min(SERIES_MAX, Number(body.repeat_count) || 0));
   if (repeat && !until && !count) return json(res, 400, { error: 'Tell us when the repeating booking should stop \u2014 either an end date or a number of shifts.' });
 
@@ -6520,6 +6622,10 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   /* The rule and its occurrences are one thing to the participant, so they
      are one write: a failure on the ninth shift leaves no rule and no shifts,
      not a rule with eight. */
+  const assignmentDates = dates.map(date => ({participant_id:pers.id,worker_id:workerId,service,date,start,hours,sleepover,kind:intro?'intro':'shift'}));
+  let outOfArea = null;
+  for (const proposed of assignmentDates) { const fit=assignmentCheck(workerId,proposed,{out_of_area_ok: body.out_of_area_ok === true}); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit); if (fit.out_of_area) outOfArea = fit.out_of_area; }
+  const outOfAreaNote = outOfArea ? JSON.stringify({ ...outOfArea, confirmed_by: 'participant', confirmed_at: now() }) : '';
   db.exec('BEGIN IMMEDIATE');
   try {
     if (repeat) {
@@ -6530,8 +6636,8 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
       seriesId = Number(sr.lastInsertRowid);
     }
     dates.forEach((d, idx) => {
-      const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created, kind) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        .run(pers.id, workerId, service, d, start, intro ? INTRO_HOURS : hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now(), intro ? 'intro' : 'shift');
+      const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created, kind, out_of_area) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        .run(pers.id, workerId, service, d, start, intro ? INTRO_HOURS : hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now(), intro ? 'intro' : 'shift', outOfAreaNote);
       const id = Number(r.lastInsertRowid);
       if (km > 0) applyKm(id, km, clean(body.km_from, 80), clean(body.km_to, 80));
       ids.push(id);
@@ -6558,11 +6664,46 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   const onBehalf = pers.self ? '' : `<p style="color:#5B6B68;font-size:14px;">Requested by <b>${escHtml(user.name)}</b>, ${escHtml(pers.name)}&rsquo;s support coordinator.</p>`;
   const repeatBlock = repeat ? `<p><b>This is a repeating booking</b> \u2014 ${dates.length} shifts, ${repeat}, from ${prettyDate(dates[0])} to ${prettyDate(dates[dates.length - 1])}. Accepting the first one does not accept the rest; each shift is yours to accept or decline.</p>` : '';
   const wu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(workerId);
-  if (wu) notify(wu.id, 'bookings', wu.email, 'New booking request — BookIt',
+  if (wu) notify(wu.id, 'bookings', wu.email, 'New booking request — The Care Web',
     `New booking request, ${firstName(wu.name)}!`,
     `<p><b>${escHtml(pers.name)}</b> has requested <b>${SERVICE_LABELS[service] || service}</b> on <b>${prettyDate(date)}</b> starting <b>${escHtml(start)}</b> (${hours} hours).</p>${onBehalf}${repeatBlock}${scopeBlock}<p>Accept or decline from your bookings page — they'll see your answer straight away.</p>`,
     'View the request', `${baseUrl(req)}/#/bookings`).catch(() => {});
   json(res, 200, { id: ids[0], ids, series_id: seriesId, count: ids.length, ok: true, scope_warning: warn });
+});
+
+
+function noteDraftBooking(user,id) {
+  if(!user||user.role!=='worker')return null;
+  return db.prepare("SELECT * FROM bookings WHERE id=? AND worker_id=? AND status='accepted' AND COALESCE(voided,0)=0 AND COALESCE(cover_state,'') NOT IN ('finding','office','uncovered','failed','allied','referred')").get(id,user.id);
+}
+route('GET', /^\/api\/bookings\/(\d+)\/note-draft$/, (req,res,m,user)=>{
+  const b=noteDraftBooking(user,Number(m[1]));if(!b)return json(res,403,{error:'Drafts are only available to the worker currently assigned to an accepted visit.'});
+  if(blockedPair(b.participant_id,user.id))return json(res,403,{error:'This relationship has ended. Contact the office about your record.'});
+  const r=db.prepare('SELECT payload,revision,updated FROM shift_note_drafts WHERE booking_id=? AND worker_id=?').get(b.id,user.id);
+  json(res,200,{draft:r?{...r,payload:JSON.parse(r.payload)}:null});
+});
+route('PUT', /^\/api\/bookings\/(\d+)\/note-draft$/, (req,res,m,user,body)=>{
+  const b=noteDraftBooking(user,Number(m[1]));if(!b)return json(res,403,{error:'This visit is no longer assigned to you as an accepted visit.'});
+  if(blockedPair(b.participant_id,user.id))return json(res,403,{error:'This relationship has ended. Contact the office.'});
+  const raw=body.payload;
+  if(!raw||typeof raw!=='object'||Array.isArray(raw)||typeof raw.note!=='string'||raw.note.length>4000)return json(res,400,{error:'A draft note may contain up to 4000 characters.'});
+  const payload={note:raw.note,scope:raw.scope===true,scope_detail:clean(raw.scope_detail,4000),active_note:clean(raw.active_note,2000)};
+  if(raw.active_hours!==undefined){if(raw.active_hours!==''&&(!Number.isFinite(Number(raw.active_hours))||Number(raw.active_hours)<0||Number(raw.active_hours)>24))return json(res,400,{error:'Active hours need a valid number.'});payload.active_hours=raw.active_hours;}
+  const expected=Number(body.revision);if(!Number.isInteger(expected)||expected<0)return json(res,400,{error:'Include the draft revision you loaded.'});
+  db.exec('BEGIN IMMEDIATE');
+  try{
+    const r=db.prepare('SELECT revision FROM shift_note_drafts WHERE booking_id=? AND worker_id=?').get(b.id,user.id);
+    if((r?.revision||0)!==expected){db.exec('ROLLBACK');return json(res,409,{error:'This draft changed in another tab. Your text is still on this screen; copy it before reloading the saved draft.',draft_conflict:true});}
+    const revision=expected+1,updated=now();
+    db.prepare('INSERT INTO shift_note_drafts(booking_id,worker_id,payload,revision,updated) VALUES(?,?,?,?,?) ON CONFLICT(booking_id,worker_id) DO UPDATE SET payload=excluded.payload,revision=excluded.revision,updated=excluded.updated').run(b.id,user.id,JSON.stringify(payload),revision,updated);
+    db.exec('COMMIT');json(res,200,{ok:true,revision,updated});
+  }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+});
+route('DELETE', /^\/api\/bookings\/(\d+)\/note-draft$/, (req,res,m,user,body)=>{
+  const b=noteDraftBooking(user,Number(m[1]));if(!b)return json(res,403,{error:'Draft unavailable.'});
+  const result=db.prepare('DELETE FROM shift_note_drafts WHERE booking_id=? AND worker_id=? AND revision=?').run(b.id,user.id,Number(body.revision||0));
+  if(!result.changes)return json(res,409,{error:'This draft changed. Reload before discarding it.'});
+  json(res,200,{ok:true});
 });
 
 route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
@@ -6579,44 +6720,21 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
   if (user.role === 'worker' && b.worker_id === user.id && workerActions.includes(status) && b.status === 'requested') {
     const gate = workerBookingGate(user.id, b);
     if (gate) return json(res, 409, gate);
-    /* 15. a hard training lock stops a worker taking on anything new. It
-       never touches a shift already accepted — pulling someone off
-       tomorrow's roster is not a safety improvement, it is a gap. */
     if (status === 'accepted') {
-      if (bookingStart(b) <= new Date())
-        return json(res, 409, { error: 'This shift has already started and can no longer be accepted online. Contact the office.' });
-      const t = moduleState(user.id);
-      if (t.lock === 'hard') return json(res, 400, { error: `Your training is ${t.overdue_days} days overdue (${t.outstanding.join(', ')}). Finish it on the Training page and you can accept shifts again straight away — your existing bookings are unaffected.`, training_lock: 'hard' });
-      /* 12. the diary gate. Two participants may both have asked for this
-         hour; the first accept wins and the second is refused here, so the
-         worker is never on two rosters at once. Checked before the plan
-         prompt, so nobody reads a plan for a shift they cannot take, and
-         against accepted shifts only. */
-      const busy = bookingClash(user.id, b.date, b.start, b.hours, { excludeId: b.id });
-      if (busy) return json(res, 409, { error: `You already have an accepted shift at ${busy.start} on ${dmy(busy.date)} that overlaps this one. Decline this request, or ask the office to move the other shift.`, clash: true, clash_booking_id: busy.id });
-      /* 11. the plan acknowledgement gate. A worker cannot accept a shift
-         for someone whose current support plan they have not read. */
-      const ack = planAck(b.participant_id, user.id);
-      if (ack.required && !ack.acked && !body.plan_ack) {
-        return json(res, 400, { error: 'Please read the current support plan and tick to confirm before you accept this shift.', plan_ack_required: true, plan_id: ack.plan_id, version: ack.version });
-      }
-      if (ack.required && !ack.acked && body.plan_ack) {
-        try {
-          db.prepare('INSERT INTO plan_acks (plan_id, participant_id, version, worker_id, acked_at, ip) VALUES (?,?,?,?,?,?)')
-            .run(ack.plan_id, b.participant_id, ack.version, user.id, now(), '');
-        } catch (e) {
-          /* the acknowledgement is evidence that the worker read the plan; if
-             it cannot be written the shift is not accepted on the strength of
-             a tick nobody can find later */
-          console.error('[plan-ack] could not record acknowledgement', e && e.message);
-          return json(res, 500, { error: 'We could not record that you read the plan. Try again in a moment.' });
-        }
-      }
-    }
-    if (status === 'accepted') db.prepare('UPDATE bookings SET status = ?, accepted_at = ? WHERE id = ?').run(status, now(), b.id);
-    else db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status, b.id);
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        const fresh=db.prepare('SELECT * FROM bookings WHERE id=?').get(b.id);
+        if(!fresh || fresh.status!=='requested' || fresh.worker_id!==user.id) {db.exec('ROLLBACK');return json(res,409,{error:'This request has changed. Refresh your bookings.'});}
+        const fit=assignmentCheck(user.id,fresh,{accept:true,proof:body,out_of_area_ok: body.out_of_area_ok === true});
+        if(!fit.ok){db.exec('ROLLBACK');return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,fit);}
+        recordAssignmentAck(user.id,fit,body,req);
+        noteOutOfArea(b.id, fit, 'worker');
+        db.prepare("UPDATE bookings SET status='accepted',accepted_at=? WHERE id=?").run(now(),b.id);
+        db.exec('COMMIT');
+      } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
+    } else db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status,b.id);
     const pu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.participant_id);
-    if (pu) notify(pu.id, 'bookings', pu.email, `Booking ${status} — BookIt`,
+    if (pu) notify(pu.id, 'bookings', pu.email, `Booking ${status} — The Care Web`,
       status === 'accepted' ? 'Your booking is confirmed 🎉' : 'About your booking request',
       `<p><b>${escHtml(user.name)}</b> has <b>${status}</b> your booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>` +
       (status === 'accepted'
@@ -6644,13 +6762,13 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
        can never create an invoice or worker payment. */
     const code = providerUnable ? '' : cancelCode(body.reason_code);
     const cancelledBy = providerUnable ? 'provider' : (pers.self ? 'participant' : `coordinator:${user.name}`);
-    const cancelReason = providerUnable ? 'BookIt could not staff the shift' : clean(body.reason, 300);
+    const cancelReason = providerUnable ? 'The Care Web could not staff the shift' : clean(body.reason, 300);
     db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = ?,
         cancel_code = ?, short_notice = ?, notice_hours = ?, cover_state = ? WHERE id = ?`)
       .run(now(), cancelledBy, cancelReason, code, charge ? 1 : 0, sn.hours, providerUnable ? 'stood-down' : (b.cover_state || ''), b.id);
     if (providerUnable) {
       if (openCv) {
-        db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Booking stood down because BookIt could not staff it.' WHERE id = ?").run(now(), openCv.id);
+        db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Booking stood down because The Care Web could not staff it.' WHERE id = ?").run(now(), openCv.id);
         db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), openCv.id);
       }
       db.prepare(`UPDATE bookings SET rate_category = NULL, unit_price = NULL, worker_share = NULL, total = NULL,
@@ -6661,10 +6779,10 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     logDelegate(pers, providerUnable ? 'Stood down an unstaffed shift' : 'Cancelled a shift',
       `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}${charge ? ' (short notice — charged)' : providerUnable ? ' (provider could not staff)' : ''}`, b.id);
     const wu2 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
-    if (wu2) notify(wu2.id, 'bookings', wu2.email, 'Booking cancelled — BookIt',
+    if (wu2) notify(wu2.id, 'bookings', wu2.email, 'Booking cancelled — The Care Web',
       `A booking was cancelled, ${firstName(wu2.name)}`,
       (providerUnable
-        ? `<p>The booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> has been stood down because BookIt could not staff it.</p><p><b>The participant is not charged and no worker payment is created.</b></p>`
+        ? `<p>The booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> has been stood down because The Care Web could not staff it.</p><p><b>The participant is not charged and no worker payment is created.</b></p>`
         : `<p><b>${escHtml(pers.name)}</b> has cancelled the booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>` +
           (charge
             ? `<p><b>This was inside the ${sn.window / 24 >= 1 ? Math.round(sn.window / 24) + '-day' : sn.window + '-hour'} notice window</b> (${sn.hours} hours&rsquo; notice), so the shift is charged in full and <b>you are paid in full</b>. You do not need to do anything.</p>`
@@ -6731,6 +6849,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
       noteId = Number(db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,0,?)')
         .run(b.id, user.id, b.participant_id, note, scope, scopeDetail, now()).lastInsertRowid);
       db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Booking was completed.' WHERE booking_id = ? AND status = 'open'").run(now(), b.id);
+      db.prepare('DELETE FROM shift_note_drafts WHERE booking_id=?').run(b.id);
       db.exec('COMMIT');
     } catch (e) {
       try { db.exec('ROLLBACK'); } catch {}
@@ -6745,7 +6864,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     try { if (noteId) aiTriageNote(noteId); } catch {}
     const deadline = new Date(Date.now() + APPROVAL_DEEM_DAYS * 864e5);
     const kmBlock = kmLine ? `<p><b>${kmLine.km} km</b> ${escHtml(kmLine.from)} &rarr; ${escHtml(kmLine.to)} at $${kmLine.rate.toFixed(2)}/km = <b>$${kmLine.total.toFixed(2)}</b>.</p>` : '';
-    if (pu2 && inv) notify(pu2.id, 'timesheets', pu2.email, 'Timesheet to approve — BookIt',
+    if (pu2 && inv) notify(pu2.id, 'timesheets', pu2.email, 'Timesheet to approve — The Care Web',
       `One timesheet to look at, ${firstName(pu2.name)}`,
       `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${inv.qty === 1 && inv.category === 'sleepover' ? '1 night (flat)' : `${b.hours} hours ×`} $${inv.unit_price.toFixed(2)}</b> (${inv.label} — the NDIA's published national maximum price, 2026–27) = <b>$${inv.total.toFixed(2)}</b>.</p>${kmBlock}<p><b>${firstName(user.name)} has written a shift note</b> about how it went — you can read it on your bookings page.</p><p><b>You have until ${prettyDate(ymd(deadline))} to approve it or ask a question.</b> After that it is approved automatically so ${firstName(user.name)} is paid on time. Approving is not the same as saying the shift was perfect — you can raise a concern at any point, before or after.</p>`,
       'Approve the timesheet', `${baseUrl(req)}/#/bookings`).catch(() => {});
@@ -6764,7 +6883,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
         .run(now(), user.id, pers.self ? 'participant' : 'coordinator', b.id);
       logDelegate(pers, 'Approved a timesheet', `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}`, b.id);
       const wu3 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
-      if (wu3) notify(wu3.id, 'timesheets', wu3.email, 'Timesheet approved — BookIt',
+      if (wu3) notify(wu3.id, 'timesheets', wu3.email, 'Timesheet approved — The Care Web',
         `Approved, ${firstName(wu3.name)}`,
         `<p><b>${escHtml(pers.name)}</b> has approved your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>.</p><p>It goes into the next pay run.</p>`,
         'See my earnings', `${baseUrl(req)}/#/earnings`).catch(() => {});
@@ -6781,11 +6900,11 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
       VALUES (?,?,?,?,0,'',0,'question',?,?)`).run(b.id, b.worker_id, b.participant_id, q, user.id, now());
     logDelegate(pers, 'Queried a timesheet', `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}: ${q.slice(0, 120)}`, b.id);
     const wu4 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
-    if (wu4) notify(wu4.id, 'timesheets', wu4.email, 'A question about your timesheet — BookIt',
+    if (wu4) notify(wu4.id, 'timesheets', wu4.email, 'A question about your timesheet — The Care Web',
       `A question about ${prettyDate(b.date)}`,
       `<p><b>${escHtml(pers.name)}</b> has asked about your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>:</p><blockquote style="border-left:3px solid #0E6B62;padding-left:14px;margin:16px 0;color:#2B3A38;">${escHtml(q)}</blockquote><p>Answer it by adding to the shift note. Your original note stays exactly as you wrote it — your answer is added underneath, so both are on the record.</p>`,
       'Answer on my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
-    if (ADMIN_EMAILS.length) sendMail(ADMIN_EMAILS[0], 'Timesheet queried — BookIt', 'A timesheet has been queried',
+    if (ADMIN_EMAILS.length) sendMail(ADMIN_EMAILS[0], 'Timesheet queried — The Care Web', 'A timesheet has been queried',
       `<p><b>${escHtml(pers.name)}</b> queried booking #${b.id} (${escHtml(b.service)}, ${prettyDate(b.date)}, ${escHtml(wu4 ? wu4.name : '')}).</p><blockquote>${escHtml(q)}</blockquote>`,
       'Open the invoice board', `${baseUrl(req)}/#/admin`).catch(() => {});
     return json(res, 200, { ok: true, approval_state: 'queried' });
@@ -6810,7 +6929,7 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
   if (!pers || pers.id !== sr.participant_id) return json(res, 403, { error: 'That isn\'t your booking.' });
 
   const patch = {};
-  if (body.start && /^\d{2}:\d{2}$/.test(clean(body.start, 5))) patch.start = clean(body.start, 5);
+  if (body.start !== undefined) { if(!BOOKIT_TIME.validTime(body.start)) return json(res,400,{error:'Choose a real start time.'}); patch.start=body.start; }
   if (body.hours !== undefined) {
     const h = Number(body.hours);
     if (!(h >= 2 && h <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
@@ -6835,7 +6954,9 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
   const rows = db.prepare(`SELECT * FROM bookings WHERE series_id = ? AND detached = 0
     AND status IN ('requested','accepted') ORDER BY date`).all(sr.id);
   const changed = [], locked = [];
-  const movable = rows.filter(b => { let t; try { t = new Date(`${b.date}T${b.start}:00`); } catch { t = null; } if (t && t < cutoff) { locked.push(b.id); return false; } return true; });
+  const movable = rows.filter(b => { const t=bookingStart(b); if (!Number.isFinite(+t) || t < cutoff || ['finding','office','allied','referred'].includes(b.cover_state) || b.invoice_no || b.claim_status==='paid' || b.paid_at) {locked.push(b.id);return false;} return true; });
+  const material = ['worker_id','start','hours'].some(k => patch[k]!==undefined && String(patch[k])!==String(sr[k]));
+  for(const b of movable) {const proposed={...b,...patch}; const fit=assignmentCheck(proposed.worker_id,proposed,{out_of_area_ok: body.out_of_area_ok === true}); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,{...fit,date:b.date,dates:[b.date]});}
   /* The diary gate for a rule: if the new time or the new worker clashes on
      any date, nothing changes and the participant is told which dates. */
   if (patch.start || patch.hours || patch.worker_id) {
@@ -6847,7 +6968,8 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
   try {
     db.prepare(`UPDATE booking_series SET ${sets} WHERE id = ?`).run(...vals, sr.id);
     for (const b of movable) {
-      db.prepare(`UPDATE bookings SET ${sets} WHERE id = ?`).run(...vals, b.id);
+      const changedAssignment=['worker_id','start','hours'].some(k=>patch[k]!==undefined&&String(patch[k])!==String(b[k]));
+      db.prepare(`UPDATE bookings SET ${sets}${changedAssignment ? ", status='requested', accepted_at=NULL, office_ok=0" : ''} WHERE id = ?`).run(...vals,b.id);
       changed.push(b.id);
     }
     db.exec('COMMIT');
@@ -6855,6 +6977,7 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
     try { db.exec('ROLLBACK'); } catch {}
     throw e;
   }
+  if(material) {const ids=[...new Set([sr.worker_id,patch.worker_id].filter(Boolean))];for(const wid of ids){const w=db.prepare('SELECT * FROM users WHERE id=?').get(wid);if(w)notify(w.id,'bookings',w.email,'Repeating visits changed — The Care Web','Please review your visits',`<p>${changed.length} future visits have changed. Replacement workers and changed times require a fresh acceptance; the previous acceptance is not carried over.</p>`,'Open bookings',`${baseUrl(req)}/#/bookings`).catch(()=>{});}}
   logDelegate(pers, 'Changed a repeating booking', `${Object.keys(patch).join(', ')} on ${changed.length} shifts`, sr.id);
   json(res, 200, { ok: true, changed: changed.length, locked: locked.length, lock_hours: SERIES_LOCK_HOURS });
 });
@@ -6868,25 +6991,28 @@ route('PATCH', /^\/api\/bookings\/(\d+)\/occurrence$/, (req, res, m, user, body)
   const pers = actFor(req, user, 'bookings');
   if (!pers || pers.id !== b.participant_id) return json(res, 403, { error: 'That isn\'t your booking.' });
   if (!['requested', 'accepted'].includes(b.status)) return json(res, 400, { error: 'That shift has already been completed or cancelled.' });
-  const date = clean(body.date, 10);
-  const start = clean(body.start, 5) || b.start;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: 'Please choose a date.' });
-  if (!/^\d{2}:\d{2}$/.test(start)) return json(res, 400, { error: 'Please choose a start time.' });
+  const date = body.date;
+  const start = body.start === undefined ? b.start : body.start;
+  if (!BOOKIT_TIME.validDate(date)) return json(res, 400, { error: 'Please choose a date.' });
+  if (!BOOKIT_TIME.validTime(start)) return json(res, 400, { error: 'Please choose a start time.' });
   if (bookingStart({ date, start }) <= new Date()) return json(res, 409, { error: 'That start time has already passed. Choose a future time.' });
   const hours = body.hours === undefined ? b.hours : Number(body.hours);
   if (!(hours >= 2 && hours <= 10)) return json(res, 400, { error: 'Bookings are between 2 and 10 hours.' });
   /* the diary gate, at the moment of moving rather than when the worker
      comes to accept the moved shift: a request that cannot be accepted is
      not a request worth sending */
+  if(!incomingInterval(res,date,start,hours))return;
+  if(bookingStart(b)<=new Date() || ['finding','office','allied','referred'].includes(b.cover_state) || b.invoice_no || b.paid_at) return json(res,409,{error:'This visit needs office review before it can be moved.'});
+  const fit=assignmentCheck(b.worker_id,{...b,date,start,hours},{out_of_area_ok: body.out_of_area_ok === true});if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,fit);
   const busy = bookingClash(b.worker_id, date, start, hours, { statuses: ['accepted', 'requested'], participantId: pers.id, excludeId: b.id });
   if (busy) return json(res, 409, { clash: true, error: busy.participant_id === pers.id
     ? `You already have a booking with this worker at ${busy.start} on ${dmy(busy.date)} (${busy.status}) that overlaps the new time.`
     : `This worker already has a shift that overlaps ${dmy(date)} at ${start}. Choose another time.` });
-  db.prepare("UPDATE bookings SET date = ?, start = ?, hours = ?, detached = 1, status = 'requested' WHERE id = ?")
+  db.prepare("UPDATE bookings SET date = ?, start = ?, hours = ?, detached = 1, status = 'requested', accepted_at = NULL, office_ok = 0 WHERE id = ?")
     .run(date, start, hours, b.id);
   logDelegate(pers, 'Moved one shift', `${SERVICE_LABELS[b.service] || b.service} from ${dmy(b.date)} to ${dmy(date)}`, b.id);
   const wu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
-  if (wu) notify(wu.id, 'bookings', wu.email, 'A shift has moved — BookIt',
+  if (wu) notify(wu.id, 'bookings', wu.email, 'A shift has moved — The Care Web',
     `One shift has moved, ${firstName(wu.name)}`,
     `<p><b>${escHtml(pers.name)}</b> has moved the <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift from <b>${prettyDate(b.date)}</b> to <b>${prettyDate(date)}</b> at <b>${escHtml(start)}</b> (${hours} hours).</p><p>The rest of the repeating booking is unchanged. Please accept or decline the new time.</p>`,
     'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
@@ -6919,13 +7045,13 @@ route('POST', /^\/api\/series\/(\d+)\/end$/, (req, res, m, user, body) => {
     const providerUnable = Boolean(openCv) || ['finding','office','uncovered','failed','referred','allied'].includes(String(b.cover_state || ''));
     const charge = sn.short && b.status === 'accepted' && !providerUnable;
     if (openCv) {
-      db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Repeating booking ended while BookIt was arranging cover.' WHERE id = ?").run(now(), openCv.id);
+      db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Repeating booking ended while The Care Web was arranging cover.' WHERE id = ?").run(now(), openCv.id);
       db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), openCv.id);
     }
     db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = ?,
       cancel_code = ?, short_notice = ?, notice_hours = ?, cover_state = ? WHERE id = ?`)
       .run(now(), providerUnable ? 'provider' : (pers.self ? 'participant' : `coordinator:${user.name}`),
-        providerUnable ? 'BookIt could not staff the shift' : 'Repeating booking ended', providerUnable ? '' : 'NSDO',
+        providerUnable ? 'The Care Web could not staff the shift' : 'Repeating booking ended', providerUnable ? '' : 'NSDO',
         charge ? 1 : 0, sn.hours, providerUnable ? 'stood-down' : (b.cover_state || ''), b.id);
     if (providerUnable) db.prepare(`UPDATE bookings SET rate_category = NULL, unit_price = NULL, worker_share = NULL, total = NULL,
       claim_status = '', claim_ref = NULL, invoice_no = NULL, support_item = NULL, claimed_at = NULL, paid_at = NULL WHERE id = ?`).run(b.id);
@@ -7042,7 +7168,7 @@ route('POST', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user, body, ip) =
     const pq = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.participant_id);
     const recips = pq ? [pq, ...coordsFor(b.participant_id, 'bookings')] : coordsFor(b.participant_id, 'bookings');
     for (const p of recips) {
-      notify(p.id, 'timesheets', p.email, 'Your question has been answered — BookIt',
+      notify(p.id, 'timesheets', p.email, 'Your question has been answered — The Care Web',
         `An answer about ${prettyDate(b.date)}`,
         `<p><b>${escHtml(user.name)}</b> has answered your question about the <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>.</p>
          <blockquote style="border-left:3px solid #0E6B62;padding-left:14px;margin:16px 0;color:#2B3A38;">${escHtml(note)}</blockquote>
@@ -7067,7 +7193,7 @@ const PLAN_SECTIONS = [
   { key: 'supports', title: 'The supports you use',
     intro: 'DMHC is registered for six things and only six. Ticking one here tells the roster which workers can be offered your shifts, and what they read before the first one. Leave the rest untouched — an empty answer means "not yet", never "does not need it".' },
   { key: 'reliance', title: 'If a shift falls over',
-    intro: 'These five answers are the only part of this plan the roster acts on by itself. They decide how hard BookIt chases a replacement when a worker pulls out, and how early it starts. Worth a minute of thought.' },
+    intro: 'These five answers are the only part of this plan the roster acts on by itself. They decide how hard The Care Web chases a replacement when a worker pulls out, and how early it starts. Worth a minute of thought.' },
   { key: 'about', title: 'What a worker needs to know',
     intro: 'Written for somebody who has never met you and is about to walk in the door. Only workers whose booking with you has already been accepted ever see this — nobody browsing the site does.' },
   { key: 'specialised', title: 'Specialised support',
@@ -7082,7 +7208,7 @@ const PLAN_SECTIONS = [
    showIf: only asked, and only required, once that answer is yes.
    worker_brief: appears on the brief a booked worker reads before the shift.
 
-   The first section is the one that makes this BookIt's form rather than a
+   The first section is the one that makes this The Care Web's form rather than a
    copy of somebody else's. Every other platform asks about "daily living" in
    the abstract; DMHC holds six registration groups and delivers nothing
    outside them, so the plan asks about those six by name. That does three
@@ -7114,7 +7240,7 @@ const PLAN_QUESTIONS = [
 
   { key: 'use_transport', section: 'supports', type: 'yn', required: true,
     q: 'Travel and transport',
-    help: 'Being driven, or being supported to use transport yourself. NDIS calls this Assistance with Travel and Transport Arrangements (0108). Tick this and BookIt will only offer your shifts to workers whose licence, registration, CTP and comprehensive insurance are all current on the day.' },
+    help: 'Being driven, or being supported to use transport yourself. NDIS calls this Assistance with Travel and Transport Arrangements (0108). Tick this and The Care Web will only offer your shifts to workers whose licence, registration, CTP and comprehensive insurance are all current on the day.' },
   { key: 'transport_detail', section: 'supports', type: 'text', required: false, showIf: 'use_transport', worker_brief: true,
     q: 'How do you travel?', brief_title: 'Travel & transport',
     help: 'Your own vehicle or the worker’s, whether you transfer or stay in your chair, hoist or ramp, tie-downs, how long you can sit, and anything about getting in and out that is easy to get wrong.' },
@@ -7134,8 +7260,8 @@ const PLAN_QUESTIONS = [
     help: 'Where you work, what days and hours, what the worker does while they are there, and who at your workplace they should speak to.' },
 
   { key: 'main_source', section: 'reliance', type: 'yn', required: true,
-    q: 'Is BookIt your main source of support for daily living?',
-    help: 'Yes if BookIt covers your essential personal care, or your morning and evening routine — the support that has to happen whether or not anyone is available.' },
+    q: 'Is The Care Web your main source of support for daily living?',
+    help: 'Yes if The Care Web covers your essential personal care, or your morning and evening routine — the support that has to happen whether or not anyone is available.' },
   { key: 'health_safety', section: 'reliance', type: 'yn', required: true,
     q: 'If your workers could not attend, would your health or safety be significantly affected?',
     help: 'Meals, mobility, personal care, essential health appointments, or the activities that keep you well.' },
@@ -7143,14 +7269,14 @@ const PLAN_QUESTIONS = [
     q: 'Say how, and say how fast.',
     help: 'Hours are more useful to us than days. "No transfer means no toilet after about four hours" tells the roster what to do; "it would be difficult" does not.' },
   { key: 'backup_24h', section: 'reliance', type: 'yn', required: true,
-    q: 'If BookIt were disrupted, is there other support you could call on within 24 hours?',
+    q: 'If The Care Web were disrupted, is there other support you could call on within 24 hours?',
     help: 'Family, friends, or another provider you already use. This is not a test — answering no is what tells us to treat a gap in your roster as urgent.' },
   { key: 'backup_detail', section: 'reliance', type: 'text', required: false, showIf: 'backup_24h',
     q: 'Who, and how do we reach them?',
     help: 'A name and a number. We only ever use it if you have told us we can.' },
   { key: 'preventative_health', section: 'reliance', type: 'yn', required: true,
     q: 'Do you want support keeping on top of preventative health?',
-    help: 'Vaccinations, dental, health assessments and screening. Say yes and BookIt emails you a reminder when one is due rather than letting it drift.' },
+    help: 'Vaccinations, dental, health assessments and screening. Say yes and The Care Web emails you a reminder when one is due rather than letting it drift.' },
 
   { key: 'goals', section: 'about', type: 'text', required: true,
     q: 'What you are working towards',
@@ -7224,7 +7350,7 @@ const PLAN_QUESTIONS = [
     help: 'Roads, crowds, places or people to avoid, what happens if you become separated, and what a worker should do in an emergency away from home.', worker_brief: true },
   { key: 'disaster_8h', section: 'safety', type: 'yn', required: true,
     q: 'In a flood, fire or heatwave, would you need essential support within 8 hours?',
-    help: 'Personal care, health support, transport or a way to communicate, so you can follow your emergency plan. Yes puts you on the list BookIt works down first when a disaster is declared in your area.' },
+    help: 'Personal care, health support, transport or a way to communicate, so you can follow your emergency plan. Yes puts you on the list The Care Web works down first when a disaster is declared in your area.' },
 
   { key: 'ec_name', section: 'emergency', type: 'text', required: true, q: 'Name', short: true },
   { key: 'ec_relationship', section: 'emergency', type: 'text', required: true, q: 'Relationship to you', short: true },
@@ -7277,7 +7403,7 @@ function planDue(confirmed_at) {
    is rung before the offer round or after it.
 
    Tier 1 is the combination that means a missed shift is not a gap in a roster,
-   it is a person with nobody: BookIt is the main source of support, health or
+   it is a person with nobody: The Care Web is the main source of support, health or
    safety is significantly affected, and there is no one else inside 24 hours.
    Nothing about that requires a judgement call, so nothing about it waits for
    one. */
@@ -7289,16 +7415,16 @@ function continuityTier(p) {
   const relies = !!p.main_source, harm = !!p.health_safety, alone = !p.backup_24h;
   if (relies && harm && alone) {
     return { tier: 1, key: 'critical', label: 'Critical — 24/7',
-      why: 'BookIt is the main source of support, health or safety is significantly affected without it, and there is no other support available within 24 hours.' };
+      why: 'The Care Web is the main source of support, health or safety is significantly affected without it, and there is no other support available within 24 hours.' };
   }
   if (relies && (harm || alone)) {
     return { tier: 2, key: 'high', label: 'High',
       why: relies && harm
-        ? 'BookIt is the main source of support and health or safety is significantly affected without it, but other support is available within 24 hours.'
-        : 'BookIt is the main source of support and there is no other support available within 24 hours, though health and safety are not significantly affected.' };
+        ? 'The Care Web is the main source of support and health or safety is significantly affected without it, but other support is available within 24 hours.'
+        : 'The Care Web is the main source of support and there is no other support available within 24 hours, though health and safety are not significantly affected.' };
   }
   return { tier: 3, key: 'standard', label: 'Standard',
-    why: 'Other support is available, or BookIt is not the main source of support for daily living.' };
+    why: 'Other support is available, or The Care Web is not the main source of support for daily living.' };
 }
 
 function currentPlan(participantId) {
@@ -7463,12 +7589,13 @@ route('GET', /^\/api\/support-plan\/(\d+)\/brief$/, (req, res, m, user) => {
        plan a precondition of accepting, so the person deciding whether to
        say yes must be able to read it. Being requested is the participant's
        own invitation. */
-    const linked = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE worker_id = ? AND participant_id = ? AND status IN ('requested','accepted','completed')").get(user.id, pid).n;
+    const linked = currentPlanAccess(user.id,pid);
     if (!linked) return json(res, 403, { error: 'You can read a support plan once this participant has requested or booked you.' });
   }
   const brief = workerBrief(pid);
   if (!brief) return json(res, 404, { error: 'No confirmed support plan yet.' });
-  json(res, 200, { brief, continuity: continuityTier(confirmedPlan(pid)) });
+  const plan=confirmedPlan(pid);
+  json(res, 200, { brief, plan_id:plan?.id, plan_version:plan?.version, continuity: continuityTier(confirmedPlan(pid)) });
 });
 
 /* admin: every participant, what tier they are, and what is overdue */
@@ -7557,7 +7684,7 @@ route('POST', /^\/api\/admin\/support-plans\/(\d+)\/care-plan$/, (req, res, m, u
 /* The question this answers is "where are my forms", and the honest answer has
    three parts, so the register has three parts.
 
-   `live` means BookIt holds the record itself and watches its own clock. There
+   `live` means The Care Web holds the record itself and watches its own clock. There
    is nothing to keep track of by hand, because the system is the register.
 
    `drive` means the document exists as a file in Google Drive. It is real, it is
@@ -7578,7 +7705,7 @@ route('POST', /^\/api\/admin\/support-plans\/(\d+)\/care-plan$/, (req, res, m, u
 const FORMS = [
   /* ---------- governance: the company holds one of each ---------- */
   { key: 'cert-registration', expires: '2029-01-21', name: 'NDIS certificate of registration + scope', scope: 'company', track: 'drive', cadence: 'expiry', signed: 'NDIS Commission', template: 'n/a', requires: 'NDIS Act — registration', note: 'Current certificate runs to 21/01/2029; mid-term audit window opens 21/07/2027. The certificate itself is not in the Drive — download it from the NDIS Commission portal and add it as a page under Policies and procedures.' },
-  { key: 'policy-register', name: 'Policy Register', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Governance and operational management', note: 'Generated at /policies/policy-register from the documents published on the site, with each one\u2019s version, approval and review dates; it cannot disagree with the documents.' },
+  { key: 'policy-register', name: 'Policy Register', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'The Care Web', requires: 'Core Module — Governance and operational management', note: 'Generated at /policies/policy-register from the documents published on the site, with each one\u2019s version, approval and review dates; it cannot disagree with the documents.' },
   { key: 'doc-list-core', name: 'Document List — Core', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Information management' },
   { key: 'gov-review', name: 'Governing Personnel Skills and Performance Review', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
   { key: 'coi-declaration', name: 'Conflict of Interest Declaration (governing person)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management', note: 'A nil declaration is still evidence. An empty register is not.' },
@@ -7595,21 +7722,21 @@ const FORMS = [
   { key: 'pol-complaints', name: 'Complaints Management and Resolution policy', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Complaints Management and Resolution) Rules 2018' },
   { key: 'pol-screening', name: 'Worker Screening policy and procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018' },
   { key: 'pol-privacy', name: 'Privacy policy + data breach response', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Privacy and dignity', note: 'Breach response 1 business day; retention 7 years / 25 years.' },
-  { key: 'pol-behaviour', name: 'Behaviour Support and Restrictive Practices policy', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Violence, abuse, neglect, exploitation and discrimination', note: 'Added and signed July 2026.' },
-  { key: 'pol-decisions', name: 'Supported Decision-Making procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Independence and informed choice', note: 'Added and signed July 2026.' },
-  { key: 'pol-living-alone', name: 'Living Alone Safeguards procedure (s73G)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'NDIS Act s73G condition on this registration', note: 'Added and signed July 2026.' },
-  { key: 'pol-transport', name: 'Transport and Vehicle Safety procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Added and signed July 2026. 0108 is on the certificate.' },
-  { key: 'pol-tenancy', name: 'Tenancy and Support Separation statement', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'SIL / SDA module as audited', note: 'Added and signed July 2026.' },
-  { key: 'sil-collab', name: 'SDA and SIL Collaboration Agreement', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Both providers', template: 'BookIt', requires: 'SIL module as audited', note: 'Drafted July 2026 — to be filed and added to the Policy Register.' },
-  { key: 'sil-info-pack', name: 'SIL Information Pack (participant-facing)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'BookIt', requires: 'Core Module — Access to supports' },
+  { key: 'pol-behaviour', name: 'Behaviour Support and Restrictive Practices policy', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'The Care Web', requires: 'Core Module — Violence, abuse, neglect, exploitation and discrimination', note: 'Added and signed July 2026.' },
+  { key: 'pol-decisions', name: 'Supported Decision-Making procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'The Care Web', requires: 'Core Module — Independence and informed choice', note: 'Added and signed July 2026.' },
+  { key: 'pol-living-alone', name: 'Living Alone Safeguards procedure (s73G)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'The Care Web', requires: 'NDIS Act s73G condition on this registration', note: 'Added and signed July 2026.' },
+  { key: 'pol-transport', name: 'Transport and Vehicle Safety procedure', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'The Care Web', requires: 'Core Module — Safe environment', note: 'Added and signed July 2026. 0108 is on the certificate.' },
+  { key: 'pol-tenancy', name: 'Tenancy and Support Separation statement', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'The Care Web', requires: 'SIL / SDA module as audited', note: 'Added and signed July 2026.' },
+  { key: 'sil-collab', name: 'SDA and SIL Collaboration Agreement', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Both providers', template: 'The Care Web', requires: 'SIL module as audited', note: 'Drafted July 2026 — to be filed and added to the Policy Register.' },
+  { key: 'sil-info-pack', name: 'SIL Information Pack (participant-facing)', scope: 'company', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'The Care Web', requires: 'Core Module — Access to supports' },
   { key: 'contractor-agreement', name: 'Engagement model — employment or contractor agreement template', scope: 'company', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'Settled: workers engaged through the platform are employees - SCHADS award, superannuation, penalty rates, payroll export. Direct-delivery workers under existing arrangements are engaged as sole-trader contractors or casual employees, all covered under the icare policy. Employment agreements for platform workers are executed before launch; nothing existing is replaced.' },
 
   /* ---------- registers: living lists, never a snapshot ---------- */
-  { key: 'reg-worker', name: 'Worker Register', scope: 'register', track: 'live', live: 'workers', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'BookIt holds the live version. The copy in the policies folder is a quarterly export, not the record.' },
+  { key: 'reg-worker', name: 'Worker Register', scope: 'register', track: 'live', live: 'workers', cadence: 'on-change', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'The Care Web holds the live version. The copy in the policies folder is a quarterly export, not the record.' },
   { key: 'reg-participant', name: 'Participant Register', scope: 'register', track: 'live', live: 'participants', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'Core Module — Information management' },
-  { key: 'reg-incident', name: 'Incident Register', scope: 'register', track: 'live', live: 'incidents', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Incident Management and Reportable Incidents) Rules 2018', note: 'BookIt runs the 24-hour and 5-business-day clocks itself.' },
+  { key: 'reg-incident', name: 'Incident Register', scope: 'register', track: 'live', live: 'incidents', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Incident Management and Reportable Incidents) Rules 2018', note: 'The Care Web runs the 24-hour and 5-business-day clocks itself.' },
   { key: 'reg-complaints', name: 'Complaints and Feedback Register', scope: 'register', track: 'live', live: 'complaints', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Complaints Management and Resolution) Rules 2018' },
-  { key: 'reg-banning', name: 'Banning orders check register', scope: 'register', track: 'live', live: 'banning', cadence: 'quarterly', signed: 'System', template: 'BookIt', requires: '0137 conditions of registration', note: 'Three registers per worker, re-checked automatically.' },
+  { key: 'reg-banning', name: 'Banning orders check register', scope: 'register', track: 'live', live: 'banning', cadence: 'quarterly', signed: 'System', template: 'The Care Web', requires: '0137 conditions of registration', note: 'Three registers per worker, re-checked automatically.' },
   { key: 'reg-coi', name: 'Conflict of Interest Register', scope: 'register', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Governance and operational management' },
   { key: 'reg-ci', name: 'Continuous Improvement Register', scope: 'register', track: 'drive', cadence: 'quarterly', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Quality management' },
   { key: 'reg-restrictive', name: 'Restrictive Practices Register', scope: 'register', track: 'drive', cadence: 'per-event', signed: 'Supriya Thapa', template: 'DMHC', requires: 'NDIS (Restrictive Practices and Behaviour Support) Rules 2018', note: 'Nil is the expected state. A nil register still has to exist and be dated.' },
@@ -7621,18 +7748,18 @@ const FORMS = [
   { key: 'w-position', name: 'Position description acknowledgement', scope: 'worker', track: 'drive', cadence: 'once', signed: 'Worker', template: 'DMHC', requires: 'Core Module — Human resource management' },
   { key: 'w-declaration', name: 'Worker Declaration (policies read and understood)', scope: 'worker', track: 'drive', cadence: 'on-change', signed: 'Worker', template: 'DMHC', requires: 'Core Module — Human resource management', note: 'Re-signed whenever the policy list changes. The five July 2026 policies were missing from the list workers had signed.' },
   { key: 'w-induction', name: 'Worker Induction Checklist', scope: 'worker', track: 'drive', cadence: 'once', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
-  { key: 'w-id', name: '100 points of identification', scope: 'worker', track: 'live', live: 'doc:id-points', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
-  { key: 'w-rtw', name: 'Right to work — visa grant / VEVO check', scope: 'worker', track: 'live', live: 'doc:visa', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Migration Act — work rights', note: 'Condition 8105 caps a subclass 500 holder at 48 hours a fortnight. That is a rostering constraint, not just a file.' },
-  { key: 'w-screening', name: 'NDIS Worker Screening Check', scope: 'worker', track: 'live', live: 'doc:ndis-screening', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018', note: 'Blocks bookings on an expired or unverified check. This IS the criminal history check — the NDIS check is a nationally coordinated police check plus a risk assessment, so a separate National Police Certificate is not a second requirement and is not tracked as one. Workers who uploaded one anyway keep it on file.' },
-  { key: 'w-wwcc', appliesTo: 'children', name: 'Working with Children Check', scope: 'worker', track: 'live', live: 'doc:wwcc', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'State child protection legislation', note: 'An add-on, the way the established platforms treat it: asked of a worker linked to, or booked by, a participant under 18. Everyone else is covered by the NDIS Worker Screening Check.' },
-  { key: 'w-orientation', name: 'NDIS Worker Orientation Module certificate', scope: 'worker', track: 'live', live: 'doc:ndis-orientation', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
-  { key: 'w-firstaid', name: 'First Aid and CPR certificate', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'CPR renews yearly, first aid every three years. The yearly one is what lapses.' },
-  { key: 'w-infection', name: 'Infection prevention and control training', scope: 'worker', track: 'live', live: 'doc:infection-control', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment' },
-  { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'Certificates held in the policies folder for every current worker - upload into BookIt worker docs so this register reflects them.' },
-  { key: 'w-medication', name: 'Medication administration training', scope: 'worker', track: 'live', live: 'doc:medication-training', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Management of medication' },
+  { key: 'w-id', name: '100 points of identification', scope: 'worker', track: 'live', live: 'doc:id-points', cadence: 'once', signed: 'n/a', template: 'The Care Web', requires: 'Core Module — Human resource management' },
+  { key: 'w-rtw', name: 'Right to work — visa grant / VEVO check', scope: 'worker', track: 'live', live: 'doc:visa', cadence: 'expiry', signed: 'n/a', template: 'The Care Web', requires: 'Migration Act — work rights', note: 'Condition 8105 caps a subclass 500 holder at 48 hours a fortnight. That is a rostering constraint, not just a file.' },
+  { key: 'w-screening', name: 'NDIS Worker Screening Check', scope: 'worker', track: 'live', live: 'doc:ndis-screening', cadence: 'expiry', signed: 'n/a', template: 'The Care Web', requires: 'NDIS (Practice Standards — Worker Screening) Rules 2018', note: 'Blocks bookings on an expired or unverified check. This IS the criminal history check — the NDIS check is a nationally coordinated police check plus a risk assessment, so a separate National Police Certificate is not a second requirement and is not tracked as one. Workers who uploaded one anyway keep it on file.' },
+  { key: 'w-wwcc', appliesTo: 'children', name: 'Working with Children Check', scope: 'worker', track: 'live', live: 'doc:wwcc', cadence: 'expiry', signed: 'n/a', template: 'The Care Web', requires: 'State child protection legislation', note: 'An add-on, the way the established platforms treat it: asked of a worker linked to, or booked by, a participant under 18. Everyone else is covered by the NDIS Worker Screening Check.' },
+  { key: 'w-orientation', name: 'NDIS Worker Orientation Module certificate', scope: 'worker', track: 'live', live: 'doc:ndis-orientation', cadence: 'once', signed: 'n/a', template: 'The Care Web', requires: 'Core Module — Human resource management' },
+  { key: 'w-firstaid', name: 'First Aid and CPR certificate', scope: 'worker', track: 'live', live: 'doc:first-aid', cadence: 'expiry', signed: 'n/a', template: 'The Care Web', requires: 'Core Module — Safe environment', note: 'CPR renews yearly, first aid every three years. The yearly one is what lapses.' },
+  { key: 'w-infection', name: 'Infection prevention and control training', scope: 'worker', track: 'live', live: 'doc:infection-control', cadence: 'expiry', signed: 'n/a', template: 'The Care Web', requires: 'Core Module — Safe environment' },
+  { key: 'w-manual', name: 'Manual handling training certificate', scope: 'worker', track: 'live', live: 'doc:manual-handling', cadence: 'expiry', signed: 'n/a', template: 'The Care Web', requires: 'Core Module — Safe environment', note: 'Certificates held in the policies folder for every current worker - upload into The Care Web worker docs so this register reflects them.' },
+  { key: 'w-medication', name: 'Medication administration training', scope: 'worker', track: 'live', live: 'doc:medication-training', cadence: 'expiry', signed: 'n/a', template: 'The Care Web', requires: 'Core Module — Management of medication' },
   { key: 'w-hi-competency', name: 'High-intensity skills competency sign-off (catheter, stoma, AD)', scope: 'worker', track: 'na', cadence: 'annual', signed: 'Clinician or supervisor', template: 'none', requires: 'High Intensity Daily Personal Activities module', note: 'Not offered: DMHC does not deliver high-intensity daily personal activities, so no worker is asked for this. An enquiry that needs it is referred on (the High-intensity enquiries list). The row stays here so the day that changes, the requirement is already written down.' },
-  { key: 'w-qualification', name: 'Qualification certificates', scope: 'worker', track: 'live', live: 'doc:qualification', cadence: 'once', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Human resource management' },
-  { key: 'w-licence', appliesTo: 'transport', name: 'Driver licence + vehicle registration, CTP and comprehensive insurance', scope: 'worker', track: 'live', live: 'doc:driver-licence', cadence: 'expiry', signed: 'n/a', template: 'BookIt', requires: 'Core Module — Safe environment', note: 'An add-on: asked only of a worker who offers transport on their profile. Needed by anyone rostered on 0108 transport. Nobody has a licence recorded.' },
+  { key: 'w-qualification', name: 'Qualification certificates', scope: 'worker', track: 'live', live: 'doc:qualification', cadence: 'once', signed: 'n/a', template: 'The Care Web', requires: 'Core Module — Human resource management' },
+  { key: 'w-licence', appliesTo: 'transport', name: 'Driver licence + vehicle registration, CTP and comprehensive insurance', scope: 'worker', track: 'live', live: 'doc:driver-licence', cadence: 'expiry', signed: 'n/a', template: 'The Care Web', requires: 'Core Module — Safe environment', note: 'An add-on: asked only of a worker who offers transport on their profile. Needed by anyone rostered on 0108 transport. Nobody has a licence recorded.' },
   { key: 'w-supervision', name: 'Supervision and performance review record', scope: 'worker', track: 'drive', cadence: 'annual', signed: 'Worker + Supriya', template: 'DMHC', requires: 'Core Module — Human resource management' },
 
   /* ---------- one per participant ---------- */
@@ -7640,7 +7767,7 @@ const FORMS = [
      for: the facts about them as fields, the agreement on screen, and then only
      the clinical plans their support actually needs. Everything DMHC used to
      put in front of a participant as paper beyond that is now one of three
-     things: derived from data BookIt already
+     things: derived from data The Care Web already
      holds (track: 'live'), accepted by click (sign: 'click'), or optional. The
      file the office holds is the same size. The page the participant sees is
      not.
@@ -7649,20 +7776,20 @@ const FORMS = [
                                on; a no means the row is never asked for
                    optional    filed if offered, never counted as a gap
                    upload      a live row that may still carry a filed copy
-                   generated   the text is rendered by BookIt, not a PDF on a shelf
+                   generated   the text is rendered by The Care Web, not a PDF on a shelf
                    showStatus  office-only, but the participant sees it exists */
-  { key: 'p-intake', name: 'Intake / referral form', scope: 'participant', track: 'live', live: 'intake', cadence: 'once', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Access to supports', note: 'Printed from the account, the billing card and the confirmed support plan — the three places the participant already answered every question on it. The registration form is the intake form.' },
-  { key: 'p-agreement', sign: 'click', generated: true, name: 'Service Agreement', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Service agreements with participants', note: 'The platform agreement: one document, the same for everyone, published at /service-agreement with nothing to fill in \u2014 prices are the Pricing page, cancellations the published windows, the person\'s own supports their plan and their bookings. Read on screen, accepted by click; the acceptance records who, when and which edition, keeps a copy of the page, and is asked again only when the text changes. The Privacy and information-sharing consent is a separate document with its own click; clause 9 points to it rather than repeating it. The printed PDF stays on the shelf as the text of acceptances made before the platform edition.' },
-  { key: 'p-schedule', generated: true, track: 'live', live: 'schedule', name: 'Supports and prices (schedule)', scope: 'participant', cadence: 'on-change', signed: 'BookIt', template: 'BookIt', requires: 'Core Module — Service agreements with participants', note: 'Printed from the file: the supports this person uses, the item each is claimed against and the current price limit. Not something the participant signs \u2014 prices are the Pricing Policy under clause 7 of the Service Agreement, and a change is notified with seven days\' notice. Held for everyone with a confirmed plan and a recorded funding arrangement.' },
-  { key: 'p-support-plan', name: 'Support Plan', scope: 'participant', track: 'live', live: 'support_plan', cadence: 'annual', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Support planning', note: 'BookIt holds this now. The participant confirms it themselves and the review clock runs from their confirmation.' },
+  { key: 'p-intake', name: 'Intake / referral form', scope: 'participant', track: 'live', live: 'intake', cadence: 'once', signed: 'Participant', template: 'The Care Web', requires: 'Core Module — Access to supports', note: 'Printed from the account, the billing card and the confirmed support plan — the three places the participant already answered every question on it. The registration form is the intake form.' },
+  { key: 'p-agreement', sign: 'click', generated: true, name: 'Service Agreement', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'The Care Web', requires: 'Core Module — Service agreements with participants', note: 'The platform agreement: one document, the same for everyone, published at /service-agreement with nothing to fill in \u2014 prices are the Pricing page, cancellations the published windows, the person\'s own supports their plan and their bookings. Read on screen, accepted by click; the acceptance records who, when and which edition, keeps a copy of the page, and is asked again only when the text changes. The Privacy and information-sharing consent is a separate document with its own click; clause 9 points to it rather than repeating it. The printed PDF stays on the shelf as the text of acceptances made before the platform edition.' },
+  { key: 'p-schedule', generated: true, track: 'live', live: 'schedule', name: 'Supports and prices (schedule)', scope: 'participant', cadence: 'on-change', signed: 'The Care Web', template: 'The Care Web', requires: 'Core Module — Service agreements with participants', note: 'Printed from the file: the supports this person uses, the item each is claimed against and the current price limit. Not something the participant signs \u2014 prices are the Pricing Policy under clause 7 of the Service Agreement, and a change is notified with seven days\' notice. Held for everyone with a confirmed plan and a recorded funding arrangement.' },
+  { key: 'p-support-plan', name: 'Support Plan', scope: 'participant', track: 'live', live: 'support_plan', cadence: 'annual', signed: 'Participant', template: 'The Care Web', requires: 'Core Module — Support planning', note: 'The Care Web holds this now. The participant confirms it themselves and the review clock runs from their confirmation.' },
   { key: 'p-risk', officeOnly: true, showStatus: true, name: 'Risk Assessment', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Supriya Thapa', template: 'DMHC', requires: 'Core Module — Risk management', note: 'Written by the office. The participant sees that it exists and when it was last done, but is never asked to produce it.' },
-  { key: 'p-emergency', name: 'Participant Emergency and Disaster Plan', scope: 'participant', track: 'live', live: 'emergency_plan', cadence: 'annual', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Continuity of supports', note: 'Derived from the support plan: the emergency contact, home and community safety, the 8-hour disaster question and the 24-hour backup answer. Printed on demand for the file. The emergency contact and the safety answers live in the support plan, so the plan is the record.' },
-  { key: 'p-consent-privacy', sign: 'click', generated: true, name: 'Privacy and information-sharing consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Privacy and dignity', note: 'Same treatment as the agreement: DMHC\'s consent rendered on screen, the same for everyone, nothing to fill in, published at /privacy-consent. The printed form\'s tick-boxes and dotted lines are the account settings (Photo and media consent, Emails & notifications, People with access, the worker-access switch); the signature page is the click record. The PDF stays on the shelf as the text of acceptances made before this edition.' },
+  { key: 'p-emergency', name: 'Participant Emergency and Disaster Plan', scope: 'participant', track: 'live', live: 'emergency_plan', cadence: 'annual', signed: 'Participant', template: 'The Care Web', requires: 'Core Module — Continuity of supports', note: 'Derived from the support plan: the emergency contact, home and community safety, the 8-hour disaster question and the 24-hour backup answer. Printed on demand for the file. The emergency contact and the safety answers live in the support plan, so the plan is the record.' },
+  { key: 'p-consent-privacy', sign: 'click', generated: true, name: 'Privacy and information-sharing consent', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'The Care Web', requires: 'Core Module — Privacy and dignity', note: 'Same treatment as the agreement: DMHC\'s consent rendered on screen, the same for everyone, nothing to fill in, published at /privacy-consent. The printed form\'s tick-boxes and dotted lines are the account settings (Photo and media consent, Emails & notifications, People with access, the worker-access switch); the signature page is the click record. The PDF stays on the shelf as the text of acceptances made before this edition.' },
   { key: 'p-consent-media', sign: 'click', onlyIf: 'only if photos or video of you might be used', name: 'Photo and media consent', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Privacy and dignity' },
   { key: 'p-advocate', track: 'live', live: 'nominee', upload: true, optional: true, onlyIf: 'only if someone helps you make decisions', name: 'Advocate / nominee / decision-maker form', scope: 'participant', cadence: 'on-change', signed: 'Participant', template: 'DMHC', requires: 'Core Module — Independence and informed choice', note: 'A nomination on the account — who, their relationship, whether they are paid — with two rules attached: anyone under 18 must have one, and a paid worker cannot be it. The signed form stays on the shelf for arrangements that need a signature, such as a guardianship order or an NDIS nominee; it is optional otherwise.' },
   { key: 'p-money', onlyIf: 'only if we handle any of your money or property', name: 'Money and Property Declaration', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Participant money and property' },
   { key: 'p-medication', appliesIf: 'need_medication', onlyIf: 'only if we support you with medication', name: 'Medication plan / authority form', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Prescriber', template: 'DMHC', requires: 'Core Module — Management of medication', note: 'Written by the GP or prescriber and reviewed at least every 12 months. The participant\'s own consent is the separate click in the next row, because one of the two is theirs to give and one is not. The Drive copy is blank per-medication; if a completed copy is held elsewhere, record it here with the date it was filed.' },
-  { key: 'p-consent-medication', sign: 'click', generated: true, appliesIf: 'need_medication', onlyIf: 'only if we support you with medication', name: 'Consent to medication assistance', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'BookIt', requires: 'Core Module — Management of medication', note: 'DMHC\'s own consent wording, rendered with the participant\'s name and accepted on screen. It refers to the medications in the prescriber\'s plan rather than repeating them, so a changed dose never leaves two documents disagreeing.' },
+  { key: 'p-consent-medication', sign: 'click', generated: true, appliesIf: 'need_medication', onlyIf: 'only if we support you with medication', name: 'Consent to medication assistance', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Participant', template: 'The Care Web', requires: 'Core Module — Management of medication', note: 'DMHC\'s own consent wording, rendered with the participant\'s name and accepted on screen. It refers to the medications in the prescriber\'s plan rather than repeating them, so a changed dose never leaves two documents disagreeing.' },
   { key: 'p-mealtime', appliesIf: 'need_mealtime', onlyIf: 'only if there is a mealtime or swallowing risk', name: 'Mealtime Management Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'DMHC', requires: 'Recorded as met on DMHC\'s 2025 Core Module audit sheet', note: 'The two 2025 audit sheets contradict each other — one ticks it as met, the participant file records it was declined. Both cannot be true.' },
   { key: 'p-epilepsy', appliesIf: 'need_seizure', onlyIf: 'only if you have epilepsy or seizures', name: 'Epilepsy / seizure management plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'none', requires: 'Core Module — Safe environment', note: 'Including the emergency medication plan where one exists. It is the plan a worker reads before the first shift, not after the first seizure.' },
   { key: 'p-diabetes', appliesIf: 'need_diabetes', onlyIf: 'only if you have diabetes', name: 'Diabetes management plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Clinician', template: 'none', requires: 'Core Module — Safe environment' },
@@ -7671,9 +7798,9 @@ const FORMS = [
   { key: 'p-pbs', appliesIf: 'has_pbs', onlyIf: 'only if you have a Behaviour Support Plan', name: 'Positive Behaviour Support Plan', scope: 'participant', track: 'drive', cadence: 'annual', signed: 'Behaviour support practitioner', template: 'none', requires: 'Core Module — Support planning', note: 'A copy of a plan someone else wrote. Any restrictive practice in it has its own obligations with the Commission — this row only evidences that the workers can read the plan they are meant to follow.' },
   { key: 'p-care-plans', name: 'Any other care plan named in the support plan', scope: 'participant', track: 'live', live: 'care_plans', cadence: 'on-change', signed: 'Clinician', template: 'none', requires: 'Core Module — Support planning', note: 'The seven plans above are asked for by name. This row is for anything else the participant names — a wound care plan, a continence plan — and any name with no document behind it shows up here. A filed clinical plan ticks a matching name automatically.' },
   { key: 'p-ndis-plan', owner: 'participant', upload: true, name: 'Copy of your current NDIS plan', scope: 'participant', track: 'drive', cadence: 'expiry', signed: 'NDIA', template: 'none', requires: 'Core Module — Service agreements with participants', note: 'Upload a photo or PDF of the plan the NDIA sent you. Our office checks it against your plan dates before your first shift.' },
-  { key: 'p-plan-dates', name: 'Current NDIS plan dates', scope: 'participant', track: 'live', live: 'plan_dates', cadence: 'expiry', signed: 'NDIA', template: 'BookIt', requires: 'Core Module — Service agreements with participants', note: 'Start and end date of the plan being claimed against, recorded on the billing card. A plan that has ended while supports continue is named here the day it happens — which is the finding the old paper copy missed for two months.' },
-  { key: 'p-notes', name: 'Progress notes / shift notes', scope: 'participant', track: 'live', live: 'shift_notes', cadence: 'per-event', signed: 'Worker', template: 'BookIt', requires: 'Core Module — Responsive support provision', note: 'Append-only in BookIt. A note that can be quietly rewritten is not evidence of anything.' },
-  { key: 'p-satisfaction', owner: 'feedback', track: 'live', live: 'survey', upload: true, optional: true, name: 'Participant Satisfaction Survey', scope: 'participant', cadence: 'annual', signed: 'Participant', template: 'none', requires: 'Core Module — Quality management', note: 'Sent from the office, answered in BookIt, tracked as sent and answered. Seeking feedback is our obligation under the quality management outcome, not a document the participant owes the file — so it is never counted against them, and a paper copy can still be filed.' },
+  { key: 'p-plan-dates', name: 'Current NDIS plan dates', scope: 'participant', track: 'live', live: 'plan_dates', cadence: 'expiry', signed: 'NDIA', template: 'The Care Web', requires: 'Core Module — Service agreements with participants', note: 'Start and end date of the plan being claimed against, recorded on the billing card. A plan that has ended while supports continue is named here the day it happens — which is the finding the old paper copy missed for two months.' },
+  { key: 'p-notes', name: 'Progress notes / shift notes', scope: 'participant', track: 'live', live: 'shift_notes', cadence: 'per-event', signed: 'Worker', template: 'The Care Web', requires: 'Core Module — Responsive support provision', note: 'Append-only in The Care Web. A note that can be quietly rewritten is not evidence of anything.' },
+  { key: 'p-satisfaction', owner: 'feedback', track: 'live', live: 'survey', upload: true, optional: true, name: 'Participant Satisfaction Survey', scope: 'participant', cadence: 'annual', signed: 'Participant', template: 'none', requires: 'Core Module — Quality management', note: 'Sent from the office, answered in The Care Web, tracked as sent and answered. Seeking feedback is our obligation under the quality management outcome, not a document the participant owes the file — so it is never counted against them, and a paper copy can still be filed.' },
   { key: 'p-annual-review', officeOnly: true, upload: true, track: 'live', live: 'annual_review', name: 'Annual review record', scope: 'participant', cadence: 'annual', signed: 'Participant + DMHC', template: 'none', requires: 'Core Module — Support planning', note: 'Derived: the support plan confirmed within the last 12 months and every clinical plan that applies on file and in date. That is the annual review, on a 12-month clock, and the printable record is for the office\'s file, not the participant\'s to-do list.' },
   { key: 'p-living-arrangement', officeOnly: true, onlyIf: 'only where the s73G condition applies', name: 'Living Arrangement Determination (s73G)', scope: 'participant', track: 'drive', cadence: 'on-change', signed: 'Supriya Thapa', template: 'none', requires: 'NDIS Act s73G condition on this registration', note: 'Settles the contradiction between "lives with parents" in the support plan and the sole-worker clause in the agreement. The plan now asks the living situation outright.' },
   { key: 'p-exit', onlyIf: 'only when supports end', name: 'Exit / transition record', scope: 'participant', track: 'drive', cadence: 'per-event', signed: 'Participant + DMHC', template: 'DMHC', requires: 'Core Module — Transitions to or from the provider' }
@@ -7691,7 +7818,7 @@ const FORM_SCOPES = [
    here, in register order, so a form added above immediately has a place to
    put the file — and a file uploaded here always answers a form an auditor
    asks for by name. The three live-tracked forms (support plan, care plans,
-   shift notes) are deliberately absent: BookIt already holds those itself,
+   shift notes) are deliberately absent: The Care Web already holds those itself,
    and offering an upload beside them would let a scanned copy compete with
    the record it was copied from. */
 /* ================================================================
@@ -7995,7 +8122,7 @@ const CLINICAL_TEMPLATES = [
 
       T.h('Where the full plan is held'),
       T.text('Where the signed original is kept'),
-      T.yn('Has a copy been uploaded to the participant\'s file in BookIt?',
+      T.yn('Has a copy been uploaded to the participant\'s file in The Care Web?',
         { then: 'If no, upload it — a plan referred to and not held is the same as no plan on the day somebody asks for it.' }),
 
       T.h('What workers must do differently'),
@@ -8122,7 +8249,7 @@ for (const t of CLINICAL_TEMPLATES) {
   const f = FORMS.find(x => x.key === t.key);
   if (!f) { console.error(`TEMPLATE ORPHAN: /templates/${t.key} has no matching entry in FORMS — nothing will ever link to it.`); continue; }
   if (f.template === 'DMHC') { console.error(`TEMPLATE CLASH: ${t.key} already has a DMHC form. Not overriding it.`); continue; }
-  f.template = 'BookIt';
+  f.template = 'The Care Web';
   f.template_url = `/templates/${t.key}`;
 }
 
@@ -8198,13 +8325,13 @@ function tplReturn(t) {
   if (t.for === 'worker') {
     const c = t.docKey ? DOC_MAP[t.docKey] : null;
     return c
-      ? `Once it is signed, upload it in BookIt under <b>Account &rsaquo; My documents &rsaquo; ${escHtml(c.label)}</b>. Your assessor keeps a copy; DMHC files this one.`
-      : `Once it is signed, upload it in BookIt under <b>Account &rsaquo; My documents &rsaquo; Other document</b> and name it &ldquo;${escHtml(t.name)}&rdquo;.`;
+      ? `Once it is signed, upload it in The Care Web under <b>Account &rsaquo; My documents &rsaquo; ${escHtml(c.label)}</b>. Your assessor keeps a copy; DMHC files this one.`
+      : `Once it is signed, upload it in The Care Web under <b>Account &rsaquo; My documents &rsaquo; Other document</b> and name it &ldquo;${escHtml(t.name)}&rdquo;.`;
   }
   const c = PDOC_MAP[t.key];
   return c
-    ? `Once it is filled in, upload it in BookIt under <b>My documents &rsaquo; ${escHtml(c.label)}</b>, or send it to hello@bookit.life and we will file it for you.`
-    : `Once it is filled in, send it to hello@bookit.life, or upload it in BookIt under <b>My documents &rsaquo; Other document</b> and name it &ldquo;${escHtml(t.name)}&rdquo;.`;
+    ? `Once it is filled in, upload it in The Care Web under <b>My documents &rsaquo; ${escHtml(c.label)}</b>, or send it to hello@thecareweb.com.au and we will file it for you.`
+    : `Once it is filled in, send it to hello@thecareweb.com.au, or upload it in The Care Web under <b>My documents &rsaquo; Other document</b> and name it &ldquo;${escHtml(t.name)}&rdquo;.`;
 }
 
 /* Who, if anyone, gets a name printed at the top.
@@ -8324,7 +8451,7 @@ function templateHtml(t, person, base) {
   <a href="${escHtml(base)}/templates">All blank forms</a>
 </div>
 <div class="sheet">
-  <p class="mark">BookIt</p>
+  <p class="mark">The Care Web</p>
   <p class="org">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; registered NDIS provider 4-LO5XNY0</p>
   <h1>${escHtml(t.name)}</h1>
   <p class="lede">${escHtml(t.intro)}</p>
@@ -8336,7 +8463,7 @@ function templateHtml(t, person, base) {
   ${tplIdentity(t, person)}
   ${t.fields.map(tplField).join('\n  ')}
   <div class="ret"><b>When it is done.</b> ${tplReturn(t)}</div>
-  <p class="foot">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; NDIS provider 4-LO5XNY0 &middot; 0488 114 368 &middot; hello@bookit.life<br>
+  <p class="foot">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; NDIS provider 4-LO5XNY0 &middot; 0488 114 368 &middot; hello@thecareweb.com.au<br>
   Form ${escHtml(t.key)} v${escHtml(t.version)}, issued ${dmy(t.issued)}. Printed from ${escHtml(base)}/templates/${escHtml(t.key)}.</p>
 </div></body></html>`;
 }
@@ -8357,15 +8484,15 @@ function templateIndexHtml(base) {
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
 <title>Blank forms — DMHC</title><style>${TPL_CSS} a{color:#0E6B62}</style></head><body>
 <div class="bar no-print"><span>Blank forms &middot; print one, fill it in on paper, send it back</span>
-<a href="${escHtml(base)}/#/bookings">Open BookIt</a></div>
+<a href="${escHtml(base)}/#/bookings">Open The Care Web</a></div>
 <div class="sheet">
-  <p class="mark">BookIt</p>
+  <p class="mark">The Care Web</p>
   <p class="org">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; registered NDIS provider 4-LO5XNY0</p>
   <h1>Blank forms</h1>
   <p class="lede">These are the forms DMHC is required to hold that had no blank behind them. They are printable, they are empty, and nothing on them is filled in for you. Print one, fill it in by hand, and send it back the way each form describes at the bottom of its own page.</p>
   ${group('For participants', 'participant', 'You can ask us to fill any of these in with you instead of on your own. That is a normal request, not a special one.')}
   ${group('For workers', 'worker', 'Take the blank with you. It is filled in by the person doing the observing, not by the worker being observed.')}
-  <p class="foot">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; NDIS provider 4-LO5XNY0 &middot; 0488 114 368 &middot; hello@bookit.life</p>
+  <p class="foot">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; NDIS provider 4-LO5XNY0 &middot; 0488 114 368 &middot; hello@thecareweb.com.au</p>
 </div></body></html>`;
 }
 
@@ -8417,7 +8544,7 @@ function pdocOwner(signed) {
 /* v86: a live row may still carry a filed copy (upload: true) — the advocate
    form for arrangements that need a signature, the survey on paper, the signed
    annual review record — so those stay in the catalogue as optional slots.
-   The three records BookIt *is* (support plan, care plans, shift notes) stay
+   The three records The Care Web *is* (support plan, care plans, shift notes) stay
    out, for the reason given above. */
 /* the screens are declared here, ahead of the catalogue and the boot filing, which both read them */
 const YN = ['Yes', 'No'];
@@ -8427,7 +8554,7 @@ const FORM_SCREENS = {
     lede: 'Whether photos or video of you may be taken during supports, and what they may be used for. You can change any of this at any time by telling the office or your worker.',
     fields: [
       { id: 'photos_ok', label: 'Photos or video of me may be taken during supports', type: 'choice', options: YN, required: true },
-      { id: 'uses', label: 'They may be used for', type: 'checklist', options: ['My own support plan and records', 'Sharing with my family, nominee or advocate', 'Showing other workers on my team what my routine looks like', 'BookIt\u2019s website or social media', 'Staff training'] },
+      { id: 'uses', label: 'They may be used for', type: 'checklist', options: ['My own support plan and records', 'Sharing with my family, nominee or advocate', 'Showing other workers on my team what my routine looks like', 'The Care Web\u2019s website or social media', 'Staff training'] },
       { id: 'never', label: 'Anything that must never be photographed or shared (a place, a person, a situation)', type: 'textarea' },
       { id: 'named', label: 'If used publicly, my name may appear with the image', type: 'choice', options: YN },
       { id: 'review', label: 'Review this consent by', type: 'date', help: 'Usually a year from today. It is reviewed sooner if you ask.' }
@@ -8436,7 +8563,7 @@ const FORM_SCREENS = {
   },
   'p-money': {
     title: 'Money and property declaration', who: 'participant', edition: 'screen v1, issued 01/09/2026',
-    lede: 'What a BookIt worker may and may not do with your money or property during supports. Workers never keep your card or PIN, never borrow, lend, sell or accept gifts, and always give you the receipts.',
+    lede: 'What a Care Web worker may and may not do with your money or property during supports. Workers never keep your card or PIN, never borrow, lend, sell or accept gifts, and always give you the receipts.',
     fields: [
       { id: 'handles', label: 'A worker may handle my money or property during a shift', type: 'choice', options: YN, required: true },
       { id: 'what', label: 'What they may handle', type: 'checklist', options: ['Cash you give them for shopping or an outing', 'Your bank card, with you present and you entering the PIN', 'Purchases you ask them to make', 'Your keys, phone or wallet while you are out together'] },
@@ -8479,14 +8606,14 @@ const FORM_SCREENS = {
   },
   'p-exit': {
     title: 'Exit and transition record', who: 'both', edition: 'screen v1, issued 01/09/2026',
-    lede: 'What happens when supports through BookIt end: when, why, what has been handed over, and how to reach us afterwards.',
+    lede: 'What happens when supports through The Care Web end: when, why, what has been handed over, and how to reach us afterwards.',
     fields: [
       { id: 'end_date', label: 'Last day of supports', type: 'date', required: true },
       { id: 'reason', label: 'Why supports are ending', type: 'choice', options: ['The participant\u2019s choice', 'Moving away', 'The NDIS plan changed', 'The provider is ending the service', 'Other'], required: true },
       { id: 'reason_detail', label: 'In their words', type: 'textarea' },
       { id: 'handover', label: 'What has been handed over, and to whom', type: 'textarea', required: true, help: 'The new provider, family, a coordinator: what they have been given and when.' },
       { id: 'given', label: 'Documents given to the participant', type: 'checklist', options: ['A copy of the support plan', 'A summary of shift notes', 'The medication plan', 'Final statement and invoices', 'The NDIS plan copy returned'] },
-      { id: 'feedback', label: 'What the participant said about their time with BookIt', type: 'textarea' },
+      { id: 'feedback', label: 'What the participant said about their time with The Care Web', type: 'textarea' },
       { id: 'contact_later', label: 'Happy for us to check in three months from now', type: 'choice', options: YN }
     ],
     declaration: 'The supports have ended as recorded here. The participant\u2019s file is kept for the period the law requires and is available to them on request.'
@@ -8644,7 +8771,7 @@ const PDOC_CATALOG = FORMS.filter(f => f.scope === 'participant' && !f.retired &
   applies_if: f.appliesIf || '',
   /* filed if offered, never demanded, never counted against the person */
   optional: Boolean(f.optional),
-  /* the text is rendered by BookIt for this participant rather than kept as a
+  /* the text is rendered by The Care Web for this participant rather than kept as a
      blank on the shelf — see GENERATED_DOCS */
   generated: Boolean(f.generated),
   /* office-only, but the participant sees that it exists and when it was done */
@@ -8738,17 +8865,17 @@ function genPage(t, body, opts = {}) {
 <title>${escHtml(t.title)} \u2014 DMHC</title><style>${TPL_CSS}</style></head><body>
 <div class="bar no-print">
   <button type="button" onclick="window.print()">Print, or save as PDF</button>
-  <span>${escHtml(opts.barNote || 'Generated from your BookIt file \u00b7 nothing on this page is typed twice')}</span>
+  <span>${escHtml(opts.barNote || 'Generated from your The Care Web file \u00b7 nothing on this page is typed twice')}</span>
   ${base ? `<a href="${escHtml(base)}/#/account/documents">Back to My documents</a>` : ''}
 </div>
 <div class="sheet">
-  <p class="mark">BookIt</p>
+  <p class="mark">The Care Web</p>
   <p class="org">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; registered NDIS provider ${escHtml(NDIS_REG_NO)}</p>
   <h1>${escHtml(t.title)}</h1>
   <p class="lede">${t.lede}</p>
   <div class="meta">${t.meta.map(m => `<div><b>${escHtml(m[0])}:</b> ${escHtml(m[1])}</div>`).join('')}</div>
   ${body}
-  <p class="foot">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; NDIS provider ${escHtml(NDIS_REG_NO)} &middot; 0488 114 368 &middot; hello@bookit.life<br>
+  <p class="foot">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; NDIS provider ${escHtml(NDIS_REG_NO)} &middot; 0488 114 368 &middot; hello@thecareweb.com.au<br>
   ${escHtml(t.footer || '')}</p>
 </div></body></html>`;
 }
@@ -8759,7 +8886,7 @@ const AGREEMENT_EDITION = 'v1, issued 22/08/2026';
    THE SERVICE AGREEMENT — the same for everyone, nothing filled in
    ----------------------------------------------------------------------------
    A platform agreement, the way the established platforms write theirs: the
-   terms between the provider that runs BookIt and "you", in clauses a person
+   terms between the provider that runs The Care Web and "you", in clauses a person
    can read in ten minutes, with nothing on the page that belongs to one
    participant. What is particular to a person lives where it already lives —
    their support plan, their bookings, their billing details — and the
@@ -8780,10 +8907,10 @@ function serviceAgreementBody() {
   const li = items => `<ol class="clauses">${items.map(x => `<li>${x}</li>`).join('')}</ol>`;
   const sub = (n, t) => `<h3>${n}&nbsp; ${t}</h3>`;
   return `
-    <p class="say">This Service Agreement (<b>Agreement</b>) and the policies it refers to form a legal agreement between <b>${co}</b> (ABN 19 658 578 575, registered NDIS provider ${escHtml(NDIS_REG_NO)}), which operates BookIt (<b>we</b>, <b>us</b>), and <b>you</b>. It sets out the terms you agree to so that you may use BookIt and receive supports through it, what you can expect from us, and what we expect from you. Capitalised words have the meaning given in the Glossary at the end.</p>
+    <p class="say">This Service Agreement (<b>Agreement</b>) and the policies it refers to form a legal agreement between <b>${co}</b> (ABN 19 658 578 575, registered NDIS provider ${escHtml(NDIS_REG_NO)}), which operates The Care Web (<b>we</b>, <b>us</b>), and <b>you</b>. It sets out the terms you agree to so that you may use The Care Web and receive supports through it, what you can expect from us, and what we expect from you. Capitalised words have the meaning given in the Glossary at the end.</p>
 
-    <h2>1&nbsp; How BookIt works</h2>
-    <p class="say">BookIt is an online platform that connects you with Support Workers employed by us, to deliver Supports to you under our NDIS registration. Using BookIt you can:</p>
+    <h2>1&nbsp; How The Care Web works</h2>
+    <p class="say">The Care Web is an online platform that connects you with Support Workers employed by us, to deliver Supports to you under our NDIS registration. Using The Care Web you can:</p>
     ${li([
       'find and choose Support Workers, and read what has been checked about each of them;',
       'request, manage, cancel and review Bookings;',
@@ -8796,7 +8923,7 @@ function serviceAgreementBody() {
     <h2>2&nbsp; Application of this Agreement</h2>
     ${sub('2.1', 'Access to the platform')}
     ${li([
-      'To use BookIt and receive Supports you must agree to this Agreement. You do that on screen; we record who agreed, when, and which edition of the text was on the screen, and we keep that edition so you can read it again.',
+      'To use The Care Web and receive Supports you must agree to this Agreement. You do that on screen; we record who agreed, when, and which edition of the text was on the screen, and we keep that edition so you can read it again.',
       'This Agreement starts when you agree to it and ends when it is terminated by you or by us under clause 8.',
       'You confirm that you understand this Agreement, and that you are 18 years or older. If the person receiving Supports is under 18, an adult parent or guardian must be recorded on the account as managing it before the first Booking.',
       'If you are entering into this Agreement on behalf of someone else, you confirm that you have their authority or agreement to do so, that you will always act in their best interests, and that you are recorded on their account as their Representative. A Support Worker who takes a person\u2019s shifts cannot be their Representative.'
@@ -8813,7 +8940,7 @@ function serviceAgreementBody() {
       'comply with all relevant laws, including the requirements of the NDIA and the NDIS Quality and Safeguards Commission, and help each other to do so.'
     ])}
     ${sub('3.2', 'Your responsibilities')}
-    <p class="say"><b>Accurate information.</b> You must give us true, current and complete information, and keep it current \u2014 your account details, your funding arrangement and plan dates, your Support Plan and the Supports you need. If something changes, update it on BookIt as soon as you can, or ask us to.</p>
+    <p class="say"><b>Accurate information.</b> You must give us true, current and complete information, and keep it current \u2014 your account details, your funding arrangement and plan dates, your Support Plan and the Supports you need. If something changes, update it on The Care Web as soon as you can, or ask us to.</p>
     <p class="say"><b>Choosing Support Workers.</b> We check every Support Worker\u2019s clearances and training before they can be booked (clause 3.3). Beyond that it is your choice: read a worker\u2019s profile, message or meet them first if you wish, make sure they have the skills and experience you want, tell them what they need to know through your Support Plan, and tell us if a worker is not right for you.</p>
     <p class="say"><b>Health and safety.</b> You must take reasonable care for your own health and safety and that of Support Workers and others when receiving Supports. That includes providing a safe physical and psychological environment for workers \u2014 the few things we ask about every home are written on your Support Plan \u2014 reporting any injury or incident that happens during a Booking, telling us of any complaint, and cooperating with any investigation. A Support Worker does not have to do anything that is unsafe, outside the Support that was booked, or outside their skills; if they are asked to, they record it, and we follow it up with you.</p>
     <p class="say"><b>During a Booking.</b> You must give the Support Worker the instruction and information they need to deliver the Support safely, only ask for tasks within the Support that was booked, and allow the worker their meal and rest breaks.</p>
@@ -8821,10 +8948,10 @@ function serviceAgreementBody() {
     ${sub('3.3', 'Our responsibilities')}
     <p class="say"><b>General.</b> We provide Supports with the skills, experience, resources and authorisations the law requires of a registered NDIS provider, and we respond to your enquiries, concerns and complaints professionally and in good time, in accordance with clause 6.</p>
     <p class="say"><b>Standard of care.</b> We use our best efforts to ensure that every Support Worker performs their duties conscientiously, professionally and competently, in accordance with the NDIS Code of Conduct, the NDIS Practice Standards, our policies and the law.</p>
-    <p class="say"><b>Verification and clearances.</b> No Support Worker is visible or bookable on BookIt unless they hold a current NDIS Worker Screening clearance, we have checked the three banning-order registers (NDIS, aged care, and the former aged-care commission register) and displayed the result, and they hold current first aid and CPR certificates and have completed our induction training. If a clearance lapses or is withdrawn, the worker\u2019s profile is removed from BookIt the same day and their future Bookings are cancelled (clause 5.5).</p>
-    <p class="say"><b>Support Workers are our employees.</b> We employ every Support Worker on BookIt and are solely responsible for their wages, superannuation, leave, taxes, workers\u2019 compensation and insurances. You never pay a worker directly.</p>
+    <p class="say"><b>Verification and clearances.</b> No Support Worker is visible or bookable on The Care Web unless they hold a current NDIS Worker Screening clearance, we have checked the three banning-order registers (NDIS, aged care, and the former aged-care commission register) and displayed the result, and they hold current first aid and CPR certificates and have completed our induction training. If a clearance lapses or is withdrawn, the worker\u2019s profile is removed from The Care Web the same day and their future Bookings are cancelled (clause 5.5).</p>
+    <p class="say"><b>Support Workers are our employees.</b> We employ every Support Worker on The Care Web and are solely responsible for their wages, superannuation, leave, taxes, workers\u2019 compensation and insurances. You never pay a worker directly.</p>
     <p class="say"><b>Incidents.</b> If an incident occurs during a Booking we respond in accordance with the NDIS Practice Standards and the NDIS (Incident Management and Reportable Incidents) Rules 2018: the incident is recorded; your family, guardian or advocate is told if you agree, noting that some incidents must be reported whether or not you consent; and a reportable incident is notified to the NDIS Commission within 24 hours, or within five business days for an unauthorised restrictive practice.</p>
-    <p class="say"><b>Continuity of support.</b> If a Support Worker cannot attend a Confirmed Booking, BookIt looks for cover in a fixed order: the workers you have named as your care web, then workers on paid standby, then the wider pool of matched workers, then our partner providers. We tell you what is happening and ask before any alternative arrangement is made. We do not guarantee cover (clause 5.1), and when we or a worker cancel you are never charged.</p>
+    <p class="say"><b>Continuity of support.</b> If a Support Worker cannot attend a Confirmed Booking, The Care Web looks for cover in a fixed order: the workers you have named as your care web, then workers on paid standby, then the wider pool of matched workers, then our partner providers. We tell you what is happening and ask before any alternative arrangement is made. We do not guarantee cover (clause 5.1), and when we or a worker cancel you are never charged.</p>
     <p class="say"><b>Emergencies and disasters.</b> We follow our Business Continuity Plan and Emergency and Disaster Management Policy. Your own emergency and disaster plan is the emergency, continuity and safety sections of your Support Plan, written by you and printed from it on request; if your plan says you need essential support within eight hours of a disaster, you are on the list we work down first.</p>
 
     <h2>4&nbsp; Consent to Supports</h2>
@@ -8838,12 +8965,12 @@ function serviceAgreementBody() {
     ${sub('5.1', 'Availability of Support Workers')}
     ${li([
       'We do not guarantee that a suitable Support Worker will be available at any particular time.',
-      'We are not obliged to arrange a Support Worker or a replacement for you, but BookIt tries to find cover as described in clause 3.3 and we will help if you ask us to or if the law requires it.',
+      'We are not obliged to arrange a Support Worker or a replacement for you, but The Care Web tries to find cover as described in clause 3.3 and we will help if you ask us to or if the law requires it.',
       'We may, at our discretion and for any reason, prevent a particular Support Worker from providing Supports to you.'
     ])}
     ${sub('5.2', 'Making a Booking')}
     ${li([
-      'You create Bookings on BookIt. Each Booking states the Support, the date, the start time, the number of hours, whether it repeats, and anything the worker should know.',
+      'You create Bookings on The Care Web. Each Booking states the Support, the date, the start time, the number of hours, whether it repeats, and anything the worker should know.',
       'A Booking must be for a Support we are registered to provide, within the worker\u2019s role, and consistent with your current Support Plan.',
       `Before your first Booking three things must be on your account, all of them yours to do and each a few minutes: how your Supports are funded, this Agreement, and a confirmed Support Plan.`,
       'A Booking is confirmed when a Support Worker accepts it (<b>Confirmed Booking</b>). A worker must have read and acknowledged the current version of your Support Plan before they can accept.',
@@ -8851,7 +8978,7 @@ function serviceAgreementBody() {
     ])}
     ${sub('5.3', 'Cancellations')}
     ${li([
-      `<b>By you.</b> You may cancel a Confirmed Booking on BookIt at any time. If you cancel inside the notice window for that Support, or do not attend, you agree that we may charge 100% of the fee that would otherwise have been payable, where the NDIS pricing arrangements allow a short-notice cancellation claim for that support item and we must pay the worker for their time. The notice windows are published on the Pricing page and shown before you confirm a Booking; currently ${escHtml(windows)}.`,
+      `<b>By you.</b> You may cancel a Confirmed Booking on The Care Web at any time. If you cancel inside the notice window for that Support, or do not attend, you agree that we may charge 100% of the fee that would otherwise have been payable, where the NDIS pricing arrangements allow a short-notice cancellation claim for that support item and we must pay the worker for their time. The notice windows are published on the Pricing page and shown before you confirm a Booking; currently ${escHtml(windows)}.`,
       '<b>By us or the worker.</b> We may cancel any Booking at any time and, where reasonable, arrange a replacement worker. When we or the worker cancel, nothing is charged.',
       'The NDIA monitors short-notice cancellations and may contact us about a participant with a high number of them. We will work with you to reduce cancellations and to make sure your plan and Supports are meeting your needs.',
       'To cancel outside office hours you can also call 0488 114 368.'
@@ -8860,20 +8987,20 @@ function serviceAgreementBody() {
     <p class="say">You and the Support Worker agree where the Support is delivered and any travel involved. When a worker drives you in their own vehicle, the kilometres are charged under the activity-based transport item at the rate on the Pricing page, in addition to the worker\u2019s time. Our Transport Policy applies to any vehicle used in connection with a Booking.</p>
     ${sub('5.5', 'Removal or suspension of a Support Worker')}
     ${li([
-      'We may suspend or remove a Support Worker from BookIt at any time, without notice to you.',
+      'We may suspend or remove a Support Worker from The Care Web at any time, without notice to you.',
       'If we do, we will tell you as soon as reasonably possible, cancel any future Bookings with that worker (including Confirmed Bookings), and help you, as far as reasonably practicable, to find a replacement.'
     ])}
     ${sub('5.6', 'Offline arrangements')}
     ${li([
-      'You must not propose or enter into an arrangement with a Support Worker to be supported outside BookIt (<b>Offline Arrangement</b>), or any other arrangement that harms the relationship between you and us, or between us and our workers.',
+      'You must not propose or enter into an arrangement with a Support Worker to be supported outside The Care Web (<b>Offline Arrangement</b>), or any other arrangement that harms the relationship between you and us, or between us and our workers.',
       'You must tell us immediately if a worker asks you to enter into an Offline Arrangement.',
       'An Offline Arrangement is not a Support under this Agreement, is not covered by our insurance, and is not something we are responsible for paying or compensating anyone for.'
     ])}
 
     <h2>6&nbsp; Feedback, complaints and the Commission</h2>
     ${li([
-      'You can give feedback or make a complaint on BookIt through the Contact page with the topic <i>Feedback or complaint</i> \u2014 anonymously if you wish, or through an advocate or family member \u2014 by phone on 0488 114 368, by email to hello@bookit.life, or in person to the Director or a staff member.',
-      'A complaint made on BookIt is given a reference number and acknowledged within two business days. We resolve complaints promptly in accordance with our Feedback and Complaints Policy.',
+      'You can give feedback or make a complaint on The Care Web through the Contact page with the topic <i>Feedback or complaint</i> \u2014 anonymously if you wish, or through an advocate or family member \u2014 by phone on 0488 114 368, by email to hello@thecareweb.com.au, or in person to the Director or a staff member.',
+      'A complaint made on The Care Web is given a reference number and acknowledged within two business days. We resolve complaints promptly in accordance with our Feedback and Complaints Policy.',
       'Making a complaint never affects your access to Supports.',
       'You can also complain to the NDIS Quality and Safeguards Commission at any time on 1800 035 544 (TTY 133 677; interpreters can be arranged), through the National Relay Service asking for 1800 035 544, or at ndiscommission.gov.au/about/complaints. Free, independent advocacy is available through the National Disability Advocacy Program on 1800 643 787.',
       'Feedback you give us is voluntary and may be used by us to improve the service, without compensation to you.'
@@ -8882,7 +9009,7 @@ function serviceAgreementBody() {
     <h2>7&nbsp; Fees for Supports</h2>
     ${sub('7.1', 'Our fees')}
     ${li([
-      'Our fees are set out in our Pricing Policy \u2014 the Pricing page on BookIt. The price of each Support is the NDIS price limit for that support item, as published in the NDIS Pricing Arrangements and Price Limits, and we never charge above it.',
+      'Our fees are set out in our Pricing Policy \u2014 the Pricing page on The Care Web. The price of each Support is the NDIS price limit for that support item, as published in the NDIS Pricing Arrangements and Price Limits, and we never charge above it.',
       'You are responsible for any expense outside what your NDIS plan or other funding covers.'
     ])}
     ${sub('7.2', 'Fee changes')}
@@ -8890,16 +9017,16 @@ function serviceAgreementBody() {
       'Our fees may change from time to time, including when the NDIA publishes new price limits (usually each 1 July).',
       'If we change our fees we will give you at least seven days\u2019 notice.',
       'If you do not agree with a change, you may end this Agreement under clause 8.',
-      'If you continue to use BookIt after a fee change takes effect, you have accepted the change. A Booking is priced when it is completed, from the published fees at that moment, and the price is then fixed on that Booking.'
+      'If you continue to use The Care Web after a fee change takes effect, you have accepted the change. A Booking is priced when it is completed, from the published fees at that moment, and the price is then fixed on that Booking.'
     ])}
     ${sub('7.3', 'Approving completed Bookings')}
-    <p class="say">After a Booking is completed you review the worker\u2019s timesheet on BookIt. You may approve it or query it. We remind you after ${APPROVAL_NUDGE_DAYS} days, and a timesheet not queried within ${APPROVAL_DEEM_DAYS} days is treated as approved, so that a worker\u2019s pay does not depend on a reminder.</p>
+    <p class="say">After a Booking is completed you review the worker\u2019s timesheet on The Care Web. You may approve it or query it. We remind you after ${APPROVAL_NUDGE_DAYS} days, and a timesheet not queried within ${APPROVAL_DEEM_DAYS} days is treated as approved, so that a worker\u2019s pay does not depend on a reminder.</p>
     ${sub('7.4', 'Payment')}
     ${li([
       'We seek payment for Supports after they have been delivered, according to the funding arrangement recorded on your billing details: if you self-manage, we invoice you and you pay within seven days of the invoice date; if your plan is plan-managed, we claim from your plan manager; if it is NDIA-managed, we claim from the NDIA. If you are not using NDIS funding, we invoice you.',
       'You must keep your billing details complete and accurate, including your NDIS number, your plan manager\u2019s details and your plan dates, and tell us immediately if your plan is suspended, replaced or ends, or if you stop being an NDIS participant.',
       'You must have sufficient funding available for the Supports you book, and pay every invoice in full and on time.',
-      'No money passes through BookIt. Payment is made to our bank account, by the payer, against the invoice or claim.'
+      'No money passes through The Care Web. Payment is made to our bank account, by the payer, against the invoice or claim.'
     ])}
     ${sub('7.5', 'Disputed fees')}
     ${li([
@@ -8912,7 +9039,7 @@ function serviceAgreementBody() {
     <h2>8&nbsp; Ending this Agreement</h2>
     ${sub('8.1', 'Suspension')}
     ${li([
-      'We may stop providing Supports to you and suspend your access to BookIt immediately and without notice if we reasonably believe you have breached this Agreement, or where we consider it necessary for the safety of a worker or another person \u2014 for example violence, abuse, threats, theft or property damage by you or someone in your household, or disregard of the safety arrangements in your Support Plan.',
+      'We may stop providing Supports to you and suspend your access to The Care Web immediately and without notice if we reasonably believe you have breached this Agreement, or where we consider it necessary for the safety of a worker or another person \u2014 for example violence, abuse, threats, theft or property damage by you or someone in your household, or disregard of the safety arrangements in your Support Plan.',
       'If this happens we may cancel future Bookings, including Confirmed Bookings.',
       'Reinstating your Supports or your access is at our discretion.'
     ])}
@@ -8929,14 +9056,14 @@ function serviceAgreementBody() {
 
     <h2>9&nbsp; Information management</h2>
     ${sub('9.1', 'Your privacy')}
-    <p class="say">We collect, hold, use and disclose your personal and sensitive information in accordance with our Privacy Policy and the Privacy Act 1988. Your consent to that is given separately, in the <b>Privacy and information-sharing consent</b>, published at bookit.life/privacy-consent, which you read and agree to on your documents page. Your information is held in Australia, we never sell it, and you can read everything we hold about you from your account at any time.</p>
+    <p class="say">We collect, hold, use and disclose your personal and sensitive information in accordance with our Privacy Policy and the Privacy Act 1988. Your consent to that is given separately, in the <b>Privacy and information-sharing consent</b>, published at thecareweb.com.au/privacy-consent, which you read and agree to on your documents page. Your information is held in Australia, we never sell it, and you can read everything we hold about you from your account at any time.</p>
     ${sub('9.2', 'Confidential information')}
     <p class="say">You may come to know confidential information about us, our workers or other participants. You must not use or disclose it without our written consent unless the law requires you to, and you must tell us immediately of any suspected or actual breach.</p>
 
     <h2>10&nbsp; Risk allocation</h2>
     ${li([
       '<b>No medical advice.</b> Nothing said by us or by a Support Worker is medical or expert advice.',
-      '<b>Your statutory rights.</b> The Supports and BookIt come with guarantees under the Australian Consumer Law that cannot be excluded. Nothing in this Agreement excludes, restricts or modifies them.',
+      '<b>Your statutory rights.</b> The Supports and The Care Web come with guarantees under the Australian Consumer Law that cannot be excluded. Nothing in this Agreement excludes, restricts or modifies them.',
       '<b>Transport.</b> You must comply with our Transport Policy. An accident, near miss, property damage or other transport incident during a Booking is not covered by our insurance, and we are not responsible for any resulting cost, damage or loss unless it was caused by our negligence or wilful misconduct.',
       '<b>Excluded liability.</b> Nothing in this Agreement limits or excludes our liability for death or personal injury caused by our negligence or wilful misconduct, for fraud or fraudulent misrepresentation by us, or for anything the law does not allow to be limited or excluded.'
     ])}
@@ -8944,9 +9071,9 @@ function serviceAgreementBody() {
     <h2>11&nbsp; General</h2>
     ${sub('11.1', 'Changes to this Agreement')}
     ${li([
-      'We may change this Agreement and our policies. If we do, we tell you, and BookIt asks you to read and agree to the new edition; the edition you agreed to before stays on your file and can be read at any time.',
+      'We may change this Agreement and our policies. If we do, we tell you, and The Care Web asks you to read and agree to the new edition; the edition you agreed to before stays on your file and can be read at any time.',
       'You agree to receive communications from us electronically, and that this satisfies any requirement that a communication be in writing.',
-      'Your continued use of BookIt after a change takes effect means you accept the change. If you disagree with a change, you may end this Agreement under clause 8.'
+      'Your continued use of The Care Web after a change takes effect means you accept the change. If you disagree with a change, you may end this Agreement under clause 8.'
     ])}
     ${sub('11.2', 'Other terms')}
     ${li([
@@ -8959,13 +9086,13 @@ function serviceAgreementBody() {
     ])}
 
     <h2>12&nbsp; Important policies</h2>
-    <p class="say">These policies form part of this Agreement. Each is published on BookIt; we may amend them or add to them from time to time, and clause 11.1 applies.</p>
+    <p class="say">These policies form part of this Agreement. Each is published on The Care Web; we may amend them or add to them from time to time, and clause 11.1 applies.</p>
     <table><thead><tr><th>Policy</th><th>What it covers</th><th>Where</th></tr></thead><tbody>
-      <tr><td class="lb">Terms of use and Privacy Policy</td><td>Your use of BookIt; how we collect, use and disclose information about you; access, correction and deletion.</td><td>Privacy &amp; terms page</td></tr>
+      <tr><td class="lb">Terms of use and Privacy Policy</td><td>Your use of The Care Web; how we collect, use and disclose information about you; access, correction and deletion.</td><td>Privacy &amp; terms page</td></tr>
       <tr><td class="lb">Pricing Policy</td><td>The price of every Support, the support item it is claimed against, kilometre charges, and the notice windows for cancellation.</td><td>Pricing page</td></tr>
       <tr><td class="lb">Cancellation Policy</td><td>Everyone\u2019s rights and responsibilities when a Booking is changed or cancelled (clause 5.3).</td><td>Pricing page and the booking form</td></tr>
       <tr><td class="lb">Booking approval</td><td>How a completed Booking is reviewed and approved (clause 7.3).</td><td>Your Bookings page</td></tr>
-      <tr><td class="lb">NDIS Code of Conduct</td><td>The behaviour expected of every worker and everyone on BookIt.</td><td>Safety page</td></tr>
+      <tr><td class="lb">NDIS Code of Conduct</td><td>The behaviour expected of every worker and everyone on The Care Web.</td><td>Safety page</td></tr>
       <tr><td class="lb">Verification and clearances</td><td>What is checked about every Support Worker before they are visible, and re-checked after (clause 3.3).</td><td>Safety page, and every worker\u2019s profile</td></tr>
       <tr><td class="lb">Feedback and Complaints Policy; incident response</td><td>How to give feedback, make a complaint or report an incident, and how we respond (clause 6).</td><td>Contact page and Safety page</td></tr>
       <tr><td class="lb">Representatives</td><td>Who may act for you, the two rules about who cannot, and how to change it.</td><td>My documents \u203a Who manages this account</td></tr>
@@ -8973,17 +9100,17 @@ function serviceAgreementBody() {
     </tbody></table>
 
     <h2>Glossary</h2>
-    <p class="say"><b>Booking</b> \u2014 a request on BookIt for a Support on a date, at a time, for a number of hours. <b>Confirmed Booking</b> \u2014 a Booking a Support Worker has accepted. <b>Completed Booking</b> \u2014 a Booking the worker has marked completed and written the shift note for. <b>Support</b> \u2014 a support we are registered to provide and that you can book on BookIt: ${escHtml(SERVICES.map(k => SERVICE_LABELS[k].toLowerCase()).join(', '))}. <b>Support Plan</b> \u2014 the plan you write on BookIt about how you want to be supported, every version of which is kept. <b>Support Worker</b> \u2014 a person employed by us who delivers Supports through BookIt. <b>Representative</b> \u2014 the person recorded on your account as managing it or making decisions with you: a parent or guardian, an appointed guardian or attorney, your NDIS nominee, or an advocate. <b>Pricing Policy</b> \u2014 the Pricing page on BookIt. <b>NDIA</b> \u2014 the National Disability Insurance Agency. <b>NDIS Commission</b> \u2014 the NDIS Quality and Safeguards Commission.</p>
+    <p class="say"><b>Booking</b> \u2014 a request on The Care Web for a Support on a date, at a time, for a number of hours. <b>Confirmed Booking</b> \u2014 a Booking a Support Worker has accepted. <b>Completed Booking</b> \u2014 a Booking the worker has marked completed and written the shift note for. <b>Support</b> \u2014 a support we are registered to provide and that you can book on The Care Web: ${escHtml(SERVICES.map(k => SERVICE_LABELS[k].toLowerCase()).join(', '))}. <b>Support Plan</b> \u2014 the plan you write on The Care Web about how you want to be supported, every version of which is kept. <b>Support Worker</b> \u2014 a person employed by us who delivers Supports through The Care Web. <b>Representative</b> \u2014 the person recorded on your account as managing it or making decisions with you: a parent or guardian, an appointed guardian or attorney, your NDIS nominee, or an advocate. <b>Pricing Policy</b> \u2014 the Pricing page on The Care Web. <b>NDIA</b> \u2014 the National Disability Insurance Agency. <b>NDIS Commission</b> \u2014 the NDIS Quality and Safeguards Commission.</p>
 
     <div class="box note"><b>What agreeing means</b><p>Pressing <i>I agree to this</i> on your documents page records your name (or your Representative\u2019s, on your behalf), the date and the edition shown \u2014 <i>${escHtml(AGREEMENT_EDITION)}</i> \u2014 and keeps a copy of this page as you saw it. There is nothing to fill in and nothing to sign. If the text changes, you are asked to read and agree to the new edition; the earlier one stays on your file.</p></div>`;
 }
 function serviceAgreementHtml(opts = {}) {
   return genPage({
     title: 'Service Agreement',
-    lede: 'The agreement between you and Disability and Mental Health Care Pty Ltd for using BookIt and receiving supports through it. The same for everyone; nothing to fill in.',
+    lede: 'The agreement between you and Disability and Mental Health Care Pty Ltd for using The Care Web and receiving supports through it. The same for everyone; nothing to fill in.',
     meta: [['Provider', `Disability and Mental Health Care Pty Ltd, ABN 19 658 578 575, NDIS provider ${NDIS_REG_NO}`],
       ['Edition', AGREEMENT_EDITION], ['Prices', 'Pricing page (NDIS price limits)'], ['Changes', 'Seven days\u2019 notice; you are asked to agree again']],
-    footer: `Service Agreement, edition ${AGREEMENT_EDITION}. Published at bookit.life/service-agreement.`
+    footer: `Service Agreement, edition ${AGREEMENT_EDITION}. Published at thecareweb.com.au/service-agreement.`
   }, serviceAgreementBody(), Object.assign({ barNote: 'Read it here \u00b7 agree on your documents page \u00b7 nothing to print or sign' }, opts));
 }
 
@@ -9027,10 +9154,10 @@ function privacyConsentBody() {
     ])}
 
     <h2>5&nbsp; How we collect it</h2>
-    <p class="say">From you, through BookIt and your conversations with us; from your support plan; from the people you have told us may act for you; from referrals you have agreed to; and from government agencies such as the NDIA where our registration requires it.</p>
+    <p class="say">From you, through The Care Web and your conversations with us; from your support plan; from the people you have told us may act for you; from referrals you have agreed to; and from government agencies such as the NDIA where our registration requires it.</p>
 
     <h2>6&nbsp; What we use it for</h2>
-    <p class="say">To tailor your support plan and deliver your supports; to answer your enquiries; to manage, review and improve our services; to meet our legal obligations as a registered NDIS provider, including audits; to tell you about changes that affect you; and to keep BookIt working for you. We do not use it to train artificial-intelligence models, and we never sell it.</p>
+    <p class="say">To tailor your support plan and deliver your supports; to answer your enquiries; to manage, review and improve our services; to meet our legal obligations as a registered NDIS provider, including audits; to tell you about changes that affect you; and to keep The Care Web working for you. We do not use it to train artificial-intelligence models, and we never sell it.</p>
 
     <h2>7&nbsp; Who we may share it with</h2>
     ${li([
@@ -9045,13 +9172,13 @@ function privacyConsentBody() {
     <p class="say">Apart from the last three, we share only what the purpose needs, and we record what was shared on your file.</p>
 
     <h2>8&nbsp; What you control</h2>
-    <p class="say">The printed version of this consent asked you to tick boxes. On BookIt each of those is a setting you can change at any time:</p>
+    <p class="say">The printed version of this consent asked you to tick boxes. On The Care Web each of those is a setting you can change at any time:</p>
     ${li([
       '<b>Photos, video and audio</b> \u2014 never collected or published unless you have agreed to the separate Photo and media consent on your documents page.',
       '<b>Newsletters and marketing</b> \u2014 off unless you turn them on under <b>Emails &amp; notifications</b>. Messages about your bookings and your file are not marketing.',
       '<b>Sharing with named people or providers</b> \u2014 add them on <b>People with access</b>, or tell us and we record it.',
       '<b>Anyone we must never share with</b> \u2014 tell us, in writing or by phone, and we record it on your file and follow it regardless of who asks.',
-      '<b>Workers reading your clinical plans on BookIt</b> \u2014 the switch under <b>My documents \u203a What a worker can read</b>.',
+      '<b>Workers reading your clinical plans on The Care Web</b> \u2014 the switch under <b>My documents \u203a What a worker can read</b>.',
       '<b>Surveys, research and quality activities</b> \u2014 always optional; say no to any of them with no effect on your supports.'
     ])}
 
@@ -9059,7 +9186,7 @@ function privacyConsentBody() {
     <p class="say">Your consent continues until you tell us otherwise. You can change or withdraw it at any time by changing a setting above, or by telling us in writing or by phone. Some records must still be kept for the periods the NDIS rules and the law require, and we will tell you if a withdrawal means we can no longer provide a support safely.</p>
 
     <h2>10&nbsp; Access, complaints and breaches</h2>
-    <p class="say">Our Privacy and Information Management Policy explains how to see the information we hold about you and how to complain about a privacy matter; complaints are handled under our Feedback and Complaints Policy, and you can also complain to the Office of the Australian Information Commissioner. Any breach or suspected breach of your privacy is taken seriously and managed under our Incident Management Policy, and you are told. For a copy of any of these policies, or any question, phone 0488 114 368 or email hello@bookit.life.</p>
+    <p class="say">Our Privacy and Information Management Policy explains how to see the information we hold about you and how to complain about a privacy matter; complaints are handled under our Feedback and Complaints Policy, and you can also complain to the Office of the Australian Information Commissioner. Any breach or suspected breach of your privacy is taken seriously and managed under our Incident Management Policy, and you are told. For a copy of any of these policies, or any question, phone 0488 114 368 or email hello@thecareweb.com.au.</p>
 
     <h2>11&nbsp; If someone agrees on your behalf</h2>
     <p class="say">A parent, guardian, nominee or other representative recorded on your account may agree to this consent for you. By doing so they confirm that they are authorised to act for you, that they have read our Privacy and Information Management Policy and Incident Management Policy, and that they consent on your behalf to the uses set out here; and they agree that their own details may be used to administer this consent and to show evidence of it where required.</p>
@@ -9072,7 +9199,7 @@ function privacyConsentHtml(opts = {}) {
     lede: 'Your consent for Disability and Mental Health Care Pty Ltd to collect, store, use and share your personal information in order to deliver your supports. The same for everyone; nothing to fill in.',
     meta: [['Provider', `Disability and Mental Health Care Pty Ltd, ABN 19 658 578 575, NDIS provider ${NDIS_REG_NO}`],
       ['Edition', PRIVACY_CONSENT_EDITION], ['Policy', 'Privacy and Information Management Policy'], ['Change it', 'Any time \u2014 clause 9']],
-    footer: `Privacy and information-sharing consent, edition ${PRIVACY_CONSENT_EDITION}. Published at bookit.life/privacy-consent.`
+    footer: `Privacy and information-sharing consent, edition ${PRIVACY_CONSENT_EDITION}. Published at thecareweb.com.au/privacy-consent.`
   }, privacyConsentBody(), Object.assign({ barNote: 'Read it here \u00b7 agree on your documents page \u00b7 nothing to print or sign' }, opts));
 }
 
@@ -9208,11 +9335,11 @@ const GENERATED_DOCS = {
         ${genRow('Mobile', u.phone)}${genRow('Suburb', u.suburb)}
         ${genRow('Preferred contact', ({ phone: 'Phone', sms: 'SMS', email: 'Email', mail: 'Post' })[u.contact_pref] || 'not stated')}
         ${genRow('Aboriginal or Torres Strait Islander', ({ yes: 'Yes', no: 'No' })[u.atsi] || 'prefer not to say / not asked')}
-        ${genRow('Date of birth', 'not collected \u2014 BookIt does not ask for one')}
+        ${genRow('Date of birth', 'not collected \u2014 The Care Web does not ask for one')}
         <h2>Funding</h2>
         ${genRow('NDIS number', u.ndis_number)}${genRow('Funding type', FUNDING_LABELS[u.plan] || 'not recorded')}
         ${genRow('Plan manager', u.pm_email)}${genRow('Plan dates', u.plan_start || u.plan_end ? `${u.plan_start ? dmy(u.plan_start) : '?'} to ${u.plan_end ? dmy(u.plan_end) : '?'}` : '')}
-        ${genRow('Supports requested', used)}${genRow('Joined BookIt', u.created ? dmy(String(u.created).slice(0, 10)) : '')}
+        ${genRow('Supports requested', used)}${genRow('Joined The Care Web', u.created ? dmy(String(u.created).slice(0, 10)) : '')}
         <h2>Representative, nominee or decision-maker</h2>
         ${genRow('Arrangement', u.nominee_at ? nomineeLabel(u.nominee_role) : 'not yet answered')}${genRow('Under 18', u.under_18 ? 'Yes' : 'No')}
         ${genRow('Name', u.nominee_name)}${genRow('Relationship', u.nominee_relationship)}
@@ -9241,7 +9368,7 @@ const GENERATED_DOCS = {
         lede: 'Printed from the account, the billing card, the nominee card and the confirmed support plan. Nobody filled this in; everything on it was answered once, where it lives.',
         meta: [['Participant', u.name], ['NDIS number', u.ndis_number || 'not recorded'], ['Printed', dmy(ymd())],
           ['Source', plan ? `support plan v${plan.version} and the account as at today` : 'the account as at today; no confirmed support plan']],
-        footer: `Intake form generated ${dmy(ymd())} from BookIt. Replaces DMHC Participant Intake Form v1.`
+        footer: `Intake form generated ${dmy(ymd())} from The Care Web. Replaces DMHC Participant Intake Form v1.`
       }, body, Object.assign({}, opts, { barNote: 'Printed from the file \u00b7 nothing on this page was filled in by hand' }));
     }
   },
@@ -9258,10 +9385,10 @@ const GENERATED_DOCS = {
         ${genRow('Phone', plan.ec_phone)}${genRow('Email', plan.ec_email)}
         ${genRow('Decision-maker on file', u.nominee_role && u.nominee_role !== 'none' ? `${u.nominee_name || ''} \u2014 ${u.nominee_phone || ''}` : 'none')}${genRow('Interpreter needed', planFlag(plan, 'interpreter') ? `Yes \u2014 ${plan.interpreter_detail || ''}` : 'No')}
         <h2>If a shift falls over</h2>
-        ${genRow('BookIt is the main source of daily support', plan.main_source ? 'Yes' : 'No')}${genRow('Health or safety affected without it', plan.health_safety ? 'Yes' : 'No')}
+        ${genRow('The Care Web is the main source of daily support', plan.main_source ? 'Yes' : 'No')}${genRow('Health or safety affected without it', plan.health_safety ? 'Yes' : 'No')}
         ${genPara('How, and how fast', plan.impact_detail)}
         ${genRow('Other support within 24 hours', plan.backup_24h ? 'Yes' : 'No')}${genRow('Who, and how to reach them', plan.backup_detail)}
-        <div class="box ${tier.tier <= 1 ? 'stop' : tier.tier === 2 ? 'warn' : 'note'}"><b>Continuity tier: ${escHtml(tier.label)}</b><p>${escHtml(tier.why)}</p><p>When a worker pulls out, BookIt works down four tiers \u2014 the participant\u2019s own care web, paid standby workers, the matched pool, then partner providers \u2014 and emails the office when cover reaches the last tier or runs out. The on-call line is 0488 114 368.</p></div>
+        <div class="box ${tier.tier <= 1 ? 'stop' : tier.tier === 2 ? 'warn' : 'note'}"><b>Continuity tier: ${escHtml(tier.label)}</b><p>${escHtml(tier.why)}</p><p>When a worker pulls out, The Care Web works down four tiers \u2014 the participant\u2019s own care web, paid standby workers, the matched pool, then partner providers \u2014 and emails the office when cover reaches the last tier or runs out. The on-call line is 0488 114 368.</p></div>
         <h2>In a flood, fire or heatwave</h2>
         ${genRow('Needs essential support within 8 hours of a disaster', plan.disaster_8h ? 'YES \u2014 on the priority list' : 'No')}${genRow('Living situation', plan.living_situation)}
         <p class="say">${plan.disaster_8h
@@ -9291,7 +9418,7 @@ const GENERATED_DOCS = {
    text of this form, and what version is it. A DB row wins (the office put a
    PDF up); a generated document answers for itself when there is none. */
 function templateFor(key) {
-  /* v86.1: a document BookIt renders for the person beats a blank on the
+  /* v86.1: a document The Care Web renders for the person beats a blank on the
      shelf. The shelf copy stays where it is — it is the archived text of
      every acceptance made before the generated edition existed, and the
      "read the version I agreed to" link still opens it — but nobody is asked
@@ -9423,10 +9550,10 @@ function formsRegister() {
   const planOf = pid => { if (!planCache.has(pid)) planCache.set(pid, confirmedPlan(pid)); return planCache.get(pid); };
   const userRow = pid => { if (!userCache.has(pid)) userCache.set(pid, db.prepare('SELECT * FROM users WHERE id = ?').get(pid) || {}); return userCache.get(pid); };
 
-  /* what BookIt can actually answer for itself. Everything not in here is a file
+  /* what The Care Web can actually answer for itself. Everything not in here is a file
      in a folder, and the register says so rather than implying coverage. */
   function liveState(f) {
-    /* v86.9.0: a participant document kept as a file in BookIt — an upload,
+    /* v86.9.0: a participant document kept as a file in The Care Web — an upload,
        a screen filled in, a page agreed to — is tracked per person on the
        Participant files board, so the register counts it here too, instead
        of calling it "in Drive" and watching nothing */
@@ -9633,7 +9760,7 @@ function formsRegister() {
   }
 
   /* Asserted, not derived — and kept in a different field for that reason.
-     `state` is something BookIt worked out from its own data and can defend.
+     `state` is something The Care Web worked out from its own data and can defend.
      `record` is something a person told it, with their name and the date they
      said it. Both belong in the register; conflating them would let a typed
      claim wear the authority of a computed fact. */
@@ -9646,7 +9773,7 @@ function formsRegister() {
   };
 
   /* A participant form is evidenced two ways, and either one is enough: the
-     file itself is in BookIt, or somebody has recorded that they hold it and
+     file itself is in The Care Web, or somebody has recorded that they hold it and
      where. Only a form with neither is an open item — and it is named per
      participant, because "the risk assessment is missing" and "Bernard's risk
      assessment is missing" are the same fact told at two different levels of
@@ -9673,7 +9800,7 @@ function formsRegister() {
       gaps };
   }
 
-  /* the page on BookIt a company document or register is published as, so the
+  /* the page on The Care Web a company document or register is published as, so the
      board can open it — matched by name, the way the folder index is */
   const cands = officeDocCandidates();
   const pageBySourceId = Object.fromEntries(db.prepare('SELECT slug, source_id FROM policy_pages WHERE source_id <> \'\'').all().map(pg => [pg.source_id, pg.slug]));
@@ -9691,7 +9818,7 @@ function formsRegister() {
        word competing with the data, so it is not offered and not read. */
     const match = matchOf(f);
     const page = match ? match.slug : '';
-    /* v86.11.2 — a page on BookIt IS the document: a company document or
+    /* v86.11.2 — a page on The Care Web IS the document: a company document or
        register that is published here is held, at that page, from the day it
        was published, with nothing for the office to press. v86.11.5: the
        same for a file in the office's indexed folder (a certificate an insurer
@@ -9700,12 +9827,16 @@ function formsRegister() {
     const typed = f.track === 'live' ? null : recordOf(f.key);
     const pageRow = page ? db.prepare('SELECT imported_at FROM policy_pages WHERE slug = ?').get(page) : null;
     const auto = match && f.track !== 'live' && f.track !== 'na'
-      ? { form_key: f.key, held: 1, covers_from: '', covers_to: '', note: '', recorded_by: 'BookIt', auto: 1,
-          location: page ? `its page on BookIt, /policies/${page}` : `${match.title} — ${match.url}`,
+      ? { form_key: f.key, held: 1, covers_from: '', covers_to: '', note: '', recorded_by: 'The Care Web', auto: 1,
+          location: page ? `its page on The Care Web, /policies/${page}` : `${match.title} — ${match.url}`,
           file: page ? '' : match.url,
           recorded_at: page ? (pageRow ? pageRow.imported_at : now()) : (match.modified ? `${match.modified}T00:00:00.000Z` : now()) }
       : null;
-    const record = typed && typed.held ? typed : (auto || typed);
+    /* a record a person typed wins; a record the old folder button made (its
+       note says so) was only ever a name-match against a Drive listing, and a
+       page or file matched now is better information, so it yields */
+    const machine = !!(typed && /^Recorded from the policies folder index/.test(typed.note || ''));
+    const record = typed && typed.held && !machine ? typed : (auto || typed);
     /* a document with a known expiry (a certificate, the registration) carries it, so the board can warn before it lapses */
     if (record && record.held && f.expires && !record.covers_to) record.covers_to = f.expires;
     const state = liveState(f) || participantFileState(f, record);
@@ -9725,7 +9856,7 @@ function formsRegister() {
       drive: byTrack('drive').length,
       missing: byTrack('missing').length,
       not_offered: byTrack('na').length,
-      /* of the forms BookIt cannot see, how many has someone actually put their
+      /* of the forms The Care Web cannot see, how many has someone actually put their
          name to. This is the number that moves when the office says "I have
          that one" — and the only way it moves is by someone saying so, dated. */
       recorded: forms.filter(f => f.record && f.record.held).length,
@@ -9734,7 +9865,7 @@ function formsRegister() {
          per-person forms are multiplied out */
       documents: forms.reduce((n, f) => n + (f.track === 'na' ? 0 : f.copies), 0),
       gaps: forms.reduce((n, f) => n + (f.state ? f.state.gaps.length : 0), 0),
-      /* documents BookIt is actually holding the file for, rather than a note
+      /* documents The Care Web is actually holding the file for, rather than a note
          about where the file is. The number that turns "we have it somewhere"
          into "here it is". */
       participant_files: db.prepare("SELECT COUNT(*) AS n FROM participant_docs WHERE file_path <> ''").get().n,
@@ -9757,7 +9888,7 @@ route('GET', /^\/api\/participant-doc-catalog$/, (req, res, m, user) => {
   json(res, 200, { types: PDOC_CATALOG, methods: PDOC_METHODS });
 });
 
-/* what BookIt holds for one person, plus what it is still waiting for. The
+/* what The Care Web holds for one person, plus what it is still waiting for. The
    second half is the point: a list of documents with nothing missing from it
    is a list that cannot tell you anything. */
 function participantFile(pid) {
@@ -9906,7 +10037,7 @@ function seedFormTemplates() {
        generated from the file now), so their PDFs on the shelf are skipped
        on purpose — named in the log so the count does not read as a fault */
     if (!cat || key === 'p-other') { if (key !== 'p-other') skipped.push(key); continue; }
-    if (cat.generated) { skipped.push(`${key} (BookIt generates this one; a PDF on the shelf would only confuse)`); continue; }
+    if (cat.generated) { skipped.push(`${key} (The Care Web generates this one; a PDF on the shelf would only confuse)`); continue; }
     if (FORM_SCREENS[key]) { skipped.push(`${key} (a screen now; the PDF is not offered)`); continue; }
     if (setting('tplseed:' + key, '')) continue;          /* already offered once */
     if (formTemplate(key)) { setSetting('tplseed:' + key, now()); continue; }
@@ -9947,12 +10078,12 @@ route('GET', /^\/api\/form-templates$/, (req, res, m, user) => {
       const g = c.generated ? GENERATED_DOCS[c.key] : null;
       const sc = FORM_SCREENS[c.key];
       return { key: c.key, label: c.label, owner: c.owner, only_if: c.only_if, sign: c.sign,
-        /* a document BookIt writes itself is never a blank on a shelf: the
+        /* a document The Care Web writes itself is never a blank on a shelf: the
            participant reads the generated page and agrees to it with a click,
            and any PDF filed under the same key is ignored */
         generated: !!c.generated, edition: g && g.version ? g.version() : (sc ? sc.edition : ''), issued: g ? (g.issued || '') : '',
         screen: sc ? { who: sc.who, edition: sc.edition, fields: sc.fields.length } : null,
-        /* a blank is only wanted where somebody outside BookIt writes on paper:
+        /* a blank is only wanted where somebody outside The Care Web writes on paper:
            the nominee form, a clinician's plan, the office's own determinations */
         needs_blank: !c.generated && !sc && !['p-ndis-plan', 'p-intake', 'p-emergency', 'p-satisfaction', 'p-plan-dates', 'p-notes', 'p-care-plans', 'p-support-plan', 'p-schedule', 'p-other'].includes(c.key),
         read_url: c.key === 'p-agreement' ? '/service-agreement' : c.key === 'p-consent-privacy' ? '/privacy-consent' : `/api/me/generated/${c.key}`,
@@ -10122,7 +10253,7 @@ function savePdoc(res, pid, body, byWho, ip) {
   }
   /* A row with no file is allowed on purpose: it is how you record that a
      document exists on paper in a folder, dated and attributed, without
-     pretending BookIt has a copy of it. The register shows the difference. */
+     pretending The Care Web has a copy of it. The register shows the difference. */
   const r = db.prepare(`INSERT INTO participant_docs
     (participant_id, form_key, label, doc_date, expiry_date, file_name, file_mime, file_path, note, uploaded_at, uploaded_by, review_state)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,'submitted')`)
@@ -10201,9 +10332,9 @@ route('POST', /^\/api\/me\/participant-documents\/([a-z0-9-]+)\/accept$/, (req, 
       (participant_id, form_key, label, doc_date, note, uploaded_at, uploaded_by, file_name, file_mime, file_path,
        accepted_at, accepted_ip, accepted_version, verified_at, verified_by, verify_method, verify_note, review_state)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved')`)
-    .run(pers.id, cat.key, '', ymd(), `Agreed in BookIt by ${who}.${held ? ` Replaces the acceptance of ${held.accepted_version || 'an earlier version'}.` : ''}`, now(), who,
+    .run(pers.id, cat.key, '', ymd(), `Agreed in The Care Web by ${who}.${held ? ` Replaces the acceptance of ${held.accepted_version || 'an earlier version'}.` : ''}`, now(), who,
          fileName, fileMime, filePath,
-         now(), String(ip || ''), version, now(), 'BookIt', 'other',
+         now(), String(ip || ''), version, now(), 'The Care Web', 'other',
          `Accepted on screen. The version shown was ${version}, and that version is kept so it can be read back.`);
   logCompliance({ worker_id: null, worker_name: pers.name, kind: 'agreement-accepted', result: 'accepted',
     detail: `${cat.label} accepted in the platform by ${who}. Version on screen: ${version}.${held ? ' Re-acceptance after the text changed.' : ''}`,
@@ -10211,7 +10342,7 @@ route('POST', /^\/api\/me\/participant-documents\/([a-z0-9-]+)\/accept$/, (req, 
   json(res, 200, { ok: true, id: Number(r.lastInsertRowid), label: cat.label, version: versionNo, version_label: version, renewed: Boolean(held) });
 });
 
-/* --- v86: the documents BookIt writes itself, served to the person ------- */
+/* --- v86: the documents The Care Web writes itself, served to the person ------- */
 route('GET', /^\/api\/me\/generated\/([a-z0-9-]+)$/, (req, res, m, user) => {
   const pers = actFor(req, user, 'documents');
   if (!pers) return json(res, 403, { error: 'Participants only.' });
@@ -10281,11 +10412,11 @@ route('POST', /^\/api\/me\/plan-sharing$/, (req, res, m, user, body) => {
   body = body || {};
   const on = body.share !== false;
   const note = clean(body.note, 400);
-  if (!on && note.length < 10) return json(res, 400, { error: 'If workers are not to read your plans in BookIt, say in a sentence how they will get them on the day \u2014 a folder in the kitchen, a family member present. We record that sentence.' });
+  if (!on && note.length < 10) return json(res, 400, { error: 'If workers are not to read your plans in The Care Web, say in a sentence how they will get them on the day \u2014 a folder in the kitchen, a family member present. We record that sentence.' });
   db.prepare('UPDATE users SET share_plans = ?, share_plans_note = ?, share_plans_at = ? WHERE id = ?').run(on ? 1 : 0, on ? '' : note, now(), pers.id);
-  logAccess(pers.id, user, 'plan-sharing', on ? 'Clinical plans are shared with booked workers in BookIt.' : `Clinical plans are NOT shared in BookIt. Arrangement recorded: ${note}`, 'sharing');
+  logAccess(pers.id, user, 'plan-sharing', on ? 'Clinical plans are shared with booked workers in The Care Web.' : `Clinical plans are NOT shared in The Care Web. Arrangement recorded: ${note}`, 'sharing');
   logCompliance({ worker_id: null, worker_name: pers.name, kind: 'plan-sharing', result: on ? 'on' : 'off',
-    detail: on ? `${pers.name}: clinical plans shared with booked workers.` : `${pers.name} opted out of sharing clinical plans in BookIt. Written arrangement: ${note}`,
+    detail: on ? `${pers.name}: clinical plans shared with booked workers.` : `${pers.name} opted out of sharing clinical plans in The Care Web. Written arrangement: ${note}`,
     source: 'Participant file', checked_by: pers.self ? pers.name : user.name });
   json(res, 200, { ok: true, on, note: on ? '' : note });
 });
@@ -10344,9 +10475,9 @@ route('POST', /^\/api\/me\/survey$/, (req, res, m, user, body, ip) => {
   if (inv) db.prepare('UPDATE survey_invites SET answered_at = ? WHERE id = ?').run(t, inv.id);
   else db.prepare('INSERT INTO survey_invites (participant_id, invited_at, invited_by, answered_at) VALUES (?,?,?,?)').run(pers.id, t, 'unsolicited', t);
   logCompliance({ worker_id: null, worker_name: anon ? 'A participant' : pers.name, kind: 'survey', result: 'answered',
-    detail: `Satisfaction survey answered in BookIt${anon ? ' (anonymous)' : ''}: ${answered} question${answered === 1 ? '' : 's'}.${contact ? ' Asked to be contacted.' : ''}`,
+    detail: `Satisfaction survey answered in The Care Web${anon ? ' (anonymous)' : ''}: ${answered} question${answered === 1 ? '' : 's'}.${contact ? ' Asked to be contacted.' : ''}`,
     source: 'Participant survey', checked_by: anon ? 'participant' : pers.name });
-  if (contact && MAIL_FROM) sendMail(MAIL_FROM, `Survey: ${anon ? 'a participant' : pers.name} asked to be contacted \u2014 BookIt`, 'A survey answer asks for a call',
+  if (contact && MAIL_FROM) sendMail(MAIL_FROM, `Survey: ${anon ? 'a participant' : pers.name} asked to be contacted \u2014 The Care Web`, 'A survey answer asks for a call',
     `<p>${anon ? 'A participant who answered anonymously' : `<b>${escHtml(pers.name)}</b>`} ticked <b>I would like someone to contact me</b> on the satisfaction survey.</p><p>${escHtml(clean(body.contact_detail, 300) || 'No detail given.')}</p>`,
     'Open the admin page', `${baseUrl(req)}/#/admin`).catch(() => {});
   json(res, 200, { ok: true, note: 'Thank you. It has gone to the office' + (anon ? ' without your name on it.' : '.') });
@@ -10358,8 +10489,8 @@ route('POST', /^\/api\/admin\/participants\/(\d+)\/survey-invite$/, (req, res, m
   const open = openInvite(p.id);
   if (open) return json(res, 400, { error: `Already sent on ${dmy(String(open.invited_at).slice(0, 10))} and not answered yet. Sending it twice reads as a nag.` });
   db.prepare('INSERT INTO survey_invites (participant_id, invited_at, invited_by, answered_at) VALUES (?,?,?,?)').run(p.id, now(), user.name, '');
-  notify(p.id, 'compliance', p.email, 'How are we doing? \u2014 BookIt', 'Two minutes, once a year',
-    `<p>Hi ${firstName(p.name)},</p><p>Once a year we ask how your supports are actually going, rather than assume. It is eleven tick-boxes and a few lines, on your own BookIt page, and you can leave your name off it.</p><p>Nothing about your supports depends on what you say \u2014 but what you say is how we find out what to fix.</p>`,
+  notify(p.id, 'compliance', p.email, 'How are we doing? \u2014 The Care Web', 'Two minutes, once a year',
+    `<p>Hi ${firstName(p.name)},</p><p>Once a year we ask how your supports are actually going, rather than assume. It is eleven tick-boxes and a few lines, on your own The Care Web page, and you can leave your name off it.</p><p>Nothing about your supports depends on what you say \u2014 but what you say is how we find out what to fix.</p>`,
     'Answer the survey', `${baseUrl(req)}/#/account/documents`).catch(() => {});
   logCompliance({ worker_id: null, worker_name: p.name, kind: 'survey', result: 'sent',
     detail: `Satisfaction survey sent to ${p.name} by ${user.name}.`, source: 'admin', checked_by: user.name });
@@ -10432,7 +10563,7 @@ route('POST', /^\/api\/me\/participant-documents\/(\d+)\/delete$/, (req, res, m,
 
 /* --- v86: the clinical plans a booked worker may read ---------------------
 
-   Until now BookIt shared nothing from the participant's file with a worker — the epilepsy plan was a
+   Until now The Care Web shared nothing from the participant's file with a worker — the epilepsy plan was a
    name in the brief and "ask the office for a copy". A worker following a
    mealtime plan from a two-line brief is the risk an auditor asks about first.
 
@@ -10456,7 +10587,7 @@ function workerMayRead(user, d) {
   if (!cat || cat.owner !== 'clinical') return false;
   if (reviewState(d) !== 'approved') return false;
   if (!participantShares(d.participant_id)) return false;
-  return workerLinked(user.id, d.participant_id);
+  return currentPlanAccess(user.id, d.participant_id);
 }
 /* the list the brief carries: every readable plan, with its date and whether
    it has lapsed, so the worker sees "mealtime plan, reviewed 3 months ago"
@@ -10492,7 +10623,7 @@ route('GET', /^\/api\/participant-documents\/(\d+)\/file$/, (req, res, m, user) 
        and same-origin access for this response, so even a PDF that slipped past
        the upload signature and active-content checks cannot reach the session.
        nosniff stops the browser second-guessing the declared type. */
-  /* BookIt's own generated documents (the agreement, the consents, the plans
+  /* The Care Web's own generated documents (the agreement, the consents, the plans
      printed from the file) carry a "Print, or save as PDF" button that needs
      one line of script and the print dialog; they are ours, written by the
      server, never uploaded, so the sandbox lets those two things through and
@@ -10549,7 +10680,7 @@ function tickCarePlansFor(pid, formKey, docId) {
   }
   if (n) {
     db.prepare('UPDATE support_plans SET care_plans = ?, updated = ? WHERE id = ?').run(JSON.stringify(list), now(), p.id);
-    logCompliance({ kind: 'care-plan', result: 'on-file', detail: `${n} named care plan${n === 1 ? '' : 's'} ticked by document #${docId} (${(PDOC_MAP[formKey] || {}).label || formKey}) for participant #${pid}`, source: 'admin', checked_by: 'BookIt' });
+    logCompliance({ kind: 'care-plan', result: 'on-file', detail: `${n} named care plan${n === 1 ? '' : 's'} ticked by document #${docId} (${(PDOC_MAP[formKey] || {}).label || formKey}) for participant #${pid}`, source: 'admin', checked_by: 'The Care Web' });
   }
   return n;
 }
@@ -10606,7 +10737,7 @@ route('POST', /^\/api\/admin\/participant-documents\/(\d+)\/reject$/, (req, res,
     source: 'admin', checked_at: when, checked_by: user.email });
   raiseRequest('participant', d.participant_id, d.form_key, reason, user.email, clean((body || {}).due_date, 10));
   notify(d.participant_id, 'compliance', d.participant_email,
-    `We need another copy of your ${what} — BookIt`,
+    `We need another copy of your ${what} — The Care Web`,
     `Hello ${firstName(d.participant_name)}`,
     `<p>Thanks for sending your <b>${escHtml(what)}</b>. We can't put this copy on your file yet.</p>
      <p><b>Why:</b> ${escHtml(reason)}</p>
@@ -10614,7 +10745,7 @@ route('POST', /^\/api\/admin\/participant-documents\/(\d+)\/reject$/, (req, res,
     'Open my documents', `${baseUrl(req)}/#/bookings`).catch(() => {});
   for (const c of coordsFor(d.participant_id, 'documents')) {
     notify(c.id, 'compliance', c.email,
-      `${d.participant_name}: ${what} needs replacing — BookIt`,
+      `${d.participant_name}: ${what} needs replacing — The Care Web`,
       `${d.participant_name} — ${what}`,
       `<p>The <b>${escHtml(what)}</b> on <b>${escHtml(d.participant_name)}</b>'s file couldn't be accepted.</p>
        <p><b>Why:</b> ${escHtml(reason)}</p>`,
@@ -10649,7 +10780,7 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/request-document$/, (req, res, m, 
     detail: `${cat.label}${due ? `, needed by ${dmy(due)}` : ''}${note ? `. ${note}` : ''}`,
     source: 'admin', checked_by: user.name });
   notify(w.id, 'compliance', w.email,
-    `Could you send us your ${cat.label}? — BookIt`,
+    `Could you send us your ${cat.label}? — The Care Web`,
     `Hello ${firstName(w.name)}`,
     `<p>We need your <b>${escHtml(cat.label)}</b> for your file.</p>
      ${note ? `<p>${escHtml(note)}</p>` : ''}
@@ -10674,7 +10805,7 @@ route('POST', /^\/api\/admin\/participants\/(\d+)\/request-document$/, (req, res
     detail: `${p.name} — ${cat.label} requested${due ? `, needed by ${dmy(due)}` : ''}${note ? `. ${note}` : ''}`,
     source: 'admin', checked_at: now(), checked_by: user.email });
   notify(p.id, 'compliance', p.email,
-    `Could you send us your ${cat.label}? — BookIt`,
+    `Could you send us your ${cat.label}? — The Care Web`,
     `Hello ${firstName(p.name)}`,
     `<p>We'd like a copy of your <b>${escHtml(cat.label)}</b> for your file${cat.requires ? ` — it's what ${escHtml(cat.requires)} needs` : ''}.</p>
      ${note ? `<p>${escHtml(note)}</p>` : ''}
@@ -10683,7 +10814,7 @@ route('POST', /^\/api\/admin\/participants\/(\d+)\/request-document$/, (req, res
     'Upload it now', `${baseUrl(req)}/#/bookings`).catch(() => {});
   for (const c of coordsFor(p.id, 'documents')) {
     notify(c.id, 'compliance', c.email,
-      `${p.name}: we've asked for their ${cat.label} — BookIt`,
+      `${p.name}: we've asked for their ${cat.label} — The Care Web`,
       `${p.name} — ${cat.label}`,
       `<p>We've asked <b>${escHtml(p.name)}</b> for their <b>${escHtml(cat.label)}</b>.</p>
        ${note ? `<p>${escHtml(note)}</p>` : ''}
@@ -10744,7 +10875,7 @@ route('GET', /^\/api\/admin\/participant-documents\.csv$/, (req, res, m, user) =
      one extra heading with no cell under it shifts every column to its right
      and the mistake surfaces as a wrong number in somebody else's report. */
   const lines = [['Participant', 'NDIS number', 'Document', 'What requires it', 'Dated', 'Expires',
-    'Status today', 'Review', 'File in BookIt', 'Filed by', 'Filed on', 'Checked', 'Checked by', 'How', 'Note'].map(q).join(',')];
+    'Status today', 'Review', 'File in The Care Web', 'Filed by', 'Filed on', 'Checked', 'Checked by', 'How', 'Note'].map(q).join(',')];
   const people = db.prepare("SELECT id, name, email, ndis_number FROM users WHERE role = 'participant' ORDER BY name").all();
   for (const p of people) {
     const docs = db.prepare('SELECT * FROM participant_docs WHERE participant_id = ? ORDER BY form_key, id DESC').all(p.id);
@@ -10799,7 +10930,7 @@ route('GET', /^\/api\/admin\/participant-documents\.csv$/, (req, res, m, user) =
 });
 
 
-/* Record a form BookIt cannot see for itself. The three rules this enforces
+/* Record a form The Care Web cannot see for itself. The three rules this enforces
    are the three that keep it evidence rather than decoration:
 
      1. It refuses on a live-track form. Those are answered by the data, and a
@@ -10816,7 +10947,7 @@ route('POST', /^\/api\/admin\/forms\/record$/, (req, res, m, user, body) => {
   const f = FORMS.find(x => x.key === key);
   if (!f) return json(res, 404, { error: 'No such form.' });
   if (f.track === 'live') return json(res, 400, {
-    error: 'BookIt tracks this form itself, so it cannot be recorded by hand. Whatever is missing has to be fixed in the data, not asserted over it.' });
+    error: 'The Care Web tracks this form itself, so it cannot be recorded by hand. Whatever is missing has to be fixed in the data, not asserted over it.' });
 
   const iso = v => { const d = clean(v, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : ''; };
   const from = iso(body.covers_from), to = iso(body.covers_to);
@@ -10859,7 +10990,7 @@ route('GET', /^\/api\/admin\/forms\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
   const scope = { company: 'Company', register: 'Register', worker: 'Per worker', participant: 'Per participant' };
-  const track = { live: 'BookIt tracks it', drive: 'A file — in each person\u2019s BookIt file where it is theirs, kept by the office where it is ours', missing: 'Does not exist yet', na: 'Not offered by DMHC (the requirement is recorded for the day it is)' };
+  const track = { live: 'The Care Web tracks it', drive: 'A file — in each person\u2019s The Care Web file where it is theirs, kept by the office where it is ours', missing: 'Does not exist yet', na: 'Not offered by DMHC (the requirement is recorded for the day it is)' };
   const reg = formsRegister();
   const byKey = Object.fromEntries(reg.forms.map(f => [f.key, f]));
   const lines = [['Form', 'Belongs to', 'Where it is tracked', 'How often', 'Who signs', 'Whose template',
@@ -10867,18 +10998,18 @@ route('GET', /^\/api\/admin\/forms\.csv$/, (req, res, m, user) => {
     'Recorded by', 'Date recorded', 'Note'].map(q).join(',')];
   for (const f of FORMS) {
     const r = (byKey[f.key] || {}).record;
-    const held = f.track === 'live' ? 'BookIt answers this one'
+    const held = f.track === 'live' ? 'The Care Web answers this one'
       : f.track === 'na' ? 'Not offered'
-      : r ? (r.held ? (r.auto ? 'Yes — a page on BookIt' : 'Yes — recorded by hand') : 'No — recorded as not held')
+      : r ? (r.held ? (r.auto ? 'Yes — a page on The Care Web' : 'Yes — recorded by hand') : 'No — recorded as not held')
       : 'Not recorded';
     /* deliberately DD/MM/YYYY and deliberately side by side. A period ending
        long before the date it was recorded is the disclosure, not a defect to
        be smoothed over, and an auditor should be able to see it in one row. */
     const covers = r && (r.covers_from || r.covers_to)
       ? `${r.covers_from ? dmy(r.covers_from) : 'unstated'} to ${r.covers_to ? dmy(r.covers_to) : 'unstated'}` : '';
-    lines.push([f.name, scope[f.scope] || f.scope, ((byKey[f.key] || {}).page && f.track === 'drive' ? `A page on BookIt: /policies/${(byKey[f.key] || {}).page}` : track[f.track]) || f.track, f.cadence, f.signed,
+    lines.push([f.name, scope[f.scope] || f.scope, ((byKey[f.key] || {}).page && f.track === 'drive' ? `A page on The Care Web: /policies/${(byKey[f.key] || {}).page}` : track[f.track]) || f.track, f.cadence, f.signed,
       f.template === 'DMHC' ? "DMHC's own form"
-        : f.template === 'BookIt'
+        : f.template === 'The Care Web'
           /* the URL goes in this cell rather than a fourteenth column: the row
              widths are counted against the header in two places already, and
              a reader who wants the blank wants it beside the word that told
@@ -10935,7 +11066,7 @@ for (const stmt of [
 ]) { try { db.exec(stmt); } catch { } }
 
 /* ---------- a zip file, by hand ----------
-   BookIt has no dependencies and this is not the release that starts. A zip
+   The Care Web has no dependencies and this is not the release that starts. A zip
    is a well-specified container: a local header per entry, a central
    directory, an end record. deflate comes from node's own zlib. Stored
    rather than deflated when deflate makes it bigger, which is the usual
@@ -11155,7 +11286,7 @@ everyJob('snapshot', 86400 * 1000, () => auditSnapshot('nightly'), {
 route('GET', /^\/api\/admin\/audit-history\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
-  const lines = [['Date', 'Taken at', 'Forms in the register', 'Documents that implies', 'Forms BookIt tracks live',
+  const lines = [['Date', 'Taken at', 'Forms in the register', 'Documents that implies', 'Forms The Care Web tracks live',
     'Open gaps', 'Workers', 'Participants', 'What was open that day'].map(q).join(',')];
   for (const s of db.prepare('SELECT * FROM audit_snapshots ORDER BY day').all()) {
     let open = '';
@@ -11310,7 +11441,7 @@ function buildAuditPack(user) {
      is there" includes the instruments and not only the records. An auditor
      asking for a form DMHC has never filled in can at least be handed the
      form. */
-  const tplBase = APP_URL || 'https://bookit.life';
+  const tplBase = APP_URL || 'https://thecareweb.com.au';
   for (const t of CLINICAL_TEMPLATES) {
     try { add(`blank-forms/${t.key}.html`, templateHtml(t, null, tplBase)); } catch (e) { failed.push({ path: `blank-forms/${t.key}.html`, title: t.name, status: 500 }); }
   }
@@ -11346,7 +11477,7 @@ function packReadme(c) {
   L.push('NDIS provider 4-LO5XNY0 · ABN 19 658 578 575');
   L.push('');
   L.push(`Generated ${dmy(ymd(c.when))} at ${c.when.toTimeString().slice(0, 5)} by ${c.user.email}`);
-  L.push(`Generated from bookit.life — every file below was produced by the live system at that moment.`);
+  L.push(`Generated from thecareweb.com.au — every file below was produced by the live system at that moment.`);
   L.push('');
   L.push('WHAT IS IN HERE');
   L.push('  INDEX.html            open this first — the same contents, clickable, with the open items at the top');
@@ -11396,7 +11527,7 @@ function packReadme(c) {
   L.push('HOW THIS PACK IS KEPT CURRENT');
   L.push('  Nothing in here is typed up for an audit. Every register is generated from the live');
   L.push('  database at the moment you press the button, by the same code that produces the');
-  L.push('  individual downloads inside BookIt. The nightly snapshot runs on its own and needs');
+  L.push('  individual downloads inside The Care Web. The nightly snapshot runs on its own and needs');
   L.push('  nobody to remember it.');
   return L.join('\r\n');
 }
@@ -11451,7 +11582,7 @@ ${c.gaps.length
 ${c.failed.length ? `<h2>Not in this pack</h2><table><tr><th>File</th><th>Why</th></tr>${c.failed.map(f => `<tr><td>${escHtml(f.path)}</td><td>Could not be generated (HTTP ${f.status})</td></tr>`).join('')}</table>` : ''}
 ${c.skipped.length ? `<div class="warn"><b>${c.skipped.length} file(s) left out</b> — the pack hit its ${Math.round(PACK_BYTES_CAP / 1048576)} MB cap. They are named in README.txt.</div>` : ''}
 <h2>How this pack stays true</h2>
-<p>Nothing here was typed up for an audit. Every register was generated from the live database at the moment the button was pressed, by the same code that produces the individual downloads inside BookIt — so a register in this pack and the same register downloaded on its own are the same bytes. The daily snapshot runs on its own and needs nobody to remember it.</p>
+<p>Nothing here was typed up for an audit. Every register was generated from the live database at the moment the button was pressed, by the same code that produces the individual downloads inside The Care Web — so a register in this pack and the same register downloaded on its own are the same bytes. The daily snapshot runs on its own and needs nobody to remember it.</p>
 </body></html>`;
 }
 
@@ -11567,7 +11698,7 @@ route('POST', /^\/api\/bookings\/(\d+)\/review$/, (req, res, m, user, body, ip) 
   db.prepare('INSERT INTO reviews (booking_id, worker_id, participant_id, rating, comment, published, created) VALUES (?,?,?,?,?,1,?)')
     .run(b.id, b.worker_id, user.id, rating, comment, now());
   const w = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.worker_id);
-  if (w && !w.email.endsWith('@demo.bookit.life')) sendMail(w.email, 'You\'ve got a new review — BookIt',
+  if (w && !w.email.endsWith('@demo.bookit.life')) sendMail(w.email, 'You\'ve got a new review — The Care Web',
     `⭐ ${rating} / 5 from ${firstName(user.name)}`,
     `<p><b>${escHtml(firstName(user.name))}</b> rated your ${prettyDate(b.date)} shift <b>${rating} / 5</b>.</p>${comment ? `<p>“${escHtml(comment)}”</p>` : ''}<p>Reviews appear on your public profile and help new participants choose you. Nice work!</p>`,
     'See my profile', `${baseUrl(req)}/#/worker/${b.worker_id}`).catch(() => {});
@@ -11629,9 +11760,9 @@ route('POST', /^\/api\/admin\/sil\/slots$/, (req, res, m, user, body) => {
   const house = db.prepare('SELECT id FROM sil_houses WHERE id = ?').get(Number(body.house_id));
   if (!house) return json(res, 404, { error: 'No such house.' });
   const day = Number(body.day);
-  if (!(day >= 0 && day <= 6)) return json(res, 400, { error: 'Pick a day of the week.' });
-  const start = clean(body.start, 5);
-  if (!/^\d{2}:\d{2}$/.test(start)) return json(res, 400, { error: 'Start time looks wrong (use 24-hour HH:MM).' });
+  if (!(Number.isInteger(day) && day >= 0 && day <= 6)) return json(res, 400, { error: 'Pick a day of the week.' });
+  const start = body.start;
+  if (!BOOKIT_TIME.validTime(start)) return json(res, 400, { error: 'Start time looks wrong (use 24-hour HH:MM).' });
   const hours = Number(body.hours);
   if (!(hours >= 1 && hours <= 12)) return json(res, 400, { error: 'Slots are between 1 and 12 hours.' });
   const service = clean(body.service, 30) || 'daily-tasks';
@@ -11664,7 +11795,7 @@ route('POST', /^\/api\/admin\/sil\/generate$/, (req, res, m, user, body) => {
     d.setUTCDate(d.getUTCDate() + (7 - dow));
     weekStart = ymd(d);
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) return json(res, 400, { error: 'Week start looks wrong.' });
+  if ((body.week_start!==undefined && body.week_start!==weekStart)||!BOOKIT_TIME.validDate(weekStart)) return json(res, 400, { error: 'Week start looks wrong.' });
   const ws = new Date(weekStart + 'T00:00:00Z');
   if (isNaN(ws)) return json(res, 400, { error: 'Week start looks wrong.' });
   if ((ws.getUTCDay() + 6) % 7 !== 0) return json(res, 400, { error: 'The week starts on a Monday — pick a Monday date.' });
@@ -11680,8 +11811,10 @@ route('POST', /^\/api\/admin\/sil\/generate$/, (req, res, m, user, body) => {
     d.setUTCDate(d.getUTCDate() + s.day);
     const date = d.toISOString().slice(0, 10);
     if (db.prepare('SELECT id FROM bookings WHERE sil_slot_id = ? AND date = ?').get(s.id, date)) { existing++; continue; }
+    const fit=assignmentCheck(s.worker_id,{participant_id:s.participant_id,service:s.service,date,start:s.start,hours:s.hours,sleepover:s.sleepover});
+    if(!fit.ok || bookingStart({date,start:s.start})<=new Date()){unfilled.push({house:s.house_name,day:s.day,start:s.start,missing:fit.error||'start has passed'});continue;}
     db.prepare(`INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, status, created, sil_slot_id)
-      VALUES (?,?,?,?,?,?,?,?,'accepted',?,?)`)
+      VALUES (?,?,?,?,?,?,?,?,'requested',?,?)`)
       .run(s.participant_id, s.worker_id, s.service, date, s.start, s.hours, `SIL roster — ${s.house_name}`, s.sleepover, now(), s.id);
     created++;
   }
@@ -11702,7 +11835,7 @@ route('POST', /^\/api\/contact$/, (req, res, m, user, body, ip) => {
       .run(clean(body.name, 80), clean(body.email, 120), 'site', clean(body.body, 2000).slice(0, 200) || 'Complaint via contact form', clean(body.body, 4000), now(), addBusinessDays(now(), CLOCK.ack_days())).lastInsertRowid;
     ref = 'C-' + cid;
   }
-  /* forward a copy to the BookIt inbox so nothing sits unseen in the database */
+  /* forward a copy to The Care Web inbox so nothing sits unseen in the database */
   const fromEmail = clean(body.email, 120);
   if (MAIL_FROM) sendMail(MAIL_FROM, `Contact form — ${clean(body.topic, 80) || 'General'}`,
     'New message from the contact form',
@@ -11748,7 +11881,7 @@ function coverClock(leadMin) {
   if (leadMin > 4 * 60) return { win: 45, parallel: 0, label: 'later today' };
   return { win: 15, parallel: 1, label: 'in the next few hours' };
 }
-function bookingStart(b) { return new Date(`${b.date}T${b.start || '00:00'}:00`); }
+function bookingStart(b) { return BOOKIT_TIME.localStart(b); }
 function bookingEnd(b) { return new Date(bookingStart(b).getTime() + Number(b.hours || 0) * 3600e3); }
 /* The first booking on the diary that overlaps a proposed shift, or null.
    One worker cannot be in two places, so a request is refused against an
@@ -11757,8 +11890,11 @@ function bookingEnd(b) { return new Date(bookingStart(b).getTime() + Number(b.ho
    coexist — the worker decides — except a participant re-requesting a slot
    they already hold with the same worker, which is a duplicate, not a choice. */
 function bookingClash(workerId, date, start, hours, opts = {}) {
-  const s0 = bookingStart({ date, start }).getTime();
-  const e0 = s0 + Number(hours || 0) * 3600e3;
+  const buffer = Math.max(0, Math.min(180, Number(opts.bufferMinutes)||0))*60000;
+  const rawStart = bookingStart({ date, start }).getTime();
+  if (!Number.isFinite(rawStart) || !Number.isFinite(Number(hours)) || Number(hours)<=0 || Number(hours)>24) return {id:0,invalid_interval:true};
+  const s0 = rawStart-buffer;
+  const e0 = rawStart + Number(hours) * 3600e3 + buffer;
   /* Every calendar date an overlapping shift could be filed under: the day
      before (last night's sleepover runs into this morning), each day this
      shift touches, and — if it runs past midnight — the day it ends on (an
@@ -11777,7 +11913,9 @@ function bookingClash(workerId, date, start, hours, opts = {}) {
   for (const r of rows) {
     if (opts.participantId && r.status === 'requested' && r.participant_id !== Number(opts.participantId)) continue;
     const s1 = bookingStart(r).getTime(), e1 = bookingEnd(r).getTime();
-    if (s0 < e1 && s1 < e0) return r;
+    if (!Number.isFinite(s1) || !Number.isFinite(e1)) return r;
+    const sameParticipant = opts.participantId && Number(r.participant_id)===Number(opts.participantId);
+    if ((sameParticipant ? rawStart : s0) < e1 && s1 < (sameParticipant ? rawStart+Number(hours)*36e5 : e0)) return r;
   }
   return null;
 }
@@ -11800,22 +11938,7 @@ function workerFree(workerId, date, start, hours, excludeBookingId) {
 }
 /* Everything that has to be true before a name goes on an offer list: live
    profile, current screening, offers the service, works that weekday, free. */
-function workerEligible(workerId, b) {
-  const p = db.prepare(`SELECT p.visible, p.services, p.days, u.email FROM worker_profiles p
-    JOIN users u ON u.id = p.user_id WHERE p.user_id = ?`).get(workerId);
-  if (!p || !p.visible) return false;
-  /* the cover cascade fills shifts at short notice, which is exactly when a
-     compliance gate is most likely to be skipped — so it is asked here too */
-  if (!platformEligible(workerId, p.email)) return false;
-  if (screeningState(workerId) === 'expired') return false;
-  const svcs = safeJson(p.services, []);
-  if (!svcs.includes(b.service)) return false;
-  const days = safeJson(p.days, [1, 1, 1, 1, 1, 0, 0]);
-  const dow = new Date(b.date + 'T00:00:00').getDay();
-  const idx = dow === 0 ? 6 : dow - 1;           /* profile days are Mon-first */
-  if (days.length === 7 && !days[idx]) return false;
-  return workerFree(workerId, b.date, b.start, b.hours, b.id);
-}
+function workerEligible(workerId, b) { return assignmentCheck(workerId,b).ok === true; }
 
 /* The ranked candidate list for one tier. Order matters and is never random:
    the care web is in the participant's own order, standby is by who has been
@@ -11860,7 +11983,7 @@ function coverCandidates(cv, b, tier, opts = {}) {
   const today = ymd();
   return db.prepare('SELECT * FROM allied_providers WHERE active = 1 ORDER BY reciprocal DESC, share ASC, id ASC').all()
     .filter(a => {
-      if (sentTo.includes(a.id)) return false;
+      if (!opts.forSeries && sentTo.includes(a.id)) return false;
       if (!a.agreement_ref) return false;
       if (a.insurance_expiry && a.insurance_expiry < today) return false;
       const groups = safeJson(a.reg_groups, []);
@@ -11871,21 +11994,20 @@ function coverCandidates(cv, b, tier, opts = {}) {
     });
 }
 
-/* one-click accept from the email — the single biggest lever on fill time.
-   Signed, single-purpose, and it still checks eligibility at the moment of
-   acceptance rather than the moment of sending. */
+/* Signed offer links lead to review. Only a deliberate confirmation can accept,
+   and eligibility is rechecked at that decision, not merely when sending. */
 function coverToken(offerId) { return sign(`cover.${offerId}`).slice(0, 32); }
 function coverLink(req, offerId, kind) {
   return `${baseUrl(req)}/cover?o=${offerId}&t=${coverToken(offerId)}&k=${kind}`;
 }
 
-/* A worker reading this on a phone at a bus stop should not have to log in to
-   say yes. One tap, one signed link, one plain-English page. */
+/* Compact offer landing page. GET is read-only; workers continue in their
+   account to read the current plan before accepting. */
 function coverPage(heading, body, ctaText, ctaUrl, tone) {
   const accent = tone === 'bad' ? '#B4451F' : '#0E6B62';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>${escHtml(heading)} — BookIt</title>
+<title>${escHtml(heading)} — The Care Web</title>
 <style>
  :root{color-scheme:light}
  body{margin:0;background:#F5F3EF;color:#17211F;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
@@ -11900,63 +12022,45 @@ function coverPage(heading, body, ctaText, ctaUrl, tone) {
    padding:13px 24px;border-radius:10px;margin-top:10px}
  .fine{font-size:13.5px;color:#6C7A77;margin-top:20px}
 </style></head><body><div class="card">
-<p class="mark">BookIt</p><h1>${escHtml(heading)}</h1>${body}
-${ctaUrl ? `<a class="btn" href="${escHtml(ctaUrl)}">${escHtml(ctaText || 'Open BookIt')}</a>` : ''}
+<p class="mark">The Care Web</p><h1>${escHtml(heading)}</h1>${body}
+${ctaUrl ? `<a class="btn" href="${escHtml(ctaUrl)}">${escHtml(ctaText || 'Open The Care Web')}</a>` : ''}
 <p class="fine">Disability &amp; Mental Health Care Pty Ltd · registered NDIS provider 4-LO5XNY0</p>
 </div></body></html>`;
 }
 
 /* the whole one-tap flow, in one place: cover offers and standby offers both
    land here, both are signed, and neither requires a session. */
-function handleCoverLink(req, res, url) {
-  const kind = url.searchParams.get('k') || '';
-  const token = url.searchParams.get('t') || '';
-  const send = html => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' }); res.end(html); };
-  const bad = msg => send(coverPage('That link has expired', `<p>${escHtml(msg)}</p>`, 'Open BookIt', `${baseUrl(req)}/#/bookings`, 'bad'));
-
-  if (kind === 'standby-yes' || kind === 'standby-no') {
-    const id = Number(url.searchParams.get('s') || 0);
-    const s = id ? db.prepare('SELECT * FROM standby WHERE id = ?').get(id) : null;
-    if (!s || token !== standbyToken(id)) return bad('We couldn\'t match that link to a standby offer.');
-    if (s.status !== 'offered') return send(coverPage('Already answered',
-      `<p>You've already told us <b>${escHtml(s.status === 'accepted' ? 'yes' : 'no')}</b> for ${escHtml(prettyDate(s.date))}. Nothing more to do.</p>`,
-      'Open my shifts', `${baseUrl(req)}/#/bookings`));
-    const yes = kind === 'standby-yes';
-    db.prepare('UPDATE standby SET status = ?, responded_at = ? WHERE id = ?').run(yes ? 'accepted' : 'declined', now(), id);
-    return send(yes
-      ? coverPage(`You're on call for ${prettyDate(s.date).replace(/,.*$/, '')}`,
-          `<p><b>$${s.allowance.toFixed(2)}</b> is yours for that period whether or not we call you. It'll show on your next pay as an on-call allowance.</p>
-           <p>All it means is keeping your phone on. If a shift comes up you'll get one message with the details, and you can still say no on the day.</p>`,
-          'See my shifts', `${baseUrl(req)}/#/bookings`)
-      : coverPage('No worries', `<p>We've taken you off standby for <b>${escHtml(prettyDate(s.date))}</b> and we'll ask someone else.</p><p>You'll still be asked about other days — declining one never counts against you.</p>`,
-          'See my shifts', `${baseUrl(req)}/#/bookings`));
+function coverConfirmationSignature(nonce,search,expires) {
+  return crypto.createHmac('sha256',SECRET).update(`cover-confirm:${nonce}:${search}:${expires}`).digest('hex');
+}
+function handleCoverLink(req,res,url,body=null) {
+  res.setHeader('Referrer-Policy','no-referrer');
+  res.setHeader('Content-Security-Policy',"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+  const send=(heading,text,code=200)=>{res.writeHead(code,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow'});res.end(coverPage(heading,text,'Open The Care Web','/#/bookings'));};
+  const kind=url.searchParams.get('k'),token=url.searchParams.get('t')||'';
+  const standby=['standby-yes','standby-no'].includes(kind);
+  const id=Number(url.searchParams.get(standby?'s':'o'));
+  const row=Number.isSafeInteger(id)&&id>0 ? db.prepare(`SELECT * FROM ${standby?'standby':'cover_offers'} WHERE id=?`).get(id):null;
+  const expected=standby?standbyToken(id):coverToken(id);
+  if(!row||!['accept','allied','decline','standby-yes','standby-no'].includes(kind)||token.length!==expected.length||!crypto.timingSafeEqual(Buffer.from(token),Buffer.from(expected)))return send('Link unavailable','<p>This link is invalid. Open The Care Web to review your offers.</p>',400);
+  if(standby ? row.status!=='offered'||row.date<ymd() : row.response||!Number.isFinite(Date.parse(row.expires_at))||Date.parse(row.expires_at)<=Date.now())return send('Offer no longer available','<p>It has been answered or expired. Nothing has changed.</p>');
+  // Workers review confidential plans and confirm via their authenticated account.
+  if(!standby && row.tier!=='allied')return send('Review this visit in The Care Web',`<p>Opening this link has not accepted or declined anything. Sign in to review the visit and its current support plan.</p><p><a href="/#/bookings">Review my cover offers</a></p>`);
+  if(req.method==='GET'){
+    const nonce=crypto.randomBytes(24).toString('hex'),expires=Date.now()+10*60000;
+    const sig=coverConfirmationSignature(nonce,url.search,expires);
+    res.setHeader('Set-Cookie',`bk_cover_confirm=${nonce}; HttpOnly; SameSite=Strict; Path=/cover; Max-Age=600${COOKIE_SECURE}`);
+    return send('Confirm your choice',`<p>Opening this link changes nothing. Confirm below to ${standby?(kind==='standby-yes'?'accept standby':'decline standby'):(kind!=='decline'?'accept this partner-provider visit':'decline this offer')}.</p><form method="post" action="${escHtml('/cover'+url.search)}"><input type="hidden" name="expires" value="${expires}"><input type="hidden" name="confirmation" value="${sig}"><button type="submit" class="btn">Confirm ${kind.includes('no')||kind==='decline'?'decline':'acceptance'}</button></form>`);
   }
-
-  const offerId = Number(url.searchParams.get('o') || 0);
-  const o = offerId ? db.prepare('SELECT * FROM cover_offers WHERE id = ?').get(offerId) : null;
-  if (!o || token !== coverToken(offerId)) return bad('We couldn\'t match that link to an open shift.');
-  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(o.cover_id);
-  const b = cv ? db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id) : null;
-  const svc = b ? (SERVICE_LABELS[b.service] || b.service) : '';
-
-  if (kind === 'decline') {
-    if (!o.response) db.prepare("UPDATE cover_offers SET response = 'declined', responded_at = ? WHERE id = ?").run(now(), offerId);
-    return send(coverPage('Thanks for telling us', '<p>We\'re moving straight on to whoever is next on the list. Knowing quickly is genuinely the most useful thing you can do.</p>',
-      'See my shifts', `${baseUrl(req)}/#/bookings`));
-  }
-
-  const r = coverAccept(offerId, req, o.worker_id);
-  if (r.error) return send(coverPage('Someone got there first', `<p>${escHtml(r.error)}</p><p>Thanks for being quick — that's exactly how this is meant to work.</p>`,
-    'See my shifts', `${baseUrl(req)}/#/bookings`, 'bad'));
-  if (r.allied) return send(coverPage('Thank you — the shift is yours',
-    `<p>We've recorded <b>${escHtml(r.allied)}</b> as delivering this ${escHtml(svc)} shift on <b>${escHtml(prettyDate(b.date))}</b> at <b>${escHtml(b.start)}</b>.</p>
-     <p>Please reply to the cover email with the name and NDIS Worker Screening Check number of the worker attending. Disability &amp; Mental Health Care remains the registered provider of record.</p>`,
-    null, null));
-  return send(coverPage('You\'re locked in 🎉',
-    `<p><b>${escHtml(svc)}</b><br>${escHtml(prettyDate(b.date))} at <b>${escHtml(b.start)}</b> · ${b.hours} hours</p>
-     <p>It's in your shifts now and it pays exactly like any other shift — covering someone never pays less.</p>
-     <p>${escHtml((db.prepare('SELECT name FROM users WHERE id = ?').get(b.participant_id) || {}).name || 'The participant')} has already been told you're coming.</p>`,
-    'Open my shifts', `${baseUrl(req)}/#/bookings`));
+  const nonce=(String(req.headers.cookie||'').match(/(?:^|;\s*)bk_cover_confirm=([a-f0-9]{48})(?:;|$)/)||[])[1];
+  const expires=Number(body?.expires),sig=String(body?.confirmation||'');
+  let sameOrigin=false;try{sameOrigin=new URL(String(req.headers.origin)).origin===new URL(baseUrl(req)).origin;}catch{}
+  const signature=nonce?coverConfirmationSignature(nonce,url.search,expires):'';
+  if(!sameOrigin||!nonce||!Number.isSafeInteger(expires)||expires<Date.now()||expires>Date.now()+10*60000||sig.length!==64||signature.length!==64||!crypto.timingSafeEqual(Buffer.from(sig),Buffer.from(signature)))return send('Confirmation required','<p>Open the original link again and use its confirmation button.</p>',403);
+  if(standby){db.prepare("UPDATE standby SET status=?,responded_at=? WHERE id=? AND status='offered'").run(kind==='standby-yes'?'accepted':'declined',now(),id);return send('Choice recorded','<p>Your standby response has been recorded.</p>');}
+  if(kind==='decline'){db.prepare("UPDATE cover_offers SET response='declined',responded_at=? WHERE id=? AND response IS NULL").run(now(),id);return send('Offer declined','<p>Your response has been recorded.</p>');}
+  const result=coverAccept(id,req,null);
+  return send(result.error?'Offer unavailable':'Partner-provider acceptance recorded',`<p>${escHtml(result.error||'Please reply to the cover email with the attending worker’s details. The Care Web remains responsible for coordination.')}</p>`,result.error?409:200);
 }
 
 function sendCoverOffer(req, cv, b, tier, cand, rank) {
@@ -11973,7 +12077,7 @@ function sendCoverOffer(req, cv, b, tier, cand, rank) {
     const a = db.prepare('SELECT * FROM allied_providers WHERE id = ?').get(cand.id);
     const rate = INVOICE_RATES[suggestCategory(b)] || {};
     const payable = rate.price ? (rate.price * (a.share || 0.85) * (rate.perNight ? 1 : b.hours)) : 0;
-    sendMail(a.email, `Cover request — ${svc}, ${prettyDate(b.date)} — BookIt`,
+    sendMail(a.email, `Cover request — ${svc}, ${prettyDate(b.date)} — The Care Web`,
       `A shift we'd like your help with`,
       `<p>We have a confirmed <b>${escHtml(svc)}</b> shift we can't staff from our own team, and under our partner agreement <b>${escHtml(a.agreement_ref)}</b> we're offering it to you first.</p>
        <p><b>When:</b> ${when}<br><b>Where:</b> ${escHtml(pt.suburb || 'see booking')}<br><b>Support type:</b> ${escHtml(svc)} (${escHtml(REG_GROUPS[b.service] || '')})<br><b>We pay you:</b> ${payable.toFixed(2)} (${Math.round((a.share || 0.85) * 100)}% of the published maximum price for this line)</p>
@@ -11984,7 +12088,7 @@ function sendCoverOffer(req, cv, b, tier, cand, rank) {
   }
   const w = db.prepare('SELECT name, email FROM users WHERE id = ?').get(cand.id);
   const onStandby = tier === 'standby';
-  if (w) sendMail(w.email, `Cover needed — ${prettyDate(b.date)} — BookIt`,
+  if (w) sendMail(w.email, `Cover needed — ${prettyDate(b.date)} — The Care Web`,
     onStandby ? `You're on standby today, ${firstName(w.name)}` : `Can you cover this one, ${firstName(w.name)}?`,
     `<p>${tier === 'web'
       ? `<b>${escHtml(pt.name || 'A participant')}</b> has you in their care web, and the worker booked for this shift can't make it.`
@@ -12078,9 +12182,9 @@ function moveBookingToOfficeReview(b, req, why, cv) {
     logCompliance({ worker_id: b.worker_id || null, worker_name: '', kind: 'platform-access', result: 'office-review',
       detail: `Booking #${b.id} (${b.date} ${b.start}) moved to office review after its start time. ${clean(why, 220)}`,
       source: 'safety hold' });
-    if (MAIL_FROM) sendMail(MAIL_FROM, 'A shift already underway has no worker — BookIt', 'Ring the participant NOW',
+    if (MAIL_FROM) sendMail(MAIL_FROM, 'A shift already underway has no worker — The Care Web', 'Ring the participant NOW',
       `<p>Booking <b>#${b.id}</b> — <b>${prettyDate(b.date)} at ${escHtml(b.start)}</b> — can no longer be filled through automated offers.</p><p><b>${escHtml(why)}</b></p><p>Ring the participant and record any exceptional assignment on the office board.</p>`,
-      'Open the office board', `${(req ? baseUrl(req) : (APP_URL || 'https://bookit.life'))}/#/admin`).catch(() => {});
+      'Open the office board', `${(req ? baseUrl(req) : (APP_URL || 'https://thecareweb.com.au'))}/#/admin`).catch(() => {});
   }
 }
 
@@ -12109,7 +12213,7 @@ function openCover(bookingId, fromWorkerId, reason, req) {
   /* tell the participant immediately — before they find out from the worker.
      "we are on it" beats "your shift is cancelled" every time. */
   const pt = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
-  if (pt) sendMail(pt.email, `Looking for cover for ${prettyDate(b.date)} — BookIt`,
+  if (pt) sendMail(pt.email, `Looking for cover for ${prettyDate(b.date)} — The Care Web`,
     `We're on it, ${firstName(pt.name)}`,
     `<p>The worker booked for your <b>${escHtml(SERVICE_LABELS[b.service] || b.service)}</b> shift on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> can't make it.</p>
      <p><b>Your booking has not been cancelled.</b> ${sent > 0
@@ -12117,7 +12221,7 @@ function openCover(bookingId, fromWorkerId, reason, req) {
        : `We're working through who's available now and we'll email you as soon as we know either way.`}</p>
      <p>If you'd rather not have cover this time, you can stand it down from your bookings page and nothing is charged.</p>`,
     'See what\'s happening', `${baseUrl(req)}/#/bookings`).catch(() => {});
-  /* Tier 1 is the participant whose own support plan says BookIt is their main
+  /* Tier 1 is the participant whose own support plan says The Care Web is their main
      source of support, that their health or safety is significantly affected
      without it, and that there is nobody else inside 24 hours. For them the
      cascade still runs — it is faster than a person — but it runs *alongside* a
@@ -12138,59 +12242,45 @@ function openCover(bookingId, fromWorkerId, reason, req) {
 }
 
 /* Somebody said yes. Swap the worker, keep the booking, tell everyone. */
-function coverAccept(offerId, req, acceptingWorkerId) {
-  const o = db.prepare('SELECT * FROM cover_offers WHERE id = ?').get(offerId);
-  if (!o) return { error: 'That offer no longer exists.' };
-  if (o.response) return { error: o.response === 'accepted' ? 'You\'ve already accepted this one.' : 'That offer has already been answered.' };
-  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(o.cover_id);
-  if (!cv || cv.status !== 'open') return { error: 'This shift has already been covered — thank you for being quick.' };
-  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
-  if (!b) return { error: 'Booking not found.' };
-  /* Review round 4: an open cover row must never overwrite a booking that
-     has since been completed, cancelled or stood down. If the booking left
-     the coverable state, the cover closes instead of firing. */
-  if (!['requested', 'accepted'].includes(b.status) || b.cover_state !== 'finding') {
-    db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = ? WHERE id = ?")
-      .run(now(), `Booking had moved on (${b.status}${b.cover_state ? ', ' + b.cover_state : ''}) before this cover was answered.`, cv.id);
-    db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
-    return { error: 'This shift has changed since the offer went out and no longer needs cover.' };
-  }
-  if (new Date(o.expires_at) < new Date()) {
-    db.prepare("UPDATE cover_offers SET response = 'expired', responded_at = ? WHERE id = ?").run(now(), offerId);
-    return { error: 'That offer had already timed out and moved on.' };
-  }
-  /* Round 4.5, blocker 1: the start time is a hard wall for self-serve
-     acceptance. If the shift has begun, the cover closes to office review
-     instead of locking anyone in. */
-  if (bookingStart(b) <= new Date()) {
-    moveBookingToOfficeReview(b, req, 'The shift start passed before a cover offer was accepted.', cv);
-    return { error: "This shift has already started, so it can't be picked up here any more — the office is arranging it directly." };
-  }
-  if (o.tier === 'allied') {
-    const a = db.prepare('SELECT * FROM allied_providers WHERE id = ?').get(o.allied_id);
-    db.prepare("UPDATE cover_offers SET response = 'accepted', responded_at = ? WHERE id = ?").run(now(), offerId);
-    db.prepare("UPDATE cover SET status = 'referred', allied_id = ?, allied_share = ?, filled_at = ?, closed_at = ? WHERE id = ?")
-      .run(a.id, a.share, now(), now(), cv.id);
-    db.prepare("UPDATE bookings SET cover_state = 'allied', delivered_by_allied = ?, swap_count = swap_count + 1 WHERE id = ?").run(a.id, b.id);
-    closeSiblings(cv.id, offerId);
-    notifyCovered(req, b, null, a);
-    return { ok: true, allied: a.name };
-  }
-  const workerId = acceptingWorkerId || o.worker_id;
-  if (!workerId || workerId !== o.worker_id) return { error: 'That offer belongs to someone else.' };
-  if (!workerEligible(workerId, b)) return { error: 'Something has changed since we sent this — you\'re no longer free at that time, or a credential needs updating.' };
-  db.prepare("UPDATE cover_offers SET response = 'accepted', responded_at = ? WHERE id = ?").run(now(), offerId);
-  db.prepare("UPDATE cover SET status = 'filled', filled_worker_id = ?, filled_at = ?, closed_at = ? WHERE id = ?")
-    .run(workerId, now(), now(), cv.id);
-  db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', accepted_at = ?, swap_count = swap_count + 1 WHERE id = ?")
-    .run(workerId, now(), b.id);
-  closeSiblings(cv.id, offerId);
-  const w = db.prepare('SELECT name FROM users WHERE id = ?').get(workerId);
-  notifyCovered(req, b, w, null);
-  /* a person who has now worked with this participant belongs in their care web —
-     offered, never imposed */
-  return { ok: true, worker: w ? w.name : '' };
+function coverAccept(offerId, req, acceptingWorkerId, proof={}) {
+  let result, booking, worker, allied;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const fail = data => { db.exec('ROLLBACK'); return typeof data==='string'?{error:data}:data; };
+    const o=db.prepare('SELECT * FROM cover_offers WHERE id=?').get(offerId);
+    if(!o||o.response)return fail('That offer has already been answered or is unavailable.');
+    const cv=db.prepare('SELECT * FROM cover WHERE id=?').get(o.cover_id);
+    const b=cv&&db.prepare('SELECT * FROM bookings WHERE id=?').get(cv.booking_id);
+    if(!cv||cv.status!=='open'||!b||!['requested','accepted'].includes(b.status)||b.cover_state!=='finding')return fail('The visit no longer needs cover.');
+    if(!Number.isFinite(Date.parse(o.expires_at))||Date.parse(o.expires_at)<=Date.now())return fail('This offer has expired. Refresh your open shifts.');
+    if(!Number.isFinite(+bookingStart(b))||bookingStart(b)<=new Date())return fail('This visit has started or its date needs checking. Contact the office.');
+    if(o.tier==='allied'){
+      // Revalidate the provider now, not only when the invitation was sent.
+      allied=coverCandidates({...cv,id:0},b,'allied',{forSeries:true}).find(a=>a.id===o.allied_id);
+      if(!allied)return fail('The partner provider no longer meets this visit’s eligibility checks. Contact the office.');
+      db.prepare("UPDATE cover SET status='referred',allied_id=?,allied_share=?,filled_at=?,closed_at=? WHERE id=?").run(allied.id,allied.share,now(),now(),cv.id);
+      db.prepare("UPDATE bookings SET cover_state='allied',delivered_by_allied=?,swap_count=swap_count+1 WHERE id=?").run(allied.id,b.id);
+      result={ok:true,allied:allied.name};
+    }else{
+      const wid=Number(acceptingWorkerId);
+      if(!wid||wid!==o.worker_id)return fail('That offer belongs to another worker.');
+      const fit=assignmentCheck(wid,b,{accept:true,proof});
+      if(!fit.ok)return fail(fit);
+      recordAssignmentAck(wid,fit,proof,req);
+      db.prepare("UPDATE cover SET status='filled',filled_worker_id=?,filled_at=?,closed_at=? WHERE id=?").run(wid,now(),now(),cv.id);
+      db.prepare("UPDATE bookings SET worker_id=?,cover_state='covered',status='accepted',accepted_at=?,office_ok=0,swap_count=swap_count+1,original_worker_id=COALESCE(original_worker_id,worker_id) WHERE id=?").run(wid,now(),b.id);
+      worker=db.prepare('SELECT id,name,email FROM users WHERE id=?').get(wid);
+      result={ok:true,booking_id:b.id};
+    }
+    db.prepare("UPDATE cover_offers SET response='accepted',responded_at=? WHERE id=?").run(now(),o.id);
+    closeSiblings(cv.id,o.id);
+    booking=db.prepare('SELECT * FROM bookings WHERE id=?').get(b.id);
+    db.exec('COMMIT');
+  }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+  try{notifyCovered(req,booking,worker,allied);}catch(e){console.warn('[cover] notification failed',e.message);}
+  return result;
 }
+
 function closeSiblings(coverId, keepOfferId) {
   db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND id != ? AND response IS NULL")
     .run(now(), coverId, keepOfferId);
@@ -12198,7 +12288,7 @@ function closeSiblings(coverId, keepOfferId) {
 function notifyCovered(req, b, w, allied) {
   const pt = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
   const svc = SERVICE_LABELS[b.service] || b.service;
-  if (pt) sendMail(pt.email, `Cover confirmed for ${prettyDate(b.date)} — BookIt`,
+  if (pt) sendMail(pt.email, `Cover confirmed for ${prettyDate(b.date)} — The Care Web`,
     `Sorted, ${firstName(pt.name)} 🎉`,
     allied
       ? `<p>Your <b>${escHtml(svc)}</b> shift on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> will be delivered by a worker from <b>${escHtml(allied.name)}</b>, one of our partner providers.</p>
@@ -12209,7 +12299,7 @@ function notifyCovered(req, b, w, allied) {
     'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
   if (w) {
     const wu = db.prepare('SELECT email, name FROM users WHERE id = ?').get(b.worker_id);
-    if (wu) sendMail(wu.email, `Confirmed — you're covering ${prettyDate(b.date)} — BookIt`,
+    if (wu) sendMail(wu.email, `Confirmed — you're covering ${prettyDate(b.date)} — The Care Web`,
       `You're locked in, ${firstName(wu.name)}`,
       `<p>Thanks for stepping in. <b>${escHtml(svc)}</b> with <b>${escHtml(pt ? pt.name : '')}</b>, <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>, ${b.hours} hours.</p>
        <p>It's in your bookings now and pays exactly like any other shift — covering someone doesn't pay less.</p>`,
@@ -12314,7 +12404,7 @@ function offerStandby(workerId, date, req) {
     VALUES (?,?,?,?,?, 'offered', ?)`).run(workerId, date, band, allowance, w.standby_services || '[]', now());
   const id = Number(r.lastInsertRowid);
   const link = k => `${baseUrl(req)}/cover?s=${id}&t=${standbyToken(id)}&k=${k}`;
-  sendMail(w.email, `On-call standby for ${prettyDate(date)} — ${allowance.toFixed(2)} — BookIt`,
+  sendMail(w.email, `On-call standby for ${prettyDate(date)} — ${allowance.toFixed(2)} — The Care Web`,
     `Free on ${prettyDate(date).split(',')[0]}, ${firstName(w.name)}?`,
     `<p>We're asking you to be <b>on call</b> for <b>${prettyDate(date)}</b>. That means keeping your phone on and being able to get to a shift if somebody can't make theirs.</p>
      <p><b>You get paid ${allowance.toFixed(2)} just for saying yes</b> — that's the SCHADS on-call allowance for a ${band === 'weekday' ? 'weekday' : 'weekend or public holiday'} period, and it's yours whether or not we end up calling you.</p>
@@ -12510,6 +12600,7 @@ function offerRows(workerId) {
     JOIN users up ON up.id = b.participant_id
     WHERE o.worker_id = ? AND o.response IS NULL AND o.expires_at > ? AND c.status = 'open'
     ORDER BY b.date ASC, b.start ASC`).all(workerId, now())
+    .filter(r=>bookingStart(r)>new Date() && workerEligible(workerId,{id:r.booking_id}))
     .map(r => {
       const rate = INVOICE_RATES[suggestCategory(r)] || {};
       return {
@@ -12547,7 +12638,7 @@ route('GET', /^\/api\/me\/offers$/, (req, res, m, user) => {
   });
 });
 
-route('POST', /^\/api\/me\/offers\/(\d+)\/(accept|decline)$/, (req, res, m, user) => {
+route('POST', /^\/api\/me\/offers\/(\d+)\/(accept|decline)$/, (req, res, m, user, body) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const offerId = Number(m[1]);
   const o = db.prepare('SELECT * FROM cover_offers WHERE id = ?').get(offerId);
@@ -12556,8 +12647,8 @@ route('POST', /^\/api\/me\/offers\/(\d+)\/(accept|decline)$/, (req, res, m, user
     if (!o.response) db.prepare("UPDATE cover_offers SET response = 'declined', responded_at = ? WHERE id = ?").run(now(), offerId);
     return json(res, 200, { ok: true, offers: offerRows(user.id) });
   }
-  const r = coverAccept(offerId, req, user.id);
-  if (r.error) return json(res, 400, { error: r.error, offers: offerRows(user.id) });
+  const r = coverAccept(offerId, req, user.id, body || {});
+  if (r.error) return json(res, 400, { ...r, offers: offerRows(user.id) });
   json(res, 200, { ok: true, ...r, offers: offerRows(user.id) });
 });
 
@@ -12745,30 +12836,18 @@ route('POST', /^\/api\/admin\/cover\/(\d+)\/escalate$/, (req, res, m, user) => {
   json(res, 200, { ok: true, tier: cv.tier, sent });
 });
 
-route('POST', /^\/api\/admin\/cover\/(\d+)\/assign$/, (req, res, m, user, body) => {
-  if (!requireAdmin(user, res)) return;
-  const cv = db.prepare('SELECT * FROM cover WHERE id = ?').get(Number(m[1]));
-  if (!cv || cv.status !== 'open') return json(res, 400, { error: 'That cover request isn\'t open.' });
-  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
-  if (!b || !['requested', 'accepted'].includes(b.status) || b.cover_state !== 'finding')
-    return json(res, 400, { error: 'That booking has changed since — it no longer needs cover.' });
-  if (bookingStart(b) <= new Date()) {
-    moveBookingToOfficeReview(b, req, 'The shift started before the office assignment was recorded.', cv);
-    return json(res, 409, { error: 'This shift has already started. Record any exceptional assignment from the office-review queue.' });
-  }
-  const workerId = Number(body.worker_id);
-  if (!workerEligible(workerId, b)) return json(res, 400, { error: 'That worker isn\'t free or isn\'t currently screened for this shift.' });
-  const r = db.prepare(`INSERT INTO cover_offers (cover_id, tier, worker_id, rank, sent_at, expires_at, response, responded_at)
-    VALUES (?,?,?,?,?,?,'accepted',?)`).run(cv.id, cv.tier, workerId, 99, now(), new Date(Date.now() + 60000).toISOString(), now());
-  db.prepare("UPDATE cover SET status = 'filled', filled_worker_id = ?, filled_at = ?, closed_at = ?, human_minutes = human_minutes + 5, outcome_note = ? WHERE id = ?")
-    .run(workerId, now(), now(), 'Assigned by the office.', cv.id);
-  db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', accepted_at = ?, swap_count = swap_count + 1, office_ok = 0 WHERE id = ?").run(workerId, now(), b.id);
-  closeSiblings(cv.id, Number(r.lastInsertRowid));
-  logCompliance({ worker_id: workerId, worker_name: (db.prepare('SELECT name FROM users WHERE id = ?').get(workerId) || {}).name || '', kind: 'platform-access', result: 'office-assigned',
-    detail: `Booking #${b.id} (${b.date} ${b.start}) assigned by the office${bookingStart(b) <= new Date() ? ' AFTER the shift start — exceptional assignment, authorised by the assigning administrator' : ''}.`,
-    source: 'safety hold', checked_by: user.name });
-  notifyCovered(req, db.prepare('SELECT * FROM bookings WHERE id = ?').get(b.id), db.prepare('SELECT name FROM users WHERE id = ?').get(workerId), null);
-  json(res, 200, { ok: true });
+route('POST', /^\/api\/admin\/cover\/(\d+)\/assign$/, (req,res,m,user,body)=>{
+  if(!requireAdmin(user,res))return;
+  const cv=db.prepare("SELECT * FROM cover WHERE id=? AND status='open'").get(Number(m[1]));
+  const b=cv&&db.prepare('SELECT * FROM bookings WHERE id=?').get(cv.booking_id);
+  if(!b||b.cover_state!=='finding'||!['requested','accepted'].includes(b.status))return json(res,409,{error:'This visit no longer needs an offer.'});
+  if(bookingStart(b)<=new Date())return json(res,409,{error:'The visit has started. Use the documented office-review assignment.'});
+  const wid=Number(body.worker_id),fit=assignmentCheck(wid,b,{out_of_area_ok: body.out_of_area_ok === true});if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit);
+  noteOutOfArea(b.id, fit, 'office');
+  const existing=db.prepare('SELECT id FROM cover_offers WHERE cover_id=? AND worker_id=? AND response IS NULL AND expires_at>?').get(cv.id,wid,now());
+  if(!existing)sendCoverOffer(req,cv,b,'pool',{id:wid},99);
+  logCompliance({worker_id:wid,kind:'platform-access',result:'office-offered',detail:`Office invited worker #${wid} for booking #${b.id}. Worker acceptance is still required.`,source:'office',checked_by:user.name});
+  json(res,200,{ok:true,pending_acceptance:true,message:'Offer sent. The visit is not covered until the worker accepts and acknowledges the current plan.'});
 });
 
 route('POST', /^\/api\/admin\/cover\/(\d+)\/close$/, (req, res, m, user, body) => {
@@ -12802,6 +12881,13 @@ route('GET', /^\/api\/admin\/bookings\/(\d+)\/candidates$/, (req, res, m, user) 
 /* Round 4.5: the office-review queue — started shifts with no worker. The
    office rings, arranges a person, and records the assignment here; that
    recording IS the authorisation the completion gate looks for. */
+route('GET', /^\/api\/admin\/bookings\/(\d+)\/assignment-evidence$/, (req,res,m,user)=>{
+  if(!requireAdmin(user,res))return;
+  const b=db.prepare('SELECT * FROM bookings WHERE id=?').get(Number(m[1]));if(!b)return json(res,404,{error:'Booking not found.'});
+  const plan=confirmedPlan(b.participant_id);
+  json(res,200,{booking_id:b.id,participant_id:b.participant_id,brief:workerBrief(b.participant_id),plan_id:plan?.id||null,plan_version:plan?.version||null});
+});
+
 route('POST', /^\/api\/admin\/bookings\/(\d+)\/office-assign$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
   const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
@@ -12810,11 +12896,18 @@ route('POST', /^\/api\/admin\/bookings\/(\d+)\/office-assign$/, (req, res, m, us
     return json(res, 400, { error: 'That booking isn\'t waiting on the office.' });
   const workerId = Number(body.worker_id);
   const w = db.prepare("SELECT u.id, u.name, u.email FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ? AND u.role = 'worker'").get(workerId);
-  if (!w || !workerEligible(workerId, b)) return json(res, 400, { error: 'That worker is not eligible for this shift — the service, availability, screening or diary does not fit.' });
+  const consent=clean(body.consent_note,2000);
+  if(body.worker_agreed!==true || consent.length<20)return json(res,400,{error:'Record who spoke to the worker, when, and their explicit agreement (at least 20 characters).'});
+  const proof={...body,plan_ack:body.plan_read_confirmed===true,recorded_by:user.name};
+  const fit=assignmentCheck(workerId,b,{accept:true,office:true,proof,out_of_area_ok: body.out_of_area_ok === true});if(!w)return json(res,400,{error:'Worker not found.'});if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit);
+  noteOutOfArea(b.id, fit, 'office');
+  db.exec('BEGIN IMMEDIATE');
+  try {recordAssignmentAck(workerId,fit,proof,req,'office-recorded');
   db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', accepted_at = ?, swap_count = swap_count + 1, office_ok = 1, original_worker_id = COALESCE(original_worker_id, worker_id) WHERE id = ?").run(workerId, now(), b.id);
   logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'office-assigned',
-    detail: `Booking #${b.id} (${b.date} ${b.start}) was in office review (shift had started); ${w.name} recorded onto it by the office. Exceptional assignment authorised by the assigning administrator.`,
+    detail: `Booking #${b.id} (${b.date} ${b.start}) was in office review (shift had started); ${w.name} recorded onto it by the office. Exceptional assignment evidence: ${consent}. Plan evidence recorded as office-reported, not a worker click.`,
     source: 'safety hold', checked_by: user.name });
+  db.exec('COMMIT');}catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
   notifyCovered(req, db.prepare('SELECT * FROM bookings WHERE id = ?').get(b.id), w, null);
   json(res, 200, { ok: true, worker: w.name });
 });
@@ -12906,7 +12999,7 @@ route('POST', /^\/api\/admin\/series\/(\d+)\/approve$/, (req, res, m, user, body
     if (ids.length) {
       /* REQUESTED, not accepted: the participant has agreed to the person;
          the person still says yes to each shift (round 4.5, blocker 3). */
-      moved = db.prepare(`UPDATE bookings SET worker_id = ?, cover_state = '', status = 'requested', swap_count = swap_count + 1
+      moved = db.prepare(`UPDATE bookings SET worker_id = ?, cover_state = '', status = 'requested', accepted_at = NULL, office_ok = 0, swap_count = swap_count + 1
         WHERE id IN (${marks})`).run(w.id, ...ids).changes;
       db.prepare(`UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Series permanently reassigned with the participant''s recorded agreement.'
         WHERE status = 'open' AND booking_id IN (${marks})`).run(now(), ...ids);
@@ -12924,10 +13017,10 @@ route('POST', /^\/api\/admin\/series\/(\d+)\/approve$/, (req, res, m, user, body
     detail: `Series #${sr.id}: ${moved} upcoming shift(s) offered to ${w.name} as REQUESTED — they accept each one through their bookings. Participant-side agreement recorded from: ${who}. Detached one-offs untouched; one-off-covered occurrences kept their cover worker.`,
     source: 'series review', checked_by: user.name });
   const pt = db.prepare('SELECT name, email FROM users WHERE id = ?').get(sr.participant_id);
-  if (pt) sendMail(pt.email, 'Your recurring booking has a new regular worker — BookIt', 'Your recurring booking has moved',
+  if (pt) sendMail(pt.email, 'Your recurring booking has a new regular worker — The Care Web', 'Your recurring booking has moved',
     `<p>Hi ${firstName(pt.name)},</p><p>As agreed, your recurring booking is moving to <b>${escHtml(w.name)}</b>. They'll confirm each upcoming shift from their side — you'll see each one tick over to confirmed on your bookings page, and we chase anything they don't answer. Nothing else about the arrangement has changed.</p>`,
     'See your bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
-  sendMail(w.email, 'A recurring series has been offered to you — BookIt', 'A regular arrangement, if you\'ll take it',
+  sendMail(w.email, 'A recurring series has been offered to you — The Care Web', 'A regular arrangement, if you\'ll take it',
     `<p>Hi ${firstName(w.name)},</p><p>With the participant's agreement, the office has moved a recurring arrangement to you — <b>${moved} upcoming shift${moved === 1 ? '' : 's'}</b>, now sitting as requests in your bookings. Accept each one you can take; tell the office straight away about any you can't.</p>`,
     'See your shifts', `${baseUrl(req)}/#/bookings`).catch(() => {});
   json(res, 200, { ok: true, moved, worker: w.name });
@@ -12979,8 +13072,8 @@ route('POST', /^\/api\/admin\/allied\/(\d+)\/delete$/, (req, res, m, user) => {
 
 route('POST', /^\/api\/admin\/standby$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
-  const date = clean(body.date, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: 'Pick a date.' });
+  const date = body.date;
+  if (!BOOKIT_TIME.validDate(date) || date < ymd()) return json(res, 400, { error: 'Pick a real date today or later.' });
   const ids = Array.isArray(body.worker_ids) ? body.worker_ids.map(Number).filter(Boolean) : [];
   if (!ids.length) return json(res, 400, { error: 'Pick at least one worker.' });
   const out = ids.map(id => offerStandby(id, date, req)).filter(Boolean);
@@ -13350,7 +13443,7 @@ function reviewWorkerTier(workerId, opts = {}) {
     touch({ tier_notice_at: nowIso, tier_pending: next });
     log(next, 'notice', `${hours} hours in the last 12 months — ${belowDays} days below the ${TIERS[tierIndex(cur)].label} band. ${noticeDays} days' notice given.`, nowIso);
     const w = db.prepare('SELECT name, email FROM users WHERE id = ?').get(workerId);
-    if (w) sendMail(w.email, `A change to your BookIt pay tier on ${fmtDate(ymd(new Date(Date.now() + noticeDays * 864e5)))}`,
+    if (w) sendMail(w.email, `A change to your The Care Web pay tier on ${fmtDate(ymd(new Date(Date.now() + noticeDays * 864e5)))}`,
       `<p>Hi ${escHtml(w.name.split(' ')[0])},</p>
        <p>Your hours over the last 12 months come to <b>${hours}</b>. That has been below the ${escHtml(TIERS[tierIndex(cur)].label)} band for ${belowDays} days, so from <b>${escHtml(fmtDate(ymd(new Date(Date.now() + noticeDays * 864e5))))}</b> your tier will move from ${escHtml(TIERS[tierIndex(cur)].label)} to ${escHtml(TIERS[tierIndex(next)].label)} — one step, not more.</p>
        <p><b>This is reversible before it happens.</b> Tiers go up the moment you cross back over the band, and crossing back cancels this change entirely. You need ${Math.max(0, tierBands()[cur] - hours).toFixed(1)} more hours in the rolling 12 months.</p>
@@ -13669,12 +13762,12 @@ route('POST', /^\/api\/links$/, (req, res, m, user, body, ip) => {
          JSON.stringify(scopes), user.id, now(), clean(body.note, 300));
   logAccess(user.id, user, 'invited', `${email} invited with ${scopes.map(x => SCOPE_LABELS[x] || x).join(', ')}`, `link:${info.lastInsertRowid}`);
   const url = `${baseUrl(req)}/#/invite?token=${token}`;
-  sendMail(email, `${user.name} has invited you to help manage their supports — BookIt`,
+  sendMail(email, `${user.name} has invited you to help manage their supports — The Care Web`,
     `An invitation from ${escHtml(user.name)}`,
-    `<p><b>${escHtml(user.name)}</b> has invited you to help manage their supports on BookIt${clean(body.org, 120) ? ` on behalf of <b>${escHtml(clean(body.org, 120))}</b>` : ''}.</p>
+    `<p><b>${escHtml(user.name)}</b> has invited you to help manage their supports on The Care Web${clean(body.org, 120) ? ` on behalf of <b>${escHtml(clean(body.org, 120))}</b>` : ''}.</p>
      <p>You would be able to: <b>${scopes.map(x => escHtml(SCOPE_LABELS[x] || x)).join('</b>, <b>')}</b>.</p>
      <p>You will not be able to change their password, their bank details, or anything you have not been given above. Everything you do is recorded against your name, and ${escHtml(firstName(user.name))} can take this access away at any moment without asking anyone.</p>
-     <p>If you do not already have a BookIt coordinator account, the link below will set one up.</p>`,
+     <p>If you do not already have a Care Web coordinator account, the link below will set one up.</p>`,
     'Accept the invitation', url).catch(() => {});
   json(res, 200, { ok: true, id: Number(info.lastInsertRowid), invite_url: url });
 });
@@ -13685,7 +13778,7 @@ route('GET', /^\/api\/invite\/([a-f0-9]{16,64})$/, (req, res, m) => {
   if (!l) return json(res, 404, { error: 'That invitation has been used, withdrawn, or never existed.' });
   const p = db.prepare('SELECT name FROM users WHERE id = ?').get(l.participant_id);
   json(res, 200, {
-    participant: p ? p.name : 'a BookIt member',
+    participant: p ? p.name : 'a Care Web member',
     email: l.invite_email, org: l.org, relationship: l.relationship,
     scopes: safeJson(l.scopes, []), scope_labels: SCOPE_LABELS, invited_at: l.invited_at
   });
@@ -13702,7 +13795,7 @@ route('POST', /^\/api\/invite\/([a-f0-9]{16,64})\/accept$/, (req, res, m, user, 
     .run(user.id, now(), l.id);
   logAccess(l.participant_id, user, 'accepted', `${user.name} accepted the invitation`, `link:${l.id}`);
   const p = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(l.participant_id);
-  if (p) notify(p.id, 'security', p.email, 'Access accepted — BookIt', `${escHtml(user.name)} now has access`,
+  if (p) notify(p.id, 'security', p.email, 'Access accepted — The Care Web', `${escHtml(user.name)} now has access`,
     `<p><b>${escHtml(user.name)}</b> has accepted your invitation and can now: <b>${safeJson(l.scopes, []).map(x => escHtml(SCOPE_LABELS[x] || x)).join('</b>, <b>')}</b>.</p>
      <p>You can change or remove this at any time from <b>People with access</b> in your account, and every action they take is listed there against their name.</p>`,
     'See who has access', `${baseUrl(req)}/#/access`).catch(() => {});
@@ -13743,9 +13836,9 @@ route('DELETE', /^\/api\/links\/(\d+)$/, (req, res, m, user) => {
     mine ? 'access removed by the participant' : `${user.name} stepped away from the account`, `link:${l.id}`);
   if (mine && l.coordinator_id) {
     const co = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(l.coordinator_id);
-    if (co) notify(co.id, 'security', co.email, 'Access ended — BookIt', 'Access has been removed',
-      `<p>${escHtml(user.name)} has removed your access to their BookIt account. Nothing you recorded has been deleted &mdash; you simply cannot see or change the account any more.</p>`,
-      'Open BookIt', `${baseUrl(req)}/#/clients`).catch(() => {});
+    if (co) notify(co.id, 'security', co.email, 'Access ended — The Care Web', 'Access has been removed',
+      `<p>${escHtml(user.name)} has removed your access to their The Care Web account. Nothing you recorded has been deleted &mdash; you simply cannot see or change the account any more.</p>`,
+      'Open The Care Web', `${baseUrl(req)}/#/clients`).catch(() => {});
   }
   json(res, 200, { ok: true });
 });
@@ -13821,13 +13914,13 @@ route('GET', /^\/api\/plan\/(\d+)\/ack$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const pid = Number(m[1]);
   if (user.role === 'worker') {
-    const worked = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE participant_id = ? AND worker_id = ? AND status IN ('accepted','completed')").get(pid, user.id);
+    const worked = {n:currentPlanAccess(user.id,pid)?1:0};
     if (!Number(worked.n || 0)) return json(res, 403, { error: 'Not your participant.' });
     return json(res, 200, { ack: planAck(pid, user.id) });
   }
   const pers = actFor(req, user, 'plan');
   if (!pers || pers.id !== pid) return json(res, 403, { error: 'Not yours.' });
-  const plan = currentPlan(pid);
+  const plan = confirmedPlan(pid);
   const team = db.prepare(`SELECT DISTINCT u.id, u.name, u.email FROM bookings b JOIN users u ON u.id = b.worker_id
     WHERE b.participant_id = ? AND b.status IN ('accepted','completed')`).all(pid);
   json(res, 200, {
@@ -13839,12 +13932,13 @@ route('GET', /^\/api\/plan\/(\d+)\/ack$/, (req, res, m, user) => {
 route('POST', /^\/api\/plan\/(\d+)\/ack$/, (req, res, m, user, body, ip) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   if (user.role !== 'worker') return json(res, 403, { error: 'Workers acknowledge the plan.' });
-  if (!body.read) return json(res, 400, { error: 'Please tick the box to say you have read it.' });
+  if (body.read !== true) return json(res, 400, { error: 'Please tick the box to say you have read it.' });
   const pid = Number(m[1]);
-  const worked = db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE participant_id = ? AND worker_id = ? AND status IN ('accepted','completed')").get(pid, user.id);
+  const worked = {n:currentPlanAccess(user.id,pid)?1:0};
   if (!Number(worked.n || 0)) return json(res, 403, { error: 'Not your participant.' });
-  const plan = currentPlan(pid);
+  const plan = confirmedPlan(pid);
   if (!plan) return json(res, 400, { error: 'There is no confirmed support plan for this person yet.' });
+  if(Number(body.plan_id)!==plan.id || Number(body.plan_version)!==plan.version) return json(res,409,{error:'The plan changed. Read the current version before confirming.',plan_id:plan.id,version:plan.version});
   db.prepare(`INSERT INTO plan_acks (plan_id, participant_id, version, worker_id, acked_at, ip)
     VALUES (?,?,?,?,?,?) ON CONFLICT(plan_id, worker_id) DO UPDATE SET acked_at = excluded.acked_at, ip = excluded.ip`)
     .run(plan.id, pid, plan.version, user.id, now(), String(ip || '').slice(0, 45));
@@ -13858,7 +13952,7 @@ route('GET', /^\/api\/plan\/(\d+)\/versions$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const pid = Number(m[1]);
   const allowed = user.admin || (user.role === 'worker'
-    ? Number((db.prepare("SELECT COUNT(*) AS n FROM bookings WHERE participant_id = ? AND worker_id = ? AND status IN ('accepted','completed')").get(pid, user.id) || {}).n || 0) > 0
+    ? currentPlanAccess(user.id,pid)
     : (() => { const p = actFor(req, user, 'plan'); return p && p.id === pid; })());
   if (!allowed) return json(res, 403, { error: 'Not yours.' });
   const rows = db.prepare("SELECT * FROM support_plans WHERE participant_id = ? AND status = 'confirmed' ORDER BY version DESC").all(pid);
@@ -13932,11 +14026,11 @@ function jobSweep() {
     db.prepare("UPDATE jobs SET status = 'closed', closed_at = ?, closed_reason = 'expired' WHERE id = ?").run(now(), j.id);
     const p = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(j.participant_id);
     const apps = db.prepare("SELECT COUNT(*) AS n FROM job_applications WHERE job_id = ? AND status = 'applied'").get(j.id);
-    if (p) notify(p.id, 'jobs', p.email, 'Your job post has closed — BookIt', `&ldquo;${escHtml(j.title)}&rdquo; has closed`,
+    if (p) notify(p.id, 'jobs', p.email, 'Your job post has closed — The Care Web', `&ldquo;${escHtml(j.title)}&rdquo; has closed`,
       `<p>The closing date you set has passed, so this post is no longer showing to workers.</p>
        ${Number(apps.n || 0) ? `<p>You have <b>${apps.n} application${apps.n === 1 ? '' : 's'}</b> still waiting for an answer &mdash; they do not disappear, and you can still read and reply to them.</p>` : ''}
        <p>Reposting takes one tap if you still need someone.</p>`,
-      'Open my jobs', `${APP_URL || 'https://bookit.life'}/#/my-jobs`).catch(() => {});
+      'Open my jobs', `${APP_URL || 'https://thecareweb.com.au'}/#/my-jobs`).catch(() => {});
   }
   return stale.length;
 }
@@ -14084,7 +14178,7 @@ route('PATCH', /^\/api\/jobs\/(\d+)$/, (req, res, m, user, body) => {
     const waiting = db.prepare("SELECT a.*, u.id AS uid, u.name, u.email FROM job_applications a JOIN users u ON u.id = a.worker_id WHERE a.job_id = ? AND a.status = 'applied'").all(j.id);
     for (const a of waiting) {
       db.prepare("UPDATE job_applications SET status = 'closed', updated = ? WHERE id = ?").run(now(), a.id);
-      notify(a.uid, 'jobs', a.email, 'A job you applied for has closed — BookIt', `&ldquo;${escHtml(j.title)}&rdquo; has closed`,
+      notify(a.uid, 'jobs', a.email, 'A job you applied for has closed — The Care Web', `&ldquo;${escHtml(j.title)}&rdquo; has closed`,
         `<p>The post you applied for has been withdrawn, so it is no longer waiting on you. This is not a reflection on your application &mdash; posts close for all sorts of reasons.</p>
          <p>There are other jobs on the board, and your profile stays where it is.</p>`,
         'See open jobs', `${baseUrl(req)}/#/jobs`).catch(() => {});
@@ -14155,7 +14249,7 @@ route('POST', /^\/api\/jobs\/(\d+)\/apply$/, (req, res, m, user, body, ip) => {
   const info = db.prepare('INSERT INTO job_applications (job_id, worker_id, message, status, created) VALUES (?,?,?,\'applied\',?)')
     .run(j.id, user.id, msg, now());
   const p = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(j.participant_id);
-  if (p) notify(p.id, 'jobs', p.email, 'Someone applied for your job — BookIt',
+  if (p) notify(p.id, 'jobs', p.email, 'Someone applied for your job — The Care Web',
     `${escHtml(user.name)} applied`,
     `<p><b>${escHtml(user.name)}</b> has applied for <b>${escHtml(j.title)}</b>.</p><blockquote style="margin:0 0 12px;padding:10px 14px;border-left:3px solid #d7dce4;color:#444">${escHtml(msg).slice(0, 600)}</blockquote>
      <p>You can read their full profile, message them, or say no thank you &mdash; whichever you do, they get a clear answer rather than silence.</p>`,
@@ -14207,8 +14301,8 @@ route('PATCH', /^\/api\/applications\/(\d+)$/, (req, res, m, user, body) => {
       declined: [`About &ldquo;${escHtml(j.title)}&rdquo;`,
         `<p>Thank you for applying for <b>${escHtml(j.title)}</b>. On this occasion they have decided to go a different way.</p><p>This is not a mark against your profile and it is not visible to anyone else. Support matching is mostly about days, distance and fit &mdash; a no here says very little about the next one.</p>`]
     }[to];
-    notify(w.id, 'jobs', w.email, `${to === 'declined' ? 'An update on your application' : to === 'hired' ? 'You have the job' : 'You have been shortlisted'} — BookIt`,
-      copy[0], copy[1], 'Open BookIt', `${baseUrl(req)}/#/my-applications`).catch(() => {});
+    notify(w.id, 'jobs', w.email, `${to === 'declined' ? 'An update on your application' : to === 'hired' ? 'You have the job' : 'You have been shortlisted'} — The Care Web`,
+      copy[0], copy[1], 'Open The Care Web', `${baseUrl(req)}/#/my-applications`).catch(() => {});
   }
   json(res, 200, { ok: true, status: to });
 });
@@ -14422,7 +14516,7 @@ function earningsFor(workerId, from, to) {
     const plainRate = b.hours > 0 ? round2(share / b.hours) : 0;
     pay = round2(pay + share); kmPay = round2(kmPay + kmLine);
     hours = round2(hours + (b.hours || 0)); km = round2(km + (b.km || 0));
-    const cl = b.rate_category === 'intro' ? 'Meet-and-greet (paid by BookIt)' : (INVOICE_RATES[b.rate_category] || {}).label || b.rate_category || 'Other';
+    const cl = b.rate_category === 'intro' ? 'Meet-and-greet (paid by The Care Web)' : (INVOICE_RATES[b.rate_category] || {}).label || b.rate_category || 'Other';
     byCategory[cl] = round2((byCategory[cl] || 0) + share);
     if (b.approval_state === 'pending' || b.approval_state === 'queried') awaiting = round2(awaiting + share + kmLine);
     if (b.status === 'cancelled') { cancelledPay = round2(cancelledPay + share); cancelledShifts += 1; }
@@ -14490,7 +14584,7 @@ route('GET', /^\/api\/me\/earnings$/, (req, res, m, user) => {
     },
     km_rate: KM_RATE_PAY(), km_rule: KM_RULE,
     approval_days: APPROVAL_DEEM_DAYS,
-    note: 'Figures are what BookIt owes you for work already marked complete, before tax and including superannuation, on the tier you are on today. A shift that is still waiting on a timesheet is shown separately because it is not payable yet.'
+    note: 'Figures are what The Care Web owes you for work already marked complete, before tax and including superannuation, on the tier you are on today. A shift that is still waiting on a timesheet is shown separately because it is not payable yet.'
   });
 });
 
@@ -14535,10 +14629,10 @@ route('GET', /^\/api\/me\/earnings\.csv$/, (req, res, m, user) => {
 
 /* Google Authenticator, Authy, 1Password and iOS Passwords all read this
    URI. The issuer appears twice on purpose: once in the label so the entry
-   reads "BookIt: name@example.com" on older apps, once as a parameter so
+   reads "The Care Web: name@example.com" on older apps, once as a parameter so
    newer ones group it properly. */
 function otpauthUri(label, secret) {
-  return `otpauth://totp/BookIt:${encodeURIComponent(label)}?secret=${secret}&issuer=BookIt&algorithm=SHA1&digits=6&period=30`;
+  return `otpauth://totp/The Care Web:${encodeURIComponent(label)}?secret=${secret}&issuer=The Care Web&algorithm=SHA1&digits=6&period=30`;
 }
 /* Typing a secret by hand is the fallback, and a wall of thirty-two
    characters is where people mistype. Four-character groups is how every
@@ -14549,7 +14643,7 @@ const b32groups = sec => String(sec).replace(/(.{4})/g, '$1 ').trim();
    deliberate: MAIL_KINDS marks 'security' optional:false, so nobody can
    accidentally opt out of being told their second factor was turned off. */
 function securityMail(req, u, subject, html) {
-  return notify(u.id, 'security', u.email, `${subject} — BookIt`, `Hi ${firstName(u.name)},`,
+  return notify(u.id, 'security', u.email, `${subject} — The Care Web`, `Hi ${firstName(u.name)},`,
     html, 'Open your security settings', `${baseUrl(req)}/#/security`).catch(() => {});
 }
 
@@ -14564,7 +14658,7 @@ function newDeviceAlert(req, u, ip) {
     const seen = db.prepare("SELECT ua FROM sessions WHERE user_id = ? AND sid NOT LIKE 'legacy-cutoff-%'").all(u.id);
     if (seen.some(r => deviceName(r.ua) === name)) return;
     if (!seen.length) return;   /* first ever session: registration, not news */
-    securityMail(req, u, 'New sign-in to your BookIt account',
+    securityMail(req, u, 'New sign-in to your The Care Web account',
       `<p>Your account was just signed in to from <b>${escHtml(name)}</b>${ip ? ` (${escHtml(String(ip))})` : ''}.</p>
        <p>If that was you, nothing to do. If it wasn’t, change your password straight away — that signs out every device — and turn on two-step sign-in.</p>`);
   } catch {}
@@ -14633,7 +14727,7 @@ route('POST', /^\/api\/me\/mfa\/confirm$/, (req, res, m, user, body, ip) => {
     .run(now(), step, user.id);
   const codes = newRecoveryCodes(user.id);
   securityMail(req, user, 'Two-step sign-in is now on',
-    `<p>Two-step sign-in was switched on for your BookIt account from ${escHtml(deviceName(req.headers['user-agent']))}. From now on you will be asked for a six-digit code after your password.</p>
+    `<p>Two-step sign-in was switched on for your The Care Web account from ${escHtml(deviceName(req.headers['user-agent']))}. From now on you will be asked for a six-digit code after your password.</p>
      <p>Ten recovery codes were issued at the same time. Keep them somewhere that is not your phone — they are how you get back in if the phone is lost.</p>
      <p>If you did not do this, change your password immediately.</p>`);
   logCompliance({ kind: 'security', result: 'on', ref: `user-${user.id}`, source: deviceName(req.headers['user-agent']),
@@ -14654,7 +14748,7 @@ route('POST', /^\/api\/me\/mfa\/disable$/, (req, res, m, user, body, ip) => {
   db.prepare('UPDATE mfa SET enabled = 0, disabled_at = ? WHERE user_id = ?').run(now(), user.id);
   db.prepare('DELETE FROM mfa_recovery WHERE user_id = ?').run(user.id);
   securityMail(req, user, 'Two-step sign-in has been turned off',
-    `<p>Two-step sign-in was switched off for your BookIt account from ${escHtml(deviceName(req.headers['user-agent']))}. Your password is now the only thing protecting it, and your old recovery codes no longer work.</p>
+    `<p>Two-step sign-in was switched off for your The Care Web account from ${escHtml(deviceName(req.headers['user-agent']))}. Your password is now the only thing protecting it, and your old recovery codes no longer work.</p>
      <p>If you did not do this, change your password now and switch two-step back on.</p>`);
   logCompliance({ kind: 'security', result: 'off', ref: `user-${user.id}`, source: deviceName(req.headers['user-agent']),
     detail: 'Two-step sign-in switched off', checked_by: user.email,
@@ -14672,7 +14766,7 @@ route('POST', /^\/api\/me\/mfa\/recovery$/, (req, res, m, user, body, ip) => {
   if (!verifyPassword(String(body.password || ''), row.pass)) return json(res, 401, { error: 'That password doesn’t match.' });
   const codes = newRecoveryCodes(user.id);
   securityMail(req, user, 'New recovery codes were issued',
-    `<p>A fresh set of ten recovery codes was issued for your BookIt account. <b>Your previous codes stopped working the moment these were made.</b></p>
+    `<p>A fresh set of ten recovery codes was issued for your The Care Web account. <b>Your previous codes stopped working the moment these were made.</b></p>
      <p>If you did not do this, change your password now.</p>`);
   json(res, 200, { ok: true, codes, ...mfaStatus(user.id) });
 });
@@ -14730,7 +14824,7 @@ route('POST', /^\/api\/me\/sessions\/revoke$/, (req, res, m, user, body) => {
       .run(now(), user.id, user.sid || '');
     stampLegacyCutoff(user.id);
     securityMail(req, user, 'Signed out of all other devices',
-      `<p>Every other device signed in to your BookIt account has been signed out. Only ${escHtml(deviceName(req.headers['user-agent']))} is still signed in.</p>
+      `<p>Every other device signed in to your The Care Web account has been signed out. Only ${escHtml(deviceName(req.headers['user-agent']))} is still signed in.</p>
        <p>If you did not do this, change your password now.</p>`);
     return json(res, 200, { ok: true, all: true });
   }
@@ -15042,9 +15136,9 @@ const MODULE_SEED = [
     minutes: 12, renew_months: 24, required: 1, sort: 10, doc_type: 'ndis-orientation',
     services: [],
     body: [
-      'The NDIS Code of Conduct applies to you personally, not only to BookIt. It is enforceable by the NDIS Quality and Safeguards Commission against an individual worker, and a breach can end in a banning order that follows you to any other provider.',
+      'The NDIS Code of Conduct applies to you personally, not only to The Care Web. It is enforceable by the NDIS Quality and Safeguards Commission against an individual worker, and a breach can end in a banning order that follows you to any other provider.',
       'There are seven obligations. Act with respect for individual rights to freedom of expression, self-determination and decision-making. Respect the privacy of people with disability. Provide supports in a safe and competent manner with care and skill. Act with integrity, honesty and transparency. Promptly take steps to raise and act on concerns about matters that may impact the quality and safety of supports. Take all reasonable steps to prevent and respond to all forms of violence against, and exploitation, neglect and abuse of, people with disability. Take all reasonable steps to prevent and respond to sexual misconduct.',
-      'Two of those are about what you do when something is wrong, not about what you do when everything is fine. Raising a concern is an obligation, and "I did not want to get anyone in trouble" is not a defence. In BookIt, the way you raise one is the incident form, or a direct message to the office if you would rather it not sit in a shift note.',
+      'Two of those are about what you do when something is wrong, not about what you do when everything is fine. Raising a concern is an obligation, and "I did not want to get anyone in trouble" is not a defence. In The Care Web, the way you raise one is the incident form, or a direct message to the office if you would rather it not sit in a shift note.',
       'Self-determination is the one most often lost by accident. Doing a task faster than the person could do it themselves is not always help. If a support plan says the person makes their own lunch with prompting, making it for them because you are running late is a departure from the plan, not a favour.',
       'Respecting privacy includes what you say outside the shift. A participant’s name, address, diagnosis, funding, or the fact they receive supports at all, is theirs. That includes social media, group chats, and telling a story to a friend with the name left out but the suburb left in.'
     ].join('\n\n'),
@@ -15076,7 +15170,7 @@ const MODULE_SEED = [
     body: [
       'A reportable incident is a defined category, not a judgement call about seriousness. The five that must reach the NDIS Commission within 24 hours are: the death of a participant, serious injury of a participant, abuse or neglect of a participant, unlawful sexual or physical contact with or assault of a participant, and sexual misconduct committed against, with or in the presence of a participant.',
       'The sixth category, the unauthorised use of a restrictive practice, is reportable within five business days, unless it also caused harm, in which case it is back inside the 24-hour clock.',
-      'The 24 hours runs from when the provider becomes aware, not from when the incident happened, and not from when the paperwork was finished. This is why the BookIt incident form asks you to submit it before you write the detail: an incomplete report inside the clock beats a complete one outside it, and the form lets you add to it afterwards.',
+      'The 24 hours runs from when the provider becomes aware, not from when the incident happened, and not from when the paperwork was finished. This is why The Care Web incident form asks you to submit it before you write the detail: an incomplete report inside the clock beats a complete one outside it, and the form lets you add to it afterwards.',
       'Allegations count. "Abuse or neglect of a participant" includes an allegation of abuse or neglect, and includes allegations about another worker, a family member, another provider, or a stranger. It is not your job to decide whether it is true. It is your job to report it so that somebody whose job that is can decide.',
       'Neglect is the one people miss because it looks like nothing happening. A participant left without a meal, without a repositioning, without the medication prompt in their plan, or alone when the plan says they are not to be left alone, is a reportable incident even where nobody intended harm and nothing visible went wrong.'
     ].join('\n\n'),
@@ -15141,7 +15235,7 @@ const MODULE_SEED = [
     body: [
       'Hand hygiene is the single highest-value thing on this page. The five moments are: before touching a participant, before a procedure, after a body fluid exposure risk, after touching a participant, and after touching a participant’s surroundings. Alcohol rub is fine unless hands are visibly soiled or the concern is a spore-forming organism, in which case it is soap and water.',
       'Putting PPE on: gown, mask, eye protection, gloves. Taking it off: gloves, eye protection, gown, mask — gloves first because they are the dirtiest thing you own, mask last because you keep it on until you have left the contaminated area. Hand hygiene after removing gloves, every time. Gloves are not a substitute for washing.',
-      'If you are unwell, you do not attend. This is not a judgement call about how unwell. A worker with a respiratory illness attending a shift with a person who has a spinal cord injury, a tracheostomy or a chronic respiratory condition is a serious risk, and BookIt would rather cover the shift than have you push through. Report it as early as you can so the cover cascade has time to work.',
+      'If you are unwell, you do not attend. This is not a judgement call about how unwell. A worker with a respiratory illness attending a shift with a person who has a spinal cord injury, a tracheostomy or a chronic respiratory condition is a serious risk, and The Care Web would rather cover the shift than have you push through. Report it as early as you can so the cover cascade has time to work.',
       'If the participant is unwell, the shift usually still happens, with more precautions rather than fewer. Record what you observed in the shift note in plain terms — temperature if taken, what they ate and drank, what changed since yesterday — because a note that says "seemed unwell" tells the next person nothing.',
       'Sharps go in the sharps container, never in a bin, never recapped. Soiled linen goes straight to the wash and not on the floor. Spills of blood or body fluid are cleaned with gloves on, with the participant’s own cleaning products, and reported if there was any exposure to broken skin or mucous membranes.'
     ].join('\n\n'),
@@ -15184,7 +15278,7 @@ const MODULE_SEED = [
         why: 'A belt across the abdomen transfers crash load into soft tissue and organs.' },
       { q: 'Which of these is NOT recorded as participant transport?',
         a: ['Driving the participant to a medical appointment', 'Driving the participant to a community activity', 'Your drive from home to the first shift of the day', 'Driving the participant home from the shops'], correct: 2,
-        why: 'Commuting to and from work is not participant transport and is not claimable. BookIt states this in writing on the kilometre form for exactly this reason.' },
+        why: 'Commuting to and from work is not participant transport and is not claimable. The Care Web states this in writing on the kilometre form for exactly this reason.' },
       { q: 'Mid-trip the participant unclips their restraint and will not put it back on.',
         a: ['Keep driving slowly and talk to them', 'Pull over somewhere safe, stop, and call the office', 'Continue to the destination since it is close', 'Refuse to speak until they comply'], correct: 1,
         why: 'An unrestrained occupant is the whole risk. Stopping safely is always available and is never treated as a failure.' }
@@ -15199,9 +15293,9 @@ const MODULE_SEED = [
     body: [
       'Assume the participant will read every word you write about them, because under the Australian Privacy Principles they can ask to, and they will usually be given it. That is not a reason to write less. It is a reason to write in the terms you would use to their face.',
       'A shift note records what you observed and what you did. "Observed" means what a camera would have caught: what was eaten, what was said, what the skin looked like, how far they walked, what time they went to bed. "Refused", "difficult", "attention-seeking" and "non-compliant" are conclusions, not observations, and they are the words that turn up in complaints.',
-      'Write the note the same day. In BookIt a note cannot be edited once submitted — a correction is an addendum, dated and attributed, sitting under the original. That is deliberate: an evidence record that can be quietly rewritten is not evidence. If you got something wrong, adding the correction is the professional act, not a mark against you.',
+      'Write the note the same day. In The Care Web a note cannot be edited once submitted — a correction is an addendum, dated and attributed, sitting under the original. That is deliberate: an evidence record that can be quietly rewritten is not evidence. If you got something wrong, adding the correction is the professional act, not a mark against you.',
       'Do not record another participant’s information in this participant’s note. In shared living especially, "the other resident was shouting" belongs in an incident record, not in a note that the first participant can request a copy of.',
-      'Photographs of a participant, their home or their injuries are taken only with consent and only where a support plan or an incident process calls for it, and they belong in BookIt against the record, not in your phone’s camera roll. Delete the local copy the same day.'
+      'Photographs of a participant, their home or their injuries are taken only with consent and only where a support plan or an incident process calls for it, and they belong in The Care Web against the record, not in your phone’s camera roll. Delete the local copy the same day.'
     ].join('\n\n'),
     pass_mark: 80,
     quiz: [
@@ -15211,11 +15305,11 @@ const MODULE_SEED = [
       { q: 'You realise a note you submitted yesterday has the wrong time in it.',
         a: ['Edit the note', 'Ask an admin to edit it', 'Add a dated addendum correcting it', 'Leave it — it is a minor detail'], correct: 2,
         why: 'Notes are append-only by design. The addendum is the correction and the trail stays intact.' },
-      { q: 'Can a participant ask to read everything written about them in BookIt?',
+      { q: 'Can a participant ask to read everything written about them in The Care Web?',
         a: ['No, notes are internal', 'Only with a lawyer', 'Yes, and they generally must be given it', 'Only the notes they were present for'], correct: 2,
         why: 'Australian Privacy Principle 12 gives an individual a right of access to their personal information, with narrow exceptions.' },
       { q: 'You photograph a pressure area for the record.',
-        a: ['Keep it on your phone as backup', 'Upload it to BookIt and delete the phone copy that day', 'Send it to the family by text', 'Post it in the worker group chat for advice'], correct: 1,
+        a: ['Keep it on your phone as backup', 'Upload it to The Care Web and delete the phone copy that day', 'Send it to the family by text', 'Post it in the worker group chat for advice'], correct: 1,
         why: 'The record is the place for it. A copy on a personal phone is an uncontrolled copy of health information.' }
     ]
   },
@@ -15228,7 +15322,7 @@ const MODULE_SEED = [
     body: [
       'Every participant with high physical support needs should have an emergency plan that answers three questions: how do they get out, what has to come with them, and who else needs to be told. Read it before you need it. A hoist-dependent person and a locked-in-place power wheelchair change the answer to "just leave the building" completely.',
       'What has to come with them is usually a short list and it is worth knowing by heart: medication, the charger, the catheter or continence supplies for the next twelve hours, and any communication device. A person separated from their communication device in an evacuation centre is a person who cannot tell anyone what they need.',
-      'In a medical emergency, call 000 first and the office second. Nobody at BookIt will ever criticise a worker for calling an ambulance. The reverse — a worker who rang the office first and lost four minutes waiting for someone to make the decision for them — is the failure.',
+      'In a medical emergency, call 000 first and the office second. Nobody at The Care Web will ever criticise a worker for calling an ambulance. The reverse — a worker who rang the office first and lost four minutes waiting for someone to make the decision for them — is the failure.',
       'Autonomic dysreflexia is a medical emergency in people with a spinal cord injury at T6 or above. Signs are a sudden pounding headache, flushing and sweating above the level of injury, blotchy skin, a slow pulse, and a spike in blood pressure. Sit the person upright, loosen anything tight, look for the cause — most often a blocked catheter, a full bowel, or a pressure point — and call 000 if it does not resolve immediately. It can kill within the hour.',
       'Heat is the most underrated one in Australia and people with spinal cord injuries above T6 often cannot thermoregulate or sweat below the level of injury. On a day over 35 degrees, cooling, fluids and air conditioning are the support, and a shift plan built around an outdoor activity gets changed.',
       'In a power failure, the immediate questions are the hoist, the pressure-relieving mattress, the ventilator or cough assist if there is one, and the phone. Know where the participant’s backup is before the lights go out.'
@@ -15256,7 +15350,7 @@ const MODULE_SEED = [
     minutes: 18, renew_months: 12, required: 0, sort: 80, doc_type: 'other',
     services: ['personal-care'],
     body: [
-      'This module is the knowledge half of a high intensity competency and it is deliberately not the whole thing. The NDIS High Intensity Support Skills Descriptors require observed practice signed off by a qualified assessor for each support type, against the individual participant. Passing this quiz produces a dated knowledge certificate. It does not produce a competency sign-off, and BookIt records the two separately so that neither can be mistaken for the other.',
+      'This module is the knowledge half of a high intensity competency and it is deliberately not the whole thing. The NDIS High Intensity Support Skills Descriptors require observed practice signed off by a qualified assessor for each support type, against the individual participant. Passing this quiz produces a dated knowledge certificate. It does not produce a competency sign-off, and The Care Web records the two separately so that neither can be mistaken for the other.',
       'The unifying rule across every high intensity support is that it is delegated to you for a named participant, by a named clinician, in writing, after you have been observed doing it for that participant. A skill signed off for one person does not transfer to another person, because the equipment, the anatomy and the plan are different.',
       'Bowel care: follow the participant’s bowel care plan exactly, including the timing, since routine is most of what makes it work. Stop and escalate for bleeding, severe pain, no result after the plan’s specified interval, or any sign of autonomic dysreflexia in a person with a spinal injury above T6.',
       'PEG feeding: check placement and the external marker before every feed, sit the person upright at 30 to 45 degrees during and for at least 30 minutes after, flush before and after, and never force a blocked tube. Stop for vomiting, coughing, respiratory distress, or leakage around the stoma, and escalate.',
@@ -15277,7 +15371,7 @@ const MODULE_SEED = [
         why: 'Coughing or respiratory distress during a feed suggests aspiration. Stop first.' },
       { q: 'Does passing this module make you competent to deliver high intensity supports?',
         a: ['Yes', 'Yes, for the supports covered by the quiz', 'No — observed practice for the named participant is still required', 'Only if your Certificate III is current'], correct: 2,
-        why: 'This is the knowledge half. The observation record is a separate document and BookIt keeps them apart on purpose.' },
+        why: 'This is the knowledge half. The observation record is a separate document and The Care Web keeps them apart on purpose.' },
       { q: 'When moving a participant with a urinary catheter, the bag must stay:',
         a: ['Above bladder level to assist drainage', 'Below bladder level at all times', 'At bladder level', 'Wherever is convenient for the transfer'], correct: 1,
         why: 'Raising the bag above the bladder risks backflow and infection.' }
@@ -15339,8 +15433,8 @@ function seedDemoTraining() {
       const at = `${isoLocal(done)}T09:00:00.000Z`;
       const r = ins.run(mo.id, mo.key, w.id, at, isoLocal(exp));
       const ref = `DEMO-${mo.key.toUpperCase().replace(/[^A-Z0-9]/g, '')}-${r.lastInsertRowid}`;
-      const docId = insDoc.run(w.id, mo.doc_type || 'other', `${mo.title} (BookIt module)`, ref, isoLocal(exp),
-        at, at, 'BookIt (platform-issued)', 'issuer-confirmed', ref, 'Demo data — not evidence.').lastInsertRowid;
+      const docId = insDoc.run(w.id, mo.doc_type || 'other', `${mo.title} (The Care Web module)`, ref, isoLocal(exp),
+        at, at, 'The Care Web (platform-issued)', 'issuer-confirmed', ref, 'Demo data — not evidence.').lastInsertRowid;
       db.prepare('UPDATE module_completions SET doc_id = ? WHERE id = ?').run(Number(docId), Number(r.lastInsertRowid));
       seeded++;
     }
@@ -15363,14 +15457,14 @@ function quizForWorker(mod) {
    in the credential list, the audit pack, the CSV and the expiry sweep like
    every other document - one filing cabinet.
 
-   verified_by says "BookIt (platform-issued)" and the method says so too,
+   verified_by says "The Care Web (platform-issued)" and the method says so too,
    rather than a person's name. That is the point: nobody sighted this, because
-   there was no external document to sight. BookIt issued it and BookIt can
+   there was no external document to sight. The Care Web issued it and The Care Web can
    prove the attempt behind it. Writing a staff member's name here would be a
    small lie that an auditor is specifically trained to find. */
 function issueModuleCertificate(worker, mod, completion) {
   const type = mod.doc_type || 'other';
-  const label = `${mod.title} (BookIt module)`;
+  const label = `${mod.title} (The Care Web module)`;
   const expiry = completion.expires_at || '';
   const ref = `BK-${mod.key.toUpperCase().replace(/[^A-Z0-9]/g, '')}-${completion.id}`;
   const existing = db.prepare("SELECT * FROM worker_docs WHERE worker_id = ? AND doc_type = ? AND label = ?").get(worker.id, type, label);
@@ -15382,14 +15476,14 @@ function issueModuleCertificate(worker, mod, completion) {
        refresher is a list nobody reads. */
     db.prepare(`UPDATE worker_docs SET check_number = ?, expiry_date = ?, uploaded_at = ?, verified_at = ?,
       verified_by = ?, verify_method = ?, verify_ref = ?, verify_note = ?, warned_stage = '', review_state = 'approved' WHERE id = ?`)
-      .run(ref, expiry, now(), now(), 'BookIt (platform-issued)', 'issuer-confirmed', ref,
+      .run(ref, expiry, now(), now(), 'The Care Web (platform-issued)', 'issuer-confirmed', ref,
         `Scored ${completion.score}% against a pass mark of ${mod.pass_mark}% on attempt ${completion.attempts}.`, existing.id);
     docId = existing.id;
   } else {
     const r = db.prepare(`INSERT INTO worker_docs (worker_id, doc_type, label, check_number, expiry_date, file_name, file_mime, file_path,
       uploaded_at, verified_at, verified_by, verify_method, verify_ref, verify_note, review_state)
       VALUES (?,?,?,?,?,'','','',?,?,?,?,?,?,'approved')`)
-      .run(worker.id, type, label, ref, expiry, now(), now(), 'BookIt (platform-issued)', 'issuer-confirmed', ref,
+      .run(worker.id, type, label, ref, expiry, now(), now(), 'The Care Web (platform-issued)', 'issuer-confirmed', ref,
         `Scored ${completion.score}% against a pass mark of ${mod.pass_mark}% on attempt ${completion.attempts}.`);
     docId = Number(r.lastInsertRowid);
   }
@@ -15397,7 +15491,7 @@ function issueModuleCertificate(worker, mod, completion) {
   logCompliance({
     worker_id: worker.id, worker_name: worker.name, kind: 'training-completed', result: 'passed',
     detail: `${mod.title} — ${completion.score}% (pass mark ${mod.pass_mark}%), attempt ${completion.attempts}${expiry ? `, valid to ${expiry}` : ''}.`,
-    source: 'BookIt training module', ref, doc_id: docId, checked_by: 'BookIt (platform-issued)'
+    source: 'The Care Web training module', ref, doc_id: docId, checked_by: 'The Care Web (platform-issued)'
   });
   return docId;
 }
@@ -15541,7 +15635,7 @@ route('GET', /^\/api\/admin\/training\.csv$/, (req, res, m, user) => {
    three emails, not twenty-eight. The stage is stored on the profile rather
    than in a set in memory, so a restart does not re-send them all. */
 function trainingSweep(req) {
-  const base = req ? baseUrl(req) : APP_URL || 'https://bookit.life';
+  const base = req ? baseUrl(req) : APP_URL || 'https://thecareweb.com.au';
   const out = [];
   const workers = db.prepare(`SELECT u.id, u.name, u.email, p.training_lock FROM users u
     JOIN worker_profiles p ON p.user_id = u.id WHERE u.role = 'worker'`).all();
@@ -15569,18 +15663,18 @@ function trainingSweep(req) {
         : `<p>Some of your training has come due for renewal.</p><ul>${list}</ul>
            <p>There’s no rush today — you have ${TRAIN_SOFT_DAYS} days before we chase it and ${TRAIN_HARD_DAYS} before it affects new bookings.</p>`;
     notify(w.id, 'compliance', w.email,
-      stage === 'hard' ? 'Training overdue — new shifts paused — BookIt' : stage === 'soft' ? 'Training overdue — BookIt' : 'Training due for renewal — BookIt',
+      stage === 'hard' ? 'Training overdue — new shifts paused — The Care Web' : stage === 'soft' ? 'Training overdue — The Care Web' : 'Training due for renewal — The Care Web',
       stage === 'hard' ? `${firstName(w.name)}, new shifts are paused` : `Hi ${firstName(w.name)}`,
       copy, 'Open my training', `${base}/#/training`).catch(() => {});
     if (MAIL_FROM && stage !== 'due') sendMail(MAIL_FROM,
-      `Training ${stage === 'hard' ? 'HARD LOCK' : 'overdue'}: ${w.name} — BookIt`,
+      `Training ${stage === 'hard' ? 'HARD LOCK' : 'overdue'}: ${w.name} — The Care Web`,
       `${w.name} — ${st.overdue_days} days overdue`,
       `<p><b>${escHtml(w.name)}</b> is ${st.overdue_days} days overdue on: ${escHtml(st.outstanding.join(', '))}.</p>
        <p>${stage === 'hard' ? 'They cannot accept new shifts. Existing bookings are unaffected.' : `Hard lock at ${TRAIN_HARD_DAYS} days.`}</p>`,
       'Open the training matrix', `${base}/#/admin`).catch(() => {});
     logCompliance({ worker_id: w.id, worker_name: w.name, kind: 'training-lock', result: stage,
       detail: `${st.overdue_days} days overdue: ${st.outstanding.join(', ') || 'none'}`,
-      source: 'Scheduled training sweep', checked_by: 'BookIt (automatic)' });
+      source: 'Scheduled training sweep', checked_by: 'The Care Web (automatic)' });
     out.push({ worker: w.name, stage, days: st.overdue_days });
   }
   return out;
@@ -15851,9 +15945,9 @@ function exportForPerson(u) {
       table, rows: trimmedText,
       withheld: 'the written content',
       why: unclassified
-        ? 'These records describe another person and BookIt has not yet classified this part of the system, so it is treated as clinical and held back. If this looks wrong, it probably is — please tell us.'
+        ? 'These records describe another person and The Care Web has not yet classified this part of the system, so it is treated as clinical and held back. If this looks wrong, it probably is — please tell us.'
         : 'These records describe another person’s supports. Under Australian Privacy Principle 12.3(b) we can’t hand over an account of somebody else’s health and daily care.',
-      what_you_can_do: 'Email hello@bookit.life and we will extract the parts you wrote, with the other person’s details removed.'
+      what_you_can_do: 'Email hello@thecareweb.com.au and we will extract the parts you wrote, with the other person’s details removed.'
     });
     if (trimmedActor) withheld.push({
       table, rows: trimmedActor,
@@ -15883,13 +15977,13 @@ function exportForPerson(u) {
 
   return {
     readme: [
-      `This is every piece of information BookIt holds about ${u.name}, produced on ${dmy(isoLocal(new Date()))}.`,
+      `This is every piece of information The Care Web holds about ${u.name}, produced on ${dmy(isoLocal(new Date()))}.`,
       'It is a machine-readable file rather than a tidy report, because a tidy report is a summary and a summary is a decision somebody else made about what mattered.',
       '"about" is your account record. "tables" is everything else, one entry per part of the system that mentions you.',
       'Your password is not in here. Neither is your two-factor key. Those are credentials, not information about you, and putting them in a file you might email would make you less safe rather than more informed.',
       '"withheld" lists anything held back and why, so you can see the shape of what is missing rather than having to wonder.',
-      'If something in here is wrong, you can ask us to correct it — that is Australian Privacy Principle 13, and the address is hello@bookit.life.',
-      'BookIt is operated by DMHC Pty Ltd, ABN 19 658 578 575, NDIS registration 4-LO5XNY0.'
+      'If something in here is wrong, you can ask us to correct it — that is Australian Privacy Principle 13, and the address is hello@thecareweb.com.au.',
+      'The Care Web is operated by DMHC Pty Ltd, ABN 19 658 578 575, NDIS registration 4-LO5XNY0.'
     ],
     generated_at: now(),
     about,
@@ -15928,7 +16022,7 @@ route('GET', /^\/api\/me\/export$/, (req, res, m, user) => {
   } else {
     logCompliance({ worker_id: user.id, worker_name: user.name, kind: 'data-export', result: 'provided',
       detail: `Worker downloaded a copy of their own record: ${data.counts.rows} rows across ${data.counts.tables} tables. ${data.withheld.length} section(s) restricted for third-party privacy.`,
-      source: 'Australian Privacy Principle 12', checked_by: 'BookIt (self-service)' });
+      source: 'Australian Privacy Principle 12', checked_by: 'The Care Web (self-service)' });
   }
   const body = Buffer.from(JSON.stringify(data, null, 2), 'utf8');
   res.writeHead(200, {
@@ -16012,7 +16106,7 @@ route('POST', /^\/api\/me\/resume$/, (req, res, m, user) => {
 
 /* ---------- change your password while signed in ----------
 
-   BookIt could reset a forgotten password by email and could not change a
+   The Care Web could reset a forgotten password by email and could not change a
    remembered one. That is backwards: the second is the safe, ordinary thing
    somebody does after lending their laptop to a colleague, and sending them
    round the "forgot password" loop to do it teaches people that the reset
@@ -16038,9 +16132,9 @@ route('POST', /^\/api\/me\/password$/, (req, res, m, user, body, ip) => {
      leaving their session alive makes the change decorative. */
   try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now(), user.id); } catch (e) { console.warn('[sessions] sign-out-everywhere after password change failed:', e.message); }
   stampLegacyCutoff(user.id);
-  securityMail(req, user, 'Your BookIt password was changed',
+  securityMail(req, user, 'Your The Care Web password was changed',
     `<p>Your password was changed just now from ${escHtml(deviceName(req.headers['user-agent']))}. Every other device has been signed out.</p>
-     <p><b>If this wasn't you</b>, use "Forgot password" on the log in screen straight away and then email hello@bookit.life.</p>`);
+     <p><b>If this wasn't you</b>, use "Forgot password" on the log in screen straight away and then email hello@thecareweb.com.au.</p>`);
   json(res, 200, { ok: true, note: 'Password changed. Every other device has been signed out.' },
     setSessionHeaders(user.id, req, ip));
 });
@@ -16068,7 +16162,7 @@ route('POST', /^\/api\/me\/password$/, (req, res, m, user, body, ip) => {
    up with timesheets that sit pending forever and the product looks broken —
    but nothing is emailed to a demo address. */
 function approvalSweep(req) {
-  const base = req ? baseUrl(req) : APP_URL || 'https://bookit.life';
+  const base = req ? baseUrl(req) : APP_URL || 'https://thecareweb.com.au';
   const real = e => e && !String(e).endsWith('@demo.bookit.life');
   const out = [];
   const rows = db.prepare(`SELECT b.*, p.name AS p_name, p.email AS p_email, p.id AS p_id,
@@ -16088,12 +16182,12 @@ function approvalSweep(req) {
         .run(now(), b.id);
       logAccess(b.participant_id, null, 'Timesheet approved automatically',
         `${label} on ${dmy(b.date)} — ${APPROVAL_DEEM_DAYS} days passed with no approval and no question, so it was approved under the published rule`, b.id);
-      if (real(b.w_email)) notify(b.w_id, 'timesheets', b.w_email, 'Timesheet approved — BookIt',
+      if (real(b.w_email)) notify(b.w_id, 'timesheets', b.w_email, 'Timesheet approved — The Care Web',
         `Approved, ${firstName(b.w_name)}`,
         `<p>Your <b>${escHtml(label)}</b> shift on <b>${prettyDate(b.date)}</b> has been approved automatically.</p>
          <p>${escHtml(b.p_name)} had ${APPROVAL_DEEM_DAYS} days to look at it and did not raise anything, so it goes into the next pay run rather than waiting.</p>`,
         'See my earnings', `${base}/#/earnings`).catch(() => {});
-      if (real(b.p_email)) notify(b.p_id, 'timesheets', b.p_email, 'Timesheet approved automatically — BookIt',
+      if (real(b.p_email)) notify(b.p_id, 'timesheets', b.p_email, 'Timesheet approved automatically — The Care Web',
         `About the shift on ${prettyDate(b.date)}`,
         `<p>The <b>${escHtml(label)}</b> shift with <b>${escHtml(b.w_name)}</b> on <b>${prettyDate(b.date)}</b> has been approved automatically, ${APPROVAL_DEEM_DAYS} days after it was completed.</p>
          <p>We are telling you because it happened without you doing anything, and you should never find that out from a statement.</p>
@@ -16117,7 +16211,7 @@ function approvalSweep(req) {
         if (real(c.email)) people.push({ id: c.id, name: c.name, email: c.email, who: 'coordinator' });
       }
       for (const p of people) {
-        notify(p.id, 'timesheets', p.email, 'A timesheet is waiting for you — BookIt',
+        notify(p.id, 'timesheets', p.email, 'A timesheet is waiting for you — The Care Web',
           `Hi ${firstName(p.name)}`,
           p.who === 'coordinator'
             ? `<p>This is about <b>${escHtml(b.p_name)}</b>'s account, which you hold bookings access on.</p>` + body
@@ -16160,7 +16254,7 @@ const hrsLeft = d => Math.round((new Date(d).getTime() - Date.now()) / 36e5);
 const dmyT = iso => dmy(String(iso || '').slice(0, 10));
 
 function complianceClockSweep(req) {
-  const base = req ? baseUrl(req) : APP_URL || 'https://bookit.life';
+  const base = req ? baseUrl(req) : APP_URL || 'https://thecareweb.com.au';
   const out = [];
   const say = (kind, detail, extra = {}) => {
     out.push({ kind, detail, ...extra });
@@ -16333,7 +16427,7 @@ route('POST', /^\/api\/me\/screening$/, (req, res, m, user, body) => {
   }, user.name);
   if (MAIL_FROM) sendMail(MAIL_FROM, 'A worker entered their screening number', 'One to confirm on the NWSD',
     `<p><b>${escHtml(user.name)}</b> has entered ${app ? `application number <b>${escHtml(app)}</b>` : ''}${app && num ? ' and ' : ''}${num ? `clearance number <b>${escHtml(num)}</b>` : ''}${st ? ` (${escHtml(st)})` : ''}.</p>
-     <p>Nothing has changed for them yet — a number typed into a form is not a clearance. Link them to BookIt in the NDIS Worker Screening Database and record what it says.</p>`,
+     <p>Nothing has changed for them yet — a number typed into a form is not a clearance. Link them to The Care Web in the NDIS Worker Screening Database and record what it says.</p>`,
     'Open the screening queue', `${baseUrl(req)}/#/admin/compliance`).catch(() => {});
   json(res, 200, { ok: true, queued: true });
 });
@@ -16369,7 +16463,7 @@ route('GET', /^\/api\/admin\/screening$/, (req, res, m, user) => {
       status: w.screening_status, confirmed_days_ago: days,
       pass: v.pass, fails: v.fails,
       /* Why this row is in front of you, in one sentence. */
-      needs: !w.nwsd_linked_at ? 'Not linked to BookIt in the NWSD — link them and the Commission tells us about every change from then on.'
+      needs: !w.nwsd_linked_at ? 'Not linked to The Care Web in the NWSD — link them and the Commission tells us about every change from then on.'
         : !w.screening_outcome ? 'Linked, but nothing recorded from the register yet.'
         : !v.pass ? 'Recorded and does not pass: ' + v.fails.join('; ')
         : days !== null && days >= CLOCK.screening_recheck_days() ? `Passing, but last confirmed ${days} days ago.`
@@ -16381,7 +16475,7 @@ route('GET', /^\/api\/admin\/screening$/, (req, res, m, user) => {
   json(res, 200, {
     portal: NWSD_PORTAL, recheck_days: CLOCK.screening_recheck_days(),
     outcomes: SCREEN_OUTCOMES, states: Object.keys(SCREEN_UNITS),
-    employer_id_hint: 'Your Employer ID in the NWSD is BookIt\'s NDIS registration number.',
+    employer_id_hint: 'Your Employer ID in the NWSD is The Care Web\'s NDIS registration number.',
     waiting: out.filter(x => x.needs).length, workers: out
   });
 });
@@ -17143,7 +17237,7 @@ route('GET', /^\/api\/admin\/self-test\.txt$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const t = selfTest();
   const mark = s => s === 'ok' ? '  OK  ' : s === 'warn' ? ' WARN ' : ' FAIL ';
-  const L = [`BookIt self-test — ${t.ran_at}`,
+  const L = [`The Care Web self-test — ${t.ran_at}`,
              `${t.counts.ok} ok · ${t.counts.warn} warnings · ${t.counts.fail} failures`, ''];
   let area = '';
   for (const c of t.checks) {
@@ -17228,7 +17322,7 @@ function applyIntroPay(id) {
   const pay = hours > 0 ? (workerPay(b.worker_id, 'weekday-day', hours) || { tier: 'bronze', share_pct: null, amount: round2(INVOICE_RATES['weekday-day'].worker * hours), floored: false }) : { tier: '', share_pct: null, amount: 0, floored: false };
   db.prepare(`UPDATE bookings SET rate_category = 'intro', unit_price = 0, worker_share = ?, total = 0, tier_at_shift = ?, share_pct = ?, award_floored = ?, claim_status = 'not claimable', support_item = '' WHERE id = ?`)
     .run(pay.amount, pay.tier, pay.share_pct, pay.floored ? 1 : 0, id);
-  return { category: 'intro', label: hours > 0 ? `Meet-and-greet — no charge, paid by BookIt (${hours} h)` : 'Meet-and-greet — no charge, not time worked', unit_price: 0, qty: 1, total: 0, worker_share: pay.amount, paid_hours: hours };
+  return { category: 'intro', label: hours > 0 ? `Meet-and-greet — no charge, paid by The Care Web (${hours} h)` : 'Meet-and-greet — no charge, not time worked', unit_price: 0, qty: 1, total: 0, worker_share: pay.amount, paid_hours: hours };
 }
 function sleepoverActiveCategory(b) {
   const dow = new Date(b.date + 'T00:00:00').getDay();
@@ -17265,34 +17359,41 @@ route('GET', /^\/api\/me\/open-shifts$/, (req, res, m, user) => {
   if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
   const open = db.prepare(`SELECT c.id AS cover_id, b.id AS booking_id, b.service, b.date, b.start, b.hours, b.sleepover, u.suburb
     FROM cover c JOIN bookings b ON b.id = c.booking_id JOIN users u ON u.id = b.participant_id
-    WHERE c.status = 'open' AND b.status IN ('requested','accepted') AND b.date >= ? ORDER BY b.date, b.start`).all(ymd());
-  const shifts = open.filter(r => r.booking_id && workerEligible(user.id, { id: r.booking_id, service: r.service, date: r.date, start: r.start, hours: r.hours }))
+    WHERE c.status = 'open' AND b.cover_state='finding' AND b.status IN ('requested','accepted') AND b.date >= ? ORDER BY b.date, b.start`).all(ymd());
+  const shifts = open.filter(r => r.booking_id && bookingStart(r)>new Date() && workerEligible(user.id, { id: r.booking_id, service: r.service, date: r.date, start: r.start, hours: r.hours }))
     .map(r => ({ cover_id: r.cover_id, service: r.service, label: SERVICE_LABELS[r.service] || r.service, date: r.date, start: r.start, hours: r.hours, sleepover: !!r.sleepover, suburb: r.suburb,
       pay: (() => { const cat = r.sleepover ? 'sleepover' : suggestCategory(r); const pay = workerPay(user.id, cat, r.hours); return pay ? pay.amount : 0; })() }));
   json(res, 200, { shifts });
 });
-route('POST', /^\/api\/cover\/(\d+)\/claim$/, (req, res, m, user, body, ip) => {
-  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
-  if (limited(ip, 'claim', 30)) return json(res, 429, { error: 'Too many attempts — try again shortly.' });
-  const cv = db.prepare("SELECT * FROM cover WHERE id = ? AND status = 'open'").get(Number(m[1]));
-  if (!cv) return json(res, 404, { error: 'That shift has already been covered.' });
-  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(cv.booking_id);
-  if (!b || !['requested', 'accepted'].includes(b.status)) return json(res, 404, { error: 'That shift is no longer open.' });
-  if (bookingStart(b) <= new Date()) return json(res, 409, { error: 'That shift has started; the office is arranging it directly.' });
-  if (!workerEligible(user.id, b)) return json(res, 409, { error: 'You are not eligible for this one — the service, the day, a credential, or a clash in your diary.' });
-  /* workerBookingGate is not asked here: its "cover is being arranged" refusal
-     is the very thing a claim resolves, and workerEligible has already asked
-     the platform, screening, service, day and diary questions */
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    db.prepare("UPDATE cover SET status = 'filled', filled_worker_id = ?, filled_at = ?, closed_at = ?, outcome_note = 'Claimed from the open-shift feed.' WHERE id = ?").run(user.id, now(), now(), cv.id);
-    db.prepare("UPDATE cover_offers SET response = 'withdrawn', responded_at = ? WHERE cover_id = ? AND response IS NULL").run(now(), cv.id);
-    db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', accepted_at = ?, swap_count = swap_count + 1 WHERE id = ?").run(user.id, now(), b.id);
-    db.exec('COMMIT');
-  } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
-  const w = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(user.id);
-  try { notifyCovered(req, db.prepare('SELECT * FROM bookings WHERE id = ?').get(b.id), w, null); } catch (e) { console.warn('[feed] notify failed:', e.message); }
-  json(res, 200, { ok: true, booking_id: b.id });
+function reviewableCover(wid,coverId,options={}) {
+  const cv=db.prepare("SELECT * FROM cover WHERE id=? AND status='open'").get(coverId);
+  const b=cv&&db.prepare('SELECT * FROM bookings WHERE id=?').get(cv.booking_id);
+  if(!b||b.cover_state!=='finding'||!['requested','accepted'].includes(b.status)||bookingStart(b)<=new Date())return {error:'This visit is no longer available.'};
+  const fit=assignmentCheck(wid,b,options);if(!fit.ok)return fit;
+  return {ok:true,cv,b,fit};
+}
+function reviewOffer(wid,cv,b) {
+  let o=db.prepare('SELECT * FROM cover_offers WHERE cover_id=? AND worker_id=? AND response IS NULL AND expires_at>? ORDER BY id DESC LIMIT 1').get(cv.id,wid,now());
+  if(!o){const expires=new Date(Math.min(Date.now()+15*60000,+bookingStart(b))).toISOString();const r=db.prepare('INSERT INTO cover_offers(cover_id,tier,worker_id,rank,sent_at,expires_at) VALUES(?,?,?,?,?,?)').run(cv.id,'pool',wid,99,now(),expires);o=db.prepare('SELECT * FROM cover_offers WHERE id=?').get(Number(r.lastInsertRowid));}
+  return o;
+}
+route('POST', /^\/api\/cover\/(\d+)\/review$/, (req,res,m,user,body,ip)=>{
+  if(!user||user.role!=='worker')return json(res,403,{error:'Workers only.'});
+  if(limited(ip,'cover-review',40))return json(res,429,{error:'Too many requests. Try again shortly.'});
+  const r=reviewableCover(user.id,Number(m[1]));if(!r.ok)return json(res,409,r);
+  const o=reviewOffer(user.id,r.cv,r.b),plan=confirmedPlan(r.b.participant_id);
+  logCompliance({worker_id:user.id,worker_name:user.name,kind:'plan-access',result:'cover-preview',detail:`Eligible worker explicitly opened the brief for cover #${r.cv.id}, booking #${r.b.id}.`,source:'worker',checked_by:user.name});
+  json(res,200,{ok:true,offer_id:o.id,participant_id:r.b.participant_id,brief:workerBrief(r.b.participant_id),plan_id:plan?.id||null,plan_version:plan?.version||null,ack:planAck(r.b.participant_id,user.id),expires_at:o.expires_at});
+});
+route('POST', /^\/api\/cover\/(\d+)\/claim$/, (req,res,m,user,body,ip)=>{
+  if(!user||user.role!=='worker')return json(res,403,{error:'Workers only.'});
+  if(limited(ip,'claim',30))return json(res,429,{error:'Too many attempts. Try again shortly.'});
+  const r=reviewableCover(user.id,Number(m[1]),{out_of_area_ok: body && body.out_of_area_ok === true});if(!r.ok)return r.confirm?outOfAreaReply(res,r):json(res,409,r);
+  noteOutOfArea(r.b && r.b.id, r.fit || r, 'worker');
+  const fit=assignmentCheck(user.id,r.b,{accept:true,proof:body,out_of_area_ok: body.out_of_area_ok === true});if(!fit.ok)return json(res,fit.confirm?409:400,fit);
+  if(fit.ack?.required&&!fit.ack.acked&&!currentPlanAccess(user.id,r.b.participant_id))return json(res,400,{error:'Open and read this visit’s plan before confirming.',plan_ack_required:true,plan_id:fit.ack.plan_id,version:fit.ack.version});
+  const o=reviewOffer(user.id,r.cv,r.b);
+  const result=coverAccept(o.id,req,user.id,body);json(res,result.error?409:200,result);
 });
 
 /* ---------- worker referrals ----------
@@ -17324,25 +17425,28 @@ function referrerFromCode(code) {
   return referralCode(Number(m[1])).toUpperCase() === (m[0]).toUpperCase() ? Number(m[1]) : null;
 }
 function reviewReferrals() {
-  const rows = db.prepare('SELECT * FROM referrals WHERE qualified_at IS NULL').all();
+  const rows = db.prepare('SELECT * FROM referrals').all();
   let q = 0;
   for (const r of rows) {
-    const h = db.prepare("SELECT COALESCE(SUM(hours),0) AS h FROM bookings WHERE worker_id = ? AND status = 'completed' AND COALESCE(kind,'shift') = 'shift'").get(r.referee_id).h;
-    if (h >= REFERRAL_QUALIFY_HOURS()) {
+    const h = referralHours(r.referee_id);
+    const held=!!r.qualified_at && h<REFERRAL_QUALIFY_HOURS();
+    db.prepare('UPDATE referrals SET review_required=?,review_note=? WHERE id=?').run(held?1:0,held?'Qualifying hours changed or included an excluded record. Review before payment.':'',r.id);
+    if (!r.qualified_at && h >= REFERRAL_QUALIFY_HOURS()) {
       db.prepare('UPDATE referrals SET qualified_at = ?, hours_at_qualify = ?, amount = ? WHERE id = ?').run(now(), h, REFERRAL_BONUS(), r.id);
       q++;
       const u = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(r.referrer_id);
-      if (u) notify(u.id, 'earnings', u.email, 'Your referral bonus is on its way — BookIt', `Good news, ${firstName(u.name)}`,
-        `<p>The worker you referred has completed ${REFERRAL_QUALIFY_HOURS()} hours with BookIt, so your <b>$${REFERRAL_BONUS().toFixed(2)}</b> referral bonus is now payable. It will be on your next pay run.</p>`);
+      if (u) notify(u.id, 'earnings', u.email, 'Your referral bonus is on its way — The Care Web', `Good news, ${firstName(u.name)}`,
+        `<p>The worker you referred has completed ${REFERRAL_QUALIFY_HOURS()} hours with The Care Web, so your <b>$${REFERRAL_BONUS().toFixed(2)}</b> referral bonus is now payable. It will be on your next pay run.</p>`);
     }
   }
   return q;
 }
 route('GET', /^\/api\/me\/referrals$/, (req, res, m, user) => {
   if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  reviewReferrals();
   const rows = db.prepare(`SELECT r.*, u.name AS referee_name FROM referrals r JOIN users u ON u.id = r.referee_id WHERE r.referrer_id = ? ORDER BY r.id DESC`).all(user.id)
-    .map(r => ({ id: r.id, who: shortName(r.referee_name), created: r.created, qualified_at: r.qualified_at, paid_at: r.paid_at, amount: r.amount,
-      hours: db.prepare("SELECT COALESCE(SUM(hours),0) AS h FROM bookings WHERE worker_id = ? AND status = 'completed' AND COALESCE(kind,'shift') = 'shift'").get(r.referee_id).h }));
+    .map(r => ({ id: r.id, who: shortName(r.referee_name), created: r.created, qualified_at: r.qualified_at, paid_at: r.paid_at, amount: r.amount, review_required:!!r.review_required, review_note:r.review_note,
+      hours: referralHours(r.referee_id) }));
   json(res, 200, { code: referralCode(user.id), link: `${baseUrl(req)}/#/get-started?type=worker&ref=${referralCode(user.id)}`, qualify_hours: REFERRAL_QUALIFY_HOURS(), bonus: REFERRAL_BONUS(), referrals: rows });
 });
 route('GET', /^\/api\/admin\/referrals$/, (req, res, m, user) => {
@@ -17355,7 +17459,8 @@ route('POST', /^\/api\/admin\/referrals\/(\d+)\/paid$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const r = db.prepare('SELECT * FROM referrals WHERE id = ?').get(Number(m[1]));
   if (!r) return json(res, 404, { error: 'Not found.' });
-  if (!r.qualified_at) return json(res, 400, { error: 'Not payable yet — the referred worker has not reached the qualifying hours.' });
+  if (!r.qualified_at || referralHours(r.referee_id)<REFERRAL_QUALIFY_HOURS()) return json(res, 400, { error: 'Not payable — qualifying ordinary hours do not currently reach the threshold. Review excluded or corrected records.' });
+  if(r.paid_at)return json(res,200,{ok:true,already_paid:true});
   db.prepare('UPDATE referrals SET paid_at = ?, paid_by = ? WHERE id = ?').run(now(), user.name, r.id);
   json(res, 200, { ok: true });
 });
@@ -17408,7 +17513,7 @@ route('GET', /^\/api\/admin\/kpis$/, (req, res, m, user) => {
     retention_90d: { value: pct(retained, cohort), cohort, retained, how: 'participants who joined 90–180 days ago and had a shift in the last 90 days' },
     worker_churn: { active: workersActive, visible: workersVisible, left: workersLeft, how: 'workers with completed shifts in the prior window and nothing since' },
     time_to_verify: { days: verify && verify.d != null ? round2(verify.d) : null, checked: verify ? verify.n : 0, how: 'credential uploaded → verified by the office, averaged' },
-    referrals_payable: n('SELECT COUNT(*) AS n FROM referrals WHERE qualified_at IS NOT NULL AND paid_at IS NULL'),
+    referrals_payable: n('SELECT COUNT(*) AS n FROM referrals WHERE qualified_at IS NOT NULL AND paid_at IS NULL AND COALESCE(review_required,0)=0'),
     meet_and_greets: (() => { const r = one(`SELECT COUNT(*) AS c, COALESCE(SUM(b.worker_share),0) AS w ${base} AND b.status = 'completed' AND b.kind = 'intro'`, since, until); const conv = one(`SELECT COUNT(DISTINCT i.participant_id) AS n FROM bookings i WHERE i.kind = 'intro' AND i.status = 'completed' AND i.date BETWEEN ? AND ? AND EXISTS (SELECT 1 FROM bookings s WHERE s.participant_id = i.participant_id AND COALESCE(s.kind,'shift') = 'shift' AND s.status IN ('accepted','completed') AND s.created > i.created)`, since, until); return { count: r.c, cost: round2(r.w || 0), led_to_a_booking: conv ? conv.n : 0, how: 'fifteen-minute hellos held, and how many were followed by a real booking' }; })()
   });
 });
@@ -17432,8 +17537,8 @@ route('POST', /^\/api\/admin\/participants\/create$/, (req, res, m, user, body, 
   logCompliance({ worker_id: null, worker_name: '', kind: 'concierge-onboarding', result: 'opened', detail: `Participant account #${uid} (${name}) opened by the office. Consent: ${consent}`, source: 'admin', checked_by: user.name });
   const row = db.prepare('SELECT id, pass FROM users WHERE id = ?').get(uid);
   const token = makeEmailToken('r', row.id, 7 * 24 * 3600e3, String(row.pass).slice(0, 16));
-  sendMail(email, 'Your BookIt account is ready — choose a password', `Hello ${escHtml(name.split(' ')[0])}`,
-    `<p>As we discussed on the phone, we have opened your BookIt account. Press the button to choose your password — the link works for seven days. Then you can find and book support workers, and see everything we hold about your supports.</p><p>If you did not ask for this, ignore this email and nothing will happen.</p>`,
+  sendMail(email, 'Your The Care Web account is ready — choose a password', `Hello ${escHtml(name.split(' ')[0])}`,
+    `<p>As we discussed on the phone, we have opened your The Care Web account. Press the button to choose your password — the link works for seven days. Then you can find and book support workers, and see everything we hold about your supports.</p><p>If you did not ask for this, ignore this email and nothing will happen.</p>`,
     'Choose my password', `${baseUrl(req)}/#/reset?token=${token}`).catch(e => console.warn('[concierge] mail failed:', e.message));
   json(res, 200, { ok: true, id: uid });
 });
@@ -17569,17 +17674,17 @@ function suburbIndex() {
 }
 function suburbPage(req, entry, all) {
   const base = baseUrl(req);
-  const title = `NDIS support workers in ${entry.name}${entry.state ? ', ' + entry.state : ''} — BookIt`;
-  const desc = `${entry.workers} verified, insured NDIS support worker${entry.workers === 1 ? '' : 's'} based in ${entry.name} on BookIt, offering ${[...entry.services].map(s => (SERVICE_LABELS[s] || s).toLowerCase()).join(', ')}. Operated by a registered NDIS provider; agency-managed, plan-managed and self-managed participants welcome.`;
+  const title = `NDIS support workers in ${entry.name}${entry.state ? ', ' + entry.state : ''} — The Care Web`;
+  const desc = `${entry.workers} verified, insured NDIS support worker${entry.workers === 1 ? '' : 's'} based in ${entry.name} on The Care Web, offering ${[...entry.services].map(s => (SERVICE_LABELS[s] || s).toLowerCase()).join(', ')}. Operated by a registered NDIS provider; agency-managed, plan-managed and self-managed participants welcome.`;
   const others = all.filter(x => x.slug !== entry.slug).slice(0, 12).map(x => `<li><a href="${base}/support-workers-in/${x.slug}">${escHtml(x.name)}</a> (${x.workers})</li>`).join('');
   return `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(title)}</title><meta name="description" content="${escHtml(desc)}"><link rel="canonical" href="${base}/support-workers-in/${entry.slug}"><link rel="stylesheet" href="/assets/fonts/fonts.css">
 <style>body{font-family:Inter,system-ui,sans-serif;margin:0;color:#1c2a30;background:#fbfaf7}main{max-width:720px;margin:0 auto;padding:40px 20px}h1{font-family:Sora,system-ui,sans-serif;font-size:2rem;line-height:1.15;margin:0 0 .6em}p,li{font-size:1.05rem;line-height:1.6}.cta{display:inline-block;background:#0e6b62;color:#fff;padding:.9em 1.4em;border-radius:12px;text-decoration:none;font-weight:600;margin:.6em 0}ul.sv li{display:inline-block;background:#e6f2f0;border-radius:999px;padding:.35em .9em;margin:.2em}nav a{color:#0e6b62}footer{color:#5a6b71;font-size:.9rem;margin-top:3em}</style></head>
-<body><main><nav><a href="${base}/">BookIt</a> › <a href="${base}/locations">Where we work</a> › ${escHtml(entry.name)}</nav>
+<body><main><nav><a href="${base}/">The Care Web</a> › <a href="${base}/locations">Where we work</a> › ${escHtml(entry.name)}</nav>
 <h1>NDIS support workers in ${escHtml(entry.name)}</h1>
-<p><b>${entry.workers}</b> verified, insured support worker${entry.workers === 1 ? ' is' : 's are'} based in ${escHtml(entry.name)} and available to book through BookIt. Every one has current NDIS Worker Screening, first aid and CPR, and has been interviewed by our team — nothing appears on a profile until someone has checked it.</p>
+<p><b>${entry.workers}</b> verified, insured support worker${entry.workers === 1 ? ' is' : 's are'} based in ${escHtml(entry.name)} and available to book through The Care Web. Every one has current NDIS Worker Screening, first aid and CPR, and has been interviewed by our team — nothing appears on a profile until someone has checked it.</p>
 <p>They offer:</p><ul class="sv">${[...entry.services].map(s => `<li>${escHtml(SERVICE_LABELS[s] || s)}</li>`).join('')}</ul>
 <p><a class="cta" href="${base}/#/find-workers?suburb=${encodeURIComponent(entry.name)}">See the workers in ${escHtml(entry.name)}</a></p>
-<p>BookIt is operated by Disability &amp; Mental Health Care Pty Ltd, a registered NDIS provider, so agency-managed participants can book here as well as plan-managed and self-managed. We bill at the NDIS price limits, never above them, and if your worker cannot make a shift we find cover or tell you early.</p>
+<p>The Care Web is operated by Disability &amp; Mental Health Care Pty Ltd, a registered NDIS provider, so agency-managed participants can book here as well as plan-managed and self-managed. We bill at the NDIS price limits, never above them, and if your worker cannot make a shift we find cover or tell you early.</p>
 <p>Nearby: <a href="${base}/#/find-workers">the whole directory</a>, or <a href="${base}/#/get-started">get started</a> — it takes about ten minutes.</p>
 ${others ? `<h2>Other suburbs</h2><ul>${others}</ul>` : ''}
 <footer>Disability &amp; Mental Health Care Pty Ltd · NDIS registered provider · <a href="${base}/#/contact">Contact</a></footer></main></body></html>`;
@@ -17803,7 +17908,7 @@ route('POST', /^\/api\/admin\/invoices\/([A-Z0-9-]+)\/withdraw$/, (req, res, m, 
     db.prepare("UPDATE bookings SET invoice_no = '', claim_status = '', claim_ref = NULL, claimed_at = NULL, pay_url = NULL, stripe_session = NULL, claim_hold = 1, hold_reason = ? WHERE invoice_no = ?").run(`withdrawn ${ymd()}: ${reason}`.slice(0, 200), m[1]);
     db.exec('COMMIT');
   } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
-  if (p.email) notify(rows[0].participant_id, 'invoice', p.email, `Invoice ${m[1]} has been withdrawn — BookIt`, 'An invoice was withdrawn',
+  if (p.email) notify(rows[0].participant_id, 'invoice', p.email, `Invoice ${m[1]} has been withdrawn — The Care Web`, 'An invoice was withdrawn',
     `<p>Invoice <b>${m[1]}</b> has been withdrawn by our office and should not be paid. If a corrected invoice is needed it will arrive separately. Reason given: ${escHtml(reason)}</p>`, 'Open my statement', `${APP_URL}/#/statements`);
   json(res, 200, { ok: true, lines: rows.length, held: true });
 });
@@ -17836,7 +17941,7 @@ route('GET', /^\/api\/admin\/erasures$/, (req, res, m, user) => {
    A blank PDF is a round trip: download, print, fill in by hand, photograph,
    upload, and somebody in the office reads handwriting. A screen is the same
    questions asked once, answered on the page, confirmed with a click, and
-   filed as a page BookIt wrote — the same mechanism as the Service Agreement:
+   filed as a page The Care Web wrote — the same mechanism as the Service Agreement:
    read it, agree, print or save as PDF, and the participant's file keeps the
    snapshot. Each form is a list of fields; the answers are kept in
    form_responses (so a draft can be picked up and an old answer read back)
@@ -17887,12 +17992,12 @@ function screenHtml(key, screen, pers, answers, confirmed, req) {
   }).join('');
   const body = `<table class="grid" style="width:100%;border-collapse:collapse;">${rows}</table>
     <div class="box note"><b>Declaration</b><p>${escHtml(screen.declaration)}</p>
-    ${confirmed ? `<p><b>Confirmed by ${escHtml(confirmed.by)} on ${escHtml(dmy(String(confirmed.at).slice(0, 10)))}</b>${confirmed.ip ? ` (from ${escHtml(confirmed.ip)})` : ''}, on BookIt, by pressing "Confirm and file".</p>` : '<p><i>Draft — not yet confirmed.</i></p>'}</div>`;
+    ${confirmed ? `<p><b>Confirmed by ${escHtml(confirmed.by)} on ${escHtml(dmy(String(confirmed.at).slice(0, 10)))}</b>${confirmed.ip ? ` (from ${escHtml(confirmed.ip)})` : ''}, on The Care Web, by pressing "Confirm and file".</p>` : '<p><i>Draft — not yet confirmed.</i></p>'}</div>`;
   return genPage({
     title: screen.title, lede: escHtml(screen.lede),
     meta: [['Participant', `${pers.name}${pers.ndis_number ? `, NDIS ${pers.ndis_number}` : ''}`], ['Edition', screen.edition], ['Filled in', confirmed ? `${confirmed.by}, ${dmy(String(confirmed.at).slice(0, 10))}` : 'draft']],
-    footer: `${screen.title}, ${screen.edition}. Filled in on BookIt.`
-  }, body, { base: baseUrl(req), barNote: 'Filled in on BookIt \u00b7 confirmed with a click \u00b7 nothing to print or sign' });
+    footer: `${screen.title}, ${screen.edition}. Filled in on The Care Web.`
+  }, body, { base: baseUrl(req), barNote: 'Filled in on The Care Web \u00b7 confirmed with a click \u00b7 nothing to print or sign' });
 }
 function screenTarget(req, res, user, key) {
   const screen = formScreen(key);
@@ -17944,8 +18049,8 @@ route('POST', /^\/api\/me\/forms\/([a-z0-9-]+)$/, (req, res, m, user, body, ip) 
       const r = db.prepare(`INSERT INTO participant_docs (participant_id, form_key, label, doc_date, note, uploaded_at, uploaded_by, file_name, file_mime, file_path,
           accepted_at, accepted_ip, accepted_version, verified_at, verified_by, verify_method, verify_note, review_state)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved')`)
-        .run(pers.id, m[1], '', ymd(), `Filled in on BookIt by ${who}.`, now(), who, `${cat.label.replace(/[^\w.\- ]/g, '').trim()} (filled ${dmy(ymd())}).html`, 'text/html; charset=utf-8', filePath,
-             now(), String(ip || ''), screen.edition, now(), user.admin ? user.name : 'BookIt', 'other', 'Confirmed on screen.');
+        .run(pers.id, m[1], '', ymd(), `Filled in on The Care Web by ${who}.`, now(), who, `${cat.label.replace(/[^\w.\- ]/g, '').trim()} (filled ${dmy(ymd())}).html`, 'text/html; charset=utf-8', filePath,
+             now(), String(ip || ''), screen.edition, now(), user.admin ? user.name : 'The Care Web', 'other', 'Confirmed on screen.');
       docId = Number(r.lastInsertRowid);
     }
     db.prepare('INSERT INTO form_responses (participant_id, form_key, answers, edition, saved_at, saved_by, confirmed_at, confirmed_by, doc_id) VALUES (?,?,?,?,?,?,?,?,?)')
@@ -18027,7 +18132,7 @@ route('GET', /^\/api\/admin\/kpis\.json$/, (req, res, m, user) => {
 
 /* ---------- the policies folder ----------
    The office's policies, procedures, registers, plans and templates live in
-   one Google Drive folder. BookIt keeps an index of it — every file's name,
+   one Google Drive folder. The Care Web keeps an index of it — every file's name,
    kind and link — seeded from docs/policies-folder.json (listed from the
    folder on 1 September 2026) and kept up to date from the Documents board.
    The forms register's company rows are matched to the files by name, so
@@ -18064,8 +18169,8 @@ function docTokens(t) {
 const docPlain = t => String(t || '').toLowerCase().replace(/\.(docx|pdf|xlsx)$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
 /* the file in the folder that best matches a register row, or null */
 /* the candidates a register row can be matched to: the files in the office's
-   folder, and the documents published as pages on BookIt (a page IS a held
-   document — the register written on BookIt for a gap in the folder counts
+   folder, and the documents published as pages on The Care Web (a page IS a held
+   document — the register written on The Care Web for a gap in the folder counts
    the same as a file would) */
 function officeDocCandidates() {
   const files = db.prepare('SELECT id, title, kind, url, modified FROM office_docs WHERE removed_at IS NULL').all();
@@ -18089,7 +18194,7 @@ function matchOfficeDoc(form, docs) {
     if (!(shared >= 2 || (shared >= 1 && shared === have.size) || (shared >= 1 && shared === want.size && have.size <= want.size + 1))) continue;
     let score = shared / want.size + shared / Math.max(1, have.size) * 0.25;
     if (/register/i.test(form.name) !== (d.kind === 'register') && docPlain(d.title) !== docPlain(form.name)) score *= 0.4;
-    if (d.slug) score *= 1.05; /* the page on BookIt, over the same-named file in a folder */
+    if (d.slug) score *= 1.05; /* the page on The Care Web, over the same-named file in a folder */
     if (score > bestScore) { best = d; bestScore = score; }
   }
   return bestScore >= 0.5 ? best : null;
@@ -18155,7 +18260,7 @@ route('GET', /^\/api\/admin\/policies\.csv$/, (req, res, m, user) => {
    office uploads the folder's documents once and each becomes a page on the
    site — the same wrapper and print button as the Service Agreement —
    readable by participants and workers without a Google login, listed at
-   /policies, and shipped in the audit pack. BookIt does the conversion
+   /policies, and shipped in the audit pack. The Care Web does the conversion
    itself: a .docx is a zip of XML, so the server opens the zip (a small
    reader, below) and walks word/document.xml for headings, paragraphs,
    lists and tables. A PDF is kept as the file and served to read. Every
@@ -18275,7 +18380,7 @@ function policyAllowed(user, pg) {
   return true;
 }
 /* v86.11.1 — a built-in page that is DMHC's paper template for something
-   BookIt now does on screen and files per person. The page stays published
+   The Care Web now does on screen and files per person. The page stays published
    as the reference copy (read it, print it), but it is not filled in here:
    the copy that counts is the one on the participant's file, so the page
    says so and points there instead of offering a second place to fill it. */
@@ -18293,7 +18398,7 @@ const POLICY_ON_SCREEN = {
   'advocate-or-support-person-request-form': { done: 'the Advocate, nominee or decision-maker form, filled in on screen', where: 'documents' },
   'privacy-consent-form': { done: 'the Privacy and information-sharing consent, accepted by click', where: 'documents' },
   'schedule-of-supports': { done: 'the Supports and prices schedule, printed from the file', where: 'documents' },
-  'participant-satisfaction-survey': { done: 'the Participant Satisfaction Survey, sent from the office and answered in BookIt', where: 'documents' },
+  'participant-satisfaction-survey': { done: 'the Participant Satisfaction Survey, sent from the office and answered in The Care Web', where: 'documents' },
   'participant-file-notes': { done: 'shift notes, written by the worker after each shift and kept append-only', where: 'notes' },
   'support-record-timesheet': { done: 'the shift record, kept from every booking that went ahead', where: 'bookings' }
 };
@@ -18301,8 +18406,8 @@ function policyOnScreenHtml(pg, viewer, base) {
   const on = POLICY_ON_SCREEN[pg.slug]; if (!on) return '';
   const staff = !!(viewer && (viewer.admin || viewer.role === 'worker'));
   const link = !viewer ? `${base}/#/login` : staff ? `${base}/#/admin/compliance` : on.where === 'plan' ? `${base}/#/account/plan` : on.where === 'notes' ? `${base}/#/account/notes` : on.where === 'bookings' ? `${base}/#/bookings` : `${base}/#/account/documents`;
-  const label = !viewer ? 'Sign in to BookIt' : staff ? 'Open Compliance \u203a Participants' : on.where === 'plan' ? 'Open my support plan' : on.where === 'notes' ? 'Open my notes' : on.where === 'bookings' ? 'Open my bookings' : 'Open my documents';
-  return `<div class="on-screen no-print"><b>This is done on screen in BookIt.</b> The copy that counts is ${escHtml(on.done)}, kept on each participant\u2019s file. This page is DMHC\u2019s template, published to read or print. <a href="${escHtml(link)}">${label}</a></div>`;
+  const label = !viewer ? 'Sign in to The Care Web' : staff ? 'Open Compliance \u203a Participants' : on.where === 'plan' ? 'Open my support plan' : on.where === 'notes' ? 'Open my notes' : on.where === 'bookings' ? 'Open my bookings' : 'Open my documents';
+  return `<div class="on-screen no-print"><b>This is done on screen in The Care Web.</b> The copy that counts is ${escHtml(on.done)}, kept on each participant\u2019s file. This page is DMHC\u2019s template, published to read or print. <a href="${escHtml(link)}">${label}</a></div>`;
 }
 function policyPageHtml(req, pg, viewer) {
   const body = pg.body_html || `<p>This document is a PDF: <a href="/policies/${escHtml(pg.slug)}/file">open it</a>.</p>`;
@@ -18312,9 +18417,9 @@ function policyPageHtml(req, pg, viewer) {
   const fillable = policyFillable(pg) && !!pg.body_html && !POLICY_ON_SCREEN[pg.slug];
   const canSave = fillable && !!viewer && (pg.kind !== 'register' || !!(viewer.admin || viewer.role === 'worker'));
   const fill = fillable ? `<div id="policy-fill" data-slug="${escHtml(pg.slug)}" data-kind="${escHtml(pg.kind)}" data-can-save="${canSave ? 1 : 0}" data-who="${escHtml(viewer ? viewer.name : '')}"></div>` : '';
-  return genPage({ title: pg.title, lede: `${pg.kind === 'policy' ? 'A policy of' : pg.kind === 'procedure' ? 'A procedure of' : 'A document of'} Disability and Mental Health Care Pty Ltd, the registered NDIS provider that runs BookIt. ${pg.audience === 'staff' ? 'For workers and the office.' : 'Published for the people we support and the people who work with us.'}`,
+  return genPage({ title: pg.title, lede: `${pg.kind === 'policy' ? 'A policy of' : pg.kind === 'procedure' ? 'A procedure of' : 'A document of'} Disability and Mental Health Care Pty Ltd, the registered NDIS provider that runs The Care Web. ${pg.audience === 'staff' ? 'For workers and the office.' : 'Published for the people we support and the people who work with us.'}`,
     meta: [['Kind', pg.kind], ['Edition', pg.edition || `imported ${dmy(String(pg.imported_at).slice(0, 10))}`], ['Source', pg.source_name || 'the office\u2019s policies folder'], ['Audience', pg.audience === 'staff' ? 'staff only' : 'participants and staff']],
-    footer: `${pg.title}. Published on BookIt from the office\u2019s document set; the office keeps it current.` },
+    footer: `${pg.title}. Published on The Care Web from the office\u2019s document set; the office keeps it current.` },
     `${policyOnScreenHtml(pg, viewer, baseUrl(req))}${fill}<div class="policy-body">${body}</div>`, { base: baseUrl(req), barNote: fillable ? (pg.kind === 'register' ? 'A register \u00b7 add entries below, or print it \u00b7 back to the list at /policies' : 'A form \u00b7 fill it in on screen, save or print it \u00b7 back to the list at /policies') : 'A policy page \u00b7 print or save as PDF \u00b7 back to the list at /policies' })
     .replace('</body>', fillable ? '<script src="/assets/policy-fill.js" defer></script></body>' : '</body>')
     .replace('</head>', '<style>.on-screen{border:1px solid #2f5d50;border-radius:8px;background:#eef4f2;padding:10px 12px;margin:.6em 0 1em;font-size:.95em}.on-screen a{font-weight:700;margin-left:6px}.policy-body h2{margin-top:1.4em}.policy-body h3{margin-top:1.1em}.policy-body table.grid{width:100%;border-collapse:collapse;margin:1em 0;font-size:.95em}.policy-body table.grid th,.policy-body table.grid td{border:1px solid #d8d3cb;padding:6px 8px;vertical-align:top;text-align:left}.policy-body ul{padding-left:1.3em}</style></head>');
@@ -18327,7 +18432,7 @@ function policyRegisterHtml(req, user) {
   const body = `<p>Every policy, procedure, plan, register and information document Disability and Mental Health Care Pty Ltd works to, with its version, approval and review dates. The register is drawn from the documents themselves as published on this site, so a document and its register entry cannot disagree.</p>
     <table class="grid"><tr><th>Document</th><th>Kind</th><th>Version</th><th>Approved</th><th>Review due</th><th>Approval authority</th></tr>${rows}</table>
     <p>A document must undergo an earlier review if there is a modification in laws or regulations, an occurrence of an incident, a complaint, or any other substantial event or alteration that makes a prompt review necessary.</p>`;
-  return genPage({ title: 'Policy Register', lede: 'The register of the documents published on this site.', meta: [['Documents', String(pages.length)], ['Kept by', 'the office; generated from the published pages']], footer: 'Policy Register, generated on BookIt from the published documents.' }, body, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' });
+  return genPage({ title: 'Policy Register', lede: 'The register of the documents published on this site.', meta: [['Documents', String(pages.length)], ['Kept by', 'the office; generated from the published pages']], footer: 'Policy Register, generated on The Care Web from the published documents.' }, body, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' });
 }
 /* v86.11.0 — the Policies page, organised the way the established platforms
    organise theirs: by who a document is for, with the few documents anyone
@@ -18348,7 +18453,7 @@ function policiesIndexHtml(req, user) {
   const staff = !!(user && (user.admin || user.role === 'worker'));
   const kinds = ['policy', 'procedure', 'plan', 'register', 'form or template'];
   const kindLabel = { policy: 'Policies', procedure: 'Procedures', plan: 'Plans', register: 'Registers', 'form or template': 'Forms and templates' };
-  const item = pg => `<li><a href="/policies/${escHtml(pg.slug)}">${escHtml(pg.title)}</a>${POLICY_ON_SCREEN[pg.slug] ? ' <small>(done in BookIt; this is the template)</small>' : pg.kind === 'register' && staff ? ' <small>(add entries)</small>' : pg.kind === 'form or template' ? ' <small>(fill in on screen)</small>' : ''}</li>`;
+  const item = pg => `<li><a href="/policies/${escHtml(pg.slug)}">${escHtml(pg.title)}</a>${POLICY_ON_SCREEN[pg.slug] ? ' <small>(done in The Care Web; this is the template)</small>' : pg.kind === 'register' && staff ? ' <small>(add entries)</small>' : pg.kind === 'form or template' ? ' <small>(fill in on screen)</small>' : ''}</li>`;
   const tabs = [
     { key: 'public', label: 'For everyone', aud: 'public', lede: 'The documents anyone can read before they sign anything: how we handle your information, how you complain, what happens when something goes wrong.',
       top: `<ul class="pol-start"><li><a href="/service-agreement">The Service Agreement</a> — the terms between DMHC and you, the same for everyone, accepted by click on your documents page.</li><li><a href="/pricing">Prices and cancellations</a> — every rate, and the short-notice cancellation rule.</li><li><a href="/safety">Safety and verification</a> — what every worker is checked for before their first shift.</li><li><a href="/specialist-supports">What we do and do not provide</a> — DMHC does not deliver high-intensity daily personal activities; an enquiry that needs them is referred on.</li></ul>` },
@@ -18375,7 +18480,7 @@ function filter(v){var n=v.trim().toLowerCase();panes.forEach(function(p){if(p.h
 tabs.forEach(function(b){b.addEventListener('click',function(){show(b.getAttribute('data-tab'));});});if(q)q.addEventListener('input',function(){filter(q.value);});
 var h=(location.hash||'').replace('#','');if(h&&document.querySelector('.pol-tab[data-tab="'+h+'"]'))show(h);})();</script>`;
   return genPage({ title: 'Policies and procedures', lede: 'The documents Disability and Mental Health Care Pty Ltd works to, published as pages: read any of them here, fill in a form on screen, or print or save one as a PDF from its own page.',
-    meta: [['Published', `${pages.length} document${pages.length === 1 ? '' : 's'}`], ['Kept by', 'the office, from its document set']], footer: 'Policies and procedures, published on BookIt.' }, nav + panes + register, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' })
+    meta: [['Published', `${pages.length} document${pages.length === 1 ? '' : 's'}`], ['Kept by', 'the office, from its document set']], footer: 'Policies and procedures, published on The Care Web.' }, nav + panes + register, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' })
     .replace('</head>', '<style>.pol-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:.4em 0 .8em;border-bottom:2px solid #d8d3cb}.pol-tab{font:inherit;font-weight:700;font-size:.95em;background:none;border:0;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;color:#555;margin-bottom:-2px}.pol-tab.on{color:#2f5d50;border-bottom-color:#2f5d50}.pol-tab small{font-weight:400;color:#777}.pol-search input{font:inherit;padding:8px 12px;border:1px solid #b9b3aa;border-radius:8px;width:min(420px,100%);margin:0 0 .8em}.pol-lede{color:#444;margin:.2em 0 1em}.pol-pane h3{margin:1.2em 0 .4em}.pol-pane ul{padding-left:1.3em;margin:0}.pol-pane li{margin:0 0 .35em}.pol-pane small{color:#777}.pol-start li{margin:0 0 .6em}.pol-foot{margin-top:1.6em;border-top:1px solid #d8d3cb;padding-top:1em}@media print{.pol-pane[hidden]{display:block}.no-print{display:none}}</style></head>')
     .replace('</body>', script + '</body>');
 }
@@ -18394,8 +18499,8 @@ route('POST', /^\/api\/admin\/policy-pages$/, (req, res, m, user, body) => {
   const isDocx = buf.subarray(0, 2).toString() === 'PK' && /\.docx$/i.test(name);
   const isPdf = buf.subarray(0, 5).toString() === '%PDF-';
   if (!isDocx && !isPdf) return json(res, 400, { error: `${name || 'That file'} is not a Word (.docx) or PDF file. Spreadsheets stay in the folder.` });
-  const slug = policySlug(name) || ('doc-' + Date.now());
   const title = clean(body.title, 160) || name.replace(/\.(docx|pdf)$/i, '').replace(/^DMHC\s*/i, '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_+$/, '').trim();
+  const slug = policySlug(body.title ? title : name) || ('doc-' + Date.now());
   const kind = ['policy', 'procedure', 'plan', 'register', 'form or template'].includes(body.kind) ? body.kind : policyKind(title);
   let html = '', words = 0, filePath = '', fileMime = '';
   if (isDocx) {
@@ -18570,17 +18675,27 @@ function policyTextToHtml(text) {
   try { index = JSON.parse(fs.readFileSync(path.join(__dirname, 'content', 'policies', 'index.json'), 'utf8')); } catch (e) { console.warn('[policies] no built-in documents:', e.message); return; }
   let published = 0, kept = 0;
   for (const d of index.documents || []) {
-    let text;
-    try { text = fs.readFileSync(path.join(__dirname, 'content', 'policies', d.file), 'utf8'); } catch (e) { console.warn(`[policies] ${d.file}: ${e.message}`); continue; }
-    const { html, words, edition } = policyTextToHtml(text);
+    const filePath = path.join(__dirname, 'content', 'policies', d.file);
+    /* v86.12.1 — a built-in document can be a PDF (a certificate an insurer
+       issued, say): it is published as a page whose file is served at
+       /policies/<slug>/file, exactly as an office-uploaded PDF is */
+    const isPdf = /\.pdf$/i.test(d.file);
+    let html = '', words = 0, edition = d.edition || '';
+    if (isPdf) {
+      if (!fs.existsSync(filePath)) { console.warn(`[policies] ${d.file}: missing`); continue; }
+    } else {
+      let text;
+      try { text = fs.readFileSync(filePath, 'utf8'); } catch (e) { console.warn(`[policies] ${d.file}: ${e.message}`); continue; }
+      ({ html, words, edition } = policyTextToHtml(text));
+    }
     const cur = db.prepare('SELECT imported_by, edition FROM policy_pages WHERE slug = ?').get(d.slug);
     /* the office's own upload of the same document wins over the release copy */
     if (cur && cur.imported_by !== 'release') { kept++; continue; }
     db.prepare(`INSERT INTO policy_pages (slug, title, kind, audience, body_html, file_path, file_mime, source_name, source_id, edition, imported_at, imported_by, words)
-      VALUES (?,?,?,?,?,'','',?,?,?,?,'release',?)
-      ON CONFLICT(slug) DO UPDATE SET title = excluded.title, kind = excluded.kind, body_html = excluded.body_html, source_name = excluded.source_name, source_id = excluded.source_id, edition = excluded.edition, words = excluded.words,
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,'release',?)
+      ON CONFLICT(slug) DO UPDATE SET title = excluded.title, kind = excluded.kind, body_html = excluded.body_html, file_path = excluded.file_path, file_mime = excluded.file_mime, source_name = excluded.source_name, source_id = excluded.source_id, edition = excluded.edition, words = excluded.words,
         audience = CASE WHEN policy_pages.imported_by = 'release' THEN policy_pages.audience ELSE excluded.audience END`)
-      .run(d.slug, d.title, d.kind || policyKind(d.title), d.audience || 'participants', html, d.source || '', d.source_id || '', edition || d.edition || '', now(), words);
+      .run(d.slug, d.title, d.kind || policyKind(d.title), d.audience || 'participants', html, isPdf ? filePath : '', isPdf ? 'application/pdf' : '', d.source || '', d.source_id || '', edition || d.edition || '', now(), words);
     published++;
   }
   console.log(`Policies: ${published} built-in document(s) published as pages${kept ? `, ${kept} kept as the office uploaded them` : ''}.`);
@@ -18597,35 +18712,35 @@ function policyTextToHtml(text) {
    own data-title attributes; descriptions are the pages' own first
    sentences. Change a page and change it here. */
 const PUBLIC_PAGES = {
-  '/': ['BookIt — Find NDIS support workers who fit your life', 'Find, book and manage your own team of verified NDIS support workers — for work, home, daily living and getting out into your community. Operated by Disability & Mental Health Care Pty Ltd, a registered NDIS provider.'],
-  '/services': ['Support services — BookIt', 'Six kinds of NDIS support, delivered by workers you choose: employment support, personal care, transport, daily tasks and shared living, household tasks and community participation.'],
-  '/services/employment': ['Employment support (0102) — BookIt', 'NDIS employment support: exploring what you want to do, landing the role, and building the skills and routines to thrive in it, with a support worker you choose.'],
-  '/services/personal-care': ['Personal care (0107) — BookIt', 'Personal care on your terms: choose workers you are comfortable with, brief them your way, and keep the same familiar faces — morning, evening or overnight.'],
-  '/services/transport': ['Travel & transport (0108) — BookIt', 'Appointments, work, uni, the shops, the game. Ride with a checked and insured NDIS support worker, or learn to make the trip independently.'],
-  '/services/daily-tasks': ['Daily tasks & shared living (0115/0138) — BookIt', 'Build the daily living skills that add up to real independence — on your own, with family or in a shared home, at your pace, with a worker you choose.'],
-  '/services/household': ['Household tasks (0120) — BookIt', 'Reliable NDIS-funded help with cleaning, laundry and meals from support workers who do it properly — and do it your way.'],
-  '/services/community': ['Community participation (0125) — BookIt', 'Sport, music, mates, faith, volunteering, a swim at the local pool — NDIS community participation support that helps you get out there and make it regular.'],
-  '/how-it-works': ['How it works — BookIt', 'The control of hiring your own NDIS support team, without the paperwork, risk or admin. The full journey, from signing up to your hundredth booking.'],
-  '/pricing': ['Pricing — BookIt', 'No joining fees, no subscriptions. BookIt bills at the NDIA\u2019s published maximum prices, never above them, with the worker\u2019s share shown beside every rate.'],
-  '/find-workers': ['Find support workers — BookIt', 'Browse verified, insured, interviewed NDIS support workers. Filter by support, day, language, gender, rating or shared interests — no account needed.'],
-  '/support-workers': ['Become a support worker — BookIt', 'Support work that supports you back: be employed rather than a gig contractor, choose your clients and hours, and be paid above award with super and insurance.'],
-  '/safety': ['Safety & quality — BookIt', 'How BookIt is built to the NDIS Practice Standards — from how workers are screened to how incidents and complaints are handled, day and night.'],
-  '/specialist-supports': ['Specialist supports — BookIt', 'Eight high-intensity supports need a provider registered for them specifically. What BookIt does not deliver, and how it is arranged with a provider that does.'],
-  '/verification': ['How we check every worker — BookIt', 'Nothing appears on a worker\u2019s profile until someone on our team has verified it: NDIS Worker Screening, banning-order registers, first aid, CPR and induction training.'],
-  '/about': ['About us — BookIt', 'BookIt was started by people who had lived both sides of the roster. Operated by Disability & Mental Health Care Pty Ltd, a registered NDIS provider.'],
-  '/faq': ['FAQ & help — BookIt', 'Straight answers about how BookIt works, for participants, families, plan managers and support workers.'],
-  '/contact': ['Contact us — BookIt', 'Talk to a human seven days a week, plus an urgent line for anything that happens during a shift. In an emergency, always call 000 first.'],
-  '/legal': ['Privacy & terms — BookIt', 'How BookIt handles your information and the terms it works to, in plain English, with the Service Agreement and privacy consent published in full.'],
-  '/get-started': ['Get started — BookIt', 'Create a free BookIt account as a participant or a support worker. It takes about ten minutes and costs nothing.'],
-  '/easy-read': ['Easy Read — BookIt', 'About BookIt in Easy Read: short sentences, big text and pictures explaining how to find and book a support worker.'],
-  '/calculator': ['What will a shift cost? — BookIt', 'Pick the support, the day and the time and see the exact NDIS price, the support item it is charged against, and what a cancellation would mean.'],
-  '/ladder': ['The BookIt ladder — BookIt', 'Four levels, earned with hours worked through BookIt over the last twelve months. For workers, the level sets the share of every hour that is theirs.'],
-  '/jobs': ['Open jobs — BookIt', 'Real posts from NDIS participants and their families looking for a support worker. Every application gets an answer.'],
-  '/for-plan-managers': ['For plan managers — BookIt', 'The exact support item on every line, statements that open in your software, and never a dollar above the published maximums.'],
-  '/for-families': ['For families & carers — BookIt', 'Who is coming to the house, whether they are properly checked, and what happened on the shift — how BookIt answers each, and how to help without taking over.'],
-  '/locations': ['Where BookIt works — BookIt', 'Available across Australia by design, with the deepest coverage where the worker pools are. Where you will find the most choice today.'],
-  '/refer-a-worker': ['Refer a support worker — BookIt', 'Know a good support worker? Give them your BookIt referral code. Once they have completed 50 hours you are paid a $150 bonus. A worker programme; participants are never offered anything for a referral.'],
-  '/services/overnight': ['Overnight support: sleepovers and active nights — BookIt', 'Inactive night care (a sleepover) is one flat NDIS price for the night with a worker asleep on the premises, up to two hours of help included. Active overnight support is by the hour. How each is booked, priced and paid.']
+  '/': ['The Care Web — Find NDIS support workers who fit your life', 'Find, book and manage your own team of verified NDIS support workers — for work, home, daily living and getting out into your community. Operated by Disability & Mental Health Care Pty Ltd, a registered NDIS provider.'],
+  '/services': ['Support services — The Care Web', 'Six kinds of NDIS support, delivered by workers you choose: employment support, personal care, transport, daily tasks and shared living, household tasks and community participation.'],
+  '/services/employment': ['Employment support (0102) — The Care Web', 'NDIS employment support: exploring what you want to do, landing the role, and building the skills and routines to thrive in it, with a support worker you choose.'],
+  '/services/personal-care': ['Personal care (0107) — The Care Web', 'Personal care on your terms: choose workers you are comfortable with, brief them your way, and keep the same familiar faces — morning, evening or overnight.'],
+  '/services/transport': ['Travel & transport (0108) — The Care Web', 'Appointments, work, uni, the shops, the game. Ride with a checked and insured NDIS support worker, or learn to make the trip independently.'],
+  '/services/daily-tasks': ['Daily tasks & shared living (0115/0138) — The Care Web', 'Build the daily living skills that add up to real independence — on your own, with family or in a shared home, at your pace, with a worker you choose.'],
+  '/services/household': ['Household tasks (0120) — The Care Web', 'Reliable NDIS-funded help with cleaning, laundry and meals from support workers who do it properly — and do it your way.'],
+  '/services/community': ['Community participation (0125) — The Care Web', 'Sport, music, mates, faith, volunteering, a swim at the local pool — NDIS community participation support that helps you get out there and make it regular.'],
+  '/how-it-works': ['How it works — The Care Web', 'The control of hiring your own NDIS support team, without the paperwork, risk or admin. The full journey, from signing up to your hundredth booking.'],
+  '/pricing': ['Pricing — The Care Web', 'No joining fees, no subscriptions. The Care Web bills at the NDIA\u2019s published maximum prices, never above them, with the worker\u2019s share shown beside every rate.'],
+  '/find-workers': ['Find support workers — The Care Web', 'Browse verified, insured, interviewed NDIS support workers. Filter by support, day, language, gender, rating or shared interests — no account needed.'],
+  '/support-workers': ['Become a support worker — The Care Web', 'Support work that supports you back: be employed rather than a gig contractor, choose your clients and hours, and be paid above award with super and insurance.'],
+  '/safety': ['Safety & quality — The Care Web', 'How The Care Web is built to the NDIS Practice Standards — from how workers are screened to how incidents and complaints are handled, day and night.'],
+  '/specialist-supports': ['Specialist supports — The Care Web', 'Eight high-intensity supports need a provider registered for them specifically. What The Care Web does not deliver, and how it is arranged with a provider that does.'],
+  '/verification': ['How we check every worker — The Care Web', 'Nothing appears on a worker\u2019s profile until someone on our team has verified it: NDIS Worker Screening, banning-order registers, first aid, CPR and induction training.'],
+  '/about': ['About us — The Care Web', 'The Care Web was started by people who had lived both sides of the roster. Operated by Disability & Mental Health Care Pty Ltd, a registered NDIS provider.'],
+  '/faq': ['FAQ & help — The Care Web', 'Straight answers about how The Care Web works, for participants, families, plan managers and support workers.'],
+  '/contact': ['Contact us — The Care Web', 'Talk to a human seven days a week, plus an urgent line for anything that happens during a shift. In an emergency, always call 000 first.'],
+  '/legal': ['Privacy & terms — The Care Web', 'How The Care Web handles your information and the terms it works to, in plain English, with the Service Agreement and privacy consent published in full.'],
+  '/get-started': ['Get started — The Care Web', 'Create a free The Care Web account as a participant or a support worker. It takes about ten minutes and costs nothing.'],
+  '/easy-read': ['Easy Read — The Care Web', 'About The Care Web in Easy Read: short sentences, big text and pictures explaining how to find and book a support worker.'],
+  '/calculator': ['What will a shift cost? — The Care Web', 'Pick the support, the day and the time and see the exact NDIS price, the support item it is charged against, and what a cancellation would mean.'],
+  '/ladder': ['The Care Web ladder — The Care Web', 'Four levels, earned with hours worked through The Care Web over the last twelve months. For workers, the level sets the share of every hour that is theirs.'],
+  '/jobs': ['Open jobs — The Care Web', 'Real posts from NDIS participants and their families looking for a support worker. Every application gets an answer.'],
+  '/for-plan-managers': ['For plan managers — The Care Web', 'The exact support item on every line, statements that open in your software, and never a dollar above the published maximums.'],
+  '/for-families': ['For families & carers — The Care Web', 'Who is coming to the house, whether they are properly checked, and what happened on the shift — how The Care Web answers each, and how to help without taking over.'],
+  '/locations': ['Where The Care Web works — The Care Web', 'Available across Australia by design, with the deepest coverage where the worker pools are. Where you will find the most choice today.'],
+  '/refer-a-worker': ['Refer a support worker — The Care Web', 'Know a good support worker? Give them your The Care Web referral code. Once they have completed 50 hours you are paid a $150 bonus. A worker programme; participants are never offered anything for a referral.'],
+  '/services/overnight': ['Overnight support: sleepovers and active nights — The Care Web', 'Inactive night care (a sleepover) is one flat NDIS price for the night with a worker asleep on the premises, up to two hours of help included. Active overnight support is by the hour. How each is booked, priced and paid.']
 };
 const CSP_HTML = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
@@ -18757,7 +18872,7 @@ function serveShell(req, res, pathname) {
           .replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${escHtml(desc)}">`)
           .replace('<meta property="og:type" content="website">', `<link rel="canonical" href="${escHtml(canonical)}">\n<meta property="og:url" content="${escHtml(canonical)}">\n<meta property="og:type" content="website">`);
         if (pathname === '/') {
-          const ld = { '@context': 'https://schema.org', '@type': 'Organization', name: 'BookIt', legalName: 'Disability & Mental Health Care Pty Ltd', url: `${base}/`, description: desc, areaServed: 'AU' };
+          const ld = { '@context': 'https://schema.org', '@type': 'Organization', name: 'The Care Web', legalName: 'Disability & Mental Health Care Pty Ltd', url: `${base}/`, description: desc, areaServed: 'AU' };
           html = html.replace('</head>', `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>\n</head>`);
         }
       } else {
@@ -18788,8 +18903,30 @@ function sitemapXml(req) {
 }
 
 /* ---------- server ---------- */
+
+/* Review release migrations. Additive only; old accepted records are not silently rewritten. */
+for(const sql of [
+  "ALTER TABLE worker_profiles ADD COLUMN service_areas TEXT DEFAULT '[]'",
+  "ALTER TABLE bookings ADD COLUMN out_of_area TEXT DEFAULT ''",
+  "ALTER TABLE worker_profiles ADD COLUMN availability_windows TEXT",
+  "ALTER TABLE worker_profiles ADD COLUMN leave_dates TEXT DEFAULT '[]'",
+  "ALTER TABLE worker_profiles ADD COLUMN travel_buffer_minutes INTEGER DEFAULT 0",
+  "ALTER TABLE plan_acks ADD COLUMN ack_source TEXT DEFAULT 'worker'",
+  "ALTER TABLE plan_acks ADD COLUMN recorded_by TEXT DEFAULT ''",
+  "ALTER TABLE referrals ADD COLUMN review_required INTEGER DEFAULT 0",
+  "ALTER TABLE referrals ADD COLUMN review_note TEXT DEFAULT ''",
+  "ALTER TABLE incidents ADD COLUMN action_owner TEXT DEFAULT ''"
+]) BOOKIT_MIGRATIONS.runLegacyAlter(db,sql);
+db.exec(`CREATE TABLE IF NOT EXISTS shift_note_drafts (
+ booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+ worker_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ payload TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1, updated TEXT NOT NULL,
+ PRIMARY KEY(booking_id,worker_id));
+ CREATE INDEX IF NOT EXISTS messages_conversation_cursor ON messages(convo_id,id);
+ CREATE INDEX IF NOT EXISTS cover_offers_worker_open ON cover_offers(worker_id,response,expires_at);`);
+
 const server = http.createServer((req, res) => {
-  // BookIt v85.3.0 request-boundary hardening. Keep this before route dispatch.
+  // The Care Web v85.3.0 request-boundary hardening. Keep this before route dispatch.
   for (const [header, value] of Object.entries(BOOKIT_HARDENING.securityHeaders(req))) {
     if (!res.hasHeader(header)) res.setHeader(header, value);
   }
@@ -18931,10 +19068,14 @@ const server = http.createServer((req, res) => {
   }
 
   /* emailed verification links land here, then bounce into the app */
-  /* one-tap cover + standby answers from an email — signed, no login needed */
+  /* Signed email links are read-only on GET. Confirmation POST is deliberate and protected. */
+  if (pathname === '/cover' && req.method === 'POST') {
+    let raw='';req.on('data',chunk=>{raw+=chunk;if(Buffer.byteLength(raw)>4096)req.destroy();});
+    req.on('end',()=>{try{handleCoverLink(req,res,url,Object.fromEntries(new URLSearchParams(raw)));}catch(e){console.error(e);if(!res.headersSent)json(res,500,{error:'Could not record your response.'});}});return;
+  }
   if (pathname === '/cover' && req.method === 'GET') {
     try { return handleCoverLink(req, res, url); }
-    catch (e) { console.error(e); res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(coverPage('Something went wrong', '<p>Please open BookIt and answer from your shifts page.</p>', 'Open BookIt', '/#/bookings', 'bad')); }
+    catch (e) { console.error(e); res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(coverPage('Something went wrong', '<p>Please open The Care Web and answer from your shifts page.</p>', 'Open The Care Web', '/#/bookings', 'bad')); }
   }
 
   if (pathname === '/verify-email' && req.method === 'GET') {
@@ -18955,8 +19096,8 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
     if (req.method === 'HEAD') return res.end();
     return res.end(pathname === '/privacy-consent'
-      ? privacyConsentHtml({ base: baseUrl(req), barNote: 'The consent everyone on BookIt gives · nothing to fill in or sign' })
-      : serviceAgreementHtml({ base: baseUrl(req), barNote: 'The agreement everyone on BookIt accepts · nothing to fill in or sign' }));
+      ? privacyConsentHtml({ base: baseUrl(req), barNote: 'The consent everyone on The Care Web gives · nothing to fill in or sign' })
+      : serviceAgreementHtml({ base: baseUrl(req), barNote: 'The agreement everyone on The Care Web accepts · nothing to fill in or sign' }));
   }
   if (pathname === '/templates' || pathname.startsWith('/templates/')) {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
@@ -18978,8 +19119,8 @@ const server = http.createServer((req, res) => {
       console.error(e);
       res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(coverPage('Something went wrong',
-        '<p>We could not build that form just now. Please try again, or email hello@bookit.life and we will send you a copy.</p>',
-        'Open BookIt', '/#/bookings', 'bad'));
+        '<p>We could not build that form just now. Please try again, or email hello@thecareweb.com.au and we will send you a copy.</p>',
+        'Open The Care Web', '/#/bookings', 'bad'));
     }
   }
 
@@ -19112,7 +19253,7 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, BOOKIT_BIND_HOST, () => {
-  console.log(`BookIt server running → http://localhost:${PORT}`);
+  console.log(`The Care Web server running → http://localhost:${PORT}`);
   console.log(`Database: ${DB_PATH} · auto-reply bot: ${AUTO_REPLY ? 'on' : 'off'}`);
   /* Review round 4: production configuration was load-bearing and silent.
      Now every security-relevant decision is printed at boot, and the unsafe

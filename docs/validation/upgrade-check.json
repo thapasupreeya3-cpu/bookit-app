@@ -1,0 +1,13 @@
+{
+  "base_version": "86.12.0",
+  "updated_version": "86.13.0",
+  "base_tables": 53,
+  "updated_tables": 54,
+  "updated_boots": 2,
+  "existing_setting_preserved": true,
+  "added_availability_columns": true,
+  "new_drafts_table": true,
+  "database_integrity": "ok",
+  "production_data_used": false,
+  "result": "PASS"
+}

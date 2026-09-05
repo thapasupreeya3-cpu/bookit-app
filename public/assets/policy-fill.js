@@ -1,11 +1,11 @@
-/* BookIt policy pages: the fill layer.
+/* The Care Web policy pages: the fill layer.
    A register page (kind 'register') keeps its entries on the server, shared
    by the office and every worker: any table on the page that has a header
    row and nothing else is an entry table, and this script adds "Add entry",
    edit and delete beneath it. A form or template page gets a "Fill in on
    screen" mode: every checklist item becomes a tick box with a space to
    write, the page gains a completed-by block, and the copy is saved to the
-   signed-in person's own file on BookIt (or printed, for anyone).
+   signed-in person's own file on The Care Web (or printed, for anyone).
    Nothing here runs on policies, procedures or plans. */
 (function () {
   'use strict';
@@ -89,7 +89,7 @@
     var state = { id: null, data: { tables: {} }, saved_at: '', saved_by: '' };
     var status = el('span', { class: 'status' });
     var top = el('div', { class: 'fill-bar no-print' }, [
-      el('span', { text: canSave ? 'Entries added here are saved on BookIt and shared with the office and every worker.' : 'Sign in as a worker or the office to add entries to this register.' }),
+      el('span', { text: canSave ? 'Entries added here are saved on The Care Web and shared with the office and every worker.' : 'Sign in as a worker or the office to add entries to this register.' }),
       status
     ]);
     body.insertBefore(top, body.firstChild);
@@ -120,7 +120,7 @@
             var act = tr.insertCell(); act.className = 'fill-row-actions no-print';
             act.appendChild(el('button', { type: 'button', text: 'Edit', onclick: function () { openPanel(r); } }));
             act.appendChild(el('button', { type: 'button', text: 'Delete', onclick: function () {
-              if (!confirm('Delete this entry from the register? Earlier versions of the register are kept on BookIt.')) return;
+              if (!confirm('Delete this entry from the register? Earlier versions of the register are kept on The Care Web.')) return;
               var list2 = rows().slice(); list2.splice(r, 1); state.data.tables[String(i)] = list2; save();
             } }));
           }
@@ -232,7 +232,7 @@
           showStatus();
         });
       } else {
-        status.textContent = 'Type into the page, then print it. Sign in to save a copy to your BookIt file.';
+        status.textContent = 'Type into the page, then print it. Sign in to save a copy to your The Care Web file.';
       }
     }
     function collect() {

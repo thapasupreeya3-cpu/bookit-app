@@ -29,7 +29,7 @@ Products and services
 
 Operations
 
-Technology and information management: the BookIt platform for bookings, records and registers; accounting software; cloud-based storage; social media.
+Technology and information management: The Care Web platform for bookings, records and registers; accounting software; cloud-based storage; social media.
 
 Communication channels: email, phone, the platform, social media.
 
@@ -77,7 +77,7 @@ Disability and Mental Health Care Pty Ltd provides services in all local governm
 Sales and distribution channels
 
 | Channel | Used for | Details |
-| Online presence | All services | Social media: platforms such as Facebook, Instagram and LinkedIn to share success stories and informative content and engage with the community. Online advertising: targeted online ads to increase visibility among potential participants and their families. The BookIt platform itself, with its public worker profiles, suburb pages and price list. |
+| Online presence | All services | Social media: platforms such as Facebook, Instagram and LinkedIn to share success stories and informative content and engage with the community. Online advertising: targeted online ads to increase visibility among potential participants and their families. The Care Web platform itself, with its public worker profiles, suburb pages and price list. |
 | Online directories | All services | Listing on local directories and NDIS provider directories and databases to increase online visibility among those seeking disability services. |
 | Referrals and partnerships | All services | Support coordinators: collaboration with NDIS-registered support coordinators who can refer participants, through the platform's coordinator referral form. Local organisations: partnerships with disability support organisations, community centres, and local government agencies to gain referrals and enhance visibility. |
 | Collaborative efforts | All services | Allied health professionals: collaboration to cross-refer participants who require specific services. Support groups: engagement with disability-specific support groups to connect with potential participants and share information about services. |
@@ -120,7 +120,7 @@ Goals and Actions
 | Apply to become a registered NDIS provider | August 2025 | Director |
 | Receive approval to become a registered NDIS provider | 2025 | Director |
 | Begin onboarding participants | 2025 | Director |
-| Open the BookIt platform to participants and workers | 2026 | Director |
+| Open The Care Web platform to participants and workers | 2026 | Director |
 | Seek registration for the digital platform service (0137) | 2026 | Director |
 
 Approval Authority: Supriya Thapa

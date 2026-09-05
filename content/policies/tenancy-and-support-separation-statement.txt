@@ -40,7 +40,7 @@ Key Management Personnel means Supriya Thapa and other key management personnel 
 
 Worker means a permanent, fixed term or casual member of staff, a contractor or volunteer employed or otherwise engaged by Disability and Mental Health Care Pty Ltd, and includes the Director.
 
-BookIt means the Disability and Mental Health Care Pty Ltd service-delivery platform (bookit.life) that holds our booking, credential, incident, complaint and roster records.
+The Care Web means the Disability and Mental Health Care Pty Ltd service-delivery platform (thecareweb.com.au) that holds our booking, credential, incident, complaint and roster records.
 
 Commitments
 

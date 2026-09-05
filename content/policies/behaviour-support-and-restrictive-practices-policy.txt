@@ -40,7 +40,7 @@ Key Management Personnel means Supriya Thapa and other key management personnel 
 
 Worker means a permanent, fixed term or casual member of staff, a contractor or volunteer employed or otherwise engaged by Disability and Mental Health Care Pty Ltd, and includes the Director.
 
-BookIt means the Disability and Mental Health Care Pty Ltd service-delivery platform (bookit.life) that holds our booking, credential, incident, complaint and roster records.
+The Care Web means the Disability and Mental Health Care Pty Ltd service-delivery platform (thecareweb.com.au) that holds our booking, credential, incident, complaint and roster records.
 
 Regulated restrictive practice means any practice or intervention that has the effect of restricting the rights or freedom of movement of a person with disability. The five regulated types are:
 
@@ -77,12 +77,12 @@ Unauthorised restrictive practice: absolute prohibition and reporting
 
 - No Worker may use a restrictive practice that is not both authorised and contained in a current BSP. Doing so is a reportable incident and may constitute assault.
 - In an emergency, Workers may take the minimum action necessary to prevent immediate serious harm (for example, guiding a person away from traffic). Any such action that meets the definition of a restrictive practice is treated as an unauthorised use.
-- Any use of an unauthorised restrictive practice (including emergency use) is reported immediately through the incident system, is flagged as reportable, and is notified to the NDIS Commission within five business days. The BookIt incident register applies this deadline clock automatically.
+- Any use of an unauthorised restrictive practice (including emergency use) is reported immediately through the incident system, is flagged as reportable, and is notified to the NDIS Commission within five business days. The Care Web incident register applies this deadline clock automatically.
 - Following any such incident, a debrief is held with the participant and Worker, the Participant Risk Assessment is reviewed, and a referral for behaviour support is made or expedited.
 
 Records
 
-The incident register (maintained in BookIt with quarterly exports filed in the Core Documents folder) is the register of any use of a restrictive practice. Behaviour support plans, authorisations and training records are held in the participant and worker files.
+The incident register (maintained in The Care Web with quarterly exports filed in the Core Documents folder) is the register of any use of a restrictive practice. Behaviour support plans, authorisations and training records are held in the participant and worker files.
 
 Policy review and updates
 

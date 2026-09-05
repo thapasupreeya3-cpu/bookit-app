@@ -1,0 +1,1385 @@
+ARCHIVE ONLY — superseded deployment notes from the v86.12.0 upload.
+Do not use the old prices, rules, version or file lists as current instructions.
+
+BOOKIT — START HERE
+===================
+Current release: v86.9.0
+Confirm what is actually live at any time with:  https://bookit.life/api/version
+
+
+WHAT CHANGED IN v86.9.0 — THE GROWTH RELEASE
+--------------------------------------------
+  Everything from the 30 August profitability and design review, plus
+  inactive night care done properly. One migration: ten nullable columns on
+  bookings and a new referrals table (SCHEMA_VERSION 86900). 262 routes,
+  48 tables. Full upload of the changed files, then sudo bookit-update.
+
+  INACTIVE NIGHT CARE (SLEEPOVERS), DONE PROPERLY
+    The NDIS Night-Time Sleepover item (01_010_0107 / 01_832_0115, 11.79
+    in 2026-27) is one flat price for an eight-hour night with the worker
+    asleep on the premises, and it INCLUDES up to two hours of active
+    support. That rule is now in the code: a sleepover is 8 hours (up to 10)
+    starting between 8pm and 1am; when the worker closes the shift they
+    record the active hours (0 if not woken); anything beyond two becomes
+    its own line at the night rate for that day (weekday night, Saturday,
+    Sunday), on the invoice, on the statement, in the PACE claim file (a
+    second row, reference BKnnA) and in the worker's pay at their ladder
+    share. New columns: active_hours, active_extra_hours/_category/_item/
+    _rate/_total/_share, active_note. A new public page,
+    /services/overnight, explains sleepovers versus active overnight in
+    plain words, with the live price. Check SLEEPOVER_HOURS_MIN/MAX and
+    SLEEPOVER_INCLUDED_ACTIVE_HOURS against each July's Pricing
+    Arrangements.
+
+  MEET-AND-GREET BEFORE THE PAPERWORK — FIFTEEN MINUTES, NOT A SHIFT
+    An intro request (kind = 'intro', 0.25 h) needs only a confirmed email
+    and a funding lane; the rest of the first-booking gate applies to the
+    first real shift. It is a conversation — a video call or a quick hello
+    — not a shift: no support is given, nobody is charged and nobody is
+    paid, the same way an interview is not a shift. The rule that keeps
+    that honest is the half hour: if it runs past thirty minutes it has
+    become support, and the participant books a shift so the worker is
+    paid. The worker closes it with one tap (no shift note needed). It is
+    never on an invoice, a statement, a claim or the pay run (billable()
+    and payable() both exclude it). If the office ever decides to pay for
+    intros anyway, intro_paid_hours (setting, default 0) puts them on the
+    pay run as not claimable. The KPI board counts intros held and how
+    many led to a booking. It never repeats and counts for nothing on the
+    ladder.
+
+  THE ESTABLISHMENT FEE — WHO PAYS, AND WHEN IT MAY BE RAISED
+    The participant's plan pays it, once, from Core ($735.80 in 2026-27).
+    The Pricing Arrangements attach conditions, and the schedule you have
+    carries the price only, so read the Arrangements before raising one.
+    In outline: the participant is new to the provider; they are starting
+    a substantial ongoing program of personal care or participation (the
+    Arrangements name 20 hours a month for at least three months); the fee
+    is in the signed service agreement; once per participant. And, our
+    own rule on top: only where the set-up was real, documented work — a
+    behaviour support plan, restrictive practices, a complex handover —
+    never for a routine sign-up. The tick on Growth & money says exactly
+    that, and the refusal repeats it. Non-face-to-face time is for writing
+    plans and reports, not for phone calls, which are part of the service.
+
+  THE DIRECTORY SAYS WHEN
+    Every worker card shows "Next free: Tue 9am" — the first two-hour
+    daytime slot in the next fortnight their weekday pattern allows and the
+    diary does not hold. An estimate for a card; the booking form still asks.
+
+  THE OPEN-SHIFT FEED (#/shifts)
+    Every cover request the cascade has open, shown to any signed-in worker
+    who is eligible for it (service, day, credentials, diary), with what they
+    would be paid. "Take this shift" runs the same gates as an offer and
+    tells the participant. Workers see it in the nav.
+
+  WORKER REFERRALS
+    Each worker has a code (W<id>-XXXXXX, on My earnings) and a link; a new
+    worker types it at sign-up. Once the new worker has completed
+    referral_qualify_hours (setting, default 50) the referrer is owed
+    referral_bonus (setting, default 50), notified, and the office marks
+    it paid from Admin › Growth & money. Participants are never offered
+    anything for a referral (Code of Conduct).
+    HOW IT WORKS, MECHANICALLY: the code is HMAC(secret, worker id), so it
+    cannot be guessed and needs no table. At sign-up, POST /api/register
+    with ref=<code> writes one referrals row (referrer, referee, code,
+    created). Nothing else happens until the referred worker's completed
+    ordinary shifts (not sleepovers, not intros) reach the mark. The
+    nightly job 'referrals' (and the office opening the referrals list)
+    runs reviewReferrals(): it sets qualified_at, hours_at_qualify and
+    amount, and emails the referrer. From then until it is marked paid the
+    bonus is a row on /api/admin/payroll.csv ("Referral bonus", not
+    claimable) beside the shifts, and shows as payable on the worker's My
+    earnings and on /refer-a-worker. The office pays it through the normal
+    pay run and presses Mark paid; that writes paid_at and paid_by, and the
+    row leaves the payroll file. The bonus is the provider's cost — it is
+    never on a participant's invoice or in a claim. Public page:
+    /refer-a-worker (footer, Work with us, and the worker's account menu).
+
+  THE ACCOUNT MENU HAS DOORS FOR WORKERS
+    Open shifts, My earnings, The ladder, Refer a worker, and Pay rates &
+    working with us (the public Work with us page) — a signed-in worker
+    could not previously reach the public worker pages without the footer.
+
+  THE PRICE LIST IS COMPLETE
+    The public rate table (/api/rates › rates, the pricing page's first
+    table) now has the sleepover row, per night; the claim table has rows
+    for the sleepover and active-overnight items; a second table,
+    "Everything else on the price list", is rendered from /api/rates ›
+    extras: meet-and-greet, sleepover with the included hours and the
+    extra-active rates, active overnight, travel per km, short-notice
+    cancellation with every window, the establishment fee, non-face-to-face
+    time, group shifts, and the no-fees line.
+
+  ADMIN › GROWTH & MONEY
+    Ten KPIs with their definitions (fill rate, utilisation, cancellations
+    and how many short-notice ones went unbilled, uncovered shifts, days to
+    cash by funding lane, margin per hour by category, sign-up → first
+    booking, 90-day retention, worker churn, time to verify). Referrals.
+    Concierge onboarding: open a participant account on the phone with the
+    consent recorded in words; they set their own password from the email.
+    One-off claimable lines: the establishment fee (35.80, once per
+    participant, you tick that the conditions are met) and non-face-to-face
+    time (writing a plan; the weekday rate, the same item as the support).
+    Group shifts: link two or three shifts (same worker, date, start,
+    length) as 1:2 or 1:3 — each participant pays the price ÷ ratio, the
+    worker is paid once — OFF until the setting group_supports=on, because
+    it claims the 0136 group items and that is its own registration.
+
+  COORDINATOR REFERRALS
+    A form on /for-plan-managers (POST /api/referrals, public, rate
+    limited): the coordinator gets a reference and a promise in writing —
+    a reply within two business hours — and every admin is notified.
+
+  SUBURB PAGES
+    /support-workers-in/<suburb> for every suburb with a visible worker:
+    counts and services, no names, a button into the filtered directory;
+    all in the sitemap. Generated from the profiles, so they stay true.
+
+  HOW THE PARTICIPANT IS TOLD TO PAY (found on the first trial shift)
+    Before this release an invoice only existed once the office pressed
+    Run on the Claims board, and the participant had no prompt at all —
+    they saw a statement (a list of shifts) and a CSV, neither of which is
+    an invoice. Now:
+    1. The night a shift is approved (by the participant, or deemed on day
+       7), the job 'invoices' runs the self- and plan-managed lanes of the
+       claims run: one invoice per participant per run, numbered
+       INV-YYYYMMDD-<id>, stamped on every booking in it. The run is now
+       gated on approval_state = 'approved' — it never was before, so a
+       queried shift could have been invoiced. Agency lines still wait for
+       the office (the PACE file has to be uploaded by a person).
+    2. The participant (self-managed) is emailed the PDF with a Pay by card
+       button (Stripe, when STRIPE_SECRET_KEY is set) and gets a message in
+       their account; a plan-managed invoice goes to the plan manager's
+       email and the participant is told it went there.
+    3. In the account: a red banner at the top of Bookings ("An invoice to
+       pay — $X, due dd/mm; see the invoice, the PDF and how to pay") and
+       the Invoices table at the top of Statements & invoices: number,
+       date, due, lines, total, status (due / overdue / paid), PDF, Pay by
+       card. The statement below it now says what it is — every shift with
+       its note and cost — and that the invoice is what gets paid.
+    4. The PDF is a proper tax invoice, modelled on the office's own:
+       company name, ABN, address (COMPANY_ADDRESS, default 16 Crystal
+       Crescent, Wyong NSW 2259), NDIS registration number, email, phone;
+       invoice number, date, DUE DATE (invoice_due_days, default 14); bill
+       to — name, suburb, email, phone, NDIS number (or the plan manager);
+       one line per support with the NDIS item's own name ("Assistance
+       With Self-Care Activities - Standard - Sunday"), the item number,
+       the time range and hours (or the night, or the kilometres), rate
+       and amount; invoice total, paid, BALANCE DUE; payment block with
+       account name, BSB 067-873 and account number 2577 2190 (the code's
+       default; BANK_DETAILS in /etc/bookit.env overrides it), the
+       invoice number as the reference; the GST-free statement; page
+       numbers when it runs long. ITEM_NAMES holds the 33 item names from
+       the 2026-27 schedule; regenerate when the schedule changes.
+    5. Paying: a card payment marks the invoice paid through the Stripe
+       webhook, as before. A bank transfer is marked by the office — a new
+       "Invoice paid" button on each row of the Claims board marks the
+       whole invoice at once (POST /api/admin/invoices/:no/paid), logged
+       to the compliance log; the participant's banner clears.
+    GET /api/me/invoices and GET /api/me/invoices/:no.pdf are the
+    participant's (and their coordinator's, with the invoices scope); the
+    PDF is generated from the bookings each time, so it is always the
+    current state, and a worker or another participant gets a 403.
+
+  REMOVING RECORDS — ERASE, VOID, CLOSE (with a typed reason)
+    A registered provider keeps the records of the supports it delivered,
+    so "delete" is two different things and the office is asked which.
+    Every action needs a typed reason of at least twenty characters, goes
+    to the compliance log, and the erased rows are copied to a new table,
+    erasures (kind, ref, label, snapshot, reason, by, at), so the audit
+    trail still knows they existed.
+    WHERE THE BUTTONS ARE (account menu › Admin):
+      Bookings & rosters › Recent bookings — "Remove…" on any shift that
+        is not on a claim: requested, accepted, cancelled or completed.
+      Claims — "Remove…" on an unclaimed line; "Withdraw invoice…" on a
+        line that carries an invoice number (takes the whole invoice
+        back; every line returns to unclaimed, the participant or plan
+        manager is emailed not to pay it, the card link dies); "Unclaim…"
+        on an agency line (no invoice number). A paid invoice cannot be
+        withdrawn — mark it unpaid first if that was a mistake.
+      Participant files — "Close account…" on each participant card.
+      Workers — "Close account…" on each applicant card.
+      People — "Close…" on any row that is not an admin, not you and not
+        a demo account.
+    A WITHDRAWN OR UNCLAIMED LINE IS HELD (claim_hold = 1, hold_reason):
+    it sits in the "Invoicing — completed shifts" table marked "held —
+    withdrawn <date>: <reason>" and NO run, by button or by the nightly
+    job, will invoice it again until the office decides — Remove… (void or
+    erase), fix it, or Release (back to "ready ✓"). This is why pressing
+    Run after a withdrawal no longer brings the invoice straight back.
+    THE ORDER, for something that has already been invoiced: Claims ›
+    Withdraw invoice… (reason) → the shift is held → Remove… › Erase
+    (reason, and the "this was a test" tick if it was delivered) → then
+    Close account… on the participant if the account was only a trial.
+    Remove… is on both tables of the Money board: the claimed table and
+    the invoicing table.
+    SHIFTS — "Remove…" opens the dialog:
+      Void  — a delivered shift the office wants out of everything but
+              which must stay on file: it becomes a cancellation that is
+              never short-notice with voided = 1, total and worker share
+              zeroed; billable(), payable(), the diary, the ladder and the
+              statement all ignore it. (The status column's CHECK allows
+              only the five working states, hence the flag.)
+      Erase — the row is deleted, with its notes, reviews and cover rows.
+              Only for something that was never a real support: a trial,
+              a test, an undelivered booking. Erasing a DELIVERED shift is
+              refused unless the "this was a test" box is ticked.
+      A claimed or paid line is refused either way: take it off the claim
+      first (Claims board › unpaid), then remove it.
+    ACCOUNTS — "Close account…" on a participant card (Participant files)
+    or a worker card (the applicant list). If the person never had a
+    delivered shift the account and everything attached to it is erased
+    (bookings, documents on disk, photo, sessions, links, messages). If
+    they did, the office is asked to acknowledge, and the account is
+    closed and de-identified: name → "Removed participant #id", email →
+    removed-id@invalid.bookit.life, phone, suburb, NDIS number, nominee
+    and plan-manager details cleared, password rotated, verified off,
+    closed_at stamped (new column), photo and documents deleted from
+    disk, open bookings cancelled; the delivered shifts, notes, invoices
+    and incidents stay, which is what the retention rules want. Admin
+    accounts are refused (revoke admin first); your own account is
+    refused from here.
+    Routes: DELETE /api/admin/bookings/:id (reason, test), POST
+    /api/admin/bookings/:id/void (reason), POST
+    /api/admin/invoices/:no/withdraw (reason), POST
+    /api/admin/claims/:id/unclaim (reason), POST
+    /api/admin/claims/:id/release, DELETE /api/admin/users/:id
+    (reason, acknowledge), GET /api/admin/erasures. Nothing here is
+    reachable from the participant or worker side; "Remove" on a filed
+    document (Participant files) is the older, separate action.
+    FOR YOUR TRIAL: the trial shift is unclaimed, so Remove… › Erase with
+    the "this was a test" tick, reason "trial shift used to test the
+    site", removes it and its note; the trial participant's account, if
+    it has no other delivered shift, can then be closed and is erased.
+
+  FORMS AS SCREENS (no more blank PDFs for these five)
+    Five participant documents are now screens instead of PDFs to
+    download, fill in by hand and upload: photo and media consent,
+    money and property declaration, medication plan and authority (the
+    participant fills these in from My documents › "Fill in on screen"),
+    risk assessment (the office, from the participant card › "On screen,
+    with them"), and the exit and transition record (either side). Each
+    screen is a list of questions the server describes (FORM_SCREENS in
+    server.js: field id, label, type, options, required, help, plus a
+    declaration); the page renders whatever the server says, so adding a
+    sixth form is adding an entry there. "Save a draft" keeps the answers
+    (form_responses, a new table); "Confirm and file" checks the required
+    answers, needs the declaration ticked (the participant) or the office's
+    confirmation, and files a page BookIt wrote — the same genPage wrapper
+    as the Service Agreement, the answers as a table, the declaration, and
+    "Confirmed by NAME on DATE" — into participant_docs exactly like an
+    accepted agreement: accepted_at, edition, snapshot on disk, print
+    button allowed. Filling it in again files a new version and marks the
+    old one superseded. The blank-forms shelf shows these rows as "a
+    screen, not a blank" and stops offering the PDF. Still uploads, on
+    purpose: the NDIS plan copy (the NDIA's document), clinical plans
+    written by someone else (mealtime, epilepsy, diabetes, allergy, manual
+    handling, PBS), and the nominee form.
+    Routes: GET /api/me/forms, GET/POST /api/me/forms/:key (?for=id for a
+    coordinator or the office). Page: #/form/<key>.
+    THEN ALL OF THEM: fourteen screens now — the five above plus the
+    nominee / decision-maker form (participant), the six clinical plans
+    (mealtime, seizures, diabetes, allergy/asthma, transfers, behaviour
+    support summary — entered from the clinician's plan by either side,
+    with the clinician's own signed plan still added to the file as a
+    document), the s73G determination and the annual review record (the
+    office). No participant document is a blank PDF any more; of the
+    eleven PDFs in forms/ only the satisfaction survey is still filed at
+    boot, and it is the paper fallback for a live survey. Blanks the
+    release had filed under a key that is now a page or a screen are
+    retired at boot; the office's own uploads are left alone.
+
+  THE POLICIES FOLDER, INDEXED
+    The office's policies, procedures, registers, plans and templates live
+    in one Google Drive folder (Disability and Mental Health Care Pty Ltd
+    - Core Documents). BookIt now holds an INDEX of it: every file's name,
+    kind and link — 103 files, listed from the folder on 1 September 2026
+    into docs/policies-folder.json and seeded into a new table,
+    office_docs, at boot. The Documents board opens with it: the folder
+    link, the files grouped by kind (policy, procedure, register, plan,
+    form or template) each opening the real file, a line to add a file the
+    office has put in the folder since, and × to take one out of the index
+    (the file itself stays in the folder). The index is
+    policies/policies-folder.csv in the audit pack.
+    The forms register's 36 company and register rows are matched to the
+    files by name (matchOfficeDoc: subject words in common, aliases such as
+    feedback = complaints, a register row must match a register file);
+    25 match today. "Record the matched documents as held in the folder"
+    records each matched row with the file's own link as the location,
+    logs it, and NAMES the rows it could not find — today: the NDIS
+    certificate of registration, the three certificates of currency, the
+    internal audit schedule, the worker screening policy, the privacy and
+    data-breach policy (the folder has "Privacy and Information Management
+    Policy", which the office can record on the row by hand), the
+    engagement-model template, the participant register and the banning
+    orders register (BookIt is those two), and the restrictive practices
+    register. Nothing is recorded as held that is not actually there.
+    Routes: GET/POST /api/admin/policies-folder, POST
+    /api/admin/policies-folder/files, DELETE .../files/:id,
+    GET /api/admin/policies.csv.
+
+  POLICIES AS PAGES — BUILT IN
+    The text of each of the office's documents lives in the repository,
+    content/policies/, one plain-text file per document in the shape the
+    documents were written (first line "Company | Title"; a short line is
+    a heading; "- " is a list item; "| a | b |" rows are a table; the
+    approval block last), listed in index.json with slug, kind, audience
+    and the Drive file it came from. At boot every one is published as a
+    page (policy_pages, imported_by 'release'), so a fresh install has
+    all of them with nothing uploaded — the same way it has the Service
+    Agreement. To change a document, change the text file and raise its
+    Version line. Thirty-seven documents, the whole of the office's
+    Drive folder as read on 1–2 September 2026:
+      policies (20): feedback and complaints; privacy and information
+        management; participant rights and responsibilities; incident
+        management; violence, abuse, neglect, exploitation and
+        discrimination; participant money and property; management of
+        medication; mealtime management; assessment and provision of
+        supports; emergency and disaster management; work health and
+        safety; conflict of interest; infection prevention and control;
+        risk management; continuous improvement; governance and
+        operational management; human resources management (staff);
+        supported independent living; behaviour support and restrictive
+        practices; digital platform service.
+      procedures (6): living alone safeguards (s73G); transport and
+        vehicle safety; supported decision-making; tenancy and support
+        separation statement; 0137 digital platform service scope and
+        operating procedure (staff); feedback, complaints and incident
+        considerations (staff).
+      plans (3): business continuity, emergency response and disaster
+        management; training and development (staff); business plan
+        (staff).
+      registers and information (8): legislation register; delegation
+        of authority (staff); participant information booklet, and its
+        Easy Read; SIL information pack; feedback and complaints summary;
+        the two position descriptions (staff).
+    The Policy Register is not transcribed: /policies/policy-register is
+    generated from the published pages — title, kind, version, approval
+    and review dates, approval authority — so it cannot disagree with the
+    documents. Each document's edition now carries its review date ("v1,
+    approved August 2025, review August 2027"). Skipped: the Continuous
+    Improvement Plan, a blank template with one example row.
+    Edits made in transcribing, for the office to know: personal contact
+    details became the company's (hello@bookit.life, the Wyong address);
+    the 0137 procedure page leaves out the server's address and the
+    director's screening number; the business plan leaves out the named
+    workers; the legislation register's superseded references were
+    brought up to date (NSW WHS Regulation 2017, WA WHS Act 2020, Vic
+    Guardianship and Administration Act 2019, Disability Services and
+    Inclusion Act 2023). The Policy Register in the folder lists a
+    Support Coordination Policy that is not in the folder.
+    The upload path stays for documents not yet built in. The office (Admin › Documents ›
+    "Policies and procedures — published as pages": choose all the .docx
+    and .pdf files at once) and each becomes a page: /policies/<slug>,
+    the same genPage wrapper and print button as the Service Agreement,
+    listed at /policies (linked from the footer), readable by
+    participants and workers without a Google login. BookIt converts the
+    Word file itself — a .docx is a zip of XML; readZip() opens it and
+    docxToHtml() walks word/document.xml for headings (Title/Heading1 →
+    h2, Heading2-3 → h3), paragraphs, lists (numbered or ListParagraph →
+    ul), tables and bold. A PDF is kept as the file and served to read.
+    Each page has an audience: public (no sign-in, in the sitemap),
+    participants (anyone signed in — the default for participant-facing
+    titles: complaints, privacy, rights, money, incidents, decisions,
+    booklets, the SIL pack and so on), or staff (workers and the office);
+    a participants-or-staff page sends a signed-out visitor to sign in.
+    Uploading a file again replaces its page; Unpublish removes it; the
+    folder index shows "page" beside a file that has one. Spreadsheets
+    stay in the folder. Table policy_pages; routes GET/POST/PATCH/DELETE
+    /api/admin/policy-pages, GET /api/admin/policy-pages.csv. The audit
+    pack carries every page as HTML (and the PDFs) under policies/pages/
+    and the register policies/pages.csv. Tested with a real Word file in
+    tests/fixtures.
+    TO PUBLISH THE WHOLE FOLDER: Google Drive › right-click "Disability
+    and Mental Health Care Pty Ltd - Core Documents" › Download › unzip
+    on the laptop › on the board choose every .docx and .pdf (Cmd-A in
+    the file dialog) › Publish. About a minute for 100 files.
+
+  THE FORMS REGISTER NO LONGER SAYS "DRIVE"
+    The register used to file every non-live document under "File in
+    Drive — nothing watches it", with an "I have this one" button on each
+    row. Two things were wrong with that: a participant's consent or plan
+    is not "in Drive", it is in their BookIt file, counted, expiring and
+    chased on the Participant files board; and "I have this one" made no
+    sense for a form that exists once per participant — hold it for whom?
+    Now a participant's or worker's form kept as a file shows "In each
+    participant's file" with the numbers (held out of the participants it
+    applies to, and expired), like the live rows; the "We hold this —
+    record where" control and the "where it is kept" field (the policies
+    folder, a filing cabinet, the registered office) appear only on the
+    office's own documents — policies, certificates, registers — which are
+    the only ones held once. The catalogue notes that referred to the
+    office's folder as "Drive" now say "the policies folder".
+
+  THE KILOMETRES ARE CLAIMED NOW
+    Provider travel entered by the worker at the end of a shift was charged
+    on the participant's statement and nowhere else — never on the invoice,
+    never in the PACE claim file. It now appears on the invoice as a
+    "Provider travel — non-labour costs" line and in the claim file as its
+    own row (reference BKnnT) against the $1.00 non-labour travel item for
+    the support's registration group (TRAVEL_ITEMS), quantity = dollars.
+    Cancelled shifts carry no travel. Before this release, every kilometre
+    since travel was introduced was revenue left on the table; the old
+    statements are still right, the claim file simply omitted the row.
+
+  COPY
+    Home: "Agency-managed? You can book here" and the cover promise.
+    Credentials: "checked within one business day". /support-workers shows
+    the dollars per hour at Bronze and Platinum, live from the rate table.
+
+  NOT CODE — DECISIONS FOR THE OFFICE
+    Register for 0136 before turning group supports on. Consider 0106
+    support coordination (the coordinator model is already built; manage
+    the conflict of interest explicitly). Weekly pay. Listing on the
+    provider directories. The one-business-day and two-business-hour
+    promises are now on the site: staff them.
+
+
+WHAT CHANGED IN v86.8.0 — THE REVIEW RELEASE
+--------------------------------------------
+  Everything from the 29 August review, in one release. No migration:
+  SCHEMA_VERSION stays 86400 and nothing is added to the database. Server,
+  page, scripts and docs all change, so this is a FULL upload (see the
+  deploy list below) followed by sudo bookit-update.
+
+  THE DOOR IS SHUT BY DEFAULT
+    The dispatcher now refuses every /api/ route without a session and every
+    /api/admin/ route without the office BEFORE the handler runs. The public
+    routes are an explicit list, PUBLIC_API in server.js (21 of them: the
+    directory, rates, scope, the sign-in family, contact, the public jobs
+    board, the invite reader). Every handler keeps its own check as well.
+    Two routes that answered a 500 when logged out (/api/me/blockers and
+    /api/admin/participants/:id/plan-review) now answer 401/403.
+
+  AN ASYNC HANDLER CAN NO LONGER STOP THE PROCESS
+    Three handlers are async (email test, claims run, AI backfill). A
+    rejection inside one used to escape the dispatcher's try/catch as an
+    unhandled rejection, which on Node 22 ends the process. Promises are
+    caught now, the same as thrown errors.
+
+  ONE WORKER, ONE PLACE AT A TIME
+    bookingClash() beside bookingStart(). A booking request is refused
+    against the worker's accepted shifts and against the participant's own
+    overlapping request; an accept is refused against the worker's other
+    accepted shifts; a moved occurrence and a series edit are refused the
+    same way, and a series edit that clashes changes nothing and names the
+    dates. The window is derived from the shift's interval, so both sides
+    of midnight are read (a 22:00 sleepover tonight against an 01:00 shift
+    already accepted for tomorrow, and the reverse). workerFree(), which the
+    cover cascade, the candidate lists, the admin cover assignment and the
+    office assignment all ask through workerEligible(), now delegates to
+    the same helper (it used to read the shift's own calendar date only).
+    tests/clash-tests.js has twenty-one cases; tests/smoke.js drives the
+    office assignment across midnight in both directions.
+
+  SERIES WRITES ARE ONE WRITE
+    Creating, editing and ending a repeating booking each run inside
+    BEGIN IMMEDIATE … COMMIT. A failure on the ninth occurrence leaves no
+    rule and no occurrences, not a rule with eight.
+
+  AN OFFICE SESSION THAT IS NOT USED FOR 12 HOURS IS OVER
+    ADMIN_IDLE_HOURS (default 12), admin accounts only. Participants and
+    workers keep the thirty-day cookie. Signing back in is the normal door
+    with the second step; nobody is locked out. This closes the "no
+    administrator idle timeout" note below.
+
+  A FIRST BOOKING NEEDS A CONFIRMED EMAIL ADDRESS
+    "Confirm your email address" joins the first-booking blockers (red,
+    theirs, with the resend link at the top of the page). The account still
+    works unverified — browsing, messaging, the plan — only the first shift
+    waits. Demo accounts are exempt.
+
+  A VISITOR SEES "ZOE T."
+    /api/workers and /api/workers/:id give the short name to anyone without
+    a session, the full name to a member. Photo and suburb are unchanged.
+    PUBLIC_WORKER_NAMES=full restores the old behaviour.
+
+  THE PUBLIC PAGES EXIST FOR SEARCH ENGINES
+    The 27 public pages (PUBLIC_PAGES in server.js) are served at their real
+    paths — https://bookit.life/services/transport is a 200 with its own
+    <title>, description, canonical link and og:url written into the <head>
+    the server sends; the home page carries Organization JSON-LD. The page
+    then folds the path into the hash on load (route() in index.html), so
+    the app runs exactly as before. /sitemap.xml lists them; /robots.txt
+    allows the site and names the sitemap (the SITE_PASSWORD gate still
+    answers Disallow while it is on). Account, admin and worker paths still
+    redirect into the hash and are never indexed.
+
+  STATIC FILES: STREAMED, RANGED, COMPRESSED, REVALIDATED
+    serveStatic() streams from disk instead of reading whole files into
+    memory; videos answer Range requests (206), so seeking works — this
+    closes the "video seeking jumps back to the start" note below; text is
+    brotli/gzip compressed once per deploy and kept in memory (the 1 MB page
+    is 224 KB over the wire); every file carries an ETag, so an unchanged
+    page is a 304. The page's Cache-Control is now no-cache (revalidate,
+    then 304) rather than no-store. Caddy's own encode setting, if on, is
+    harmless: an already-encoded response passes through.
+
+  FONTS ARE SELF-HOSTED
+    Sora, Inter and Fraunces from public/assets/fonts/ (SIL OFL, from the
+    Fontsource packages, licences beside them), same family names, so the
+    stylesheet did not change. The Google origins are gone from the page
+    and from the CSP, which now names no other origin at all.
+
+  BACKUPS ARE IN THE REPOSITORY
+    scripts/backup.js (VACUUM INTO for a consistent copy of a live WAL
+    database, integrity-checked; both folders archived and checked against
+    the archive; prune; optional S3/Lightsail-bucket sync; exits non-zero
+    on failure; exits 2 — INCOMPLETE, the timer shows red — when a row in
+    the snapshot refers to a document or photo that is not in the archive,
+    after still writing and copying the set) and ops/bookit-backup.service +
+    .timer (between 02:15 and 02:25 Sydney time, using /etc/bookit.env).
+    Setting them up is in ops/README.md. The old "cp the .db file" procedure
+    must not be used on a running site.
+
+  THE GUIDE'S PROMISES ARE KEPT
+    docs/api-route-inventory.txt and docs/database-table-inventory.txt are
+    generated by scripts/inventory.js and checked by npm run check. The
+    table inventory is read back with PRAGMA table_info from a database the
+    server itself created and migrated on a throwaway file, so it is what a
+    fresh bookit.db actually contains, column for column. .env.example lists
+    every setting the code reads, with its default.
+    scripts/dbq.js is the read-only query helper (the guide called it
+    tests/dbq.js). tests/ holds the clash tests and a smoke test that boots
+    the server on a throwaway database; .github/workflows/check.yml runs
+    npm run check on every push. npm run check is now: syntax, inventories
+    up to date, clash tests, smoke test.
+
+  SMALLER
+    og:image and twitter:image are absolute URLs (link previews were blank).
+    X-Frame-Options is DENY everywhere (it was SAMEORIGIN on static files).
+    The boot log names the two blank forms it skips on purpose (p-intake,
+    p-emergency — both generated from the file since v86.0.0). The silent
+    catches around boot fix-ups and sign-out-everywhere now log a warning;
+    a failed plan-acknowledgement write refuses the accept instead of
+    accepting on a tick nobody can find later. package-lock.json records
+    the real version. engines is >=22.12 <23 and .nvmrc names the exact
+    release (22.23.2) that CI runs: node:sqlite is experimental on Node 22
+    and its API moves between majors. Make the box match .nvmrc (or change
+    .nvmrc to what the box runs) and treat an upgrade as a change to test.
+
+  NOT DONE, ON PURPOSE
+    Splitting the page's JavaScript so participants do not download the
+    admin boards (a larger refactor, planned). Deleting the unreferenced
+    public/vendor/ and care-cast/ assets (confirm with a browser network
+    trace first; a GitHub upload never deletes anyway). A series edit that
+    changes the time or the worker still leaves occurrences "accepted" —
+    whether they should go back to "requested" is a product decision.
+
+  DEPLOY: the release archive is an OVERLAY for v86.7.2 (commit c986779)
+  — it holds only the files that changed or are new, and is uploaded over
+  that commit; unchanged files (lib/bookit-hardening.js, the browser
+  scripts, the media) stay as they are. The full list: server.js,
+  package.json, package-lock.json, lib/version.js, public/index.html,
+  public/assets/fonts/, scripts/, tests/, docs/, ops/, .github/, .nvmrc,
+  .env.example, STARTHERE.txt, readme.txt. Then sudo bookit-update, then:
+    /api/version says 86.8.0
+    https://bookit.life/services/transport is a 200 with its own title
+    a worker's profile shows the full name only after sign-in
+    a video on a service page can be scrubbed (seeking works)
+    npm run check on the server is green
+  Then install the backup timer (ops/README.md) and run it once.
+
+
+WHAT CHANGED IN v86.6.4 — THE RESET CAN UNTRAIN THE TEST WORKER
+---------------------------------------------------------------
+  reset-walkthrough.js now takes a worker account with --training: it
+  deletes the worker's module completions and the platform-issued module
+  certificates, so the training lock comes back and the tour can be run
+  again from the top. On a worker, --training is the only thing the script
+  clears. Nothing else changed.
+
+  Script only. No server or page changes. No migration.
+
+
+WHAT CHANGED IN v86.6.3 — A ROW THAT HINGES ON THE PLAN WAITS FOR THE PLAN
+--------------------------------------------------------------------------
+  With no support plan on the account (a brand-new person, or the test
+  account after a full clear), every "only if the plan says so" row —
+  medication consent, medication plan, mealtime, epilepsy, diabetes,
+  allergy, transfers, behaviour support — was landing in the red
+  "before your first booking" box, because an unanswered question was
+  being treated as a yes. Now a row with a plan condition appears on the
+  to-do list only when the plan has answered yes; unanswered, it waits;
+  answered no, it is not applicable. After a full clear the red box is
+  exactly four rows: the two agreements, the media consent (available
+  soon), and the NDIS plan copy.
+
+  The on-screen Consent to medication assistance no longer shows five
+  empty tick boxes. They looked like something to tick and there was
+  nothing to tick — the agreement is the I-agree click. The five points
+  are now a plain list; the blank printable forms keep their boxes,
+  which is where boxes belong.
+
+  Server change: deploy needs a push AND sudo bookit-update.
+  No migration. SCHEMA_VERSION stays 86400.
+
+
+WHAT CHANGED IN v86.6.2 — THE PASSWORD PROMPT BEHAVES
+-----------------------------------------------------
+  Both prefill scripts' hidden password prompt reprinted itself on every
+  keystroke. Fixed: the prompt prints once and the typing is silent. The
+  tour guide passes BOOKIT_PASS on the command line instead, so the prompt
+  never appears at all.
+
+  No server or page changes. No migration.
+
+
+WHAT CHANGED IN v86.6.1 — THE RESET CLEARS EVERYTHING, AND THE GUIDE IS A TOUR GUIDE
+------------------------------------------------------------------------------------
+  reset-walkthrough.js gains --bookings: requested and accepted bookings are
+  cancelled (the row stays, marked cancelled by the participant with the
+  reason "test walkthrough reset"; completed bookings still refuse the whole
+  script). --all now includes it, so one command takes the test account back
+  to the beginning: bookings, plan, billing, agreements, nominee, NDIS plan.
+  Clearing the plan no longer refuses while an open booking exists if the
+  same run is cancelling it.
+
+  The run sheet is now the Tour guide: no days, just the steps in order,
+  each script fetched from GitHub at the step where it runs.
+
+  No server or page changes. No migration.
+
+
+WHAT CHANGED IN v86.6.0 — THE NDIS PLAN IS ON THE FILE, AND THE OFFICE CHECKS IT FIRST
+--------------------------------------------------------------------------------------
+  "Copy of your current NDIS plan" is now a required row on the participant's
+  file, theirs to upload (Settings › My documents › Add a document — a photo
+  or PDF) and the office's to check (Participant files › that row › Check
+  it). Two new first-booking blockers come with it: no copy on file (red,
+  theirs), and a copy not yet checked (amber, waiting on the office). The
+  admin card says which state it is in. A rejected copy counts as none.
+
+  scripts/NDIS_plan__sample_for_walkthrough.pdf is a two-page sample plan
+  for the walkthrough participant — fictional budgets, plan 01/07/2026 to
+  30/06/2027, self-managed, with a footer saying it is a sample. The prefill
+  uploads it (or the file named with --ndis-plan) if no copy is on file;
+  reset-walkthrough.js --ndis-plan clears it; --all includes it.
+
+  Rehearsed end to end on a database copy: reset --all, prefill with
+  --leave-agreements, four blockers (two theirs, two the office's), booking
+  refused; Check it and Mark reviewed as admin; two I-agree clicks; no
+  blockers; booking accepted.
+
+  No migration. SCHEMA_VERSION stays 86400.
+
+
+WHAT CHANGED IN v86.5.5 — A TRAINING PREFILL FOR THE TEST WORKER
+----------------------------------------------------------------
+  scripts/prefill-worker-training.js signs in as a worker through the
+  ordinary API and sits every required module that is outstanding, overdue
+  or expired, so the training lock lifts and the worker can accept shifts.
+  Each pass files the certificate into worker_docs and writes the log,
+  exactly as the Training page does.
+
+    On the server with DB_PATH set (site running; the database is only
+    read) it reads each module's answer key and passes first time at 100%.
+    From a laptop without DB_PATH it submits one attempt, reads the marking
+    the server returns (which answer was right, and why — what a worker
+    sees), then submits the correct answers: still 100%, but two attempts
+    on the record.
+
+  Optional modules are skipped unless --all, because DMHC does not offer
+  high-intensity supports and a test account should not file a
+  certificate that says otherwise. --dry-run lists what would be sat.
+  Refuses demo accounts and non-workers.
+
+  The Monday run sheet's Sunday section now walks the setup in order with
+  the exact command for each script at its step: deploy, reset, prefill
+  the participant, review the plan as the office, train the worker, book
+  the shift.
+
+  No code changes to the server or the page. No migration.
+
+
+WHAT CHANGED IN v86.5.4 — NO TRAINING ENTRY IN THE WORKER'S MENU
+----------------------------------------------------------------
+  A worker's account menu no longer lists Training. Settings carries the
+  red count and the Training row inside it carries its own; one door is
+  enough. The menu is Profile, Bookings & shifts, Messages, Report an
+  incident, Settings, Help & contact, Log out.
+
+WHAT CHANGED IN v86.5.3 — THE DOCUMENTS BOARD LEADS
+---------------------------------------------------
+  Compliance › Support workers now opens with the credentials-and-documents
+  board (verify / reject / re-file / remove, the automatic checker), right
+  under the name search. The 0137 table (screening, the three banning
+  registers with their links, evidence, displayed) is second.
+
+WHAT CHANGED IN v86.5.2 — THE DOCUMENTS BOARD IS BACK IN VIEW
+-------------------------------------------------------------
+  v86.5.1 folded the credentials-and-documents board behind a one-line
+  heading on the Support workers tab, and it disappeared from sight. Only the NWSD
+  queue (opens itself when something is waiting) and the "about the
+  conditions" card stay folded.
+
+  No migration. SCHEMA_VERSION stays 86400.
+
+
+WHAT CHANGED IN v86.5.1 — THE OFFICE ACCOUNT, THE VERIFY TABLE FIRST, A RESET FOR EACH PREFILL
+----------------------------------------------------------------------------------------------
+  THE OFFICE ACCOUNT IS AN ADMIN ACCOUNT
+    An account on ADMIN_EMAILS no longer doubles as a participant. Its menu
+    is Profile, Admin dashboard, Messages, Settings, Help, Log out; its
+    Settings hub is emails, accessibility, sign-in and help; the header has
+    no Bookings link for it; /api/me/blockers returns nothing for it, so it
+    never carries a red mark for documents or a plan it was never going to
+    agree to or write. The role line reads "Admin · DMHC office". Nothing
+    changes in the database — the account keeps its role, and the admin
+    routes still check the admin flag.
+
+  COMPLIANCE › SUPPORT WORKERS: VERIFY FIRST
+    The 0137 verification table is the first thing on the tab, under the
+    "Where to check" link sheet. The long explanation of the conditions,
+    the counts and the re-check settings is one folded line after it. The
+    NWSD screening queue and the credentials-and-documents checker are
+    folded too (the queue opens itself when something is waiting). The
+    evidence log is its own tab, with its own name search.
+
+  A RESET FOR EACH THING THE PREFILL FILLS
+    scripts/reset-walkthrough.js clears a test participant's --plan (every
+    version, the workers' acknowledgements and with them the office review),
+    --billing, --agreements (with their snapshots), --nominee, or --all.
+    Dry run by default, --yes to apply; refuses demo accounts, non-
+    participants and accounts with a completed booking; refuses --plan while
+    a requested or accepted booking exists, because the worker must be able
+    to read the plan. Run on the server with the site stopped, like the
+    other scripts. reset-test-agreements.js still works and is the same as
+    --agreements.
+
+  No migration. SCHEMA_VERSION stays 86400.
+
+
+WHAT CHANGED IN v86.5.0 — COMPLIANCE IS THREE TABS AND A NAME
+-------------------------------------------------------------
+  Admin › Compliance was one long scroll: the screening queue, the 0137
+  board, the credentials checker, incidents, complaints, out-of-scope,
+  training. It is now three tabs, each with a search box that narrows every
+  board on it to one person:
+
+    Support workers — the 0137 conditions board first (screening, the three
+      banning registers, evidence, displayed), then the NWSD queue, the
+      credentials checker and training. Type a name and every board shows
+      that worker only.
+    Participants — the participant files board (documents, agreements, the
+      plan-review button) and the support-plan board, moved here from
+      Documents, which keeps a pointer. Type a name.
+    Incidents, complaints & scope — the three registers.
+
+  Every place a check is made elsewhere now links to where it is made:
+    NDIS worker screening database — the registered providers' worker
+      screening page (log in with myID, link the worker, read My workers),
+      plus the worker's own state screening unit on their row;
+    NDIS Commission banning orders and compliance actions search;
+    Aged Care Quality and Safety Commission register of banning orders
+      (both Aged Care Act 2024 orders and the earlier ACQSC Act ones);
+    NSW Working With Children Check verification;
+    the NDIS Provider Register.
+  The link sheet sits above the 0137 table with a one-line "how" for each;
+  each banning register on a worker's row has its own "open register" link;
+  each screening cell links the database and the state unit.
+
+  The counts on the tabs are the things that need a person: workers off the
+  platform plus screening to look at; participant documents not on file plus
+  critical plans; incidents awaiting Commission notice plus open scope
+  entries. The tab you were on survives a re-render.
+
+  No migration. SCHEMA_VERSION stays 86400.
+
+
+WHAT CHANGED IN v86.4.2 — RED MEANS "YOURS TO DO"
+-------------------------------------------------
+  Red marks count only what the person can do themselves. Something the
+  office owes them (the first review of their plan) is no longer a red
+  count on Support plan; it shows on the plan page as an amber "Being
+  reviewed by our office — nothing for you to do", and on the booking form
+  as an amber "Waiting on our office" panel under the red one. Once the
+  office has reviewed, the plan page says so in green with the date.
+
+  The plan page now says what is left: "N questions still to answer before
+  the plan can be confirmed: …  Go to the first one", or, when every answer
+  is in but the plan is not confirmed, "tick the box at the bottom and press
+  Save and submit".
+
+  Pressing I agree (or saving anything else) re-counts the marks at once —
+  the 2 becomes a 1 without a refresh. The red box on the documents page no
+  longer has a green edge. The Support plan link has been removed from the
+  header; it lives in the account menu.
+
+  No migration. SCHEMA_VERSION stays 86400.
+
+
+WHAT CHANGED IN v86.4.1 — THE RED MARKS ACTUALLY SHIP
+-----------------------------------------------------
+  v86.4.0's zip carried the server half of the red marks and only part of
+  the page: the edit that adds the avatar dot, the menu and settings counts,
+  the booking-form panel and the greyed-out Accept was lost before the file
+  was saved, and the release went out without it. v86.4.1 is that page,
+  verified this time by loading the real index.html in a headless DOM
+  against a running server: the dot shows, Settings and My documents show
+  their counts, the documents page boxes the agreements, the booking form
+  lists the blockers before the form, and a hard-locked worker's Accept is
+  greyed out with the reason under it. The marks are also fetched the
+  moment the session is known, not only on the next page change.
+
+  No migration. SCHEMA_VERSION stays 86400.
+
+
+WHAT CHANGED IN v86.4.0 — RED MARKS, THE OFFICE REVIEWS THE PLAN, ACCEPT TELLS THE TRUTH
+---------------------------------------------------------------------------------------
+  ONE ANSWER TO "WHAT IS BLOCKING THIS PERSON"
+    GET /api/me/blockers returns the list and the counts, for the signed-in
+    person. A participant's list is the first-booking gate (funding, the
+    Service Agreement, the privacy consent, who manages the account if
+    under 18, a confirmed plan, the office's review of the plan, a plan due
+    for review). A worker's list is the training lock (soft at 7 days,
+    hard at 14) and an inactive profile. The booking route now uses the
+    same function, so the page and the server never disagree.
+
+  WHERE THE RED MARKS ARE
+    A dot on the avatar chip. In the account menu: Support plan (participant)
+    or Training (worker) with a red count, and Settings with a red count.
+    In Settings: counts on My documents, Billing & payments, Training,
+    Credentials & checks. A dot on the header's Support plan link. The
+    booking form opens with a red panel naming each blocker, with a "fix
+    this" link for the ones that are theirs. Repainted on every page change.
+
+  THE OFFICE REVIEWS EVERY NEW SUPPORT PLAN BEFORE THE FIRST SHIFT
+    support_plans gains reviewed_at / reviewed_by. The Participant files
+    card shows the plan's state: waiting for your review (first booking
+    blocked), changed since you reviewed vN (bookings continue), or reviewed
+    by whom and when. "Read the plan" opens an office copy of every question
+    and answer (GET /api/admin/participants/:id/plan); "Mark reviewed" records
+    your name and the date (POST .../plan-review) and is written to the
+    participant's access log. Demo participants are reviewed by definition.
+    The participant sees "Our office is reviewing your support plan —
+    nothing for you to do."
+
+  THE PRIVACY CONSENT IS PART OF THE FIRST-BOOKING GATE
+    As the agreement always was: read it, press I agree, a minute.
+
+  A WORKER'S ACCEPT BUTTON SAYS WHY IT WON'T
+    The bookings list carries training_lock / training_overdue_days /
+    training_outstanding. At a hard lock the Accept button is greyed out
+    with the reason in red under it and a link to the Training page; at a
+    soft lock it works and warns. The server refused before; now the screen
+    says so first.
+
+  THE DOCUMENTS PAGE
+    "Before your first booking — for you to read and agree to" is a
+    red-bordered box.
+
+  Migration: two columns on support_plans, added in place on boot.
+  SCHEMA_VERSION 86400.
+
+  MONDAY: after deploying, open Admin › Documents › Participant files, find
+  the walkthrough participant, press "Read the plan", then "Mark reviewed".
+  Until you do, their booking form says the office is reviewing the plan.
+
+
+WHAT CHANGED IN v86.3.0 — THE PRIVACY CONSENT GETS THE AGREEMENT'S TREATMENT
+---------------------------------------------------------------------------
+  The Privacy and information-sharing consent was still DMHC's printed form:
+  twelve tick-boxes, dotted lines for "share with" and "never share with",
+  three signature blocks and a worker's declaration. It is now rendered on
+  screen like the Service Agreement — the same for everyone, nothing to
+  fill in — and published without a login at /privacy-consent, linked from
+  the Privacy & terms page and from clause 9 of the agreement.
+
+  DMHC's substance is kept in the same order. The tick-boxes and the dotted
+  lines become the settings the account already has, and clause 8 of the
+  consent says where each one is: Photo and media consent (photos, video,
+  audio); Emails & notifications (newsletters and marketing, off unless
+  turned on); People with access (sharing with named people or providers);
+  "anyone we must never share with" (tell us, recorded on the file); the
+  worker-access switch under My documents; and surveys and research, always
+  optional. The signature page is the click record. Edition "privacy-consent
+  v1, issued 23/08/2026".
+
+  Anyone who agreed to the PDF is asked for a fresh click. The reset script
+  clears the walkthrough account's earlier clicks, so after reset + prefill
+  it shows one acceptance of the agreement and one of the consent, both
+  current. The PDF stays on the shelf as the text of earlier acceptances.
+  To change the wording, edit privacyConsentBody() and bump
+  PRIVACY_CONSENT_EDITION.
+
+  No migration. SCHEMA_VERSION stays 86000.
+
+
+WHAT CHANGED IN v86.2.3 — THE PRIVACY CONSENT IS ITS OWN DOCUMENT
+-----------------------------------------------------------------
+  The Privacy and information-sharing consent is a separate document with
+  its own click, and the Service Agreement no longer repeats it: clause 9
+  says we handle information under the Privacy Policy and that consent is
+  given separately in that document. One consent, recorded once, in DMHC's
+  own words. (The v86.2.1 note below said clause 9 "says the same thing";
+  it no longer does.)
+
+  The "We have updated the Service Agreement" panel on the walkthrough
+  account is there only because that account agreed to the printed PDF and
+  then to the personalised edition before the platform edition existed.
+  The reset script clears it. A new participant never sees it; it only ever
+  appears again if the agreement's text is changed after people have
+  agreed to it, which is the one time asking again is right.
+
+  No migration. SCHEMA_VERSION stays 86000.
+
+
+WHAT CHANGED IN v86.2.2 — THE DOCUMENTS PAGE SPEAKS TO THE PARTICIPANT
+----------------------------------------------------------------------
+  Every explanation on the participant's documents page and the bookings-page
+  documents card was written for the person building the page, not the
+  person using it: "2 of 3 of yours on file … most of the rest are ours to
+  write", "each one is a click", "never counted against you", "ours to do,
+  nothing for you to send", "nothing to fill in", and the internal edition
+  strings ("service-agreement v2, on-screen edition, issued …"). All of it
+  is gone or rewritten in the participant's words:
+
+    Agreements card: the document, "agreed <date>", Read. Earlier versions
+      fold under "earlier versions" with the date and Read — no edition
+      strings on the page. (They are still recorded; the office sees them.)
+    A re-issued agreement: "<Document> — We have updated the Service
+      Agreement. Please read the new version and agree to it again. Your
+      supports continue as normal." then "Read the new version · I agree".
+    The file: "Only you and our office can see your documents." then the
+      rows, then "Print any time: Your supports and prices · Intake form ·
+      Emergency plan".
+    Not on file yet: headings only — "For you to read and agree to", "We
+      prepare these with you", "Written by your doctor or clinician", "Our
+      records", "Optional", "Not needed for you (n)". Rows say Read ·
+      I agree, or Blank form.
+    "What a worker can read" and "Who manages this account": shortened to
+      what the participant needs to decide.
+
+  Two bugs fixed on the way: the "applies to you — your plan says so" badge
+  was showing on every row, not only the plan-dependent ones; and a
+  supports-and-prices snapshot was labelled with its internal key
+  ("p-schedule") because the key is no longer in the participant catalogue.
+
+  No migration. SCHEMA_VERSION stays 86000.
+
+
+WHAT CHANGED IN v86.2.1 — THE PRIVACY CONSENT IS BACK, AND EVERYTHING IS v1
+--------------------------------------------------------------------------
+  THE PRIVACY AND INFORMATION-SHARING CONSENT IS A REQUIRED CLICK AGAIN
+    v86.2 had folded it into clause 9 of the Service Agreement and made the
+    form optional. It is DMHC's own consent wording and an explicit record
+    of consent is worth having, so it is asked for beside the agreement as
+    before: read it, then I agree. Clause 9 now says the consent is
+    recorded separately in our own words, so the two always match.
+
+  THE SERVICE AGREEMENT'S EDITION READS v1
+    The platform edition is the first edition anyone is asked to accept
+    from here on, so it is labelled "v1, issued 22/08/2026" rather than v3.
+    Any acceptance of the printed PDF or the short-lived personalised
+    edition still reads as "needs a fresh click", because those people did
+    not read this text.
+
+  A RESET SCRIPT FOR THE TEST ACCOUNT — scripts/reset-test-agreements.js
+    The walkthrough account has agreed to three editions in one day, which
+    would show as "2 earlier editions" on Monday. The script clears ONE
+    account's agreement clicks (agreement, privacy consent, old schedule
+    clicks) and nothing else, refuses demo accounts and accounts with a
+    completed booking, and does nothing without --yes. Run on the server
+    with the site stopped, exactly like the conversion script; then run the
+    prefill again and the account shows a single clean acceptance of each.
+
+  No migration. SCHEMA_VERSION stays 86000.
+
+
+WHAT CHANGED IN v86.2.0 — ONE AGREEMENT, NOTHING TO FILL IN
+-----------------------------------------------------------
+v86.1 rewrote the Service Agreement for the person, with their name, NDIS
+number and funding arrangement filled in from the file. That still made
+the agreement depend on fields, and it still read as a document about one
+participant that somebody had to complete. The established platforms do
+not do that: one agreement, the same for everyone, prices in a pricing
+policy, the person's own supports in their plan and their bookings.
+
+  THE SERVICE AGREEMENT IS NOW A PLATFORM AGREEMENT
+    Twelve clauses and a glossary: how BookIt works; access (agree on
+    screen, 18+ or a recorded parent/guardian, representatives); shared,
+    your and our responsibilities (verification and clearances, workers
+    are our employees, incidents, continuity, emergencies); consent to
+    supports; bookings (availability, making, cancellation windows,
+    location and travel, removal of a worker, offline arrangements);
+    feedback, complaints and the Commission; fees (the Pricing page is the
+    Pricing Policy; seven days' notice of a change; continued use is
+    acceptance; timesheet approval; payment by funding arrangement;
+    disputed fees; GST); ending; information management (privacy consent
+    is clause 9); risk allocation; general; the policies table.
+    Nothing on it belongs to one participant. Published without a login at
+    /service-agreement and linked from the Privacy & terms page. Accepted
+    by click on the documents page; the click records who, when and which
+    edition and keeps a copy of the page. Edition: "service-agreement v3,
+    platform edition, issued 22/08/2026". Anyone who agreed to the PDF (v1)
+    or the personalised edition (v2) is asked for a fresh click; their
+    earlier acceptances stay on file and stay readable.
+
+  THE SCHEDULE OF SUPPORTS IS A PRINTOUT, NOT A SIGNATURE
+    "Your supports and prices": the supports the person uses, the item each
+    is claimed against and today's price limit, printed from the file on
+    request (participant and admin). No click. Register row is live: held
+    for everyone with a confirmed plan and a recorded funding arrangement.
+    Earlier schedule acceptances remain as documents on the file.
+
+  THE PRIVACY CONSENT IS CLAUSE 9 — reversed in v86.2.1, see above
+    (the separate consent is a required click again)
+
+  THE DOCUMENTS PAGE IS TIDIER
+    One line per agreement, with the newest acceptance and the earlier
+    editions folded underneath; acceptances no longer repeat in the
+    documents list as "recorded, no file"; a "printed from your file" line
+    links the supports-and-prices printout, the intake form and the
+    emergency plan; the bookings-page card names what has been agreed and
+    points to the account page for the editions.
+
+  The Service Agreement's text is DMHC's substance in the platforms'
+  structure, and a few positions in it are DMHC's to confirm with its
+  legal reviewer before launch — the Privacy & terms page already says the
+  legal wording is being settled: clause 10 (transport incidents not
+  covered by insurance; excluded liability), clause 8.1 (grounds for
+  suspension), and clause 8.2 (28 days' notice from us; immediate grounds).
+  Change the text in serviceAgreementBody() in server.js and bump
+  AGREEMENT_EDITION; every participant is then asked again.
+
+  No migration. SCHEMA_VERSION stays 86000.
+
+
+WHAT CHANGED IN v86.1.0 — THE SERVICE AGREEMENT IS NOT A FORM
+-------------------------------------------------------------
+The Service Agreement a participant was asked to agree to on screen was
+the printed PDF: dotted lines for the name and address, a "fromdate"
+placeholder, three signature blocks and two blank annexure tables. Pressing
+"I agree" under a page of blanks and signature boxes was a contradiction.
+
+  The agreement is now generated for the person, like the Schedule of
+  Supports: DMHC's fifteen clauses in the same order, with the parties, the
+  NDIS number, the funding arrangement (clause 9 states theirs), the
+  representative and the cancellation windows filled in from the file, and
+  the signature page replaced by the click record. The page is snapshotted
+  beside the acceptance. Edition string: "service-agreement v2, on-screen
+  edition, issued 22/08/2026".
+
+  Anyone who agreed to the PDF sees "Service Agreement needs a fresh click"
+  on their documents page, with the new one to read and an I agree button.
+  The earlier acceptance is kept and still links to the archived PDF. Until
+  they click, nothing about their supports changes and the booking gate
+  still passes on the earlier acceptance.
+
+  The PDF stays on the blank-forms shelf as the text of earlier acceptances.
+  Uploading a new version of it no longer changes what anyone is asked to
+  agree to — a generated document wins over a shelf copy for every key that
+  has one (agreement, schedule, medication consent). To change the
+  agreement's wording, edit GENERATED_DOCS['p-agreement'] in server.js and
+  bump AGREEMENT_EDITION; every participant is then asked again.
+
+  Wording changes from the PDF, for the record: the complaints clause gives
+  hello@bookit.life, the phone number and the Contact page (the PDF gave a
+  personal Gmail address and "by post to" a web address); the cancellation
+  clause states the windows the platform actually publishes (7 days for
+  personal care, daily tasks and community; 48 hours for employment,
+  household and transport) instead of a flat seven days; clause 4 no longer
+  refers to an intake form, because there isn't one. Nothing else changed
+  in substance. Read it once before Monday.
+
+  No migration. SCHEMA_VERSION stays 86000.
+
+
+WHAT CHANGED IN v86.0.0 — THE PARTICIPANT'S FILE
+------------------------------------------------
+A participant should be asked for the facts about them as fields, for the
+agreement on screen, and then only for the clinical plans their support
+needs. DMHC's file asked for the same things as sixteen documents. v86
+keeps the office file the same size and makes the participant's page
+honest.
+
+  DERIVED FROM DATA (no longer on anyone's to-do list; printed on demand)
+    Intake form           from the account, billing card, nominee card and
+                          the confirmed support plan
+    Emergency & disaster  from the plan's emergency, continuity and safety
+    plan                  sections
+    Annual review         = plan confirmed within 12 months + every clinical
+                          plan that applies on file and in date
+    Advocate / nominee    = "who manages this account" on the documents page
+                          (role, name, relationship, paid or not, under 18).
+                          Under 18 with nobody named blocks the first
+                          booking. A worker who takes the
+                          person's shifts cannot be named. Signed form still
+                          on the shelf, optional, for arrangements that need
+                          a signature.
+    NDIS plan dates       on the billing card (start/end). A plan that has
+                          ended while supports continue is named in the
+                          register that day. The plan COPY is now optional.
+    Satisfaction survey   sent from the admin board, answered in BookIt,
+                          anonymous if the person wants, tracked as
+                          sent/answered, exported as 05a in the audit pack.
+                          Never counted against the participant.
+
+  GENERATED AND ACCEPTED BY CLICK
+    Schedule of Supports  rendered from the certificate and the 2026-27
+                          price limits for the supports the person uses.
+                          The click snapshots the page beside the
+                          acceptance. When the limits move, the file shows
+                          it and asks for a fresh click — old acceptances
+                          are kept.
+    Medication consent    DMHC's own wording, split from the prescriber's
+                          plan, accepted on screen.
+
+  THE SUPPORT PLAN ASKS SEVEN YES/NO QUESTIONS ("Specialised support")
+    medication · mealtimes · seizures · diabetes · allergy/asthma plan ·
+    transfers · behaviour support plan. A yes switches on the matching
+    clinical document (epilepsy, diabetes, allergy, manual handling and PBS
+    rows are new; medication and mealtime gained the switch); a no means
+    the row is never asked for. Plans confirmed before v86 read "not asked"
+    — the page shows the only-if hints exactly as before until the person
+    reviews their plan. Also added to the plan: living situation (required),
+    diagnosis (optional), interpreter (required).
+
+  WORKERS CAN READ THE CLINICAL PLANS
+    A worker who is requested, booked or has worked with the participant
+    can open the office-checked clinical plans (and only those) before the
+    shift; the brief links them and every opening lands in the
+    participant's access log. The participant can switch sharing off, but
+    only with a written line saying how the worker gets the plan on the day
+    Nothing else on the file is ever readable by a worker.
+
+  SMALLER
+    Privacy consent re-asked on change, not yearly. Medication plan on a
+    12-month clock (was on-change). Risk assessment shown to the participant
+    as status only ("on file, done 3/3/26" / "not written yet"). A checked
+    clinical plan ticks the matching care plan the participant named. ATSI
+    status and preferred contact on Your details (optional). Forms register
+    counts acceptances made on screen as held — clicked agreements used to
+    show as "nothing on file" in the register, which was a bug.
+    Participant register CSV gained funding, plan dates, nominee, under-18
+    and sharing columns.
+
+  NOT BUILT, ON PURPOSE
+    No booking gate on high-intensity plans. DMHC does not hold any
+    Schedule 2 support and is not offering high-intensity supports yet.
+    No date of birth — the account page promises not to ask for one.
+
+  MIGRATION
+    Columns are added by runLegacyAlter on first boot; nothing is
+    backfilled. Two new tables: survey_invites, survey_responses. Existing
+    form_templates rows for p-intake and p-emergency stay in the database
+    but no longer appear anywhere, because those keys left the catalogue.
+    SCHEMA_VERSION 86000.
+
+
+WHAT THIS REPOSITORY IS
+-----------------------
+One Node.js program and one web page, with three small support modules.
+No build step, no framework, no second service to keep in sync.
+
+  server.js                  the entire back end
+  lib/                       REQUIRED — server.js loads these on its first
+                             three lines and will not start without them
+    bookit-hardening.js        security helpers (uploads, CSV, origin checks,
+                               static-path denial, production preflight)
+    migration-runner.js        database migration helpers
+    version.js                 reads package.json — so package.json is also
+                               required at runtime, not just for npm
+  public/index.html          the entire front end
+  public/assets/             videos, photographs, character files, and two
+                             browser scripts (dialog focus, worker-list guard)
+  public/vendor/             the character/animation engine
+  package.json               required at runtime by lib/version.js
+  package-lock.json          lets `npm ci` work
+  .gitignore                 keeps the database, documents, photos and the
+                             signing key out of this PUBLIC repository
+
+
+DEPLOYING A NEW VERSION
+-----------------------
+THE OLD "just upload server.js and public/" INSTRUCTION IS NO LONGER SAFE.
+Since v85.2.0 the server requires lib/. Upload without it and the service
+dies immediately with a module-not-found error.
+
+The minimum deployable set is:
+
+  server.js
+  package.json
+  package-lock.json
+  .nvmrc                     since v86.8.0 — the exact Node release
+  lib/                       all three files
+  public/index.html
+  public/assets/bookit-a11y-dialogs.js
+  public/assets/bookit-worker-load-guard.js
+  public/assets/fonts/       since v86.8.0 — the page loads its fonts from here
+  scripts/  tests/  docs/    since v86.8.0 — npm run check needs all three
+
+Videos, photographs, character files and public/vendor/ are unchanged by a
+code release and do NOT need re-uploading. GitHub's upload page adds and
+overwrites; it never deletes what you leave out.
+
+Steps:
+
+  1. Note the commit you are on now, so there is a rollback point:
+         git -C <app dir> rev-parse --short HEAD
+
+  2. Back up the three things a redeploy cannot recreate. Confirm where they
+     actually live first — do not assume:
+         sudo systemctl show bookit -p Environment -p WorkingDirectory -p ExecStart
+     DB_PATH, DOCS_DIR and PHOTOS_DIR in that output are the truth. If unset,
+     the database sits beside server.js wherever ExecStart points.
+
+  3. Upload to github.com/thapasupreeya3-cpu/bookit-app/upload/main, commit.
+
+     Uploading a DOTFILE (.gitignore, .github/): macOS Finder hides files
+     beginning with a dot, so dragging a folder silently skips them. Press
+     Shift + Command + . to reveal them first, or create the file directly
+     with github.com/thapasupreeya3-cpu/bookit-app/new/main
+
+  4. On the server:  sudo bookit-update
+
+  5. Verify, in this order:
+         /api/version                 reports the version you just pushed
+         open one service page        the scene video plays through to its
+                                      ending photograph
+         log in                       (you will re-authenticate once)
+         open the admin boards        they load
+         download one CSV export      it opens
+
+  6. If anything is wrong: check out the commit from step 1 and run
+     sudo bookit-update again.
+
+Verify an upload against raw.githubusercontent.com, never GitHub's file
+page. The blob page caches its line count for a long time and has already
+once shown a stale figure that read as a failed upload when it was fine.
+
+
+BEFORE ANY DEPLOY
+-----------------
+  npm ci --ignore-scripts
+  npm run check
+
+Both must exit 0.
+
+Since v86.8.0 `npm run check` is: syntax validation of the server, the
+lib/ files, the browser scripts and the scripts/ tools; the two generated
+inventories in docs/ must match server.js; tests/clash-tests.js (sixteen
+booking-clash cases, read out of server.js at run time); tests/smoke.js
+(boots the server on a throwaway database and checks the public routes,
+the refusals, compression, byte ranges, the public pages' <head>, sitemap,
+robots, names, the idle timeout, the email gate and the clash gates through
+the real routes). It is not a security scan or a browser regression run.
+.github/workflows/check.yml runs the same command on every push.
+
+package.json, scripts/, tests/ and docs/ travel together: the check
+command names files in all three folders.
+
+
+ENVIRONMENT SETTINGS WORTH KNOWING
+----------------------------------
+Full list and defaults are in the site guide; these three are the ones that
+decide whether the server starts at all.
+
+  NODE_ENV=production   turns on a fail-closed preflight. With it set, the
+  or STRICT_PROD=on     server REFUSES TO START unless APP_URL is https, a
+                        persistent secret exists, admin MFA is not disabled,
+                        SEED_DEMO is not on, a mail provider is configured,
+                        BIND_HOST is loopback, and the data folders sit
+                        outside public/. It names the reason and touches
+                        nothing before deciding. If both NODE_ENV=production
+                        and SEED_DEMO=on are set, the boot will fail.
+
+  BIND_HOST             defaults to 127.0.0.1, so port 3000 is unreachable
+                        from the internet even if a firewall rule goes
+                        missing. Caddy is the only intended caller.
+
+  TRUST_PROXY=1         required for per-visitor rate limiting. Without it
+                        every visitor shares one bucket, because behind
+                        Caddy they all arrive from 127.0.0.1.
+
+
+CURRENT STATE — HONEST NOTES
+----------------------------
+* Video seeking works since v86.8.0 (byte ranges). Admin sessions time out
+  after 12 idle hours since v86.8.0. Both earlier notes are closed.
+
+* The numbered migration ledger is NOT active. lib/migration-runner.js
+  contains ensureMigrationTable() and runMigrations(), but server.js calls
+  neither — it uses runLegacyAlter() only. What IS true: unexpected
+  migration errors are rethrown instead of being silently swallowed.
+  Do not describe this as a completed versioned-migration system.
+
+* Both package.json and package-lock.json are named "bookit-site-v65"; the
+  lock records the same version as package.json since v86.8.0. Regenerate
+  the lock (or edit the two version fields) on every release.
+
+* Tests, a CI workflow, backup tooling and operations notes are on this
+  branch since v86.8.0 (tests/, .github/, scripts/backup.js, ops/). There
+  is still no browser regression run and no security scan.
+
+* Authentication is scryptSync: every sign-in blocks the event loop for
+  roughly fifty milliseconds. Fine at today's scale; the first busy Monday
+  morning is when it would show, and the fix (crypto.scrypt, async) is
+  small now that the dispatcher handles promises.
+
+
+HISTORICAL BUILD NOTES
+----------------------
+Everything below describes the v65/v66 animation and character work. It is
+useful history and is NOT current deployment instruction.
+
+This folder is the entire site: the "composition fixes 5" build (full-bleed
+adaptive hero that measures the live copy and routes the walk beside it,
+power wheelchair, rate-limited turns) with ONE change — the character
+factory public/vendor/care-cast.js now builds the approved v66 sculpted
+cast (realistic proportions, warm faces with brows/eyes/smile/blush,
+mitten hands, knee-jointed legs, resting seated pose) wearing the full
+cast wardrobe: locs, bob, crop, beards, headscarves, glasses, badges.
+The concept-art cut-out characters from v67 are gone entirely.
+
+Changed vs "fixes 5" as uploaded: ONLY public/vendor/care-cast.js.
+
+What changed in v65
+  • Homepage journey has a protected corridor: right half of the hero on
+    desktop (the static illustration cedes its column; the floating cards
+    stay), and a dedicated 300px stage below the CTAs on mobile. The route
+    never runs beneath the headline, buttons or search field.
+  • The pair and bench are larger (with a minimum on small screens), the
+    route line is softer, the pergola now straddles the path as an arbor
+    sized to clear the wheelchair — no more clipping at the frame edge.
+  • The pair walks in from off-screen and fully exits off-screen before the
+    loop resets. Nothing fades except footprints and wheel tracks.
+  • One obstacle-aware navigation system (public/vendor/care-nav.js, NEW
+    FILE) now plans every journey — homepage scenes and all service-page
+    dioramas. Clearance covers the whole travelling body (wheelchair,
+    carried plates, watering can), not just the character's centre.
+  • Shared-living scene: the obstacle map is actually used — the walk to
+    the chairs goes around the dining table, and the walkway clears the
+    island and table by a full body width.
+  • Homepage garden scene: the exit route no longer cuts through the second
+    raised bed; stories scene: trees/flowers moved off the walked path.
+  • The Build 24/25 full-screen walkers are removed entirely — they crossed
+    live copy at arbitrary heights and kept running behind other pages.
+    Paused scenes now do zero GPU work when their page is hidden.
+
+  • Community scene: pair legs are navigator-solved around the pavilion
+    posts, art station, basket and bench; the exit walkway clears the
+    relocated garden planter. Service-page animation windows are smaller
+    (560px, centred). Personal-care entry no longer crosses the bench.
+  • Homepage: the route is a real footpath, the carer pushes from the
+    middle of the chair, a neighbour sits on the bench, two friends chat
+    under the pergola, and the "Shift confirmed" card moved off the route.
+
+  • v65.7: NEW FILE public/vendor/care-cast.js (must upload) — one shared
+    character factory styled to the rendered cast lineup: realistic
+    proportions, painted faces, matte clay look, locs/bob hairstyles,
+    lanyard badges. The same six characters now appear everywhere; every
+    scene carer is the sage-polo carer with locs and a badge.
+
+Deploy: open github.com/thapasupreeya3-cpu/bookit-app/upload/main
+and drag BOTH items from inside this folder (server.js and the
+public folder) into the page. Commit, then: sudo bookit-update
+(public/vendor/care-nav.js is new — make sure it uploads too.)
+
+Safe to delete from the repo whenever you like (nothing uses them):
+  index.html (the one at repo root), DESIGN.md, README-V63.md,
+  get-assets.mjs, CARE_BACKGROUND_UPDATE.txt,
+  public/assets/world/, public/assets/care-backgrounds/,
+  public/assets/care-motion/, public/images/care-poster.webp,
+  public/vendor/oo-scrub.js

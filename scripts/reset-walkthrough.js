@@ -83,7 +83,7 @@ if (u.role === 'worker') {
   if (!want.training) die(`${email} is a worker account — the only thing this script clears on a worker is --training. Nothing changed.`);
   console.log(`\n${u.name} <${u.email}> — worker #${u.id}\n`);
   const comps = db.prepare('SELECT COUNT(*) AS n FROM module_completions WHERE worker_id = ?').get(u.id).n;
-  const certs = db.prepare("SELECT id, label FROM worker_docs WHERE worker_id = ? AND verified_by = 'BookIt (platform-issued)' AND label LIKE '%(BookIt module)'").all(u.id);
+  const certs = db.prepare("SELECT id, label FROM worker_docs WHERE worker_id = ? AND verified_by = 'The Care Web (platform-issued)' AND label LIKE '%(The Care Web module)'").all(u.id);
   if (!comps && !certs.length) { console.log('  – training: nothing on file\n\nNothing to do.\n'); process.exit(0); }
   if (comps) console.log(`  ${mark}  ${comps} module completion(s)`);
   for (const c of certs) console.log(`  ${mark}  certificate: ${c.label}`);

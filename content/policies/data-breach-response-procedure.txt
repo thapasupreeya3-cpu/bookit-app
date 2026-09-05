@@ -6,11 +6,11 @@ This procedure sets out what Disability and Mental Health Care Pty Ltd (DMHC) do
 
 Scope
 
-This procedure applies to all personal information DMHC holds about participants, their families and nominees, workers, applicants and anyone else — whether on BookIt, in email, on paper, on a phone, or held on DMHC's behalf by a supplier. It applies to everyone who works for or with DMHC.
+This procedure applies to all personal information DMHC holds about participants, their families and nominees, workers, applicants and anyone else — whether on The Care Web, in email, on paper, on a phone, or held on DMHC's behalf by a supplier. It applies to everyone who works for or with DMHC.
 
 Definitions
 
-A data breach is unauthorised access to, or unauthorised disclosure of, personal information, or the loss of personal information in circumstances where unauthorised access or disclosure is likely. Examples: a phone or notebook with participant details is lost; an email with a support plan goes to the wrong address; a worker looks up a participant they do not support; a BookIt account is accessed by someone else; a supplier reports a security incident.
+A data breach is unauthorised access to, or unauthorised disclosure of, personal information, or the loss of personal information in circumstances where unauthorised access or disclosure is likely. Examples: a phone or notebook with participant details is lost; an email with a support plan goes to the wrong address; a worker looks up a participant they do not support; a Care Web account is accessed by someone else; a supplier reports a security incident.
 
 An eligible data breach is one that is likely to result in serious harm to any of the individuals concerned, and which DMHC has not been able to prevent through remedial action. Serious harm includes physical, psychological, emotional, financial or reputational harm, and is more likely where health and disability information, identity documents or financial details are involved.
 
@@ -18,7 +18,7 @@ Procedure
 
 1. Report it at once. Anyone who knows or suspects a breach tells the Director immediately, by phone, and within 24 hours at the latest — the same day is expected. Do not investigate alone, do not delete anything, and do not contact the affected person before the Director has been told. Record what you know: what information, whose, how, when, and who else knows.
 
-2. Contain it. The Director, on the same day, takes whatever step stops the breach continuing: revoking a BookIt session or resetting a password, recalling or asking for the deletion of a misdirected email, remotely wiping a lost device, retrieving papers, suspending a worker's access, or asking a supplier to isolate a system. Every containment step is written down with the time.
+2. Contain it. The Director, on the same day, takes whatever step stops the breach continuing: revoking a Care Web session or resetting a password, recalling or asking for the deletion of a misdirected email, remotely wiping a lost device, retrieving papers, suspending a worker's access, or asking a supplier to isolate a system. Every containment step is written down with the time.
 
 3. Assess it, within one business day. The Director assesses, and records, what information was involved and how sensitive it is; who is affected and how many people; who has had, or could have, access to it; whether it has been recovered or made unusable; and what harm could reasonably follow. Where the assessment cannot be finished in one business day, it is completed as quickly as practicable and in any case within 30 days, and the reason for the delay is recorded.
 
@@ -34,7 +34,7 @@ Responsibilities and roles
 
 - Every worker: report a suspected breach at once, contain what they safely can, and cooperate with the assessment.
 - The Director: contain, assess and decide within one business day; notify the OAIC and the individuals; keep the records; review and improve.
-- Suppliers who hold information for DMHC, including BookIt's hosting: report any security incident to DMHC within 24 hours under their agreement.
+- Suppliers who hold information for DMHC, including The Care Web's hosting: report any security incident to DMHC within 24 hours under their agreement.
 
 Relevant legislation
 

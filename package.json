@@ -1,15 +1,18 @@
 {
   "name": "bookit-site-v65",
-  "version": "86.12.0",
+  "version": "87.0.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "lint": "node --check server.js && node --check lib/bookit-hardening.js && node --check lib/migration-runner.js && node --check lib/version.js && node --check public/assets/bookit-a11y-dialogs.js && node --check public/assets/bookit-worker-load-guard.js && node --check scripts/backup.js && node --check scripts/dbq.js && node --check scripts/inventory.js",
-    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js",
+    "lint": "node scripts/lint.js",
+    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review",
     "inventory": "node scripts/inventory.js",
-    "check": "npm run lint && node scripts/inventory.js --verify && npm test",
-    "backup": "node --no-warnings scripts/backup.js"
+    "check": "npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && npm test",
+    "backup": "node --no-warnings scripts/backup.js",
+    "test:review": "node --no-warnings tests/review-unit-tests.js && node --no-warnings tests/review-regression.js",
+    "release:docs": "node scripts/inventory.js && node scripts/release-docs.js",
+    "review:data": "node --no-warnings scripts/review-existing-data.js"
   },
   "license": "UNLICENSED",
   "engines": {

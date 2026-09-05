@@ -1,0 +1,240 @@
+{
+  "release": "86.13.0",
+  "base_release": "86.12.0",
+  "format": "root-relative changed/new-files overlay; preserve other existing repository paths",
+  "base_archive_sha256": "e02c3e55c5ef7315010fc7b6657595f8f839cc745fe437554429b05b21f686b6",
+  "files": [
+    {
+      "path": "STARTHERE.txt",
+      "status": "modified",
+      "bytes": 3523,
+      "sha256": "bcc6fe87263b6cda037e05526a2127c7074458b3ccc42eb27244bcee8686db94",
+      "base_sha256": "e0f4235df3a91ce7e45782f4cd782759aac5a83a747b7413cec9332a00e9388b"
+    },
+    {
+      "path": "docs/IMPLEMENTATION-MATRIX.md",
+      "status": "new",
+      "bytes": 7825,
+      "sha256": "be83f96dcd04edb4211afbd126242e570900e5c63f03f695a936e65b7b6c65fc",
+      "base_sha256": null
+    },
+    {
+      "path": "docs/RELEASE-NOTES.md",
+      "status": "new",
+      "bytes": 6734,
+      "sha256": "bf5b86e96c021eb99dfd51eaf19f37c8acd6c50c4a8e3e7ae41ee99dcb2f2709",
+      "base_sha256": null
+    },
+    {
+      "path": "docs/TEST-RESULTS.md",
+      "status": "new",
+      "bytes": 4296,
+      "sha256": "ec478099a4a15fd08063b1ab4c908ad298dcd64069fc2de0a28e5858f07cb108",
+      "base_sha256": null
+    },
+    {
+      "path": "docs/api-route-inventory.txt",
+      "status": "modified",
+      "bytes": 10959,
+      "sha256": "88888195a36fcccec545b41137f5b35ab849bb714f154a714024ef9491a68f97",
+      "base_sha256": "cbe60f7eedf66421e4b5fb4a67b00035d4902806f9ac75f22ed8e2f6c1ed618c"
+    },
+    {
+      "path": "docs/database-table-inventory.txt",
+      "status": "modified",
+      "bytes": 17441,
+      "sha256": "84003cbe254d81887c3ecfec77caa2f0c2a4926c51001217de14989cae1cfd71",
+      "base_sha256": "888f0ea939ee0a28b291fb73491bb7c5565565b36048ac460663c61ae0f4f47d"
+    },
+    {
+      "path": "docs/legacy-start-here-v86.12.txt",
+      "status": "new",
+      "bytes": 79616,
+      "sha256": "52a1fbb61aa52797bd0cad810bcd9cbf6b5972939e1bf898ff7b683adfb4ee06",
+      "base_sha256": null
+    },
+    {
+      "path": "docs/release-metadata.json",
+      "status": "new",
+      "bytes": 468,
+      "sha256": "067db33a3608a19dd1e5c44aaa7e5575eb0069adf2c163f5040b8ca148da185e",
+      "base_sha256": null
+    },
+    {
+      "path": "docs/validation/check-output.txt",
+      "status": "new",
+      "bytes": 17952,
+      "sha256": "b052405632d23028f8f03e86564e63aa4615e0ff4b9e4c2314605a2e3bce8671",
+      "base_sha256": null
+    },
+    {
+      "path": "docs/validation/rendered-ui-summary.json",
+      "status": "new",
+      "bytes": 1486,
+      "sha256": "0c00ab633572ec5abc3d7773a2dad99657541a0cd364a10edfcecbf0dfd4ceac",
+      "base_sha256": null
+    },
+    {
+      "path": "docs/validation/upgrade-check.json",
+      "status": "new",
+      "bytes": 318,
+      "sha256": "0a6201ee67719138b756dc0e7eca3d4bd0cc4d883320f1c6cb65a71f4839b772",
+      "base_sha256": null
+    },
+    {
+      "path": "lib/assignment-policy.js",
+      "status": "new",
+      "bytes": 2937,
+      "sha256": "0282adfc512b3eb34a81d01a7f1790489510652ecbd5b96afe33d1357482548f",
+      "base_sha256": null
+    },
+    {
+      "path": "lib/booking-time.js",
+      "status": "new",
+      "bytes": 1552,
+      "sha256": "8b19e4afab3110651a57b506278eb353331125f911231db9d66a542e58c131c5",
+      "base_sha256": null
+    },
+    {
+      "path": "lib/message-pagination.js",
+      "status": "new",
+      "bytes": 1233,
+      "sha256": "5262ad0331c46edc7dc4e0f3321d2e3ae6bb1c297c372a1a20cf11647c23b930",
+      "base_sha256": null
+    },
+    {
+      "path": "lib/plan-access.js",
+      "status": "new",
+      "bytes": 754,
+      "sha256": "ec3486e48554d3484aef34397e92cb746b21f6d6204eed1a72343b3f090d2393",
+      "base_sha256": null
+    },
+    {
+      "path": "lib/referral-policy.js",
+      "status": "new",
+      "bytes": 433,
+      "sha256": "8b50e4d004a0ab70765cb53733e98e421767378f7021b71af9075e795adc5d92",
+      "base_sha256": null
+    },
+    {
+      "path": "lib/version.js",
+      "status": "modified",
+      "bytes": 344,
+      "sha256": "1c0ab392df8d0eccaae9af67914bb26558662dd938e16c2989f52503fb2340cd",
+      "base_sha256": "3d87790be90416b30a980ea170cb2b8c1ada974b11d51f5e711952cbbaa8b34b"
+    },
+    {
+      "path": "lib/worker-availability.js",
+      "status": "new",
+      "bytes": 5157,
+      "sha256": "1d85b3cd225634d090501fd3e01994436e26cb5795e17fe3e38dd0be1d305378",
+      "base_sha256": null
+    },
+    {
+      "path": "package-lock.json",
+      "status": "modified",
+      "bytes": 286,
+      "sha256": "d732dc26e6bb06104a7b04c399aace84d5f0f904111aa557dabc7ab2233f109a",
+      "base_sha256": "454cc3518bf80c6b4a96f1368314ab4f352133a9a719409c866bd822a84e0380"
+    },
+    {
+      "path": "package.json",
+      "status": "modified",
+      "bytes": 876,
+      "sha256": "c812c8386c3f876e5593aa68a88252aff865f4b943dc3e4c121c06a18918d680",
+      "base_sha256": "de7c752fbc292afc289baa69fdf84fbeedcb4a197ba45f0e87f1de01b17e8dc7"
+    },
+    {
+      "path": "public/assets/bookit-review-improvements.js",
+      "status": "new",
+      "bytes": 17979,
+      "sha256": "bd8ece1af4ce5616d323629952c117d1378315c220d36c1d649c40fca55483f4",
+      "base_sha256": null
+    },
+    {
+      "path": "public/index.html",
+      "status": "modified",
+      "bytes": 1078732,
+      "sha256": "121160996e98efef42ec9cc1af3e34e2c6454ff622e6c4e6b0290777bd6c22ba",
+      "base_sha256": "c5936d85fcedd91e6c6079522daa125d5423f1227fbd248e6eee4c814c5b475b"
+    },
+    {
+      "path": "readme.txt",
+      "status": "modified",
+      "bytes": 689,
+      "sha256": "82642f08930058e60dde1489febe34de6295a986e210d721b9a65ec60fa41df0",
+      "base_sha256": "7dc05a3b499d08726d258b8bb1063e5c84b2937601ee8a444974a41d673a17f3"
+    },
+    {
+      "path": "scripts/inventory.js",
+      "status": "modified",
+      "bytes": 5356,
+      "sha256": "9009892c1f608031554ca47bc83f16915b157c8c17275663ec6062356f846c15",
+      "base_sha256": "2da5bd65b5b06fa8efe46ad10d32a53ac396774689cd3cb7603612f1c9a6c2df"
+    },
+    {
+      "path": "scripts/lint.js",
+      "status": "new",
+      "bytes": 1270,
+      "sha256": "2eda58deb3c0374dff2e6da7da1418eb5bdb025d4540898f2180f8e3d2e21555",
+      "base_sha256": null
+    },
+    {
+      "path": "scripts/release-docs.js",
+      "status": "new",
+      "bytes": 5626,
+      "sha256": "259b2763d70825c508aff5df9e4fc0d27342ec109e585a408c51ca7bbb477ff8",
+      "base_sha256": null
+    },
+    {
+      "path": "scripts/review-existing-data.js",
+      "status": "new",
+      "bytes": 2546,
+      "sha256": "d23d085a3f99b4f597995d4cf44184ad3644b397b3446a7491a2228b44b01a89",
+      "base_sha256": null
+    },
+    {
+      "path": "scripts/test-environment.js",
+      "status": "new",
+      "bytes": 472,
+      "sha256": "6c38b37eb3fd94ed563101e017d3c6fed2ef7a785c3988ee49d506e7e763112c",
+      "base_sha256": null
+    },
+    {
+      "path": "server.js",
+      "status": "modified",
+      "bytes": 1337136,
+      "sha256": "d724b426f42c9cce79de793fe975a47bc4d2e1ac7dd1df046674dfb7f6f9e440",
+      "base_sha256": "de22458bba395f1f360e16078b6faa20f52b4c703ea8e7826b663ecfa8d9495a"
+    },
+    {
+      "path": "tests/clash-tests.js",
+      "status": "modified",
+      "bytes": 5611,
+      "sha256": "1f651e1f9911729df84080be32ff8b7057f6b9f3a658c54d18e9a40670d7d3f6",
+      "base_sha256": "647bf82bba56dfb87913a2c4ae91d91226d24dfbed43b2592b5de926424f1bb3"
+    },
+    {
+      "path": "tests/review-regression.js",
+      "status": "new",
+      "bytes": 29734,
+      "sha256": "9657900e014fbe92ac5802084f5d7ddb4d0d0452b80131a3e8afb52dfe4011e9",
+      "base_sha256": null
+    },
+    {
+      "path": "tests/review-unit-tests.js",
+      "status": "new",
+      "bytes": 5118,
+      "sha256": "716b58ddf2a0302bbe96e422d9bb401207dcda9e300cfab58f7b2c6c31a0ad36",
+      "base_sha256": null
+    },
+    {
+      "path": "tests/smoke.js",
+      "status": "modified",
+      "bytes": 79430,
+      "sha256": "18ead9301f56507a7ba23617fe841aa62b6e349cfb3853e1e88ccc45a3e52944",
+      "base_sha256": "8e27aacf783a6b8f97c96f92a8fd83624f66f9b5ab59c7b76842e105342cd2c5"
+    }
+  ],
+  "manifest_note": "This manifest does not hash itself."
+}

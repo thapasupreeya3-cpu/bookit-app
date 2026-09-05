@@ -36,13 +36,13 @@ Key Management Personnel means Supriya Thapa and other key management personnel 
 
 Worker means a permanent, fixed term or casual member of staff, a contractor or volunteer employed or otherwise engaged by Disability and Mental Health Care Pty Ltd, and includes the Director.
 
-BookIt means the Disability and Mental Health Care Pty Ltd service-delivery platform (bookit.life) that holds our booking, credential, incident, complaint and roster records.
+The Care Web means the Disability and Mental Health Care Pty Ltd service-delivery platform (thecareweb.com.au) that holds our booking, credential, incident, complaint and roster records.
 
 Procedures
 
 Driver requirements, before any transport shift
 
-- The Worker holds a current, unrestricted Australian driver licence appropriate to the vehicle. Licences are recorded in BookIt's credential system, which tracks expiry dates and warns the Worker and management at 30 and 7 days before expiry.
+- The Worker holds a current, unrestricted Australian driver licence appropriate to the vehicle. Licences are recorded in The Care Web's credential system, which tracks expiry dates and warns the Worker and management at 30 and 7 days before expiry.
 - The Worker declares they are fit to drive: not affected by alcohol, drugs, fatigue, or medication that impairs driving.
 - Any licence suspension, disqualification, or relevant traffic charge must be reported to Key Management Personnel immediately; transport duties stop until resolved.
 
@@ -68,7 +68,7 @@ Breakdown, accident or incident on the road
 
 Records
 
-Driver licences (with expiry tracking) live in BookIt; vehicle insurance evidence lives in worker files; transport-related incidents live in the incident register. These together evidence this Procedure operating.
+Driver licences (with expiry tracking) live in The Care Web; vehicle insurance evidence lives in worker files; transport-related incidents live in the incident register. These together evidence this Procedure operating.
 
 Policy review and updates
 

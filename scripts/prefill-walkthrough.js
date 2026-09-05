@@ -26,10 +26,10 @@
    the ones it knows; anything it has no answer for gets a safe default.
 
    Usage:
-     node scripts/prefill-walkthrough.js https://bookit.life you+participant@gmail.com
-     node scripts/prefill-walkthrough.js https://bookit.life you+participant@gmail.com --gate "site password"
-     node scripts/prefill-walkthrough.js https://bookit.life you+participant@gmail.com --dry-run
-     node scripts/prefill-walkthrough.js https://bookit.life you+participant@gmail.com --leave-agreements
+     node scripts/prefill-walkthrough.js https://thecareweb.com.au you+participant@gmail.com
+     node scripts/prefill-walkthrough.js https://thecareweb.com.au you+participant@gmail.com --gate "site password"
+     node scripts/prefill-walkthrough.js https://thecareweb.com.au you+participant@gmail.com --dry-run
+     node scripts/prefill-walkthrough.js https://thecareweb.com.au you+participant@gmail.com --leave-agreements
          (fills the plan and billing but does not press "I agree" on anything,
           so the agreement click can be done live in front of someone)
 
@@ -50,7 +50,7 @@ const leaveAgreements = args.includes('--leave-agreements');   /* so the "I agre
 const planIdx = args.indexOf('--ndis-plan');
 const ndisPlanPath = planIdx >= 0 ? args[planIdx + 1] : require('path').join(__dirname, 'NDIS_plan__sample_for_walkthrough.pdf');
 if (!base || !email) {
-  console.error('usage: node scripts/prefill-walkthrough.js https://bookit.life participant@example.com [--gate "site password"] [--dry-run]');
+  console.error('usage: node scripts/prefill-walkthrough.js https://thecareweb.com.au participant@example.com [--gate "site password"] [--dry-run]');
   process.exit(1);
 }
 
@@ -140,7 +140,7 @@ const skip = m => console.log('  \u2013 ' + m);
 const bad = m => console.log('  \u2717 ' + m);
 
 (async () => {
-  console.log(`\nBookIt walkthrough prefill \u2014 ${base} \u2014 ${email}${dryRun ? ' (dry run: nothing will be written)' : ''}\n`);
+  console.log(`\nThe Care Web walkthrough prefill \u2014 ${base} \u2014 ${email}${dryRun ? ' (dry run: nothing will be written)' : ''}\n`);
 
   /* 0. the site-wide preview gate, if there is one */
   if (gatePw) {

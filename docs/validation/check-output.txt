@@ -1,0 +1,327 @@
+
+> bookit-site-v65@86.13.0 check
+> npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && npm test
+
+
+> bookit-site-v65@86.13.0 lint
+> node scripts/lint.js
+
+syntax: 32 scripts compiled, 0 failed (3 inline application scripts)
+
+> bookit-site-v65@86.13.0 test
+> node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review
+
+PASS  overlaps an accepted 10-13
+PASS  touching end 13:00 is free
+PASS  Bob re-requests his own 15-17 = duplicate
+PASS  Alice may compete with Bob's request
+PASS  cancelled row ignored
+PASS  BACK: last night's sleepover blocks 07:00
+PASS  BACK: 08:00 after it ends is free
+PASS  FWD: 29th 22:00-06:00 hits 30th 01:00
+PASS  FWD: 29th 22:00-01:00 touches, free
+PASS  FWD: 29th 20:00-22:00 free
+PASS  FWD across DST start: 4 Oct 23:00-02:00
+PASS  different worker unaffected
+PASS  accept Bob 15-17: no accepted clash
+PASS  accept a 12-14 request: clashes with #1
+PASS  excludeId hides the booking itself
+PASS  accept-time ignores competing requests
+PASS  workerFree FWD: cover 29th 22:00-06:00 vs accepted 30th 01:00 → busy
+PASS  workerFree BACK: cover 5th 07:00 vs sleepover from the 4th → busy
+PASS  workerFree: a competing REQUEST counts as busy for an offer list
+PASS  workerFree: a free hour is free
+PASS  workerFree: excludes the booking being covered
+all 21 passed
+PASS  server boots and reports a version
+PASS  /api/me/blockers refuses without a session
+PASS  /api/bookings refuses without a session
+PASS  /api/me/documents refuses without a session
+PASS  /api/conversations refuses without a session
+PASS  /api/form-templates refuses without a session
+PASS  /api/me/support-plan refuses without a session
+PASS  /api/admin/overview refuses without the office
+PASS  /api/admin/audit-pack refuses without the office
+PASS  /api/admin/participants/1/plan refuses without the office
+PASS  plan-review refuses cleanly when logged out (was a 500)
+PASS  /api/me is public
+PASS  /api/workers is public
+PASS  /api/workers/10 is public
+PASS  /api/rates is public
+PASS  /api/scope is public
+PASS  /api/high-intensity is public
+PASS  /api/cancel-policy is public
+PASS  /api/jobs is public
+PASS  /api/templates is public
+PASS  /api/doc-catalog is public
+PASS  /api/support-plan/questions is public
+PASS  /api/health is public
+PASS  POST /api/contact is public
+PASS  POST /api/register is public
+PASS  POST /api/login answers 401 for a bad password, not "log in first"
+PASS  / is served brotli-compressed
+PASS  / carries an ETag and no-cache
+PASS  / carries the CSP with self-hosted fonts
+PASS  / answers 304 to a matching If-None-Match
+PASS  / uncompressed is the whole page
+PASS  brotli body decodes to the same page
+PASS  / is served gzip-compressed when brotli is not accepted
+PASS  the page loads fonts from /assets/fonts, not Google
+PASS  og:image is absolute
+PASS  /services/transport is served as the shell (200)
+PASS  … with its own <title>
+PASS  … a canonical link and og:url
+PASS  / carries Organization JSON-LD
+PASS  /bookings still folds into the hash (302)
+PASS  /sitemap.xml lists the public pages
+PASS  /robots.txt exists and names the sitemap
+PASS  the scene videos are in the repository
+PASS  a video answers a byte range with 206
+PASS  an impossible range answers 416
+PASS  a missing asset is a 404, not the shell
+PASS  path traversal is refused
+PASS  a font file is served as font/woff2
+PASS  a visitor sees the short name
+PASS  the demo participant can sign in
+PASS  a member sees the full name
+PASS  blockers answer for a signed-in participant
+PASS  a demo account is not asked to confirm its email
+PASS  a new participant can register
+PASS  an unverified participant is asked to confirm their email
+PASS  … and the booking refusal names it
+PASS  a fresh admin session opens the admin board
+PASS  an admin session idle for 13 hours is over
+PASS  a participant session idle for 13 hours is untouched
+PASS  moving a shift onto the worker's accepted shift is refused
+PASS  moving it to a free hour works
+PASS  a series edit that clashes on a date is refused and names it
+PASS  … and nothing changed
+PASS  a series edit to a free hour goes through
+PASS  office-assign refuses a worker whose next-morning shift overlaps (forward across midnight)
+PASS  … and accepts once that shift is moved away
+PASS  office-assign refuses a worker still on last night's sleepover (backward across midnight)
+PASS  a 3-hour sleepover is refused (a sleepover is a night)
+PASS  a sleepover starting at 2pm is refused
+PASS  an 8-hour sleepover from 10pm sits in the diary
+PASS  completing a sleepover without the active hours is refused
+PASS  completing with 3.5 active hours works
+PASS  the night is one flat $311.79
+PASS  the 1.5 extra hours are charged at the weekday-night rate on their own line
+PASS  the worker is paid a share of the extra hours
+PASS  the statement grand total carries the night plus the extra hours
+PASS  a full shift is still gated for a new participant
+PASS  a meet-and-greet goes through with just email + funding
+PASS  … as a fifteen-minute intro, no charge
+PASS  a meet-and-greet closes with no note needed, charges nobody and pays nobody
+PASS  … it is not on the pay run (not time worked)
+PASS  … and never in the claims list
+PASS  … and the KPI board counts it
+PASS  the directory carries a next-free slot per worker
+PASS  worker 10 sees the open shift in the feed
+PASS  … and can take it
+PASS  … after which it is gone from the feed
+PASS  a worker has a referral code and link
+PASS  a worker can register with a referral code
+PASS  the referral is recorded
+PASS  after 60 completed hours the referral is payable
+PASS  the payable bonus is a row on the payroll run, not claimable
+PASS  the office can mark it paid
+PASS  … after which it leaves the payroll run
+PASS  the public rate table lists the sleepover, per night
+PASS  the claim table lists the sleepover and active-overnight items
+PASS  the KPI board answers with the ten numbers
+PASS  concierge onboarding opens an account with consent recorded
+PASS  … and refuses without consent in words
+PASS  an establishment fee raises a $735.80 line
+PASS  … only once per participant
+PASS  non-face-to-face time raises a line at the weekday rate
+PASS  group shifts are refused while the setting is off (0136 registration)
+PASS  a coordinator referral is accepted without a session and gets a reference
+PASS  a suburb page is served for a suburb with workers
+PASS  … and a suburb with none is a 404
+PASS  the sitemap lists the suburb pages and the overnight page
+PASS  the overnight page is served with its own title
+PASS  before the run: no invoice, and the page says one comes overnight
+PASS  the claims run invoices the approved self-managed shifts
+PASS  … and leaves the unapproved shift alone
+PASS  the participant sees the invoice: total, due date, balance
+PASS  the PDF is a real tax invoice: address, item names, times, due date, balance, bank lines
+PASS  … naming the NDIS item and the balance due
+PASS  a worker cannot fetch it
+PASS  another participant cannot fetch it
+PASS  the office marks the bank transfer received and the participant sees Paid
+PASS  a 34-line invoice runs to more than one page
+PASS  removing without a real reason is refused
+PASS  erasing a delivered shift without the test tick is refused and offers Void
+PASS  … with the tick it is erased and logged
+PASS  a delivered shift can be voided with a reason and stays on file
+PASS  … and a void shift is off the claims list
+PASS  a claimed or paid shift cannot be removed until it is unclaimed
+PASS  an account with no delivered shifts is erased outright
+PASS  an account with rows in 27 tables erases cleanly, nothing left pointing at it
+PASS  an account with delivered shifts asks for acknowledgement first
+PASS  … and with it is closed and de-identified, shifts kept
+PASS  a shift on an invoice cannot be removed until the invoice is withdrawn
+PASS  the invoice can be withdrawn with a reason
+PASS  … and the participant no longer sees it
+PASS  running claims again does not re-invoice the withdrawn shift
+PASS  released, the next run invoices it again
+PASS  withdrawn again, it is held again
+PASS  … after which the shift can be erased
+PASS  a paid invoice cannot be withdrawn
+PASS  the overview carries claim status and invoice number on recent bookings
+PASS  a participant can accept the service agreement
+PASS  the filed agreement is served with scripts and the print dialog allowed
+PASS  the shelf marks the Service Agreement as generated, with its edition and a link
+PASS  … and no PDF was filed under it at boot
+PASS  nor under a screen (risk, exit, money, medication, media)
+PASS  the nominee form is a screen now, not a blank
+PASS  the NDIS plan copy never asks for a blank
+PASS  a participant can open a form screen with its fields
+PASS  a draft saves without the required fields
+PASS  confirming with a required answer missing is refused and names it
+PASS  confirming without the declaration ticked is refused
+PASS  a wrong checklist value is refused
+PASS  a complete form is confirmed and filed
+PASS  the filed page carries the answers, the declaration, who confirmed, and the print button
+PASS  the documents list shows it on file and offers the screen for the others
+PASS  an office-only screen is refused to a participant
+PASS  the office fills in a risk assessment for a participant and it is filed
+PASS  the audit pack lists the new registers
+PASS  /api/admin/invoice-register.csv answers with its rows
+PASS  /api/admin/night-care.csv answers with its rows
+PASS  /api/admin/fee-lines.csv answers with its rows
+PASS  /api/admin/referrals.csv answers with its rows
+PASS  /api/admin/form-responses.csv answers with its rows
+PASS  /api/admin/erasures.csv answers with its rows
+PASS  /api/admin/kpis.json answers with its rows
+PASS  the pack zip contains an invoice PDF and the new registers
+PASS  the register counts a filed screen per participant
+PASS  the register CSV no longer says "in Drive"
+PASS  no participant document on the shelf still needs a blank
+PASS  the nominee form, the clinical plans and the office records are screens
+PASS  the office files a mealtime plan from the clinician's plan
+PASS  the policies folder is indexed: 100+ files with links, grouped by kind
+PASS  the register's company rows are matched to pages and files by name (all but the registration certificate)
+PASS  one button records the matched documents as held, at their page on BookIt, and names the rest
+PASS  a file added to the index is matched straight away
+PASS  … and can be removed again
+PASS  the policies index is a register in the audit pack
+PASS  a non-https folder link is refused
+PASS  a Word policy is published as a page
+PASS  a participant can read it: headings, a list, a table and bold survive the conversion
+PASS  signed out, a participants-only page sends you to sign in
+PASS  made public, it is readable without signing in and is in the sitemap
+PASS  /policies lists it for a worker
+PASS  a staff-only page is refused to a participant but shown to a worker
+PASS  a spreadsheet is refused with a plain reason
+PASS  the folder index points at the built-in page for that file
+PASS  published pages are a register in the audit pack
+PASS  the 99 built-in documents are all published
+PASS  a built-in policy is a public page with its sections and approval block
+PASS  a register page carries the fill layer for a worker, with the sandbox opened for it
+PASS  a policy page does not: no fill hooks, sandbox unchanged
+PASS  a worker adds a register entry and the office reads it back
+PASS  a save on a stale copy of a register is refused, so no one’s entry is lost
+PASS  a participant may not read a staff register; nobody may fill a policy
+PASS  a form is a personal copy: the participant sees theirs, the worker does not
+PASS  the office sees everything filled in, and can open a person’s copy
+PASS  forms register rows carry their BookIt page
+PASS  recording from the folder counts pages written on BookIt, and never names a live register as missing
+PASS  high-intensity competency is "not offered", never "missing", and is not counted as a document
+PASS  the driver licence and WWCC are add-ons asked only of the workers they apply to
+PASS  a clinical plan row carries the timing states: due within four weeks, and expired-but-accepted
+PASS  /policies is organised for everyone, participants, and workers, with the agreement and prices first
+PASS  the Risk Assessment page is marked as done on screen and offers no fill layer
+PASS  every company document that is held is held at its BookIt page, or at a certificate in the office's Drive
+PASS  a company document that is a page here is held at that page automatically
+PASS  … and the register CSV says so
+PASS  worker screening, data breach response, the engagement agreement and the insurance certificates are all held
+PASS  … and the only company document not held is the registration certificate, which is not in the Drive
+PASS  the pipeline places every participant and worker at the first gate they have not passed, from the gates the app enforces
+PASS  … and the office cannot be read by a worker
+PASS  the certificates of currency carry their expiry on the register
+PASS  the Policy Register is generated from the published pages: public rows signed out, with review dates
+PASS  … and every document for an admin
+PASS  a staff-only built-in document sends a signed-out reader to sign in
+PASS  a built-in document carries its tables
+PASS  /api/rates carries the whole price list (extras)
+PASS  /refer-a-worker is a public page with its own title
+PASS  the page links to the referral programme from the footer
+PASS  the PACE export carries the kilometres as a non-labour travel row
+PASS  … and the sleepover's extra active hours as their own row
+PASS  the server logged no errors during the run
+smoke: all passed
+
+> bookit-site-v65@86.13.0 test:review
+> node --no-warnings tests/review-unit-tests.js && node --no-warnings tests/review-regression.js
+
+PASS reject invalid date 2030-02-31
+PASS reject invalid date 2030-13-32
+PASS reject invalid date 2026-02-29
+PASS reject invalid date 2028-2-29
+PASS reject invalid date 2030-01-01junk
+PASS reject invalid date 2030-00-01
+PASS reject invalid date 2030-01-00
+PASS reject invalid date null
+PASS reject invalid date 12
+PASS accept calendar date 2028-02-29
+PASS accept calendar date 2030-04-30
+PASS accept calendar date 2026-12-31
+PASS reject invalid start 99:99
+PASS reject invalid start 24:00
+PASS reject invalid start 09:60
+PASS reject invalid start 9:00
+PASS reject invalid start 09:00junk
+PASS reject invalid start null
+PASS Sydney spring DST nonexistent time rejected
+PASS Sydney autumn repeated time has explicit deterministic first-offset policy
+PASS nonfinite duration rejected
+PASS whole visit fits adjacent windows
+PASS whole visit cannot exceed declared window
+PASS interstate mismatch excluded
+PASS unknown location fails rather than matches all
+PASS postcode explicitly declared can match qualified location
+PASS leave inclusive boundary excludes visit
+PASS overnight requires next-day availability
+PASS wildcard service areas refused
+PASS malformed availability JSON is refused rather than treated as unrestricted
+PASS invalid leave calendar refused
+PASS inverted time windows refused
+PASS overlap in windows refused
+PASS blank declaration uses only home suburb not whole state
+PASS 501st message included in latest page
+PASS older cursor no duplicate or skipped messages
+PASS reject message cursor limit=0
+PASS reject message cursor limit=501
+PASS reject message cursor limit=abc
+PASS reject message cursor before=-1
+PASS reject message cursor before=2.2
+PASS referral calculation excludes all nonqualifying work
+42 review unit assertions passed
+PASS  invalid booking calendar/time values are rejected and never stored
+PASS  valid meet-and-greet still creates a request, not an accepted shift
+PASS  participant block is enforced through creation, acceptance, feed, preview, claim and office paths
+PASS  hard-locked training is enforced through ordinary acceptance and all cover assignment paths
+PASS  ordinary acceptance requires the confirmed plan identity and version, not a checkbox alone
+PASS  unpublished drafts do not replace the confirmed worker plan
+PASS  cover preview grants limited current-plan access; stale versions and double claims cannot assign
+PASS  competing cover claims commit exactly one new assignment
+PASS  historical work alone and participant blocks do not reveal the current plan
+PASS  recurring worker changes invalidate inherited acceptance; blocked replacement fails atomically
+PASS  ordinary office assignment offers the shift rather than impersonating worker acceptance
+PASS  office-recorded acceptance requires consent evidence and records plan provenance
+PASS  signed worker GET links never accept or decline a visit
+PASS  standby GET is read-only; protected POST needs nonce, signature and same origin
+PASS  501-message latest page, older pagination and explicit receipts preserve all messages
+PASS  drafts are private, revision-checked, survive restart and are removed on final completion
+PASS  referrals exclude sleepovers/intros, hold corrected unpaid awards, and retain paid evidence
+PASS  service area and whole-visit windows are applied consistently to directory and cover
+PASS  travel buffer blocks back-to-back different-participant visits but allows sufficient gap
+PASS  allied cover GET is read-only and signed POST revalidates the addressed provider
+PASS  SIL rejects malformed templates and produces requests requiring acceptance
+PASS  office series approval clears previous-worker acceptance metadata
+PASS  current clinical access works and is revoked for historical-only or blocked workers
+PASS  new draft and Today routes enforce role boundaries
+PASS  running server logged no uncaught runtime or database errors
+review integration: 25/25 passed

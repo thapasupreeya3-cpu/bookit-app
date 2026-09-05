@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-/* BookIt — read the database from the command line, read-only.
+/* The Care Web — read the database from the command line, read-only.
    The guide's "last resort", made real. Opens the file read-only, so it
    cannot change anything; output is pipe-delimited, which pastes straight
    into a spreadsheet. Dates come back ISO (2026-07-30) — that is how they

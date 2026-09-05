@@ -1,4 +1,4 @@
-/* BookIt — worker-diary clash cases.
+/* The Care Web — worker-diary clash cases.
    Reads ymd/bookingStart/bookingEnd/bookingClash out of ../server.js at run time,
    so the test always exercises the helper that will be deployed, not a copy.
    Run:  node --no-warnings tests/clash-tests.js      (exit 0 = all passed) */
@@ -35,7 +35,7 @@ INSERT INTO bookings VALUES (5,2,10,'2026-08-30','01:00',2,'accepted');   -- ear
 INSERT INTO bookings VALUES (6,2,10,'2026-10-05','00:00',2,'accepted');   -- the night daylight saving starts`);
 
 /* the four helpers, verbatim, bound to this db */
-const helpers = new Function('db', `${['ymd', 'bookingStart', 'bookingEnd', 'bookingClash', 'workerFree'].map(grab).join('\n')}\nreturn { bookingClash, workerFree };`)(db);
+const helpers = new Function('db', 'BOOKIT_TIME', `${['ymd', 'bookingStart', 'bookingEnd', 'bookingClash', 'workerFree'].map(grab).join('\n')}\nreturn { bookingClash, workerFree };`)(db, require('../lib/booking-time'));
 const { bookingClash, workerFree } = helpers;
 
 let fails = 0;

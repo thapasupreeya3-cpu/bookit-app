@@ -3,7 +3,7 @@ import { createNavigationRoute } from './care-nav.js';
 import { createHuman, CAST } from './care-cast.js';
 
 /*
- * BookIt live care-background v57
+ * The Care Web live care-background v57
  * --------------------------------
  * Four small transparent WebGL stages are used instead of one full map.
  * Every stage sleeps when it leaves the viewport, and reduced-motion/high-
@@ -1386,7 +1386,7 @@ class StoryGardenStage extends MiniStage {
     this.trees.forEach((tr,i)=>{tr.crown.rotation.z=Math.sin(t*.55+i)*.035;});this.flowers.forEach(({flower,phase})=>{flower.position.y=flower.userData.baseY+Math.sin(t*.9+phase)*.012;flower.rotation.z=Math.sin(t*.8+phase)*.1;});}
 }
 
-function createStage(canvas){try{switch(canvas.dataset.careMotion){case'hero':return new HeroJourneyStage(canvas);case'garden':return new GardenCareStage(canvas);case'mower':return new MowerStage(canvas);case'story':return new StoryGardenStage(canvas);default:return null;}}catch(error){console.warn('[BookIt care motion] stage unavailable:',canvas.dataset.careMotion,error);return null;}}
+function createStage(canvas){try{switch(canvas.dataset.careMotion){case'hero':return new HeroJourneyStage(canvas);case'garden':return new GardenCareStage(canvas);case'mower':return new MowerStage(canvas);case'story':return new StoryGardenStage(canvas);default:return null;}}catch(error){console.warn('[The Care Web care motion] stage unavailable:',canvas.dataset.careMotion,error);return null;}}
 
 function ensureLoop(){if(animationFrame||!activeStages.size||reduceMotion()||!homeIsVisible())return;clock.start();animationFrame=requestAnimationFrame(loop);}
 let frameCount=0;
@@ -1454,7 +1454,7 @@ function renderStatic(){
       else stage.update(1/60,STATIC_POSE);
       if(stage.needsLayout){stage.canvas.classList.remove('care-motion-painted');pending+=1;return;}
       stage.render();stage.canvas.classList.add('care-motion-painted');drawn+=1;
-    }catch(error){console.warn('[BookIt care motion] static frame unavailable:',error);}
+    }catch(error){console.warn('[The Care Web care motion] static frame unavailable:',error);}
   });
   if(drawn)rootEl.classList.add('care-motion-static','care-motion-ready');
   staticPending=pending>0;
@@ -1557,7 +1557,7 @@ function startMotion(){
   });
   if(!activeStages.size&&allStages[0]){allStages[0].visible=true;activeStages.add(allStages[0]);}
   const seed=performance.now()/1000;
-  allStages.forEach(stage=>{try{stage.update(1/60,seed);stage.render();}catch(error){console.warn('[BookIt care motion] first frame failed:',error);}});
+  allStages.forEach(stage=>{try{stage.update(1/60,seed);stage.render();}catch(error){console.warn('[The Care Web care motion] first frame failed:',error);}});
   rootEl.classList.add('care-motion-ready');
   frameCount=0;
   /* if the animation loop never got a frame, leave a still one on screen */

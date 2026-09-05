@@ -23,7 +23,7 @@ The Schedule totals the amount per week and the estimated amount per plan year (
 
 Section 2. Weekly roster of care — summary
 
-The live roster (workers, exact times, changes over time) is maintained in the BookIt platform and forms part of this Schedule; every generated shift is recorded against this participant. The summary grid records, for each day Monday through Sunday: day hours, evening hours, and whether there is a sleepover.
+The live roster (workers, exact times, changes over time) is maintained in The Care Web platform and forms part of this Schedule; every generated shift is recorded against this participant. The summary grid records, for each day Monday through Sunday: day hours, evening hours, and whether there is a sleepover.
 
 Section 3. What is included and what is not
 

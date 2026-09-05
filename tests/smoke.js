@@ -1,4 +1,4 @@
-/* BookIt — smoke test. Boots server.js on a spare port with a throwaway
+/* The Care Web — smoke test. Boots server.js on a spare port with a throwaway
    database, then checks the things a release must not break: the public
    routes answer, everything else refuses without a session, the admin routes
    refuse without the office, the shell compresses and revalidates, videos
@@ -26,8 +26,19 @@ const J = { 'Content-Type': 'application/json' };
 let fails = 0;
 const t = (name, ok, detail) => { if (!ok) fails++; console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok || detail === undefined ? '' : `  (${detail})`}`); };
 
+/* v86.14.2 — a stand-in for Google's Routes API (computeRouteMatrix), so the live drive-time path runs in the suite without a key or the network */
+const MAPS_PORT = PORT + 100;
+const mapsStub = require('node:http').createServer((rq, rs) => {
+  let raw = ''; rq.on('data', c => raw += c); rq.on('end', () => {
+    let body = {}; try { body = JSON.parse(raw); } catch {}
+    const okReq = rq.method === 'POST' && rq.headers['x-goog-api-key'] === 'test-key' && /distanceMeters/.test(rq.headers['x-goog-fieldmask'] || '') && body.travelMode === 'DRIVE' && Array.isArray(body.origins) && /Australia/.test(body.origins[0].waypoint.address);
+    rs.writeHead(okReq ? 200 : 400, { 'Content-Type': 'application/json' });
+    rs.end(JSON.stringify(okReq ? [{ originIndex: 0, destinationIndex: 0, duration: '4620s', staticDuration: '4260s', distanceMeters: 87400, condition: 'ROUTE_EXISTS' }] : { error: 'bad request shape' }));
+  });
+}).listen(MAPS_PORT, '127.0.0.1');
 const child = spawn(process.execPath, ['--no-warnings', 'server.js'], {
-  cwd: ROOT, env: { ...process.env, PORT: String(PORT), DB_PATH: DB, DOCS_DIR: path.join(tmp, 'docs'), PHOTOS_DIR: path.join(tmp, 'photos'),
+  cwd: ROOT, env: { ...require('../scripts/test-environment')(), PORT: String(PORT), DB_PATH: DB, DOCS_DIR: path.join(tmp, 'docs'), PHOTOS_DIR: path.join(tmp, 'photos'),
+    GOOGLE_MAPS_KEY: 'test-key', GOOGLE_MAPS_ENDPOINT: `http://127.0.0.1:${MAPS_PORT}/dm`,
     SEED_DEMO: 'on', SECRET_FILE: path.join(tmp, '.secret'), AUTO_REPLY: 'off', TZ: 'Australia/Sydney', NODE_ENV: '' },
   stdio: ['ignore', 'pipe', 'pipe']
 });
@@ -99,7 +110,7 @@ async function main() {
   {
     const p = await req('GET', '/services/transport');
     t('/services/transport is served as the shell (200)', p.status === 200 && p.text.includes('</html>'), p.status);
-    t('… with its own <title>', /<title>Travel &amp; transport \(0108\) — BookIt<\/title>/.test(p.text));
+    t('… with its own <title>', /<title>Travel &amp; transport \(0108\) — The Care Web<\/title>/.test(p.text));
     t('… a canonical link and og:url', p.text.includes('rel="canonical" href="') && p.text.includes('property="og:url"'));
     const home = await req('GET', '/');
     t('/ carries Organization JSON-LD', home.text.includes('application/ld+json') && home.text.includes('"@type":"Organization"'));
@@ -163,6 +174,10 @@ async function main() {
     t('a participant session idle for 13 hours is untouched', (await req('GET', '/api/bookings', { cookie: pc })).status === 200);
   }
 
+  // v86.13.0: diary fixtures must also satisfy real service-area and training rules.
+  // These are synthetic test-only declarations, not production migration defaults.
+  db.prepare("UPDATE worker_profiles SET services=?,service_areas=?,days='[1,1,1,1,1,1,1]' WHERE user_id=10")
+    .run(JSON.stringify(['community','daily-tasks','personal-care']),JSON.stringify(['Ryde NSW',db.prepare('SELECT suburb FROM users WHERE id=13').get().suburb]));
   /* ---- the diary gates, through the real routes ---- */
   {
     const now = new Date().toISOString();
@@ -190,16 +205,16 @@ async function main() {
     const d3 = '2027-04-07', d4 = '2027-04-08';                                   /* Wednesday, Thursday */
     db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, created) VALUES (1,10,'community',?,'01:00',2,'accepted',?)").run(d4, now);
     const held = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, cover_state, created) VALUES (13,11,'daily-tasks',?,'22:00',8,'requested','office',?)").run(d3, now).lastInsertRowid);
-    const oa = await req('POST', `/api/admin/bookings/${held}/office-assign`, { headers: J, cookie: ac2, body: { worker_id: 10 } });
-    t('office-assign refuses a worker whose next-morning shift overlaps (forward across midnight)', oa.status === 400 && /not eligible/.test(oa.json.error || ''), `${oa.status} ${oa.json && oa.json.error}`);
+    const oa = await req('POST', `/api/admin/bookings/${held}/office-assign`, { headers: J, cookie: ac2, body: { worker_id: 10,worker_agreed:true,consent_note:'Synthetic office fixture: worker agreed by phone at the recorded time.' } });
+    t('office-assign refuses a worker whose next-morning shift overlaps (forward across midnight)', oa.status === 400 && oa.json.clash === true, `${oa.status} ${oa.json && oa.json.error}`);
     db.prepare("UPDATE bookings SET date = ? WHERE participant_id = 1 AND worker_id = 10 AND date = ? AND start = '01:00'").run('2027-04-15', d4);
-    const oa2 = await req('POST', `/api/admin/bookings/${held}/office-assign`, { headers: J, cookie: ac2, body: { worker_id: 10 } });
+    const oa2 = await req('POST', `/api/admin/bookings/${held}/office-assign`, { headers: J, cookie: ac2, body: { worker_id: 10,worker_agreed:true,consent_note:'Synthetic office fixture: worker agreed by phone at the recorded time.' } });
     t('… and accepts once that shift is moved away', oa2.status === 200, `${oa2.status} ${oa2.json && oa2.json.error}`);
     const d5 = '2027-04-14', d6 = '2027-04-15';
     db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, created) VALUES (1,10,'community',?,'22:00',10,'accepted',?)").run(d5, now);
     const held2 = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, cover_state, created) VALUES (13,11,'daily-tasks',?,'07:00',2,'requested','office',?)").run(d6, now).lastInsertRowid);
-    const oa3 = await req('POST', `/api/admin/bookings/${held2}/office-assign`, { headers: J, cookie: ac2, body: { worker_id: 10 } });
-    t('office-assign refuses a worker still on last night\'s sleepover (backward across midnight)', oa3.status === 400 && /not eligible/.test(oa3.json.error || ''), `${oa3.status} ${oa3.json && oa3.json.error}`);
+    const oa3 = await req('POST', `/api/admin/bookings/${held2}/office-assign`, { headers: J, cookie: ac2, body: { worker_id: 10,worker_agreed:true,consent_note:'Synthetic office fixture: worker agreed by phone at the recorded time.' } });
+    t('office-assign refuses a worker still on last night\'s sleepover (backward across midnight)', oa3.status === 400 && oa3.json.clash === true, `${oa3.status} ${oa3.json && oa3.json.error}`);
   }
   /* ---- v86.9.0: inactive night care, meet-and-greets, the feed, referrals, KPIs, fees, suburb pages ---- */
   {
@@ -262,6 +277,7 @@ async function main() {
     const now2 = new Date().toISOString();
     const held = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, created) VALUES (13,11,'daily-tasks','2027-06-09','10:00',3,'accepted',?)").run(now2).lastInsertRowid);
     db.prepare("INSERT INTO cover (booking_id, status, opened_at, lead_minutes, window_minutes, parallel, tier, human_minutes) VALUES (?, 'open', ?, 600, 60, 3, 'standby', 0)").run(held, now2);
+    db.prepare("UPDATE bookings SET cover_state='finding' WHERE id=?").run(held);
     const feed = await req('GET', '/api/me/open-shifts', { cookie: wc });
     t('worker 10 sees the open shift in the feed', feed.status === 200 && feed.json.shifts.some(x => x.date === '2027-06-09'), feed.status + ' ' + JSON.stringify(feed.json).slice(0, 80));
     const cvid = db.prepare('SELECT id FROM cover WHERE booking_id = ?').get(held).id;
@@ -407,7 +423,7 @@ async function main() {
     db.prepare("UPDATE users SET plan = 'ndia' WHERE id = 13").run();
     const ovw = await req('GET', '/api/admin/overview', { cookie: ac2 });
     t('the overview carries claim status and invoice number on recent bookings', ovw.status === 200 && ovw.json.bookings && ovw.json.bookings.length && 'claim_status' in ovw.json.bookings[0] && 'invoice_no' in ovw.json.bookings[0], ovw.status);
-    /* the accepted agreement is BookIt's own page: its print button must be allowed to run */
+    /* the accepted agreement is The Care Web's own page: its print button must be allowed to run */
     const agree = await req('POST', '/api/me/participant-documents/p-agreement/accept', { headers: J2, cookie: ic, body: { agree: true } });
     t('a participant can accept the service agreement', agree.status === 200, agree.status + ' ' + (agree.json && agree.json.error));
     const agRow = db.prepare("SELECT id FROM participant_docs WHERE form_key = 'p-agreement' AND accepted_at IS NOT NULL ORDER BY id DESC LIMIT 1").get();
@@ -473,7 +489,7 @@ async function main() {
     t('the register\'s company rows are matched to pages and files by name (all but the registration certificate)', matched.length >= 30 && matched.some(x => x.key === 'pol-incident' && /Incident Management Policy/.test(x.match.title)) && !pf.json.documents.find(x => x.key === 'cert-registration').match && !!pf.json.documents.find(x => x.key === 'pol-screening').match, `${matched.length} matched`);
     const rec = await req('POST', '/api/admin/policies-folder', { headers: J2, cookie: ac2, body: { record_all: true } });
     const pf2 = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
-    t('one button records the matched documents as held, at their page on BookIt, and names the rest', rec.status === 200 && rec.json.recorded >= 24 && rec.json.unmatched.join() === 'NDIS certificate of registration + scope' && pf2.json.documents.find(x => x.key === 'pol-incident').location.includes('/policies/incident-management-policy'), rec.status + ' ' + JSON.stringify(rec.json).slice(0, 200));
+    t('one button records the matched documents as held, at their page on The Care Web, and names the rest', rec.status === 200 && rec.json.recorded >= 24 && rec.json.unmatched.join() === 'NDIS certificate of registration + scope' && pf2.json.documents.find(x => x.key === 'pol-incident').location.includes('/policies/incident-management-policy'), rec.status + ' ' + JSON.stringify(rec.json).slice(0, 200));
     const addf = await req('POST', '/api/admin/policies-folder/files', { headers: J2, cookie: ac2, body: { title: 'Worker Screening Policy and Procedure.docx', url: 'https://drive.google.com/file/d/1TESTTESTTESTTEST/view', kind: 'policy' } });
     const pf3 = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
     t('a file added to the index is matched straight away', addf.status === 200 && !!pf3.json.documents.find(x => x.key === 'pol-screening').match, addf.status);
@@ -527,11 +543,11 @@ async function main() {
     const fills = await req('GET', '/api/admin/policy-fills', { cookie: ac2 });
     t('the office sees everything filled in, and can open a person\u2019s copy', fills.status === 200 && fills.json.fills.some(f => f.slug === 'incident-management-register' && f.scope === 'shared') && fills.json.fills.some(f => f.slug === 'feedback-and-complaints-form' && f.owner) && (await req('GET', '/api/admin/policy-fills', { cookie: wc })).status === 403, fills.status);
     /* v86.10.0: the forms register knows the page each company document and register is published as,
-       a page written on BookIt counts as held, and BookIt's own live registers are never "not in the folder" */
+       a page written on The Care Web counts as held, and The Care Web's own live registers are never "not in the folder" */
     const frm = await req('GET', '/api/admin/forms', { cookie: ac2 });
-    t('forms register rows carry their BookIt page', frm.status === 200 && frm.json.forms.some(f => f.key === 'reg-restrictive' && f.page === 'restrictive-practices-register') && frm.json.forms.some(f => f.key === 'policy-register' && f.page === 'policy-register') && frm.json.forms.every(f => f.scope === 'worker' || f.scope === 'participant' ? !f.page : true), frm.status);
+    t('forms register rows carry their The Care Web page', frm.status === 200 && frm.json.forms.some(f => f.key === 'reg-restrictive' && f.page === 'restrictive-practices-register') && frm.json.forms.some(f => f.key === 'policy-register' && f.page === 'policy-register') && frm.json.forms.every(f => f.scope === 'worker' || f.scope === 'participant' ? !f.page : true), frm.status);
     const recAll2 = await req('POST', '/api/admin/policies-folder', { headers: J2, cookie: ac2, body: { record_all: true } });
-    t('recording from the folder counts pages written on BookIt, and never names a live register as missing', recAll2.status === 200 && !recAll2.json.unmatched.some(n => /Restrictive Practices Register|Internal Audit|Participant Register|Banning orders|Worker Register/.test(n)) && recAll2.json.unmatched.join() === 'NDIS certificate of registration + scope', recAll2.json.unmatched.join('; '));
+    t('recording from the folder counts pages written on The Care Web, and never names a live register as missing', recAll2.status === 200 && !recAll2.json.unmatched.some(n => /Restrictive Practices Register|Internal Audit|Participant Register|Banning orders|Worker Register/.test(n)) && recAll2.json.unmatched.join() === 'NDIS certificate of registration + scope', recAll2.json.unmatched.join('; '));
     /* v86.11.0: the file is tiered the way the established platforms tier theirs */
     const frm2 = await req('GET', '/api/admin/forms', { cookie: ac2 });
     const hiRow = frm2.json.forms.find(f => f.key === 'w-hi-competency'), licRow = frm2.json.forms.find(f => f.key === 'w-licence'), wwccRow = frm2.json.forms.find(f => f.key === 'w-wwcc');
@@ -545,15 +561,15 @@ async function main() {
     const tmpl = await req('GET', '/policies/participant-risk-assessment-form', { cookie: wc });
     t('the Risk Assessment page is marked as done on screen and offers no fill layer', tmpl.status === 200 && tmpl.text.includes('class="on-screen') && !tmpl.text.includes('id="policy-fill"') && (await req('GET', '/api/policy-fill/participant-risk-assessment-form', { cookie: wc })).status === 404, tmpl.status);
     const recPages = await req('GET', '/api/admin/policies-folder', { cookie: ac2 });
-    t('every company document that is held is held at its BookIt page, or at a certificate in the office\'s Drive', recPages.json.documents.filter(x => x.held).every(x => /\/policies\/|drive\.google\.com/.test(x.location)), recPages.json.documents.filter(x => x.held && !/\/policies\/|drive\.google\.com/.test(x.location)).map(x => x.name).join(', '));
-    /* v86.11.2: a page on BookIt is held, with nothing to press */
+    t('every company document that is held is held at its The Care Web page, or at a certificate in the office\'s Drive', recPages.json.documents.filter(x => x.held).every(x => /\/policies\/|drive\.google\.com/.test(x.location)), recPages.json.documents.filter(x => x.held && !/\/policies\/|drive\.google\.com/.test(x.location)).map(x => x.name).join(', '));
+    /* v86.11.2: a page on The Care Web is held, with nothing to press */
     const behKey = (await req('GET', '/api/admin/forms', { cookie: ac2 })).json.forms.find(f => /Behaviour Support and Restrictive Practices policy/.test(f.name)).key;
     await req('DELETE', `/api/admin/forms/record/${behKey}`, { headers: J2, cookie: ac2, body: {} }); /* a typed record wins, so withdraw the one the button made */
     const frm3 = await req('GET', '/api/admin/forms', { cookie: ac2 });
     const beh = frm3.json.forms.find(f => f.key === behKey);
     t('a company document that is a page here is held at that page automatically', beh && beh.page && beh.record && beh.record.held === 1 && beh.record.auto === 1 && /\/policies\//.test(beh.record.location), JSON.stringify(beh && beh.record));
     const csv = await req('GET', '/api/admin/forms.csv', { cookie: ac2 });
-    t('… and the register CSV says so', csv.status === 200 && csv.text.includes('Yes — a page on BookIt') && csv.text.includes('A page on BookIt: /policies/'));
+    t('… and the register CSV says so', csv.status === 200 && csv.text.includes('Yes — a page on The Care Web') && csv.text.includes('A page on The Care Web: /policies/'));
     /* v86.11.5: the three written documents and the two certificates close the register's gaps */
     const frm4 = await req('GET', '/api/admin/forms', { cookie: ac2 });
     const heldKeys = frm4.json.forms.filter(f => f.scope === 'company' && f.record && f.record.held).map(f => f.key);
@@ -565,6 +581,29 @@ async function main() {
     t('… and the office cannot be read by a worker', (await req('GET', '/api/admin/pipeline', { cookie: wc })).status === 403);
     const frm5 = await req('GET', '/api/admin/forms', { cookie: ac2 });
     t('the certificates of currency carry their expiry on the register', ['insurance-pl', 'insurance-pi', 'insurance-wc'].every(k => { const f = frm5.json.forms.find(x => x.key === k); return f.record && f.record.held && /^\d{4}-\d{2}-\d{2}$/.test(f.record.covers_to); }));
+    /* v86.12.1: a certificate uploaded as a PDF with its proper title becomes a page, and the register holds it there */
+    const pdfBytes = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>endobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000101 00000 n \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n160\n%%EOF\n');
+    const certUp = await req('POST', '/api/admin/policy-pages', { headers: J2, cookie: ac2, body: { file: { name: 'Workers Compensation CoC.pdf', mime: 'application/pdf', data: 'data:application/pdf;base64,' + pdfBytes.toString('base64') }, audience: 'staff', title: 'Certificate of Currency — Workers Compensation' } });
+    const certFile = await req('GET', '/policies/certificate-of-currency-workers-compensation/file', { cookie: ac2 });
+    const certRow = (await req('GET', '/api/admin/forms', { cookie: ac2 })).json.forms.find(f => f.key === 'insurance-wc');
+    t('a PDF uploaded with a title is a page at a slug from that title, served byte for byte', certUp.status === 200 && certUp.json.slug === 'certificate-of-currency-workers-compensation' && certFile.status === 200 && Buffer.compare(certFile.buf, pdfBytes) === 0, `${certUp.status} ${certFile.status}`);
+    t('… and the register holds the certificate at that page, with its expiry, with nothing pressed', certRow.page === 'certificate-of-currency-workers-compensation' && certRow.record && certRow.record.held && /\/policies\/certificate-of-currency-workers-compensation/.test(certRow.record.location) && certRow.record.covers_to === '2027-04-30', JSON.stringify(certRow.record));
+    /* v86.14.0: outside the worker's stated area is a warning with the travel estimate, confirmed by the person choosing, and kept on the booking */
+    const far = new Date(Date.now() + 12 * 864e5).toISOString().slice(0, 10);
+    db.prepare("UPDATE worker_profiles SET service_areas = ? WHERE user_id = 10").run(JSON.stringify(['Melbourne VIC']));
+    const warn = await req('POST', '/api/bookings', { headers: J, cookie: pc, body: { worker_id: 10, service: 'daily-tasks', date: far, start: '10:00', hours: 2, intro: true } });
+    t('a booking outside the worker\'s stated area is a warning with the distance and time, not a refusal', warn.status === 409 && warn.json.code === 'out_of_area' && warn.json.confirm === true && warn.json.travel && warn.json.travel.known && warn.json.travel.km > 50 && /by car/.test(warn.json.travel.text), `${warn.status} ${JSON.stringify(warn.json).slice(0, 160)}`);
+    t('… with Google\'s drive time in traffic when a key is set, the offline estimate kept beside it, and a link to the route', warn.json.travel && warn.json.travel.source === 'google' && warn.json.travel.minutes === 77 && warn.json.travel.km === 87 && warn.json.travel.traffic === true && warn.json.travel.estimate_minutes > 0 && /^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&origin=/.test(warn.json.travel.maps) && /in current traffic/.test(warn.json.error), JSON.stringify(warn.json.travel));
+    const go = await req('POST', '/api/bookings', { headers: J, cookie: pc, body: { worker_id: 10, service: 'daily-tasks', date: far, start: '10:00', hours: 2, intro: true, out_of_area_ok: true } });
+    const oobId = go.json && go.json.id;
+    const wWarn = await req('PATCH', `/api/bookings/${oobId}`, { headers: J2, cookie: wc, body: { status: 'accepted' } });
+    const wGo = await req('PATCH', `/api/bookings/${oobId}`, { headers: J2, cookie: wc, body: { status: 'accepted', out_of_area_ok: true } });
+    const oob = db.prepare('SELECT status, out_of_area FROM bookings WHERE id = ?').get(oobId);
+    const oobRec = oob && oob.out_of_area ? JSON.parse(oob.out_of_area) : null;
+    t('the participant confirms; the worker is warned in turn and confirms; the booking records both', go.status === 200 && wWarn.status === 409 && wWarn.json.code === 'out_of_area' && wGo.status === 200 && oob.status === 'accepted' && oobRec && oobRec.confirmed_by === 'participant' && (oobRec.also || []).some(x => x.confirmed_by === 'worker'), `${go.status} ${wWarn.status} ${wGo.status} ${JSON.stringify(oobRec)}`);
+    const list = await req('GET', '/api/bookings', { cookie: pc });
+    t('… and the booking carries the estimate to the pages that show it', list.status === 200 && JSON.stringify(list.json).includes('"out_of_area":"{') );
+    db.prepare("UPDATE worker_profiles SET service_areas = ? WHERE user_id = 10").run(JSON.stringify(['Ryde NSW', db.prepare('SELECT suburb FROM users WHERE id=13').get().suburb]));
     const preg = await req('GET', '/policies/policy-register');
     t('the Policy Register is generated from the published pages: public rows signed out, with review dates', preg.status === 200 && preg.text.includes('Feedback and Complaints Policy') && preg.text.includes('August 2027') && !preg.text.includes('Human Resources Management Policy'), preg.status);
     const regA = await req('GET', '/policies/policy-register', { cookie: ac2 });
@@ -590,7 +629,7 @@ async function main() {
 
 main().catch(e => { fails++; console.error('FAIL  smoke test threw:', e); })
   .finally(() => {
-    child.kill('SIGTERM');
+    child.kill('SIGTERM'); try { mapsStub.close(); } catch {}
     try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
     console.log(fails ? `${fails} FAILED` : 'smoke: all passed');
     process.exit(fails ? 1 : 0);

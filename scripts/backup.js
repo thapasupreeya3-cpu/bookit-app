@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-/* BookIt — consistent backup of the database and the two document folders.
+/* The Care Web — consistent backup of the database and the two document folders.
 
    Why this exists: bookit.db runs in WAL mode. A plain `cp` of a live WAL
    database can miss committed rows sitting in bookit.db-wal, so the copy on

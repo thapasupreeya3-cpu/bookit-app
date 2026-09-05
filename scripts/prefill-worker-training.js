@@ -15,7 +15,7 @@
      is only read): the script reads each module's answer key from the
      database and every module passes at 100% on the first attempt.
 
-       sudo env DB_PATH=/opt/bookit-data/bookit.db node prefill-worker-training.js https://bookit.life you+worker@gmail.com --gate "site password"
+       sudo env DB_PATH=/opt/bookit-data/bookit.db node prefill-worker-training.js https://thecareweb.com.au you+worker@gmail.com --gate "site password"
 
      FROM ANYWHERE, without DB_PATH: the script has no answer key, so it
      submits one attempt, reads the marking (the server says which answer
@@ -24,7 +24,7 @@
      record shows two attempts, the first a fail. Fine for a test account;
      say so if anyone asks.
 
-       node prefill-worker-training.js https://bookit.life you+worker@gmail.com --gate "site password"
+       node prefill-worker-training.js https://thecareweb.com.au you+worker@gmail.com --gate "site password"
 
    Options:
      --dry-run    sign in, list what would be sat, change nothing
@@ -47,7 +47,7 @@ const dryRun = args.includes('--dry-run');
 const sitAll = args.includes('--all');
 const DB_PATH = process.env.DB_PATH || '';
 if (!base || !email) {
-  console.error('usage: node scripts/prefill-worker-training.js https://bookit.life worker@example.com [--gate "site password"] [--dry-run] [--all]');
+  console.error('usage: node scripts/prefill-worker-training.js https://thecareweb.com.au worker@example.com [--gate "site password"] [--dry-run] [--all]');
   process.exit(1);
 }
 if (/@demo\.bookit\.life$/i.test(email)) { console.error('  \u2717 That is a demo account; demo workers are trained by the seed.'); process.exit(1); }
@@ -101,7 +101,7 @@ function answerKey() {
 }
 
 (async () => {
-  console.log(`\nBookIt worker training prefill \u2014 ${base} \u2014 ${email}${dryRun ? ' (dry run: nothing will be written)' : ''}\n`);
+  console.log(`\nThe Care Web worker training prefill \u2014 ${base} \u2014 ${email}${dryRun ? ' (dry run: nothing will be written)' : ''}\n`);
 
   if (gatePw) {
     const res = await fetch(base + '/gate', { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'pw=' + encodeURIComponent(gatePw) });
@@ -112,7 +112,7 @@ function answerKey() {
   const probe = await api('GET', '/api/version');
   if (probe.status === 401 && /private preview/i.test(probe.data.error || '')) { bad('The site is behind its preview password \u2014 run again with --gate "the password".'); process.exit(1); }
   if (probe.status !== 200) { bad(`Could not reach ${base} (${probe.status}). ${probe.data.error || probe.data.raw || ''}`); process.exit(1); }
-  ok(`Server reached: BookIt ${probe.data.APP_VERSION || ''}.`);
+  ok(`Server reached: The Care Web ${probe.data.APP_VERSION || ''}.`);
 
   const password = process.env.BOOKIT_PASS || await ask(`Password for ${email}: `, true);
   let login = await api('POST', '/api/login', { email, password });

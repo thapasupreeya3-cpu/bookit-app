@@ -8,7 +8,7 @@ Read with the Governance and Operational Management Policy, Risk Management Poli
 
 The Platform
 
-Platform name: BookIt. Operator: Disability and Mental Health Care Pty Ltd, ABN 19 658 578 575. Web address: bookit.life.
+Platform name: The Care Web. Operator: Disability and Mental Health Care Pty Ltd, ABN 19 658 578 575. Web address: thecareweb.com.au.
 
 Status at 11 August 2026: pre-launch. The Platform is built and running, and is not open to the public. No participant and no support worker is using it. There are no live participant accounts, no active worker listings and no bookings placed through it. Public access is held behind a site-wide password, and while that password is set every page and API response is served with a noindex, nofollow directive so the site cannot be found through a search engine. The demonstration accounts used during development are removed by a single launch routine, which also reports any record left pointing at a deleted account, and that routine is run immediately before the password is lifted. DMHC is seeking registration for 0137 before opening the Platform rather than after. Nothing in this procedure describes a control that is planned but absent; the controls described under How the Platform operates and Conditions of registration are in the software now and can be demonstrated on the day.
 

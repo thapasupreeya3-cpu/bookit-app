@@ -9,7 +9,7 @@ Parties
 | ABN | 19 658 578 575 | (to be completed) |
 | NDIS registration | 4-LO5XNY0 | (to be completed) |
 | Contact person | Supriya Thapa, Director | (to be completed) |
-| Phone / email | 0488 114 368 / hello@bookit.life | (to be completed) |
+| Phone / email | 0488 114 368 / hello@thecareweb.com.au | (to be completed) |
 
 The agreement records the dwelling(s) covered and the participant(s) residing (or "all current and future residents").
 
@@ -39,7 +39,7 @@ The SIL Provider (DMHC) is responsible for:
 - Daily supports under each participant's roster of care and SIL Service Agreement.
 - Worker screening, training and supervision of its Workers in the dwelling.
 - Support-related incident management and its own Commission reporting obligations.
-- Medication management and support documentation (maintained in the BookIt platform).
+- Medication management and support documentation (maintained in The Care Web platform).
 
 Jointly, the parties are responsible for:
 

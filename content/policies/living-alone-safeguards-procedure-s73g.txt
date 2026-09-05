@@ -37,7 +37,7 @@ Key Management Personnel means Supriya Thapa and other key management personnel 
 
 Worker means a permanent, fixed term or casual member of staff, a contractor or volunteer employed or otherwise engaged by Disability and Mental Health Care Pty Ltd, and includes the Director.
 
-BookIt means the Disability and Mental Health Care Pty Ltd service-delivery platform (bookit.life) that holds our booking, credential, incident, complaint and roster records.
+The Care Web means the Disability and Mental Health Care Pty Ltd service-delivery platform (thecareweb.com.au) that holds our booking, credential, incident, complaint and roster records.
 
 Missed contact means a scheduled support visit or scheduled contact that does not occur, or a participant who cannot be reached at an agreed check-in.
 
@@ -52,7 +52,7 @@ Identification and assessment
 The safeguard plan, agreed with the participant
 
 - With the participant (per the Supported Decision-Making Procedure), we agree and record: the schedule of support visits and any additional welfare check-ins (phone or in person); who is contacted if the participant does not answer; and what "unaccounted for" means for them.
-- Every shift is checked in and completed in BookIt, so there is a timestamped record that each scheduled support actually occurred. This is our primary evidence of the safeguard operating.
+- Every shift is checked in and completed in The Care Web, so there is a timestamped record that each scheduled support actually occurred. This is our primary evidence of the safeguard operating.
 - The safeguard plan is reviewed at least every six months, and immediately after any incident, hospitalisation, or change in support needs.
 
 Missed contact escalation ladder
@@ -68,7 +68,7 @@ Participants who live alone are given the Disability and Mental Health Care Pty 
 
 Records and audit evidence
 
-Evidence of this condition operating comprises: the flagged intake forms; the risk assessments and emergency plans in participant files; BookIt's timestamped shift records; and incident register entries for any missed contact. Quarterly exports are filed in the Core Documents folder.
+Evidence of this condition operating comprises: the flagged intake forms; the risk assessments and emergency plans in participant files; The Care Web's timestamped shift records; and incident register entries for any missed contact. Quarterly exports are filed in the Core Documents folder.
 
 Policy review and updates
 
