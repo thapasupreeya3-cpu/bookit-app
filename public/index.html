@@ -3341,7 +3341,7 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
       <div class="info-card" id="lg-collection">
         <h3>Collection notice</h3>
-        <p>Disability &amp; Mental Health Care Pty Ltd collects the information in our sign-up and booking forms to create your The Care Web account, assess the supports you are seeking, safely match and roster workers, manage bookings and process NDIS or private payments. Name, email and password are required to create an account — without them we can't open one; everything else is optional at sign-up and can be added later. Health and disability information you choose to share (for example in your support plan or the high-intensity support questions) is collected with your consent and used only to plan and deliver safe support. Information may be shared with workers you choose, your authorised representative or plan manager, the NDIA where claiming requires, and the service providers that operate The Care Web. The Privacy policy above covers access, correction and complaints.</p>
+        <p>Disability &amp; Mental Health Care Pty Ltd collects the information in our sign-up and booking forms to create your Care Web account, assess the supports you are seeking, safely match and roster workers, manage bookings and process NDIS or private payments. Name, email and password are required to create an account — without them we can't open one; everything else is optional at sign-up and can be added later. Health and disability information you choose to share (for example in your support plan or the high-intensity support questions) is collected with your consent and used only to plan and deliver safe support. Information may be shared with workers you choose, your authorised representative or plan manager, the NDIA where claiming requires, and the service providers that operate The Care Web. The Privacy policy above covers access, correction and complaints.</p>
       </div>
       <div class="info-card" id="lg-terms">
         <h3>Website &amp; platform terms</h3>
@@ -3462,7 +3462,7 @@ html.high-contrast .care-stage-block{display:none!important;}
             <input type="checkbox" id="pTerms" required style="width:18px;height:18px;margin-top:3px;flex:none;">
             <span class="muted-sm">I have read and accept the <a href="#/legal" target="_blank">terms and privacy policy</a>, including the collection of health and disability information I choose to share, used only to plan and deliver safe support.</span>
           </label>
-          <p class="form-note full" style="grid-column:1/-1;margin:0;">Disability &amp; Mental Health Care Pty Ltd collects this information to create your The Care Web account, assess the supports you're seeking, safely match and roster workers, manage bookings and process NDIS or private payments. Some information may be shared with workers you choose, your authorised representative or plan manager, and the NDIA where claiming requires. <a href="#/legal" target="_blank">Collection notice &amp; privacy policy</a>.</p>
+          <p class="form-note full" style="grid-column:1/-1;margin:0;">Disability &amp; Mental Health Care Pty Ltd collects this information to create your Care Web account, assess the supports you're seeking, safely match and roster workers, manage bookings and process NDIS or private payments. Some information may be shared with workers you choose, your authorised representative or plan manager, and the NDIA where claiming requires. <a href="#/legal" target="_blank">Collection notice &amp; privacy policy</a>.</p>
           <button type="submit" class="btn btn-primary btn-lg full" style="grid-column:1/-1;">Create my free profile</button>
           <p class="form-note full" style="grid-column:1/-1;">By continuing you agree to our <a href="#/legal">terms and privacy policy</a>. No payment details required.</p>
         </form>
@@ -6124,7 +6124,7 @@ async function renderWorkerPage(id){
              find out — so it stays, worded so it can't be read as a claim about
              the fictional person above it. */
           ? `<b>This is a demonstration profile.</b> ${esc(w.name)} is not a real person and none of the credentials above were checked — they exist so you can see how a profile works. Real The Care Web workers are <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b> — and nothing appears on a real profile until someone on our team has verified it. `
-          : 'Every The Care Web worker is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b>. Nothing appears above until someone on our team has verified it, and a profile is withdrawn automatically the moment a check lapses. '}<a href="#/verification">How we check every worker →</a></div>
+          : 'Every Care Web worker is <b>employed and insured</b> by Disability &amp; Mental Health Care Pty Ltd — registered NDIS provider <b>4-LO5XNY0</b>. Nothing appears above until someone on our team has verified it, and a profile is withdrawn automatically the moment a check lapses. '}<a href="#/verification">How we check every worker →</a></div>
       </div>
       </div>
     </div>
@@ -7592,7 +7592,7 @@ function updateAuthUI(){
   if(hint){
     hint.innerHTML = API.online
       ? (API.demo === false
-          ? 'Log in with your The Care Web account email. Forgot your password? Use the link below.'
+          ? 'Log in with your Care Web account email. Forgot your password? Use the link below.'
           : 'Try a demo account — participant: <b>demo@demo.bookit.life</b> · worker: <b>sarah@demo.bookit.life</b> · password <b>demo1234</b>')
       : 'This is a demo — accounts aren\'t connected yet. <a href="#/get-started" data-close>Create a profile instead →</a>';
   }
@@ -7635,7 +7635,7 @@ function renderAcctChip(){
     if(!sh){ sh = document.createElement('span'); sh.setAttribute('aria-hidden','true'); fr.after(sh); }
     sh.className = `tier-shine tf-${m.tier}`;
     sh.style.setProperty('--tier-art', `url(/assets/tiers/tier-${m.tier}.svg)`);
-    wrap.title = `${tierLabelOf(m.tier)} — your The Care Web ladder level`;
+    wrap.title = `${tierLabelOf(m.tier)} — your Care Web ladder level`;
     pip.hidden = true; pip.innerHTML = '';
   } else {
     wrap.className = 'acct-av';
@@ -14271,7 +14271,7 @@ async function renderAccountPage(){
   const identityCard = `
   <div class="info-card" style="margin-bottom:18px;" id="cardIdentity">
     <div style="display:flex;gap:12px;align-items:center;flex-direction:column;text-align:center;">
-      ${me.role === 'worker' && me.tier ? `<span class="acct-av ringed framed ring-lg tr-${me.tier}" title="${esc(tierLabelOf(me.tier))} — your The Care Web ladder level"><img class="tier-frame tf-${me.tier}" src="/assets/tiers/tier-${me.tier}.svg" alt="" aria-hidden="true">` : ''}<span class="wc-avatar" id="profAvatar" style="background:var(--teal);width:104px;height:104px;font-size:2rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="Your photo">` : acctInitials(me.name || '')}</span>${me.role === 'worker' && me.tier ? `</span>` : ''}
+      ${me.role === 'worker' && me.tier ? `<span class="acct-av ringed framed ring-lg tr-${me.tier}" title="${esc(tierLabelOf(me.tier))} — your Care Web ladder level"><img class="tier-frame tf-${me.tier}" src="/assets/tiers/tier-${me.tier}.svg" alt="" aria-hidden="true">` : ''}<span class="wc-avatar" id="profAvatar" style="background:var(--teal);width:104px;height:104px;font-size:2rem;flex:none;">${me.photo ? `<img src="${esc(me.photo)}" alt="Your photo">` : acctInitials(me.name || '')}</span>${me.role === 'worker' && me.tier ? `</span>` : ''}
       <div style="min-width:0;">
         <b style="font-family:var(--font-head);font-size:1.3rem;display:block;">${esc(me.name || '')}</b>
         <span class="muted-sm">${roleLabel}${me.admin ? ' · Admin' : ''}${me.suburb ? ' · ' + esc(me.suburb) : ''}</span>

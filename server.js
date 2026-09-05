@@ -1869,7 +1869,7 @@ function makeInvoicePdf(inv) {
     else { T(40, y, 9, 'F', 'Please pay from plan funds by bank transfer to:'); y -= 12; }
     for (const b of bankLines()) { T(52, y, 9, 'F', b); y -= 12; }
     T(40, y, 9, 'F', `Payment reference: ${inv.invoice_no}`); y -= 12;
-    if (inv.pay_url) { T(40, y, 9, 'F', 'Or pay by card from the link in your The Care Web account (Statements & invoices).'); y -= 12; }
+    if (inv.pay_url) { T(40, y, 9, 'F', 'Or pay by card from the link in your Care Web account (Statements & invoices).'); y -= 12; }
     if (inv.self) { T(40, y, 9, 'F', 'Self-managed: claim this invoice back through the myplace participant portal.', SOFT); y -= 12; }
   }
   T(40, y - 4, 8.5, 'F', 'Prices are at or below the NDIS Pricing Arrangements and Price Limits 2026-27. No GST applies.', SOFT);
@@ -2089,7 +2089,7 @@ button{width:100%;background:#0E6B62;color:#fff;border:none;border-radius:999px;
 button:hover{background:#0A544D;}
 .err{color:#a8250b;font-size:.88rem;margin:0 0 12px;font-weight:600;}</style></head>
 <body><div class="card">
-<div class="logo">b<svg viewBox="0 0 94 48" aria-hidden="true"><circle cx="23" cy="24" r="22" fill="#0E6B62"/><circle cx="69" cy="24" r="22" fill="#F5B841"/><path d="M57 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>kit</div>
+<div class="logo"><svg viewBox="0 0 94 48" aria-hidden="true" style="height:.7em;width:auto;vertical-align:-.05em;margin-right:.18em"><circle cx="23" cy="24" r="22" fill="#0E6B62"/><circle cx="69" cy="24" r="22" fill="#F5B841"/><path d="M57 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-weight:500;opacity:.72">the</span>care<span style="font-weight:500;opacity:.72">web</span></div>
 <h1>Private preview</h1>
 <p>The Care Web isn't open to the public just yet. Enter the access password to look around.</p>
 ${wrong ? '<p class="err">That password did not match — try again.</p>' : ''}
@@ -2347,7 +2347,7 @@ function emailHtml(heading, bodyHtml, ctaText, ctaUrl) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF6F0;padding:28px 12px;"><tr><td align="center">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #E7DFD4;border-radius:18px;">
 <tr><td style="padding:30px 34px 24px;font-family:Arial,Helvetica,sans-serif;color:#17313A;">
-<div style="font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:20px;">b<span style="color:#0E6B62;">o</span><span style="color:#F5B841;">o</span>kit <span style="color:#0E6B62;">&#10003;</span></div>
+<div style="font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:20px;"><span style="color:#0E6B62;">&#9679;</span><span style="color:#F5B841;margin-left:-6px;">&#9679;</span> <span style="font-weight:500;color:#5b6a67;">the</span>care<span style="font-weight:500;color:#5b6a67;">web</span> <span style="color:#0E6B62;">&#10003;</span></div>
 <h1 style="font-size:20px;margin:0 0 14px;">${heading}</h1>
 <div style="font-size:15px;line-height:1.65;color:#3E5A64;">${bodyHtml}</div>
 ${btn}
@@ -2355,7 +2355,7 @@ ${btn}
 <tr><td style="padding:18px 34px 26px;border-top:1px solid #F0EAE0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#7d8f96;line-height:1.6;">
 The Care Web &middot; operated by Disability &amp; Mental Health Care Pty Ltd<br>
 ABN 19 658 578 575 &middot; Registered NDIS Provider 4-LO5XNY0<br>
-You&#39;re receiving this because of activity on your The Care Web account.
+You&#39;re receiving this because of activity on your Care Web account.
 </td></tr>
 </table>
 </td></tr></table>
@@ -3595,7 +3595,7 @@ route('POST', /^\/api\/login\/mfa$/, (req, res, m, user, body, ip) => {
   if (usedRecovery) {
     const left = db.prepare('SELECT COUNT(*) n FROM mfa_recovery WHERE user_id = ? AND used_at IS NULL').get(row.id).n;
     securityMail(req, row, 'A recovery code was used on your account',
-      `<p>Someone signed in to your The Care Web account using a recovery code rather than your authenticator app, from ${escHtml(deviceName(req.headers['user-agent']))}.</p>
+      `<p>Someone signed in to your Care Web account using a recovery code rather than your authenticator app, from ${escHtml(deviceName(req.headers['user-agent']))}.</p>
        <p>You have <b>${left}</b> recovery ${left === 1 ? 'code' : 'codes'} left. If this was you and you have lost your phone, set up your authenticator app again from Account \u203a Security. If it wasn\u2019t you, change your password now \u2014 that signs out every device.</p>`);
   }
   newDeviceAlert(req, row, ip);
@@ -3705,9 +3705,9 @@ route('POST', /^\/api\/forgot$/, (req, res, m, user, body, ip) => {
   if (row) {
     const token = makeEmailToken('r', row.id, 45 * 60e3, String(row.pass).slice(0, 16));
     const url2 = `${baseUrl(req)}/#/reset?token=${token}`;
-    sendMail(row.email, 'Reset your The Care Web password',
+    sendMail(row.email, 'Reset your Care Web password',
       `Hi ${firstName(row.name)},`,
-      `<p>Someone (hopefully you) asked to reset the password on your The Care Web account. Press the button to choose a new one — the link works for 45 minutes.</p><p>If this wasn't you, ignore this email and nothing changes.</p>`,
+      `<p>Someone (hopefully you) asked to reset the password on your Care Web account. Press the button to choose a new one — the link works for 45 minutes.</p><p>If this wasn't you, ignore this email and nothing changes.</p>`,
       'Choose a new password', url2).catch(() => {});
   }
   json(res, 200, { ok: true });
@@ -3751,7 +3751,7 @@ route('POST', /^\/api\/email-test$/, async (req, res, m, user, body, ip) => {
   try {
     await sendMail(user.email, 'The Care Web email test',
       `It works, ${firstName(user.name)}!`,
-      `<p>This test email was sent by your The Care Web server through <b>${RESEND_KEY ? 'the Resend API' : escHtml(SMTP_HOST)}</b>. Welcome emails, password resets and booking updates are all go.</p>`,
+      `<p>This test email was sent by your Care Web server through <b>${RESEND_KEY ? 'the Resend API' : escHtml(SMTP_HOST)}</b>. Welcome emails, password resets and booking updates are all go.</p>`,
       'Open The Care Web', baseUrl(req));
     json(res, 200, { ok: true, sent_to: user.email, via: RESEND_KEY ? 'resend-api' : `${SMTP_HOST}:${SMTP_PORT}` });
   } catch (e) {
@@ -3896,7 +3896,7 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user, bod
   db.prepare('UPDATE worker_profiles SET visible = 1 WHERE user_id = ?').run(uid);
   logCompliance({ worker_id: uid, worker_name: w.name, kind: 'platform-access', result: 'granted',
     detail: 'Profile approved and made visible — 0137 conditions met at time of approval.', checked_by: user.name });
-  sendMail(w.email, 'Your The Care Web profile is live', `Great news, ${firstName(w.name)} 🎉`,
+  sendMail(w.email, 'Your Care Web profile is live', `Great news, ${firstName(w.name)} 🎉`,
     `<p>Your checks are in order and your profile has been approved — you're now visible in <b>Find Workers</b> across The Care Web.</p><p>Participants can message you and request bookings from today. Keep your availability up to date, reply promptly, and welcome aboard!</p>`,
     'Open The Care Web', `${baseUrl(req)}/#/find-workers`).catch(() => {});
   json(res, 200, { ok: true });
@@ -4166,14 +4166,14 @@ async function runClaims(lanes, actor) {
       await sendMail(dest, `Invoice ${invNo} — The Care Web supports for ${first.participant_name} — $${total.toFixed(2)} due ${inv.due_date}`,
         `Invoice ${invNo}`,
         `<p>Please find attached invoice <b>${invNo}</b> for NDIS supports delivered to <b>${escHtml(first.participant_name)}</b> — total <b>$${total.toFixed(2)}</b> (GST-free), due <b>${inv.due_date}</b>.</p>
-         <p>${self ? 'You can pay by card from the button below or from your The Care Web account, or by bank transfer using the details on the invoice.' : 'Please pay from plan funds by bank transfer using the details on the invoice.'} The payment reference is the invoice number.</p>
+         <p>${self ? 'You can pay by card from the button below or from your Care Web account, or by bank transfer using the details on the invoice.' : 'Please pay from plan funds by bank transfer using the details on the invoice.'} The payment reference is the invoice number.</p>
          <p>Every line is also on the statement in ${self ? 'your' : 'the participant\u2019s'} The Care Web account, with the shift note beside it.</p>`,
         payUrl ? 'Pay by card' : 'Open my statement', payUrl || `${APP_URL}/#/statements`, MAIL_FROM, [{ filename: `${invNo}.pdf`, mime: 'application/pdf', buffer: pdf }]);
       emailed = EMAIL_ON;
     } catch (e) { console.error(`[claims] invoice email failed for ${invNo}: ${e.message}`); }
     if (self) {
       const pu = db.prepare('SELECT id FROM users WHERE id = ?').get(first.pid);
-      if (pu) notify(pu.id, 'invoice', first.participant_email, `Your The Care Web invoice ${invNo} is ready`, 'An invoice is ready',
+      if (pu) notify(pu.id, 'invoice', first.participant_email, `Your Care Web invoice ${invNo} is ready`, 'An invoice is ready',
         `<p>Invoice ${invNo} for $${total.toFixed(2)} is due by ${inv.due_date}. It is in your account under Statements &amp; invoices, with the PDF and a Pay by card button.</p>`, 'Open it', `${APP_URL}/#/statements`);
     }
     invoices.push({ invoice_no: invNo, participant: first.participant_name, to: dest, lines: group.length, total, emailed, pay_url: payUrl, due: inv.due_date, by: actor });
@@ -4871,7 +4871,7 @@ function reconcileVisibility(workerId, why, req) {
     db.prepare('UPDATE worker_profiles SET visible = 0, auto_hidden = 1 WHERE user_id = ?').run(workerId);
     logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'auto-withdrawn',
       detail: `${why}. Platform access withdrawn automatically: ${st.blocks.join(' ')}`, source: '0137 conditions of registration' });
-    sendMail(w.email, 'Your The Care Web profile is paused — The Care Web', `Your profile is paused, ${firstName(w.name)}`,
+    sendMail(w.email, 'Your Care Web profile is paused — The Care Web', `Your profile is paused, ${firstName(w.name)}`,
       `<p>Your profile has been hidden and new bookings are paused, because of the checks The Care Web has to keep current for every worker on the platform:</p><ul>${st.blocks.map(b => `<li>${escHtml(b)}</li>`).join('')}</ul><p>This is a requirement of The Care Web's registration, not a judgement about you. As soon as it's sorted your profile switches back on automatically.</p>`,
       'Update my credentials', `${base}/#/bookings`).catch(() => {});
     if (MAIL_FROM) sendMail(MAIL_FROM, `Worker withdrawn from the platform: ${w.name} — The Care Web`, 'Platform access withdrawn',
@@ -4885,7 +4885,7 @@ function reconcileVisibility(workerId, why, req) {
     db.prepare('UPDATE worker_profiles SET visible = 1, auto_hidden = 0 WHERE user_id = ?').run(workerId);
     logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'restored',
       detail: `${why}. All 0137 conditions met again — profile restored automatically.`, source: '0137 conditions of registration' });
-    sendMail(w.email, 'Your The Care Web profile is live again', `You're back on, ${firstName(w.name)}`,
+    sendMail(w.email, 'Your Care Web profile is live again', `You're back on, ${firstName(w.name)}`,
       '<p>Your checks are current again, so your profile is visible in <b>Find Workers</b> and participants can book you from now.</p>',
       'Open The Care Web', `${base}/#/find-workers`).catch(() => {});
     return { worker: w.name, restored: true };
@@ -7208,7 +7208,7 @@ const PLAN_SECTIONS = [
    showIf: only asked, and only required, once that answer is yes.
    worker_brief: appears on the brief a booked worker reads before the shift.
 
-   The first section is the one that makes this The Care Web's form rather than a
+   The first section is the one that makes this Care Web's form rather than a
    copy of somebody else's. Every other platform asks about "daily living" in
    the abstract; DMHC holds six registration groups and delivers nothing
    outside them, so the plan asks about those six by name. That does three
@@ -8865,7 +8865,7 @@ function genPage(t, body, opts = {}) {
 <title>${escHtml(t.title)} \u2014 DMHC</title><style>${TPL_CSS}</style></head><body>
 <div class="bar no-print">
   <button type="button" onclick="window.print()">Print, or save as PDF</button>
-  <span>${escHtml(opts.barNote || 'Generated from your The Care Web file \u00b7 nothing on this page is typed twice')}</span>
+  <span>${escHtml(opts.barNote || 'Generated from your Care Web file \u00b7 nothing on this page is typed twice')}</span>
   ${base ? `<a href="${escHtml(base)}/#/account/documents">Back to My documents</a>` : ''}
 </div>
 <div class="sheet">
@@ -13443,7 +13443,7 @@ function reviewWorkerTier(workerId, opts = {}) {
     touch({ tier_notice_at: nowIso, tier_pending: next });
     log(next, 'notice', `${hours} hours in the last 12 months — ${belowDays} days below the ${TIERS[tierIndex(cur)].label} band. ${noticeDays} days' notice given.`, nowIso);
     const w = db.prepare('SELECT name, email FROM users WHERE id = ?').get(workerId);
-    if (w) sendMail(w.email, `A change to your The Care Web pay tier on ${fmtDate(ymd(new Date(Date.now() + noticeDays * 864e5)))}`,
+    if (w) sendMail(w.email, `A change to your Care Web pay tier on ${fmtDate(ymd(new Date(Date.now() + noticeDays * 864e5)))}`,
       `<p>Hi ${escHtml(w.name.split(' ')[0])},</p>
        <p>Your hours over the last 12 months come to <b>${hours}</b>. That has been below the ${escHtml(TIERS[tierIndex(cur)].label)} band for ${belowDays} days, so from <b>${escHtml(fmtDate(ymd(new Date(Date.now() + noticeDays * 864e5))))}</b> your tier will move from ${escHtml(TIERS[tierIndex(cur)].label)} to ${escHtml(TIERS[tierIndex(next)].label)} — one step, not more.</p>
        <p><b>This is reversible before it happens.</b> Tiers go up the moment you cross back over the band, and crossing back cancels this change entirely. You need ${Math.max(0, tierBands()[cur] - hours).toFixed(1)} more hours in the rolling 12 months.</p>
@@ -14658,7 +14658,7 @@ function newDeviceAlert(req, u, ip) {
     const seen = db.prepare("SELECT ua FROM sessions WHERE user_id = ? AND sid NOT LIKE 'legacy-cutoff-%'").all(u.id);
     if (seen.some(r => deviceName(r.ua) === name)) return;
     if (!seen.length) return;   /* first ever session: registration, not news */
-    securityMail(req, u, 'New sign-in to your The Care Web account',
+    securityMail(req, u, 'New sign-in to your Care Web account',
       `<p>Your account was just signed in to from <b>${escHtml(name)}</b>${ip ? ` (${escHtml(String(ip))})` : ''}.</p>
        <p>If that was you, nothing to do. If it wasn’t, change your password straight away — that signs out every device — and turn on two-step sign-in.</p>`);
   } catch {}
@@ -14727,7 +14727,7 @@ route('POST', /^\/api\/me\/mfa\/confirm$/, (req, res, m, user, body, ip) => {
     .run(now(), step, user.id);
   const codes = newRecoveryCodes(user.id);
   securityMail(req, user, 'Two-step sign-in is now on',
-    `<p>Two-step sign-in was switched on for your The Care Web account from ${escHtml(deviceName(req.headers['user-agent']))}. From now on you will be asked for a six-digit code after your password.</p>
+    `<p>Two-step sign-in was switched on for your Care Web account from ${escHtml(deviceName(req.headers['user-agent']))}. From now on you will be asked for a six-digit code after your password.</p>
      <p>Ten recovery codes were issued at the same time. Keep them somewhere that is not your phone — they are how you get back in if the phone is lost.</p>
      <p>If you did not do this, change your password immediately.</p>`);
   logCompliance({ kind: 'security', result: 'on', ref: `user-${user.id}`, source: deviceName(req.headers['user-agent']),
@@ -14748,7 +14748,7 @@ route('POST', /^\/api\/me\/mfa\/disable$/, (req, res, m, user, body, ip) => {
   db.prepare('UPDATE mfa SET enabled = 0, disabled_at = ? WHERE user_id = ?').run(now(), user.id);
   db.prepare('DELETE FROM mfa_recovery WHERE user_id = ?').run(user.id);
   securityMail(req, user, 'Two-step sign-in has been turned off',
-    `<p>Two-step sign-in was switched off for your The Care Web account from ${escHtml(deviceName(req.headers['user-agent']))}. Your password is now the only thing protecting it, and your old recovery codes no longer work.</p>
+    `<p>Two-step sign-in was switched off for your Care Web account from ${escHtml(deviceName(req.headers['user-agent']))}. Your password is now the only thing protecting it, and your old recovery codes no longer work.</p>
      <p>If you did not do this, change your password now and switch two-step back on.</p>`);
   logCompliance({ kind: 'security', result: 'off', ref: `user-${user.id}`, source: deviceName(req.headers['user-agent']),
     detail: 'Two-step sign-in switched off', checked_by: user.email,
@@ -14766,7 +14766,7 @@ route('POST', /^\/api\/me\/mfa\/recovery$/, (req, res, m, user, body, ip) => {
   if (!verifyPassword(String(body.password || ''), row.pass)) return json(res, 401, { error: 'That password doesn’t match.' });
   const codes = newRecoveryCodes(user.id);
   securityMail(req, user, 'New recovery codes were issued',
-    `<p>A fresh set of ten recovery codes was issued for your The Care Web account. <b>Your previous codes stopped working the moment these were made.</b></p>
+    `<p>A fresh set of ten recovery codes was issued for your Care Web account. <b>Your previous codes stopped working the moment these were made.</b></p>
      <p>If you did not do this, change your password now.</p>`);
   json(res, 200, { ok: true, codes, ...mfaStatus(user.id) });
 });
@@ -14824,7 +14824,7 @@ route('POST', /^\/api\/me\/sessions\/revoke$/, (req, res, m, user, body) => {
       .run(now(), user.id, user.sid || '');
     stampLegacyCutoff(user.id);
     securityMail(req, user, 'Signed out of all other devices',
-      `<p>Every other device signed in to your The Care Web account has been signed out. Only ${escHtml(deviceName(req.headers['user-agent']))} is still signed in.</p>
+      `<p>Every other device signed in to your Care Web account has been signed out. Only ${escHtml(deviceName(req.headers['user-agent']))} is still signed in.</p>
        <p>If you did not do this, change your password now.</p>`);
     return json(res, 200, { ok: true, all: true });
   }
@@ -16132,7 +16132,7 @@ route('POST', /^\/api\/me\/password$/, (req, res, m, user, body, ip) => {
      leaving their session alive makes the change decorative. */
   try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now(), user.id); } catch (e) { console.warn('[sessions] sign-out-everywhere after password change failed:', e.message); }
   stampLegacyCutoff(user.id);
-  securityMail(req, user, 'Your The Care Web password was changed',
+  securityMail(req, user, 'Your Care Web password was changed',
     `<p>Your password was changed just now from ${escHtml(deviceName(req.headers['user-agent']))}. Every other device has been signed out.</p>
      <p><b>If this wasn't you</b>, use "Forgot password" on the log in screen straight away and then email hello@thecareweb.com.au.</p>`);
   json(res, 200, { ok: true, note: 'Password changed. Every other device has been signed out.' },
@@ -17537,8 +17537,8 @@ route('POST', /^\/api\/admin\/participants\/create$/, (req, res, m, user, body, 
   logCompliance({ worker_id: null, worker_name: '', kind: 'concierge-onboarding', result: 'opened', detail: `Participant account #${uid} (${name}) opened by the office. Consent: ${consent}`, source: 'admin', checked_by: user.name });
   const row = db.prepare('SELECT id, pass FROM users WHERE id = ?').get(uid);
   const token = makeEmailToken('r', row.id, 7 * 24 * 3600e3, String(row.pass).slice(0, 16));
-  sendMail(email, 'Your The Care Web account is ready — choose a password', `Hello ${escHtml(name.split(' ')[0])}`,
-    `<p>As we discussed on the phone, we have opened your The Care Web account. Press the button to choose your password — the link works for seven days. Then you can find and book support workers, and see everything we hold about your supports.</p><p>If you did not ask for this, ignore this email and nothing will happen.</p>`,
+  sendMail(email, 'Your Care Web account is ready — choose a password', `Hello ${escHtml(name.split(' ')[0])}`,
+    `<p>As we discussed on the phone, we have opened your Care Web account. Press the button to choose your password — the link works for seven days. Then you can find and book support workers, and see everything we hold about your supports.</p><p>If you did not ask for this, ignore this email and nothing will happen.</p>`,
     'Choose my password', `${baseUrl(req)}/#/reset?token=${token}`).catch(e => console.warn('[concierge] mail failed:', e.message));
   json(res, 200, { ok: true, id: uid });
 });
@@ -18739,7 +18739,7 @@ const PUBLIC_PAGES = {
   '/for-plan-managers': ['For plan managers — The Care Web', 'The exact support item on every line, statements that open in your software, and never a dollar above the published maximums.'],
   '/for-families': ['For families & carers — The Care Web', 'Who is coming to the house, whether they are properly checked, and what happened on the shift — how The Care Web answers each, and how to help without taking over.'],
   '/locations': ['Where The Care Web works — The Care Web', 'Available across Australia by design, with the deepest coverage where the worker pools are. Where you will find the most choice today.'],
-  '/refer-a-worker': ['Refer a support worker — The Care Web', 'Know a good support worker? Give them your The Care Web referral code. Once they have completed 50 hours you are paid a $150 bonus. A worker programme; participants are never offered anything for a referral.'],
+  '/refer-a-worker': ['Refer a support worker — The Care Web', 'Know a good support worker? Give them your Care Web referral code. Once they have completed 50 hours you are paid a $150 bonus. A worker programme; participants are never offered anything for a referral.'],
   '/services/overnight': ['Overnight support: sleepovers and active nights — The Care Web', 'Inactive night care (a sleepover) is one flat NDIS price for the night with a worker asleep on the premises, up to two hours of help included. Active overnight support is by the hour. How each is booked, priced and paid.']
 };
 const CSP_HTML = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";

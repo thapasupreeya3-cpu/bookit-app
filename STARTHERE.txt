@@ -1,6 +1,6 @@
 THE CARE WEB — START HERE
 ===================
-Current release: v87.0.0
+Current release: v87.0.1
 Default schema identifier: 87000
 Registered routes: 304
 Database tables after boot: 54
@@ -17,7 +17,7 @@ subsequent remote work without comparing it with this named base first.
 
 UPLOAD
 1. Keep a copy of your current repository state and the production backup.
-2. Extract Care Web-v87.0.0-root-update.zip. Do NOT upload the ZIP itself.
+2. Extract Care Web-v87.0.1-root-update.zip. Do NOT upload the ZIP itself.
 3. At the existing repository ROOT, choose Add file > Upload files. Drag the
    EXTRACTED CONTENTS (server.js, package files, lib/, public/, scripts/, tests/,
    docs/, STARTHERE.txt, readme.txt and RELEASE-FILES.json), not an enclosing folder.
@@ -29,7 +29,7 @@ UPLOAD
 DEPLOY ONLY AFTER CHECKS
 Use the existing authorised deployment process. The prior setup documents
 sudo bookit-update; no server access or deployment was performed for this release.
-Check /api/version reports 87.0.0 and schema 87000; existing environment
+Check /api/version reports 87.0.1 and schema 87000; existing environment
 overrides of SCHEMA_VERSION must be updated by the operator. The source pin in
 .nvmrc is unchanged. Local test runtime and limitations are in docs/TEST-RESULTS.md.
 

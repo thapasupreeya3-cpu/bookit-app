@@ -232,7 +232,7 @@
           showStatus();
         });
       } else {
-        status.textContent = 'Type into the page, then print it. Sign in to save a copy to your The Care Web file.';
+        status.textContent = 'Type into the page, then print it. Sign in to save a copy to your Care Web file.';
       }
     }
     function collect() {
