@@ -74,7 +74,7 @@ db.exec(`
     services TEXT DEFAULT '[]',
     langs TEXT DEFAULT 'English',
     exp TEXT DEFAULT 'New to The Care Web',
-    color TEXT DEFAULT '#0E6B62',
+    color TEXT DEFAULT '#203566',
     rating REAL DEFAULT 0,
     shifts INTEGER DEFAULT 0,
     checks TEXT DEFAULT '["NDIS Worker Screening (in progress)"]',
@@ -2084,12 +2084,12 @@ function gatePage(wrong) {
 h1{font-size:1.15rem;margin:0 0 8px;}
 p{color:#3E5A64;font-size:.92rem;margin:0 0 22px;}
 input{width:100%;padding:13px 16px;border:1.5px solid #E7DFD4;border-radius:11px;font-size:1rem;margin-bottom:12px;box-sizing:border-box;}
-input:focus{outline:3px solid #F5B841;border-color:#0E6B62;}
-button{width:100%;background:#0E6B62;color:#fff;border:none;border-radius:999px;padding:13px;font-size:1rem;font-weight:600;cursor:pointer;}
-button:hover{background:#0A544D;}
+input:focus{outline:3px solid #F1BE48;border-color:#203566;}
+button{width:100%;background:#203566;color:#fff;border:none;border-radius:999px;padding:13px;font-size:1rem;font-weight:600;cursor:pointer;}
+button:hover{background:#15264D;}
 .err{color:#a8250b;font-size:.88rem;margin:0 0 12px;font-weight:600;}</style></head>
 <body><div class="card">
-<div class="logo"><svg viewBox="0 0 94 48" aria-hidden="true" style="height:.7em;width:auto;vertical-align:-.05em;margin-right:.18em"><circle cx="23" cy="24" r="22" fill="#0E6B62"/><circle cx="69" cy="24" r="22" fill="#F5B841"/><path d="M57 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-weight:500;opacity:.72">the</span>care<span style="font-weight:500;opacity:.72">web</span></div>
+<div class="logo"><svg viewBox="0 0 94 48" aria-hidden="true" style="height:.7em;width:auto;vertical-align:-.05em;margin-right:.18em"><circle cx="23" cy="24" r="22" fill="#203566"/><circle cx="69" cy="24" r="22" fill="#F1BE48"/><path d="M57 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-weight:500;opacity:.72">the</span>care<span style="font-weight:500;opacity:.72">web</span></div>
 <h1>Private preview</h1>
 <p>The Care Web isn't open to the public just yet. Enter the access password to look around.</p>
 ${wrong ? '<p class="err">That password did not match — try again.</p>' : ''}
@@ -2336,18 +2336,18 @@ async function resendSend(to, subject, html, text, replyTo, attachments) {
 
 function emailHtml(heading, bodyHtml, ctaText, ctaUrl) {
   const btn = (ctaText && ctaUrl) ? `
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px auto 8px;"><tr><td style="background:#0E6B62;border-radius:999px;">
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px auto 8px;"><tr><td style="background:#203566;border-radius:999px;">
 <a href="${ctaUrl}" style="display:inline-block;padding:13px 30px;color:#ffffff;font-weight:700;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:15px;">${ctaText}</a>
 </td></tr></table>
 <p style="font-size:12px;color:#7d8f96;text-align:center;margin:0;">Button not working? Paste this into your browser:<br>
-<a href="${ctaUrl}" style="color:#0E6B62;word-break:break-all;">${ctaUrl}</a></p>` : '';
+<a href="${ctaUrl}" style="color:#203566;word-break:break-all;">${ctaUrl}</a></p>` : '';
   return `<!DOCTYPE html>
 <html lang="en-AU"><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#FAF6F0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF6F0;padding:28px 12px;"><tr><td align="center">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #E7DFD4;border-radius:18px;">
 <tr><td style="padding:30px 34px 24px;font-family:Arial,Helvetica,sans-serif;color:#17313A;">
-<div style="font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:20px;"><span style="color:#0E6B62;">&#9679;</span><span style="color:#F5B841;margin-left:-6px;">&#9679;</span> <span style="font-weight:500;color:#5b6a67;">the</span>care<span style="font-weight:500;color:#5b6a67;">web</span> <span style="color:#0E6B62;">&#10003;</span></div>
+<div style="font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:20px;"><span style="color:#203566;">&#9679;</span><span style="color:#F1BE48;margin-left:-6px;">&#9679;</span> <span style="font-weight:500;color:#5b6a67;">the</span>care<span style="font-weight:500;color:#5b6a67;">web</span> <span style="color:#203566;">&#10003;</span></div>
 <h1 style="font-size:20px;margin:0 0 14px;">${heading}</h1>
 <div style="font-size:15px;line-height:1.65;color:#3E5A64;">${bodyHtml}</div>
 ${btn}
@@ -2435,14 +2435,14 @@ function seed() {
   const count = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
   if (count > 0) return;
   const demoWorkers = [
-    { name: 'Sarah M.', email: 'sarah@demo.bookit.life', suburb: 'Parramatta NSW', color: '#0E6B62', exp: '6 yrs experience', langs: 'English, Auslan (basic)', services: ['community','personal-care','transport'], days: [1,1,1,0,1,0,0], bio: 'Former youth worker who loves footy, board games and getting out and about. Patient, punctual and big on routines that stick.', shifts: 112, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Police check (transport)'] },
+    { name: 'Sarah M.', email: 'sarah@demo.bookit.life', suburb: 'Parramatta NSW', color: '#203566', exp: '6 yrs experience', langs: 'English, Auslan (basic)', services: ['community','personal-care','transport'], days: [1,1,1,0,1,0,0], bio: 'Former youth worker who loves footy, board games and getting out and about. Patient, punctual and big on routines that stick.', shifts: 112, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Police check (transport)'] },
     { name: 'Daniel O.', email: 'daniel@demo.bookit.life', suburb: 'Blacktown NSW', color: '#D94F32', exp: '4 yrs experience', langs: 'English, Samoan', services: ['employment','community','daily-tasks'], days: [1,1,0,1,1,1,0], bio: 'Supports several clients in open employment. Great with interview nerves, workplace routines and building confidence on the job.', shifts: 87, rating: 4.8, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
     { name: 'Priya S.', email: 'priya@demo.bookit.life', suburb: 'Liverpool NSW', color: '#7A4FBF', exp: '8 yrs experience', langs: 'English, Hindi, Tamil', services: ['personal-care','household','daily-tasks'], days: [1,0,1,1,1,0,1], bio: 'Gentle, thorough and endlessly cheerful. Loves cooking with clients — her butter chicken lesson is legendary.', shifts: 203, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Cert III Individual Support'] },
     { name: 'Tom H.', email: 'tom@demo.bookit.life', suburb: 'Penrith NSW', color: '#1C7C43', exp: '3 yrs experience', langs: 'English', services: ['transport','community','household'], days: [0,1,1,1,0,1,1], bio: 'Drives a big, comfy wagon and knows every accessible café in the west. Happy to help with errands, gym runs and game day.', shifts: 64, rating: 4.9, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR','Comprehensive car insurance'] },
     { name: 'Amara W.', email: 'amara@demo.bookit.life', suburb: 'Bankstown NSW', color: '#B0468A', exp: '5 yrs experience', langs: 'English, Arabic', services: ['personal-care','daily-tasks','community'], days: [1,1,1,1,1,0,0], bio: 'Specialises in morning routines and building independence at home. Calm, respectful and a great listener.', shifts: 145, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Manual handling training'] },
     { name: 'Liam C.', email: 'liam@demo.bookit.life', suburb: 'Chatswood NSW', color: '#3E5A64', exp: '2 yrs experience', langs: 'English, Mandarin', services: ['employment','transport','community'], days: [1,0,1,0,1,1,1], bio: 'Uni student and part-time barista. Brilliant with tech, public transport training and finding free things to do on weekends.', shifts: 41, rating: 4.7, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
     { name: 'Grace N.', email: 'grace@demo.bookit.life', suburb: 'Newtown NSW', color: '#C2542B', exp: '7 yrs experience', langs: 'English, Vietnamese', services: ['household','daily-tasks','personal-care'], days: [1,1,0,1,1,1,0], bio: 'Runs a tight ship: sparkling kitchens, folded laundry and meal-prepped fridges. Also a certified plant whisperer.', shifts: 178, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR'] },
-    { name: 'Noah B.', email: 'noah@demo.bookit.life', suburb: 'Campbelltown NSW', color: '#0A544D', exp: '5 yrs experience', langs: 'English', services: ['community','employment','daily-tasks'], days: [0,1,1,1,1,0,1], bio: 'Ex-tradie who now supports young blokes into apprenticeships. Practical, straight-up and great on a worksite or at pub trivia.', shifts: 96, rating: 4.8, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','White Card'] },
+    { name: 'Noah B.', email: 'noah@demo.bookit.life', suburb: 'Campbelltown NSW', color: '#15264D', exp: '5 yrs experience', langs: 'English', services: ['community','employment','daily-tasks'], days: [0,1,1,1,1,0,1], bio: 'Ex-tradie who now supports young blokes into apprenticeships. Practical, straight-up and great on a worksite or at pub trivia.', shifts: 96, rating: 4.8, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','White Card'] },
     { name: 'Isabella R.', email: 'isabella@demo.bookit.life', suburb: 'Hornsby NSW', color: '#6B8E23', exp: '4 yrs experience', langs: 'English, Spanish', services: ['personal-care','community','household'], days: [1,1,1,0,0,1,1], bio: 'Warm, energetic and music-obsessed. Supports clients to gigs, choir and everything in between.', shifts: 88, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR'] },
     { name: 'Zoe T.', email: 'zoe@demo.bookit.life', suburb: 'Ryde NSW', color: '#8a6d00', exp: '9 yrs experience', langs: 'English, Auslan (fluent)', services: ['daily-tasks','personal-care','employment'], days: [1,1,1,1,1,1,0], bio: 'Fluent in Auslan with a decade in disability support. Loves teaching cooking, budgeting and travel skills that last a lifetime.', shifts: 260, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Cert IV Disability'] },
     { name: 'Kai M.', email: 'kai@demo.bookit.life', suburb: 'Brisbane QLD', color: '#2F6690', exp: '3 yrs experience', langs: 'English, Te Reo Māori', services: ['community','transport','household'], days: [0,1,1,1,1,1,0], bio: 'Surf-mad and endlessly upbeat. Supports beach days, park runs and community groups across Brisbane.', shifts: 55, rating: 4.8, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR'] },
@@ -2556,7 +2556,7 @@ function convoForUser(user, convoRow, asId) {
      test was sender_id === user.id, which drew a participant's own words in
      the worker's colours the moment their coordinator opened the thread. */
   const ours = sid => sid === user.id || sid === meId;
-  const other = db.prepare("SELECT u.id, u.name, u.suburb, COALESCE(p.color, '#0E6B62') AS color FROM users u LEFT JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(otherId);
+  const other = db.prepare("SELECT u.id, u.name, u.suburb, COALESCE(p.color, '#203566') AS color FROM users u LEFT JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(otherId);
   const last = db.prepare('SELECT body, sender_id, created, doc_name FROM messages WHERE convo_id = ? ORDER BY id DESC LIMIT 1').get(convoRow.id);
   const unread = db.prepare('SELECT COUNT(*) AS n FROM messages WHERE convo_id = ? AND sender_id NOT IN (?, ?) AND read_at IS NULL').get(convoRow.id, user.id, meId).n;
   return {
@@ -6447,7 +6447,7 @@ route('GET', /^\/api\/bookings$/, (req, res, m, user) => {
   const col = user.role === 'worker' ? 'worker_id' : 'participant_id';
   const otherCol = user.role === 'worker' ? 'participant_id' : 'worker_id';
   const rows = db.prepare(`SELECT b.*, u.name AS other_name,
-      COALESCE(p.color, '#0E6B62') AS other_color,
+      COALESCE(p.color, '#203566') AS other_color,
       (SELECT COUNT(*) FROM reviews r WHERE r.booking_id = b.id) AS reviewed,
       (SELECT COUNT(*) FROM shift_notes n WHERE n.booking_id = b.id AND COALESCE(n.kind,'note') = 'note') AS note_count
     FROM bookings b
@@ -6902,7 +6902,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     const wu4 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
     if (wu4) notify(wu4.id, 'timesheets', wu4.email, 'A question about your timesheet — The Care Web',
       `A question about ${prettyDate(b.date)}`,
-      `<p><b>${escHtml(pers.name)}</b> has asked about your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>:</p><blockquote style="border-left:3px solid #0E6B62;padding-left:14px;margin:16px 0;color:#2B3A38;">${escHtml(q)}</blockquote><p>Answer it by adding to the shift note. Your original note stays exactly as you wrote it — your answer is added underneath, so both are on the record.</p>`,
+      `<p><b>${escHtml(pers.name)}</b> has asked about your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>:</p><blockquote style="border-left:3px solid #203566;padding-left:14px;margin:16px 0;color:#2B3A38;">${escHtml(q)}</blockquote><p>Answer it by adding to the shift note. Your original note stays exactly as you wrote it — your answer is added underneath, so both are on the record.</p>`,
       'Answer on my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
     if (ADMIN_EMAILS.length) sendMail(ADMIN_EMAILS[0], 'Timesheet queried — The Care Web', 'A timesheet has been queried',
       `<p><b>${escHtml(pers.name)}</b> queried booking #${b.id} (${escHtml(b.service)}, ${prettyDate(b.date)}, ${escHtml(wu4 ? wu4.name : '')}).</p><blockquote>${escHtml(q)}</blockquote>`,
@@ -7171,7 +7171,7 @@ route('POST', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user, body, ip) =
       notify(p.id, 'timesheets', p.email, 'Your question has been answered — The Care Web',
         `An answer about ${prettyDate(b.date)}`,
         `<p><b>${escHtml(user.name)}</b> has answered your question about the <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>.</p>
-         <blockquote style="border-left:3px solid #0E6B62;padding-left:14px;margin:16px 0;color:#2B3A38;">${escHtml(note)}</blockquote>
+         <blockquote style="border-left:3px solid #203566;padding-left:14px;margin:16px 0;color:#2B3A38;">${escHtml(note)}</blockquote>
          <p>The original note is unchanged — this is added underneath it, so both are on the record.</p>
          <p><b>You have until ${prettyDate(deadline)} to approve the timesheet or ask something else.</b> The clock stopped while your question was open and has started again from today, so you have the full ${APPROVAL_DEEM_DAYS} days to read this.</p>`,
         'Read it and approve', `${baseUrl(req)}/#/bookings`).catch(() => {});
@@ -8374,10 +8374,10 @@ const TPL_CSS = `
  *{box-sizing:border-box}
  body{margin:0;background:#EFEDE8;color:#17211F;font:11.5pt/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif}
  .sheet{background:#fff;max-width:210mm;margin:0 auto;padding:16mm 14mm 20mm}
- .bar{background:#0E6B62;color:#fff;padding:11px 16px;display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:14px;line-height:1.4}
+ .bar{background:#203566;color:#fff;padding:11px 16px;display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:14px;line-height:1.4}
  .bar a{color:#fff}
- .bar button{background:#fff;color:#0E6B62;border:0;border-radius:8px;padding:9px 18px;font:inherit;font-weight:700;cursor:pointer}
- .mark{font-weight:800;color:#0E6B62;letter-spacing:-.02em;font-size:15pt;margin:0}
+ .bar button{background:#fff;color:#203566;border:0;border-radius:8px;padding:9px 18px;font:inherit;font-weight:700;cursor:pointer}
+ .mark{font-weight:800;color:#203566;letter-spacing:-.02em;font-size:15pt;margin:0}
  .org{font-size:9pt;color:#6C7A77;margin:2px 0 16px}
  h1{font-size:19pt;line-height:1.2;letter-spacing:-.02em;margin:0 0 8px}
  .lede{color:#3D4B48;margin:0 0 14px}
@@ -8482,7 +8482,7 @@ function templateIndexHtml(base) {
   };
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>Blank forms — DMHC</title><style>${TPL_CSS} a{color:#0E6B62}</style></head><body>
+<title>Blank forms — DMHC</title><style>${TPL_CSS} a{color:#203566}</style></head><body>
 <div class="bar no-print"><span>Blank forms &middot; print one, fill it in on paper, send it back</span>
 <a href="${escHtml(base)}/#/bookings">Open The Care Web</a></div>
 <div class="sheet">
@@ -12004,7 +12004,7 @@ function coverLink(req, offerId, kind) {
 /* Compact offer landing page. GET is read-only; workers continue in their
    account to read the current plan before accepting. */
 function coverPage(heading, body, ctaText, ctaUrl, tone) {
-  const accent = tone === 'bad' ? '#B4451F' : '#0E6B62';
+  const accent = tone === 'bad' ? '#B4451F' : '#203566';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
 <title>${escHtml(heading)} — The Care Web</title>
@@ -12409,7 +12409,7 @@ function offerStandby(workerId, date, req) {
     `<p>We're asking you to be <b>on call</b> for <b>${prettyDate(date)}</b>. That means keeping your phone on and being able to get to a shift if somebody can't make theirs.</p>
      <p><b>You get paid ${allowance.toFixed(2)} just for saying yes</b> — that's the SCHADS on-call allowance for a ${band === 'weekday' ? 'weekday' : 'weekend or public holiday'} period, and it's yours whether or not we end up calling you.</p>
      <p>If we do call you, the shift is paid on top at your normal rate, and you can still say no on the day. Saying yes to standby is not agreeing to work — it's agreeing to be reachable.</p>
-     <p style="margin:24px 0"><a href="${link('standby-yes')}" style="background:#0E6B62;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Yes, I'm on call that day</a>
+     <p style="margin:24px 0"><a href="${link('standby-yes')}" style="background:#203566;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Yes, I'm on call that day</a>
      &nbsp;&nbsp;<a href="${link('standby-no')}" style="color:#5b6b68;text-decoration:underline">Not that day</a></p>`,
     null, null).catch(() => {});
   return id;
@@ -12497,7 +12497,7 @@ everyJob('standby', 21600 * 1000, () => standbySweep(), {
 
 function careWebRows(participantId) {
   return db.prepare(`SELECT cw.id, cw.worker_id, cw.rank, cw.role, cw.auto_offer, cw.note, cw.added_at,
-      u.name, u.suburb, COALESCE(p.color, '#0E6B62') AS color, COALESCE(p.visible, 0) AS visible,
+      u.name, u.suburb, COALESCE(p.color, '#203566') AS color, COALESCE(p.visible, 0) AS visible,
       p.photo, p.photo_at, p.services, p.days,
       (SELECT COUNT(*) FROM bookings b WHERE b.worker_id = cw.worker_id AND b.participant_id = cw.participant_id AND b.status = 'completed') AS shifts_together,
       (SELECT COUNT(*) FROM cover_offers o JOIN cover c ON c.id = o.cover_id
@@ -12518,7 +12518,7 @@ function careWebRows(participantId) {
 /* Everyone this participant has actually worked with who isn't in the web yet.
    Nobody should have to remember a name — the system already knows who turned up. */
 function careWebSuggestions(participantId) {
-  return db.prepare(`SELECT u.id AS worker_id, u.name, u.suburb, COALESCE(p.color, '#0E6B62') AS color,
+  return db.prepare(`SELECT u.id AS worker_id, u.name, u.suburb, COALESCE(p.color, '#203566') AS color,
       p.photo, p.photo_at, p.services,
       COUNT(b.id) AS shifts_together, MAX(b.date) AS last_shift
     FROM bookings b JOIN users u ON u.id = b.worker_id
