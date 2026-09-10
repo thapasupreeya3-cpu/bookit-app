@@ -19021,6 +19021,18 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       return res.end('User-agent: *\nDisallow: /\n');
     }
+
+    /* The brand marks have to pass the gate. A generated document page —
+       /policies and its siblings — is served sandboxed, so it runs on an
+       opaque origin and cannot send the SameSite=Lax gate cookie with its
+       own <img> requests; the same reason a fillable page keeps its origin,
+       further down. Without this the gate answers each logo with the gate
+       page itself — HTML, HTTP 200 — and every reader of a policy sees two
+       broken images at the top of it. Nothing under /assets/careweb is
+       private: it is the logo, the favicons and the app icons. */
+    if (/^\/assets\/careweb\/[A-Za-z0-9._-]+\.[A-Za-z0-9]+$/.test(pathname) && (req.method === 'GET' || req.method === 'HEAD')) {
+      return serveStatic(req, res, pathname);
+    }
     if (pathname === '/gate' && req.method === 'POST') {
       let raw = '';
       req.on('data', c => { raw += c; if (raw.length > 5000) req.destroy(); });
