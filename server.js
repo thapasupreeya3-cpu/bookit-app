@@ -2077,19 +2077,19 @@ function gateValid(cookieHeader) {
 }
 function gatePage(wrong) {
   return `<!DOCTYPE html><html lang="en-AU"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex, nofollow"><title>The Care Web — private preview</title>
-<style>body{font-family:system-ui,sans-serif;background:#FAF6F0;color:#17313A;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;}
-.card{background:#fff;border:1px solid #E7DFD4;border-radius:20px;box-shadow:0 18px 50px rgba(23,49,58,.14);padding:40px;max-width:400px;width:100%;text-align:center;}
+<style>body{font-family:system-ui,sans-serif;background:#FAF6F0;color:#1B2440;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;}
+.card{background:#fff;border:1px solid #E2E0DA;border-radius:20px;box-shadow:0 18px 50px rgba(27,36,64,.14);padding:40px;max-width:400px;width:100%;text-align:center;}
 .logo{font-weight:800;font-size:1.6rem;display:flex;align-items:center;justify-content:center;gap:2px;margin-bottom:14px;}
 .logo svg{height:.68em;width:auto;margin-top:.1em;}
 h1{font-size:1.15rem;margin:0 0 8px;}
-p{color:#3E5A64;font-size:.92rem;margin:0 0 22px;}
-input{width:100%;padding:13px 16px;border:1.5px solid #E7DFD4;border-radius:11px;font-size:1rem;margin-bottom:12px;box-sizing:border-box;}
+p{color:#4A5570;font-size:.92rem;margin:0 0 22px;}
+input{width:100%;padding:13px 16px;border:1.5px solid #E2E0DA;border-radius:11px;font-size:1rem;margin-bottom:12px;box-sizing:border-box;}
 input:focus{outline:3px solid #F1BE48;border-color:#203566;}
 button{width:100%;background:#203566;color:#fff;border:none;border-radius:999px;padding:13px;font-size:1rem;font-weight:600;cursor:pointer;}
 button:hover{background:#15264D;}
 .err{color:#a8250b;font-size:.88rem;margin:0 0 12px;font-weight:600;}</style></head>
 <body><div class="card">
-<div class="logo"><svg viewBox="0 0 94 48" aria-hidden="true" style="height:.7em;width:auto;vertical-align:-.05em;margin-right:.18em"><circle cx="23" cy="24" r="22" fill="#203566"/><circle cx="69" cy="24" r="22" fill="#F1BE48"/><path d="M57 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-weight:500;opacity:.72">the</span>care<span style="font-weight:500;opacity:.72">web</span></div>
+<div class="logo"><svg viewBox="0 0 94 48" aria-hidden="true" style="height:.7em;width:auto;vertical-align:-.05em;margin-right:.18em"><circle cx="23" cy="24" r="22" fill="#203566"/><circle cx="69" cy="24" r="22" fill="#F1BE48"/><path d="M57 25 l9 9 17 -18" stroke="#1B2440" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-weight:500;opacity:.72">the</span>care<span style="font-weight:500;opacity:.72">web</span></div>
 <h1>Private preview</h1>
 <p>The Care Web isn't open to the public just yet. Enter the access password to look around.</p>
 ${wrong ? '<p class="err">That password did not match — try again.</p>' : ''}
@@ -2345,11 +2345,11 @@ function emailHtml(heading, bodyHtml, ctaText, ctaUrl) {
 <html lang="en-AU"><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#FAF6F0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF6F0;padding:28px 12px;"><tr><td align="center">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #E7DFD4;border-radius:18px;">
-<tr><td style="padding:30px 34px 24px;font-family:Arial,Helvetica,sans-serif;color:#17313A;">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #E2E0DA;border-radius:18px;">
+<tr><td style="padding:30px 34px 24px;font-family:Arial,Helvetica,sans-serif;color:#1B2440;">
 <div style="margin-bottom:22px;"><img src="${APP_URL}/assets/careweb/logo-icon.png" alt="" width="52" height="51" style="display:inline-block;vertical-align:middle;width:52px;height:auto;border:0;"><img src="${APP_URL}/assets/careweb/logo-wordmark.png" alt="The Care Web" width="150" height="28" style="display:inline-block;vertical-align:middle;margin-left:8px;width:150px;height:auto;border:0;"></div>
 <h1 style="font-size:20px;margin:0 0 14px;">${heading}</h1>
-<div style="font-size:15px;line-height:1.65;color:#3E5A64;">${bodyHtml}</div>
+<div style="font-size:15px;line-height:1.65;color:#4A5570;">${bodyHtml}</div>
 ${btn}
 </td></tr>
 <tr><td style="padding:18px 34px 26px;border-top:1px solid #F0EAE0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#7d8f96;line-height:1.6;">
@@ -2436,17 +2436,17 @@ function seed() {
   if (count > 0) return;
   const demoWorkers = [
     { name: 'Sarah M.', email: 'sarah@demo.bookit.life', suburb: 'Parramatta NSW', color: '#203566', exp: '6 yrs experience', langs: 'English, Auslan (basic)', services: ['community','personal-care','transport'], days: [1,1,1,0,1,0,0], bio: 'Former youth worker who loves footy, board games and getting out and about. Patient, punctual and big on routines that stick.', shifts: 112, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Police check (transport)'] },
-    { name: 'Daniel O.', email: 'daniel@demo.bookit.life', suburb: 'Blacktown NSW', color: '#D94F32', exp: '4 yrs experience', langs: 'English, Samoan', services: ['employment','community','daily-tasks'], days: [1,1,0,1,1,1,0], bio: 'Supports several clients in open employment. Great with interview nerves, workplace routines and building confidence on the job.', shifts: 87, rating: 4.8, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
-    { name: 'Priya S.', email: 'priya@demo.bookit.life', suburb: 'Liverpool NSW', color: '#7A4FBF', exp: '8 yrs experience', langs: 'English, Hindi, Tamil', services: ['personal-care','household','daily-tasks'], days: [1,0,1,1,1,0,1], bio: 'Gentle, thorough and endlessly cheerful. Loves cooking with clients — her butter chicken lesson is legendary.', shifts: 203, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Cert III Individual Support'] },
-    { name: 'Tom H.', email: 'tom@demo.bookit.life', suburb: 'Penrith NSW', color: '#1C7C43', exp: '3 yrs experience', langs: 'English', services: ['transport','community','household'], days: [0,1,1,1,0,1,1], bio: 'Drives a big, comfy wagon and knows every accessible café in the west. Happy to help with errands, gym runs and game day.', shifts: 64, rating: 4.9, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR','Comprehensive car insurance'] },
-    { name: 'Amara W.', email: 'amara@demo.bookit.life', suburb: 'Bankstown NSW', color: '#B0468A', exp: '5 yrs experience', langs: 'English, Arabic', services: ['personal-care','daily-tasks','community'], days: [1,1,1,1,1,0,0], bio: 'Specialises in morning routines and building independence at home. Calm, respectful and a great listener.', shifts: 145, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Manual handling training'] },
-    { name: 'Liam C.', email: 'liam@demo.bookit.life', suburb: 'Chatswood NSW', color: '#3E5A64', exp: '2 yrs experience', langs: 'English, Mandarin', services: ['employment','transport','community'], days: [1,0,1,0,1,1,1], bio: 'Uni student and part-time barista. Brilliant with tech, public transport training and finding free things to do on weekends.', shifts: 41, rating: 4.7, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
-    { name: 'Grace N.', email: 'grace@demo.bookit.life', suburb: 'Newtown NSW', color: '#C2542B', exp: '7 yrs experience', langs: 'English, Vietnamese', services: ['household','daily-tasks','personal-care'], days: [1,1,0,1,1,1,0], bio: 'Runs a tight ship: sparkling kitchens, folded laundry and meal-prepped fridges. Also a certified plant whisperer.', shifts: 178, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR'] },
+    { name: 'Daniel O.', email: 'daniel@demo.bookit.life', suburb: 'Blacktown NSW', color: '#C8462E', exp: '4 yrs experience', langs: 'English, Samoan', services: ['employment','community','daily-tasks'], days: [1,1,0,1,1,1,0], bio: 'Supports several clients in open employment. Great with interview nerves, workplace routines and building confidence on the job.', shifts: 87, rating: 4.8, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
+    { name: 'Priya S.', email: 'priya@demo.bookit.life', suburb: 'Liverpool NSW', color: '#4A66A8', exp: '8 yrs experience', langs: 'English, Hindi, Tamil', services: ['personal-care','household','daily-tasks'], days: [1,0,1,1,1,0,1], bio: 'Gentle, thorough and endlessly cheerful. Loves cooking with clients — her butter chicken lesson is legendary.', shifts: 203, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Cert III Individual Support'] },
+    { name: 'Tom H.', email: 'tom@demo.bookit.life', suburb: 'Penrith NSW', color: '#1F7A4D', exp: '3 yrs experience', langs: 'English', services: ['transport','community','household'], days: [0,1,1,1,0,1,1], bio: 'Drives a big, comfy wagon and knows every accessible café in the west. Happy to help with errands, gym runs and game day.', shifts: 64, rating: 4.9, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR','Comprehensive car insurance'] },
+    { name: 'Amara W.', email: 'amara@demo.bookit.life', suburb: 'Bankstown NSW', color: '#6B7590', exp: '5 yrs experience', langs: 'English, Arabic', services: ['personal-care','daily-tasks','community'], days: [1,1,1,1,1,0,0], bio: 'Specialises in morning routines and building independence at home. Calm, respectful and a great listener.', shifts: 145, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Manual handling training'] },
+    { name: 'Liam C.', email: 'liam@demo.bookit.life', suburb: 'Chatswood NSW', color: '#4A5570', exp: '2 yrs experience', langs: 'English, Mandarin', services: ['employment','transport','community'], days: [1,0,1,0,1,1,1], bio: 'Uni student and part-time barista. Brilliant with tech, public transport training and finding free things to do on weekends.', shifts: 41, rating: 4.7, checks: ['NDIS Worker Screening','First Aid & CPR','NDIS Orientation Module'] },
+    { name: 'Grace N.', email: 'grace@demo.bookit.life', suburb: 'Newtown NSW', color: '#C8462E', exp: '7 yrs experience', langs: 'English, Vietnamese', services: ['household','daily-tasks','personal-care'], days: [1,1,0,1,1,1,0], bio: 'Runs a tight ship: sparkling kitchens, folded laundry and meal-prepped fridges. Also a certified plant whisperer.', shifts: 178, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR'] },
     { name: 'Noah B.', email: 'noah@demo.bookit.life', suburb: 'Campbelltown NSW', color: '#15264D', exp: '5 yrs experience', langs: 'English', services: ['community','employment','daily-tasks'], days: [0,1,1,1,1,0,1], bio: 'Ex-tradie who now supports young blokes into apprenticeships. Practical, straight-up and great on a worksite or at pub trivia.', shifts: 96, rating: 4.8, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','White Card'] },
     { name: 'Isabella R.', email: 'isabella@demo.bookit.life', suburb: 'Hornsby NSW', color: '#6B8E23', exp: '4 yrs experience', langs: 'English, Spanish', services: ['personal-care','community','household'], days: [1,1,1,0,0,1,1], bio: 'Warm, energetic and music-obsessed. Supports clients to gigs, choir and everything in between.', shifts: 88, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR'] },
     { name: 'Zoe T.', email: 'zoe@demo.bookit.life', suburb: 'Ryde NSW', color: '#8a6d00', exp: '9 yrs experience', langs: 'English, Auslan (fluent)', services: ['daily-tasks','personal-care','employment'], days: [1,1,1,1,1,1,0], bio: 'Fluent in Auslan with a decade in disability support. Loves teaching cooking, budgeting and travel skills that last a lifetime.', shifts: 260, rating: 5.0, checks: ['NDIS Worker Screening','WWCC (NSW)','First Aid & CPR','Cert IV Disability'] },
-    { name: 'Kai M.', email: 'kai@demo.bookit.life', suburb: 'Brisbane QLD', color: '#2F6690', exp: '3 yrs experience', langs: 'English, Te Reo Māori', services: ['community','transport','household'], days: [0,1,1,1,1,1,0], bio: 'Surf-mad and endlessly upbeat. Supports beach days, park runs and community groups across Brisbane.', shifts: 55, rating: 4.8, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR'] },
-    { name: 'Elena V.', email: 'elena@demo.bookit.life', suburb: 'Melbourne VIC', color: '#5D3FD3', exp: '6 yrs experience', langs: 'English, Greek', services: ['personal-care','daily-tasks','community'], days: [1,1,0,1,1,0,1], bio: 'Melbourne through and through: markets, galleries and the best souvlaki. Experienced with complex routines and hoists.', shifts: 132, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (VIC)','First Aid & CPR','Manual handling training'] }
+    { name: 'Kai M.', email: 'kai@demo.bookit.life', suburb: 'Brisbane QLD', color: '#203566', exp: '3 yrs experience', langs: 'English, Te Reo Māori', services: ['community','transport','household'], days: [0,1,1,1,1,1,0], bio: 'Surf-mad and endlessly upbeat. Supports beach days, park runs and community groups across Brisbane.', shifts: 55, rating: 4.8, checks: ['NDIS Worker Screening','Police check (transport)','First Aid & CPR'] },
+    { name: 'Elena V.', email: 'elena@demo.bookit.life', suburb: 'Melbourne VIC', color: '#B4761A', exp: '6 yrs experience', langs: 'English, Greek', services: ['personal-care','daily-tasks','community'], days: [1,1,0,1,1,0,1], bio: 'Melbourne through and through: markets, galleries and the best souvlaki. Experienced with complex routines and hoists.', shifts: 132, rating: 4.9, checks: ['NDIS Worker Screening','WWCC (VIC)','First Aid & CPR','Manual handling training'] }
   ];
   const DEMO_IDENT = {
     'sarah@demo.bookit.life':    ['female', ['Footy', 'Board games', 'Getting outdoors']],
@@ -3436,7 +3436,7 @@ function scopeAlert(req, bk, workerName, partName, detail) {
     'A worker was asked to do something outside their scope',
     `<p><b>${escHtml(workerName)}</b> has flagged their <b>${SERVICE_LABELS[bk.service] || escHtml(bk.service)}</b> shift with <b>${escHtml(partName)}</b> on <b>${prettyDate(bk.date)}</b>.</p>
      <p><b>What they were asked to do:</b></p>
-     <blockquote style="margin:0;padding:8px 14px;border-left:3px solid #D94F32;background:#FDF6EC;">${escHtml(detail)}</blockquote>
+     <blockquote style="margin:0;padding:8px 14px;border-left:3px solid #C8462E;background:#FDF6EC;">${escHtml(detail)}</blockquote>
      <p><b>Call the worker today.</b> If what was asked sits inside high intensity daily personal activities (registration group <b>0104</b>) then The Care Web doesn't deliver it — introduce the participant to a provider registered for 0104 and record that against their account.</p>
      <p>If it actually happened rather than only being asked for, it belongs in the incident register too.</p>`,
     'Open the admin dashboard', `${baseUrl(req)}/#/admin`).catch(() => {});
@@ -12007,7 +12007,7 @@ function coverLink(req, offerId, kind) {
 /* Compact offer landing page. GET is read-only; workers continue in their
    account to read the current plan before accepting. */
 function coverPage(heading, body, ctaText, ctaUrl, tone) {
-  const accent = tone === 'bad' ? '#B4451F' : '#203566';
+  const accent = tone === 'bad' ? '#9E2F1C' : '#203566';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
 <title>${escHtml(heading)} — The Care Web</title>
