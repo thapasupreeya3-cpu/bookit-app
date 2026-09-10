@@ -1,5 +1,3 @@
-> **v88.0.0 graphics release:** current scope and checks are in [GRAPHICS-REDESIGN.md](GRAPHICS-REDESIGN.md) and [GRAPHICS-TEST-RESULTS.md](GRAPHICS-TEST-RESULTS.md). The report below is retained as release history, not new migration instructions.
-
 # The Care Web v86.13.0 — executed verification
 
 Date: 5 September 2026. Base: the uploaded v86.12.0 archive identified in `release-metadata.json`. All runtime tests used isolated, synthetic data. No production endpoint, real email, payment or participant file was used.

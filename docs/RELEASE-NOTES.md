@@ -1,5 +1,3 @@
-> **v88.0.0 graphics release:** current scope and checks are in [GRAPHICS-REDESIGN.md](GRAPHICS-REDESIGN.md) and [GRAPHICS-TEST-RESULTS.md](GRAPHICS-TEST-RESULTS.md). The report below is retained as release history, not new migration instructions.
-
 # The Care Web v86.13.0 — source-review update
 
 This is a root-relative, changed/new-files overlay for the user's uploaded v86.12.0 repository. See `release-metadata.json` for the exact base archive hash and embedded commit metadata. Remote HEAD was not read or updated. The existing public design, scene videos, photography, level artwork, branding and single-server architecture remain.

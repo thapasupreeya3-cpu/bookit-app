@@ -1,9 +1,9 @@
 {
-  "version": "88.0.1",
-  "base_version": "88.0.0",
-  "base_archive": "bookit-app-main (1).zip",
-  "base_archive_sha256": "2667b14c7acf151896d899a7df2d4356ff96688de104102fb45ab277ca594c4b",
-  "base_commit": "68a01932a82d05ad29d5fefe9485ef30f9e5cc37",
-  "scope": "Logo and palette refinement of the v88.0.0 graphics release. High-resolution logo assets replace the 542-pixel crops; reversed (white) marks for the navy footer; warm paper background (#FBF9F5) in place of blue-grey; body text in warm near-black with headings in navy; serif headline tracking loosened; larger header logo; navy focus ring with gold halo; one tagline, \"Support lives here.\"; new app icons, favicons and social card. Presentation layer only; no schema, route, rule or data change.",
-  "unchanged_assets": "Keep the existing scenes, photographs, tier artwork, vendor assets and self-hosted fonts in the base repository. They are not included in this overlay."
+  "version": "87.0.1",
+  "base_version": "86.12.0",
+  "base_archive": "bookit-app-main(2).zip",
+  "base_archive_sha256": "e02c3e55c5ef7315010fc7b6657595f8f839cc745fe437554429b05b21f686b6",
+  "base_commit": "e9e4a8d3f94491369b39315a2a757f13f8746cf0",
+  "scope": "Latest source-based assessment, not the earlier guide-only review",
+  "unchanged_assets": "Existing scenes, photographs, artwork, vendor assets and self-hosted font files stay in the base repository."
 }

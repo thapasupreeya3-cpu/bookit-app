@@ -1,6 +1,6 @@
 {
   "name": "bookit-site-v65",
-  "version": "88.0.1",
+  "version": "87.0.1",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -8,12 +8,11 @@
     "lint": "node scripts/lint.js",
     "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review",
     "inventory": "node scripts/inventory.js",
-    "check": "npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && npm test && npm run test:graphics",
+    "check": "npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && npm test",
     "backup": "node --no-warnings scripts/backup.js",
     "test:review": "node --no-warnings tests/review-unit-tests.js && node --no-warnings tests/review-regression.js",
     "release:docs": "node scripts/inventory.js && node scripts/release-docs.js",
-    "review:data": "node --no-warnings scripts/review-existing-data.js",
-    "test:graphics": "node tests/graphics-tests.js"
+    "review:data": "node --no-warnings scripts/review-existing-data.js"
   },
   "license": "UNLICENSED",
   "engines": {
