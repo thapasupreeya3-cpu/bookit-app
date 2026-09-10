@@ -1,0 +1,307 @@
+{
+  "method": "Local document-render/HTTP bridge; no native navigation or production access.",
+  "checks": [
+    {
+      "name": "public / @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /services @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /worker/10 @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /get-started @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /calculator @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public / @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /services @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /worker/10 @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /get-started @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /calculator @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public / @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /services @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /worker/10 @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /get-started @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /calculator @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public / @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /services @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /worker/10 @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /get-started @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "public /calculator @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "mobile menu takes keyboard focus",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "Escape returns focus to menu button",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /account/documents @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /bookings @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /messages @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /account/documents @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /bookings @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /messages @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /account/documents @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /bookings @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /messages @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /account/documents @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /bookings @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "participant /messages @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /account @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /earnings @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /bookings @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /account @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /earnings @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /bookings @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /account @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /earnings @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /bookings @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /account @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /earnings @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "worker /bookings @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "office /admin @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "office /admin/documents @ 320",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "office /admin @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "office /admin/documents @ 768",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "office /admin @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "office /admin/documents @ 1024",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "office /admin @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "office /admin/documents @ 1280",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "server page /policies",
+      "passed": true,
+      "detail": 200
+    },
+    {
+      "name": "server mobile reflow /policies",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "server page /policies/privacy-and-information-management-policy",
+      "passed": true,
+      "detail": 200
+    },
+    {
+      "name": "server mobile reflow /policies/privacy-and-information-management-policy",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "server page /support-workers-in/bankstown",
+      "passed": true,
+      "detail": 200
+    },
+    {
+      "name": "server mobile reflow /support-workers-in/bankstown",
+      "passed": true,
+      "detail": null
+    }
+  ],
+  "passed": 60,
+  "total": 60
+}

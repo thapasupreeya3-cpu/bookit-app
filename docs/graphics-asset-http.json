@@ -1,0 +1,109 @@
+{
+  "version": {
+    "APP_VERSION": "88.0.0",
+    "BUILD_SHA": "development",
+    "BUILD_DATE": "2026-09-09T00:00:00+10:00",
+    "SCHEMA_VERSION": 87000
+  },
+  "assets": [
+    {
+      "path": "/assets/careweb/site.webmanifest",
+      "status": 200,
+      "content_type": "application/manifest+json",
+      "bytes": 481,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/favicon-32.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 2275,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/icon-512.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 162065,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/logo-stacked.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 96221,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/logo-icon.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 52988,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/identity-source.json",
+      "status": 200,
+      "content_type": "application/json",
+      "bytes": 1115,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/design.css",
+      "status": 200,
+      "content_type": "text/css",
+      "bytes": 45938,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/logo-wordmark.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 21996,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/icon-192.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 35644,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/visuals.js",
+      "status": 200,
+      "content_type": "text/javascript",
+      "bytes": 2941,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/apple-touch-icon.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 32110,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/social-card.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 150513,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/favicon.ico",
+      "status": 200,
+      "content_type": "image/x-icon",
+      "bytes": 7420,
+      "matches_disk": true
+    },
+    {
+      "path": "/assets/careweb/app-icon.png",
+      "status": 200,
+      "content_type": "image/png",
+      "bytes": 20082,
+      "matches_disk": true
+    }
+  ],
+  "all_ok": true
+}

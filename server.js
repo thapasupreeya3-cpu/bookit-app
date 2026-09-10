@@ -2077,19 +2077,19 @@ function gateValid(cookieHeader) {
 }
 function gatePage(wrong) {
   return `<!DOCTYPE html><html lang="en-AU"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex, nofollow"><title>The Care Web — private preview</title>
-<style>body{font-family:system-ui,sans-serif;background:#FAF6F0;color:#17313A;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;}
-.card{background:#fff;border:1px solid #E7DFD4;border-radius:20px;box-shadow:0 18px 50px rgba(23,49,58,.14);padding:40px;max-width:400px;width:100%;text-align:center;}
+<style>body{font-family:system-ui,sans-serif;background:#F6F7FA;color:#203566;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;}
+.card{background:#fff;border:1px solid #DCE2EC;border-radius:20px;box-shadow:0 18px 50px rgba(23,49,58,.14);padding:40px;max-width:400px;width:100%;text-align:center;}
 .logo{font-weight:800;font-size:1.6rem;display:flex;align-items:center;justify-content:center;gap:2px;margin-bottom:14px;}
 .logo svg{height:.68em;width:auto;margin-top:.1em;}
 h1{font-size:1.15rem;margin:0 0 8px;}
 p{color:#3E5A64;font-size:.92rem;margin:0 0 22px;}
-input{width:100%;padding:13px 16px;border:1.5px solid #E7DFD4;border-radius:11px;font-size:1rem;margin-bottom:12px;box-sizing:border-box;}
-input:focus{outline:3px solid #F5B841;border-color:#0E6B62;}
-button{width:100%;background:#0E6B62;color:#fff;border:none;border-radius:999px;padding:13px;font-size:1rem;font-weight:600;cursor:pointer;}
-button:hover{background:#0A544D;}
+input{width:100%;padding:13px 16px;border:1.5px solid #DCE2EC;border-radius:11px;font-size:1rem;margin-bottom:12px;box-sizing:border-box;}
+input:focus{outline:3px solid #F1BE48;border-color:#203566;}
+button{width:100%;background:#203566;color:#fff;border:none;border-radius:999px;padding:13px;font-size:1rem;font-weight:600;cursor:pointer;}
+button:hover{background:#15264D;}
 .err{color:#a8250b;font-size:.88rem;margin:0 0 12px;font-weight:600;}</style></head>
 <body><div class="card">
-<div class="logo"><svg viewBox="0 0 94 48" aria-hidden="true" style="height:.7em;width:auto;vertical-align:-.05em;margin-right:.18em"><circle cx="23" cy="24" r="22" fill="#0E6B62"/><circle cx="69" cy="24" r="22" fill="#F5B841"/><path d="M57 25 l9 9 17 -18" stroke="#17313A" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-weight:500;opacity:.72">the</span>care<span style="font-weight:500;opacity:.72">web</span></div>
+<div class="logo" style="font-family:Georgia,serif;font-weight:normal;color:#203566;letter-spacing:-.04em">The Care Web</div>
 <h1>Private preview</h1>
 <p>The Care Web isn't open to the public just yet. Enter the access password to look around.</p>
 ${wrong ? '<p class="err">That password did not match — try again.</p>' : ''}
@@ -8438,7 +8438,22 @@ const TPL_CSS = `
    .sheet{max-width:none;margin:0;padding:0}
    h2{break-after:avoid}
    .box,.tick,.fld,.sig,.yn{break-inside:avoid}
- }`;
+ }
+ /* v88 brand alignment, shared by newly rendered policy/register/form pages. */
+ body{background:#F3F5F9;color:#203566;line-height:1.65}
+ .bar{background:#203566;color:#fff;padding:14px 20px}
+ .bar button{color:#203566;background:#F1BE48;border-radius:7px;padding:10px 17px}
+ .mark{color:#203566;font-family:Georgia,"Times New Roman",serif;font-size:24pt;font-weight:normal;letter-spacing:-.035em}
+ h1{color:#203566;font-family:Georgia,"Times New Roman",serif;font-weight:normal;font-size:25pt;line-height:1.2}
+ h2{border-bottom:1px solid #DCE2EC;color:#203566;padding-bottom:8px}
+ .sheet{box-shadow:0 6px 26px #2035660a}
+ .meta{background:#F5F7FB;border-color:#DCE2EC;color:#52617A;border-radius:9px;padding:13px 16px}
+ a{color:#203566;text-underline-offset:3px}
+ th{background:#EDF1F8;color:#203566}th,td{border-color:#DCE2EC;padding:8px 10px}
+ .lede,.say,.org,.help{color:#52617A}
+ @media(max-width:650px){.sheet{padding:25px 18px}.bar{font-size:12px}h1{font-size:23pt}.meta{font-size:9pt}table{display:block;overflow-x:auto;width:100%}}
+ @media print{body{background:#fff;color:#000}.sheet{box-shadow:none}h1,h2,a{color:#000}}
+`;
 
 function templateHtml(t, person, base) {
   const title = `${t.name} — DMHC`;
@@ -8482,7 +8497,7 @@ function templateIndexHtml(base) {
   };
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>Blank forms — DMHC</title><style>${TPL_CSS} a{color:#0E6B62}</style></head><body>
+<title>Blank forms — DMHC</title><style>${TPL_CSS} a{color:#203566}</style></head><body>
 <div class="bar no-print"><span>Blank forms &middot; print one, fill it in on paper, send it back</span>
 <a href="${escHtml(base)}/#/bookings">Open The Care Web</a></div>
 <div class="sheet">
@@ -17678,7 +17693,7 @@ function suburbPage(req, entry, all) {
   const desc = `${entry.workers} verified, insured NDIS support worker${entry.workers === 1 ? '' : 's'} based in ${entry.name} on The Care Web, offering ${[...entry.services].map(s => (SERVICE_LABELS[s] || s).toLowerCase()).join(', ')}. Operated by a registered NDIS provider; agency-managed, plan-managed and self-managed participants welcome.`;
   const others = all.filter(x => x.slug !== entry.slug).slice(0, 12).map(x => `<li><a href="${base}/support-workers-in/${x.slug}">${escHtml(x.name)}</a> (${x.workers})</li>`).join('');
   return `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(title)}</title><meta name="description" content="${escHtml(desc)}"><link rel="canonical" href="${base}/support-workers-in/${entry.slug}"><link rel="stylesheet" href="/assets/fonts/fonts.css">
-<style>body{font-family:Inter,system-ui,sans-serif;margin:0;color:#1c2a30;background:#fbfaf7}main{max-width:720px;margin:0 auto;padding:40px 20px}h1{font-family:Sora,system-ui,sans-serif;font-size:2rem;line-height:1.15;margin:0 0 .6em}p,li{font-size:1.05rem;line-height:1.6}.cta{display:inline-block;background:#0e6b62;color:#fff;padding:.9em 1.4em;border-radius:12px;text-decoration:none;font-weight:600;margin:.6em 0}ul.sv li{display:inline-block;background:#e6f2f0;border-radius:999px;padding:.35em .9em;margin:.2em}nav a{color:#0e6b62}footer{color:#5a6b71;font-size:.9rem;margin-top:3em}</style></head>
+<style>body{font-family:Inter,system-ui,sans-serif;margin:0;color:#203566;background:#F6F7FA}main{max-width:880px;margin:0 auto;padding:60px 24px}h1{font-family:Georgia,serif;font-weight:normal;font-size:2.75rem;line-height:1.15;margin:0 0 .6em}p,li{font-size:1.05rem;line-height:1.6}.cta{display:inline-block;background:#203566;color:#fff;padding:.9em 1.4em;border-radius:12px;text-decoration:none;font-weight:600;margin:.6em 0}ul.sv li{display:inline-block;background:#FFF7E2;border-radius:999px;padding:.35em .9em;margin:.2em}nav a{color:#203566}footer{color:#5a6b71;font-size:.9rem;margin-top:3em}</style></head>
 <body><main><nav><a href="${base}/">The Care Web</a> › <a href="${base}/locations">Where we work</a> › ${escHtml(entry.name)}</nav>
 <h1>NDIS support workers in ${escHtml(entry.name)}</h1>
 <p><b>${entry.workers}</b> verified, insured support worker${entry.workers === 1 ? ' is' : 's are'} based in ${escHtml(entry.name)} and available to book through The Care Web. Every one has current NDIS Worker Screening, first aid and CPR, and has been interviewed by our team — nothing appears on a profile until someone has checked it.</p>
@@ -18422,7 +18437,7 @@ function policyPageHtml(req, pg, viewer) {
     footer: `${pg.title}. Published on The Care Web from the office\u2019s document set; the office keeps it current.` },
     `${policyOnScreenHtml(pg, viewer, baseUrl(req))}${fill}<div class="policy-body">${body}</div>`, { base: baseUrl(req), barNote: fillable ? (pg.kind === 'register' ? 'A register \u00b7 add entries below, or print it \u00b7 back to the list at /policies' : 'A form \u00b7 fill it in on screen, save or print it \u00b7 back to the list at /policies') : 'A policy page \u00b7 print or save as PDF \u00b7 back to the list at /policies' })
     .replace('</body>', fillable ? '<script src="/assets/policy-fill.js" defer></script></body>' : '</body>')
-    .replace('</head>', '<style>.on-screen{border:1px solid #2f5d50;border-radius:8px;background:#eef4f2;padding:10px 12px;margin:.6em 0 1em;font-size:.95em}.on-screen a{font-weight:700;margin-left:6px}.policy-body h2{margin-top:1.4em}.policy-body h3{margin-top:1.1em}.policy-body table.grid{width:100%;border-collapse:collapse;margin:1em 0;font-size:.95em}.policy-body table.grid th,.policy-body table.grid td{border:1px solid #d8d3cb;padding:6px 8px;vertical-align:top;text-align:left}.policy-body ul{padding-left:1.3em}</style></head>');
+    .replace('</head>', '<style>.on-screen{border:1px solid #203566;border-radius:8px;background:#EDF1F8;padding:10px 12px;margin:.6em 0 1em;font-size:.95em}.on-screen a{font-weight:700;margin-left:6px}.policy-body h2{margin-top:1.4em}.policy-body h3{margin-top:1.1em}.policy-body table.grid{width:100%;border-collapse:collapse;margin:1em 0;font-size:.95em}.policy-body table.grid th,.policy-body table.grid td{border:1px solid #DCE2EC;padding:6px 8px;vertical-align:top;text-align:left}.policy-body ul{padding-left:1.3em}</style></head>');
 }
 /* the Policy Register: the office's register of its documents, generated from what is published so it cannot drift from the pages */
 function policyRegisterHtml(req, user) {
@@ -18481,7 +18496,7 @@ tabs.forEach(function(b){b.addEventListener('click',function(){show(b.getAttribu
 var h=(location.hash||'').replace('#','');if(h&&document.querySelector('.pol-tab[data-tab="'+h+'"]'))show(h);})();</script>`;
   return genPage({ title: 'Policies and procedures', lede: 'The documents Disability and Mental Health Care Pty Ltd works to, published as pages: read any of them here, fill in a form on screen, or print or save one as a PDF from its own page.',
     meta: [['Published', `${pages.length} document${pages.length === 1 ? '' : 's'}`], ['Kept by', 'the office, from its document set']], footer: 'Policies and procedures, published on The Care Web.' }, nav + panes + register, { base: baseUrl(req), barNote: 'The office\u2019s documents, as pages' })
-    .replace('</head>', '<style>.pol-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:.4em 0 .8em;border-bottom:2px solid #d8d3cb}.pol-tab{font:inherit;font-weight:700;font-size:.95em;background:none;border:0;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;color:#555;margin-bottom:-2px}.pol-tab.on{color:#2f5d50;border-bottom-color:#2f5d50}.pol-tab small{font-weight:400;color:#777}.pol-search input{font:inherit;padding:8px 12px;border:1px solid #b9b3aa;border-radius:8px;width:min(420px,100%);margin:0 0 .8em}.pol-lede{color:#444;margin:.2em 0 1em}.pol-pane h3{margin:1.2em 0 .4em}.pol-pane ul{padding-left:1.3em;margin:0}.pol-pane li{margin:0 0 .35em}.pol-pane small{color:#777}.pol-start li{margin:0 0 .6em}.pol-foot{margin-top:1.6em;border-top:1px solid #d8d3cb;padding-top:1em}@media print{.pol-pane[hidden]{display:block}.no-print{display:none}}</style></head>')
+    .replace('</head>', '<style>.pol-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:.4em 0 .8em;border-bottom:2px solid #DCE2EC}.pol-tab{font:inherit;font-weight:700;font-size:.95em;background:none;border:0;border-bottom:3px solid transparent;padding:9px 14px;cursor:pointer;color:#555;margin-bottom:-2px}.pol-tab.on{color:#203566;border-bottom-color:#203566}.pol-tab small{font-weight:400;color:#777}.pol-search input{font:inherit;padding:8px 12px;border:1px solid #A7B3C5;border-radius:8px;width:min(420px,100%);margin:0 0 .8em}.pol-lede{color:#444;margin:.2em 0 1em}.pol-pane h3{margin:1.2em 0 .4em}.pol-pane ul{padding-left:1.3em;margin:0}.pol-pane li{margin:0 0 .35em}.pol-pane small{color:#777}.pol-start li{margin:0 0 .6em}.pol-foot{margin-top:1.6em;border-top:1px solid #DCE2EC;padding-top:1em}@media print{.pol-pane[hidden]{display:block}.no-print{display:none}}</style></head>')
     .replace('</body>', script + '</body>');
 }
 route('GET', /^\/api\/admin\/policy-pages$/, (req, res, m, user) => {

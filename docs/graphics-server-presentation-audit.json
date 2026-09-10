@@ -1,0 +1,6 @@
+{
+  "server_outside_css_and_gate_logo_is_identical": true,
+  "baseline_normalized_server_sha256": "c89f6fcf7c8ccdb9deabd25cda1e2cfd7b00ba9a3651b10da7f77d68da18de48",
+  "redesign_normalized_server_sha256": "c89f6fcf7c8ccdb9deabd25cda1e2cfd7b00ba9a3651b10da7f77d68da18de48",
+  "normalization": "Replace only const TPL_CSS string, literal <style> blocks, and class=\"logo\" div markup with fixed markers."
+}

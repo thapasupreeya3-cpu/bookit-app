@@ -1,0 +1,34 @@
+{
+  "source": "High-resolution master of the approved navy/gold/silver logo (2400 x 1792), 10 September 2026; same drawing as the 542 x 368 original, not a redraw.",
+  "source_size": [
+    2400,
+    1792
+  ],
+  "method": "Exact rectangular lifts from the high-resolution master with soft edges preserved; reversed (white on navy) versions are the same pixels with the navy and silver set to white and the gold person kept; tiles and favicons are resampled from the reversed mark on the navy tile.",
+  "crops": {
+    "logo-icon.png": {
+      "sha256": "66e3cdf0c511b08215626658fd8f4a6c25bd82af55f0f9da484776234652614b",
+      "bytes": 592700
+    },
+    "logo-wordmark.png": {
+      "sha256": "54d0d035ff28470567c2b69216665c0b45049b4f5f27edf7f6b88bab11b153ba",
+      "bytes": 236628
+    },
+    "logo-stacked.png": {
+      "sha256": "369b6685b554d4b4828af7087709eca679b935984a04fcfc9dd0648141a362ed",
+      "bytes": 322382
+    },
+    "app-icon.png": {
+      "sha256": "e4c193bfb1c9ffa4f0c4d5ac93bf5326e23458922d8fab1b16a93ad0b07ccc2f",
+      "bytes": 182726
+    },
+    "logo-icon-reverse.png": {
+      "sha256": "a495c2affb97e7610309c328abfbc1089419a3a3fddc70dff260b3767cbba46e",
+      "bytes": 70472
+    },
+    "logo-wordmark-reverse.png": {
+      "sha256": "09ecec8437abf29b8a623c7c6fef5fd33d5100b33a45a422b58f208d8d66de19",
+      "bytes": 16219
+    }
+  }
+}
