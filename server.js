@@ -2347,7 +2347,7 @@ function emailHtml(heading, bodyHtml, ctaText, ctaUrl) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF6F0;padding:28px 12px;"><tr><td align="center">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #E7DFD4;border-radius:18px;">
 <tr><td style="padding:30px 34px 24px;font-family:Arial,Helvetica,sans-serif;color:#17313A;">
-<div style="font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:20px;"><span style="color:#203566;">&#9679;</span><span style="color:#F1BE48;margin-left:-6px;">&#9679;</span> <span style="font-weight:500;color:#5b6a67;">the</span>care<span style="font-weight:500;color:#5b6a67;">web</span> <span style="color:#203566;">&#10003;</span></div>
+<div style="margin-bottom:22px;"><img src="${APP_URL}/assets/careweb/logo-icon.png" alt="" width="52" height="51" style="display:inline-block;vertical-align:middle;width:52px;height:auto;border:0;"><img src="${APP_URL}/assets/careweb/logo-wordmark.png" alt="The Care Web" width="150" height="28" style="display:inline-block;vertical-align:middle;margin-left:8px;width:150px;height:auto;border:0;"></div>
 <h1 style="font-size:20px;margin:0 0 14px;">${heading}</h1>
 <div style="font-size:15px;line-height:1.65;color:#3E5A64;">${bodyHtml}</div>
 ${btn}
@@ -8377,7 +8377,10 @@ const TPL_CSS = `
  .bar{background:#203566;color:#fff;padding:11px 16px;display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:14px;line-height:1.4}
  .bar a{color:#fff}
  .bar button{background:#fff;color:#203566;border:0;border-radius:8px;padding:9px 18px;font:inherit;font-weight:700;cursor:pointer}
- .mark{font-weight:800;color:#203566;letter-spacing:-.02em;font-size:15pt;margin:0}
+ .mark{margin:0 0 4pt;display:flex;align-items:center;gap:8pt}
+ .mark-icon{height:44pt;width:auto}
+ .mark-word{height:20pt;width:auto}
+ @media print{.mark-icon{height:38pt}.mark-word{height:17pt}}
  .org{font-size:9pt;color:#6C7A77;margin:2px 0 16px}
  h1{font-size:19pt;line-height:1.2;letter-spacing:-.02em;margin:0 0 8px}
  .lede{color:#3D4B48;margin:0 0 14px}
@@ -8451,7 +8454,7 @@ function templateHtml(t, person, base) {
   <a href="${escHtml(base)}/templates">All blank forms</a>
 </div>
 <div class="sheet">
-  <p class="mark">The Care Web</p>
+  <p class="mark"><img class="mark-icon" src="/assets/careweb/logo-icon.png" alt="" width="795" height="777"><img class="mark-word" src="/assets/careweb/logo-wordmark.png" alt="The Care Web" width="1203" height="221"></p>
   <p class="org">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; registered NDIS provider 4-LO5XNY0</p>
   <h1>${escHtml(t.name)}</h1>
   <p class="lede">${escHtml(t.intro)}</p>
@@ -8486,7 +8489,7 @@ function templateIndexHtml(base) {
 <div class="bar no-print"><span>Blank forms &middot; print one, fill it in on paper, send it back</span>
 <a href="${escHtml(base)}/#/bookings">Open The Care Web</a></div>
 <div class="sheet">
-  <p class="mark">The Care Web</p>
+  <p class="mark"><img class="mark-icon" src="/assets/careweb/logo-icon.png" alt="" width="795" height="777"><img class="mark-word" src="/assets/careweb/logo-wordmark.png" alt="The Care Web" width="1203" height="221"></p>
   <p class="org">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; registered NDIS provider 4-LO5XNY0</p>
   <h1>Blank forms</h1>
   <p class="lede">These are the forms DMHC is required to hold that had no blank behind them. They are printable, they are empty, and nothing on them is filled in for you. Print one, fill it in by hand, and send it back the way each form describes at the bottom of its own page.</p>
@@ -8869,7 +8872,7 @@ function genPage(t, body, opts = {}) {
   ${base ? `<a href="${escHtml(base)}/#/account/documents">Back to My documents</a>` : ''}
 </div>
 <div class="sheet">
-  <p class="mark">The Care Web</p>
+  <p class="mark"><img class="mark-icon" src="/assets/careweb/logo-icon.png" alt="" width="795" height="777"><img class="mark-word" src="/assets/careweb/logo-wordmark.png" alt="The Care Web" width="1203" height="221"></p>
   <p class="org">Disability &amp; Mental Health Care Pty Ltd &middot; ABN 19 658 578 575 &middot; registered NDIS provider ${escHtml(NDIS_REG_NO)}</p>
   <h1>${escHtml(t.title)}</h1>
   <p class="lede">${t.lede}</p>
@@ -12014,7 +12017,9 @@ function coverPage(heading, body, ctaText, ctaUrl, tone) {
    display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
  .card{background:#fff;border:1px solid #E4E0D9;border-radius:18px;max-width:520px;width:100%;padding:34px 30px;
    box-shadow:0 12px 34px rgba(23,33,31,.07)}
- .mark{font-weight:800;letter-spacing:-.02em;color:${accent};font-size:20px;margin:0 0 18px}
+ .mark{margin:0 0 18px;display:flex;align-items:center;gap:9px}
+ .mark-icon{height:44px;width:auto}
+ .mark-word{height:20px;width:auto}
  h1{font-size:25px;line-height:1.25;margin:0 0 14px;letter-spacing:-.02em}
  p{margin:0 0 14px;color:#3D4B48}
  b{color:#17211F}
@@ -12022,7 +12027,7 @@ function coverPage(heading, body, ctaText, ctaUrl, tone) {
    padding:13px 24px;border-radius:10px;margin-top:10px}
  .fine{font-size:13.5px;color:#6C7A77;margin-top:20px}
 </style></head><body><div class="card">
-<p class="mark">The Care Web</p><h1>${escHtml(heading)}</h1>${body}
+<p class="mark"><img class="mark-icon" src="/assets/careweb/logo-icon.png" alt="" width="795" height="777"><img class="mark-word" src="/assets/careweb/logo-wordmark.png" alt="The Care Web" width="1203" height="221"></p><h1>${escHtml(heading)}</h1>${body}
 ${ctaUrl ? `<a class="btn" href="${escHtml(ctaUrl)}">${escHtml(ctaText || 'Open The Care Web')}</a>` : ''}
 <p class="fine">Disability &amp; Mental Health Care Pty Ltd · registered NDIS provider 4-LO5XNY0</p>
 </div></body></html>`;

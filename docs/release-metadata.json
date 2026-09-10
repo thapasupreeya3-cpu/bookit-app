@@ -1,9 +1,9 @@
 {
-  "version": "88.1.0",
+  "version": "88.1.1",
   "base_version": "86.12.0",
   "base_archive": "bookit-app-main(2).zip",
   "base_archive_sha256": "e02c3e55c5ef7315010fc7b6657595f8f839cc745fe437554429b05b21f686b6",
   "base_commit": "e9e4a8d3f94491369b39315a2a757f13f8746cf0",
-  "scope": "Brand-only release on v87.0.1: the approved navy, gold and silver logo in the header and footer (white version on navy), favicon, app icons and social card; the accent palette moved from teal to navy with the warm paper background; email colours matched. No change to layout, motion, animation, videos, routes, rules, schema or data.",
+  "scope": "Brand-only release on v87.0.1: the approved navy, gold and silver logo in the header and footer (white version on navy), favicon, app icons and social card; the accent palette moved from teal to navy with the warm paper background; email colours matched. No change to layout, motion, animation, videos, routes, rules, schema or data. v88.1.1: the logo lockup on every generated document (policies, register, agreements, blank forms, print views, cover page) and in emails; wordmark artwork cleaned.",
   "unchanged_assets": "Existing scenes, photographs, artwork, vendor assets and self-hosted font files stay in the base repository."
 }

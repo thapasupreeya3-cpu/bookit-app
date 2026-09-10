@@ -1,9 +1,8 @@
-The Care Web v88.1.0 — brand-only release: the navy, gold and silver logo and palette on the v87.0.1 site.
+The Care Web v88.1.1 — source-review corrections and workflow improvements.
 
-Read STARTHERE.txt before uploading or deploying. This is a 22-file overlay for the
-v87.0.1 repository: header and footer logo, favicon and app icons, social card,
-accent palette (teal → navy, warm paper) in the page and in emails. No change to
-layout, animation, videos, routes, rules, schema or data.
+Read STARTHERE.txt before uploading or deploying. This is an overlay for the
+uploaded v86.12.0 repository, not a replacement for its unchanged assets.
+Extract the ZIP and upload its contents at the existing repository root.
 
 Install/check: npm ci --ignore-scripts && npm run check
 Refresh generated release documents: npm run release:docs
