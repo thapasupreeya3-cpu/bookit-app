@@ -6464,10 +6464,15 @@ route('GET', /^\/api\/admin\/participants\/(\d+)\/plan$/, (req, res, m, user) =>
 route('POST', /^\/api\/admin\/participants\/(\d+)\/plan-review$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const pid = Number(m[1]);
-  const cur = db.prepare("SELECT id, version, status FROM support_plans WHERE participant_id = ? AND current = 1").get(pid);
+  const cur = db.prepare("SELECT * FROM support_plans WHERE participant_id = ? AND current = 1").get(pid);
   if (!cur || cur.status !== 'confirmed') return json(res, 400, { error: 'There is no confirmed support plan to review yet.' });
+  db.exec('BEGIN IMMEDIATE');
+  try {
   db.prepare('UPDATE support_plans SET reviewed_at = ?, reviewed_by = ? WHERE id = ?').run(now(), user.name, cur.id);
+  if(WORKFLOW?.recordPlanReview)WORKFLOW.recordPlanReview(cur,user);
   logAccess(pid, user, 'plan-reviewed', `${user.name} reviewed support plan version ${cur.version}`, `plan:${cur.id}`);
+  db.exec('COMMIT');
+  } catch(e) { db.exec('ROLLBACK'); throw e; }
   json(res, 200, { ok: true, version: cur.version, reviewed_at: now(), reviewed_by: user.name });
 });
 
@@ -19089,7 +19094,8 @@ const processContext={db,json,route,actFor,sessionUser,firstBookingBlockers,onbo
  reviewReferrals,csvCell:BOOKIT_HARDENING.safeSpreadsheetCell,publicAPI:PUBLIC_API,shortNotice,planQuestions:PLAN_QUESTIONS,AI,aiFetch,invoiceFor};
 WORKFLOW=require('./lib/process-store')(processContext);
 require('./lib/process-routes')(processContext,WORKFLOW);
-require('./lib/admin-verification')({...processContext,requireAdmin,routes,docOut,pdocOut,pdocMethods:PDOC_METHODS,participantFile,planReviewState},WORKFLOW);
+const VERIFICATION=require('./lib/admin-verification')({...processContext,requireAdmin,routes,docOut,pdocOut,pdocMethods:PDOC_METHODS,participantFile,planReviewState},WORKFLOW);
+everyJob('verification-automation',60000,()=>VERIFICATION.tick(),{label:'Verification assistance',why:'Assigns files to available reviewers and follows up approved checklists; never verifies evidence automatically.'});
 everyJob('deliveries',15000,()=>WORKFLOW.drain(),{label:'Message delivery',why:'Retries queued messages and records transport failures.'});
 everyJob('journey-tasks',60000,()=>WORKFLOW.syncAll(),{label:'Next actions',why:'Refreshes individual and office tasks from current records.'});
 everyJob('payroll-drafts',86400000,()=>WORKFLOW.scheduledPayroll(),{label:'Pay preparation',why:'Prepares unbatched lines from the last fourteen days for office review; never pays automatically.'});

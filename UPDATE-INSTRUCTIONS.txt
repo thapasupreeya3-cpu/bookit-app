@@ -1,33 +1,46 @@
-THE CARE WEB - SMALL UPDATE TO v88.2.1
+THE CARE WEB - SMALL UPDATE TO v88.2.2
 
-Use this package if your repository contains your uploaded bookit-app-main (4).zip (v88.1.4), or the supplied v88.1.5 or v88.2.0 release. It includes all subsequent fixes, workflow improvements and the v88.2.1 admin verification redesign.
+Supported earlier source versions: 88.1.4, 88.1.5, 88.2.0, 88.2.1.
+Includes all updates since your uploaded bookit-app-main (4).zip (v88.1.4).
 
 This is an update package, not a complete application download.
-It contains 78 new or changed project files. Unchanged files,
-including existing images, videos and fonts, are omitted.
+It contains 90 new or changed project files. Unchanged images,
+videos, fonts and other files are omitted.
 
-HOW TO UPLOAD
-1. Extract this ZIP on your computer. Do not upload the ZIP itself.
-2. Open the root of your existing GitHub repository: the folder containing
-   server.js, package.json, public and lib.
-3. Upload all extracted project files and folders into that root, preserving
-   their paths and replacing matching files. Merge folders with the existing
-   folders; keep their unchanged contents. Do not delete folders first.
-4. Review and commit the changes. This instruction file is optional to upload.
-5. Follow STARTHERE.txt and the release notes for installation or deployment.
+1. Extract the ZIP on your computer. Do not upload the ZIP itself.
+2. Open your existing GitHub repository root (where server.js, package.json,
+   public and lib are located).
+3. Upload/merge all extracted project files and folders at that root,
+   preserving their paths and replacing matching files. Keep unchanged
+   contents of existing folders. Do not delete folders first.
+4. Review and commit the changes. UPDATE-INSTRUCTIONS.txt is optional to upload.
+5. Follow STARTHERE.txt and docs/CHANGELOG-v88.2.2.md for deployment and setup.
+   Preserve your runtime database, uploaded documents, photos and configuration.
 
-Do not create a new enclosing folder or replace the repository with only this
-package. The app still needs all unchanged files already in the repository.
+Do not create an extra enclosing directory. The application still needs the
+unchanged files already in your repository. Compare separately if your
+repository has later changes that were not supplied in this conversation.
+
+AFTER UPDATING
+In Admin > Verification > Automation settings, choose available reviewers,
+roles, workload limits and a review deadline before enabling assignment.
+For follow-ups, open a person and approve a combined missing-items checklist.
+Optional document reading still needs your configured provider and the
+worker's consented extraction request. No real messages were sent in testing.
+
+CHANGELOG
+See docs/CHANGELOG-v88.2.2.md (included).
 
 OBSOLETE FILE
 - docs/graphics-command-check.log
 Remove this old generated log if present to match the full release exactly.
-It is not an application file; retaining it does not prevent this update.
+Retaining it does not prevent the application update.
 
 INCLUDED PROJECT FILES
 RELEASE-FILES.json
 STARTHERE.txt
 docs/ADMIN-VERIFICATION.md
+docs/CHANGELOG-v88.2.2.md
 docs/IMPLEMENTATION-MATRIX.md
 docs/RELEASE-NOTES.md
 docs/TEST-RESULTS.md
@@ -46,6 +59,10 @@ docs/history/v88.1.5/release-metadata.json
 docs/history/v88.2.0/RELEASE-NOTES.md
 docs/history/v88.2.0/TEST-RESULTS.md
 docs/history/v88.2.0/release-metadata.json
+docs/history/v88.2.1/ADMIN-VERIFICATION.md
+docs/history/v88.2.1/RELEASE-NOTES.md
+docs/history/v88.2.1/TEST-RESULTS.md
+docs/history/v88.2.1/release-metadata.json
 docs/release-metadata.json
 docs/workflow-backlog-completed.json
 lib/active-hours.js
@@ -59,6 +76,7 @@ lib/process-routes.js
 lib/process-store.js
 lib/register-access.js
 lib/travel.js
+lib/verification-automation.js
 lib/version.js
 package-lock.json
 package.json
@@ -82,6 +100,7 @@ tests/audit-unit-tests.js
 tests/graphics-tests.js
 tests/process-regression.js
 tests/smoke.js
+tests/verification-automation-scenarios.js
 validation/v88.1.5-audit-fixes-output.txt
 validation/v88.1.5-audit-fixes-results.json
 validation/v88.1.5-audit-unit-output.txt
@@ -103,3 +122,8 @@ validation/v88.2.1-check-output.txt
 validation/v88.2.1-check-receipt.json
 validation/v88.2.1-upgrade-results.json
 validation/v88.2.1-verification-results.json
+validation/v88.2.2-asset-preservation.json
+validation/v88.2.2-check-output.txt
+validation/v88.2.2-check-receipt.json
+validation/v88.2.2-upgrade-results.json
+validation/v88.2.2-verification-results.json

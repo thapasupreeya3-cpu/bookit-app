@@ -1,46 +1,39 @@
-# Executed verification — v88.2.1
+# v88.2.2 test results
 
-11 September 2026. Baseline: `The-Care-Web-v88.2.0-source.zip`, SHA-256 `05ad3387a585a2a8fa0fb7e12f859a11379c41e115d1e99a7041194f45491d8a`.
+The complete `npm run check` release gate passed with exit code 0 on Node v24.19.0. This command includes syntax, inventory and release-document checks, package hashes, and every test suite listed below.
 
-Tests used isolated synthetic data. External email, payment and AI services were disabled. No production users, messages or payments were changed. This source was not deployed.
-
-## Automated results
-
-`npm test` completed with exit 0. The complete release gate and final payload verification are recorded in the included validation receipts.
-
-| Suite | Result |
+| Check | Result |
 | --- | --- |
-| JavaScript compilation | 53 units, zero failures; includes four inline application scripts |
-| Clash tests | 21/21 pass |
-| Smoke tests | 231 PASS records; complete suite passed |
-| Review unit tests | 46 assertions pass |
-| Review API scenarios | 25/25 pass |
-| Graphics checks | 54/54 pass |
-| Audit unit groups | 8/8 pass |
-| Audit API scenarios | 23/23 pass |
-| Earlier workflow scenarios | 32/32 pass |
-| New admin verification scenarios | 16/16 pass |
-| Standalone preview | Three inline scripts compile |
-| Generated inventories | 363 routes and 79 tables |
+| JavaScript compilation | 55 scripts, 0 failures; includes 4 inline application scripts |
+| Generated inventories | 366 registered routes; 83 database tables |
+| Clash tests | 21 passed |
+| Application smoke tests | Passed |
+| Review unit assertions | 46 passed |
+| Review integration scenarios | 25/25 passed |
+| Graphics checks | 54/54 passed |
+| Audit unit groups | 8 passed |
+| Audit API scenarios | Passed |
+| Existing workflow scenarios | 32/32 passed |
+| Verification scenarios | 30/30 passed, including 14 new automation scenarios |
+| Upgrade from v88.2.1 | Passed twice; 79 to 83 tables, existing records and uploaded bytes preserved |
+| Database integrity and foreign keys | Passed after each upgrade boot |
+| Existing media, fonts and vendor assets | 120 files byte-identical to v88.2.1 |
 
-Scenario and assertion counts have different granularity and are not summed. `tests/admin-verification-tests.js` is run through `npm run test:verification`, included in `npm test` and `npm run check`.
+The new scenarios cover office-only permissions, settings conflicts, workload/role/capacity-aware assignment, business-day deadlines, manual ownership, correct recruitment task ownership, approved combined requests, duplicate submissions, delivery-aware reminder stages, completion and escalation, stop/closure behaviour, plan snapshots and exact changes, legacy-plan compatibility, in-place plan changes, source-bound extraction suggestions, live-update draft preservation, selective queue invalidation, and a final outbox recheck with a capturing transport.
 
-## New verification coverage
+The cache test uses an instrumented summary function to verify that an unchanged second queue read rebuilds no people, a single changed person rebuilds one, and policy/time invalidation rebuilds the relevant population. It is a regression check, not a claimed production timing benchmark.
 
-The new suite tests anonymous/non-admin denial; queue filtering and validation; safe file URLs and private path exclusion; explicit review method/evidence/confirmation; the established document writer and attributable history; duplicate and stale decisions; document ownership; expired-evidence acknowledgement without eligibility override; participant review without funding changes or blanket approval; retained evidence and replacement requests; invalid dates and duplicate requests; reviewer assignment and filtering; separate screening/recruitment decisions; current-version plan review; pagination beyond 30 files; closed-file exclusion; frontend double-submit prevention against the real API; and rendering every panel with real API responses and escaped user text.
+## Evidence
 
-The frontend checks use a JavaScript VM and a minimal document/form harness. They exercise rendering and a real form-to-API path, including duplicate-submission handling. They do not reproduce native browser layout, PDF rendering, file selection, focus order, mobile gestures or assistive technology.
+- `validation/v88.2.2-check-output.txt` — complete release gate output.
+- `validation/v88.2.2-check-receipt.json` — command, runtime and scope.
+- `validation/v88.2.2-verification-results.json` — individual verification results.
+- `validation/v88.2.2-upgrade-results.json` — two upgrade boots and preservation checks.
+- `validation/v88.2.2-asset-preservation.json` — asset preservation result.
+- `RELEASE-FILES.json` — final package payload hashes. After adding final documentation and receipts, syntax, inventories, release documents and hashes were checked again; application code was unchanged.
 
-## Upgrade and assets
+## Remaining staging checks
 
-The actual v88.2.0 server created a synthetic database with a historical register entry, a setting and an uploaded-file sample. v88.2.1 then booted twice against it. Both boots passed SQLite integrity checks, retained the existing values/file, and kept an ungranted worker denied access to the register. Table count changed from 77 to 79. The receipt is `validation/v88.2.1-upgrade-results.json`.
+The browser environment rejected the local preview with `net::ERR_BLOCKED_BY_CLIENT`. Desktop/mobile rendering, keyboard focus, screen-reader announcements and actual PDF viewing therefore have not been confirmed in a native browser here. The standalone preview is synthetic and cannot send messages or change real records.
 
-Existing public media, fonts and vendor files are compared byte-for-byte against v88.2.0. The asset-preservation receipt identifies the count and any differences. New verification CSS/JavaScript and the sample preview are additions; the public brand assets are not replaced.
-
-## Limits
-
-The available execution runtime was **Node 24.19.0**. The repository retains **Node >=22.12 and <23** and its existing pin. Repeat `npm run check` on the declared Node 22 host before deployment. The inherited npm http-proxy warning did not fail a suite.
-
-The supported browser could not open the local site (`net::ERR_BLOCKED_BY_CLIENT`). No native desktop/mobile, keyboard or screen-reader pass is claimed. In staging, verify the two-column layout, small-screen stacking, sticky queue, tab/document focus, preserved form drafts after conflict, PDF/image previews, zoom controls, reminder delivery and account switching. The sample HTML is a design preview, not evidence of a live browser test.
-
-Live messaging providers, calendar clients, Stripe, AI processing and the deployed site were not exercised. Existing provider simulations remain synthetic. No current regulatory, tax or wage-rate certification is claimed. Older receipts in `docs/history/` and `validation/` refer to their named releases.
+Tests ran on Node v24.19.0; the repository declares Node 22. Repeat the release gate on that deployment runtime. No deployed site, live database, real applicant messages, government-register connection or external extraction-provider round trip was used. Email and optional extraction require configuration and authorised staging tests. Queueing does not prove inbox delivery; the existing outbox's transport limitations remain.

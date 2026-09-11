@@ -1,0 +1,11 @@
+{
+  "version": "88.2.1",
+  "base_version": "88.2.0",
+  "base_archive": "The-Care-Web-v88.2.0-source.zip",
+  "base_archive_sha256": "05ad3387a585a2a8fa0fb7e12f859a11379c41e115d1e99a7041194f45491d8a",
+  "base_commit": null,
+  "package_type": "full source archive",
+  "output_archive": "The-Care-Web-v88.2.1-source.zip",
+  "scope": "Redesigned the office worker and participant verification experience: searchable assigned queue, focused checklists, evidence preview, explicit review forms, correction templates, screening/recruitment/training/plan panels and attributed history. Reuses existing decision handlers with fresh-file revision checks. Adds verification_cases and verification_activity; schema 88201. All 26 earlier workflow implementations retained.",
+  "unchanged_assets": "Existing public artwork, photos, scene videos, fonts and vendor files are unchanged."
+}

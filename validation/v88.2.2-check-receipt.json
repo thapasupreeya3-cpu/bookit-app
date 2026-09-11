@@ -1,0 +1,14 @@
+{
+  "release": "88.2.2",
+  "command": "npm run check",
+  "exit_code": 0,
+  "runtime": "v24.19.0",
+  "verified_at": "2026-09-11T13:55:13.192105+00:00",
+  "syntax_scripts": 55,
+  "routes": 366,
+  "tables": 83,
+  "verification_scenarios": 30,
+  "new_verification_scenarios": 14,
+  "browser_validation": "Local preview blocked: net::ERR_BLOCKED_BY_CLIENT; rendered layout, keyboard and PDF checks remain for staging.",
+  "live_provider_tests": "Not run; synthetic accounts and a capturing mail transport only."
+}

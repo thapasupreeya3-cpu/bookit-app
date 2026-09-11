@@ -24,8 +24,10 @@ Base supplied by the user: ${meta.base_archive} (v${meta.base_version})
 Base SHA-256: ${meta.base_archive_sha256}
 Remote GitHub HEAD and the deployed site were not accessed or changed.
 
-ADMIN VERIFICATION RELEASE
-Open Admin > Verification for the redesigned worker and participant reviews.
+ADMIN VERIFICATION AUTOMATION RELEASE
+Open Admin > Verification for guided worker and participant reviews.
+Choose available reviewers in Automation settings to enable automatic assignment.
+Approve a combined checklist to start its bounded, state-aware follow-ups.
 This package retains all 26 process improvements J01–J26 from v88.2.0.
 Open Next actions after signing in. Office users also have task ownership,
 recruitment, pay batches, message delivery, invoice exceptions and setup panels.
@@ -55,7 +57,7 @@ INSTALL / UPDATE
       npm ci --ignore-scripts
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
-6. Deploy using your existing process. On boot, two additive verification tables are created on a v88.2.0 database.
+6. Deploy using your existing process. On boot, four additive tables and one case preference column are created on a v88.2.1 database.
    Existing records are retained. This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
    explicit SCHEMA_VERSION environment override if your host uses one.
@@ -85,7 +87,7 @@ const readme=`The Care Web v${pkg.version} — complete source package.
 
 Extract ${meta.output_archive}; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
-This release redesigns admin verification and retains the 26 workflow improvements.
+This release automates verification administration and retains the earlier workflow improvements.
 Configure private billing,
 email, payroll cutover and any optional document assistance before use.
 

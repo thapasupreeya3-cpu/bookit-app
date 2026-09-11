@@ -9,7 +9,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
-const src = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8')+'\n'+fs.readdirSync(path.join(ROOT,'lib')).filter(n=>/^(process-.*|admin-verification)\.js$/.test(n)).map(n=>fs.readFileSync(path.join(ROOT,'lib',n),'utf8')).join('\n');
+const src = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8')+'\n'+fs.readdirSync(path.join(ROOT,'lib')).filter(n=>/^(process-.*|admin-verification|verification-automation)\.js$/.test(n)).map(n=>fs.readFileSync(path.join(ROOT,'lib',n),'utf8')).join('\n');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
 const routes = [];

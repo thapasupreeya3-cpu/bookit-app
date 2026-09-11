@@ -1,4 +1,4 @@
-# Admin verification — v88.2.2
+# Admin verification — v88.2.1
 
 Open **Admin → Verification**, or `#/admin/verification`. The existing worker and participant compliance boards also link directly to this workspace.
 
@@ -43,10 +43,6 @@ The office previously loaded many unrelated boards before showing verification. 
 
 The interface is in `public/assets/admin-verification.js` and `.css`; the focused API and decision adapter are in `lib/admin-verification.js`. The adapter calls the existing validation/writer functions through their registered handlers, with added file-revision and subject-ownership checks. It does not issue internal HTTP requests or replace the existing eligibility rules.
 
-Version **88.2.2**, default schema **88202**. Four additional automation tables and a case preference extend the v88.2.1 database from 79 to 83 tables. Back up the database and uploaded files before updating. Preserve existing runtime data and configuration. The earlier 26 workflow improvements and public design/media are retained.
+Version **88.2.1**, default schema **88201**. Two additive tables, `verification_cases` and `verification_activity`, bring the v88.2.0 database from 77 to 79 tables. Back up the database and uploaded files before updating. Preserve existing runtime data and configuration. The earlier 26 workflow improvements and public design/media are retained.
 
 Read `TEST-RESULTS.md` for executed verification and limits. This source was not deployed. The available runtime was Node 24.19.0; repeat the release gate on the declared Node 22 host and validate mobile, keyboard, screen-reader and actual PDF-preview behaviour in staging. Provider messaging remains subject to the existing configuration and live tests.
-
-## Verification automation
-
-Read [CHANGELOG-v88.2.2.md](CHANGELOG-v88.2.2.md) for automatic assignment, guided review, combined checklists, bounded reminders, document suggestions and plan comparisons. Automatic assignment requires choosing available reviewers in the verification workspace. Follow-ups start only after an office-approved checklist. The queue refreshes without replacing the selected review or its drafts.
