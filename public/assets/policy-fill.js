@@ -1,6 +1,6 @@
 /* The Care Web policy pages: the fill layer.
    A register page (kind 'register') keeps its entries on the server, shared
-   by the office and every worker: any table on the page that has a header
+   with the office and explicitly authorised workers: any table on the page that has a header
    row and nothing else is an entry table, and this script adds "Add entry",
    edit and delete beneath it. A form or template page gets a "Fill in on
    screen" mode: every checklist item becomes a tick box with a space to
@@ -82,107 +82,93 @@
   else formMode();
 
   function registerMode() {
-    var tables = Array.prototype.slice.call(body.querySelectorAll('table.grid')).filter(function (t) {
-      return t.rows.length === 1 && t.rows[0].querySelector('th');
-    });
-    if (!tables.length) return;
-    var state = { id: null, data: { tables: {} }, saved_at: '', saved_by: '' };
-    var status = el('span', { class: 'status' });
-    var top = el('div', { class: 'fill-bar no-print' }, [
-      el('span', { text: canSave ? 'Entries added here are saved on The Care Web and shared with the office and every worker.' : 'Sign in as a worker or the office to add entries to this register.' }),
-      status
-    ]);
-    body.insertBefore(top, body.firstChild);
-
-    tables.forEach(function (table, i) {
-      var cols = Array.prototype.map.call(table.rows[0].cells, function (c) { return c.textContent.trim(); });
-      var wrap = el('div', { class: 'fill-scroll' });
-      table.parentNode.insertBefore(wrap, table); wrap.appendChild(table);
-      if (canSave) table.rows[0].appendChild(el('th', { class: 'fill-row-actions no-print', text: '' }));
-      var panel = el('div', { class: 'fill-panel no-print', style: 'display:none' });
-      var bar = el('div', { class: 'fill-bar no-print' });
-      wrap.parentNode.insertBefore(bar, wrap.nextSibling);
-      wrap.parentNode.insertBefore(panel, bar.nextSibling);
-
-      function rows() { return state.data.tables[String(i)] || []; }
-      function render() {
-        while (table.rows.length > 1) table.deleteRow(1);
-        var list = rows();
-        if (!list.length) {
-          var tr = table.insertRow(); tr.className = 'fill-empty';
-          var td = tr.insertCell(); td.colSpan = cols.length + (canSave ? 1 : 0); td.textContent = 'No entries yet.';
-          return;
-        }
-        list.forEach(function (row, r) {
-          var tr = table.insertRow();
-          cols.forEach(function (_, c) { tr.insertCell().textContent = row[c] || ''; });
-          if (canSave) {
-            var act = tr.insertCell(); act.className = 'fill-row-actions no-print';
-            act.appendChild(el('button', { type: 'button', text: 'Edit', onclick: function () { openPanel(r); } }));
-            act.appendChild(el('button', { type: 'button', text: 'Delete', onclick: function () {
-              if (!confirm('Delete this entry from the register? Earlier versions of the register are kept on The Care Web.')) return;
-              var list2 = rows().slice(); list2.splice(r, 1); state.data.tables[String(i)] = list2; save();
-            } }));
-          }
-        });
-      }
-      function openPanel(editIndex) {
-        panel.innerHTML = '';
-        var editing = editIndex != null ? rows()[editIndex] : null;
-        panel.appendChild(el('h4', { text: editing ? 'Edit entry' : 'New entry' }));
-        var inputs = cols.map(function (c, ci) {
-          var ta = el('textarea', { rows: '2' }); ta.value = editing ? (editing[ci] || '') : '';
-          panel.appendChild(el('label', null, [el('span', { text: c }), ta]));
-          return ta;
-        });
-        panel.appendChild(el('div', { class: 'actions' }, [
-          el('button', { type: 'button', class: 'primary', text: editing ? 'Save changes' : 'Add to register', onclick: function () {
-            var row = inputs.map(function (t) { return t.value.trim(); });
-            if (!row.some(Boolean)) { alert('Write something in at least one column.'); return; }
-            var list = rows().slice();
-            if (editing) list[editIndex] = row; else list.push(row);
-            state.data.tables[String(i)] = list;
-            panel.style.display = 'none';
-            save();
-          } }),
-          el('button', { type: 'button', text: 'Cancel', onclick: function () { panel.style.display = 'none'; } })
-        ]));
-        panel.style.display = '';
-        inputs[0].focus();
-      }
-      if (canSave) bar.appendChild(el('button', { type: 'button', class: 'primary', text: 'Add entry', onclick: function () { openPanel(null); } }));
-      bar.appendChild(el('button', { type: 'button', text: 'Print, or save as PDF', onclick: function () { window.print(); } }));
-      table._render = render;
-      render();
-    });
-
-    function renderAll() { tables.forEach(function (t) { t._render(); }); }
-    function showStatus() { status.textContent = state.saved_at ? 'Last saved ' + when(state.saved_at) + (state.saved_by ? ' by ' + state.saved_by : '') : (canSave ? 'Nothing saved yet.' : ''); }
-    function save() {
-      status.textContent = 'Saving\u2026';
-      post(state.data, state.id, function (j, err) {
-        if (err) {
-          if (err.status === 409) { status.textContent = 'Someone else saved this register a moment ago \u2014 reloading their version.'; load(); return; }
-          status.textContent = 'Could not save: ' + err.message; return;
-        }
-        state.id = j.id; state.saved_at = j.saved_at; state.saved_by = j.saved_by;
-        renderAll(); showStatus();
+    var model=window.PolicyRegisterState;
+    var permission=root.getAttribute('data-permission') || 'none';
+    var canRead=permission!=='none',canEdit=permission==='edit';
+    var tables=Array.prototype.slice.call(body.querySelectorAll('table.grid')).filter(function(t){return t.rows.length===1&&t.rows[0].querySelector('th');});
+    if(!tables.length)return;
+    var state={id:null,data:{tables:{}},base:{tables:{}},loaded:false,busy:false,dirty:false,editing:null,recovery:false};
+    var status=el('span',{'class':'status','role':'status','aria-live':'polite'});
+    var notice=permission==='none'?'Saved entries are restricted. Ask the office for access.':permission==='read'?'You can read this register. Ask the office if you need to add an entry.':permission==='append'?'You can add new entries. Ask the office to correct an existing entry.':'You can add and correct entries in this register. Earlier saved versions are retained.';
+    var top=el('div',{'class':'fill-bar no-print'},[el('span',{text:notice}),status]);body.insertBefore(top,body.firstChild);
+    var recovery=el('section',{'class':'fill-panel no-print','aria-label':'Recover unsaved entries',hidden:''});top.after(recovery);
+    var mutations=[],panels=[];
+    var retry=el('button',{type:'button',text:'Retry save',hidden:'',onclick:function(){save();}});
+    var discard=el('button',{type:'button',text:'Discard unsaved changes',hidden:'',onclick:function(){if(!confirm('Discard only your unsaved changes? The last saved version will remain.'))return;state.data=model.copy(state.base);state.dirty=false;closeEditor();renderAll();showSaved();}});
+    top.appendChild(retry);top.appendChild(discard);
+    function busy(on){state.busy=on;mutations.forEach(function(b){b.disabled=on||!state.loaded||state.dirty||!!state.editing;});panels.forEach(function(p){p.querySelectorAll('button,textarea').forEach(function(b){b.disabled=on;});});retry.hidden=!state.dirty;retry.disabled=on;discard.hidden=!state.dirty;discard.disabled=on;}
+    function closeEditor(){if(state.editing){state.editing.panel.hidden=true;state.editing=null;}busy(false);}
+    function showSaved(){status.textContent=state.saved_at?'Last saved '+when(state.saved_at)+(state.saved_by?' by '+state.saved_by:''):'No entries saved yet.';busy(false);}
+    function renderAll(){tables.forEach(function(t){t._render();});busy(state.busy);}
+    function preserveCopy(label,data){var ta=el('textarea',{rows:'7',readonly:'','aria-label':label});ta.value=JSON.stringify(data,null,2);recovery.appendChild(el('label',null,[el('span',{text:label}),ta]));return ta;}
+    function showConflict(){
+      recovery.hidden=false;recovery.innerHTML='';
+      recovery.appendChild(el('h4',{text:'Your unsaved entries are safe on this page'}));
+      preserveCopy('Your unsaved version — select and copy if needed',state.data);
+      recovery.appendChild(el('p',{text:'Loading the latest saved version. No local entries will be replaced.'}));
+      get(function(latest,err){
+        if(err){recovery.appendChild(el('p',{text:'Could not load the latest version: '+err.message+'. Your changes remain above.'}));return;}
+        var remote=latest.data&&latest.data.tables?latest.data:{tables:{}};
+        var detail=el('details',null,[el('summary',{text:'Review the latest saved entries'}),el('pre',{text:JSON.stringify(remote,null,2)})]);recovery.appendChild(detail);
+        recovery.appendChild(el('button',{type:'button',text:'Combine with latest and retry',onclick:function(){
+          if(state.busy)return;
+          var merged=model.merge(state.base,state.data,remote);
+          if(merged.conflicts.length){status.textContent='Both versions changed existing rows. Copy your draft below, then load the latest version and reapply the correction.';return;}
+          state.id=latest.id;state.base=model.copy(remote);state.data=merged.data;state.dirty=true;closeEditor();renderAll();save();
+        }}));
+        recovery.appendChild(el('button',{type:'button',text:'Load latest and keep my draft below',onclick:function(){
+          if(state.busy)return;
+          state.id=latest.id;state.base=model.copy(remote);state.data=model.copy(remote);state.saved_at=latest.saved_at;state.saved_by=latest.saved_by;state.dirty=false;state.recovery=true;
+          closeEditor();renderAll();status.textContent='Latest version loaded. Your unsaved copy remains below; reapply the needed entries.';
+          recovery.querySelectorAll('button').forEach(function(b){b.disabled=true;});
+          recovery.appendChild(el('button',{type:'button',text:'I have finished with the saved draft copy',onclick:function(){if(confirm('Have you saved or copied everything you need from this draft?')){state.recovery=false;recovery.hidden=true;}}}));
+        }}));
       });
     }
-    function load() {
-      if (!canSave) { showStatus(); return; }
-      status.textContent = 'Loading entries\u2026';
-      get(function (j, err) {
-        if (err) { status.textContent = 'Could not load entries: ' + err.message; return; }
-        state.id = j.id; state.saved_at = j.saved_at; state.saved_by = j.saved_by;
-        state.data = (j.data && j.data.tables) ? j.data : { tables: {} };
-        renderAll(); showStatus();
+    function save(){
+      if(state.busy||!state.loaded||!canSave)return;
+      busy(true);status.textContent='Saving…';
+      post(state.data,state.id,function(j,err){
+        if(err){state.dirty=true;busy(false);status.textContent='Not saved: '+err.message+' Your changes remain on this page.';if(err.status===409)showConflict();return;}
+        state.id=j.id;state.saved_at=j.saved_at;state.saved_by=j.saved_by;state.base=model.copy(state.data);state.dirty=false;
+        closeEditor();renderAll();showSaved();if(!state.recovery)recovery.hidden=true;
       });
     }
-    load();
+    tables.forEach(function(table,i){
+      var cols=Array.prototype.map.call(table.rows[0].cells,function(c){return c.textContent.trim();});
+      var wrap=el('div',{'class':'fill-scroll'});table.parentNode.insertBefore(wrap,table);wrap.appendChild(table);
+      if(canEdit)table.rows[0].appendChild(el('th',{'class':'fill-row-actions no-print',text:'Actions'}));
+      var panel=el('div',{'class':'fill-panel no-print',hidden:''});panels.push(panel);
+      var bar=el('div',{'class':'fill-bar no-print'});wrap.after(bar);bar.after(panel);
+      function rows(){return state.data.tables[String(i)]||[];}
+      function render(){
+        while(table.rows.length>1)table.deleteRow(1);
+        if(!rows().length){var tr=table.insertRow();tr.className='fill-empty';var td=tr.insertCell();td.colSpan=cols.length+(canEdit?1:0);td.textContent=canRead?'No entries yet.':'Saved entries are restricted.';return;}
+        rows().forEach(function(row,index){var tr=table.insertRow();cols.forEach(function(_,c){tr.insertCell().textContent=row[c]||'';});if(canEdit){
+          var act=tr.insertCell();act.className='fill-row-actions no-print';
+          var edit=el('button',{type:'button',text:'Edit',onclick:function(){openPanel(index);}});
+          var del=el('button',{type:'button',text:'Delete',onclick:function(){if(!confirm('Remove this entry from the current register? Earlier saved versions remain on file.'))return;var next=rows().slice();next.splice(index,1);state.data.tables[String(i)]=next;state.dirty=true;renderAll();save();}});
+          mutations.push(edit,del);act.appendChild(edit);act.appendChild(del);
+        }});
+      }
+      function openPanel(index){
+        if(!state.loaded||state.busy||state.dirty||state.editing)return;
+        panel.innerHTML='';panel.hidden=false;var original=model.copy(state.data),pendingIndex=index;
+        state.editing={panel:panel,dirty:false};panel.appendChild(el('h4',{text:index==null?'New entry':'Edit entry'}));
+        var inputs=cols.map(function(c,ci){var ta=el('textarea',{rows:'2'});ta.value=index==null?'':rows()[index][ci]||'';ta.addEventListener('input',function(){state.editing.dirty=true;if(pendingIndex!=null){var next=rows().slice();next[pendingIndex]=inputs.map(function(t){return t.value.trim();});state.data.tables[String(i)]=next;}status.textContent='Unsaved entry — save it before leaving this page.';});panel.appendChild(el('label',null,[el('span',{text:c}),ta]));return ta;});
+        panel.appendChild(el('div',{'class':'actions'},[
+          el('button',{type:'button','class':'primary',text:'Save entry',onclick:function(){var row=inputs.map(function(t){return t.value.trim();});if(!row.some(Boolean)){alert('Write something in at least one column.');return;}var next=rows().slice();if(pendingIndex==null){pendingIndex=next.length;next.push(row);}else next[pendingIndex]=row;state.data.tables[String(i)]=next;state.dirty=true;renderAll();save();}}),
+          el('button',{type:'button',text:'Cancel entry',onclick:function(){if((state.dirty||state.editing.dirty)&&!confirm('Discard this unsaved entry?'))return;state.data=original;state.dirty=false;closeEditor();renderAll();showSaved();}})
+        ]));busy(false);inputs[0].focus();
+      }
+      if(canSave){var add=el('button',{type:'button','class':'primary',text:'Add entry',onclick:function(){openPanel(null);}});mutations.push(add);bar.appendChild(add);}
+      bar.appendChild(el('button',{type:'button',text:'Print, or save as PDF',onclick:function(){window.print();}}));table._render=render;render();
+    });
+    window.addEventListener('beforeunload',function(e){if(state.dirty||state.busy||state.editing&&state.editing.dirty||state.recovery){e.preventDefault();e.returnValue='';}});
+    busy(false);
+    if(canRead){status.textContent='Loading entries…';get(function(j,err){if(err){status.textContent='Could not load entries: '+err.message;return;}state.id=j.id;state.data=j.data&&j.data.tables?j.data:{tables:{}};state.base=model.copy(state.data);state.saved_at=j.saved_at;state.saved_by=j.saved_by;state.loaded=true;renderAll();showSaved();});}
   }
 
-  /* ------------------------------------------------------------------ */
   function formMode() {
     var items = Array.prototype.slice.call(body.querySelectorAll('li'));
     var state = { id: null, saved_at: '', saved_by: '', filling: false };
