@@ -2068,22 +2068,22 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="container">
       <div class="section-head">
         <span class="kicker">Stories</span>
-        <h2 id="tsHead">Loved by participants, families and workers</h2>
+        <h2 id="tsHead">Illustrative examples of support</h2>
       
-        <p class="stories-note" style="font-size:.9rem;color:var(--ink-soft);max-width:60ch;margin:6px auto 0">These are illustrative stories — composites of the feedback we hear, with names and details changed. They are not verified customer testimonials.</p></div>
+        <p class="stories-note" style="font-size:.9rem;color:var(--ink-soft);max-width:60ch;margin:6px auto 0">These fictional examples show how support can work. Names and situations are illustrative; they are not customer testimonials or ratings.</p></div>
       <div class="testi-grid">
         <article class="testi">
-          <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <div class="muted-sm">Illustrative example</div>
           <blockquote>"After years of agencies sending whoever was free, I finally have a regular team of three workers I chose myself. They know my routine, my coffee order and my footy team."</blockquote>
           <div class="who"><div class="avatar" style="background:#203566;">DK</div><div><b>Daniel K.</b><small>Participant · Penrith NSW</small></div></div>
         </article>
         <article class="testi">
-          <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <div class="muted-sm">Illustrative example</div>
           <blockquote>"I manage my son's plan and the transparency is a breath of fresh air. Every shift, every dollar, every line item — it's all right there. Claiming is prepared for me, line by line."</blockquote>
           <div class="who"><div class="avatar" style="background:#C8462E;">MT</div><div><b>Maria T.</b><small>Parent & plan nominee · Bankstown NSW</small></div></div>
         </article>
         <article class="testi">
-          <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <div class="muted-sm">Illustrative example</div>
           <blockquote>"As a worker I'm employed, insured and paid above award — and I choose clients who share my interests. It's the first support job that's felt sustainable."</blockquote>
           <div class="who"><div class="avatar" style="background:#8a6d00;">JP</div><div><b>Jess P.</b><small>Support worker · Blacktown NSW</small></div></div>
         </article>
@@ -7260,7 +7260,7 @@ window.askRemoval = function(opts){
       </form></div>`;
     document.body.appendChild(d);
     const form = d.querySelector('form'); const ta = d.querySelector('#rmReason'); ta.focus();
-    const close = v => { d.remove(); resolve(v); };
+    const close = v => { d.remove(); previousFocus?.focus?.(); resolve(v); };
     /* the tick belongs to one choice only: show it when that choice is picked */
     if(opts.tickOnly){ form.querySelectorAll('[name=rmChoice]').forEach(r => r.addEventListener('change', () => { const w = d.querySelector('#rmTickWrap'); if(w) w.style.display = form.querySelector('[name=rmChoice]:checked').value === opts.tickOnly ? 'block' : 'none'; })); }
     d.querySelector('[data-rm-cancel]').onclick = () => close(null);
@@ -7531,16 +7531,17 @@ function outOfAreaDialog(tr){
   if(typeof HTMLDialogElement !== 'function') return Promise.resolve(window.confirm(`Out of area.\n\n${body.replace(/<[^>]+>/g, '')}\n\nGo ahead anyway?`));
   return new Promise(resolve => {
     const d = document.createElement('dialog');
-    d.className = 'ooa-dialog';
+    d.className = 'ooa-dialog';d.setAttribute('aria-label','Confirm travel outside the worker’s service area');
+    const previousFocus=document.activeElement;
     d.innerHTML = `<form method="dialog" style="margin:0;max-width:26rem;">
       <h3 style="margin:0 0 .5rem;font-size:1.1rem;">Out of area</h3>
       <p style="margin:0 0 .6rem;line-height:1.45;">${body}</p>
       ${tr.maps ? `<p style="margin:0 0 .9rem;"><a href="${esc(tr.maps)}" target="_blank" rel="noopener noreferrer">See the route on Google Maps ↗</a></p>` : ''}
-      <p class="muted-sm" style="margin:0 0 1rem;">The worker will see the same distance before accepting, and the booking will show that you both confirmed.</p>
+      <p class="muted-sm" style="margin:0 0 1rem;">This estimate and your confirmation will be kept with the visit. The worker confirms their own travel information before accepting.</p>
       <div style="display:flex;gap:8px;justify-content:flex-end;"><button type="button" class="btn btn-secondary btn-sm" value="cancel">Cancel</button><button type="button" class="btn btn-sm" value="ok" autofocus>Go ahead anyway</button></div>
     </form>`;
     document.body.appendChild(d);
-    const done = v => { try { d.close(); } catch(e){} d.remove(); resolve(v); };
+    const done = v => { try { d.close(); } catch(e){} d.remove(); previousFocus?.focus?.(); resolve(v); };
     d.querySelector('[value=ok]').addEventListener('click', () => done(true));
     d.querySelector('[value=cancel]').addEventListener('click', () => done(false));
     d.addEventListener('cancel', e => { e.preventDefault(); done(false); });
@@ -7566,8 +7567,8 @@ window.API = {
       /* v86.14.0 — outside the worker's stated area is a warning the person
          confirms, not a wall: say how far and how long, ask, and if they say
          yes, send the same request again with their confirmation on it */
-      if(data.code === 'out_of_area' && data.confirm && opts.body && opts.body.out_of_area_ok !== true){
-        if(await outOfAreaDialog(data.travel || {})) return API.call(path, { ...opts, body: { ...opts.body, out_of_area_ok: true } });
+      if(data.code === 'out_of_area' && data.confirm && opts.body && (opts.confirmationAttempts || 0) < 2 && data.out_of_area_token){
+        if(await outOfAreaDialog(data.travel || {})) return API.call(path, { ...opts, confirmationAttempts: (opts.confirmationAttempts || 0) + 1, body: { ...opts.body, out_of_area_ok: true, out_of_area_token: data.out_of_area_token } });
       }
       const err = new Error(data.error || `Something went wrong (error ${res.status}) — please try again.`);
       err.status = res.status; err.data = data;
@@ -8535,8 +8536,8 @@ async function renderBookingsPage(){
             </div>
             ${b.sleepover ? `<div style="margin-top:12px;"><b style="font-size:.9rem;">How many hours were you up and supporting during the night?</b>
               <p class="muted-sm" style="margin:4px 0 7px;">Up to two hours is inside the sleepover price. Anything beyond two is charged to the participant\u2019s plan by the hour at the night rate and paid to you at your share of it, so say what the support was.</p>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><input class="note-active" type="number" min="0" max="${b.hours}" step="0.25" value="0" style="width:90px;" aria-label="Active hours during the sleepover"> <span class="muted-sm">hours (0 if you were not woken)</span></div>
-              <textarea class="note-active-note" rows="2" maxlength="4000" style="margin-top:8px;" placeholder="If more than two: what the support was, roughly when."></textarea></div>` : ''}
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><input class="note-active" type="number" min="0" max="${b.hours}" step="0.25" value="0" style="width:90px;" aria-label="Active hours during the sleepover"> <span class="muted-sm">hours (0 if you were not woken; 15-minute steps such as 2.25)</span></div>
+              <p class="muted-sm">Hours are saved exactly as entered in 15-minute steps; they are never rounded automatically.</p><textarea class="note-active-note" aria-label="What active support was provided during the sleepover" rows="2" maxlength="4000" style="margin-top:8px;" placeholder="If more than two: what the support was, roughly when."></textarea></div>` : ''}
             <textarea class="note-scope-detail" rows="2" maxlength="4000" hidden style="margin-top:9px;" placeholder="What were you asked to do? We'll follow it up — you're not in trouble for telling us."></textarea>
           </div>
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -9066,7 +9067,7 @@ document.addEventListener('click', async e => {
     try{
       await BookItReview.saveDraft(form,true);
       const activeEl = form.querySelector('.note-active');
-      const extra = activeEl ? { active_hours: Number(activeEl.value), active_note: (form.querySelector('.note-active-note') || {}).value || '' } : {};
+      const extra = activeEl ? { active_hours: activeEl.value, active_note: (form.querySelector('.note-active-note') || {}).value || '' } : {};
       const r = await API.call('/bookings/' + id, {method:'PATCH', body:{status:'completed', note: body, scope, scope_detail: detail, ...extra}});
       BookItReview.finishDraft(form);
       toast(scope
@@ -14905,7 +14906,7 @@ function auToISO(t){
   return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
 function auDateField(el){
-  if(el.dataset.auDate) return;
+  if(el.dataset.auDate || el.hasAttribute('data-native-date')) return;
   const startsWith = NATIVE_VALUE.get.call(el) || el.getAttribute('value') || '';
   el.dataset.auDate = '1';
   el.type = 'text';
