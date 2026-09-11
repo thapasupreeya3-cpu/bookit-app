@@ -31,4 +31,9 @@ test('older cursor no duplicate or skipped messages',()=>{let q=new URLSearchPar
 for(const q of ['limit=0','limit=501','limit=abc','before=-1','before=2.2'])test('reject message cursor '+q,()=>assert.throws(()=>m.page(db,1,new URLSearchParams(q))));
 db.exec("INSERT INTO bookings VALUES (1,'completed','shift',56,1,0),(1,'completed','intro',.25,0,0),(1,'completed','shift',20,0,1),(1,'requested','shift',60,0,0),(1,'completed','nf2f',2,0,0),(1,'completed','shift',4,0,0)");
 test('referral calculation excludes all nonqualifying work',()=>assert.equal(r.hours(db,1),4));
+/* v88.1.3 (audit F02): schedule refusals come before the area, so confirming distance can never waive leave, windows or weekdays */
+test('out-of-area visit during leave is refused for leave, not area',()=>assert.equal(a.availability({...profile,leave_dates:'[{"from":"2030-01-01","to":"2030-01-02"}]'},{date:'2030-01-01',start:'09:00',hours:2},'Parramatta NSW').code,'leave'));
+test('out-of-area visit outside declared windows is refused for the window, not area',()=>assert.equal(a.availability(profile,{date:'2030-01-01',start:'16:00',hours:2},'Parramatta NSW').code,'time_window'));
+test('out-of-area visit on an unavailable weekday is refused for the weekday, not area',()=>assert.equal(a.availability({...profile,availability_windows:null,days:'[0,0,0,0,0,0,0]'},{date:'2030-01-01',start:'09:00',hours:2},'Parramatta NSW').code,'weekday'));
+test('out-of-area visit that fits the schedule is refused for area only',()=>assert.equal(a.availability(profile,{date:'2030-01-01',start:'09:00',hours:2},'Parramatta NSW').code,'service_area'));
 db.close();console.log(`${count} review unit assertions passed`);

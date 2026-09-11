@@ -6835,7 +6835,10 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     let activeIn = null;
     if (b.sleepover) {
       if (body.active_hours === undefined || body.active_hours === null || body.active_hours === '') return json(res, 400, { error: 'How many hours were you up and supporting during the night? Enter 0 if you were not woken.' });
-      activeIn = Math.round(Math.max(0, Math.min(Number(b.hours) || 8, Number(body.active_hours) || 0)) * 4) / 4;
+      const activeRaw = Number(body.active_hours);
+      if (!Number.isFinite(activeRaw) || activeRaw < 0) return json(res, 400, { error: 'Active hours must be a number, zero or more.' });
+      if (activeRaw > (Number(b.hours) || 8)) return json(res, 400, { error: `Active hours cannot be more than the ${Number(b.hours) || 8}-hour shift.` });
+      activeIn = Math.round(activeRaw * 4) / 4; /* v88.1.3 (audit F06): validated, then rounded to the quarter hour */
       if (activeIn > SLEEPOVER_INCLUDED_ACTIVE_HOURS && !clean(body.active_note, NOTE_MAX)) return json(res, 400, { error: 'More than two active hours is charged to the participant\u2019s plan, so say what the support was in the active-hours note.' });
     }
     let kmLine = null, inv = null, noteId = null, activeLine = null;
@@ -6956,7 +6959,7 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
   const changed = [], locked = [];
   const movable = rows.filter(b => { const t=bookingStart(b); if (!Number.isFinite(+t) || t < cutoff || ['finding','office','allied','referred'].includes(b.cover_state) || b.invoice_no || b.claim_status==='paid' || b.paid_at) {locked.push(b.id);return false;} return true; });
   const material = ['worker_id','start','hours'].some(k => patch[k]!==undefined && String(patch[k])!==String(sr[k]));
-  for(const b of movable) {const proposed={...b,...patch}; const fit=assignmentCheck(proposed.worker_id,proposed,{out_of_area_ok: body.out_of_area_ok === true}); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,{...fit,date:b.date,dates:[b.date]});}
+  const fits=new Map(); for(const b of movable) {const proposed={...b,...patch}; const fit=assignmentCheck(proposed.worker_id,proposed,{out_of_area_ok: body.out_of_area_ok === true}); fits.set(b.id,fit); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,{...fit,date:b.date,dates:[b.date]});}
   /* The diary gate for a rule: if the new time or the new worker clashes on
      any date, nothing changes and the participant is told which dates. */
   if (patch.start || patch.hours || patch.worker_id) {
@@ -6970,6 +6973,7 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
     for (const b of movable) {
       const changedAssignment=['worker_id','start','hours'].some(k=>patch[k]!==undefined&&String(patch[k])!==String(b[k]));
       db.prepare(`UPDATE bookings SET ${sets}${changedAssignment ? ", status='requested', accepted_at=NULL, office_ok=0" : ''} WHERE id = ?`).run(...vals,b.id);
+      if (changedAssignment) noteOutOfArea(b.id, fits.get(b.id), 'participant'); /* v88.1.3 (audit F08) */
       changed.push(b.id);
     }
     db.exec('COMMIT');
@@ -7010,6 +7014,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)\/occurrence$/, (req, res, m, user, body)
     : `This worker already has a shift that overlaps ${dmy(date)} at ${start}. Choose another time.` });
   db.prepare("UPDATE bookings SET date = ?, start = ?, hours = ?, detached = 1, status = 'requested', accepted_at = NULL, office_ok = 0 WHERE id = ?")
     .run(date, start, hours, b.id);
+  noteOutOfArea(b.id, fit, 'participant'); /* v88.1.3 (audit F08) */
   logDelegate(pers, 'Moved one shift', `${SERVICE_LABELS[b.service] || b.service} from ${dmy(b.date)} to ${dmy(date)}`, b.id);
   const wu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
   if (wu) notify(wu.id, 'bookings', wu.email, 'A shift has moved — The Care Web',
@@ -17385,7 +17390,7 @@ function reviewOffer(wid,cv,b) {
 route('POST', /^\/api\/cover\/(\d+)\/review$/, (req,res,m,user,body,ip)=>{
   if(!user||user.role!=='worker')return json(res,403,{error:'Workers only.'});
   if(limited(ip,'cover-review',40))return json(res,429,{error:'Too many requests. Try again shortly.'});
-  const r=reviewableCover(user.id,Number(m[1]));if(!r.ok)return json(res,409,r);
+  const r=reviewableCover(user.id,Number(m[1]),{out_of_area_ok: body && body.out_of_area_ok === true});if(!r.ok)return r.confirm?outOfAreaReply(res,r):json(res,409,r);
   const o=reviewOffer(user.id,r.cv,r.b),plan=confirmedPlan(r.b.participant_id);
   logCompliance({worker_id:user.id,worker_name:user.name,kind:'plan-access',result:'cover-preview',detail:`Eligible worker explicitly opened the brief for cover #${r.cv.id}, booking #${r.b.id}.`,source:'worker',checked_by:user.name});
   json(res,200,{ok:true,offer_id:o.id,participant_id:r.b.participant_id,brief:workerBrief(r.b.participant_id),plan_id:plan?.id||null,plan_version:plan?.version||null,ack:planAck(r.b.participant_id,user.id),expires_at:o.expires_at});
@@ -18549,12 +18554,22 @@ route('DELETE', /^\/api\/admin\/policy-pages\/([a-z0-9-]+)$/, (req, res, m, user
 function policyFillable(pg) { return !!pg && (pg.kind === 'register' || pg.kind === 'form or template'); }
 /* safeJson above admits arrays only; a fill is an object */
 function policyFillParse(text) { try { const x = JSON.parse(text); return x && typeof x === 'object' && !Array.isArray(x) ? x : {}; } catch { return {}; } }
+function activeStaffWorker(workerId) {
+  const w = db.prepare('SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?').get(workerId);
+  return !!(w && w.visible && platformEligible(workerId, w.email));
+}
 function policyFillTarget(user, res, slug) {
   const pg = db.prepare('SELECT slug, kind, audience FROM policy_pages WHERE slug = ?').get(slug);
   if (!pg || !policyFillable(pg) || POLICY_ON_SCREEN[pg.slug]) { json(res, 404, { error: 'No such fillable page.' }); return null; }
   if (!policyAllowed(user, pg)) { json(res, 403, { error: 'Not permitted.' }); return null; }
   const scope = pg.kind === 'register' ? 'shared' : 'personal';
-  const staff = !!(user.admin || user.role === 'worker');
+  /* v88.1.3 (audit F01) — a shared register is an operational record, not
+     onboarding material: reading or writing it takes the office, or a worker
+     who is approved and active (visible and platform-eligible — the same rule
+     messaging uses). An applicant who has only registered can still read the
+     staff pages and fill their own personal forms, and nothing else. */
+  const staff = !!(user.admin || (user.role === 'worker' && activeStaffWorker(user.id)));
+  if (scope === 'shared' && !staff) { json(res, 403, { error: 'Registers are for the office and approved, active workers.' }); return null; }
   return { pg, scope, owner: scope === 'personal' ? user.id : null, canWrite: scope === 'shared' ? staff : true };
 }
 function policyFillLatest(slug, scope, owner) {
@@ -19214,14 +19229,17 @@ const server = http.createServer((req, res) => {
   const bodyCap = (pathname === '/api/me/documents' || pathname === '/api/me/photo'
     || pathname === '/api/me/participant-documents'
     || /^\/api\/admin\/form-templates\/[a-z0-9-]+$/.test(pathname)
-    || /^\/api\/admin\/participants\/\d+\/documents$/.test(pathname)) ? 12_000_000 : 100_000; /* uploads carry base64 files */
+    || /^\/api\/admin\/participants\/\d+\/documents$/.test(pathname)
+    || /^\/api\/admin\/policy-pages(\/[a-z0-9-]+)?$/.test(pathname)) ? 12_000_000 /* uploads carry base64 files (v88.1.3: policy publishing too) */
+    : /^\/api\/policy-fill\/[a-z0-9-]+$/.test(pathname) ? 1_600_000 /* v88.1.3: a register grows; the fill handler allows 1.5 MB */
+    : 100_000;
   req.on('data', chunk => {
     if (overflow) return; /* keep draining so the response can get through, but stop buffering */
     raw += chunk;
     if (raw.length > bodyCap) {
       overflow = true;
       raw = '';
-      json(res, 413, { error: 'That file is too big to upload. Photos are shrunk automatically before sending — refresh the page and try again. PDFs need to be under 4 MB.' });
+      json(res, 413, { error: bodyCap >= 12_000_000 ? 'That file is too big to upload. Photos are shrunk automatically before sending — refresh the page and try again. PDFs and Word files need to be under 8 MB.' : bodyCap > 100_000 ? 'This register has grown past what can be saved in one go (1.5 MB). Nothing was lost — copy the row you were adding, refresh, and ask the office to archive older rows.' : 'That request is too large (the limit here is 100 KB).', limit: bodyCap });
     }
   });
   req.on('end', () => {

@@ -1,9 +1,9 @@
 {
-  "version": "88.1.1",
-  "base_version": "86.12.0",
+  "version": "88.1.3",
+  "base_version": "88.1.2",
   "base_archive": "bookit-app-main(2).zip",
   "base_archive_sha256": "e02c3e55c5ef7315010fc7b6657595f8f839cc745fe437554429b05b21f686b6",
   "base_commit": "e9e4a8d3f94491369b39315a2a757f13f8746cf0",
-  "scope": "Brand-only release on v87.0.1: the approved navy, gold and silver logo in the header and footer (white version on navy), favicon, app icons and social card; the accent palette moved from teal to navy with the warm paper background; email colours matched. No change to layout, motion, animation, videos, routes, rules, schema or data. v88.1.1: the logo lockup on every generated document (policies, register, agreements, blank forms, print views, cover page) and in emails; wordmark artwork cleaned.",
+  "scope": "Audit fixes on v88.1.2 (extensive audit, 11 September 2026). F01: shared registers require the office or an approved, active worker; an applicant who has only registered cannot read or write them (own personal forms unaffected). F02: schedule checks (leave, time windows, weekdays) run before the service-area check, so an out-of-area confirmation only ever waives the area \u2014 on creation, acceptance, moves, series edits, office assignment and cover. F03/F04: policy publishing accepts Word and PDF files (12 MB request cap) and register saves up to 1.5 MB; the 413 message names the real limit. F05: cover review honours the worker's explicit out-of-area confirmation. F06: sleepover active hours must be a finite number between 0 and the shift length; invalid values are refused and nothing is completed or invoiced. F08: moved occurrences and edited series record the out-of-area confirmation on the booking. F07/F13: release identity files regenerated together; the demo database and its sidecars removed from the repository. Tests added for F01, F02, F04 and F06. No schema change.",
   "unchanged_assets": "Existing scenes, photographs, artwork, vendor assets and self-hosted font files stay in the base repository."
 }

@@ -235,6 +235,12 @@ async function main() {
     const wc = cookieOf(wl);
     const noActive = await req('PATCH', `/api/bookings/${sid}`, { headers: J2, cookie: wc, body: { status: 'completed', note: 'Quiet night, up once at 3am for the bathroom.', scope: false } });
     t('completing a sleepover without the active hours is refused', noActive.status === 400 && /hours/.test(noActive.json.error), noActive.status);
+    /* v88.1.3 (audit F06): a non-number, a negative, or more hours than the shift are refused, and the shift stays open */
+    for (const [bad, why] of [['invalid', 'text'], [-1, 'negative'], [20, 'more than the shift']]) {
+      const r = await req('PATCH', `/api/bookings/${sid}`, { headers: J2, cookie: wc, body: { status: 'completed', note: 'Up in the night.', scope: false, active_hours: bad, active_note: 'x' } });
+      const still = db.prepare('SELECT status FROM bookings WHERE id = ?').get(sid).status;
+      t(`active hours ${why} is refused and the sleepover is not completed`, r.status === 400 && still === 'accepted', `${r.status} ${still} ${r.json && r.json.error}`);
+    }
     const done = await req('PATCH', `/api/bookings/${sid}`, { headers: J2, cookie: wc, body: { status: 'completed', note: 'Up from 1am to 4:30am with a bad night; settled after that.', scope: false, active_hours: 3.5, active_note: 'Repositioning and reassurance, 1am–4:30am.' } });
     t('completing with 3.5 active hours works', done.status === 200, done.status + ' ' + (done.json && done.json.error));
     const row = db.prepare('SELECT * FROM bookings WHERE id = ?').get(sid);
@@ -536,6 +542,22 @@ async function main() {
     const stale = await req('POST', '/api/policy-fill/incident-management-register', { headers: J2, cookie: ac2, body: { base_id: null, data: { tables: { 0: [] } } } });
     t('a save on a stale copy of a register is refused, so no one\u2019s entry is lost', stale.status === 409, stale.status);
     t('a participant may not read a staff register; nobody may fill a policy', (await req('GET', '/api/policy-fill/incident-management-register', { cookie: pc })).status === 403 && (await req('GET', '/api/policy-fill/feedback-and-complaints-policy', { cookie: wc })).status === 404);
+    /* v88.1.3 (audit F01): a worker who has only registered — not yet approved, not visible — cannot read or write a shared register */
+    const termsA = /const CURRENT_TERMS_VERSION = '([^']+)'/.exec(fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8'))[1];
+    const applicant = await req('POST', '/api/register', { headers: J2, body: { role: 'worker', name: 'Applicant Only', email: 'applicant.only@example.com', password: 'longpassword1', suburb: 'Ryde NSW', terms_accepted: true, terms_version: termsA } });
+    const applicantId = applicant.json && applicant.json.user ? applicant.json.user.id : 0;
+    const al = await req('POST', '/api/login', { headers: J2, body: { email: 'applicant.only@example.com', password: 'longpassword1' } });
+    const apc = cookieOf(al);
+    const aRead = await req('GET', '/api/policy-fill/incident-management-register', { cookie: apc });
+    const aWrite = await req('POST', '/api/policy-fill/incident-management-register', { headers: J2, cookie: apc, body: { base_id: null, data: { tables: { 0: [fillRow] } } } });
+    t('an unapproved worker applicant cannot read or write a shared register', applicantId > 0 && al.status === 200 && aRead.status === 403 && aWrite.status === 403, `${applicant.status} ${al.status} read ${aRead.status} write ${aWrite.status}`);
+    const aOwn = await req('POST', '/api/policy-fill/feedback-and-complaints-form', { headers: J2, cookie: apc, body: { base_id: null, data: { items: [], by: { name: 'Applicant Only', role: 'worker', date: '01/09/2026', notes: 'mine' } } } });
+    t('the same applicant can still fill their own personal form', aOwn.status === 200, aOwn.status + ' ' + (aOwn.json && aOwn.json.error));
+    /* v88.1.3 (audit F04): a register that has grown past 100 KB still saves */
+    const bigRows = Array.from({ length: 700 }, (_, i) => [`INC-B${i}`, '01/09/2026', 'Injury or fall', 'Test person', 'Worker', '', 'Y', 'N', 'x'.repeat(120), '', '', '', '', '', '', '']);
+    const cur1 = await req('GET', '/api/policy-fill/incident-management-register', { cookie: ac2 });
+    const bigSave = await req("POST", "/api/policy-fill/incident-management-register", { headers: J2, cookie: ac2, body: { base_id: cur1.json.id, data: { tables: { 0: bigRows } } } });
+    t('a register larger than 100 KB saves (the cap is 1.5 MB)', JSON.stringify({ base_id: cur1.json.id, data: { tables: { 0: bigRows } } }).length > 100000 && bigSave.status === 200, bigSave.status + " " + (bigSave.json && bigSave.json.error));
     const f1 = await req('POST', '/api/policy-fill/feedback-and-complaints-form', { headers: J2, cookie: pc, body: { base_id: null, data: { items: [{ label: 'Date', checked: true, value: '01/09/2026' }], by: { name: 'Test', notes: 'a note', junk: 'dropped' } } } });
     const f2 = await req('GET', '/api/policy-fill/feedback-and-complaints-form', { cookie: pc });
     const f3 = await req('GET', '/api/policy-fill/feedback-and-complaints-form', { cookie: wc });
