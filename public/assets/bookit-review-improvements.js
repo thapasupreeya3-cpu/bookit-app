@@ -14,7 +14,7 @@ window.BookItReview = (() => {
   // A native dialog supplies keyboard focus containment and Escape. No generated image/modal service.
   function decisionDialog(title,content,button='Confirm',validate=()=>true){
     return new Promise(resolve=>{
-      const d=document.createElement('dialog');d.className='review-dialog';
+      const d=document.createElement('dialog');d.className='review-dialog';d.setAttribute('aria-label',title);
       d.innerHTML=`<h2 style="font-size:1.4rem;">${text(title)}</h2>${content}<p class="review-error" role="alert"></p><div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;"><button class="btn btn-primary" type="button" data-confirm>${text(button)}</button><button class="btn btn-secondary" type="button" data-cancel>Not now</button></div>`;
       document.body.appendChild(d);const previous=document.activeElement;
       let finished=false;
@@ -101,13 +101,39 @@ window.BookItReview = (() => {
   });
   document.addEventListener('change',e=>{if(e.target.closest('[data-note-form]'))e.target.dispatchEvent(new Event('input',{bubbles:true}));});
   window.addEventListener('beforeunload',e=>{const dirty=[...document.querySelectorAll('[data-note-form]')].some(f=>drafts.get(f)?.dirty||drafts.get(f)?.saving);if(dirty){e.preventDefault();e.returnValue='';}});
+  const availabilityDays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  function timeRangeRow(value={start:'09:00',end:'17:00'}){
+    return `<div data-time-range style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:10px 0;"><label>From <input type="time" data-start step="900" value="${text(value.start)}" required></label><label>Until <input type="time" data-end step="900" value="${text(value.end==='24:00'?'23:59':value.end)}" ${value.end==='24:00'?'disabled':''} required></label><label><input type="checkbox" data-midnight ${value.end==='24:00'?'checked':''}> End at midnight</label><button type="button" class="btn btn-secondary btn-sm" data-remove-time>Remove time</button></div>`;
+  }
+  function leaveRangeRow(value={from:'',to:''}){
+    return `<div data-leave-range style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:10px 0;"><label>First day away <input type="date" data-native-date data-from value="${text(value.from)}" required></label><label>Last day away <input type="date" data-native-date data-to value="${text(value.to)}" required></label><button type="button" class="btn btn-secondary btn-sm" data-remove-leave>Remove leave</button></div>`;
+  }
+  function availabilityValues(form){
+    const explicit=form.elements.explicit.checked;
+    const windows=explicit?availabilityDays.map((_,i)=>[...form.querySelectorAll(`[data-day="${i}"] [data-time-range]`)].map(row=>({start:row.querySelector('[data-start]').value,end:row.querySelector('[data-midnight]').checked?'24:00':row.querySelector('[data-end]').value}))):null;
+    const leave=[...form.querySelectorAll('[data-leave-range]')].map(row=>({from:row.querySelector('[data-from]').value,to:row.querySelector('[data-to]').value}));
+    return {windows,leave};
+  }
+  function availabilityPreview(form){
+    const {windows,leave}=availabilityValues(form);
+    form.querySelectorAll('[data-day] input,[data-day] button').forEach(el=>el.disabled=!windows||(el.hasAttribute('data-end')&&el.closest('[data-time-range]').querySelector('[data-midnight]').checked));
+    form.querySelector('[data-availability-preview]').textContent=(windows?availabilityDays.map((day,i)=>`${day}: ${windows[i].length?windows[i].map(r=>r.start+'–'+r.end).join(', '):'unavailable'}`).join(' · '):'Using the usual weekdays saved on your profile.')+(leave.length?' · Leave: '+leave.map(r=>(r.from?fmtAU(r.from):'choose first day')+' to '+(r.to?fmtAU(r.to):'choose last day')).join('; '):' · No leave recorded.');
+  }
   async function renderAvailability(){
     const wrap=document.getElementById('reviewAvailability');if(!wrap)return;
     try{
-      const p=(await API.call('/me/profile',{noFor:true})).profile;
-      const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-      const windows=p.availability_windows;
-      wrap.innerHTML=`<form id="reviewAvailabilityForm" class="review-panel"><h2>Availability and service areas</h2><p>These settings apply to new requests, cover and reassignment. Existing accepted visits are not silently cancelled. Tell the office when an existing visit needs cover.</p><div class="review-grid"><label>Specific service areas (one per line, or separated by semicolons)<textarea name="service_areas" rows="4" placeholder="Ryde NSW; Parramatta NSW">${text((p.service_areas||[]).join('; '))}</textarea></label><label>Travel buffer between different participants (minutes)<input name="travel_buffer_minutes" type="number" min="0" max="180" value="${Number(p.travel_buffer_minutes||0)}"></label></div><p class="muted-sm">Leave areas empty to match only your profile suburb. Use the same suburb-and-state spelling as the visit, or a postcode. This is not automatic geocoding.</p><label><input name="explicit" type="checkbox" ${windows?'checked':''}> Use specific weekly time windows instead of usual weekdays</label><div class="review-grid" style="margin-top:14px;">${days.map((day,i)=>`<label>${day}<input name="day${i}" value="${text((windows?.[i]||[]).map(r=>r.start+'-'+r.end).join(', '))}" placeholder="09:00-12:00, 13:00-17:00"></label>`).join('')}</div><p class="muted-sm">An empty day means unavailable when specific windows are enabled. Split overnight availability at midnight, e.g. 22:00-24:00 and 00:00-08:00 on the next day.</p><label style="display:block;">Leave (inclusive dates; one range per line)<textarea name="leave" rows="4" style="width:100%;font:inherit;" placeholder="2026-12-20 to 2027-01-05">${text((p.leave_dates||[]).map(x=>x.from+' to '+x.to).join('\n'))}</textarea></label><button type="submit" class="btn btn-primary">Save availability</button><p class="review-availability-status" role="status"></p></form>`;
+      const p=(await API.call('/me/profile',{noFor:true})).profile,windows=p.availability_windows;
+      wrap.innerHTML=`<form id="reviewAvailabilityForm" class="review-panel"><h2>Availability and service areas</h2><p>Choose when and where you can work. For changes affecting an accepted visit, contact the office to arrange cover.</p><div class="review-grid"><label>Service areas (one per line)<textarea name="service_areas" rows="4" placeholder="Ryde NSW; Parramatta NSW">${text((p.service_areas||[]).join('; '))}</textarea></label><label>Travel buffer between participants (minutes)<input name="travel_buffer_minutes" type="number" min="0" max="180" value="${Number(p.travel_buffer_minutes||0)}"></label></div><p class="muted-sm">Use suburb and state, or postcodes. Leave this empty to use only your profile suburb.</p><label><input name="explicit" type="checkbox" ${windows?'checked':''}> Set specific weekly hours</label><p class="muted-sm">With specific hours enabled, a day without a time range is unavailable. For an overnight window, add a range ending at midnight and another beginning at 00:00 on the following day.</p><div class="review-grid">${availabilityDays.map((day,i)=>`<fieldset data-day="${i}"><legend>${day}</legend><div data-ranges>${(windows?.[i]||[]).map(timeRangeRow).join('')}</div><button class="btn btn-secondary btn-sm" type="button" data-add-time>Add time range</button></fieldset>`).join('')}</div><h3>Leave</h3><p class="muted-sm">Both the first and last day are included.</p><div data-leave-ranges>${(p.leave_dates||[]).map(leaveRangeRow).join('')}</div><button type="button" class="btn btn-secondary btn-sm" data-add-leave>Add leave dates</button><p data-availability-preview role="status"></p><button type="submit" class="btn btn-primary">Save availability</button><p class="review-availability-status" role="status"></p></form>`;
+      const form=wrap.querySelector('form');availabilityPreview(form);
+      form.addEventListener('change',()=>availabilityPreview(form));
+      form.addEventListener('click',e=>{
+        const add=e.target.closest('[data-add-time]'),remove=e.target.closest('[data-remove-time]'),addLeave=e.target.closest('[data-add-leave]'),removeLeave=e.target.closest('[data-remove-leave]');
+        if(add)add.closest('[data-day]').querySelector('[data-ranges]').insertAdjacentHTML('beforeend',timeRangeRow());
+        if(remove)remove.closest('[data-time-range]').remove();
+        if(addLeave)form.querySelector('[data-leave-ranges]').insertAdjacentHTML('beforeend',leaveRangeRow());
+        if(removeLeave)removeLeave.closest('[data-leave-range]').remove();
+        if(add||remove||addLeave||removeLeave)availabilityPreview(form);
+      });
     }catch(e){wrap.textContent=e.message;}
   }
   async function todayActions(){
@@ -129,8 +155,7 @@ window.BookItReview = (() => {
   document.addEventListener('submit',async e=>{
     if(e.target.id==='reviewAvailabilityForm'){
       e.preventDefault();const f=e.target,fd=new FormData(f),status=f.querySelector('.review-availability-status');
-      try{const explicit=fd.has('explicit');const windows=explicit?Array.from({length:7},(_,i)=>String(fd.get('day'+i)||'').split(',').filter(x=>x.trim()).map(x=>{const m=/^\s*(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})\s*$/.exec(x);if(!m)throw Error('Use HH:MM-HH:MM time windows, separated by commas.');return {start:m[1],end:m[2]};})):null;
-        const leave=String(fd.get('leave')||'').split('\n').filter(x=>x.trim()).map(x=>{const m=/^\s*(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})\s*$/.exec(x);if(!m)throw Error('Use YYYY-MM-DD to YYYY-MM-DD for each leave range.');return {from:m[1],to:m[2]};});
+      try{const {windows,leave}=availabilityValues(f);
         await API.call('/me/profile',{method:'POST',noFor:true,body:{service_areas:String(fd.get('service_areas')||'').split(/[;\n]/).map(x=>x.trim()).filter(Boolean),availability_windows:windows,leave_dates:leave,travel_buffer_minutes:Number(fd.get('travel_buffer_minutes'))}});
         status.textContent='Saved. Existing accepted visits have not been cancelled.';
       }catch(err){status.textContent=err.message;}
