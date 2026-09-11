@@ -1,37 +1,17 @@
-# The Care Web v88.2.0
+# The Care Web v88.2.1 — admin verification redesign
 
-11 September 2026. Complete source release based on v88.1.5. This implements the participant, worker and office process backlog J01–J26 and retains the earlier R1–R6 fixes. Existing artwork, videos, fonts and vendor files are retained.
+11 September 2026. Full source update based on v88.2.0.
 
-## What changes for participants and helpers
+This release makes worker and participant verification a dedicated office workspace. A searchable queue, named reviewer, due date and specific next action replace the need to move between several long boards. The selected person's checklist, evidence, screening, recruitment, training, support-plan review and recent review activity are brought together.
 
-- **Next actions** combines setup, reviews and follow-up with separate person and office responsibilities. Helpers see the selected participant and only permitted tasks and visit information.
-- Private payment is an explicit funding choice. Unknown funding still needs confirmation. Office-reviewed private billing setup is required before private bookings.
-- Shared details can prefill the support plan after confirmation. Section navigation and revision checks protect saved and unsaved plan text, including multiple editors and slow saves.
-- Matching retains schedule choices. Unavailable times offer limited alternatives that are checked again on booking. Book again and usual visits remember preferences without copying old care notes or prices.
-- Timesheets have one review inbox, an exact visit workspace and a preferred reminder recipient. First meetings and first shifts produce separate follow-up tasks; concerns become office work.
-- Optional quiet hours, routine digests and private calendar subscriptions reduce repeated administration. Changes and endings have a reviewed handover covering visits, outstanding notes, queries, invoices and helper access.
+Documents can be previewed beside their review context, with full-size access, visible dates and previous evidence. Review forms ask for a method, note and explicit confirmation. Editable correction templates explain the replacement needed while retaining the original evidence. The next unreviewed document opens after successful verification.
 
-## What changes for workers
+Actions are checked against an opaque revision of the person's current file, and document ownership is verified before dispatch. A stale or duplicate decision cannot silently overwrite newer evidence. The existing decision handlers and eligibility rules remain in force. Worker activation remains separate from document verification; participant booking readiness remains separate from formal declarations and individual booking checks.
 
-- Setup separates missing documents, training and office decisions. The upload tray keeps successful files when another upload fails, detects repeat uploads and explains document purposes.
-- Recruitment has explicit interview, references and employment evidence. Workers can book or cancel available interview slots and rebook after a past interview.
-- Repeating requests can be reviewed together and selected dates accepted atomically with fresh plan, availability and travel checks.
-- Leave shows affected visits before saving and requests cover only for the selected visits. Existing work remains visible. A voluntary profile pause permits eligible accepted work while safety withdrawals and cover restrictions remain enforced.
-- The visit workspace contains the permitted brief, changes since the worker's previous acknowledgement, saved note draft, actual active hours, participant transport, completion, questions and a linked incident form.
-- Renewals show affected future visits and distinguish a replacement received from an approved replacement. Pay status distinguishes batch preparation, export and a recorded external payment reference.
+The interface uses the existing Care Web navy and warm neutral palette. Public artwork, photographs, scene videos, fonts and vendor assets are retained. The earlier 26 workflow improvements remain included.
 
-## Office work and automation
+Open **Admin → Verification**. `docs/ADMIN-VERIFICATION.md` explains daily use. `docs/admin-verification-preview.html` is a self-contained interactive design preview containing sample records only; its mutation actions are disabled.
 
-The complete task queue is paginated and searchable, with assigned owners and due dates. Timing begins when a stage is observed ready. Jobs retain their lock until asynchronous work settles and record failures truthfully.
+The database update is additive: `verification_cases` and `verification_activity`. Default schema **88201**, **363 registered routes**, **79 tables**. The repeated upgrade check starts with the actual v88.2.0 source and preserves pre-existing records and an uploaded-file sample.
 
-Email uses a durable outbox, retries, deduplication, access/opt-out rechecks and an office exception queue. Invoice creation, its original payer/amount snapshot and queued delivery are committed together. Reconciliation keeps mismatched receipts unpaid; signed Stripe evidence must match the stored checkout session, amount, currency and paid status.
-
-Pay batches use globally stable source-line IDs, reviewed exceptions and adjustments, repeatable CSV exports and a separate external acknowledgement. Scheduled preparation is off until the office confirms the payroll cutover. This code does not submit a bank transfer or operate an external payroll system.
-
-Optional document extraction requires configured processing, office approval and worker consent. Suggested fields show source text and confidence and require human review. It never verifies a clearance. Process reports show task median/P90 waiting times and activity/recovery events by reporting period, without care text.
-
-## Delivery and limits
-
-Default schema **88200**; **360 registered routes**, **77 tables** after boot. The v88.1.5 database has 57 tables; this release adds 20 and additive columns. The two-boot upgrade check retained synthetic pre-existing records, settings and an uploaded-file sample. Do not replace production runtime data with package contents.
-
-This package is source code, not a live deployment. Review `TEST-RESULTS.md` and `WORKFLOW-OPERATIONS.md`. Native browser interaction and external email, calendar clients, Stripe and AI provider round trips still require staging validation. Test results do not certify current regulatory requirements or external payroll calculations. Existing pricing rules are retained; no new tax or wage rates were sourced for this release.
+The package is not deployed. See `TEST-RESULTS.md` for executed checks and staging limits. Native browser access to the local app was blocked; API and JavaScript interface checks are not a complete browser/accessibility certification.

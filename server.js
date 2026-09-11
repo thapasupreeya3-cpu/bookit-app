@@ -17954,6 +17954,7 @@ route('DELETE', /^\/api\/admin\/users\/(\d+)$/, (req, res, m, user, body) => {
     recordErasure(mode === 'erase' ? 'user' : 'user-deidentified', u.id, `${u.role} ${u.name} <${u.email}>`, snapshot, reason, user.name);
     removeFiles(u.id);
     if(WORKFLOW)WORKFLOW.closePersonal(u.id);
+    db.prepare('DELETE FROM verification_cases WHERE user_id=?').run(u.id);
     if (mode === 'erase') {
       cascadeErase('users', 'id = ?', [u.id]);
     } else {
@@ -19088,6 +19089,7 @@ const processContext={db,json,route,actFor,sessionUser,firstBookingBlockers,onbo
  reviewReferrals,csvCell:BOOKIT_HARDENING.safeSpreadsheetCell,publicAPI:PUBLIC_API,shortNotice,planQuestions:PLAN_QUESTIONS,AI,aiFetch,invoiceFor};
 WORKFLOW=require('./lib/process-store')(processContext);
 require('./lib/process-routes')(processContext,WORKFLOW);
+require('./lib/admin-verification')({...processContext,requireAdmin,routes,docOut,pdocOut,pdocMethods:PDOC_METHODS,participantFile,planReviewState},WORKFLOW);
 everyJob('deliveries',15000,()=>WORKFLOW.drain(),{label:'Message delivery',why:'Retries queued messages and records transport failures.'});
 everyJob('journey-tasks',60000,()=>WORKFLOW.syncAll(),{label:'Next actions',why:'Refreshes individual and office tasks from current records.'});
 everyJob('payroll-drafts',86400000,()=>WORKFLOW.scheduledPayroll(),{label:'Pay preparation',why:'Prepares unbatched lines from the last fourteen days for office review; never pays automatically.'});

@@ -1,47 +1,46 @@
-# Executed verification — v88.2.0
+# Executed verification — v88.2.1
 
-Date: 11 September 2026. Base: `The-Care-Web-v88.1.5-source.zip`, SHA-256 `706621fe7a4532b11208c990ee81b303ae4526a5d44dfc7c44078fbcc23452e3`.
+11 September 2026. Baseline: `The-Care-Web-v88.2.0-source.zip`, SHA-256 `05ad3387a585a2a8fa0fb7e12f859a11379c41e115d1e99a7041194f45491d8a`.
 
-All application tests used isolated synthetic data and disabled external messaging/payment/AI services. No live participant data or real payments were used. This release was not deployed.
+Tests used isolated synthetic data. External email, payment and AI services were disabled. No production users, messages or payments were changed. This source was not deployed.
 
-## Automated checks
+## Automated results
 
-`npm test` completed with exit 0. `npm run lint` compiled 50 JavaScript units, including four inline application scripts, with zero failures. The full `npm run check` release gate and final payload hash verification are included in the validation receipts.
+`npm test` completed with exit 0. The complete release gate and final payload verification are recorded in the included validation receipts.
 
 | Suite | Result |
 | --- | --- |
+| JavaScript compilation | 53 units, zero failures; includes four inline application scripts |
 | Clash tests | 21/21 pass |
-| Smoke tests | 231 PASS records; full suite completed |
+| Smoke tests | 231 PASS records; complete suite passed |
 | Review unit tests | 46 assertions pass |
 | Review API scenarios | 25/25 pass |
 | Graphics checks | 54/54 pass |
-| Audit unit tests | 8/8 groups pass |
-| Audit API scenarios | 23/23 pass; no startup errors |
-| New workflow regression scenarios | 32/32 pass |
-| JavaScript compilation | 50 units, zero failures |
-| Generated inventories | 360 routes; 77 tables |
-| Existing media, fonts and vendor assets compared with v88.1.5 | 113 files byte-for-byte unchanged |
+| Audit unit groups | 8/8 pass |
+| Audit API scenarios | 23/23 pass |
+| Earlier workflow scenarios | 32/32 pass |
+| New admin verification scenarios | 16/16 pass |
+| Standalone preview | Three inline scripts compile |
+| Generated inventories | 363 routes and 79 tables |
 
-Counts remain separate because scenarios contain multiple assertions and HTTP requests. The new suite is `tests/process-regression.js` and is included in `npm test` and `npm run check`.
+Scenario and assertion counts have different granularity and are not summed. `tests/admin-verification-tests.js` is run through `npm run test:verification`, included in `npm test` and `npm run check`.
 
-## What the workflow suite exercises
+## New verification coverage
 
-Private versus missing funding; structured task ownership; scoped helper plan writes and revocation; stale plan revisions; asynchronous job locks/failures; durable outbox retry/digest/deduplication/revocation; completion by a voluntarily paused eligible worker; reviewed payroll batches and distinct external acknowledgement; task ownership/stage timing; confirmed intake revisions; duplicate uploads; interview booking and evidence; atomic selected-series acceptance; limited alternatives; routines without old notes; reviewed leave/cover; scoped visit and incident retry; preferred approvers; calendar UID, cancellation, revocation and reassignment; original invoice snapshots; receipt mismatches and retries; matching signed-payment event contents; replacement renewal tasks; follow-up and transition behaviour; disabled optional extraction; timing/privacy metrics; atomic settings; rebooking after a past interview; conflicting follow-up answers; helper visit privacy; and closure of personal workflow records.
+The new suite tests anonymous/non-admin denial; queue filtering and validation; safe file URLs and private path exclusion; explicit review method/evidence/confirmation; the established document writer and attributable history; duplicate and stale decisions; document ownership; expired-evidence acknowledgement without eligibility override; participant review without funding changes or blanket approval; retained evidence and replacement requests; invalid dates and duplicate requests; reviewer assignment and filtering; separate screening/recruitment decisions; current-version plan review; pagination beyond 30 files; closed-file exclusion; frontend double-submit prevention against the real API; and rendering every panel with real API responses and escaped user text.
 
-Frontend panel rendering is executed in a JavaScript VM with a minimal document harness against real API responses for participants, workers and office users. It detects rendering/runtime errors. It does **not** simulate native browser layout, accessibility, focus, actual clicks, file selection or calendar-client synchronisation. Existing regression suites cover the underlying actions separately.
+The frontend checks use a JavaScript VM and a minimal document/form harness. They exercise rendering and a real form-to-API path, including duplicate-submission handling. They do not reproduce native browser layout, PDF rendering, file selection, focus order, mobile gestures or assistive technology.
 
-## Upgrade
+## Upgrade and assets
 
-The actual v88.1.5 server created a synthetic database. A historical register entry, a setting and an uploaded-file sentinel were added. The new server booted twice against the same database. Both boots passed SQLite integrity checks; 57 tables became 77, and the existing values and file were preserved. A worker without a register grant remained denied after both boots. The receipt is `validation/v88.2.0-upgrade-results.json`.
+The actual v88.2.0 server created a synthetic database with a historical register entry, a setting and an uploaded-file sample. v88.2.1 then booted twice against it. Both boots passed SQLite integrity checks, retained the existing values/file, and kept an ungranted worker denied access to the register. Table count changed from 77 to 79. The receipt is `validation/v88.2.1-upgrade-results.json`.
 
-## Required staging checks and limits
+Existing public media, fonts and vendor files are compared byte-for-byte against v88.2.0. The asset-preservation receipt identifies the count and any differences. New verification CSS/JavaScript and the sample preview are additions; the public brand assets are not replaced.
 
-The available runtime was **Node 24.19.0**. This package retains its declared **Node >=22.12 and <23** runtime and existing pin. Repeat `npm run check` on the declared Node 22 host before deployment. npm emitted an inherited http-proxy environment warning; it did not fail a suite.
+## Limits
 
-The advertised browser could not navigate to the local site (`net::ERR_BLOCKED_BY_CLIENT`). No complete native-browser, mobile, keyboard or screen-reader pass is claimed. Verify plan conflicts, multi-file upload recovery, shift travel fields, dialogs, reminder login return, reporting filters and account switching in a staging browser.
+The available execution runtime was **Node 24.19.0**. The repository retains **Node >=22.12 and <23** and its existing pin. Repeat `npm run check` on the declared Node 22 host before deployment. The inherited npm http-proxy warning did not fail a suite.
 
-The existing provider-estimate tests use a deterministic local stub. Live Google estimates, email/SMS delivery, Stripe checkout/webhook events, external payroll, real calendar-client refresh, AI extraction/model accuracy and cloud backup destinations were not exercised. Optional extraction gates and payment-event matching were tested locally; provider round trips remain configuration and staging checks. No external service credentials or contracts are bundled. Email can be delivered more than once after an ambiguous transport acknowledgement; invoice creation remains deduplicated.
+The supported browser could not open the local site (`net::ERR_BLOCKED_BY_CLIENT`). No native desktop/mobile, keyboard or screen-reader pass is claimed. In staging, verify the two-column layout, small-screen stacking, sticky queue, tab/document focus, preserved form drafts after conflict, PDF/image previews, zoom controls, reminder delivery and account switching. The sample HTML is a design preview, not evidence of a live browser test.
 
-The task metrics measure observed activity after this release. There is no pre-release timing baseline or proven percentage time saving. No current rate-schedule, tax, wage or regulatory compliance certification is claimed.
-
-Older receipts in `validation/` and `docs/history/` describe their named earlier releases, not additional tests of v88.2.0.
+Live messaging providers, calendar clients, Stripe, AI processing and the deployed site were not exercised. Existing provider simulations remain synthetic. No current regulatory, tax or wage-rate certification is claimed. Older receipts in `docs/history/` and `validation/` refer to their named releases.

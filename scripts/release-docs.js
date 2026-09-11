@@ -24,8 +24,9 @@ Base supplied by the user: ${meta.base_archive} (v${meta.base_version})
 Base SHA-256: ${meta.base_archive_sha256}
 Remote GitHub HEAD and the deployed site were not accessed or changed.
 
-WORKFLOW RELEASE
-All 26 process improvements J01–J26 are implemented in this source package.
+ADMIN VERIFICATION RELEASE
+Open Admin > Verification for the redesigned worker and participant reviews.
+This package retains all 26 process improvements J01–J26 from v88.2.0.
 Open Next actions after signing in. Office users also have task ownership,
 recruitment, pay batches, message delivery, invoice exceptions and setup panels.
 The earlier scoped register permissions remain in force.
@@ -54,7 +55,7 @@ INSTALL / UPDATE
       npm ci --ignore-scripts
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
-6. Deploy using your existing process. On boot, 20 additive workflow tables and additional columns are created.
+6. Deploy using your existing process. On boot, two additive verification tables are created on a v88.2.0 database.
    Existing records are retained. This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
    explicit SCHEMA_VERSION environment override if your host uses one.
@@ -73,7 +74,9 @@ process, with the effect on new records considered before restoration.
 READ NEXT
 docs/RELEASE-NOTES.md — changes, operation and remaining checks
 docs/IMPLEMENTATION-MATRIX.md — J01–J26 delivery and validation map
-docs/WORKFLOW-OPERATIONS.md — configuration, daily use and automation behaviour
+docs/WORKFLOW-OPERATIONS.md — existing workflow configuration and automation
+docs/ADMIN-VERIFICATION.md — the new review workspace
+docs/admin-verification-preview.html — standalone sample design preview
 docs/TEST-RESULTS.md — executed commands and results
 RELEASE-FILES.json — complete payload file hashes (excluding itself)
 docs/history/ — historical receipts, not current deployment instructions
@@ -82,7 +85,8 @@ const readme=`The Care Web v${pkg.version} — complete source package.
 
 Extract ${meta.output_archive}; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
-This release implements the 26 workflow improvements. Configure private billing,
+This release redesigns admin verification and retains the 26 workflow improvements.
+Configure private billing,
 email, payroll cutover and any optional document assistance before use.
 
 Install/check: npm ci --ignore-scripts && npm run check

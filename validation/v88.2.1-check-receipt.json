@@ -1,0 +1,18 @@
+{
+  "release": "88.2.1",
+  "command": "npm run check",
+  "exit_code": 0,
+  "runtime": "v24.19.0",
+  "syntax_units": 53,
+  "registered_routes": 363,
+  "database_tables": 79,
+  "verification_scenarios": 16,
+  "earlier_workflow_scenarios": 32,
+  "source_hashes_verified_at_gate": 398,
+  "log_sha256": "0557dfa8d5d8326c66c11b7f9818a408d4510a0868f12456be77c9c67f7720a1",
+  "limits": [
+    "Native browser access to local app blocked; no native layout or accessibility pass claimed.",
+    "Node 22 host and real provider integration checks remain staging steps."
+  ],
+  "packaging": "Only validation receipts were added after the release gate; application code is unchanged. Final manifest is regenerated and verified."
+}

@@ -1,0 +1,69 @@
+{
+  "runtime": "v24.19.0",
+  "results": [
+    {
+      "name": "Verification queue is office-only and rejects invalid filters",
+      "result": "PASS"
+    },
+    {
+      "name": "Focused file returns only the selected person, safe preview URL and opaque revision",
+      "result": "PASS"
+    },
+    {
+      "name": "Document review needs an explicit method, evidence and confirmation",
+      "result": "PASS"
+    },
+    {
+      "name": "Verification reuses the existing writer and records one attributable action",
+      "result": "PASS"
+    },
+    {
+      "name": "A document from another person cannot be reviewed using this file token",
+      "result": "PASS"
+    },
+    {
+      "name": "File changes reject a stale decision without losing the existing record",
+      "result": "PASS"
+    },
+    {
+      "name": "Expired evidence requires acknowledgement and cannot clear worker eligibility",
+      "result": "PASS"
+    },
+    {
+      "name": "Participant review does not infer funding or grant blanket approval",
+      "result": "PASS"
+    },
+    {
+      "name": "Correction requests retain evidence and explain the replacement needed",
+      "result": "PASS"
+    },
+    {
+      "name": "Requests are specific, validate dates and avoid duplicate messages",
+      "result": "PASS"
+    },
+    {
+      "name": "Reviewer ownership validates staff, survives reload and filters the queue",
+      "result": "PASS"
+    },
+    {
+      "name": "Screening and recruitment preserve their separate evidence and rules",
+      "result": "PASS"
+    },
+    {
+      "name": "Plan review is bound to the current confirmed version",
+      "result": "PASS"
+    },
+    {
+      "name": "Pagination reaches more than 30 people and closed files disappear",
+      "result": "PASS"
+    },
+    {
+      "name": "The frontend verification form reaches the real action and prevents double submission",
+      "result": "PASS"
+    },
+    {
+      "name": "All redesigned panels render with real API data and escape user content",
+      "result": "PASS"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "version": "88.2.0",
+  "base_version": "88.1.5",
+  "base_archive": "The-Care-Web-v88.1.5-source.zip",
+  "base_archive_sha256": "706621fe7a4532b11208c990ee81b303ae4526a5d44dfc7c44078fbcc23452e3",
+  "base_commit": null,
+  "package_type": "full source archive",
+  "output_archive": "The-Care-Web-v88.2.0-source.zip",
+  "scope": "Implements the 26 participant, worker and office workflow improvements J01\u2013J26, retaining the v88.1.5 fixes and existing design/media. Includes scoped next actions, safe drafts, durable delivery, recruitment, recurring bookings, shift workspace, payroll handoff, invoice reconciliation, renewals, transitions, calendar feeds, approved optional document assistance and process measurements. Schema 88200 adds 20 tables and additive columns; no historical funding reinterpretation.",
+  "unchanged_assets": "Existing artwork, photos, scene videos, fonts and vendor assets are included unchanged."
+}
