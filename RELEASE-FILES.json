@@ -1,25 +1,491 @@
 {
-  "release": "88.1.4",
-  "base_release": "88.1.2",
-  "format": "root-relative changed/new-files overlay; preserve other existing repository paths; delete bookit.db, bookit.db-shm and bookit.db-wal from the repository root",
+  "release": "88.1.5",
+  "base_release": "88.1.4",
+  "format": "full-source",
+  "note": "All package files are listed except RELEASE-FILES.json itself. Preserve deployed runtime databases, uploads and secrets.",
   "files": {
+    ".env.example": {
+      "sha256": "fc6c0b1050d2324f76a1fed394d4e2b40ab31a09ec52b8d0c0d761721ca48858"
+    },
+    ".github/workflows/check.yml": {
+      "sha256": "ad2eb9fee2ec567bfac95be8023b9cdaa7908aceb7b8ad44bb18ed33438fe965"
+    },
+    ".gitignore": {
+      "sha256": "658ca4bcaef5022c8117b95bb7646301b1a8ec566685c6bb5b448b99e6e8adf4"
+    },
+    ".nvmrc": {
+      "sha256": "08062faf0d7a2d22f5d7933c50e975dd1527034275597be7c1b3b9fd2b9d079a"
+    },
     "STARTHERE.txt": {
-      "sha256": "a8797fa84f86efb9a9034f3203d67a4d7d195403ae321129695f7031767c2b41"
+      "sha256": "96e69f8a6c2a12e09629f9907d947f39a4099b93476ed22deae5f3336029f90b"
+    },
+    "blank-forms/p-advocate \u2014 Advocate, nominee or decision-maker form.pdf": {
+      "sha256": "a8c898cc4a2b56f8c44d388846a900873e8a3331f6d1027e7e85766400281ac7"
+    },
+    "blank-forms/p-agreement \u2014 Service Agreement.pdf": {
+      "sha256": "12c0e0af6fce4cf3f4e6505316e56dd894955e270790eaccfbda4560dc5a4915"
+    },
+    "blank-forms/p-consent-privacy \u2014 Privacy and information-sharing consent.pdf": {
+      "sha256": "d2f4eb98835f6c4b027b9d5e24a9148c1c51c72518801fa88668a583ff614e02"
+    },
+    "blank-forms/p-emergency \u2014 Participant Emergency and Disaster Plan.pdf": {
+      "sha256": "23754041feef81a3678aa26b824eeb4754a4a09d0df9f951ffb11c5b0c06c6ee"
+    },
+    "blank-forms/p-exit \u2014 Exit or transition record.pdf": {
+      "sha256": "8565bd9433ccc97e032a86e04fc2a097cde4263a506b85768a4f5a9370a2d1f4"
+    },
+    "blank-forms/p-intake \u2014 Intake or referral form.pdf": {
+      "sha256": "4c5e4b1c639b99d33396ef543544f4c621332213ee0536590bcd527b08daa6cc"
+    },
+    "blank-forms/p-mealtime \u2014 Mealtime Management Plan.pdf": {
+      "sha256": "72cfd0bf8274989f0fd1eb5d679228a1000e1c788e3e3987b3e10e5454fb3429"
+    },
+    "blank-forms/p-medication \u2014 Medication Plan and Administration Form + consent.pdf": {
+      "sha256": "3c2fa40fc0a32bd672b2f34354892f6594b3ba438607a3ac2b05d5a7ca91b4ae"
+    },
+    "blank-forms/p-money \u2014 Money and Property Declaration.pdf": {
+      "sha256": "e0a1205a4020ab4765fa183209aa435539d1076c6764bd91ccecb0717da3ba50"
+    },
+    "blank-forms/p-risk \u2014 Risk Assessment.pdf": {
+      "sha256": "f507b7fcd77f5b653de1636d9240a5ef7a8ea0a81aca3b0d98687a6420c3e398"
+    },
+    "blank-forms/p-satisfaction \u2014 Participant Satisfaction Survey.pdf": {
+      "sha256": "7a249ccdd1eb5c864d7b516188dbf9fa90ab8019cdbe02600e6526341c318146"
+    },
+    "content/policies/0137-digital-platform-service-scope-and-operating-procedure.txt": {
+      "sha256": "f04e655c693c109f680ac45f44becbac050ba5ff02a28475dd8b6a52eb8692a4"
+    },
+    "content/policies/advocate-or-support-person-request-form.txt": {
+      "sha256": "adc28c0846e7d1f42677a25b0912dc253ace39505bbf55efa04e2f8ca31772b5"
+    },
+    "content/policies/assessment-and-provision-of-supports-policy.txt": {
+      "sha256": "b9a872369a2c8e58ef683d754c41166c5fb8d924b20a327dec897855b828b808"
+    },
+    "content/policies/behaviour-support-and-restrictive-practices-policy.txt": {
+      "sha256": "1ecb39b96506d38f2f42a0e34ae03b93b4a55d9cc0e9048ec0563618067c186d"
+    },
+    "content/policies/business-continuity-emergency-response-and-disaster-management-plan.txt": {
+      "sha256": "a17d6a568e7bb733c970962542be8a21280f1daebb02bad3c9cb2b6460117582"
+    },
+    "content/policies/business-plan.txt": {
+      "sha256": "98da0e7f6b17e98072ccba9cf5f4c433c60b22db6b36efc3f5d30d02afcce387"
+    },
+    "content/policies/conflict-of-interest-declaration.txt": {
+      "sha256": "05f3fe03af0abbf417932e8091ea1720512d2942c6efc647701ea5b5196e97f9"
+    },
+    "content/policies/conflict-of-interest-policy.txt": {
+      "sha256": "838112f9ea538e12c445cbf10b1b494207aad60820e55c026f112394001095dd"
+    },
+    "content/policies/conflict-of-interest-register.txt": {
+      "sha256": "731e77ce086e84c91b0c55c4da860258a869297505d87f7c47a04b0cdd73c74c"
+    },
+    "content/policies/continuous-improvement-plan.txt": {
+      "sha256": "c146a606f8eab1814ce447c20f674ca00c967e51403eac6088a1499b1b712a2c"
+    },
+    "content/policies/continuous-improvement-policy.txt": {
+      "sha256": "443f7a96ad9599328e9e0d35e1c60d05ea1e345ab78179e484c4ee72f77ecb26"
+    },
+    "content/policies/continuous-improvement-register.txt": {
+      "sha256": "68db576ba99a194819d81b6f832ef6b485795b4439cc5c8a4c6f977ad49b3aa2"
+    },
+    "content/policies/data-breach-response-procedure.txt": {
+      "sha256": "26a94f82dfde65a577aea454b9eda472f7ea269f81baf7da055b3705294a7b4c"
+    },
+    "content/policies/delegation-of-authority.txt": {
+      "sha256": "ba1265e5059e2f280b312ad8021d8e00b02ad3400c59fe844aaea946a6f58e2a"
+    },
+    "content/policies/digital-platform-service-policy-and-procedure.txt": {
+      "sha256": "05071ed88a84f2805af6ef8b4e7d3b504a8d49c658a7bdcb7531a3f73aae416b"
+    },
+    "content/policies/document-list-core.txt": {
+      "sha256": "f3edf7d066eb4cb45fd2d6423b463914ef1781ebc13fe6dc41ad2f2a14f9dfa0"
+    },
+    "content/policies/emergency-and-disaster-management-policy.txt": {
+      "sha256": "f36e0eed36b14f6642908d6ff067293112be3fe8927282e02c181aa72fcdae10"
+    },
+    "content/policies/emergency-test-register.txt": {
+      "sha256": "5799a917a91c6924b512050782c544d480f3c63b914dbdb7c007c702fcbe129a"
+    },
+    "content/policies/employment-agreement-template.txt": {
+      "sha256": "b97c080deee6e704dc3d20d6a747cc5edc8a8cc4633ce028f203d1550883ecda"
+    },
+    "content/policies/feedback-and-complaints-form.txt": {
+      "sha256": "f6c51ecccdd1dbf0af8b27d8856089cce6d6dd72cb8919d85608e6e65272ccac"
+    },
+    "content/policies/feedback-and-complaints-policy.txt": {
+      "sha256": "727a000ab37485be99d66ddee7ce55f3763e5285108540b032ce69cca807d1c5"
+    },
+    "content/policies/feedback-and-complaints-register.txt": {
+      "sha256": "1ed4b71b699e7d1b362bcd9e9c12929e5c38bfcd5e74a0567a849dcc77453e59"
+    },
+    "content/policies/feedback-and-complaints-summary.txt": {
+      "sha256": "a5cd53a506bf8b68b9582da0f42b8561a2f6175b4adfafae5eafef7eaae1f0cd"
+    },
+    "content/policies/feedback-complaints-and-incident-considerations.txt": {
+      "sha256": "62f51b758369c5ee38f5dcb4a8958946c8f93b4b2756deaaf678cf5a93503e6b"
+    },
+    "content/policies/governance-and-operational-management-policy.txt": {
+      "sha256": "add86029d3d80b437b229afef05589262620a9bf5e975674e69f554d1b4707be"
+    },
+    "content/policies/governing-personnel-skills-and-performance-review.txt": {
+      "sha256": "46e0c205bd9341b997b3b04152a86892df5f572f54a0b891fdc2d668cf38ff76"
+    },
+    "content/policies/hazard-identification-checklist.txt": {
+      "sha256": "25c2cc05a171f25055c8ea3ee809c0b109ed088fbb849572e8a270791416cce0"
+    },
+    "content/policies/home-risk-assessment-checklist.txt": {
+      "sha256": "bce393540d40a11e41d5fc73c4af85e73f0a8643d95c1c9f18b5c1284cd5f909"
+    },
+    "content/policies/human-resources-management-policy.txt": {
+      "sha256": "449036820cb6d1c48db0fd3ef8a4be6d84f37e549122c088b0b8bec247ad68e1"
+    },
+    "content/policies/incident-management-policy.txt": {
+      "sha256": "4d43db1f11de42c4f46caa2cd0c79285daef75684f82cb1e9d33f00e4503c20b"
+    },
+    "content/policies/incident-management-register.txt": {
+      "sha256": "5116e9ba2334b201d8483ec26ad2618b0fd3e7e62a9580289eb75f00b0046142"
+    },
+    "content/policies/incident-report-form.txt": {
+      "sha256": "8b57b81b3c63e85545b79f7a64113b3fb6c5759ba1791dc7b09cf8914c9309e4"
+    },
+    "content/policies/index.json": {
+      "sha256": "5f1ac43d9f216ef3917fc0f0745630f743df1cc2b27b9f3897441d318472ab4b"
+    },
+    "content/policies/infection-prevention-and-control-policy.txt": {
+      "sha256": "155900e9c571e94dbcd048ad605ac60433d01d0ef66f5c69e8b475881f859594"
+    },
+    "content/policies/internal-audit-schedule.txt": {
+      "sha256": "79f5735feda0645af09e264d7ef6143d613ea7b659dd988eaf1c3fd7099a6e19"
+    },
+    "content/policies/job-candidate-interview-form.txt": {
+      "sha256": "ac135aa80062de324e6f7cb51e07b552643ad9901dfe6f7f89134af52e069362"
+    },
+    "content/policies/legislation-register.txt": {
+      "sha256": "6f30103c0fb645588d356c46a7b996b83d6db4a6aca06a54ad95691bb4d2bfac"
+    },
+    "content/policies/living-alone-safeguards-procedure-s73g.txt": {
+      "sha256": "af93d45d526f0acba190b66b9ab310d94d0eadfe1e77ad35b033e4097693e70c"
+    },
+    "content/policies/management-meeting-agenda-and-minutes.txt": {
+      "sha256": "96f78f65c701315a3bf87c5cd9165b4979f52c30b69ef416ab3285e2b177dcfb"
+    },
+    "content/policies/management-of-medication-policy.txt": {
+      "sha256": "2a40832073323bae0b913eca49002485876530e2fbcd1bdc5014aeeb6092a8c3"
+    },
+    "content/policies/mealtime-fluid-chart.txt": {
+      "sha256": "2205e4d7e5dd121c65e61f59e0ae194494c148ca340a872d27018af976d34230"
+    },
+    "content/policies/mealtime-management-plan.txt": {
+      "sha256": "1ee2bb89f9b7a817a78bc430cba9bde4203ed5eb1539aab45d0ea52d21273e67"
+    },
+    "content/policies/mealtime-management-policy.txt": {
+      "sha256": "95605c5672224cb3fd7fe93293c04fc42c0a35a40b81505198208b6b1b2bb280"
+    },
+    "content/policies/mealtime-risk-assessment-checklist.txt": {
+      "sha256": "3ae5fab5c3c183d1d7c574e1bd9716f492b78cc308ee0ef05d3a4b0547532701"
+    },
+    "content/policies/medication-competency-assessment.txt": {
+      "sha256": "f0b1dd36099cff4552b9ea0f23fb7a57ca2aa4067852f5e803b40037f4b1f3dc"
+    },
+    "content/policies/medication-consent-form.txt": {
+      "sha256": "ee5695484371408fb4cf0a98f29c72dbd8b85e3dc956256a6d532d30f18f2592"
+    },
+    "content/policies/medication-incident-report-form.txt": {
+      "sha256": "91a3fe5b98a80b67c1ce9c85cd6527235b1883bf52c396e0391dfc460b07bab1"
+    },
+    "content/policies/medication-plan-and-administration-form.txt": {
+      "sha256": "150c5549ec2d2c68c93717b038b16bdd2b1013ecf1a35084b1cba4de6692c48e"
+    },
+    "content/policies/medicine-register.txt": {
+      "sha256": "f27dd451d8f307a0a9229611ba297e53d904fe63ecef3085329ffb28d4b9ada8"
+    },
+    "content/policies/ndis-reportable-incident-form-5-day-notification.txt": {
+      "sha256": "a1bdcea22ab814746daab41f46aa4c96f9ad84be646b570887af031df885790b"
+    },
+    "content/policies/participant-emergency-plan.txt": {
+      "sha256": "52118d0c802868c3879739b520aaa3c71cfb23e3df7c810ebc34d0d58438bb9b"
+    },
+    "content/policies/participant-exit-and-transition-form.txt": {
+      "sha256": "d6278dd1e7e3636192d82398318acbac4219e4ce3aaf99e100341be64383fb7c"
+    },
+    "content/policies/participant-file-notes.txt": {
+      "sha256": "2b8bbbea9a8f3cdc155e4cfe4cf67fdd97c0dd80e342462b09c1db8e9c4929e9"
+    },
+    "content/policies/participant-induction-checklist.txt": {
+      "sha256": "bdc47e0a928f3ad0df8db5a5b7d799160ccb402df143501af90b8d488932cb21"
+    },
+    "content/policies/participant-information-booklet-easy-read.txt": {
+      "sha256": "ca28df33d94cb7a9e1ddab896737450c6e9cb2b3e9c00d52c3838f6e92676f75"
+    },
+    "content/policies/participant-information-booklet.txt": {
+      "sha256": "66721585bf9f4f6723b4ebf99fb206790754e33a5e6dfc5a2d6ec17f019ac795"
+    },
+    "content/policies/participant-intake-form.txt": {
+      "sha256": "a2357cb95d7b15dd0d712eb6729a8ab15625332ad3f7c070b5e9ee3346f6d08b"
+    },
+    "content/policies/participant-money-and-property-declaration.txt": {
+      "sha256": "70885afd1bc87280e2b7782653fcd5b1bca620543b8b7e85ceddd8df88e044ce"
+    },
+    "content/policies/participant-money-and-property-policy.txt": {
+      "sha256": "27e714c2f958c6497c168333a832a35f358646483a2b6cf4d6abb423052b1f61"
+    },
+    "content/policies/participant-rights-and-responsibilities-policy.txt": {
+      "sha256": "9d802a3a8e665a4798707d1ce5deb853d2e5e7d3c0d7b7b293065dcbd05f5f18"
+    },
+    "content/policies/participant-risk-assessment-form.txt": {
+      "sha256": "8d8e1dffd727243bb96068934df275342abc1298c0521f81f15df87607e29366"
+    },
+    "content/policies/participant-satisfaction-survey.txt": {
+      "sha256": "b51031529f602058d1a73db23e833f3009662548d8b7efbc72a403ecdf8ffa0b"
+    },
+    "content/policies/participant-support-plan.txt": {
+      "sha256": "e87daf1dec8eb9c3c49d4b8885d81e0529aa9855f000ac2680e4456a5dd76405"
+    },
+    "content/policies/performance-improvement-plan.txt": {
+      "sha256": "f0e1b6fa35198bbf82914ba2489dce619a0476207a05c9884a075239a8e527f8"
+    },
+    "content/policies/position-description-director.txt": {
+      "sha256": "77965e3e36196d4fffe3328e95b4ad2b03ec1f8b78ec8cb48b1818c997de5268"
+    },
+    "content/policies/position-description-disability-support-worker.txt": {
+      "sha256": "5b1df101e3d621357a582602e273a4065820d0262ebcee7e380f84ad534633a4"
+    },
+    "content/policies/position-description-template.txt": {
+      "sha256": "eb0e54bf3c475b8baea35ee71854d9668ef9dbf3a67bebe2df7fea4d91db1259"
+    },
+    "content/policies/potential-staff-reference-check-form.txt": {
+      "sha256": "660afb4733c4938c172346708ad27add01c867fbd42dcf85849a6edbe6832469"
+    },
+    "content/policies/pre-employment-form.txt": {
+      "sha256": "4b8b96f8ea4964d35cde1c03cdbdb4bd963a0abb97e7b06e6ba2405e23959bd5"
+    },
+    "content/policies/privacy-and-information-management-policy.txt": {
+      "sha256": "6898cbe9aa6181cdb993778cc52b9f0d98b8eafd63c31b1fd5bc78ffd52c6e06"
+    },
+    "content/policies/privacy-consent-form-easy-read.txt": {
+      "sha256": "2545e2a437e99e3bd65f8d71d343d142aa6aff90b219f72aa97f9dacf173abc7"
+    },
+    "content/policies/privacy-consent-form.txt": {
+      "sha256": "e35e9de4b0149471b012fecf4cbca4c4520e23282c55838ba94fb2b5a4bf2174"
+    },
+    "content/policies/referral-form.txt": {
+      "sha256": "cd01315eadd2062bd5d2b56a2b1257f58fc0425389e5c82abee5b83ba38a9e31"
+    },
+    "content/policies/restrictive-practices-register.txt": {
+      "sha256": "8879f8b892bb46cd5c002e7cbd3c462bf232fff1c269f3eb6aac895ef31154c2"
+    },
+    "content/policies/risk-indemnity-form.txt": {
+      "sha256": "f84f106b88211841e76a02902f0fa1a9947bd7e88b0c71b5aba83bdde19b71fa"
+    },
+    "content/policies/risk-management-policy.txt": {
+      "sha256": "05d9d6b67285ed4949242cc497cc6f034737272cb47526db2834b4455ebf0e35"
+    },
+    "content/policies/risk-management-register.txt": {
+      "sha256": "41e258f803361c749005c987d83d459fc048b3a7c0378bfc1740f867e0e112c3"
+    },
+    "content/policies/schedule-of-supports.txt": {
+      "sha256": "399dc9c052a51a185cf59622f6f480e35f0ff8cde5f6ac42e3f52529d59fa4a8"
+    },
+    "content/policies/sda-and-sil-collaboration-agreement.txt": {
+      "sha256": "566487e84f4d258ba43dc6776d2e39f7096de8bead052a9f518e9524d18062b9"
+    },
+    "content/policies/sil-service-agreement.txt": {
+      "sha256": "e12e034f9257b8f9c394e798480e70c56add5dd9fd4e13b3f583189609ffb694"
+    },
+    "content/policies/staff-handbook.txt": {
+      "sha256": "824bc92613f1a91a1ccf620a5df7a0b9864689ed9e168155a49a9d6809f1aae3"
+    },
+    "content/policies/staff-meeting-agenda-and-minutes.txt": {
+      "sha256": "2799c801b75d12ba0b256d9f8d8a4c041eeb4cdedc63272d7472d57359312f11"
+    },
+    "content/policies/staff-performance-appraisal.txt": {
+      "sha256": "4d4b2bcff4491e60eef419b105711919c60e24c30c076b37a7edd96110e75010"
+    },
+    "content/policies/support-record-timesheet.txt": {
+      "sha256": "37dfe2158db77fadc0a42bd0c72a1191d60325c5d7abf9c42eca9aaa6bb4694a"
+    },
+    "content/policies/supported-decision-making-procedure.txt": {
+      "sha256": "d132d5592f162b3f5af5b1f7e567ff4790e170b030acb2eea29dcfb9b8e92da1"
+    },
+    "content/policies/supported-independent-living-information-pack.txt": {
+      "sha256": "9ed0afd37b2a70dea7c0f5ef86196804ec219f18d4adfc6246abf36660b05ddc"
+    },
+    "content/policies/supported-independent-living-policy.txt": {
+      "sha256": "22985ff058df5c13b7f307eeedaedabea59968d3365fca987daccec33a566e48"
+    },
+    "content/policies/tenancy-and-support-separation-statement.txt": {
+      "sha256": "3a506812ab61fc112ab5c0fe5c49439b3452c0defa40403b8143beabd91030d4"
+    },
+    "content/policies/training-and-development-plan.txt": {
+      "sha256": "9b08e98dd0888bb88234e777deff0b1fcf1594f000e3c17d8bf9512d53aea83b"
+    },
+    "content/policies/training-and-development-register.txt": {
+      "sha256": "fbe952cc05d9a3a0f69df0b7e0c767822c08db13acbc8027d13a7ddf120d6a4a"
+    },
+    "content/policies/training-evaluation-form.txt": {
+      "sha256": "cbc014eb09c737a08b84b4ed7a14609d782e2e2b2d976f7f6c7c5d65ede5371c"
+    },
+    "content/policies/transport-and-vehicle-safety-procedure.txt": {
+      "sha256": "b3dcb89a6bc6126457f383406921a4d6b49194db50e3e7744e32454e6ee388da"
+    },
+    "content/policies/violence-abuse-neglect-exploitation-and-discrimination-policy.txt": {
+      "sha256": "51c13c660071985eddc869cd3ea153daaffb0a2c950bd5b17f7b65584f471aaa"
+    },
+    "content/policies/whs-risk-management-matrix.txt": {
+      "sha256": "fd9eb6e9f437c14e7baa19f32559347051396336cadafdcaf43da00dae98ade6"
+    },
+    "content/policies/work-health-and-safety-policy.txt": {
+      "sha256": "09a61acc7b4e0f47b5a7ae36d77df518851b8ed673c6dfeaff9c09a0c5b75ea5"
+    },
+    "content/policies/worker-declarations.txt": {
+      "sha256": "8c9663638aafc9be66cf4436eb38eb5157fb45e408f6214a633307b4f61b4561"
+    },
+    "content/policies/worker-exit-checklist.txt": {
+      "sha256": "3eb81981c6b362b8dbf9f64ab902ffa07344f54a4ad4aba7c8c9377abb1201f4"
+    },
+    "content/policies/worker-exit-interview-form.txt": {
+      "sha256": "d0972223c1093075713dc04b1b32b11a01a78cc41d6c4fa8696e557ff318c4f8"
+    },
+    "content/policies/worker-induction-checklist.txt": {
+      "sha256": "b1e1e5bf12675629148955c6457c41762f66774b1759df4706283242b95f08db"
+    },
+    "content/policies/worker-screening-policy-and-procedure.txt": {
+      "sha256": "4b06f9649a8c95ffcb8c311966175906c64c4aca29fcf46a6cc6264aa7461571"
+    },
+    "data/au-localities.json": {
+      "sha256": "639b8f0e11159a460ee3dbea4813e9e7314c684bb0afbf208e2101883fbf631c"
+    },
+    "docs/GRAPHICS-REDESIGN.md": {
+      "sha256": "2c691864ff1fcc0680c03cb4a32e31f3bb36cda644aa87f921b8efa5bc1a3420"
+    },
+    "docs/GRAPHICS-TEST-RESULTS.md": {
+      "sha256": "c28b6a029ddb258f6577b6f5b6a71d7113cf93a48ccf92d12ba053c359e18921"
+    },
+    "docs/IMPLEMENTATION-MATRIX.md": {
+      "sha256": "22356457ffaf447b21fb62210ee3faeb310ed443dee15aac1d4b3a65b60b95a0"
+    },
+    "docs/RELEASE-NOTES.md": {
+      "sha256": "9b3e97e7113dd94fcea8ccb51501ef3a73dca1bccc82a981fcff6293c606b8f5"
+    },
+    "docs/TEST-RESULTS.md": {
+      "sha256": "02e561d92a31e994021c10559496f93a77e4f6907d741938f8e5ce88248aabb8"
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "4a3f68009526e7b97be94716ca9a823a3b3f9563926508ca0f8750842d07e015"
+      "sha256": "29fc5afe1057813826469fe4a6e013b93b4546b949cf1803cec4d933c5ae822c"
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "df18f85382e6e546b6a0562eb42dbc135494b87e102608069b973b0c049b7f2b"
+      "sha256": "6f8b5505e21f2f9b01f98d8b2b0203bfc058eb42349deda92c8320b7353075a6"
+    },
+    "docs/graphics-asset-http.json": {
+      "sha256": "83c95f6733f48d799353d36cb15116aa9424d0cbb2a760fe3f114734c2e0c46b"
     },
     "docs/graphics-baseline.json": {
-      "sha256": "0da22bd72489b63ebf7fdad987ff0918959735691c4b6a49fedf05bf27c8dc0c"
+      "sha256": "ff008413c7907419720dee03809f8a2aa381bb6654d189ae90061b8e5c2346ec"
+    },
+    "docs/graphics-boundary-audit.json": {
+      "sha256": "c9de40a5d78eecfa3faf8fbaf034a372bfb13d523193d26ff5b5c01ca02b04f3"
+    },
+    "docs/graphics-server-presentation-audit.json": {
+      "sha256": "0a090583b88b37b63794e2c8d0177b0c77baf042cf3e7a26eede92322dd0762d"
+    },
+    "docs/graphics-ui-audit.json": {
+      "sha256": "592449119372cc8ea2d015b104fc7e34eac4b0dbb4a9ae18d62ffd2944912fee"
+    },
+    "docs/history/IMPLEMENTATION-MATRIX-before-v88.1.5.md": {
+      "sha256": "9ad3249203f07c7e698c22ac4e0e071e025958c3acba40f4c42796987b526260"
+    },
+    "docs/history/RELEASE-NOTES-before-v88.1.5.md": {
+      "sha256": "47f0890ba16acf877a89020519278cf6c020eafd452a6ec1a6f03ab020e96781"
+    },
+    "docs/history/TEST-RESULTS-before-v88.1.5.md": {
+      "sha256": "70d68917657f4eb6ee3ad398024c11e537da3cd7078b564bb33e271ebd44e9ed"
+    },
+    "docs/legacy-start-here-v86.12.txt": {
+      "sha256": "52a1fbb61aa52797bd0cad810bcd9cbf6b5972939e1bf898ff7b683adfb4ee06"
+    },
+    "docs/policies-folder.json": {
+      "sha256": "c2540544bb51584837c24648f470e6bb2bdd1703df0cb0c0e1417c0d0e46b00c"
     },
     "docs/release-metadata.json": {
-      "sha256": "b7bb610fd595c119e3ab67833e525345ba10dbbd93e860e64688885b2042ac7c"
+      "sha256": "5a2c93927c0b4fd3fa3072ee6895179883f7dd16d47bddb173c37dceef365dc7"
+    },
+    "docs/validation/check-output.txt": {
+      "sha256": "b052405632d23028f8f03e86564e63aa4615e0ff4b9e4c2314605a2e3bce8671"
+    },
+    "docs/validation/rendered-ui-summary.json": {
+      "sha256": "0c00ab633572ec5abc3d7773a2dad99657541a0cd364a10edfcecbf0dfd4ceac"
+    },
+    "docs/validation/upgrade-check.json": {
+      "sha256": "0a6201ee67719138b756dc0e7eca3d4bd0cc4d883320f1c6cb65a71f4839b772"
+    },
+    "forms/p-advocate.pdf": {
+      "sha256": "a8c898cc4a2b56f8c44d388846a900873e8a3331f6d1027e7e85766400281ac7"
+    },
+    "forms/p-agreement.pdf": {
+      "sha256": "12c0e0af6fce4cf3f4e6505316e56dd894955e270790eaccfbda4560dc5a4915"
+    },
+    "forms/p-consent-privacy.pdf": {
+      "sha256": "d2f4eb98835f6c4b027b9d5e24a9148c1c51c72518801fa88668a583ff614e02"
+    },
+    "forms/p-emergency.pdf": {
+      "sha256": "23754041feef81a3678aa26b824eeb4754a4a09d0df9f951ffb11c5b0c06c6ee"
+    },
+    "forms/p-exit.pdf": {
+      "sha256": "8565bd9433ccc97e032a86e04fc2a097cde4263a506b85768a4f5a9370a2d1f4"
+    },
+    "forms/p-intake.pdf": {
+      "sha256": "4c5e4b1c639b99d33396ef543544f4c621332213ee0536590bcd527b08daa6cc"
+    },
+    "forms/p-mealtime.pdf": {
+      "sha256": "72cfd0bf8274989f0fd1eb5d679228a1000e1c788e3e3987b3e10e5454fb3429"
+    },
+    "forms/p-medication.pdf": {
+      "sha256": "3c2fa40fc0a32bd672b2f34354892f6594b3ba438607a3ac2b05d5a7ca91b4ae"
+    },
+    "forms/p-money.pdf": {
+      "sha256": "e0a1205a4020ab4765fa183209aa435539d1076c6764bd91ccecb0717da3ba50"
+    },
+    "forms/p-risk.pdf": {
+      "sha256": "f507b7fcd77f5b653de1636d9240a5ef7a8ea0a81aca3b0d98687a6420c3e398"
+    },
+    "forms/p-satisfaction.pdf": {
+      "sha256": "7a249ccdd1eb5c864d7b516188dbf9fa90ab8019cdbe02600e6526341c318146"
+    },
+    "lib/active-hours.js": {
+      "sha256": "a74a0e6bb0296bfb2e78d3ec54df69f0be8b6cd5a432f3a07ab72aa42ce1c98a"
+    },
+    "lib/assignment-policy.js": {
+      "sha256": "7768378d7fc1a0f31234cb51c4b85cf1f81af00e19110ea27d4e146a03dc6219"
+    },
+    "lib/booking-time.js": {
+      "sha256": "8b19e4afab3110651a57b506278eb353331125f911231db9d66a542e58c131c5"
+    },
+    "lib/bookit-hardening.js": {
+      "sha256": "b3c5e0a08893b92eb02ab2dedc8611b8f1e0963dfc54850a658b989155d75d14"
+    },
+    "lib/confirmation-proof.js": {
+      "sha256": "41552fb4455c973059e6e8d03c3265a379a6711133b043c3ee0f46690dfa944d"
+    },
+    "lib/message-pagination.js": {
+      "sha256": "5262ad0331c46edc7dc4e0f3321d2e3ae6bb1c297c372a1a20cf11647c23b930"
+    },
+    "lib/migration-runner.js": {
+      "sha256": "6e51ab1c7528b0fd56e6a85143b4e9662722c683818e5410a4b99b4664dfbca9"
+    },
+    "lib/plan-access.js": {
+      "sha256": "ec3486e48554d3484aef34397e92cb746b21f6d6204eed1a72343b3f090d2393"
+    },
+    "lib/referral-policy.js": {
+      "sha256": "8b50e4d004a0ab70765cb53733e98e421767378f7021b71af9075e795adc5d92"
+    },
+    "lib/register-access.js": {
+      "sha256": "4a3e0d4eb30f2b5b8f7e4a27772926cd27a5d7901ee5e2d5fee14c4194d7d8bf"
     },
     "lib/travel.js": {
-      "sha256": "b51d216e783f28e7e80e651dd471edd27f96a2e239efb5565aa054e4066a9a07"
+      "sha256": "411eba27dcf4a52c26f56397529237b3b2b21220b92db2ef4aadc38bb72ec135"
+    },
+    "lib/version.js": {
+      "sha256": "a5ecf379b92cd983270adaadfe2c3ea6818d1cb21fa7cf6183ad391b055f4cce"
     },
     "lib/worker-availability.js": {
       "sha256": "e3b6369c30583ba580edb9982ee2d90ecd76c36b771a464f12a08a389ba6562b"
@@ -27,32 +493,617 @@
     "ops/README.md": {
       "sha256": "b56a37ab197a88010e8def88096e5aca9efdf1fd0fe31b41a3309f4735751717"
     },
+    "ops/bookit-backup.service": {
+      "sha256": "6d2b26d79c35ef91a1f8979c86849ae6f21a215cadfb12e390d6fd0732617fad"
+    },
+    "ops/bookit-backup.timer": {
+      "sha256": "65bafd60044e3d30d98ab6d0a21ccca993933578452ba69452431b233d84914e"
+    },
     "package-lock.json": {
-      "sha256": "94031e3ddad5996f53eedf2019d8dbe9ecc929aea6400df67437c0237da238fb"
+      "sha256": "f0b30eb77b9c48e4c6da0182a8dd36f55f0572239d49a64dd9adcd58fa4bc94f"
     },
     "package.json": {
-      "sha256": "d2e93b0650dba78107140850fd8ed2056ca7bc322443aec244be5724ec00b342"
+      "sha256": "b724df08faf3b6e15a09142df53f0faa2ec47d07ed446aa69e74c20ff2aa6b10"
+    },
+    "prefill-walkthrough.js": {
+      "sha256": "8cdc0cba5675f33b4ccefc4cdebf896c8933b68ac2fedea86ea13a5f3115235b"
+    },
+    "public/assets/bookit-a11y-dialogs.js": {
+      "sha256": "3fec0ce36ef5c9762ad3cd62296711f44b8d282292b2f842b074ed597fde012f"
+    },
+    "public/assets/bookit-review-improvements.js": {
+      "sha256": "85127137403a02322b4ae273f248598bca105792bdd13314d65bb3f5af9c3862"
+    },
+    "public/assets/bookit-worker-load-guard.js": {
+      "sha256": "59ee362d51afb0acfe0a532eeb5659a942d956a61b1aa553aac07db505f3ac16"
+    },
+    "public/assets/care-cast/bench-reader-atlas.webp": {
+      "sha256": "c6901e0b3216b362c24970b7578bc726573497aabb1743e32ab9e1efee51e02e"
+    },
+    "public/assets/care-cast/bench-reader.png": {
+      "sha256": "2eb26fd896df438af17a0772bbba82a02a51ce119432233afe1ea7f37f269203"
+    },
+    "public/assets/care-cast/chat-bob-atlas.webp": {
+      "sha256": "4e234e615680abac46fbd64a565336a832d7bed486688b29d0ce6d72019c2b38"
+    },
+    "public/assets/care-cast/chat-bob.png": {
+      "sha256": "fa2b79e8c92357ddc4e4c2bf98f18bdd071e7d29d268b59a43700e526343ba04"
+    },
+    "public/assets/care-cast/chat-red-atlas.webp": {
+      "sha256": "e1be8767f45652c01f2e46b8ecd953678b296645d16bac3ae778152b5bf7895e"
+    },
+    "public/assets/care-cast/chat-red.png": {
+      "sha256": "7e7360906d523720215c759fdd7710584ded01a134b45fe8398ba9192d98a224"
+    },
+    "public/assets/care-cast/dog-walker-atlas.webp": {
+      "sha256": "c0552c14d84d61b1845b1990b5c66e411e23716c95c92ef9227c22b2dc845d51"
+    },
+    "public/assets/care-cast/dog-walker.png": {
+      "sha256": "d66d6759376a0be1f8d54a04d7dbe2b648bdb0f3ca35e32f678cd7d901be653f"
+    },
+    "public/assets/care-cast/gardener-walk-atlas.webp": {
+      "sha256": "f115773f14660a969a0df0658dbff707c50798720642e7fb4b8fa9af10c4b4ec"
+    },
+    "public/assets/care-cast/gardener-water-atlas.webp": {
+      "sha256": "5730ef02ed4ae2156b6aff23a933381756475061e50a85cc2ca1b56a4be94934"
+    },
+    "public/assets/care-cast/gardener.png": {
+      "sha256": "96e9c69c8e862920a2928cf70a88d4e5834fe5e126a51dd94d8340bf2a98c43c"
+    },
+    "public/assets/care-cast/mower-worker-atlas.webp": {
+      "sha256": "a18c4b391a9171bc50395bcaaa8b62306266f32f925cc812c1713a1a0e210ac0"
+    },
+    "public/assets/care-cast/mower-worker.png": {
+      "sha256": "ac1068b0753fa3adecec8ddb8c9cc188d73a9cbfa64361a75887ea050a7f0535"
+    },
+    "public/assets/care-cast/wheelchair-pair-atlas.webp": {
+      "sha256": "6d40940242dbe9d5701f8e227b54a1738e896f66aebf7c247ead93f4ea27dd8e"
+    },
+    "public/assets/care-cast/wheelchair-pair.png": {
+      "sha256": "a3701b23c25908906efde86e79141936aa7c7807bffae04775e5f753b42cd141"
+    },
+    "public/assets/careweb/app-icon.png": {
+      "sha256": "e4c193bfb1c9ffa4f0c4d5ac93bf5326e23458922d8fab1b16a93ad0b07ccc2f"
+    },
+    "public/assets/careweb/apple-touch-icon.png": {
+      "sha256": "f74572147867f77a96791ef73968b81549c217fc40800c1f988e18c4e660e1aa"
+    },
+    "public/assets/careweb/design.css": {
+      "sha256": "bbeff2888c6787e8d5cfb357c59b26355478bd3a43227a7e43404907c9f06364"
+    },
+    "public/assets/careweb/favicon-32.png": {
+      "sha256": "3f957714532461ddbc05347dec67c77db906c6b7673092891dda98f8ddf167cf"
+    },
+    "public/assets/careweb/favicon.ico": {
+      "sha256": "cef91509b94629e6c761ff4a29886dd1bb313cb1da07f7b25845540bfe95e168"
+    },
+    "public/assets/careweb/icon-192.png": {
+      "sha256": "075e324d882effa4ce3efee1f169b5f4e16e021fba4cd36b4edb18251bda79b7"
+    },
+    "public/assets/careweb/icon-512.png": {
+      "sha256": "c0bc2921597fa52bd271094ace2d99a8f2f6b32e8bbc84bbfa73442c824f0c33"
     },
     "public/assets/careweb/identity-source.json": {
       "sha256": "f86a120806e903f4081fff59c399622ccf37c5bd0a0694d11dc9792a5ca1891c"
     },
+    "public/assets/careweb/logo-icon-reverse.png": {
+      "sha256": "a495c2affb97e7610309c328abfbc1089419a3a3fddc70dff260b3767cbba46e"
+    },
+    "public/assets/careweb/logo-icon.png": {
+      "sha256": "66e3cdf0c511b08215626658fd8f4a6c25bd82af55f0f9da484776234652614b"
+    },
+    "public/assets/careweb/logo-stacked.png": {
+      "sha256": "7854a06e1974d18d00a5d28d382972d5b8dd67ae3208e3ffb6163dc0f06812db"
+    },
+    "public/assets/careweb/logo-wordmark-reverse.png": {
+      "sha256": "3a9e78e41631f9d18146fc8c86676f60d9a5236e08abe256794a735f75184ded"
+    },
+    "public/assets/careweb/logo-wordmark.png": {
+      "sha256": "e0da6cca0ac62e75b0e2f7150d5acd53da518e530865c144bd93302e535fbbaa"
+    },
+    "public/assets/careweb/site.webmanifest": {
+      "sha256": "8edd342960f23fdbbda843a6d1605ecf642d40ad70a9a0bc085c5b2600ce0257"
+    },
+    "public/assets/careweb/social-card.png": {
+      "sha256": "4bae10a4d737e4d1407b0708e819587e54132aee0fa74b8093f212b398771ed3"
+    },
+    "public/assets/careweb/visuals.js": {
+      "sha256": "1fad00da6ee7510a2a15a8645639fa2779fdefc386c8a3f3ea95918307f8a72d"
+    },
+    "public/assets/characters/bench.webp": {
+      "sha256": "b87de71cde7861bff2695d0f4cb143822f121f8650d1911ba228bb6eeddd0aaa"
+    },
+    "public/assets/characters/friend-a.webp": {
+      "sha256": "7d50f52130be4242c5e3ea18b5774d2167c4a23e8c43a94399726f7348ecd298"
+    },
+    "public/assets/characters/friend-b.webp": {
+      "sha256": "ce847522e1d9f944e751f1a62c70c17e1a7fee262b679d4c43de53dbe7d6cd9a"
+    },
+    "public/assets/characters/gardener.webp": {
+      "sha256": "1ce9a31aa43f7e64e9854df0434469f14b0ed4e535484e027b3035facdb5fe50"
+    },
+    "public/assets/characters/mower.webp": {
+      "sha256": "19fcfa0c1c93bd5b2337d852cd2119a2dc63b5a502c695426d6dc2210addd566"
+    },
+    "public/assets/characters/pair.webp": {
+      "sha256": "4be819757dc31dd04508667d82b5a9307fe600d95172aab39b75d104fccb9919"
+    },
+    "public/assets/characters/walker.webp": {
+      "sha256": "d79c89634c1b915ef37e7a9ad7e924947e75909370253e3a805b3ba632bedf7e"
+    },
+    "public/assets/fonts/LICENSE-FRAUNCES.txt": {
+      "sha256": "cd3384cafac6f2bddc3955273958a2e029f97027c8037ac539ef5744a77b579e"
+    },
+    "public/assets/fonts/LICENSE-INTER.txt": {
+      "sha256": "3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345"
+    },
+    "public/assets/fonts/LICENSE-SORA.txt": {
+      "sha256": "1ec9623d38c445eb4dfe5fcc783e0f0ee728cc97ca157ce1f8cb2b3bf9d9b0d9"
+    },
+    "public/assets/fonts/fonts.css": {
+      "sha256": "7cf9296559438e062fe8211ad64188c4c39d52ce90753601c12796f2b4acdc58"
+    },
+    "public/assets/fonts/fraunces-latin-ext-opsz-italic.woff2": {
+      "sha256": "4983926d3a16544eedcd2233448bd8a43f711e7bf1fabaae8431e78e0b798635"
+    },
+    "public/assets/fonts/fraunces-latin-ext-opsz-normal.woff2": {
+      "sha256": "a2930b27d13a228bd9ab6a49269b5f800237892ad560cb9dd7fab01b1620f88e"
+    },
+    "public/assets/fonts/fraunces-latin-opsz-italic.woff2": {
+      "sha256": "066710ce7ed235a339d3d6cdcc8b55c0bea5632232662d83aacea25852108271"
+    },
+    "public/assets/fonts/fraunces-latin-opsz-normal.woff2": {
+      "sha256": "7234ed860a9cc83045413c4faee63c960a8f2d1917adcf728119307d56e0d783"
+    },
+    "public/assets/fonts/inter-latin-400-normal.woff2": {
+      "sha256": "8909904ab6c872eb994093482a88a28eca2cd95912d7b6fecd72103b0dc07edc"
+    },
+    "public/assets/fonts/inter-latin-500-normal.woff2": {
+      "sha256": "f3779f1efccc4bdcdf9c0a02ab95bf6bd092ed09c48c08cedc725889edd1d19f"
+    },
+    "public/assets/fonts/inter-latin-600-normal.woff2": {
+      "sha256": "f9a06e79cd3a2a20951c0f0e28f66dd0e6d3fda73911d640a2125c8fcb78f21a"
+    },
+    "public/assets/fonts/inter-latin-700-normal.woff2": {
+      "sha256": "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491"
+    },
+    "public/assets/fonts/inter-latin-ext-400-normal.woff2": {
+      "sha256": "6744a7f509ebc6ab220a6cd4ea77e898adf014f03d88dcda5d45d8a9feefb4e9"
+    },
+    "public/assets/fonts/inter-latin-ext-500-normal.woff2": {
+      "sha256": "2c6fbc42d315528beb06c1096df45487bf4186c4b78b8111d12c9c951f8acca2"
+    },
+    "public/assets/fonts/inter-latin-ext-600-normal.woff2": {
+      "sha256": "e4bdf67b0cd15ca9e184509275be95db942195d3cc2b17f6a0452f2adf75d0bf"
+    },
+    "public/assets/fonts/inter-latin-ext-700-normal.woff2": {
+      "sha256": "143f9504f1377012aa3e39c90c4354ef429cb0494b9ac0e1437f1a81e5412236"
+    },
+    "public/assets/fonts/sora-latin-500-normal.woff2": {
+      "sha256": "edd010ebf2f4940b52d8b98296a499c0a783d838e427fa301c67f80959c1f441"
+    },
+    "public/assets/fonts/sora-latin-600-normal.woff2": {
+      "sha256": "fa9ab76f30510ad92153c6d6d72d0508884b85e9f0148abdfa963231b2a4845a"
+    },
+    "public/assets/fonts/sora-latin-700-normal.woff2": {
+      "sha256": "c3337a673c9bbbfe433091d3831714dd9a257951f16f41eb3fc650ec593cfac2"
+    },
+    "public/assets/fonts/sora-latin-800-normal.woff2": {
+      "sha256": "b3058cd014993defb5c446d9ccdeba7f994c4b7f0ff2b50b2b213944af0f176e"
+    },
+    "public/assets/fonts/sora-latin-ext-500-normal.woff2": {
+      "sha256": "0685d4dea03a9d6b26479cf5018cfcce9521278f946bba7935983f973539d75e"
+    },
+    "public/assets/fonts/sora-latin-ext-600-normal.woff2": {
+      "sha256": "2c17a94fef4242d1c33ffcc9bb43c7eb93ad88db53409c1067ac23cc914523e2"
+    },
+    "public/assets/fonts/sora-latin-ext-700-normal.woff2": {
+      "sha256": "d4d06da761976749e6f33a3640ae610301491d65bc3f1c56faa2489b520a7ac7"
+    },
+    "public/assets/fonts/sora-latin-ext-800-normal.woff2": {
+      "sha256": "ad60c66b26562add545450c8979fb23d755916d8fed90b0855d7bb45a5d944c5"
+    },
+    "public/assets/photos/_spare-kitchen.jpg": {
+      "sha256": "dc2359807a0e47daa3ccba83cd877e6e7057098b85553d22ab22393d0280c69a"
+    },
+    "public/assets/photos/community-1168.avif": {
+      "sha256": "c9daee7835cdc424d1fdd4267877e835165b4321c52c5ad30d211adbfe168f54"
+    },
+    "public/assets/photos/community-1168.webp": {
+      "sha256": "d4dd61ce6192a300bddf9324d1c8b7c649bf0bf1e5a2c26d43444fc5b3829a7c"
+    },
+    "public/assets/photos/community-480.avif": {
+      "sha256": "30b595ac7c53da5967c591714a0edc4507397d79b58b096fbded4fd4990344b8"
+    },
+    "public/assets/photos/community-480.webp": {
+      "sha256": "4270074aa2b24c0b53553699016a02e96dea08368a64aa83efd93afb4df074e9"
+    },
+    "public/assets/photos/community-4x3.jpg": {
+      "sha256": "00b180d93d09b80976630d281aba55b0a28b4f20ba9faea52f9daf7bcbcc94ed"
+    },
+    "public/assets/photos/community-768.avif": {
+      "sha256": "5f8729034b7f9441d6dbeccbf6fe06a720f96bcaa8b2805cb9b48e265cbe308f"
+    },
+    "public/assets/photos/community-768.webp": {
+      "sha256": "6b0ff67cc4a1cc95c8c415368333de49d0777853e7adf94eca6c1378f5e95242"
+    },
+    "public/assets/photos/community.jpg": {
+      "sha256": "4f2673e40162d6b094ebf38406e4edbeaa4b9b0d670d5a0ac76d489ade69ecc7"
+    },
+    "public/assets/photos/daily-tasks-1168.avif": {
+      "sha256": "ca57bbe5f731a6efab94ed9e8f35216e674fe2c66f236a35c22fae9fa87ebd21"
+    },
+    "public/assets/photos/daily-tasks-1168.webp": {
+      "sha256": "952f96f0f70568d9cf58f409d230c369f89389262e1fb9a302e136bfec904ae3"
+    },
+    "public/assets/photos/daily-tasks-480.avif": {
+      "sha256": "0d3557538381860966bb2ebbf0d045da118df996bd4ca1e22fb093c6a281495f"
+    },
+    "public/assets/photos/daily-tasks-480.webp": {
+      "sha256": "558ffa9f5c97b76357c33e01dffcc3bbf287bcc5dfc2c43d8c827687755e7e5b"
+    },
+    "public/assets/photos/daily-tasks-768.avif": {
+      "sha256": "03812961a6daec9078bf63310a6c30d0825f64e88270558fdc00a512e43f2990"
+    },
+    "public/assets/photos/daily-tasks-768.webp": {
+      "sha256": "d4e7070dcb04c160668f473ace8386121487215aaf2157d5570ddf07bd01744d"
+    },
+    "public/assets/photos/daily-tasks.jpg": {
+      "sha256": "fe00083088473f2298e8c2721e9895bc96ae43c88179ada31f6c98dd97e66213"
+    },
+    "public/assets/photos/employment-1168.avif": {
+      "sha256": "986c2ee400d8457c84687c92054f5543fa549580b628a4f9a8eaca3b4c7f5b77"
+    },
+    "public/assets/photos/employment-1168.webp": {
+      "sha256": "dafab208795ae41b3bb11e2d38b3997d3d16549d33787872cb96f5c6767a69d3"
+    },
+    "public/assets/photos/employment-480.avif": {
+      "sha256": "404087a24482c962837d06444a9851cc39be0d2bb5647266d28a99c2b7509e74"
+    },
+    "public/assets/photos/employment-480.webp": {
+      "sha256": "32ecd1a015b5d022c934ef962c9c94b5b6b27ba4ff6a688938e003f53409fbd1"
+    },
+    "public/assets/photos/employment-768.avif": {
+      "sha256": "d748c3544a694b622a85facc774f2923f9d746c5a63130417f1f49d787d67bb9"
+    },
+    "public/assets/photos/employment-768.webp": {
+      "sha256": "fb4bf157fa45e62d0b17450f7af22c383e00caaf7c72834bcb57417a4db15db4"
+    },
+    "public/assets/photos/employment.jpg": {
+      "sha256": "f53fbacc7bce2df16a20643296257ee078cfdef0794596932f11662832fde414"
+    },
+    "public/assets/photos/household-1168.avif": {
+      "sha256": "f0759f47ff55ef17e805e2754007d938b51635b9892337801fb71954e279367d"
+    },
+    "public/assets/photos/household-1168.webp": {
+      "sha256": "a517dc01bad05dd3382d5d7913c810da180079442f63569046760b4a6f6cc03c"
+    },
+    "public/assets/photos/household-480.avif": {
+      "sha256": "e983ec266f872c4b1a358c9dc67b073582574da90d8bc32d06d6a4f60c5c42d3"
+    },
+    "public/assets/photos/household-480.webp": {
+      "sha256": "d201ffe6456681485f340c38308bda201bb03ef1646ac0979dfe5d9723c2cab3"
+    },
+    "public/assets/photos/household-768.avif": {
+      "sha256": "e5f850aa1deddc7a21e397256ebd50728dcc559ed06f331543d5be09426f3525"
+    },
+    "public/assets/photos/household-768.webp": {
+      "sha256": "5fdc97e63c82ee194bb340db32ba0923a9ec6524402eb9403483eb8565500a53"
+    },
+    "public/assets/photos/household.jpg": {
+      "sha256": "bf157dd77527295b2250af0868f9b0ba347a73250908e7b41f287d3a876a2118"
+    },
+    "public/assets/photos/og.jpg": {
+      "sha256": "2b8a4da575d6726a156b753636552bf07bafe638e44b5febf9035fab8bdffcc2"
+    },
+    "public/assets/photos/personal-care-1168.avif": {
+      "sha256": "22c0df270cdedac93bc4e9cbf37ff8ce6354f4a6ca091293eed7706898acc4ec"
+    },
+    "public/assets/photos/personal-care-1168.webp": {
+      "sha256": "bc726777732e914add257ae6d485007af4606cd48d3fcf74dab32fa10701c20b"
+    },
+    "public/assets/photos/personal-care-480.avif": {
+      "sha256": "96ae3ceb9b2b7cc1276fc619cd568972f952d262bfeeedf746d8d65ef8d7f04e"
+    },
+    "public/assets/photos/personal-care-480.webp": {
+      "sha256": "03609934c0f4e569adb282ad981f9fe35c2b25a51597f38df248bcd48064bcd7"
+    },
+    "public/assets/photos/personal-care-768.avif": {
+      "sha256": "b48c66c453ba56e0592afdede31c4fb143c129201dd02a2861ea54e101a44d46"
+    },
+    "public/assets/photos/personal-care-768.webp": {
+      "sha256": "7cc3a17958205695cf0fe93b0d312eb66c93f6a809d0615fd9ede95ed196943b"
+    },
+    "public/assets/photos/personal-care.jpg": {
+      "sha256": "dcf8d66f6ea39eb07e24e5a5233c0f611cbbba836a6cd0830850119d2a1655a1"
+    },
+    "public/assets/photos/transport-1168.avif": {
+      "sha256": "74f2df741d0df2f83b9c946b1c9cf37f5807850c5b133ccb7880cab4a4e3bf63"
+    },
+    "public/assets/photos/transport-1168.webp": {
+      "sha256": "6b6c5b24cae86aa29f9f605cdf30bc86377f7f5de7bfc7c4427b3a09dd307716"
+    },
+    "public/assets/photos/transport-480.avif": {
+      "sha256": "865242fd441e4944603acb292e48f199160ce235652977ff42fa30a05f78f606"
+    },
+    "public/assets/photos/transport-480.webp": {
+      "sha256": "de6e55da5939857d0a31fc3041f80799055257fd4d483ff5b5d0ff747be98edc"
+    },
+    "public/assets/photos/transport-768.avif": {
+      "sha256": "35b98ed0b1d10b00afdc9649585764752e0d68bc5fca0b556be392d629e980ab"
+    },
+    "public/assets/photos/transport-768.webp": {
+      "sha256": "3aa6a57ef40dbd83b6907fd7379b0bb4b87932989c70c51d0ead6efa3571e606"
+    },
+    "public/assets/photos/transport.jpg": {
+      "sha256": "73232964fb0aa6f80e7a0d72d0f099972f80206d82d20ab4bb27b3e9042b2077"
+    },
+    "public/assets/policy-fill.js": {
+      "sha256": "496076e19c6deea0aa28b217c328dba220803247816c14c1be77f6ca1a72280f"
+    },
+    "public/assets/policy-register-access.js": {
+      "sha256": "98cdc38a1d2b6fc94e01550f8ba7d5403b47d1c7a8a96452577b8e0b0fe9f47c"
+    },
+    "public/assets/policy-register-state.js": {
+      "sha256": "6fe55b1b1a4f577239945c40c6b450d4a8b81e88872e884a9155ac6e5f0d5d67"
+    },
+    "public/assets/scenes/community-real.jpg": {
+      "sha256": "9b8f3378789499ca95eada4c3799d10767a616d3984f2392f7dc7e3006f48db1"
+    },
+    "public/assets/scenes/community.jpg": {
+      "sha256": "5a1ffbc6b37a8967b1f8df50e970f71e4020a04f56659be0c34b46239812df8c"
+    },
+    "public/assets/scenes/community.mp4": {
+      "sha256": "45824c2efb2ad0a39b157b5b17a1722ad8dcd4f467f3a8b813a546a5092047df"
+    },
+    "public/assets/scenes/community.webm": {
+      "sha256": "c6fa2926d20e493b95771de3db3c17792aa231b4ee7ce66e5c8203b6d3202ac4"
+    },
+    "public/assets/scenes/daily-tasks-real.jpg": {
+      "sha256": "340279d245bd64d540e1135b48447d0fa2f24eee6f4e8a4c62b47650178372e1"
+    },
+    "public/assets/scenes/daily-tasks.jpg": {
+      "sha256": "f87e1808aaf25d2e46f32d25b9f9f54d6b65870965215b4104a9ce6850f54497"
+    },
+    "public/assets/scenes/daily-tasks.mp4": {
+      "sha256": "2f8d06d5e6b0e734d82bc71cc073882548a0073522c3f487d534a950438309b2"
+    },
+    "public/assets/scenes/daily-tasks.webm": {
+      "sha256": "80aae4bca8b79e742150c2ac732ebf74d137dbef931a4c28dfefa2ad2a018a31"
+    },
+    "public/assets/scenes/employment-real.jpg": {
+      "sha256": "756e260eb3f690ea5c02ebb4b5906624a4680103f3819add3a674f3bee30f36e"
+    },
+    "public/assets/scenes/employment.jpg": {
+      "sha256": "8c46e4924abd5beb278818353085efd89e65a993f8a4ebe4c5398116447b8dc4"
+    },
+    "public/assets/scenes/employment.mp4": {
+      "sha256": "cf44f4c2543c0231872e5cd3cbaa7bbba6b0212c81023a43ad77400a825d4fd5"
+    },
+    "public/assets/scenes/employment.webm": {
+      "sha256": "99baf0723c48e9cda868c92032ae10fd76525bb0be513d08e0e6bb449a9a99a2"
+    },
+    "public/assets/scenes/hero-park.jpg": {
+      "sha256": "01b7d903e864306b8f2520640cb862f12dca9679eb3a59303f4343e1dc5e1ad9"
+    },
+    "public/assets/scenes/hero-park.mp4": {
+      "sha256": "0467424ca8d10f3597e1cbdf2a52a8e4d45a4ce2dced4b26fccb5f51e4a1dd75"
+    },
+    "public/assets/scenes/hero-park.webm": {
+      "sha256": "ab451a1844186712a3ef7fd31131ae5c5dea0860e967ac287cb4c2863074ba74"
+    },
+    "public/assets/scenes/household-real.jpg": {
+      "sha256": "760e201bf5e0bcb25fb7a619fd9e3768b6d375713afc532d22319b7d98677d20"
+    },
+    "public/assets/scenes/household.jpg": {
+      "sha256": "ed3111e7de75b1fe4237640e1a4b4ed98bd4c66079bc73675784dbef974f3fce"
+    },
+    "public/assets/scenes/household.mp4": {
+      "sha256": "5ccca312fa80628fca039c35dc8500c3d586d70f3676c7360aa4327c5eb1eed4"
+    },
+    "public/assets/scenes/household.webm": {
+      "sha256": "d5a2038180e5deea59f04522bdf4db0b35d32433692c553a306f5a72e6ac70f9"
+    },
+    "public/assets/scenes/personal-care-real.jpg": {
+      "sha256": "6fe048d49d9414c306a6673172256212f6ebe85ec5dae7dc34b25218ff111333"
+    },
+    "public/assets/scenes/personal-care.jpg": {
+      "sha256": "8cf235516fc2f5bbc90a37b64b9e523325a3335c09af2963b2fdc18df5ba3b82"
+    },
+    "public/assets/scenes/personal-care.mp4": {
+      "sha256": "4d31b138fc25f05e7b787ce112f9bd4b6de02c73c2ed61662e02f6e717caf2f2"
+    },
+    "public/assets/scenes/personal-care.webm": {
+      "sha256": "d333ae69110b81331f3af28157b434488d9f27ce95db5cb746206ec21fad172e"
+    },
+    "public/assets/scenes/transport-real.jpg": {
+      "sha256": "5b8635780c9e1ccd3f5548ef9b694c2cb4d35099838f9cf730bf26b9fa749b6a"
+    },
+    "public/assets/scenes/transport.jpg": {
+      "sha256": "6ab0563c98f02dd94f71be50ec20afb52cc1f3bafd5bedcd349ca22d1828c676"
+    },
+    "public/assets/scenes/transport.mp4": {
+      "sha256": "7cbe35e4e3f4d9351b23874ee7c8392940132a53dfe18a1a2ce4f5599aa406e6"
+    },
+    "public/assets/scenes/transport.webm": {
+      "sha256": "de0d86c88ef8880ee9c4485b8fd0cb7f1e5dc22743499601642a75140c0f0579"
+    },
+    "public/assets/tiers/tier-bronze.svg": {
+      "sha256": "4ee70282487c047f50585170748e985e308314f74b293a480485b8f9612e374b"
+    },
+    "public/assets/tiers/tier-gold.svg": {
+      "sha256": "6695a1571591815c35c9a7fbbfaa4dacce01391aaccad1d919615fd8c523c3f0"
+    },
+    "public/assets/tiers/tier-platinum.svg": {
+      "sha256": "4efdf661f9762a2258779382eee7a737de4fd57d4bd98252b056bcb8d9430e7a"
+    },
+    "public/assets/tiers/tier-silver.svg": {
+      "sha256": "f5530a058abf08a89840c32bb80616f6b417a92b9c3325e392fc04c02a7a0af8"
+    },
     "public/index.html": {
-      "sha256": "49c103eae7e922c4f8d03c894cf8e5d890dd385d871b92a691c3b4756f2487ab"
+      "sha256": "f778c83e772233fb7fe2c4964227313203a57c1bbcb1acf84425e390aab00234"
+    },
+    "public/vendor/care-cast.js": {
+      "sha256": "6461468f0755d4797be60b29095744fdd701de092ae8f7f5fc1ee60149aa9a37"
+    },
+    "public/vendor/care-core.local.js": {
+      "sha256": "7a8d2c6f090d05893e15c1c75ef45cce235d00780d40d62d3a90589185b52edb"
+    },
+    "public/vendor/care-motion.js": {
+      "sha256": "a58785040e39f67a1888d456d99a608a26895ebf694de9c1bb29f6a4d91056a9"
+    },
+    "public/vendor/care-nav.js": {
+      "sha256": "9e8128f190e20486206d8fa740a4b3b9633230cd8e365dd0e9c932dc1e102d69"
+    },
+    "public/vendor/care-stages.js": {
+      "sha256": "f465666a517a4287004b81eb3cb19a1036a7208f02521108060d451920799173"
+    },
+    "public/vendor/package.json": {
+      "sha256": "609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8"
+    },
+    "public/vendor/three.core.min.js": {
+      "sha256": "79f2b4f58d3e99a9948a4d3b7f6d5c2daf705bdefe9fb82ebec715623966551c"
+    },
+    "public/vendor/three.module.min.js": {
+      "sha256": "06552c54e4071fbc7305117aafe6765d92c5d2a2a83507d4f05b9bf4f3d4d463"
     },
     "readme.txt": {
-      "sha256": "45bbc7dd9b777fa90b3d1ccf811732b52c1d0185ba59cfb82822d72e5684c3f3"
+      "sha256": "bd1e862ef4b75920795e62ae039679a3bfcb3fa2e3bc1086e1c3bd2e8cb75ea1"
+    },
+    "scripts/NDIS_plan__sample_for_walkthrough.pdf": {
+      "sha256": "8ef1ce7de6bc4247997252664267635ee011b51362f57699bbcb0e688dd55e82"
+    },
+    "scripts/backup.js": {
+      "sha256": "ca0afa60dbbdac67e6e784949d62caaef17f9a6d7e7e58e2f92e1829d3dc1873"
+    },
+    "scripts/dbq.js": {
+      "sha256": "150baa43a17bedcd66ad7beaa3762bf2d2e91e90326772c3ef87621dc61a510f"
+    },
+    "scripts/inventory.js": {
+      "sha256": "16b7123c64425b843bead7f0f5b0afbc10b94ea1a87bee32658e794bdde56eb6"
+    },
+    "scripts/lint.js": {
+      "sha256": "2eda58deb3c0374dff2e6da7da1418eb5bdb025d4540898f2180f8e3d2e21555"
+    },
+    "scripts/prefill-walkthrough.js": {
+      "sha256": "b0f50dcdcca749b56ffa16024c7a1f2ea1d9841c77d86d1ca2d82027f06a630d"
+    },
+    "scripts/prefill-worker-training.js": {
+      "sha256": "ea54bcd8fb61e1acff0f7b1290e45fd0a8e67b11df6b47fa88948341a2214e19"
+    },
+    "scripts/release-docs.js": {
+      "sha256": "793203804a9dae218dde17804992ff9d6c03617c57c76b8b00d4190420509538"
+    },
+    "scripts/reset-test-agreements.js": {
+      "sha256": "1b9b724eb295c8b652d80b07471a53487794ffef80da699dc8122d1ffcdf663f"
+    },
+    "scripts/reset-walkthrough.js": {
+      "sha256": "fb18e5eb9fbb30e3b06ceaaa755470b0c95bfeea4a3a3a6577ca224d205974a3"
+    },
+    "scripts/review-existing-data.js": {
+      "sha256": "43ff943ba5ff4642ef2da2a237a5cf213ce4822b3e462bcfae134b7f6bf17a26"
+    },
+    "scripts/test-environment.js": {
+      "sha256": "6c38b37eb3fd94ed563101e017d3c6fed2ef7a785c3988ee49d506e7e763112c"
+    },
+    "scripts/verify-release.js": {
+      "sha256": "8952d95bced1c7bc3acd23875a4a4180ff537540d21c8f86fb85e78ce16dcfd1"
     },
     "server.js": {
-      "sha256": "7a800440e4b9be0e5e6500b797fd1ba4faadc16b1dfa11e915beb2972454ae05"
+      "sha256": "d9535a06a7be34e57d475fdd12b0937cf9c3a1b3869c686c07f435bc13c81e2b"
+    },
+    "tests/audit-fixes.js": {
+      "sha256": "c33024a84f6eed5e9a07768dac7590fae02ca6c0da20cd8616a425e2b77e56ee"
+    },
+    "tests/audit-unit-tests.js": {
+      "sha256": "912da0513f4464984679c19aefcee2d40d19835216d178922681a29989a3baf2"
+    },
+    "tests/clash-tests.js": {
+      "sha256": "e03eafb83c4f9a4036ff710ddb779cc56bef69af27df142490c0175bdf067356"
+    },
+    "tests/fixtures/Feedback and Complaints Policy.docx": {
+      "sha256": "b0fa79ff1b02bbf56efe14182e0f2ce6c9bee05f163862f1ddc8cb8ad8a80dbb"
     },
     "tests/graphics-tests.js": {
-      "sha256": "e813dcaa318748a9acc6eef18cbade42c88efd999778bb7ccf91994ec5eedac7"
+      "sha256": "8913abe5b0039cb4f50bb65e8e46eec49a1a154967240ab0eafe8c571afa0422"
+    },
+    "tests/review-regression.js": {
+      "sha256": "254495febc62893665be808cb243ba98b7a4dfb74cd491e2e82007974728d243"
     },
     "tests/review-unit-tests.js": {
       "sha256": "062bf7abda19c5391b8cc9343c2d845949e6a3cb091770f610bdda9c640d3401"
     },
     "tests/smoke.js": {
-      "sha256": "c1b056949c383e1908ced065f1c4c636efe4aa7f33489ddff28a3382fe43d53d"
+      "sha256": "a7ff7780ad1f8749f8944e790b86b9045a222d4947a18edb8f923f857da2e6d9"
+    },
+    "validation/v88.1.5-audit-fixes-output.txt": {
+      "sha256": "58e61f89063a311fee5e3ac6bceecf0df57668926712f63eb1d6bdd8fe31db4e"
+    },
+    "validation/v88.1.5-audit-fixes-results.json": {
+      "sha256": "b5938177b012a37b63fe87746a3efb1d18deb66c9cdb4abd24038e4133ec960d"
+    },
+    "validation/v88.1.5-audit-unit-output.txt": {
+      "sha256": "4284c28c2f547308f0b22d8f11596bd035c2484907f2c2b8ff5d20941603579f"
+    },
+    "validation/v88.1.5-backup-missing-output.txt": {
+      "sha256": "788879bdd2bc18bf6ada72b534c5f48a3dc4ffac4bcd1845d044b7f3a0e47117"
+    },
+    "validation/v88.1.5-backup-output.txt": {
+      "sha256": "a8f40cfdce303e512a272767861fc4028e6a6f8bc1c80445a7c78ffad5e1a534"
+    },
+    "validation/v88.1.5-check-output.txt": {
+      "sha256": "670675c52b3c7fc162f72df1b708c5b4ae6476e49452dd3922d18c83fb1ff8eb"
+    },
+    "validation/v88.1.5-check-receipt.json": {
+      "sha256": "78a9b55b90ec76e9fa557513e9c65e40be8733d7544b769128762ca28cfaae0a"
+    },
+    "validation/v88.1.5-lifecycle-output.txt": {
+      "sha256": "081e755a257f9bfc41c8a019153ffd6b0afa4292a412be54d0ffd207462a2579"
+    },
+    "validation/v88.1.5-lifecycle-results.json": {
+      "sha256": "8ba78a2373e74481151111d26eed087b7428c69790b28bb0c60bb87c86bf517a"
+    },
+    "validation/v88.1.5-upgrade-output.txt": {
+      "sha256": "ea76980d9b36fa75e16c1d521eb3054076b18f355ef35850c603a35429ceb23a"
+    },
+    "validation/v88.1.5-upgrade-results.json": {
+      "sha256": "d2c711ba9e30e6e5cc46c92b544d82c81a5cd88ce86273606b5b70a3d1804bfd"
+    },
+    "word-originals/Advocate or Support Person Request Form.docx": {
+      "sha256": "b08a58697fd2b2ca5b6096ce69e04fd37605db685f4002299167c79cd9526210"
+    },
+    "word-originals/Mealtime Management Plan.docx": {
+      "sha256": "ad26a46e5cbd20ff36947b754e58387d517d463a82cba0ca95a8b050c1ca8be1"
+    },
+    "word-originals/Medication Consent Form.docx": {
+      "sha256": "c15cadc959ee0fbfd9460e79a1b15ec4514539cfb6f73dc81fdaf2ee713ba407"
+    },
+    "word-originals/Medication Plan and Administration Form.docx": {
+      "sha256": "23ad14abb3859a7525e73b15c07493b4a6f7e807b35b4e5bfb7b929a065d22d2"
+    },
+    "word-originals/Participant Emergency Plan.docx": {
+      "sha256": "fd66272de7316972ca56ecbb77574cfcd2095ab76f7445b0b32995bd197b07d1"
+    },
+    "word-originals/Participant Exit and Transition Form.docx": {
+      "sha256": "9a92f6c8ea81ec364dc39f1c1077103b629391ef8d6bf965b9174a6331983dc8"
+    },
+    "word-originals/Participant Intake Form.docx": {
+      "sha256": "0fd1d7185e13c36d3cbd267bca3c18e8415b00e2d78c6886064bc30d0edd5351"
+    },
+    "word-originals/Participant Money and Property Declaration.docx": {
+      "sha256": "8ad39202c88bb1a22615def4b702e40d79b8c1a0639f468391604b21802ae5ed"
+    },
+    "word-originals/Participant Risk Assessment Form.docx": {
+      "sha256": "039bdd53a1060076c74c899b4b2bed32f9373c55da359b4f84479e77c6720e2a"
+    },
+    "word-originals/Participant Satisfaction Survey.docx": {
+      "sha256": "1fc1ba1e9ef9be90db9d213ef7cdedd9609b7b2f3665e27b9dc959c73ddd291d"
+    },
+    "word-originals/Privacy Consent Form.docx": {
+      "sha256": "a4eeffedde57fec3f29d6b6354589da393f3d6c29c89a7d9839d7848eac3b356"
+    },
+    "word-originals/Service Agreement_.docx": {
+      "sha256": "8fb07e28ba0a8ec56757511ebe9cd1fb25de00d657ec5311309af0fa60483b01"
     }
   }
 }
