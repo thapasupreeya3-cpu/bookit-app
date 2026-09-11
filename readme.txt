@@ -1,13 +1,11 @@
-The Care Web v88.1.4 — source-review corrections and workflow improvements.
+The Care Web v88.1.5 — complete source package.
 
-Read STARTHERE.txt before uploading or deploying. This is an overlay for the
-uploaded v88.1.2 repository, not a replacement for its unchanged assets.
-Extract the ZIP and upload its contents at the existing repository root.
+Extract The-Care-Web-v88.1.5-source.zip; use the contents of bookit-app-main at the
+repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
+This release adds scoped register access; the office must grant worker access.
 
 Install/check: npm ci --ignore-scripts && npm run check
-Refresh generated release documents: npm run release:docs
-Read-only existing-data triage on the authorised host:
-  node scripts/review-existing-data.js /actual/path/to/bookit.db
+Refresh generated documents: npm run release:docs
 
-See docs/IMPLEMENTATION-MATRIX.md, docs/RELEASE-NOTES.md and docs/TEST-RESULTS.md.
-The release has not been pushed to GitHub or deployed to the live site.
+See docs/RELEASE-NOTES.md, docs/IMPLEMENTATION-MATRIX.md and docs/TEST-RESULTS.md.
+The package has not been pushed to GitHub or deployed to the live site.
