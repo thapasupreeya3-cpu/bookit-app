@@ -1,0 +1,28 @@
+{
+  "release": "88.2.0",
+  "command": "npm run check",
+  "exit_code": 0,
+  "runtime": "v24.19.0",
+  "timezone": "Australia/Sydney",
+  "syntax_units": 50,
+  "routes": 360,
+  "tables": 77,
+  "suites": {
+    "clash": 21,
+    "smoke_pass_records": 231,
+    "review_unit_assertions": 46,
+    "review_api_scenarios": 25,
+    "graphics": 54,
+    "audit_unit_groups": 8,
+    "audit_api_scenarios": 23,
+    "workflow_scenarios": 32
+  },
+  "source_hashes_verified_at_gate": 384,
+  "log_sha256": "f0213c7cba46544ffa6f2db920e2a4b668eb8244ed4e35ff9ff8947864c52ec6",
+  "notes": [
+    "Counts refer to different assertion/scenario granularity and are not summed.",
+    "Evidence files added after the gate are included in the final regenerated and verified payload manifest.",
+    "No source code changed after the release gate.",
+    "Declared Node 22 and native browser/provider validation remain staging checks."
+  ]
+}

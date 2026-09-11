@@ -11,9 +11,9 @@ const baseline=JSON.parse(read('docs/graphics-baseline.json'));let total=0,faile
 function t(name,ok,detail){total++;if(!ok)failed++;console.log((ok?'PASS  ':'FAIL  ')+name+(ok||!detail?'':'  ('+detail+')'));}
 /* the page's structure the design must not disturb */
 const routes=/const ROUTES = \{[\s\S]*?\n\};/.exec(html)?.[0];
-t('the route map is unchanged',hash(routes||'')===baseline.route_map_sha256);
+t('existing route map remains with one additive journey route',hash((routes||'').replace("\n  '/journey': 'page-journey',",''))===baseline.route_map_sha256);
 const ids=[...new Set([...html.matchAll(/id="(page-[\w-]+)"/g)].map(m=>m[1]))].sort();
-t('all page containers remain',JSON.stringify(ids)===JSON.stringify(baseline.page_ids));
+t('all page containers remain',JSON.stringify(ids.filter(id=>id!=='page-journey'))===JSON.stringify(baseline.page_ids));
 for(const id of ['heroSearch','heroSearchInput','homeServices','allServices','homeWorkers','homeFaq','workerGrid','mainNav','burger','navClose','a11yOpen','a11yPanel','btnLogin'])t('interactive element present: #'+id,html.includes('id="'+id+'"'));
 /* the logo: the approved artwork, in the places it belongs */
 const ident=JSON.parse(read('public/assets/careweb/identity-source.json'));
@@ -45,5 +45,5 @@ t('no story claims claiming is automatic',!html.includes('Claiming is automatic'
 /* the animated site is the one that ships: the hero reel and scene videos are still there */
 t('the hero reel is present',html.includes('id="heroReel"'));
 t('the six scene videos are present',(html.match(/data-scene="/g)||[]).length>=6);
-const ver=require('../lib/version');t('additive permission/review schema is identified as 87001',ver.SCHEMA_VERSION===87001);
+const ver=require('../lib/version');t('additive permission/review schema is identified as 88200',ver.SCHEMA_VERSION===88200);
 console.log(`graphics: ${total-failed}/${total} passed`);process.exitCode=failed?1:0;

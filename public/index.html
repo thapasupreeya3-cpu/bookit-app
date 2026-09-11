@@ -1780,6 +1780,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 @media(max-width:900px){#page-admin .set-layout.no-sub .set-body{display:block;margin-top:18px;}.review-dialog{padding:16px;}}
 </style>
 <script src="/assets/bookit-review-improvements.js"></script>
+<link rel="stylesheet" href="/assets/process-workflows.css">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
@@ -1812,6 +1813,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <li><a class="nav-link" href="#/bookings" id="navBookings" hidden>Bookings</a></li>
         <li><a class="nav-link" href="#/shifts" id="navShifts" hidden>Open shifts</a></li>
         <li><a class="nav-link" href="#/admin" id="navAdmin" hidden>Admin</a></li>
+        <li id="navJourney" hidden><a class="nav-link" href="#/journey">Next actions</a></li>
         <li id="navForWorkersLi"><a class="nav-link" href="#/support-workers">For support workers</a></li>
         <li class="dropdown" id="ddAbout">
           <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddAboutBtn" type="button">About <span class="caret">▾</span></button>
@@ -3442,7 +3444,7 @@ html.high-contrast .care-stage-block{display:none!important;}
               <label class="choice-pill"><input type="radio" name="pPlan" value="self" checked><span>Self-managed</span></label>
               <label class="choice-pill"><input type="radio" name="pPlan" value="plan"><span>Plan-managed</span></label>
               <label class="choice-pill"><input type="radio" name="pPlan" value="ndia"><span>NDIA-managed</span></label>
-              <label class="choice-pill"><input type="radio" name="pPlan" value="none"><span>No NDIS / private</span></label>
+              <label class="choice-pill"><input type="radio" name="pPlan" value="private"><span>No NDIS / private</span></label>
             </div>
           </div>
           <div class="field">
@@ -3531,7 +3533,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <h2 id="gsSuccessTitle">You're in! 🎉</h2>
         <p id="gsSuccessMsg" class="mt-1">Thanks — we've got your details. In the live platform you'd now verify your email and land in your dashboard. Our team would be in touch within one business day.</p>
         <p class="form-note" id="gsDemoNote">Demo note: nothing was sent or stored — this prototype keeps everything in your browser's memory only.</p>
-        <a href="#/" class="btn btn-primary mt-2">Back to home</a>
+        <a href="#/journey" class="btn btn-primary mt-2">Open my next actions</a>
       </div>
     </div>
   </section>
@@ -4724,6 +4726,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 
 <!-- PAGES-INSERT -->
 
+<section class="page" id="page-journey" data-title="Your next actions — The Care Web"><div class="flow-shell"><div class="flow-head"><div><h1>Your next actions</h1><p id="flowPerson"></p></div><a href="#/account">Settings</a></div><nav class="flow-tabs" id="flowTabs" aria-label="My workflow"></nav><div id="flowContent" aria-live="polite"></div></div></section>
 </main>
 
 <!-- ============ FOOTER ============ -->
@@ -5048,7 +5051,7 @@ const FAQS = [
   {q:'Can my worker drive me in their car?', a:'Yes. Workers providing transport hold a police check, a valid licence and appropriate insurance. A per-kilometre vehicle allowance applies, which can be claimed from your plan where funded (0108 Assist-Travel/Transport).'},
   {q:'What can\'t I book on The Care Web?', a:'We\'re registered for personal care at <b>standard intensity</b> (registration group 0107), not for <b>high intensity daily personal activities</b> (0104) — so complex bowel care, PEG or tube feeding, dysphagia management, ventilator support, tracheostomy management, urinary catheter management (inserting, changing or irrigating one), subcutaneous injections and complex wound management are <b>specialist supports</b>: we arrange them rather than deliver them. We don\'t provide nursing either. Tell us and we\'ll introduce you to a provider registered for it who you engage directly, then roster the rest of your plan around them — <a href="#/specialist-supports">how that works</a>. We <b>are</b> registered for Supported Independent Living (Registration Group 138) — SIL is arranged as a package rather than booked shift-by-shift, so <a href="#/contact">talk to us</a> about SIL and shared-living arrangements and we\'ll set it up properly.'},
   {q:'Where is The Care Web available?', a:'We\'re available across Australia, with the deepest worker pools in greater Sydney, Melbourne and Brisbane. Enter your suburb on <a href="#/find-workers">Find workers</a> to see who\'s nearby.'},
-  {q:'How do workers get paid?', a:'Automatically, fortnightly, straight from your approved shift hours — including super and penalty rates. Workers see their full pay breakdown for every shift before they accept it.'},
+  {q:'How do workers get paid?', a:'Pay is prepared from recorded work, reviewed by the office and processed through payroll — including applicable super and penalty rates. Workers see their full pay breakdown for every shift before they accept it.'},
   {q:'Is my information safe?', a:'Your data is encrypted in transit and held on Australian servers (AWS Sydney); before launch we are verifying every supporting system — backups, email, monitoring — meets the same bar. It is never sold, and you control what appears on your profile. Our <a href="#/legal">privacy policy</a> sets out how we work to the Privacy Act and the NDIS Practice Standards.'}
 ];
 
@@ -5361,7 +5364,7 @@ document.addEventListener('click', async e => {
     if(location.hash.startsWith('#/messages')) renderMessagesPage();
     if(location.hash.startsWith('#/bookings')) renderBookingsPage();
     if(location.hash.startsWith('#/security')) renderSecurityPage();
-    if(d.user.role === 'coordinator' && (location.hash === '' || location.hash === '#' || location.hash === '#/')) location.hash = '#/clients';
+    if(['','#','#/'].includes(location.hash))location.hash=d.user.role==='coordinator'?'#/clients':'#/journey';
   }catch(err){
     const el = $('#loginMfaErr');
     if(el){ el.textContent = err.message; el.hidden = false; }
@@ -5389,7 +5392,7 @@ $('#loginForm').addEventListener('submit', async e => {
     if(location.hash.startsWith('#/messages')) renderMessagesPage();
     if(location.hash.startsWith('#/bookings')) renderBookingsPage();
     if(location.hash.startsWith('#/invite') && window.renderInvitePage) renderInvitePage();
-    else if(d.user.role === 'coordinator' && (location.hash === '' || location.hash === '#' || location.hash === '#/')) location.hash = '#/clients';
+    else if(['','#','#/'].includes(location.hash))location.hash=d.user.role==='coordinator'?'#/clients':'#/journey';
   }catch(err){ toast(err.message); }
 });
 
@@ -6283,7 +6286,7 @@ $('#workerForm').addEventListener('submit', async e => {
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
       const d = await API.call('/register', {method:'POST', body:{role:'worker', name:$('#wName').value, email:$('#wEmail').value, password:pw, phone:$('#wPhone').value, suburb:$('#wPostcode').value, services, bio:$('#wAbout').value, terms_accepted: $('#wTerms').checked, terms_version: TERMS_VERSION}});
       API.me = d.user; updateAuthUI(); loadWorkersLive();
-      gsSuccess(`Application received, ${d.user.name.split(' ')[0]}! 🙌`, 'Your worker account is created and we\'ve emailed you a link to confirm your address. Two things unlock approval: add your profile photo and your NDIS Worker Screening Check on your Bookings page. Your profile stays hidden until our team verifies them — we\'ll email you the moment you\'re live.');
+      gsSuccess(`Application received, ${d.user.name.split(' ')[0]}! 🙌`, 'Your worker account is created and we\'ve emailed you a link to confirm your address. Open Next actions for your personal checklist: identity, work rights, screening, first aid, CPR, training and office recruitment reviews. Your profile stays hidden until the required reviews are complete — we\'ll email you the moment you\'re live.');
       $('#gsDemoNote').textContent = 'Log back in any time with your email and password.';
     }catch(err){ toast(err.message); }
     return;
@@ -7012,6 +7015,7 @@ function simulateReply(workerId){
 
 /* ============ Router ============ */
 const ROUTES = {
+  '/journey': 'page-journey',
   '': 'page-home',
   '/': 'page-home',
   '/services': 'page-services',
@@ -7097,7 +7101,7 @@ const ROUTES = {
    is known and on every page change, so the red marks are always current. */
 async function loadBlockers(){
   if(typeof API === 'undefined' || !(API.online && API.me)){ if(typeof API !== 'undefined') API.blockers = null; paintBlockers(); return; }
-  try{ API.blockers = await API.call('/me/blockers', {noFor:true}); }catch(e){ API.blockers = null; }
+  try{ API.blockers = await API.call('/me/blockers'); }catch(e){ API.blockers = null; }
   paintBlockers();
 }
 function blockerCount(section){ const c = typeof API !== 'undefined' && API.blockers && API.blockers.counts; return c ? (c[section] || 0) : 0; }
@@ -7146,6 +7150,7 @@ function route(){
     const t = new URLSearchParams(qi === -1 ? '' : location.hash.slice(qi + 1)).get('type');
     showPath(t === 'worker' || t === 'participant' ? t : null);
   }
+  if(id === 'page-journey' && window.CareFlow) CareFlow.render();
   if(id === 'page-messages') renderMessagesPage();
   if(id === 'page-bookings' && window.renderBookingsPage) renderBookingsPage();
   if(id === 'page-support-plan' && window.renderSupportPlanPage) renderSupportPlanPage();
@@ -7551,6 +7556,9 @@ function outOfAreaDialog(tr){
 window.API = {
   online: false, me: null, unread: 0, actingFor: null,
   async call(path, opts = {}){
+    if(window.CareFlow && /^\/series\/\d+\/end$/.test(path) && opts.method==='POST' && !opts.body?.token){const proof=await CareFlow.prepareSeriesEnd(path.split('/')[2]);if(!proof)throw new Error('Series end cancelled.');opts={...opts,body:{...opts.body,...proof}};}
+
+    if(window.CareFlow&&/^\/admin\/invoices\/[A-Z0-9-]+\/paid$/.test(path)&&opts.method==='POST'&&!opts.body?.reference){const proof=await CareFlow.paymentProof(path,opts.body||{});if(!proof)throw Error('Payment recording cancelled.');opts={...opts,body:{...opts.body,...proof}};}
     const headers = {'Content-Type': 'application/json'};
     /* Every delegated request names the client, so the server never has to
        guess whose diary "show me the bookings" means. */
@@ -7582,6 +7590,7 @@ window.API = {
 };
 
 function updateAuthUI(){
+  if(window.CareFlow){CareFlow.nav();if(location.hash.startsWith('#/journey'))CareFlow.render();}
   const authed = !!(API.online && API.me);
   $('#btnLogin').hidden = authed;
   $('#btnGetStarted').hidden = authed;
@@ -8100,6 +8109,7 @@ function openBookingModal(w){
   $('#bkDate').min = ymd(today);
   $('#bkDate').value = ymd(tomorrow);
   syncSleepoverOption();
+  if(window.CareFlow)CareFlow.restoreBooking();
   openModal('#bookingModal');
 }
 function syncBkRateLine(){
@@ -8176,6 +8186,7 @@ $('#bookingForm').addEventListener('submit', async e => {
       return;
     }
     toast(err.message);
+    if(window.CareFlow && !err.data?.needs_setup){let alt=$('#bkAlternatives');if(!alt){alt=document.createElement('button');alt.id='bkAlternatives';alt.type='button';alt.className='btn btn-secondary';alt.textContent='Find nearby available times';$('#bookingForm').append(alt);}alt.onclick=()=>CareFlow.alternatives({worker_id:bookingWorker.id,service:$('#bkService').value,date:$('#bkDate').value,start:$('#bkStart').value,hours:Number($('#bkHours').value)}).catch(e=>toast(e.message));}
   }
 });
 document.addEventListener('click', e => {
@@ -8583,6 +8594,8 @@ let SP_CAT = null;
 let SP_VALS = {};      /* what is in the form right now */
 let SP_CARE = [];      /* [{name, on_file, filed_by}] */
 let SP_DIRTY = false;
+let SP_LOAD_GEN=0, SP_REVISION=0, SP_EDIT_SEQ=0, SP_SAVING=null, SP_SUBJECT=null, SP_CONFLICT=null;
+const SP_CACHE=new Map();
 let SP_LOADED = null;  /* the server's view at last load */
 
 async function spCatalogue(){
@@ -8667,12 +8680,17 @@ async function renderSupportPlanPage(){
       : ''}</p></div>`;
     return;
   }
+  const loadGen=++SP_LOAD_GEN,loadSubject=String(API.actingFor?.id||API.me?.id);
+  clearTimeout(SP_AUTOSAVE);
   wrap.innerHTML = '<p class="adm-empty">Loading your plan…</p>';
   let cat, d;
   try{
     cat = await spCatalogue();
     d = await API.call('/me/support-plan');
   }catch(err){ wrap.innerHTML = '<div class="info-card"><p>' + esc(err.message) + '</p></div>'; return; }
+  if(loadGen!==SP_LOAD_GEN||loadSubject!==String(API.actingFor?.id||API.me?.id))return;
+  if(SP_DIRTY && SP_SUBJECT)SP_CACHE.set(SP_SUBJECT,{vals:structuredClone(SP_VALS),care:structuredClone(SP_CARE),revision:SP_REVISION});
+  SP_SUBJECT=String(d.participant_id);SP_REVISION=d.revision;SP_CONFLICT=null;
   SP_LOADED = d;
   SP_DIRTY = false;
   const p = d.plan;
@@ -8683,6 +8701,7 @@ async function renderSupportPlanPage(){
   });
   if(!p) cat.questions.forEach(q => { if(q.type === 'yn') SP_VALS[q.key] = undefined; });
   SP_CARE = (p && Array.isArray(p.care_plans)) ? p.care_plans.map(c => ({...c})) : [];
+  const kept=SP_CACHE.get(SP_SUBJECT);if(kept){SP_VALS=kept.vals;SP_CARE=kept.care;SP_REVISION=kept.revision;SP_DIRTY=true;SP_CACHE.delete(SP_SUBJECT);}
   spPaint();
 }
 window.renderSupportPlanPage = renderSupportPlanPage;
@@ -8741,7 +8760,7 @@ function spPaint(){
     }
     if(sec.key === 'specialised') inner += spCareHtml();
     if(sec.key === 'safety') inner = `<div class="sp-notice">${esc(cat.home_notice)}</div>` + inner;
-    return `<div class="sp-sec"><h2>${esc(sec.title)}</h2><p class="sp-intro">${esc(sec.intro)}</p>${inner}</div>`;
+    return `<div class="sp-sec" data-sp-section="${esc(sec.key)}"><h2>${esc(sec.title)}</h2><p class="sp-intro">${esc(sec.intro)}</p>${inner}</div>`;
   }).join('');
 
   const foot = `<div class="sp-foot">
@@ -8758,7 +8777,7 @@ function spPaint(){
   const hist = d.history && d.history.length > 1 ? `<p class="sp-hist"><b>Earlier versions:</b> ${d.history.map(h =>
     `v${h.version} — ${fmtAU(String(h.confirmed_at).slice(0,10))}`).join(' · ')}. Every confirmed version is kept. If anyone ever asks what your plan said on a particular day, the answer exists.</p>` : '';
 
-  wrap.innerHTML = strip + how + sections + foot + hist;
+  wrap.innerHTML = strip + how + `<nav class="flow-section-nav" aria-label="Plan sections">${cat.sections.map(sec=>`<button type="button" class="btn btn-secondary btn-sm" data-sp-section-go="${esc(sec.key)}">${esc(sec.title)}</button>`).join('')}<button type="button" class="btn btn-secondary btn-sm" data-sp-section-go="all">Show all sections</button><button type="button" class="btn btn-secondary btn-sm" id="spUseIntake">Use confirmed contact details</button></nav>` + sections + foot + hist;
   spToggleConditional();
 }
 
@@ -8787,13 +8806,18 @@ function spMark(){
 }
 
 function spBody(confirm){
-  const b = { confirm: !!confirm, declaration: !!($('#spDecl') && $('#spDecl').checked),
+  const b = { revision:SP_REVISION, confirm: !!confirm, declaration: !!($('#spDecl') && $('#spDecl').checked),
     care_plans: SP_CARE.filter(c => String(c.name || '').trim()).map(c => ({ name: c.name })) };
   (SP_CAT ? SP_CAT.questions : []).forEach(q => { b[q.key] = SP_VALS[q.key]; });
   return b;
 }
 
 async function spSave(confirm){
+  clearTimeout(SP_AUTOSAVE);
+  if(SP_SAVING){await SP_SAVING;if(SP_CONFLICT)return;return spSave(confirm);}
+  if(SP_CONFLICT){toast('Review the conflicting draft before saving.');return;}
+  const subject=SP_SUBJECT,sequence=SP_EDIT_SEQ;
+  if(String(API.actingFor?.id||API.me?.id)!==subject)return;
   const note = $('#spSaveNote'), missEl = $('#spMiss');
   if(confirm){
     const miss = spMark();
@@ -8803,6 +8827,7 @@ async function spSave(confirm){
         missEl.innerHTML = `${miss.length} question${miss.length === 1 ? '' : 's'} still needs an answer before you can submit — ${miss.map(q => esc(q.q.replace(/ \(optional\)$/, ''))).join('; ')}.`;
       }
       const first = $(`[data-sp-q="${miss[0].key}"]`);
+      if(first){first.closest('.sp-sec').hidden=false;}
       if(first) first.scrollIntoView({behavior:'smooth', block:'center'});
       return;
     }
@@ -8813,32 +8838,33 @@ async function spSave(confirm){
   }
   if(missEl) missEl.hidden = true;
   if(note) note.textContent = 'Saving…';
-  try{
-    const r = await API.call('/me/support-plan', { method: 'POST', body: spBody(confirm) });
-    SP_DIRTY = false;
-    if(confirm){
-      toast('Support plan confirmed — thank you.');
-      await renderSupportPlanPage();
-    } else {
-      if(note) note.textContent = 'Draft saved. Nothing is shared until you submit.';
-      SP_LOADED.plan = r.plan;
-    }
+  const payload=spBody(confirm);
+  SP_SAVING=(async()=>{try{
+    const r = await API.call('/me/support-plan', { method: 'POST', body: payload });
+    if(SP_SUBJECT!==subject||String(API.actingFor?.id||API.me?.id)!==subject)return;
+    SP_REVISION=r.revision;
+    SP_DIRTY=SP_EDIT_SEQ!==sequence;
+    if(confirm && !SP_DIRTY){toast('Support plan confirmed.');await renderSupportPlanPage();}
+    else {if(note)note.textContent=SP_DIRTY?'New changes are waiting to save.':'Draft saved. Nothing is shared until you submit.';SP_LOADED.plan=r.plan;}
   }catch(err){
-    if(note) note.textContent = '';
-    if(missEl){ missEl.hidden = false; missEl.textContent = err.message; }
-  }
+    SP_DIRTY=true;
+    if(err.data?.conflict){SP_CONFLICT=err.data;if(missEl){missEl.hidden=false;missEl.innerHTML=esc(err.message)+' <button type="button" class="btn btn-secondary btn-sm" id="spReviewConflict">Compare drafts</button>';}}
+    else if(missEl){missEl.hidden=false;missEl.textContent=err.message;}
+    if(note)note.textContent='Your edits remain on this screen.';
+  }finally{SP_SAVING=null;}})();
+  await SP_SAVING;
 }
 
 let SP_AUTOSAVE = null;
 function spTouched(){
-  SP_DIRTY = true;
+  SP_EDIT_SEQ++;SP_DIRTY = true;
   const note = $('#spSaveNote');
   if(note) note.textContent = 'Unsaved changes — saving a draft in a moment…';
   clearTimeout(SP_AUTOSAVE);
   /* a draft saves itself. A support plan takes twenty minutes to fill in
      honestly, and losing it to a closed tab is the reason people fill it in
      dishonestly the second time. */
-  SP_AUTOSAVE = setTimeout(() => { if(SP_DIRTY) spSave(false); }, 4000);
+  SP_AUTOSAVE = setTimeout(() => { if(SP_DIRTY && !SP_CONFLICT) spSave(false); }, 4000);
 }
 
 document.addEventListener('change', e => {
@@ -10222,7 +10248,7 @@ async function renderAdminPage(){
       <span style="font-size:.85rem;color:#4A5570;margin-left:8px;">Upload it in the myplace provider portal → Bulk payment request. Mark lines paid as the money lands.</span></p>
       ${claimTable(cl.claimed, false)}` : ''}
     ${cl.paid.length ? `<p style="margin:14px 0 0;color:#4A5570;font-size:.9rem;">${cl.paid.length} shift${cl.paid.length > 1 ? 's' : ''} fully paid · $${cl.totals.paid.toFixed(2)} all-time.</p>` : ''}
-    <p style="margin:16px 0 0;"><a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/payroll.csv" download>⬇ Payroll CSV (worker shares)</a></p>`;
+    <p style="margin:16px 0 0;"><a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/payroll.csv" download>⬇ Historical worker-share register</a> <a class="adm-btn-sm" href="#/journey?panel=payroll">Review payment batches</a></p>`;
   const DAYN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const nextMon = (() => {
     const dt = new Date();
@@ -10351,7 +10377,7 @@ async function renderAdminPage(){
     <form id="admConcierge" style="display:grid;gap:8px;grid-template-columns:1fr 1fr;max-width:640px;">
       <input name="name" placeholder="Full name" required style="${inpStyle}"><input name="email" type="email" placeholder="Email" required style="${inpStyle}">
       <input name="phone" placeholder="Phone" style="${inpStyle}"><input name="suburb" placeholder="Suburb" style="${inpStyle}">
-      <select name="plan" style="${inpStyle}"><option value="none">Funding: not sure yet</option><option value="ndia">Agency-managed</option><option value="plan">Plan-managed</option><option value="self">Self-managed</option></select>
+      <select name="plan" style="${inpStyle}"><option value="">Funding: not sure yet</option><option value="private">Private funding</option><option value="ndia">Agency-managed</option><option value="plan">Plan-managed</option><option value="self">Self-managed</option></select>
       <input name="consent" placeholder="Consent, in words: who agreed, on the phone, on what date" required style="${inpStyle}">
       <button class="adm-btn-sm" type="submit" style="grid-column:1/-1;justify-self:start;">Open the account and email the password link</button>
     </form>
@@ -14219,7 +14245,7 @@ async function renderAccountPage(){
   /* --- participant payer --- */
   let payCard = '';
   if(API.me.role === 'participant'){
-    const fundOpts = [['self', 'Self-managed'], ['plan', 'Plan-managed'], ['ndia', 'NDIA-managed'], ['none', 'No NDIS / private']];
+    const fundOpts = [['self', 'Self-managed'], ['plan', 'Plan-managed'], ['ndia', 'NDIA-managed'], ['private', 'Private — I pay directly'], ['', 'Choose funding']];
     payCard = `
     <div class="info-card" style="margin-bottom:18px;" id="cardPayer">
       <h3 style="margin:0 0 6px;">How your supports are paid</h3>
@@ -15491,5 +15517,15 @@ document.addEventListener('click', async e => {
 </script>
 
 
+<script src="/assets/process-workflows.js"></script>
+<script>
+document.addEventListener('click',async event=>{
+ const go=event.target.closest('[data-sp-section-go]');if(go){document.querySelectorAll('[data-sp-section]').forEach(x=>x.hidden=go.dataset.spSectionGo!=='all'&&x.dataset.spSection!==go.dataset.spSectionGo);document.querySelector('.sp-sec:not([hidden]) input,.sp-sec:not([hidden]) textarea')?.focus();}
+ if(event.target.closest('[data-sp-first]')){const key=event.target.closest('[data-sp-first]').dataset.spFirst;document.querySelector(`[data-sp-q="${key}"]`)?.closest('.sp-sec')?.removeAttribute('hidden');}
+ if(event.target.id==='spReviewConflict'&&SP_CONFLICT){const latest=SP_CONFLICT,local=spBody(false);const ok=await CareFlow.dialog('Compare support plan drafts',`<p>Review both sets of answers. Keeping your version intentionally replaces the newer draft. Confirmed history is retained.</p><details open><summary>Your unsaved answers</summary><pre>${esc(JSON.stringify(local,null,2))}</pre></details><details><summary>Latest saved answers</summary><pre>${esc(JSON.stringify(latest.plan,null,2))}</pre></details><label><input type="checkbox" data-keep> I reviewed the changes and want to keep my answers.</label>`,'Keep my reviewed answers',d=>{if(!d.querySelector('[data-keep]').checked)throw Error('Review and confirm the answers.');return true;});if(ok){SP_REVISION=latest.revision;SP_CONFLICT=null;await spSave(false);}}
+ if(event.target.id==='spUseIntake'){try{const d=await API.call('/journey/intake');const vals=Object.fromEntries(['ec_name','ec_phone','ec_relationship'].map(k=>[k,d.data[k]||'']));if(await CareFlow.dialog('Use these confirmed details?',Object.entries(vals).map(([k,v])=>`<p>${esc(k.replaceAll('_',' '))}: ${esc(v)}</p>`).join(''),'Use details')){Object.assign(SP_VALS,vals);spTouched();spPaint();}}catch(err){toast(err.message);}}
+});
+CareFlow.nav();if(location.hash.startsWith('#/journey'))CareFlow.render();
+</script>
 </body>
 </html>

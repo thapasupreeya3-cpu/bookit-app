@@ -1,12 +1,12 @@
 {
   "name": "bookit-site-v65",
-  "version": "88.1.5",
+  "version": "88.2.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "lint": "node scripts/lint.js",
-    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit",
+    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process",
     "inventory": "node scripts/inventory.js",
     "check": "npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && node scripts/verify-release.js && npm test",
     "backup": "node --no-warnings scripts/backup.js",
@@ -14,7 +14,8 @@
     "release:docs": "node scripts/inventory.js && node scripts/release-docs.js",
     "review:data": "node --no-warnings scripts/review-existing-data.js",
     "test:graphics": "node --no-warnings tests/graphics-tests.js",
-    "test:audit": "node --no-warnings tests/audit-unit-tests.js && node --no-warnings tests/audit-fixes.js"
+    "test:audit": "node --no-warnings tests/audit-unit-tests.js && node --no-warnings tests/audit-fixes.js",
+    "test:process": "node --no-warnings tests/process-regression.js"
   },
   "license": "UNLICENSED",
   "engines": {

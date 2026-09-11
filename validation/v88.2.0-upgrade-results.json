@@ -1,0 +1,21 @@
+{
+  "runtime": "v24.19.0",
+  "checks": [
+    {
+      "boot": 1,
+      "result": "PASS",
+      "originalTables": 57,
+      "tables": 77,
+      "existingRecords": "preserved",
+      "ungrantedWorkerStatus": 403
+    },
+    {
+      "boot": 2,
+      "result": "PASS",
+      "originalTables": 57,
+      "tables": 77,
+      "existingRecords": "preserved",
+      "ungrantedWorkerStatus": 403
+    }
+  ]
+}

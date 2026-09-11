@@ -1,42 +1,37 @@
-# The Care Web v88.1.5
+# The Care Web v88.2.0
 
-11 September 2026 · full source package based on the supplied v88.1.4 archive.
+11 September 2026. Complete source release based on v88.1.5. This implements the participant, worker and office process backlog J01–J26 and retains the earlier R1–R6 fixes. Existing artwork, videos, fonts and vendor files are retained.
 
-This release fixes the six remaining issue groups in the v88.1.4 follow-up audit. The existing branding, page layout and media are retained.
+## What changes for participants and helpers
 
-## What changed
+- **Next actions** combines setup, reviews and follow-up with separate person and office responsibilities. Helpers see the selected participant and only permitted tasks and visit information.
+- Private payment is an explicit funding choice. Unknown funding still needs confirmation. Office-reviewed private billing setup is required before private bookings.
+- Shared details can prefill the support plan after confirmation. Section navigation and revision checks protect saved and unsaved plan text, including multiple editors and slow saves.
+- Matching retains schedule choices. Unavailable times offer limited alternatives that are checked again on booking. Book again and usual visits remember preferences without copying old care notes or prices.
+- Timesheets have one review inbox, an exact visit workspace and a preferred reminder recipient. First meetings and first shifts produce separate follow-up tasks; concerns become office work.
+- Optional quiet hours, routine digests and private calendar subscriptions reduce repeated administration. Changes and endings have a reviewed handover covering visits, outstanding notes, queries, invoices and helper access.
 
-- **Cover acceptance:** a successful review now retains a short-lived, worker-specific review of the current visit and plan. The current-plan access check recognises that review for out-of-area cover. Acceptance rechecks the offer, visit, eligibility, plan and expiry inside the assignment transaction. Changed or expired reviews cannot assign the visit or write confirmation evidence.
-- **Travel confirmations:** the warning returns a signed, 15-minute confirmation token bound to the actor, request, visit(s), worker areas and participant location. Confirming saves the exact displayed provider, distance, duration, origin, destination and checked time. A bare boolean cannot waive the warning. Changed details require a new confirmation. Creation, acceptance, occurrence moves, recurring edits and office assignment use the same validation. Confirmation records include actor ID and actual visit details.
-- **Register access:** shared registers begin with office-only access. The office grants individual approved workers read, append or edit rights with an expiry. Optional participant scope also requires current access to that participant. Scope changes revoke earlier worker grants. Saved entries, register pages and uploaded register source files use the same permission check. A public audience setting does not override register restrictions.
-- **Register recovery:** a failed save retains the working data and edit controls. A conflict shows both versions and offers a three-way merge for safe independent changes or explicit manual recovery for conflicting row edits. Unsaved drafts stay in memory, trigger a leave-page warning and are not placed in localStorage. Read-only users do not see editing controls; append-only users cannot alter earlier rows.
-- **Sleepover hours:** booleans, arrays, whitespace, invalid numbers, negative values, excessive hours and non-quarter-hour values are rejected before completion or invoicing. Valid numeric strings remain supported. Values are never silently rounded. The UI explains 15-minute steps and sends the actual entered value, including an empty value, for validation.
-- **Release handover:** the package, generated documents, inventories and manifest identify v88.1.5 and the actual v88.1.4 base archive. Historical receipts have been moved to docs/history. The manifest covers the complete package payload rather than an alleged overlay.
+## What changes for workers
 
-## Focused usability improvements
+- Setup separates missing documents, training and office decisions. The upload tray keeps successful files when another upload fails, detects repeat uploads and explains document purposes.
+- Recruitment has explicit interview, references and employment evidence. Workers can book or cancel available interview slots and rebook after a past interview.
+- Repeating requests can be reviewed together and selected dates accepted atomically with fresh plan, availability and travel checks.
+- Leave shows affected visits before saving and requests cover only for the selected visits. Existing work remains visible. A voluntary profile pause permits eligible accepted work while safety withdrawals and cover restrictions remain enforced.
+- The visit workspace contains the permitted brief, changes since the worker's previous acknowledgement, saved note draft, actual active hours, participant transport, completion, questions and a linked incident form.
+- Renewals show affected future visits and distinguish a replacement received from an approved replacement. Pay status distinguishes batch preparation, export and a recorded external payment reference.
 
-Availability now uses add/remove time controls and native leave calendars, with a weekly preview and an explicit midnight option. The sleepover note field has an accessible label and exact-entry guidance. Review and travel dialogs have accessible names. Homepage examples use neutral illustrative framing without testimonial stars or unsupported claims about real customer feedback.
+## Office work and automation
 
-## Office setup after updating
+The complete task queue is paginated and searchable, with assigned owners and due dates. Timing begins when a stage is observed ready. Jobs retain their lock until asynchronous work settles and record failures truthfully.
 
-1. Sign in as the office and open the needed register under `/policies`.
-2. Open **Manage access to this register**.
-3. For a participant-specific register, select that participant. Confirm all entries in that register concern that participant. Changing scope does not reorganise historical rows.
-4. Grant named workers only the rights they need, with an expiry. **Append** allows new entries while keeping old rows intact; **edit** also permits corrections/deletion in the current version. Earlier saved versions remain retained.
-5. Use separate registers for different participants. A grant exposes the whole register, so do not grant a mixed historical register to an individual care team. The office can keep such history private and create a separate register through its existing document-publishing workflow.
+Email uses a durable outbox, retries, deduplication, access/opt-out rechecks and an office exception queue. Invoice creation, its original payer/amount snapshot and queued delivery are committed together. Reconciliation keeps mismatched receipts unpaid; signed Stripe evidence must match the stored checkout session, amount, currency and paid status.
 
-An existing worker without an explicit grant will no longer see the shared register. This is intentional. Personal forms and the existing participant-specific clinical/document routes retain their own permission rules.
+Pay batches use globally stable source-line IDs, reviewed exceptions and adjustments, repeatable CSV exports and a separate external acknowledgement. Scheduled preparation is off until the office confirms the payroll cutover. This code does not submit a bank transfer or operate an external payroll system.
 
-## Database and deployment
+Optional document extraction requires configured processing, office approval and worker consent. Suggested fields show source text and confidence and require human review. It never verifies a clearance. Process reports show task median/P90 waiting times and activity/recovery events by reporting period, without care text.
 
-Schema identifier **87001** adds `cover_reviews`, `policy_register_settings` and `policy_register_access`. The migration is additive and safe to repeat. Existing register contents, history, settings and files are preserved; no grants are inferred from old free-text rows. Expired grants cease to work immediately. Worker withdrawal or loss of participant access is checked on each scoped request.
+## Delivery and limits
 
-Use `STARTHERE.txt`. This is a full source ZIP. Preserve the live database, uploads and secrets when replacing application source. The package contains no runtime database, secrets or installed dependencies. Older application versions have broader register permissions; a rollback must account for that behaviour.
+Default schema **88200**; **360 registered routes**, **77 tables** after boot. The v88.1.5 database has 57 tables; this release adds 20 and additive columns. The two-boot upgrade check retained synthetic pre-existing records, settings and an uploaded-file sample. Do not replace production runtime data with package contents.
 
-## Verification and limits
-
-`npm run check` passes locally. Additional upgrade and backup/restore tests pass. See `docs/TEST-RESULTS.md` and `validation/` for the executed receipts.
-
-The available runtime here was Node 24.19.0; the repository's declared Node 22 runtime remains a deployment verification gate. Native-browser access to this environment is blocked, so mobile layout, keyboard/screen-reader interaction and full browser save/recovery flows still need staging verification. Live email, payments, AI, cloud backup and Google services were not exercised. The route-provider tests use a local stub. Nothing was pushed or deployed.
-
-Broader performance work such as splitting the large page shell into route-loaded modules remains a separate improvement. No mobile speed score or complete accessibility certification is claimed.
+This package is source code, not a live deployment. Review `TEST-RESULTS.md` and `WORKFLOW-OPERATIONS.md`. Native browser interaction and external email, calendar clients, Stripe and AI provider round trips still require staging validation. Test results do not certify current regulatory requirements or external payroll calculations. Existing pricing rules are retained; no new tax or wage rates were sourced for this release.

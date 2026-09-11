@@ -24,14 +24,20 @@ Base supplied by the user: ${meta.base_archive} (v${meta.base_version})
 Base SHA-256: ${meta.base_archive_sha256}
 Remote GitHub HEAD and the deployed site were not accessed or changed.
 
-IMPORTANT BEHAVIOUR CHANGE
-Shared registers now start with office-only access. Existing entries and
-historical versions are preserved. The office opens a register under /policies,
-chooses Manage access to this register, sets its participant scope if appropriate,
-and grants an approved worker read, append or edit access with an expiry.
-A grant exposes that whole register: keep different participants in separate
-registers. Participant-scoped grants also require current participant access.
-Changing scope revokes previous worker grants; it never relabels existing rows.
+WORKFLOW RELEASE
+All 26 process improvements J01–J26 are implemented in this source package.
+Open Next actions after signing in. Office users also have task ownership,
+recruitment, pay batches, message delivery, invoice exceptions and setup panels.
+The earlier scoped register permissions remain in force.
+
+CONFIGURATION BEFORE USE
+- Confirm private billing arrangements and tax treatment in Next actions > Setup.
+- Confirm the first externally unprocessed payroll date before enabling daily
+  draft preparation. Exporting a batch does not mark anyone paid.
+- Configure and test the existing email transport; check the delivery queue.
+- Document assistance is off until approved and the existing AI provider,
+  model, processing region and consent requirements are configured.
+- Calendar subscriptions are optional and require the person's confirmation.
 
 INSTALL / UPDATE
 1. Back up the deployed database, documents, photos and configuration using the
@@ -48,13 +54,15 @@ INSTALL / UPDATE
       npm ci --ignore-scripts
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
-6. Deploy using your existing process. On boot, three additive tables are created
-   for cover reviews and register grants/scope. No existing records are deleted.
+6. Deploy using your existing process. On boot, 20 additive workflow tables and additional columns are created.
+   Existing records are retained. This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
    explicit SCHEMA_VERSION environment override if your host uses one.
-7. In staging, test participant booking, worker cover with plan review, scoped
-   register grants, concurrent register edits and native mobile/keyboard flows.
-   Verify live provider integrations with authorised test accounts.
+7. In staging, test participant and helper setup, concurrent plan saves, worker
+   recruitment, series acceptance, leave/cover, notes and travel, approvals,
+   invoice reconciliation, payroll batches, calendar changes and recovery.
+   Check mobile, keyboard and screen-reader use. Verify configured integrations
+   with authorised provider test accounts before production use.
 
 RECOVERY
 Keep a pre-update backup. An older binary has broader register access; rolling
@@ -64,7 +72,8 @@ process, with the effect on new records considered before restoration.
 
 READ NEXT
 docs/RELEASE-NOTES.md — changes, operation and remaining checks
-docs/IMPLEMENTATION-MATRIX.md — every reported issue and its resolution
+docs/IMPLEMENTATION-MATRIX.md — J01–J26 delivery and validation map
+docs/WORKFLOW-OPERATIONS.md — configuration, daily use and automation behaviour
 docs/TEST-RESULTS.md — executed commands and results
 RELEASE-FILES.json — complete payload file hashes (excluding itself)
 docs/history/ — historical receipts, not current deployment instructions
@@ -73,7 +82,8 @@ const readme=`The Care Web v${pkg.version} — complete source package.
 
 Extract ${meta.output_archive}; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
-This release adds scoped register access; the office must grant worker access.
+This release implements the 26 workflow improvements. Configure private billing,
+email, payroll cutover and any optional document assistance before use.
 
 Install/check: npm ci --ignore-scripts && npm run check
 Refresh generated documents: npm run release:docs

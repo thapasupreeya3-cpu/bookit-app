@@ -1,0 +1,11 @@
+{
+  "version": "88.1.5",
+  "base_version": "88.1.4",
+  "base_archive": "bookit-app-main (4).zip",
+  "base_archive_sha256": "51dc1f1f1afa32718e47576a2b6e49c311f7cce80549f81400ba5e6c3347fa18",
+  "base_commit": null,
+  "package_type": "full source archive",
+  "output_archive": "The-Care-Web-v88.1.5-source.zip",
+  "scope": "Fixes R1–R6 from the 11 September v88.1.4 verification: validated cover reviews; signed travel estimate confirmations; explicit expiring register permissions with optional participant scope; three-way register draft recovery; strict sleepover hours; accurate release provenance. Adds native availability date/time controls and clear illustrative-example labels. Existing design and media retained. Schema 87001 adds three tables; no historical record rewrite.",
+  "unchanged_assets": "All existing media, artwork, fonts and vendor assets are included unchanged."
+}

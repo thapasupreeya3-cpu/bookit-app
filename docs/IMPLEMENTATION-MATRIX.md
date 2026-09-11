@@ -1,23 +1,32 @@
-# v88.1.5 audit resolution matrix
+# Implementation matrix — v88.2.0
 
-| Issue | Implementation | Verification |
-| --- | --- | --- |
-| R1: out-of-area cover with plan acknowledgement cannot be accepted | Persist the current review, recognise it for plan access, and recheck inside acceptance | Full in-area and out-of-area flows pass; expired review/offer, changed plan/visit, new leave, withdrawn eligibility and voided visits are rejected without assignment or evidence writes |
-| R2: displayed travel differs from saved confirmation | Signed actor/request/visit-bound estimate proof and exact estimate storage; atomic occurrence and assignment evidence | Provider fields and checked time match; tampered proof, changed visit and bare boolean are rejected; series confirmations recorded |
-| R3: every approved worker accesses shared medicine records | Office-only default; explicit expiring read/append/edit grants; optional participant scope; page/file/API permission parity | Ungranted worker denied; read cannot write; append cannot overwrite; another worker denied; revoked/expired grants denied; participant relationship and scope changes enforced |
-| R4: register conflicts discard an unsaved edit | Keep working/base/latest versions; preserve editor on failure; safe three-way merge and manual conflict recovery; unload warning | Merge unit groups cover concurrent appends, row conflicts, deletion, independent tables and lost responses; native-browser interaction remains a staging gate |
-| R5: malformed sleepover values and silent rounding | Strict type/number/range/quarter-hour validation before side effects; raw entry submitted; no automatic rounding | Invalid cases return specific hours errors and leave the entire booking plus shift-note rows unchanged; valid quarter-hour numeric/string values pass |
-| R6: stale provenance and handover | Correct input name/hash, version, full-source instructions, current test receipt, complete payload hashes and historical document separation | Generated checks pass; final archive hashes, extraction and source payload verified |
+All 26 backlog items have source implementations. This matrix distinguishes implementation from live-service validation. Configuration and staging checks are described in `WORKFLOW-OPERATIONS.md` and `TEST-RESULTS.md`. The original acceptance criteria are retained in `workflow-backlog-completed.json`; older R1–R6 receipts are in `history/v88.1.5/`.
 
-## Earlier findings retained
-
-F01 applicant restrictions remain and are strengthened by R3. F02 schedule enforcement remains before the area warning. F03 policy-upload and F04 register-size fixes are retained. F05/F08 are completed by R1/R2. F06 is completed by R5. F07/F13 are addressed in the current package. F09 planning-estimate language remains, and cache keys now reflect the requested traffic mode. F10 examples are neutrally labelled. F11 checks continue to measure the shipped design and run in CI. F12 boot snapshots remain deferred until initialization completes.
-
-## Additional improvements
-
-- Native availability calendars, time ranges, midnight controls and weekly preview.
-- Explicit sleepover increments and active-support label.
-- Accessible names on review and travel dialogs.
-- Neutral illustrative example headings and removal of testimonial stars.
-
-The current design and assets are preserved. Large-scale payload/module refactoring, live-provider verification and native-browser accessibility/performance certification are not claimed as completed by this release.
+| ID | Delivered | Main source | Verification |
+| --- | --- | --- | --- |
+| J01 | Unified next actions, structured setup and ownership, exact task links. | lib/process-store.js; lib/process-routes.js; public/assets/process-workflows.js | J01/J02, J01/J12; scoped-helper tests |
+| J02 | Explicit private lane, unknown funding blocked, reviewed billing setup, original payer snapshots. | server.js; lib/process-finance.js | J01/J02; J21 invoice snapshot |
+| J03 | Scope-aware helper APIs, active-person navigation and reminders, save-time access checks. | server.js; lib/process-routes.js; public/index.html | J03; helper without booking scope |
+| J04 | Plan CAS revisions, serialized client saves, confirmation flush and preserved conflicts. | server.js; public/index.html | J04; syntax and existing review tests |
+| J05 | Async job lock persists until settlement; truthful success/failure ledger. | server.js | J05 deferred/rejected Promise test |
+| J06 | Persisted email outbox with dedupe, lease, retries, access and offer rechecks; invoice transaction. | lib/process-store.js; server.js | J06; J21; closure test |
+| J07 | Voluntary pause permits eligible accepted shifts and current brief access; safety gates retained. | server.js; lib/plan-access.js | J07; audit permissions |
+| J08 | Reviewed stable-ID batches, adjustments, repeatable export, explicit external acknowledgement and cutover. | lib/process-finance.js | J08/J21 |
+| J09 | All open tasks searchable/paginated, owner/due persistence and true observed stage-entry time. | lib/process-store.js; lib/process-routes.js; server.js | J09 |
+| J10 | Shared confirmed intake with revision check and explicit support-plan prefill. | lib/process-routes.js; public/index.html | J10; frontend rendering |
+| J11 | Batch upload tray, per-file result/retry, catalogue purposes, duplicate detection and existing passport reuse. | public/assets/process-workflows.js; server.js | J11; existing document smoke tests |
+| J12 | Interview/reference/employment checks with evidence, slots, cancellation and historical rebooking. | lib/process-store.js; lib/process-routes.js | J01/J12; J12; handoff test |
+| J13 | Section navigation and next-unanswered flow; current-brief-only worker change summary. | public/index.html; lib/process-assistance.js | J13/J15; existing scoped plan tests |
+| J14 | Retained matching/booking schedule preferences and limited revalidated alternative slots. | public/index.html; lib/process-routes.js | J14 |
+| J15 | Explicit selected occurrences accepted in one transaction after fresh plan/travel/availability checks. | lib/process-routes.js | J13/J15 atomic conflict test |
+| J16 | Book again and saved usual visits; fresh date, eligibility and price review; no copied care notes. | lib/process-routes.js; public/assets/process-workflows.js | J16 |
+| J17 | Fresh signed availability-impact review, selected cover only, existing visit preservation. | lib/process-routes.js; public/assets/bookit-review-improvements.js | J17 |
+| J18 | One scoped visit workspace with brief, saved note, active time, travel, completion, query and linked incident. | lib/process-routes.js; public/assets/process-workflows.js; server.js | J18; J07; frontend rendering |
+| J19 | Review inbox, preferred current authorised reminder recipient, exact visit/person links, query suppression. | server.js; lib/process-store.js; lib/process-routes.js | J19/J20; existing approval smoke tests |
+| J20 | Routine digest/quiet times and optional private calendar feeds, stable IDs, update/cancel/revoke. | lib/process-store.js; lib/process-calendar.js | J06; J19/J20; calendar reassignment |
+| J21 | Original invoice snapshots, delivery status, held-line view, matched receipts and provider-event checks. | lib/process-finance.js; server.js | Three J21 groups; J08/J21 |
+| J22 | Upcoming document/module renewals, affected visits, distinct received/reviewed state. | lib/process-store.js; lib/process-routes.js | J22; frontend renewal panels |
+| J23 | Separate first-meeting/first-shift follow-up tasks, concern cases and duplicate-answer protection. | lib/process-store.js; lib/process-routes.js | J23; handoff test |
+| J24 | Owned transitions and fresh series-end preview; visits, notes, queries, invoice and helper checklist. | lib/process-assistance.js; public/assets/process-workflows.js | J24; closure and calendar tests |
+| J25 | Off-by-default approved extraction with explicit consent, location/provider gates, source evidence and human review. | lib/process-assistance.js | J25 disabled/configuration gate; live provider pilot required |
+| J26 | Deduplicated minimal events, return/resume and form outcomes, reporting periods and median/P90 waits. | lib/process-store.js; lib/process-routes.js; public/assets/process-workflows.js | J26; frontend metrics panel |

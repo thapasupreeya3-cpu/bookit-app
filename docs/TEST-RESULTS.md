@@ -1,44 +1,47 @@
-# The Care Web v88.1.5 — executed verification
+# Executed verification — v88.2.0
 
-Date: 11 September 2026. Base: `bookit-app-main (4).zip`, v88.1.4, SHA-256 `51dc1f1f1afa32718e47576a2b6e49c311f7cce80549f81400ba5e6c3347fa18`.
+Date: 11 September 2026. Base: `The-Care-Web-v88.1.5-source.zip`, SHA-256 `706621fe7a4532b11208c990ee81b303ae4526a5d44dfc7c44078fbcc23452e3`.
 
-All runtime data was synthetic and isolated. No real participant records, live messages or payments were used.
+All application tests used isolated synthetic data and disabled external messaging/payment/AI services. No live participant data or real payments were used. This release was not deployed.
 
-## Release gate
+## Automated checks
 
-Executed `npm run check`, exit **0**, on Node **24.19.0**. The output is `validation/v88.1.5-check-output.txt` and the receipt is `validation/v88.1.5-check-receipt.json`.
+`npm test` completed with exit 0. `npm run lint` compiled 50 JavaScript units, including four inline application scripts, with zero failures. The full `npm run check` release gate and final payload hash verification are included in the validation receipts.
 
-| Component | Result |
+| Suite | Result |
 | --- | --- |
-| JavaScript compilation | 42 units, 0 failed, including 3 inline application scripts |
-| Inventory verification | pass; 306 routes and 57 tables |
-| Release document and full payload hash verification | pass |
 | Clash tests | 21/21 pass |
 | Smoke tests | 231 PASS records; full suite completed |
 | Review unit tests | 46 assertions pass |
-| Review integration | 25/25 scenario groups pass |
-| Graphics checks | 54/54 pass, against the shipped design |
-| New audit unit tests | 8/8 groups pass |
-| New audit API tests | 23/23 groups pass |
+| Review API scenarios | 25/25 pass |
+| Graphics checks | 54/54 pass |
+| Audit unit tests | 8/8 groups pass |
+| Audit API scenarios | 23/23 pass; no startup errors |
+| New workflow regression scenarios | 32/32 pass |
+| JavaScript compilation | 50 units, zero failures |
+| Generated inventories | 360 routes; 77 tables |
+| Existing media, fonts and vendor assets compared with v88.1.5 | 113 files byte-for-byte unchanged |
 
-Counts are deliberately separate: scenario groups contain multiple assertions and HTTP requests. The new audit tests run through `npm run test:audit`, which is included in `npm test` and the repository check workflow. The original negative-hours smoke fixtures now use a valid shift note and assert the specific hours-validation error.
+Counts remain separate because scenarios contain multiple assertions and HTTP requests. The new suite is `tests/process-regression.js` and is included in `npm test` and `npm run check`.
 
-## Upgrade and operational checks
+## What the workflow suite exercises
 
-- Started the actual supplied v88.1.4 code on a synthetic database, inserted a historical medicine-register record, a setting and an uploaded-file sentinel, then booted v88.1.5 twice against that same database.
-- Both boots passed SQLite integrity checks. Table count changed from 54 to 57. Existing text, settings and the file were preserved exactly; no worker grants were silently added. An ungranted approved worker was denied the old medicine register after both boots.
-- All six scene videos returned actual MP4 range responses; all four tier assets loaded.
-- A local backup restored the database and file sentinel successfully; referenced missing-file detection returned exit 2 as designed.
-- Initial boot and scheduled snapshots succeeded with no snapshot errors.
+Private versus missing funding; structured task ownership; scoped helper plan writes and revocation; stale plan revisions; asynchronous job locks/failures; durable outbox retry/digest/deduplication/revocation; completion by a voluntarily paused eligible worker; reviewed payroll batches and distinct external acknowledgement; task ownership/stage timing; confirmed intake revisions; duplicate uploads; interview booking and evidence; atomic selected-series acceptance; limited alternatives; routines without old notes; reviewed leave/cover; scoped visit and incident retry; preferred approvers; calendar UID, cancellation, revocation and reassignment; original invoice snapshots; receipt mismatches and retries; matching signed-payment event contents; replacement renewal tasks; follow-up and transition behaviour; disabled optional extraction; timing/privacy metrics; atomic settings; rebooking after a past interview; conflicting follow-up answers; helper visit privacy; and closure of personal workflow records.
 
-Receipts are in `validation/v88.1.5-upgrade-results.json` and `validation/v88.1.5-lifecycle-results.json`.
+Frontend panel rendering is executed in a JavaScript VM with a minimal document harness against real API responses for participants, workers and office users. It detects rendering/runtime errors. It does **not** simulate native browser layout, accessibility, focus, actual clicks, file selection or calendar-client synchronisation. Existing regression suites cover the underlying actions separately.
 
-## Limits
+## Upgrade
 
-The package declares Node >=22.12 and <23 and retains its existing runtime pin. The available execution runtime was Node 24.19.0, so repeat the gate on the declared Node 22 host before deployment. npm also emitted environment warnings about an inherited http-proxy setting; no test failed because of them.
+The actual v88.1.5 server created a synthetic database. A historical register entry, a setting and an uploaded-file sentinel were added. The new server booted twice against the same database. Both boots passed SQLite integrity checks; 57 tables became 77, and the existing values and file were preserved. A worker without a register grant remained denied after both boots. The receipt is `validation/v88.2.0-upgrade-results.json`.
 
-Native-browser navigation to the local site is blocked in this environment. No native mobile, keyboard or screen-reader pass is claimed. Register merge behaviour is covered by unit tests and its API revision/permission checks are exercised, but the complete visual editor recovery flow still needs staging-browser validation. Availability controls and dialog focus need that same check.
+## Required staging checks and limits
 
-Provider requests use a deterministic local Google-compatible stub. Real Google estimates, email/SMS delivery, payment/refund processing, AI integrations, cloud-backup destinations and the deployed version were not tested or changed. This is not a current rate-schedule or legal-compliance certification.
+The available runtime was **Node 24.19.0**. This package retains its declared **Node >=22.12 and <23** runtime and existing pin. Repeat `npm run check` on the declared Node 22 host before deployment. npm emitted an inherited http-proxy environment warning; it did not fail a suite.
 
-`docs/history/` contains older test and release receipts for traceability; they are not evidence for this release.
+The advertised browser could not navigate to the local site (`net::ERR_BLOCKED_BY_CLIENT`). No complete native-browser, mobile, keyboard or screen-reader pass is claimed. Verify plan conflicts, multi-file upload recovery, shift travel fields, dialogs, reminder login return, reporting filters and account switching in a staging browser.
+
+The existing provider-estimate tests use a deterministic local stub. Live Google estimates, email/SMS delivery, Stripe checkout/webhook events, external payroll, real calendar-client refresh, AI extraction/model accuracy and cloud backup destinations were not exercised. Optional extraction gates and payment-event matching were tested locally; provider round trips remain configuration and staging checks. No external service credentials or contracts are bundled. Email can be delivered more than once after an ambiguous transport acknowledgement; invoice creation remains deduplicated.
+
+The task metrics measure observed activity after this release. There is no pre-release timing baseline or proven percentage time saving. No current rate-schedule, tax, wage or regulatory compliance certification is claimed.
+
+Older receipts in `validation/` and `docs/history/` describe their named earlier releases, not additional tests of v88.2.0.

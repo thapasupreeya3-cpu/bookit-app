@@ -1,15 +1,19 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 
-> bookit-site-v65@88.0.0 check
-> npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && npm test && npm run test:graphics
+> bookit-site-v65@88.2.0 check
+> npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && node scripts/verify-release.js && npm test
 
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 
-> bookit-site-v65@88.0.0 lint
+> bookit-site-v65@88.2.0 lint
 > node scripts/lint.js
 
-syntax: 35 scripts compiled, 0 failed (3 inline application scripts)
+syntax: 50 scripts compiled, 0 failed (4 inline application scripts)
+release payload: 384/384 file hashes match v88.2.0
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 
-> bookit-site-v65@88.0.0 test
-> node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review
+> bookit-site-v65@88.2.0 test
+> node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process
 
 PASS  overlaps an accepted 10-13
 PASS  touching end 13:00 is free
@@ -104,6 +108,9 @@ PASS  a 3-hour sleepover is refused (a sleepover is a night)
 PASS  a sleepover starting at 2pm is refused
 PASS  an 8-hour sleepover from 10pm sits in the diary
 PASS  completing a sleepover without the active hours is refused
+PASS  active hours text is refused and the sleepover is not completed
+PASS  active hours negative is refused and the sleepover is not completed
+PASS  active hours more than the shift is refused and the sleepover is not completed
 PASS  completing with 3.5 active hours works
 PASS  the night is one flat $311.79
 PASS  the 1.5 extra hours are charged at the weekday-night rate on their own line
@@ -158,7 +165,7 @@ PASS  a delivered shift can be voided with a reason and stays on file
 PASS  … and a void shift is off the claims list
 PASS  a claimed or paid shift cannot be removed until it is unclaimed
 PASS  an account with no delivered shifts is erased outright
-PASS  an account with rows in 27 tables erases cleanly, nothing left pointing at it
+PASS  an account with rows in 29 tables erases cleanly, nothing left pointing at it
 PASS  an account with delivered shifts asks for acknowledgement first
 PASS  … and with it is closed and de-identified, shifts kept
 PASS  a shift on an invoice cannot be removed until the invoice is withdrawn
@@ -219,11 +226,15 @@ PASS  the folder index points at the built-in page for that file
 PASS  published pages are a register in the audit pack
 PASS  the 99 built-in documents are all published
 PASS  a built-in policy is a public page with its sections and approval block
+PASS  the office grants explicit append access to this register
 PASS  a register page carries the fill layer for a worker, with the sandbox opened for it
 PASS  a policy page does not: no fill hooks, sandbox unchanged
 PASS  a worker adds a register entry and the office reads it back
 PASS  a save on a stale copy of a register is refused, so no one’s entry is lost
 PASS  a participant may not read a staff register; nobody may fill a policy
+PASS  an unapproved worker applicant cannot read or write a shared register
+PASS  the same applicant can still fill their own personal form
+PASS  a register larger than 100 KB saves (the cap is 1.5 MB)
 PASS  a form is a personal copy: the participant sees theirs, the worker does not
 PASS  the office sees everything filled in, and can open a person’s copy
 PASS  forms register rows carry their The Care Web page
@@ -244,7 +255,7 @@ PASS  the certificates of currency carry their expiry on the register
 PASS  a PDF uploaded with a title is a page at a slug from that title, served byte for byte
 PASS  … and the register holds the certificate at that page, with its expiry, with nothing pressed
 PASS  a booking outside the worker's stated area is a warning with the distance and time, not a refusal
-PASS  … with Google's drive time in traffic when a key is set, the offline estimate kept beside it, and a link to the route
+PASS  … with Google's drive time when a key is set — labelled a planning estimate with its age (v88.1.4) — the offline estimate kept beside it, and a link to the route
 PASS  the participant confirms; the worker is warned in turn and confirms; the booking records both
 PASS  … and the booking carries the estimate to the pages that show it
 PASS  the Policy Register is generated from the published pages: public rows signed out, with review dates
@@ -258,8 +269,9 @@ PASS  the PACE export carries the kilometres as a non-labour travel row
 PASS  … and the sleepover's extra active hours as their own row
 PASS  the server logged no errors during the run
 smoke: all passed
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 
-> bookit-site-v65@88.0.0 test:review
+> bookit-site-v65@88.2.0 test:review
 > node --no-warnings tests/review-unit-tests.js && node --no-warnings tests/review-regression.js
 
 PASS reject invalid date 2030-02-31
@@ -304,7 +316,11 @@ PASS reject message cursor limit=abc
 PASS reject message cursor before=-1
 PASS reject message cursor before=2.2
 PASS referral calculation excludes all nonqualifying work
-42 review unit assertions passed
+PASS out-of-area visit during leave is refused for leave, not area
+PASS out-of-area visit outside declared windows is refused for the window, not area
+PASS out-of-area visit on an unavailable weekday is refused for the weekday, not area
+PASS out-of-area visit that fits the schedule is refused for area only
+46 review unit assertions passed
 PASS  invalid booking calendar/time values are rejected and never stored
 PASS  valid meet-and-greet still creates a request, not an accepted shift
 PASS  participant block is enforced through creation, acceptance, feed, preview, claim and office paths
@@ -331,52 +347,43 @@ PASS  current clinical access works and is revoked for historical-only or blocke
 PASS  new draft and Today routes enforce role boundaries
 PASS  running server logged no uncaught runtime or database errors
 review integration: 25/25 passed
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 
-> bookit-site-v65@88.0.0 test:graphics
-> node tests/graphics-tests.js
+> bookit-site-v65@88.2.0 test:graphics
+> node --no-warnings tests/graphics-tests.js
 
-PASS  original route map is unchanged
-PASS  all original page containers remain
-PASS  heroSearch DOM hook remains
-PASS  heroSearchInput DOM hook remains
-PASS  homeServices DOM hook remains
-PASS  allServices DOM hook remains
-PASS  homeWorkers DOM hook remains
-PASS  homeFaq DOM hook remains
-PASS  workerGrid DOM hook remains
-PASS  mainNav DOM hook remains
-PASS  burger DOM hook remains
-PASS  navClose DOM hook remains
-PASS  a11yOpen DOM hook remains
-PASS  a11yPanel DOM hook remains
-PASS  fsUp DOM hook remains
-PASS  tglMotion DOM hook remains
-PASS  btnLogin DOM hook remains
-PASS  btnGetStarted DOM hook remains
-PASS  acctWrap DOM hook remains
-PASS  approved original crop: logo-icon.png
-PASS  approved original crop: logo-wordmark.png
-PASS  approved original crop: logo-stacked.png
-PASS  approved original crop: app-icon.png
-PASS  original logo appears in header and footer
-PASS  original name has one accessible label per lockup
-PASS  new design is linked after legacy styling
-PASS  visual script is deferred
-PASS  public guest header hides stale demo-message decoration
-PASS  no authentication or business API writes in presentation script
-PASS  six scene figures are user-initiated
-PASS  new service figures are not selected by the legacy autoplay controller
-PASS  motion preference is honoured in new CSS
-PASS  high contrast has an explicit redesign treatment
-PASS  readable type preference has an explicit redesign treatment
-PASS  print rules keep only the active screen
-PASS  keyboard focus is visible
-PASS  all seven support choices are visible rather than clipped on mobile
-PASS  illustrative testimonials are labelled
-PASS  asset exists: design.css
-PASS  asset exists: visuals.js
+PASS  existing route map remains with one additive journey route
+PASS  all page containers remain
+PASS  interactive element present: #heroSearch
+PASS  interactive element present: #heroSearchInput
+PASS  interactive element present: #homeServices
+PASS  interactive element present: #allServices
+PASS  interactive element present: #homeWorkers
+PASS  interactive element present: #homeFaq
+PASS  interactive element present: #workerGrid
+PASS  interactive element present: #mainNav
+PASS  interactive element present: #burger
+PASS  interactive element present: #navClose
+PASS  interactive element present: #a11yOpen
+PASS  interactive element present: #a11yPanel
+PASS  interactive element present: #btnLogin
+PASS  approved logo artwork: logo-icon.png
+PASS  approved logo artwork: logo-wordmark.png
+PASS  approved logo artwork: logo-stacked.png
+PASS  approved logo artwork: app-icon.png
+PASS  approved logo artwork: logo-icon-reverse.png
+PASS  approved logo artwork: logo-wordmark-reverse.png
+PASS  logo lockup in the header and the footer
+PASS  the footer uses the reversed (white) marks
+PASS  one accessible label per lockup
+PASS  favicon, touch icon and install manifest are linked
+PASS  social card is the brand card
+PASS  install manifest names the brand and the tagline
+PASS  all manifest icons are local and present
 PASS  asset exists: logo-icon.png
 PASS  asset exists: logo-wordmark.png
+PASS  asset exists: logo-icon-reverse.png
+PASS  asset exists: logo-wordmark-reverse.png
 PASS  asset exists: logo-stacked.png
 PASS  asset exists: app-icon.png
 PASS  asset exists: favicon-32.png
@@ -385,10 +392,226 @@ PASS  asset exists: apple-touch-icon.png
 PASS  asset exists: icon-192.png
 PASS  asset exists: icon-512.png
 PASS  asset exists: social-card.png
-PASS  asset exists: site.webmanifest
-PASS  install manifest names the correct brand
-PASS  all manifest icons are local and present
-PASS  no new remote font dependency
-PASS  base operational libraries, rules, forms and original tests remain byte-identical
-PASS  database schema is unchanged at 87000
-graphics: 56/56 passed
+PASS  logo PNGs carry an alpha channel
+PASS  every generated document opens with the lockup
+PASS  emails carry the lockup with the name as alt text
+PASS  brand tokens are declared
+PASS  no leftover teal in the page
+PASS  no leftover teal in server-rendered pages or emails
+PASS  high-contrast override is intact
+PASS  keyboard focus is visible
+PASS  reduced-motion preference is honoured
+PASS  illustrative stories are labelled
+PASS  no story claims claiming is automatic
+PASS  the hero reel is present
+PASS  the six scene videos are present
+PASS  additive permission/review schema is identified as 88200
+graphics: 54/54 passed
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> bookit-site-v65@88.2.0 test:audit
+> node --no-warnings tests/audit-unit-tests.js && node --no-warnings tests/audit-fixes.js
+
+PASS Confirmation hash ignores object key order, not changed values
+PASS Confirmation rejects tampering, another intent, expiry and excessive input
+PASS Strict hours accept exact valid numeric inputs and reject all coerced shapes
+PASS Append grants cannot replace, delete, reorder or change metadata
+PASS Conflicting appends retain both people’s entries without mutating any input
+PASS Simultaneous existing-row edits require manual recovery and retain local text
+PASS A response lost after a successful save can be reconciled without duplicate rows
+PASS Independent table edits combine while conflicting deletion never overwrites
+8 audit unit groups passed
+PASS Initial boot snapshot exists before the delayed scheduled job
+PASS Full cover review and claim with a current plan: Ryde NSW
+PASS Full cover review and claim with a current plan: Parramatta NSW
+PASS Out-of-area cover without a required plan reaches successful acceptance
+PASS A shown Google travel estimate is preserved with participant confirmation
+PASS Series edits record out-of-area confirmation for each changed visit
+PASS Sleepover completion rejects non-numeric JSON input true
+PASS Sleepover completion rejects non-numeric JSON input []
+PASS Sleepover completion rejects non-numeric JSON input [3]
+PASS Sleepover completion rejects non-numeric JSON input "   "
+PASS Non-quarter-hour activity is either refused or preserved exactly
+PASS Travel proof refuses tampering, changed visits and a bare confirmation flag
+PASS Cover revalidation refuses expired review
+PASS Cover revalidation refuses new plan version
+PASS Cover revalidation refuses changed visit
+PASS Cover revalidation refuses new leave
+PASS Cover revalidation refuses withdrawn eligibility
+PASS Cover revalidation refuses expired offer
+PASS Cover revalidation refuses voided visit
+PASS An out-of-area plan review grants temporary clinical access and revokes it on changed context
+PASS Register records and source files are private until explicitly granted; roles remain separate
+PASS Participant-scoped register grants also require current participant access and scope changes revoke grants
+PASS Rejected active hours leave every completion and invoice field unchanged
+{
+  "runtime": "v24.19.0",
+  "checks": [
+    {
+      "name": "Initial boot snapshot exists before the delayed scheduled job",
+      "result": "PASS",
+      "detail": {
+        "day": "2026-09-11",
+        "reason": "boot",
+        "startupSnapshotErrors": false
+      }
+    },
+    {
+      "name": "Full cover review and claim with a current plan: Ryde NSW",
+      "result": "PASS",
+      "detail": {
+        "review": 200,
+        "claim": 200,
+        "state": {
+          "worker_id": 10,
+          "status": "accepted",
+          "cover_state": "covered"
+        }
+      }
+    },
+    {
+      "name": "Full cover review and claim with a current plan: Parramatta NSW",
+      "result": "PASS",
+      "detail": {
+        "review": 200,
+        "claim": 200,
+        "state": {
+          "worker_id": 10,
+          "status": "accepted",
+          "cover_state": "covered"
+        }
+      }
+    },
+    {
+      "name": "Out-of-area cover without a required plan reaches successful acceptance",
+      "result": "PASS",
+      "detail": {
+        "review": 200,
+        "claim": 200,
+        "state": {
+          "worker_id": 10,
+          "status": "accepted",
+          "cover_state": "covered"
+        }
+      }
+    },
+    {
+      "name": "A shown Google travel estimate is preserved with participant confirmation",
+      "result": "PASS"
+    },
+    {
+      "name": "Series edits record out-of-area confirmation for each changed visit",
+      "result": "PASS",
+      "detail": {
+        "changed": 2
+      }
+    },
+    {
+      "name": "Sleepover completion rejects non-numeric JSON input true",
+      "result": "PASS"
+    },
+    {
+      "name": "Sleepover completion rejects non-numeric JSON input []",
+      "result": "PASS"
+    },
+    {
+      "name": "Sleepover completion rejects non-numeric JSON input [3]",
+      "result": "PASS"
+    },
+    {
+      "name": "Sleepover completion rejects non-numeric JSON input \"   \"",
+      "result": "PASS"
+    },
+    {
+      "name": "Non-quarter-hour activity is either refused or preserved exactly",
+      "result": "PASS"
+    },
+    {
+      "name": "Travel proof refuses tampering, changed visits and a bare confirmation flag",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses expired review",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses new plan version",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses changed visit",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses new leave",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses withdrawn eligibility",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses expired offer",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses voided visit",
+      "result": "PASS"
+    },
+    {
+      "name": "An out-of-area plan review grants temporary clinical access and revokes it on changed context",
+      "result": "PASS"
+    },
+    {
+      "name": "Register records and source files are private until explicitly granted; roles remain separate",
+      "result": "PASS"
+    },
+    {
+      "name": "Participant-scoped register grants also require current participant access and scope changes revoke grants",
+      "result": "PASS"
+    },
+    {
+      "name": "Rejected active hours leave every completion and invoice field unchanged",
+      "result": "PASS"
+    }
+  ],
+  "startupErrors": []
+}
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> bookit-site-v65@88.2.0 test:process
+> node --no-warnings tests/process-regression.js
+
+PASS J01/J02 private funding is explicit and does not ask for an NDIS plan
+PASS J01/J12 worker-owned and office-owned setup tasks are structured and separate
+PASS J03 scoped delegate can edit a plan but loses access immediately on revocation
+PASS J04 concurrent plan editors cannot overwrite a newer draft
+PASS J05 async job holds its lock until settlement and records failure truthfully
+PASS J06 durable outbox retries, deduplicates, groups digests and cancels revoked access
+PASS J07 a voluntarily paused eligible worker can complete an accepted shift
+PASS J08/J21 pay batch blocks unresolved exceptions, exports stable IDs and records external payment separately
+PASS J09 task owner and due date survive refresh; pipeline wait begins at stage entry
+PASS J10 shared intake uses explicit confirmation and rejects stale saves
+PASS J11 upload retries deduplicate same user and purpose
+PASS J12 interview booking, cancellation and evidence review are explicit
+PASS J13/J15 series acceptance checks the current plan and all selected dates atomically
+PASS J14 alternatives reveal only available options and reject invalid input
+PASS J16 saved routine copies preferences but never old notes or a future date
+PASS J17 availability changes require a fresh impact review and preserve unselected visits
+PASS J18 shift workspace is scoped, and incident retry creates one linked report
+PASS J19/J20 approval preferences validate current grants; calendar UID and cancellation sequence are stable
+PASS J21 private invoice snapshot and delivery survive funding changes
+PASS J21 payment mismatches stay unpaid and matching receipts are idempotent
+PASS J21 Stripe evidence must match paid status, currency, amount and stored session
+PASS J22 renewal task appears once and becomes office review when replacement arrives
+PASS J23 first-visit follow-up creates an office task without booking anything
+PASS J24 series end requires current preview; transitions preserve bookings and ownership
+PASS J25 optional document assistance stays off until configured and explicitly consented
+PASS J26 metrics report task medians/P90 and capped effort without care text
+PASS Workflow handoffs preserve interview history, follow-up answers and atomic settings
+PASS A helper without booking scope cannot see upcoming visits on the next-action page
+PASS Calendar reassignment cancels the old worker event without exposing the replacement
+PASS Account closure removes new personal workflow data and revokes calendar and queued delivery
+PASS Frontend panel rendering uses real scoped API responses without runtime errors
+PASS Workflow routes require authentication and office routes reject ordinary users
+workflows: 32/32 passed

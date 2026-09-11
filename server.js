@@ -44,6 +44,7 @@ const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'bookit.db');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const AUTO_REPLY = (process.env.AUTO_REPLY || 'on') !== 'off';
 const SESSION_DAYS = 30;
+let WORKFLOW = null;
 
 /* ---------- secret ---------- */
 const SECRET_FILE = process.env.SECRET_FILE || path.join(__dirname, '.secret');
@@ -1454,25 +1455,21 @@ const JOB_META = {};      /* name -> {every, label, why} — read by the self-te
 const JOB_BUSY = new Set();
 
 function jobRun(name, fn) {
-  if (JOB_BUSY.has(name)) { console.warn(`job ${name}: still running, skipping this tick`); return null; }
+  if (JOB_BUSY.has(name)) return null;
   JOB_BUSY.add(name);
-  const t0 = Date.now();
-  db.prepare(`INSERT INTO job_runs (job, last_start, runs) VALUES (?,?,1)
-    ON CONFLICT(job) DO UPDATE SET last_start = excluded.last_start, runs = job_runs.runs + 1`)
-    .run(name, now());
-  try {
-    const out = fn();
-    const summary = Array.isArray(out) ? `${out.length} action${out.length === 1 ? '' : 's'}`
-      : (out && typeof out === 'object' ? JSON.stringify(out).slice(0, 300) : String(out ?? ''));
-    db.prepare("UPDATE job_runs SET last_ok = ?, last_ms = ?, last_summary = ?, last_error = '' WHERE job = ?")
-      .run(now(), Date.now() - t0, summary, name);
-    return out;
-  } catch (e) {
-    db.prepare('UPDATE job_runs SET last_ms = ?, last_error = ?, failures = failures + 1 WHERE job = ?')
-      .run(Date.now() - t0, String(e && e.message || e).slice(0, 400), name);
-    console.error(`job ${name}:`, e && e.message);
-    return null;
-  } finally { JOB_BUSY.delete(name); }
+  const t0=Date.now();
+  db.prepare(`INSERT INTO job_runs(job,last_start,runs) VALUES(?,?,1)
+    ON CONFLICT(job) DO UPDATE SET last_start=excluded.last_start,runs=job_runs.runs+1`).run(name,now());
+  const finish=out=>{
+    const summary=Array.isArray(out)?`${out.length} actions`:JSON.stringify(out??'').slice(0,300);
+    db.prepare("UPDATE job_runs SET last_ok=?,last_ms=?,last_summary=?,last_error='' WHERE job=?").run(now(),Date.now()-t0,summary,name);
+    JOB_BUSY.delete(name);return out;
+  };
+  const fail=e=>{
+    db.prepare('UPDATE job_runs SET last_ms=?,last_error=?,failures=failures+1 WHERE job=?').run(Date.now()-t0,String(e?.message||e).slice(0,400),name);
+    JOB_BUSY.delete(name);console.error('job '+name+':',e?.message);return null;
+  };
+  try {const out=fn();return out&&typeof out.then==='function'?Promise.resolve(out).then(finish,fail):finish(out);}catch(e){return fail(e);}
 }
 
 function everyJob(name, everyMs, fn, opts = {}) {
@@ -1481,7 +1478,7 @@ function everyJob(name, everyMs, fn, opts = {}) {
   const overdue = !last || !last.last_ok || (Date.now() - new Date(last.last_ok).getTime()) > everyMs;
   /* Overdue on boot runs almost at once; otherwise it waits out the remainder
      of its cycle, staggered a little so eight jobs do not all start together. */
-  const stagger = 4000 + Object.keys(JOB_META).length * 3000;
+  const stagger = Math.min(everyMs, 4000 + Object.keys(JOB_META).length * 3000);
   const first = overdue ? stagger
     : Math.max(stagger, everyMs - (Date.now() - new Date(last.last_ok).getTime()));
   setTimeout(() => { jobRun(name, fn); setInterval(() => jobRun(name, fn), everyMs); }, first);
@@ -1778,10 +1775,11 @@ function bankLines() {
 /* One invoice, assembled from the bookings that carry its number. Used by the
    claims run (to email it), by the participant's download, and by the office. */
 function invoiceFor(invNo) {
+  const snapshot=WORKFLOW?.invoiceSnapshot(invNo); if(snapshot)return snapshot;
   const rows = claimRows('AND b.invoice_no = ?', invNo);
   if (!rows.length) return null;
   const first = rows[0];
-  const self = first.funding === 'self';
+  const self = ['self','private'].includes(first.funding);
   const p = db.prepare('SELECT name, email, phone, suburb, ndis_number, pm_email, plan FROM users WHERE id = ?').get(first.pid) || {};
   const issued = String(first.claimed_at || now()).slice(0, 10);
   const due = ymd(new Date(new Date(issued + 'T00:00:00').getTime() + INVOICE_DUE_DAYS() * 864e5));
@@ -1803,6 +1801,7 @@ function invoiceFor(invNo) {
   const paidRows = rows.filter(r => r.claim_status === 'paid');
   const paid = paidRows.length === rows.length ? total : 0;
   return {
+    tax_note:first.funding==='private' ? (setting('private_gst_percent','0')==='10'?'Includes GST (10%)':'No GST — office confirmed') : 'GST-free NDIS supports',
     invoice_no: invNo, date: dmy(issued), issued, due_date: dmy(due), due, self, funding: first.funding,
     participant: { id: first.pid, name: p.name || first.participant_name, email: p.email || first.participant_email, phone: p.phone || '', suburb: p.suburb || '', ndis_number: p.ndis_number || first.ndis_number || '' },
     bill_to: self
@@ -1825,7 +1824,7 @@ function makeInvoicePdf(inv) {
     T(40, 770, 8.5, 'F', COMPANY_ADDRESS, SOFT);
     T(40, 759, 8.5, 'F', `Registered NDIS provider ${NDIS_REG_NO} · ${COMPANY_EMAIL} · ${COMPANY_PHONE}`, SOFT);
     T(400, 795, 15, 'FB', 'TAX INVOICE');
-    T(400, 781, 8.5, 'F', 'GST-free NDIS supports (s38-38 GST Act)', SOFT);
+    T(400, 781, 8.5, 'F', inv.tax_note || 'GST-free NDIS supports', SOFT);
     T(400, 767, 10, 'FB', `Invoice ${inv.invoice_no}`);
     T(400, 755, 9, 'F', `Date: ${inv.date}`);
     T(400, 744, 9, 'F', `Due: ${inv.due_date}`);
@@ -1872,7 +1871,7 @@ function makeInvoicePdf(inv) {
     if (inv.pay_url) { T(40, y, 9, 'F', 'Or pay by card from the link in your Care Web account (Statements & invoices).'); y -= 12; }
     if (inv.self) { T(40, y, 9, 'F', 'Self-managed: claim this invoice back through the myplace participant portal.', SOFT); y -= 12; }
   }
-  T(40, y - 4, 8.5, 'F', 'Prices are at or below the NDIS Pricing Arrangements and Price Limits 2026-27. No GST applies.', SOFT);
+  T(40, y - 4, 8.5, 'F', inv.funding === 'private' ? (inv.tax_note || 'Private supports') : 'Prices follow the NDIS Pricing Arrangements and Price Limits 2026-27. No GST applies.', SOFT);
   T(40, 60, 8, 'F', `Questions about this invoice? ${COMPANY_EMAIL} · ${COMPANY_PHONE}. Thank you for choosing The Care Web.`, SOFT);
   flush();
   /* the file: one content stream per page */
@@ -2188,22 +2187,7 @@ function handleStripeWebhook(req, res, raw) {
   }
   let event = {};
   try { event = JSON.parse(raw); } catch { return json(res, 400, { error: 'Bad payload.' }); }
-  if (event.type === 'checkout.session.completed') {
-    const s = event.data && event.data.object ? event.data.object : {};
-    const invNo = s.metadata && s.metadata.invoice_no;
-    if (invNo) {
-      const rows = db.prepare("SELECT id, total FROM bookings WHERE invoice_no = ? AND claim_status != 'paid'").all(invNo);
-      if (rows.length) {
-        db.prepare("UPDATE bookings SET claim_status = 'paid', paid_at = ? WHERE invoice_no = ? AND claim_status != 'paid'").run(now(), invNo);
-        const total = rows.reduce((n, r) => n + (r.total || 0), 0);
-        console.log(`[stripe] card payment received — invoice ${invNo}, ${rows.length} shift(s), $${total.toFixed(2)}`);
-        if (MAIL_FROM) sendMail(MAIL_FROM, `Card payment received — ${invNo}`,
-          `💳 $${total.toFixed(2)} paid by card`,
-          `<p>Invoice <b>${escHtml(invNo)}</b> has been paid by card through Stripe — <b>$${total.toFixed(2)}</b> across ${rows.length} shift${rows.length > 1 ? 's' : ''}. The shifts are marked paid automatically.</p>`,
-          'Open claims', `${APP_URL || 'https://thecareweb.com.au'}/#/admin`).catch(() => {});
-      }
-    }
-  }
+  if (['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type))WORKFLOW.recordStripePayment(event);
   json(res, 200, { received: true });
 }
 
@@ -2362,7 +2346,8 @@ You&#39;re receiving this because of activity on your Care Web account.
 </body></html>`;
 }
 
-function sendMail(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo, attachments) {
+function sendMail(...args) { return WORKFLOW ? WORKFLOW.enqueueMail(args) : sendMailDirect(...args); }
+function sendMailDirect(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo, attachments, metadata={}) {
   const dest = String(to || '').trim().toLowerCase();
   if (!dest || dest.endsWith('@demo.bookit.life')) return Promise.resolve('skipped-demo');
   const html = emailHtml(heading, bodyHtml, ctaText, ctaUrl);
@@ -2818,13 +2803,13 @@ function setMailPrefs(userId, patch) {
 }
 /* sendMail with an opt-out check in front of it. Anything mandatory, or
    anything with no kind at all, goes out exactly as before. */
-function notify(userId, kind, to, subject, heading, html, ctaText, ctaUrl, replyTo, attachments) {
+function notify(userId, kind, to, subject, heading, html, ctaText, ctaUrl, replyTo, attachments, metadata={}) {
   const k = MAIL_KINDS[kind];
   if (k && k.optional && userId && !mailPrefs(userId)[kind]) {
     console.log(`[email] suppressed '${subject}' → user ${userId} (opted out of ${kind})`);
     return Promise.resolve('opted-out');
   }
-  return sendMail(to, subject, heading, html, ctaText, ctaUrl, replyTo, attachments);
+  return sendMail(to, subject, heading, html, ctaText, ctaUrl, replyTo, attachments, {...metadata,user_id:userId,kind});
 }
 
 /* ==========================================================================
@@ -3503,7 +3488,7 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
   const hiFlags = role === 'participant' ? hiFrom(body) : [];
   const termsV = CURRENT_TERMS_VERSION; /* server truth, never client input */
   const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, ndis_number, pm_email, svc_interest, hi_flags, hi_at, terms_version, terms_at, is_admin, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), clean(body.plan, 30), ndisNum, pmEmail,
+    .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), (['self','plan','ndia','private'].includes(body.plan)?body.plan:''), ndisNum, pmEmail,
          JSON.stringify(services), JSON.stringify(hiFlags), hiFlags.length ? now() : '', termsV, now(), 0, now());
   const uid = Number(r.lastInsertRowid);
   /* a worker who came in on another worker's referral code */
@@ -3625,9 +3610,13 @@ route('POST', /^\/api\/logout$/, (req, res, m, user) => {
    nasty surprise, so the route counts them, names the money, and refuses to
    proceed until it is confirmed. Nobody finds out from an invoice. --- */
 route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
+  const actor=user; const target=actFor(req,user,'invoices');
+  if(!target)return json(res,403,{error:'You do not have permission for this participant.'});
+  user=sessionUser(target.id);
+
   if (!user) return json(res, 401, { error: 'Please log in.' });
   if (user.role !== 'participant') return json(res, 403, { error: 'Only participants have billing details.' });
-  const plan = ['self', 'plan', 'ndia', 'none'].includes(body.plan) ? body.plan : '';
+  const plan = ['self', 'plan', 'ndia', 'none', 'private'].includes(body.plan) ? body.plan : '';
   const nd = clean(body.ndis_number, 12).replace(/\s+/g, '');
   if (nd && !/^\d{9}$/.test(nd)) return json(res, 400, { error: 'An NDIS number is 9 digits (e.g. 430123456).' });
   const pm = clean(body.pm_email, 120).toLowerCase();
@@ -3650,7 +3639,7 @@ route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
   const pending = db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS amt FROM bookings
     WHERE participant_id = ? AND ${billable('bookings')} AND COALESCE(claim_status, '') = ''`).get(user.id);
   if (changedPayer && pending.n > 0 && body.confirm !== true) {
-    const dest = nextPlan === 'self' ? 'you, directly' : (nextPlan === 'plan' ? (pm || 'your plan manager') : 'the NDIA');
+    const dest = ['self','private'].includes(nextPlan) ? 'you, directly' : (nextPlan === 'plan' ? (pm || 'your plan manager') : 'the NDIA');
     return json(res, 409, {
       error: `You have ${pending.n} shift${pending.n === 1 ? '' : 's'} worth $${pending.amt.toFixed(2)} ${pending.n === 1 ? "that hasn't" : "that haven't"} been invoiced yet. Changing this now means ${pending.n === 1 ? 'it goes' : 'they go'} to ${dest} instead. Confirm to go ahead — anything already invoiced is not affected.`,
       needs_confirm: true, moving: pending.n, amount: Math.round(pending.amt * 100) / 100,
@@ -3663,7 +3652,7 @@ route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
     /* Who pays is the single most disputed fact in NDIS billing. It gets a
        dated line in the participant's own access log, written by the person
        who made the change, so "I never asked for that" has an answer. */
-    logAccess(user.id, user, 'funding-changed',
+    logAccess(user.id, actor, 'funding-changed',
       `Funding changed from ${was.plan || '(not set)'} to ${nextPlan}${pm ? ` — invoices to ${pm}` : ''}. ${pending.n} uninvoiced completed shift${pending.n === 1 ? '' : 's'} affected.`, nextPlan);
     if (MAIL_FROM) sendMail(MAIL_FROM, `Funding type changed: ${user.name} — The Care Web`, 'A participant changed how they pay',
       `<p><b>${escHtml(user.name)}</b> changed their funding from <b>${escHtml(was.plan || 'not set')}</b> to <b>${escHtml(nextPlan)}</b>${pm ? ` and named <b>${escHtml(pm)}</b> as plan manager` : ''}.</p>
@@ -3678,6 +3667,10 @@ route('POST', /^\/api\/me\/billing$/, (req, res, m, user, body) => {
    Changing what was declared reopens the flag, because the last conversation was about
    something else; re-saving the same answer leaves the recorded referral alone. */
 route('POST', /^\/api\/me\/high-intensity$/, (req, res, m, user, body) => {
+  const actor=user; const target=actFor(req,user,'plan');
+  if(!target)return json(res,403,{error:'You do not have permission for this participant.'});
+  user=sessionUser(target.id);
+
   if (!user) return json(res, 401, { error: 'Please log in.' });
   if (user.role !== 'participant') return json(res, 403, { error: 'Only participants have a support-needs declaration.' });
   const flags = hiFrom(body);
@@ -3871,6 +3864,8 @@ route('POST', /^\/api\/admin\/workers\/(\d+)\/approve$/, (req, res, m, user, bod
      the same refusal. Everything else (a missing profile photo) is ours, and
      stays overridable exactly as before. */
   if (!isDemoWorker(w.email)) {
+    const ready=WORKFLOW?.activationMissing(uid)||[];
+    if(ready.length)return json(res,409,{error:'Complete the application review before activation: '+ready.join(', '),missing:ready});
     const st = platformStatus(uid);
     if (!st.ok) {
       return json(res, 400, {
@@ -4061,11 +4056,12 @@ function lineFlags(r) {
      waits for a decision — remove it, fix it, or release it — and no run,
      manual or nightly, will pick it up until then */
   if (r.claim_hold) flags.push(`held${r.hold_reason ? ' — ' + r.hold_reason : ''}`);
-  if (!['ndia', 'plan', 'self'].includes(r.funding)) flags.push('no funding type on the participant profile');
+  if (!['ndia', 'plan', 'self', 'private'].includes(r.funding)) flags.push('no funding type on the participant profile');
   if (r.funding === 'ndia' && !/^\d{9}$/.test(r.ndis_number || '')) flags.push('NDIS number missing');
   if (r.funding === 'plan' && !r.pm_email) flags.push('plan manager email missing');
-  if (!effectiveItem(r)) flags.push('support item number needed');
-  else if (ITEM_CONFIRM[r.service] && !r.support_item) flags.push('confirm the prefilled support item');
+  if (r.funding === 'private' && setting('private_billing_ready','off') !== 'on') flags.push('office must confirm private billing setup');
+  if (r.funding !== 'private' && !effectiveItem(r)) flags.push('support item number needed');
+  else if (r.funding !== 'private' && ITEM_CONFIRM[r.service] && !r.support_item) flags.push('confirm the prefilled support item');
   return flags;
 }
 
@@ -4134,12 +4130,19 @@ async function runClaims(lanes, actor) {
     let n = 1;
     while (db.prepare('SELECT 1 FROM bookings WHERE invoice_no = ?').get(n === 1 ? invNo : `${invNo}-${n}`)) n++;
     if (n > 1) invNo = `${invNo}-${n}`;
-    for (const r of group) {
-      db.prepare("UPDATE bookings SET claim_status = 'claimed', claim_ref = ?, support_item = ?, invoice_no = ?, claimed_at = ? WHERE id = ?")
-        .run(`BK${r.id}`, r.item, invNo, now(), r.id);
-    }
-    const self = first.funding === 'self';
+    const self = ['self','private'].includes(first.funding);
     const dest = self ? first.participant_email : first.pm_email;
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const r of group) db.prepare("UPDATE bookings SET claim_status='claimed',claim_ref=?,support_item=?,invoice_no=?,claimed_at=? WHERE id=? AND COALESCE(claim_status,'')=''").run(`BK${r.id}`,r.item,invNo,now(),r.id);
+      const frozen=invoiceFor(invNo);
+      WORKFLOW?.storeInvoice(frozen);
+      const pdf=makeInvoicePdf(frozen);
+      sendMail(dest,`Invoice ${invNo} — The Care Web`, `Invoice ${invNo}`,
+        `<p>Your invoice for $${frozen.total.toFixed(2)} is attached. ${escHtml(frozen.tax_note||'')} Payment reference: ${invNo}. Open your statement to see payment options.</p>`,
+        'Open statement',`${APP_URL}/#/statements`,MAIL_FROM,[{filename:invNo+'.pdf',mime:'application/pdf',buffer:pdf}],{event_key:'invoice:'+invNo,kind:'invoice'});
+      db.exec('COMMIT');
+    } catch(e) {db.exec('ROLLBACK');throw e;}
     let payUrl = null;
     const total = round2(group.reduce((a, r) => a + (r.total || 0) + (r.active_extra_total || 0) + (r.status === 'cancelled' ? 0 : (r.km_total || 0)), 0));
     if (self && STRIPE_KEY && total > 0) {
@@ -4149,7 +4152,7 @@ async function runClaims(lanes, actor) {
           'line_items[0][quantity]': 1,
           'line_items[0][price_data][currency]': 'aud',
           'line_items[0][price_data][unit_amount]': Math.round(total * 100),
-          'line_items[0][price_data][product_data][name]': `The Care Web invoice ${invNo} — NDIS supports for ${first.participant_name}`,
+          'line_items[0][price_data][product_data][name]': `The Care Web invoice ${invNo} — supports`,
           'metadata[invoice_no]': invNo,
           customer_email: dest,
           success_url: `${APP_URL || 'https://thecareweb.com.au'}/#/pay-success`,
@@ -4159,31 +4162,16 @@ async function runClaims(lanes, actor) {
         if (payUrl) db.prepare('UPDATE bookings SET stripe_session = ?, pay_url = ? WHERE invoice_no = ?').run(session.id || '', payUrl, invNo);
       } catch (e) { console.error(`[stripe] session failed for ${invNo}: ${e.message}`); }
     }
-    const inv = invoiceFor(invNo);
-    const pdf = makeInvoicePdf(inv);
-    let emailed = false;
-    try {
-      await sendMail(dest, `Invoice ${invNo} — The Care Web supports for ${first.participant_name} — $${total.toFixed(2)} due ${inv.due_date}`,
-        `Invoice ${invNo}`,
-        `<p>Please find attached invoice <b>${invNo}</b> for NDIS supports delivered to <b>${escHtml(first.participant_name)}</b> — total <b>$${total.toFixed(2)}</b> (GST-free), due <b>${inv.due_date}</b>.</p>
-         <p>${self ? 'You can pay by card from the button below or from your Care Web account, or by bank transfer using the details on the invoice.' : 'Please pay from plan funds by bank transfer using the details on the invoice.'} The payment reference is the invoice number.</p>
-         <p>Every line is also on the statement in ${self ? 'your' : 'the participant\u2019s'} The Care Web account, with the shift note beside it.</p>`,
-        payUrl ? 'Pay by card' : 'Open my statement', payUrl || `${APP_URL}/#/statements`, MAIL_FROM, [{ filename: `${invNo}.pdf`, mime: 'application/pdf', buffer: pdf }]);
-      emailed = EMAIL_ON;
-    } catch (e) { console.error(`[claims] invoice email failed for ${invNo}: ${e.message}`); }
-    if (self) {
-      const pu = db.prepare('SELECT id FROM users WHERE id = ?').get(first.pid);
-      if (pu) notify(pu.id, 'invoice', first.participant_email, `Your Care Web invoice ${invNo} is ready`, 'An invoice is ready',
-        `<p>Invoice ${invNo} for $${total.toFixed(2)} is due by ${inv.due_date}. It is in your account under Statements &amp; invoices, with the PDF and a Pay by card button.</p>`, 'Open it', `${APP_URL}/#/statements`);
-    }
-    invoices.push({ invoice_no: invNo, participant: first.participant_name, to: dest, lines: group.length, total, emailed, pay_url: payUrl, due: inv.due_date, by: actor });
+    const inv=invoiceFor(invNo);
+    const emailed=false; // Transport acceptance is recorded by the delivery job, never by issuing an invoice.
+    invoices.push({ invoice_no: invNo, participant: first.participant_name, to: dest, lines: group.length, total, emailed, delivery_status: 'queued', pay_url: payUrl, due: inv.due_date, by: actor });
   }
   if (invoices.length || ndiaClaimed.length) console.log(`[claims] ${actor}: ${invoices.length} invoice(s), ${ndiaClaimed.length} agency line(s) stamped, ${needs.length} held back`);
   return { invoices, needs, ndiaClaimed };
 }
 route('POST', /^\/api\/admin\/claims\/run$/, async (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
-  const out = await runClaims(['ndia', 'plan', 'self'], user.name);
+  const out = await runClaims(['ndia', 'plan', 'self', 'private'], user.name);
   json(res, 200, { ok: true, ...out });
 });
 route('GET', /^\/api\/admin\/claims\/pace\.csv$/, (req, res, m, user) => {
@@ -4846,8 +4834,9 @@ function holdFutureShifts(workerId, workerName, why, req) {
    are you on the platform right now, and does a cover in flight own this
    slot? */
 function workerBookingGate(workerId, b) {
-  const w = db.prepare("SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(workerId);
-  if (!w || !w.visible || !platformEligible(workerId, w.email))
+  const w = db.prepare("SELECT u.email, p.visible, p.self_paused FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(workerId);
+  const finishingPaused = w?.self_paused && b.status==='accepted';
+  if (!w || (!w.visible && !finishingPaused) || !platformEligible(workerId, w.email))
     return { error: "Your profile isn't active on The Care Web right now, so booking actions are paused. The office can help you get back on.", read_only: true };
   const openCover = db.prepare("SELECT id FROM cover WHERE booking_id = ? AND status = 'open'").get(b.id);
   if (openCover || ['finding','office','uncovered','failed','referred','allied'].includes(String(b.cover_state || ''))) {
@@ -5006,7 +4995,9 @@ route('POST', /^\/api\/me\/documents$/, (req, res, m, user, body, ip) => {
     try { buf = Buffer.from(String(body.file.data).replace(/^data:[^,]*,/, ''), 'base64'); } catch { return json(res, 400, { error: 'Could not read that file.' }); }
     if (!buf.length || buf.length > 4 * 1024 * 1024) return json(res, 400, { error: 'Files can be up to 4 MB.' });
     fileName = clean(body.file.name, 80).replace(/[^A-Za-z0-9. _-]/g, '') || ('document' + DOC_MIMES[fileMime]);
-    filePath = path.join(DOCS_DIR, `w${user.id}-${Date.now()}${DOC_MIMES[fileMime]}`);
+    const existing=WORKFLOW?.duplicateDocument(user.id,docType,buf);
+    if(existing)return json(res,200,{ok:true,id:existing,duplicate:true,review:'received'});
+    filePath = path.join(DOCS_DIR, `w${user.id}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${DOC_MIMES[fileMime]}`);
     fs.writeFileSync(filePath, buf);
   }
   const r = db.prepare(`INSERT INTO worker_docs (worker_id, doc_type, label, check_number, expiry_date, file_name, file_mime, file_path, uploaded_at, review_state)
@@ -5391,6 +5382,7 @@ function credentialSweep(req) {
     if (w.email.endsWith('@demo.bookit.life')) continue;
     const docs = db.prepare('SELECT * FROM worker_docs WHERE worker_id = ?').all(w.id);
     for (const d of docs) {
+      if(WORKFLOW&&!WORKFLOW.renewalNeeded('worker',w.id,d))continue;
       const st = docStatus(d), days = docDays(d), stage = docStage(d);
       if (stage && d.warned_stage !== stage) {
         db.prepare('UPDATE worker_docs SET warned_stage = ? WHERE id = ?').run(stage, d.id);
@@ -5457,6 +5449,7 @@ function credentialSweep(req) {
   for (const p of parts) {
     if (String(p.email || '').endsWith('@demo.bookit.life')) continue;
     for (const d of db.prepare('SELECT * FROM participant_docs WHERE participant_id = ?').all(p.id)) {
+      if(WORKFLOW&&!WORKFLOW.renewalNeeded('participant',p.id,d))continue;
       const stage = docStage(d), days = docDays(d);
       if (!stage || d.warned_stage === stage) continue;
       db.prepare('UPDATE participant_docs SET warned_stage = ? WHERE id = ?').run(stage, d.id);
@@ -5605,6 +5598,7 @@ function board0137() {
    are the page; the names are the drill-down. */
 const PIPELINE_P = [
   ['verify-email', 'Confirm email', 'them'], ['billing', 'Say how supports are funded', 'them'],
+  ['private-billing-review','Office confirms private billing','office'],
   ['p-agreement', 'Agree the Service Agreement', 'them'], ['p-consent-privacy', 'Agree the privacy consent', 'them'],
   ['ndis-plan', 'Upload the NDIS plan', 'them'], ['ndis-plan-check', 'Office checks the NDIS plan', 'office'],
   ['nominee', 'Name who manages the account (under 18)', 'them'], ['support-plan', 'Confirm the support plan', 'them'],
@@ -5640,22 +5634,13 @@ function pipelineParticipant(p) {
   return { key: 'active', who: '', detail: pr && pr.review_due ? `Plan review due ${dmy(pr.review_due)}` : '' };
 }
 function pipelineWorker(w) {
-  if (!w.verified) return { key: 'verify-email', who: 'them', detail: 'Email not confirmed' };
-  const o = onboardingSummary(w.id);
-  if (!o.id_ok) return { key: 'identity', who: 'them', detail: `${o.id_points} of 100 points${o.has_primary ? '' : ', no primary document'}` };
-  if (!o.right_to_work) return { key: 'right-to-work', who: 'them', detail: 'No right-to-work evidence' };
-  const st = platformStatus(w.id);
-  const b = st.blocks.join(' ');
-  if (/No NDIS worker screening check on file|has expired/.test(b)) return { key: 'screening-file', who: 'them', detail: b };
-  if (/not been verified/.test(b)) return { key: 'screening-verify', who: 'office', detail: b };
-  if (/suspended|revoked|exclusion|pending/.test(b)) return { key: 'screening-status', who: 'them', detail: b };
-  if (!o.orientation || !o.first_aid) return { key: 'training', who: 'them', detail: [!o.orientation && 'orientation module', !o.first_aid && 'first aid'].filter(Boolean).join(', ') + ' missing' };
-  if (/banning/i.test(b)) return { key: 'banning', who: 'office', detail: b };
-  if (!st.ok || !w.visible) return { key: 'visible', who: 'office', detail: st.blocks.join(' ') || 'Hidden' };
-  const first = db.prepare("SELECT MIN(date) AS d FROM bookings WHERE worker_id = ? AND status IN ('accepted','completed')").get(w.id);
-  if (!first || !first.d) return { key: 'first-shift', who: 'them', detail: 'Ready for a shift' };
-  return { key: 'active', who: '', detail: '' };
+  const items=WORKFLOW?.workerBlockers(w.id)||[];
+  const item=items.find(x=>x.blocking!==false);
+  if(item){const map={'upload-ndis-screening':'screening-file','verify-ndis-screening':'screening-verify','photo':'identity','activation':'visible'};let key=map[item.key]||item.key;if(key.startsWith('register-'))key='banning';if(key.startsWith('training-')||key.startsWith('upload-')||key.startsWith('verify-'))key='training';return {key,who:item.yours?'them':'office',detail:item.label+(item.why?' — '+item.why:'')};}
+  if(!db.prepare("SELECT 1 FROM bookings WHERE worker_id=? AND status='completed'").get(w.id))return {key:'first-shift',who:'them',detail:'Ready for a first shift'};
+  return {key:'active',who:'',detail:''};
 }
+
 function pipelineBuild(defs, people, place) {
   const stages = defs.map(([key, label, who]) => ({ key, label, who, count: 0, people: [] }));
   const byKey = Object.fromEntries(stages.map(s => [s.key, s]));
@@ -5664,10 +5649,11 @@ function pipelineBuild(defs, people, place) {
     const r = place(p);
     const st = byKey[r.key] || byKey.active;
     st.count++;
-    const days = Math.max(0, Math.floor((today - new Date(p.created || today).getTime()) / 864e5));
+    const entered=WORKFLOW?WORKFLOW.stageTime(p.id,r.key):new Date(today).toISOString();
+    const days = Math.max(0, Math.floor((today - new Date(entered).getTime()) / 864e5));
     st.people.push({ id: p.id, name: p.name, days, waiting: r.who || st.who, detail: r.detail || '' });
   }
-  for (const st of stages) { st.people.sort((a, b) => b.days - a.days); st.stuck = st.key === 'active' ? 0 : st.people.filter(x => x.days >= 14).length; st.people = st.people.slice(0, 60); }
+  for (const st of stages) { st.people.sort((a, b) => b.days - a.days); st.stuck = st.key === 'active' ? 0 : st.people.filter(x => x.days >= 14).length; /* Full queue is paginated separately; this overview retains all people. */ }
   return { total: people.length, active: byKey.active.count, waiting_office: stages.filter(s => s.who === 'office').reduce((n, s) => n + s.count, 0), stuck: stages.reduce((n, s) => n + s.stuck, 0), stages };
 }
 route('GET', /^\/api\/admin\/pipeline$/, (req, res, m, user) => {
@@ -5789,11 +5775,17 @@ route('POST', /^\/api\/incidents$/, (req, res, m, user, body, ip) => {
   const created = now();
   const due = REPORTABLE_24H.includes(category) ? new Date(Date.now() + 24 * 3600e3).toISOString()
     : category === 'restrictive-practice' ? addBusinessDays(created, 5) : null;
+  const incidentBooking=body.booking_id?db.prepare('SELECT * FROM bookings WHERE id=?').get(Number(body.booking_id)):null;
+  if(body.booking_id && (!incidentBooking || !WORKFLOW?.bookingAllowed(req,user,incidentBooking)))return json(res,403,{error:'Not your booking.'});
+  const duplicate=body.event_key&&db.prepare('SELECT id FROM incidents WHERE event_key=? AND created_by=?').get(clean(body.event_key,80),user.id);
+  if(duplicate)return json(res,200,{ok:true,id:duplicate.id,duplicate:true});
+  if(incidentBooking){body.participant_name=db.prepare('SELECT name FROM users WHERE id=?').get(incidentBooking.participant_id)?.name;body.worker_name=db.prepare('SELECT name FROM users WHERE id=?').get(incidentBooking.worker_id)?.name;}
   const r = db.prepare(`INSERT INTO incidents (created_by, created_by_name, participant_name, worker_name, occurred_at, location, category, reportable, description, immediate_action, notify_due, created)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(user.id, user.name, clean(body.participant_name, 80), clean(body.worker_name, 80),
       clean(body.occurred_at, 25) || created, clean(body.location, 120), category, reportable,
       description, clean(body.immediate_action, 2000), due, created);
+  db.prepare('UPDATE incidents SET booking_id=?,event_key=? WHERE id=?').run(incidentBooking?.id||null,clean(body.event_key,80),Number(r.lastInsertRowid));
   if (reportable && MAIL_FROM) sendMail(MAIL_FROM, `⚠ REPORTABLE INCIDENT logged — The Care Web`,
     'Reportable incident — the clock is running',
     `<p><b>${escHtml(INCIDENT_CATS[category])}</b> logged by ${escHtml(user.name)}.</p><p><b>Notify the NDIS Commission ${REPORTABLE_24H.includes(category) ? 'within 24 HOURS' : 'within 5 business days'}</b> via the Commission portal, then record it in the incident register. Full written report within 14 days.</p><p>${escHtml(description.slice(0, 300))}</p>`,
@@ -5917,7 +5909,7 @@ route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
   }
   res.writeHead(200, {
     'Content-Type': 'text/csv; charset=utf-8',
-    'Content-Disposition': `attachment; filename="bookit-payroll-${ymd()}.csv"`
+    'Content-Disposition': `attachment; filename="careweb-historical-pay-register-${ymd()}.csv"`
   });
   res.end('﻿' + lines.join('\r\n'));
 });
@@ -6353,6 +6345,7 @@ function firstBookingBlockers(pid, self) {
     missing.push({ what: 'how the support is funded', where: '#/account/billing', key: 'billing', section: 'billing', yours: true,
       why: 'An invoice has to have somewhere to go before a shift is worth booking.' });
   }
+  if (u.plan === 'private' && setting('private_billing_ready','off') !== 'on') missing.push({key:'private-billing-review',section:'billing',what:'office confirmation of private billing',where:'#/journey',yours:false,why:'The office confirms the billing and tax treatment for private supports.'});
   const agreed = k => db.prepare("SELECT id FROM participant_docs WHERE participant_id = ? AND form_key = ? AND COALESCE(review_state,'') <> 'rejected'").get(Number(pid), k);
   if (!agreed('p-agreement')) {
     missing.push({ what: 'the Service Agreement', where: '#/account/documents', key: 'p-agreement', section: 'documents', yours: true,
@@ -6363,10 +6356,10 @@ function firstBookingBlockers(pid, self) {
       why: 'Read it and press I agree. We need your consent before we hold and share your information.' });
   }
   const ndisPlan = db.prepare("SELECT id, verified_at FROM participant_docs WHERE participant_id = ? AND form_key = 'p-ndis-plan' AND COALESCE(review_state,'') <> 'rejected' ORDER BY id DESC LIMIT 1").get(Number(pid));
-  if (!ndisPlan) {
+  if (u.plan !== 'private' && !ndisPlan) {
     missing.push({ what: 'a copy of the NDIS plan', where: '#/account/documents', key: 'ndis-plan', section: 'documents', yours: true,
       why: 'Upload a photo or PDF of the current NDIS plan (Settings › My documents › Add a document). Our office checks it before the first shift.' });
-  } else if (!ndisPlan.verified_at) {
+  } else if (u.plan !== 'private' && !ndisPlan.verified_at) {
     missing.push({ what: 'our office\u2019s check of the NDIS plan', where: '#/account/documents', key: 'ndis-plan-check', section: 'documents', yours: false,
       why: 'We have the NDIS plan. Nothing for you to do \u2014 our office is checking it against your plan dates.' });
   }
@@ -6396,13 +6389,16 @@ route('GET', /^\/api\/me\/blockers$/, (req, res, m, user) => {
   let items = [];
   /* the office account has no shifts of its own to be blocked from */
   if (user.admin) return json(res, 200, { items, counts: { ...counts, office: 0 } });
-  if (user.role === 'participant') {
-    items = firstBookingBlockers(user.id, true).map(x => ({ key: x.key, section: x.section, where: x.where, blocking: true, yours: x.yours,
+  const subject=user.role==='coordinator'?actFor(req,user,null):null;
+  if (user.role === 'participant' || subject) {
+    items = firstBookingBlockers(subject?.id||user.id, !subject).map(x => ({ key: x.key, section: x.section, where: x.where, blocking: true, yours: x.yours,
       label: x.key === 'plan-review' ? 'Our office is reviewing your support plan' : x.key === 'plan-review-due' ? 'Your support plan is due for review'
         : x.key === 'ndis-plan' ? 'Upload a copy of your NDIS plan' : x.key === 'ndis-plan-check' ? 'Our office is checking your NDIS plan'
         : x.key === 'support-plan' ? 'Your support plan is not confirmed' : x.key === 'billing' ? 'Tell us how your supports are funded'
         : x.key === 'nominee' ? 'Name who manages this account' : x.key === 'verify-email' ? 'Confirm your email address'
         : `${x.what.replace(/^the /, '')[0].toUpperCase()}${x.what.replace(/^the /, '').slice(1)} not yet agreed`, why: x.why }));
+  } else if (user.role === 'worker' && WORKFLOW) {
+    items=WORKFLOW.workerBlockers(user.id);
   } else if (user.role === 'worker') {
     const t = moduleState(user.id);
     if (t.lock) items.push({ key: 'training', section: 'training', where: '#/account/training', blocking: t.lock === 'hard', yours: true,
@@ -6515,8 +6511,8 @@ route('GET', /^\/api\/bookings$/, (req, res, m, user) => {
      "cover is being arranged" the moment the worker is withdrawn, instead
      of offering buttons the server will refuse. */
   const workerActive = user.role !== 'worker' ? true : (() => {
-    const w = db.prepare("SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(user.id);
-    return !!(w && w.visible && platformEligible(user.id, w.email));
+    const w = db.prepare("SELECT u.email, p.visible, p.self_paused FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(user.id);
+    return !!(w && (w.visible || w.self_paused) && platformEligible(user.id, w.email));
   })();
   const train = user.role === 'worker' ? moduleState(user.id) : null;
   json(res, 200, {
@@ -6728,6 +6724,7 @@ route('PUT', /^\/api\/bookings\/(\d+)\/note-draft$/, (req,res,m,user,body)=>{
   if(!raw||typeof raw!=='object'||Array.isArray(raw)||typeof raw.note!=='string'||raw.note.length>4000)return json(res,400,{error:'A draft note may contain up to 4000 characters.'});
   const payload={note:raw.note,scope:raw.scope===true,scope_detail:clean(raw.scope_detail,4000),active_note:clean(raw.active_note,2000)};
   if(raw.active_hours!==undefined){if(raw.active_hours!==''&&(!Number.isFinite(Number(raw.active_hours))||Number(raw.active_hours)<0||Number(raw.active_hours)>24))return json(res,400,{error:'Active hours need a valid number.'});payload.active_hours=raw.active_hours;}
+  if(raw.km!==undefined){const km=Number(raw.km);if(!Number.isFinite(km)||km<0||km>KM_MAX_SHIFT)return json(res,400,{error:'Enter valid participant transport kilometres.'});Object.assign(payload,{km,km_from:clean(raw.km_from,80),km_to:clean(raw.km_to,80)});}
   const expected=Number(body.revision);if(!Number.isInteger(expected)||expected<0)return json(res,400,{error:'Include the draft revision you loaded.'});
   db.exec('BEGIN IMMEDIATE');
   try{
@@ -6857,7 +6854,8 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     if (scopeBad) return json(res, 400, { error: scopeBad });
     /* 8. kilometres, entered by the person who drove them, on the screen
        where the shift is closed off. Commute is excluded in writing. */
-    const kmIn = Number(body.km) || 0;
+    const kmIn = body.km===undefined||body.km===''?0:Number(body.km);
+    if(!Number.isFinite(kmIn)||kmIn<0)return json(res,400,{error:'Enter valid participant transport kilometres.'});
     if (kmIn > 0) {
       if (kmIn > KM_MAX_SHIFT) return json(res, 400, { error: `${KM_MAX_SHIFT} km is the most that can go on one shift. If it really was further, ring the office and we'll record it by hand.` });
       if (!clean(body.km_from, 80) || !clean(body.km_to, 80)) return json(res, 400, { error: 'Please say where the trip started and where it finished.' });
@@ -7072,6 +7070,7 @@ route('POST', /^\/api\/series\/(\d+)\/end$/, (req, res, m, user, body) => {
   if (!sr) return json(res, 404, { error: 'That repeating booking no longer exists.' });
   const pers = actFor(req, user, 'bookings');
   if (!pers || pers.id !== sr.participant_id) return json(res, 403, { error: 'That isn\'t your booking.' });
+  if(WORKFLOW&&!WORKFLOW.checkSeriesEnd(req,user,sr,body))return json(res,409,{error:'Review the current future visits and possible cancellation charges before ending this series.',review_required:true});
   const today = ymd();
   /* detached = 0: a shift that was moved out of the rule is its own one-off
      now — the page says so in as many words — and ending the rule it left
@@ -7556,7 +7555,7 @@ function planWrite(participantId, f, status, byName) {
   const t = now();
   if (cur && cur.status === 'draft') {
     /* a draft is edited in place — it is not a version of anything yet */
-    db.prepare(`UPDATE support_plans SET ${cols.map(c => c + ' = ?').join(', ')}, status = ?, confirmed_at = ?, confirmed_by = ?, updated = ? WHERE id = ?`)
+    db.prepare(`UPDATE support_plans SET ${cols.map(c => c + ' = ?').join(', ')}, status = ?, confirmed_at = ?, confirmed_by = ?, updated = ?, revision = revision + 1 WHERE id = ?`)
       .run(...cols.map(c => f[c]), status, status === 'confirmed' ? t : '', status === 'confirmed' ? byName : '', t, cur.id);
     return cur.id;
   }
@@ -7565,6 +7564,7 @@ function planWrite(participantId, f, status, byName) {
   const r = db.prepare(`INSERT INTO support_plans (participant_id, version, current, status, ${cols.join(', ')}, confirmed_at, confirmed_by, created, updated)
       VALUES (?,?,1,?,${cols.map(() => '?').join(',')},?,?,?,?)`)
     .run(participantId, version, status, ...cols.map(c => f[c]), status === 'confirmed' ? t : '', status === 'confirmed' ? byName : '', t, t);
+  db.prepare('UPDATE support_plans SET revision=? WHERE id=?').run((cur?.revision||0)+1,Number(r.lastInsertRowid));
   return Number(r.lastInsertRowid);
 }
 
@@ -7596,10 +7596,15 @@ route('GET', /^\/api\/support-plan\/questions$/, (req, res) =>
   json(res, 200, { sections: PLAN_SECTIONS, questions: PLAN_QUESTIONS, home_notice: PLAN_HOME_NOTICE, review_months: PLAN_REVIEW_MONTHS }));
 
 route('GET', /^\/api\/me\/support-plan$/, (req, res, m, user) => {
+  const actor=user; const target=actFor(req,user,'plan');
+  if(!target)return json(res,403,{error:'You do not have permission for this participant.'});
+  user=sessionUser(target.id);
+
   if (!user || user.role !== 'participant') return json(res, 403, { error: 'Participants only.' });
   const cur = currentPlan(user.id);
   const conf = confirmedPlan(user.id);
   json(res, 200, {
+    revision: cur ? cur.revision : 0, participant_id:user.id,
     plan: planOut(cur),
     /* what they said last time, so step 1 of the review — read your previous
        answers and check they still hold — is possible without hunting */
@@ -7611,6 +7616,10 @@ route('GET', /^\/api\/me\/support-plan$/, (req, res, m, user) => {
 });
 
 route('POST', /^\/api\/me\/support-plan$/, (req, res, m, user, body) => {
+  const actor=user; const target=actFor(req,user,'plan');
+  if(!target)return json(res,403,{error:'You do not have permission for this participant.'});
+  user=sessionUser(target.id);
+
   if (!user || user.role !== 'participant') return json(res, 403, { error: 'Participants only.' });
   const confirm = body.confirm === true;
   const missing = planMissing(body);
@@ -7618,9 +7627,13 @@ route('POST', /^\/api\/me\/support-plan$/, (req, res, m, user, body) => {
     if (!body.declaration) return json(res, 400, { error: 'Tick the box to confirm this plan is up to date before submitting.', missing });
     if (missing.length) return json(res, 400, { error: `${missing.length} question${missing.length === 1 ? '' : 's'} still needs an answer before you can submit.`, missing });
   }
-  const id = planWrite(user.id, planFieldsFrom(body, carePlanHistory(user.id)), confirm ? 'confirmed' : 'draft', user.name);
+  const before=currentPlan(user.id);
+  if(!Number.isInteger(body.revision) || body.revision!==(before?.revision||0))return json(res,409,{error:'The support plan has changed. Your draft is preserved; review the latest version before saving.',conflict:true,revision:before?.revision||0,plan:planOut(before)});
+  const id = planWrite(user.id, planFieldsFrom(body, carePlanHistory(user.id)), confirm ? 'confirmed' : 'draft', actor.name);
   const cur = db.prepare('SELECT * FROM support_plans WHERE id = ?').get(id);
-  json(res, 200, { ok: true, plan: planOut(cur), continuity: continuityTier(confirmedPlan(user.id)), missing });
+  WORKFLOW?.event(actor.id,'support-plan',confirm?'submitted':'saved',`plan:${id}:${cur.revision}`);
+  logDelegate(target,'Support plan '+(confirm?'confirmed':'draft saved'),`Version ${cur.version}`,id);
+  json(res, 200, { ok: true, revision:cur.revision, plan: planOut(cur), continuity: continuityTier(confirmedPlan(user.id)), missing });
 });
 
 /* the shift brief. A worker sees it only for a participant they are booked with,
@@ -8884,7 +8897,7 @@ const NOMINEE_ROLES = [
 ];
 const nomineeLabel = k => (NOMINEE_ROLES.find(r => r.key === k) || {}).label || '';
 
-const FUNDING_LABELS = { self: 'Self-managed', plan: 'Plan-managed', ndia: 'NDIA-managed', none: 'No NDIS funding / private' };
+const FUNDING_LABELS = { self: 'Self-managed', plan: 'Plan-managed', ndia: 'NDIA-managed', none: 'Funding not yet confirmed', private: 'Private payment' };
 const PLAN_SERVICE_FLAGS = { use_personal: 'personal-care', use_daily: 'daily-tasks', use_transport: 'transport',
   use_household: 'household', use_community: 'community', use_employ: 'employment' };
 
@@ -9775,7 +9788,7 @@ function formsRegister() {
     });
     if (f.live === 'plan_dates') return perPerson(p => {
       const u = userRow(p.id);
-      if (u.plan === 'none') return { held: true, ok: true };   /* no NDIS plan to have dates */
+      if (u.plan === 'private') return { held: true, ok: true };   /* no NDIS plan to have dates */
       if (!u.plan_end) return { held: false, ok: false, gap: 'NDIS plan dates not recorded' };
       if (u.plan_end < today) return { held: true, ok: false, gap: `NDIS plan ended ${dmy(u.plan_end)} \u2014 supports continuing past it` };
       return { held: true, ok: true };
@@ -10421,6 +10434,10 @@ route('GET', /^\/api\/generated-docs$/, (req, res, m, user) => {
    worker who works with the person cannot be it. The signed advocate form stays on the shelf for arrangements
    that need a signature; this is the record for everyone else. --- */
 route('POST', /^\/api\/me\/nominee$/, (req, res, m, user, body) => {
+  const actor=user; const target=actFor(req,user,'documents');
+  if(!target)return json(res,403,{error:'You do not have permission for this participant.'});
+  user=sessionUser(target.id);
+
   const pers = actFor(req, user, 'documents');
   if (!pers) return json(res, 403, { error: 'Participants only.' });
   body = body || {};
@@ -10456,6 +10473,10 @@ route('POST', /^\/api\/me\/nominee$/, (req, res, m, user, body) => {
    is allowed, but only with a written note saying how the worker will get at
    the plan during the shift. --- */
 route('POST', /^\/api\/me\/plan-sharing$/, (req, res, m, user, body) => {
+  const actor=user; const target=actFor(req,user,'plan');
+  if(!target)return json(res,403,{error:'You do not have permission for this participant.'});
+  user=sessionUser(target.id);
+
   const pers = actFor(req, user, 'documents');
   if (!pers) return json(res, 403, { error: 'Participants only.' });
   body = body || {};
@@ -11300,7 +11321,7 @@ route('GET', /^\/api\/admin\/participant-register\.csv$/, (req, res, m, user) =>
       due ? dmy(due) + (due < ymd() ? ' — OVERDUE' : '') : '',
       cps.length, cps.filter(c => c && c.on_file).length,
       FUNDING_LABELS[p.plan] || '', p.plan_start ? dmy(p.plan_start) : '',
-      p.plan_end ? dmy(p.plan_end) + (p.plan_end < ymd() ? ' — ENDED' : '') : (p.plan === 'none' ? 'n/a' : 'NOT RECORDED'),
+      p.plan_end ? dmy(p.plan_end) + (p.plan_end < ymd() ? ' — ENDED' : '') : (p.plan === 'private' ? 'n/a' : 'NOT RECORDED'),
       p.nominee_role === 'none' ? 'self' : (p.nominee_name ? `${p.nominee_name} (${nomineeLabel(p.nominee_role)})` : ''),
       p.under_18 ? 'YES' : '', p.share_plans == null || p.share_plans ? 'yes' : 'NO — written arrangement on file'].map(q).join(','));
   }
@@ -13715,7 +13736,7 @@ everyJob('tiers', 86400 * 1000, () => reviewAllTiers(), {
   label: 'Pay tier review',
   why: 'Moves workers up the ladder immediately when they qualify, and down by at most one step after notice.'
 });
-everyJob('invoices', 86400 * 1000, () => runClaims(['self', 'plan'], 'nightly').catch(e => console.error('[claims] nightly run failed:', e.message)), {
+everyJob('invoices', 86400 * 1000, () => runClaims(['self', 'private', 'plan'], 'nightly'), {
   label: 'Nightly invoicing',
   why: 'Every approved shift for a self- or plan-managed participant is invoiced the night it is approved, with the PDF, the card link and a message in their account. Agency lines wait for the office to run the PACE file.'
 });
@@ -14910,7 +14931,7 @@ route('POST', /^\/api\/me\/sessions\/revoke$/, (req, res, m, user, body) => {
    back to this function. compliance_log.checked_by is deliberately excluded
    by the INTEGER test - it holds an email address, and the compliance log is
    append-only evidence that must survive the person it is about. */
-const PERSON_COLS = /^(user_id|worker_id|participant_id|coordinator_id|actor_id|reviewer_id|author_id|sender_id|owner_id|by_id|created_by|assigned_to|requested_by|approved_by|cancelled_by|revoked_by)$/;
+const PERSON_COLS = /^(user_id|worker_id|participant_id|coordinator_id|actor_id|reviewer_id|author_id|sender_id|owner_id|by_id|created_by|assigned_to|requested_by|approved_by|cancelled_by|revoked_by|recorded_by|acknowledged_by)$/;
 
 function personColumns() {
   const out = [];
@@ -16267,13 +16288,14 @@ function approvalSweep(req) {
       for (const c of coordsFor(b.participant_id, 'bookings')) {
         if (real(c.email)) people.push({ id: c.id, name: c.name, email: c.email, who: 'coordinator' });
       }
-      for (const p of people) {
+      const recipients=WORKFLOW?WORKFLOW.approvalRecipients(b.participant_id,people):people;
+      for (const p of recipients) {
         notify(p.id, 'timesheets', p.email, 'A timesheet is waiting for you — The Care Web',
           `Hi ${firstName(p.name)}`,
           p.who === 'coordinator'
             ? `<p>This is about <b>${escHtml(b.p_name)}</b>'s account, which you hold bookings access on.</p>` + body
             : body,
-          'Approve the timesheet', `${base}/#/bookings`).catch(() => {});
+          'Review the timesheet', `${base}/#/journey?panel=shift&booking=${b.id}&for=${b.participant_id}`,undefined,undefined,{requires_approval:true,booking_id:b.id,participant_id:b.participant_id}).catch(() => {});
       }
       out.push({ booking: b.id, action: 'nudged', days, told: people.length });
     }
@@ -17791,10 +17813,7 @@ route('POST', /^\/api\/admin\/invoices\/([A-Z0-9-]+)\/paid$/, (req, res, m, user
   if (!requireAdmin(user, res)) return;
   const inv = invoiceFor(m[1]);
   if (!inv) return json(res, 404, { error: 'No such invoice.' });
-  if (body.paid === false) db.prepare("UPDATE bookings SET claim_status = 'claimed', paid_at = NULL WHERE invoice_no = ?").run(inv.invoice_no);
-  else db.prepare("UPDATE bookings SET claim_status = 'paid', paid_at = ? WHERE invoice_no = ? AND claim_status <> 'paid'").run(now(), inv.invoice_no);
-  logCompliance({ worker_id: null, worker_name: '', kind: 'invoice-paid', result: body.paid === false ? 'unpaid' : 'paid', detail: `${inv.invoice_no} $${inv.total.toFixed(2)} for ${inv.participant.name} marked ${body.paid === false ? 'unpaid' : 'paid'} (${clean(body.how, 60) || 'bank transfer'}).`, source: 'admin', checked_by: user.name });
-  json(res, 200, { ok: true });
+  try {json(res,200,WORKFLOW.recordPayment(inv,user,body));}catch(e){json(res,409,{error:e.message});}
 });
 
 
@@ -17934,6 +17953,7 @@ route('DELETE', /^\/api\/admin\/users\/(\d+)$/, (req, res, m, user, body) => {
   try {
     recordErasure(mode === 'erase' ? 'user' : 'user-deidentified', u.id, `${u.role} ${u.name} <${u.email}>`, snapshot, reason, user.name);
     removeFiles(u.id);
+    if(WORKFLOW)WORKFLOW.closePersonal(u.id);
     if (mode === 'erase') {
       cascadeErase('users', 'id = ?', [u.id]);
     } else {
@@ -19059,6 +19079,19 @@ db.exec(`CREATE TABLE IF NOT EXISTS cover_reviews (
   permission TEXT NOT NULL CHECK(permission IN ('read','append','edit')),
   expires_at TEXT NOT NULL, granted_by INTEGER NOT NULL, granted_at TEXT NOT NULL,
   PRIMARY KEY(slug,worker_id));`);
+
+const processContext={db,json,route,actFor,sessionUser,firstBookingBlockers,onboardingSummary,platformStatus,
+ banningWindowDays,moduleState,docMap:DOC_MAP,pdocMap:PDOC_MAP,confirmedPlan,currentPlanAccess,workerBrief,planAck,
+ bookingStart,bookingEnd,ymd,isDemoWorker,openRequests,mailPrefs,emailOn:()=>EMAIL_ON,sendMailDirect,notify,baseUrl,escHtml,
+ activeLink,linkScopes,coordsFor,assignmentOptions,assignmentCheck,workerBookingGate,recordAssignmentAck,noteOutOfArea,
+ outOfAreaReply,workerPay,suggestCategory,openCover,services:SERVICES,sign,setting,setSetting,payable,billable,
+ reviewReferrals,csvCell:BOOKIT_HARDENING.safeSpreadsheetCell,publicAPI:PUBLIC_API,shortNotice,planQuestions:PLAN_QUESTIONS,AI,aiFetch,invoiceFor};
+WORKFLOW=require('./lib/process-store')(processContext);
+require('./lib/process-routes')(processContext,WORKFLOW);
+everyJob('deliveries',15000,()=>WORKFLOW.drain(),{label:'Message delivery',why:'Retries queued messages and records transport failures.'});
+everyJob('journey-tasks',60000,()=>WORKFLOW.syncAll(),{label:'Next actions',why:'Refreshes individual and office tasks from current records.'});
+everyJob('payroll-drafts',86400000,()=>WORKFLOW.scheduledPayroll(),{label:'Pay preparation',why:'Prepares unbatched lines from the last fourteen days for office review; never pays automatically.'});
+everyJob('journey-cleanup',86400000,()=>WORKFLOW.cleanup(),{label:'Workflow maintenance',why:'Prunes old delivery metadata and refreshes task status.'});
 
 const server = http.createServer((req, res) => {
   // The Care Web v85.3.0 request-boundary hardening. Keep this before route dispatch.

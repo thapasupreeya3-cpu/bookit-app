@@ -358,7 +358,7 @@ async function main() {
     t('… naming the NDIS item and the balance due', pdfText.includes('04_104_0125_6_1') && pdfText.includes('Balance due') && pdfText.includes('Payment reference'));
     t('a worker cannot fetch it', (await req('GET', `/api/me/invoices/${inv.invoice_no}.pdf`, { cookie: wc })).status === 403);
     t('another participant cannot fetch it', (await req('GET', `/api/me/invoices/${inv.invoice_no}.pdf`, { cookie: ic })).status === 403);
-    const mp = await req('POST', `/api/admin/invoices/${inv.invoice_no}/paid`, { headers: J2, cookie: ac2, body: { how: 'bank transfer' } });
+    const mp = await req('POST', `/api/admin/invoices/${inv.invoice_no}/paid`, { headers: J2, cookie: ac2, body: { how: 'Synthetic bank transfer reconciled to the invoice.', reference:'smoke-payment-001', amount:inv.balance, confirm:true } });
     const after = await req('GET', '/api/me/invoices', { cookie: pc });
     t('the office marks the bank transfer received and the participant sees Paid', mp.status === 200 && after.json.invoices.find(i => i.invoice_no === inv.invoice_no).status === 'paid' && after.json.owing === 0, mp.status);
     /* many lines → more than one page */
@@ -601,7 +601,7 @@ async function main() {
     t('… and the only company document not held is the registration certificate, which is not in the Drive', frm4.json.forms.filter(f => f.scope === 'company' && f.track === 'drive' && !(f.record && f.record.held)).map(f => f.key).join(',') === 'cert-registration');
     /* v86.12.0: the pipeline, and certificates that know when they lapse */
     const pipe = await req('GET', '/api/admin/pipeline', { cookie: ac2 });
-    t('the pipeline places every participant and worker at the first gate they have not passed, from the gates the app enforces', pipe.status === 200 && pipe.json.participants.stages.length === 14 && pipe.json.workers.stages.length === 11 && pipe.json.participants.stages.reduce((n, s) => n + s.count, 0) === pipe.json.participants.total && pipe.json.workers.stages.reduce((n, s) => n + s.count, 0) === pipe.json.workers.total && pipe.json.participants.stages.every(s => s.people.every(p => typeof p.days === 'number' && ['them', 'office', ''].includes(p.waiting))), pipe.status);
+    t('the pipeline places every participant and worker at the first gate they have not passed, from the gates the app enforces', pipe.status === 200 && pipe.json.participants.stages.length === 15 && pipe.json.workers.stages.length === 11 && pipe.json.participants.stages.reduce((n, s) => n + s.count, 0) === pipe.json.participants.total && pipe.json.workers.stages.reduce((n, s) => n + s.count, 0) === pipe.json.workers.total && pipe.json.participants.stages.every(s => s.people.every(p => typeof p.days === 'number' && ['them', 'office', ''].includes(p.waiting))), pipe.status);
     t('… and the office cannot be read by a worker', (await req('GET', '/api/admin/pipeline', { cookie: wc })).status === 403);
     const frm5 = await req('GET', '/api/admin/forms', { cookie: ac2 });
     t('the certificates of currency carry their expiry on the register', ['insurance-pl', 'insurance-pi', 'insurance-wc'].every(k => { const f = frm5.json.forms.find(x => x.key === k); return f.record && f.record.held && /^\d{4}-\d{2}-\d{2}$/.test(f.record.covers_to); }));

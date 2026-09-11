@@ -1,0 +1,671 @@
+{
+  "title": "The Care Web participant and worker process improvements",
+  "source_version": "88.1.5",
+  "review_date": "2026-09-11",
+  "status": "Source implementation complete; not deployed or certified for live integrations",
+  "items": [
+    {
+      "id": "J01",
+      "title": "Give every person one clear next-action page",
+      "roles": [
+        "Participant",
+        "Worker",
+        "Office"
+      ],
+      "priority": "P1",
+      "effort": "M",
+      "current": "Participant blockers, worker credentials, training, the booking summary and office pipeline exist separately. A new worker can have zero personal blocker badges despite missing their screening file and CPR certificate. Signup copy says photo and screening are the two things that unlock approval.",
+      "proposed": "Make the signed-in home show Do now, Waiting on someone else, and Later. Each task opens the exact field or document type and returns here afterwards. Generate signup instructions and task ownership from the same structured eligibility rules. Show outstanding tasks even during the training grace period.",
+      "automation_trigger": "Registration, verification, upload, review, plan confirmation or credential change recomputes tasks and the next useful action.",
+      "human_decision": "The participant or worker supplies and confirms their information; office tasks name an actual owner.",
+      "acceptance_criteria": "A new worker sees email confirmation, missing uploads and pending office checks separately. Finishing one task updates the list without losing the intended booking. No requirement is inferred from free-text error matching.",
+      "success_metric": "Time from signup to ready; help requests about what to do next; tasks completed without visiting another menu.",
+      "evidence": "P01; server.js: firstBookingBlockers, /api/me/blockers, pipelineWorker; public/index.html: get-started flows; bookit-review-improvements.js: bookingSummary",
+      "dependencies": "J09 for persistent task history",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Unified next actions, structured setup and ownership, exact task links.",
+      "implementation_files": [
+        "lib/process-store.js",
+        "lib/process-routes.js",
+        "public/assets/process-workflows.js"
+      ],
+      "verification": "J01/J02, J01/J12; scoped-helper tests"
+    },
+    {
+      "id": "J02",
+      "title": "Create a real private-payment journey",
+      "roles": [
+        "Participant",
+        "Office"
+      ],
+      "priority": "P0",
+      "effort": "M",
+      "current": "The visible No NDIS / private option stores none. The booking gate treats none as missing funding and still requires an NDIS plan. Even a meet-and-greet is refused.",
+      "proposed": "Separate funding not yet selected from private funding. Give private participants the appropriate payer and support setup, without NDIS-number or NDIS-plan tasks. Trace the private lane through quotes, agreements, invoices, adjustments and statements.",
+      "automation_trigger": "Funding selection selects the relevant checklist, payer requirements and billing lane.",
+      "human_decision": "The participant chooses funding and agrees the displayed terms and price. The business confirms the private billing and tax treatment before release.",
+      "acceptance_criteria": "Private signup can reach a booking and an invoice without a fictitious NDIS plan. Unknown funding still blocks. Existing none records are reviewed or reconfirmed instead of silently treated as an agreed payer.",
+      "success_metric": "Private signup completion; funding-related booking failures.",
+      "evidence": "P02–P03; server.js: /api/me/billing, firstBookingBlockers, runClaims; public/index.html: pPlan and fundOpts",
+      "dependencies": "None",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Explicit private lane, unknown funding blocked, reviewed billing setup, original payer snapshots.",
+      "implementation_files": [
+        "server.js",
+        "lib/process-finance.js"
+      ],
+      "verification": "J01/J02; J21 invoice snapshot"
+    },
+    {
+      "id": "J03",
+      "title": "Let an authorised helper complete the permitted journey",
+      "roles": [
+        "Participant",
+        "Office"
+      ],
+      "priority": "P0",
+      "effort": "M",
+      "current": "Account links have separate plan, documents, bookings and invoice permissions. A delegate with plan permission can read bookings but receives Participants only from /api/me/support-plan.",
+      "proposed": "Apply actFor and the correct scope consistently to the plan editor and all related setup routes. Show whose account is active on every task and preserve that context in reminder links. Distinguish helping prepare information from making a declaration on someone else’s behalf.",
+      "automation_trigger": "An accepted invitation exposes only tasks allowed by the granted scopes; revocation removes them immediately.",
+      "human_decision": "The participant grants access. Any representative confirmation follows the recorded authority and displays who confirmed it.",
+      "acceptance_criteria": "An authorised plan delegate can save a permitted draft for the selected participant; a documents-only delegate cannot. Switching clients never carries draft text across. Revoked access fails on save as well as on page load.",
+      "success_metric": "Setup completed with a helper; permission-related support calls; cross-account access failures in regression tests.",
+      "evidence": "P05; server.js: actFor, LINK_SCOPES, /api/me/support-plan, screenTarget",
+      "dependencies": "None",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Scope-aware helper APIs, active-person navigation and reminders, save-time access checks.",
+      "implementation_files": [
+        "server.js",
+        "lib/process-routes.js",
+        "public/index.html"
+      ],
+      "verification": "J03; helper without booking scope"
+    },
+    {
+      "id": "J04",
+      "title": "Protect every saved support-plan draft",
+      "roles": [
+        "Participant",
+        "Office"
+      ],
+      "priority": "P0",
+      "effort": "M",
+      "current": "Support plans already autosave after four seconds. The save API accepts a stale write without a revision check; a simulated older client overwrote newer text.",
+      "proposed": "Add a server revision token and compare-and-swap saves. Keep unsaved edits visible, serialize client saves and cancel or flush a pending draft save before confirmation. Reuse the conflict-preservation approach already used for register and shift-note drafts.",
+      "automation_trigger": "Editing queues a draft save; a revision mismatch opens a recovery view with both versions.",
+      "human_decision": "The author chooses which conflicting changes to retain and explicitly confirms the final plan.",
+      "acceptance_criteria": "Two tabs, slow requests, a retry and save-then-confirm cannot silently lose text or change a confirmed plan back into an unintended draft. A failed save never displays Saved.",
+      "success_metric": "Lost-draft incidents; conflict recovery success; repeat entry of plan information.",
+      "evidence": "P06; server.js: planWrite, /api/me/support-plan; public/index.html: spSave, spTouched",
+      "dependencies": "None",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Plan CAS revisions, serialized client saves, confirmation flush and preserved conflicts.",
+      "implementation_files": [
+        "server.js",
+        "public/index.html"
+      ],
+      "verification": "J04; syntax and existing review tests"
+    },
+    {
+      "id": "J05",
+      "title": "Make the job monitor wait for actual completion",
+      "roles": [
+        "Office"
+      ],
+      "priority": "P0",
+      "effort": "S",
+      "current": "jobRun calls an async function without awaiting it. It can stamp success and clear its busy lock while the invoice job is still pending. The scheduled invoice callback also catches and logs its own rejection.",
+      "proposed": "Await the complete job, retain the lock until settlement, record success only afterwards, and propagate failures into the job ledger. Audit callers so an async job does not change synchronous route responses accidentally.",
+      "automation_trigger": "Every scheduled or manually invoked job records start, settled outcome, duration and actionable failure details.",
+      "human_decision": "An operator owns a failed-job task and can retry it after investigating the cause.",
+      "acceptance_criteria": "A deferred promise keeps the job busy; a rejected promise increments failures and leaves last successful completion unchanged. An overlapping invocation cannot run twice.",
+      "success_metric": "Failed jobs detected; duplicate job attempts; age of oldest unhandled failure.",
+      "evidence": "P07; server.js: jobRun, everyJob, nightly invoices registration",
+      "dependencies": "None",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Async job lock persists until settlement; truthful success/failure ledger.",
+      "implementation_files": [
+        "server.js"
+      ],
+      "verification": "J05 deferred/rejected Promise test"
+    },
+    {
+      "id": "J06",
+      "title": "Give email and invoice delivery a durable retry queue",
+      "roles": [
+        "Participant",
+        "Worker",
+        "Office"
+      ],
+      "priority": "P0",
+      "effort": "M",
+      "current": "Many paths write a sent/nudged stage before fire-and-forget email. runClaims marks lines claimed before sending; a failed send is not retried by the next invoice run. This was reproduced with the actual function and a failing mock transport.",
+      "proposed": "Write a delivery task in the same database transaction as the business event. Send from an outbox with a stable deduplication key, bounded retries and an exception state. Retry the original invoice, rather than creating another invoice. Separate queued, transport-accepted and bounced states where provider evidence exists.",
+      "automation_trigger": "Invoice issued, verification requested, cover offered or reminder due creates one delivery task; a worker drains the queue.",
+      "human_decision": "Office resolves invalid addresses and exhausted retries. Financial document corrections use a separate audited action.",
+      "acceptance_criteria": "Restart or timeout does not lose a notification. Retrying cannot mint another invoice. Failed urgent cover delivery escalates within its existing response window. Opt-outs and revoked access are checked again before sending.",
+      "success_metric": "Delivery failures recovered automatically; duplicate sends; oldest undelivered urgent task.",
+      "evidence": "P08; server.js: sendMail, notify, runClaims, approvalSweep, credentialSweep",
+      "dependencies": "J05",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Persisted email outbox with dedupe, lease, retries, access and offer rechecks; invoice transaction.",
+      "implementation_files": [
+        "lib/process-store.js",
+        "server.js"
+      ],
+      "verification": "J06; J21; closure test"
+    },
+    {
+      "id": "J07",
+      "title": "Separate hiding a profile from stopping existing work",
+      "roles": [
+        "Worker",
+        "Participant",
+        "Office"
+      ],
+      "priority": "P0",
+      "effort": "S–M",
+      "current": "Self-pause leaves existing bookings in place and says they can continue. workerBookingGate rejects completion whenever visible is false, including a voluntary pause.",
+      "proposed": "Represent accepting new work, voluntary discoverability pause and a safety withdrawal as separate states. Permit appropriate work on an existing assignment during a voluntary pause; keep actual safety and cover restrictions enforced.",
+      "automation_trigger": "Pause or resume recomputes new-work availability and shows the affected existing shifts before confirmation.",
+      "human_decision": "The worker decides whether to stop new requests or request cover for existing shifts. A safety withdrawal remains subject to office handling.",
+      "acceptance_criteria": "An eligible self-paused worker can finish an existing delivered shift, while a withdrawn worker or a shift in the cover process cannot bypass the existing protections.",
+      "success_metric": "Completion failures after pause; office calls needed to correct a pause.",
+      "evidence": "P10; server.js: /api/me/pause, /api/me/resume, workerBookingGate",
+      "dependencies": "None",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Voluntary pause permits eligible accepted shifts and current brief access; safety gates retained.",
+      "implementation_files": [
+        "server.js",
+        "lib/plan-access.js"
+      ],
+      "verification": "J07; audit permissions"
+    },
+    {
+      "id": "J08",
+      "title": "Create a payroll handoff with a recorded outcome",
+      "roles": [
+        "Worker",
+        "Office"
+      ],
+      "priority": "P0",
+      "effort": "L",
+      "current": "Earnings and payroll CSVs already exist. The payroll endpoint exports all eligible historical rows, including pending timesheets; repeating it returns the same rows. It is not a deduplicated pay batch and has no worker wage-payment acknowledgement.",
+      "proposed": "Keep the existing register export clearly labelled. Add period-specific payroll preparation, stable line IDs, reviewed adjustments, export history and external payroll acknowledgement. Display estimated earnings, approved records, exported batch and confirmed payroll outcome separately.",
+      "automation_trigger": "A scheduled pay-cycle draft gathers the relevant records and exceptions; an acknowledged payroll result updates status.",
+      "human_decision": "The payroll owner reviews and authorises the batch under the business’s approved pay process. Participant timesheet disputes and wage obligations need an explicit policy, rather than an assumed automatic hold.",
+      "acceptance_criteria": "Re-exporting the same batch cannot create duplicate payable lines. Rejected or amended lines remain traceable. The site never marks a worker paid merely because a CSV was downloaded or a participant invoice was paid.",
+      "success_metric": "Manual reconciliation time per run; duplicate or missing lines; pay-status enquiries.",
+      "evidence": "P09; server.js: /api/admin/payroll.csv, earningsFor, /api/me/earnings",
+      "dependencies": "None",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Reviewed stable-ID batches, adjustments, repeatable export, explicit external acknowledgement and cutover.",
+      "implementation_files": [
+        "lib/process-finance.js"
+      ],
+      "verification": "J08/J21"
+    },
+    {
+      "id": "J09",
+      "title": "Turn the office pipeline into an owned work queue",
+      "roles": [
+        "Office",
+        "Participant",
+        "Worker"
+      ],
+      "priority": "P1",
+      "effort": "M",
+      "current": "The pipeline selects the first unmet stage and uses account creation time for its days value and 14-day stuck count. The UI labels days since joining, but this cannot measure a current handoff. Several independent office tasks can be hidden behind that first stage.",
+      "proposed": "Keep the overview, but add all open tasks with owner, prerequisites, ready-since, assigned-at, due-at and completion history. Run independent document, plan and recruitment reviews in parallel. Use actual stage-entry time for waiting alerts.",
+      "automation_trigger": "A prerequisite arriving makes the relevant office task ready immediately; missed due times appear in one exception queue.",
+      "human_decision": "A named office owner performs the review and records the decision or an exact request for missing information.",
+      "acceptance_criteria": "A person joining 60 days ago who uploads today is not shown as waiting 60 days for that review. More than 60 people at a stage are searchable or paginated. No ready task is hidden behind another task.",
+      "success_metric": "Median and 90th-percentile office waiting time by task; unassigned work; overdue handoffs.",
+      "evidence": "P04; server.js: PIPELINE_P, PIPELINE_W, pipelineBuild, /api/admin/today-actions",
+      "dependencies": "None",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "All open tasks searchable/paginated, owner/due persistence and true observed stage-entry time.",
+      "implementation_files": [
+        "lib/process-store.js",
+        "lib/process-routes.js",
+        "server.js"
+      ],
+      "verification": "J09"
+    },
+    {
+      "id": "J10",
+      "title": "Ask for reusable information once",
+      "roles": [
+        "Participant",
+        "Worker"
+      ],
+      "priority": "P1",
+      "effort": "M",
+      "current": "Signup, billing, support plans, jobs and on-screen forms have useful structured data, but separate forms do not form one reusable intake. Generated documents and several digital confirmations already remove printing.",
+      "proposed": "Create a shared profile/intake model for contact details, funding, support preferences and emergency contacts. Prefill only applicable later fields with the source and last-confirmed date. Keep support needs, preferences and formal declarations distinct.",
+      "automation_trigger": "Opening a relevant form proposes existing account values; an accepted edit updates the shared field and flags dependent records for review.",
+      "human_decision": "The person checks the suggested values and makes every required declaration themselves.",
+      "acceptance_criteria": "Changing an emergency number offers an update to dependent documents without silently rewriting an already confirmed historical record. A private participant sees private-funding questions. Optional details can be completed later.",
+      "success_metric": "Repeated fields typed; time to complete intake; corrections caused by conflicting records.",
+      "evidence": "server.js: /api/register, /api/me/billing, PLAN_QUESTIONS, cleanAnswers, generated document routes",
+      "dependencies": "J02, J04",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Shared confirmed intake with revision check and explicit support-plan prefill.",
+      "implementation_files": [
+        "lib/process-routes.js",
+        "public/index.html"
+      ],
+      "verification": "J10; frontend rendering"
+    },
+    {
+      "id": "J11",
+      "title": "Make document intake a guided upload tray",
+      "roles": [
+        "Worker",
+        "Participant",
+        "Office"
+      ],
+      "priority": "P1",
+      "effort": "M",
+      "current": "Uploads use a searchable catalogue, one document at a time, with manual type, number and expiry entry. Identity documents already count toward multiple eligibility purposes; document requests already close when the matching upload arrives.",
+      "proposed": "Allow a small batch with per-file progress and specific correction messages. Show which requirements each file satisfies. Detect duplicate files within the person’s authorised file set. Suggest missing document combinations from the catalogue instead of repeatedly asking for another upload.",
+      "automation_trigger": "Upload validates the file, attaches its relevant requirement links and opens any needed review task.",
+      "human_decision": "The uploader confirms type and extracted details; the reviewer verifies the evidence. A file being received is visibly different from being verified.",
+      "acceptance_criteria": "An Australian passport can satisfy its existing identity and work-rights purposes without a second file. One failed upload does not lose successful files. Rejected files explain the exact replacement needed.",
+      "success_metric": "Uploads per completed requirement; rejected upload rate; document-chasing messages.",
+      "evidence": "server.js: DOC_CATALOG, onboardingSummary, /api/me/documents, fulfilRequest, raiseRequest",
+      "dependencies": "J09; J25 only if OCR is added",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Batch upload tray, per-file result/retry, catalogue purposes, duplicate detection and existing passport reuse.",
+      "implementation_files": [
+        "public/assets/process-workflows.js",
+        "server.js"
+      ],
+      "verification": "J11; existing document smoke tests"
+    },
+    {
+      "id": "J12",
+      "title": "Give recruitment one review workspace",
+      "roles": [
+        "Worker",
+        "Office"
+      ],
+      "priority": "P1",
+      "effort": "M–L",
+      "current": "Credential verification, screening status, register checks, profile approval and training are separate processes. Public copy also mentions references and an interview; the reviewed routes do not expose an interview scheduling or reference-response workflow.",
+      "proposed": "Show the whole application with independent review tasks. Add explicit interview, reference and employment-administration stages where these are actually part of the business process, with evidence and ownership. Offer bookable interview slots only after the interview process is defined.",
+      "automation_trigger": "New evidence updates readiness; a completed review unlocks the next relevant task and sends one status update.",
+      "human_decision": "Recruitment staff conduct interviews, assess references and authorise activation. Payroll/employment administration is completed through the chosen approved process.",
+      "acceptance_criteria": "The published recruitment promise matches the actual checklist. A worker can see what is outstanding and who owns it; receiving a document never implies that an interview or clearance occurred.",
+      "success_metric": "Office touches per applicant; time from complete evidence to decision; interview rescheduling.",
+      "evidence": "server.js: onboardingSummary, platformStatus, approve route; public/index.html: verification and signup copy",
+      "dependencies": "J01, J09",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Interview/reference/employment checks with evidence, slots, cancellation and historical rebooking.",
+      "implementation_files": [
+        "lib/process-store.js",
+        "lib/process-routes.js"
+      ],
+      "verification": "J01/J12; J12; handoff test"
+    },
+    {
+      "id": "J13",
+      "title": "Guide the support plan section by section",
+      "roles": [
+        "Participant",
+        "Office",
+        "Worker"
+      ],
+      "priority": "P1",
+      "effort": "M",
+      "current": "The support plan already has six sections, conditional questions, a missing-answer list, drafts, confirmation and history. It is rendered as a long page. Workers get a restricted current brief; the general plan-diff endpoint is not worker-accessible.",
+      "proposed": "Offer a short section navigator with progress, Next unanswered and save status. Preserve previous confirmed answers and highlight changes. Add a worker-safe change summary limited to their permitted brief and shared plans, then open the current version for acknowledgement.",
+      "automation_trigger": "A confirmed plan update creates review and acknowledgement tasks for the currently authorised people who need it.",
+      "human_decision": "The participant confirms the plan; office and workers perform their own applicable reviews. Clinical content stays with the appropriate author.",
+      "acceptance_criteria": "Switching sections preserves text. A worker change summary cannot expose fields or historic data outside their access. Unchanged answers can be retained without repeating entry; confirmation remains explicit.",
+      "success_metric": "Plan completion and review time; abandonment by section; overdue acknowledgements.",
+      "evidence": "server.js: PLAN_SECTIONS, PLAN_QUESTIONS, workerBrief, /api/plan/:id/diff; public/index.html: renderSupportPlanPage",
+      "dependencies": "J03, J04",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Section navigation and next-unanswered flow; current-brief-only worker change summary.",
+      "implementation_files": [
+        "public/index.html",
+        "lib/process-assistance.js"
+      ],
+      "verification": "J13/J15; existing scoped plan tests"
+    },
+    {
+      "id": "J14",
+      "title": "Carry support requirements through matching and booking",
+      "roles": [
+        "Participant",
+        "Worker"
+      ],
+      "priority": "P1",
+      "effort": "M",
+      "current": "The site already filters workers by service, exact visit interval, location and availability, and shows estimated next-free gaps. Jobs, saved workers and meet-and-greets provide other routes to a match.",
+      "proposed": "Start from the person’s confirmed preferences and chosen visit details, retain those details across worker comparison and the booking form, and explain why a match fits. When a proposed time fails, return a small set of eligible alternatives with clear availability limits.",
+      "automation_trigger": "Changing service, place or time refreshes a shortlist; the chosen values prefill the booking.",
+      "human_decision": "The participant chooses the worker and time. Workers still accept their work; inferred preferences are editable.",
+      "acceptance_criteria": "A rejected date produces valid alternatives without exposing another participant’s diary. A displayed estimate is rechecked before booking. Selecting a worker does not reset the entered service and schedule.",
+      "success_metric": "Search-to-request completion; repeated booking validation failures; messages needed to find a time.",
+      "evidence": "server.js: /api/workers, nextFree, assignmentCheck; bookit-review-improvements.js: workerQuery",
+      "dependencies": "None",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Retained matching/booking schedule preferences and limited revalidated alternative slots.",
+      "implementation_files": [
+        "public/index.html",
+        "lib/process-routes.js"
+      ],
+      "verification": "J14"
+    },
+    {
+      "id": "J15",
+      "title": "Review a recurring booking request together",
+      "roles": [
+        "Worker",
+        "Participant"
+      ],
+      "priority": "P1",
+      "effort": "M",
+      "current": "Participants can request weekly or fortnightly series of up to 26 visits and edit future occurrences. Worker acceptance is currently one booking at a time. Material series edits request fresh acceptance.",
+      "proposed": "Add a Review these visits action listing every date, time, pay estimate and exception. Let the worker explicitly accept selected eligible occurrences in a single reviewed operation, retaining a result and evidence per visit.",
+      "automation_trigger": "A new or changed series creates one grouped review task and a combined outcome notification.",
+      "human_decision": "The worker selects and confirms the visits; changed assignments and travel exceptions receive the appropriate review.",
+      "acceptance_criteria": "All selected occurrences are rechecked transactionally. A changed plan, new leave or a clash produces an explicit conflict result. Never loop blind Accept calls from the browser or reuse an old travel token for different visits.",
+      "success_metric": "Acceptance interactions per series; elapsed time to a fully staffed series; partially accepted requests.",
+      "evidence": "server.js: /api/bookings POST/PATCH, /api/series/:id PATCH, assignmentOptions; public/index.html: data-act accepted",
+      "dependencies": "J04; existing v88.1.5 assignment protections retained",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Explicit selected occurrences accepted in one transaction after fresh plan/travel/availability checks.",
+      "implementation_files": [
+        "lib/process-routes.js"
+      ],
+      "verification": "J13/J15 atomic conflict test"
+    },
+    {
+      "id": "J16",
+      "title": "Make familiar support easy to book again",
+      "roles": [
+        "Participant",
+        "Worker"
+      ],
+      "priority": "P2",
+      "effort": "S–M",
+      "current": "Recurring bookings and saved/team workers already exist. Starting a fresh booking still uses the general form and default date.",
+      "proposed": "Add Book again from a previous visit and a saved routine template. Prefill worker, service, duration and typical time, show current price and relevant changes, then let the participant choose the new dates.",
+      "automation_trigger": "A user chooses a prior visit or saved routine; the system revalidates and proposes a new request.",
+      "human_decision": "The participant confirms each new request or finite series; the worker accepts. A routine is never an indefinite charging authority.",
+      "acceptance_criteria": "A template cannot carry a blocked worker, expired plan, past price or invalid availability into a new booking. Sensitive old notes are not copied into new instructions automatically.",
+      "success_metric": "Time to repeat a booking; edits needed after a copied routine.",
+      "evidence": "server.js: /api/series, /api/my-workers, /api/bookings; public/index.html: openBookingModal",
+      "dependencies": "J14",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Book again and saved usual visits; fresh date, eligibility and price review; no copied care notes.",
+      "implementation_files": [
+        "lib/process-routes.js",
+        "public/assets/process-workflows.js"
+      ],
+      "verification": "J16"
+    },
+    {
+      "id": "J17",
+      "title": "Turn leave into a reviewed cover request",
+      "roles": [
+        "Worker",
+        "Participant",
+        "Office"
+      ],
+      "priority": "P1",
+      "effort": "M",
+      "current": "The new availability editor supports time ranges and leave. It tells workers to contact the office about affected accepted visits. Saving a profile does not enumerate those visits or initiate a reviewed cover request.",
+      "proposed": "Before saving leave, show overlapping requests and accepted shifts with their cover status. Offer one explicit action to request cover for selected visits and route any urgent or in-progress cases to the office.",
+      "automation_trigger": "Confirmed leave updates future matching and opens cover for the explicitly selected affected visits.",
+      "human_decision": "The worker confirms the impact. Participant preferences continue to control permanent replacement; the office handles exceptions.",
+      "acceptance_criteria": "No accepted support disappears because leave was entered. Repeating the action does not open duplicate cover cases. In-progress shifts remain visible for immediate human handling.",
+      "success_metric": "Calls per leave request; time from leave notice to cover opening; uncovered visits.",
+      "evidence": "server.js: /api/me/profile, openCover, coverSweep; bookit-review-improvements.js: renderAvailability",
+      "dependencies": "J06, J07",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Fresh signed availability-impact review, selected cover only, existing visit preservation.",
+      "implementation_files": [
+        "lib/process-routes.js",
+        "public/assets/bookit-review-improvements.js"
+      ],
+      "verification": "J17"
+    },
+    {
+      "id": "J18",
+      "title": "Put the whole shift in one workspace",
+      "roles": [
+        "Worker",
+        "Participant"
+      ],
+      "priority": "P1",
+      "effort": "M",
+      "current": "Bookings contain plan access, acceptance, note drafts, completion, kilometres and sleepover fields. Incident reporting is in a separate account-details card. The worker must connect these pieces.",
+      "proposed": "Use one shift page: Before the visit, During the visit, Finish the visit. Show the current permitted brief, essential contact details and an obvious incident action. Prefill booking facts into the note and incident form; prompt for actual support, outcome, changes and next actions.",
+      "automation_trigger": "The scheduled visit surfaces its preparation task; saving a note retains the existing draft and finalisation protections. An incident report links back to the selected visit.",
+      "human_decision": "The worker records what happened, checks time and travel, reports concerns and confirms completion. Schedule data never counts as evidence that care was delivered.",
+      "acceptance_criteria": "A worker can finish one visit without reopening Settings. No prior observation is copied as today’s fact. An incident creates one structured report with the right participant and booking, subject to review.",
+      "success_metric": "Shift-end to note-finalised time; correction rate; duplicate incident entry.",
+      "evidence": "server.js: booking completion, note-draft routes, /api/incidents; public/index.html: incidentCard; bookit-review-improvements.js: draft helpers",
+      "dependencies": "None",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "One scoped visit workspace with brief, saved note, active time, travel, completion, query and linked incident.",
+      "implementation_files": [
+        "lib/process-routes.js",
+        "public/assets/process-workflows.js",
+        "server.js"
+      ],
+      "verification": "J18; J07; frontend rendering"
+    },
+    {
+      "id": "J19",
+      "title": "Group routine approvals and route each action to its owner",
+      "roles": [
+        "Participant",
+        "Worker",
+        "Office"
+      ],
+      "priority": "P1",
+      "effort": "M",
+      "current": "There is already a seven-day deemed-approval rule, a reminder, a query pause and a fresh window after a reply. Reminders can go to the participant and all linked coordinators with bookings access.",
+      "proposed": "Give participants a review inbox with service, time, amount and note together. Offer a preference for who normally handles reminders while retaining authorised access. Group routine reminders and make the exact booking and participant context survive login.",
+      "automation_trigger": "Completed shifts enter the review inbox. Due reminders are deduplicated by task and person, and stop immediately after action.",
+      "human_decision": "People inspect and approve or query the selected records. Preserve the existing explicit query path and published approval window.",
+      "acceptance_criteria": "Multiple authorised people acting cannot duplicate or reverse the outcome. No blanket preselected approval. A queried shift stays out of ordinary approval chases until answered.",
+      "success_metric": "Unnecessary reminder count; query resolution time; median completion-to-review time.",
+      "evidence": "server.js: approvalSweep, coordsFor, approvalFrom, booking notes; public/index.html: approval banner",
+      "dependencies": "J03, J06",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Review inbox, preferred current authorised reminder recipient, exact visit/person links, query suppression.",
+      "implementation_files": [
+        "server.js",
+        "lib/process-store.js",
+        "lib/process-routes.js"
+      ],
+      "verification": "J19/J20; existing approval smoke tests"
+    },
+    {
+      "id": "J20",
+      "title": "Offer useful reminders and optional calendar entries",
+      "roles": [
+        "Participant",
+        "Worker"
+      ],
+      "priority": "P2",
+      "effort": "M",
+      "current": "Notification categories and opt-outs exist. Most links open a broad screen. No calendar export or subscription route was found in the 306-route inventory.",
+      "proposed": "Add precise signed-in task links first. Then offer optional calendar entries for accepted visits, using minimal personal detail, stable event IDs, updates and cancellations. Add quiet hours and a routine digest without delaying urgent operational alerts.",
+      "automation_trigger": "An accepted, changed or cancelled visit updates the chosen notification/calendar channel; routine tasks join a digest.",
+      "human_decision": "The user opts into a channel and chooses what appears on their personal device or calendar.",
+      "acceptance_criteria": "A cancellation removes or updates the event. An invitation or retry cannot create duplicates. Revoked access stops future feeds. Private health information does not appear in email subjects or calendar titles.",
+      "success_metric": "Missed-visit rate; notification opt-outs; duplicate calendar entries.",
+      "evidence": "server.js: MAIL_KINDS, notify; docs/api-route-inventory.txt",
+      "dependencies": "J03, J06",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Routine digest/quiet times and optional private calendar feeds, stable IDs, update/cancel/revoke.",
+      "implementation_files": [
+        "lib/process-store.js",
+        "lib/process-calendar.js"
+      ],
+      "verification": "J06; J19/J20; calendar reassignment"
+    },
+    {
+      "id": "J21",
+      "title": "Resolve invoice exceptions without reconstructing the shift",
+      "roles": [
+        "Participant",
+        "Office"
+      ],
+      "priority": "P1",
+      "effort": "M",
+      "current": "Self- and plan-managed invoicing runs nightly. Agency claim preparation, support-item fixes and bank-transfer confirmation involve office actions. Card payment updates have a webhook path. The various states are spread across claims and invoice screens.",
+      "proposed": "Show one invoice exception view with the source visit, payer, held reason, next action and delivery outcome. Prepare clean lines automatically, keep exceptions visible, and match incoming payment evidence to the original invoice before marking it settled.",
+      "automation_trigger": "An approved record produces an invoice/claim preparation task; a delivery or payment mismatch opens an owned exception.",
+      "human_decision": "Office resolves payer, item and claim exceptions and verifies ambiguous bank matches. The site does not equate generating an agency export with external acceptance.",
+      "acceptance_criteria": "Rejected, held, issued, sent, paid and corrected records have distinct evidence. A payer change cannot silently reroute an already issued invoice.",
+      "success_metric": "Uninvoiced approved records; age of invoice exceptions; manual reconciliation steps.",
+      "evidence": "server.js: runClaims, lineFlags, PACE export, Stripe webhook, invoice paid route",
+      "dependencies": "J02, J05, J06",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Original invoice snapshots, delivery status, held-line view, matched receipts and provider-event checks.",
+      "implementation_files": [
+        "lib/process-finance.js",
+        "server.js"
+      ],
+      "verification": "Three J21 groups; J08/J21"
+    },
+    {
+      "id": "J22",
+      "title": "Turn existing renewal reminders into a renewal plan",
+      "roles": [
+        "Worker",
+        "Participant",
+        "Office"
+      ],
+      "priority": "P1",
+      "effort": "S–M",
+      "current": "Credential and participant-document reminders already use a 60/30/14-day ladder, and training has completion, expiry and lock tracking. People still need to work out the combined impact on future support.",
+      "proposed": "Add an Upcoming renewals view grouping the relevant documents and modules, links to the exact replacement task, and the future shifts potentially affected. Show renewal evidence received and awaiting review distinctly. Give office renewals their own due work.",
+      "automation_trigger": "An approaching expiry creates or updates one renewal task; replacement and verification resolve the appropriate parts.",
+      "human_decision": "The worker renews and the reviewer verifies. Any plan or clinical update is confirmed by the appropriate person.",
+      "acceptance_criteria": "Uploading a replacement stops redundant upload chasing but does not imply verification. The existing eligibility controls remain active, with affected bookings visible before a deadline.",
+      "success_metric": "Avoidable expiry interruptions; repeat reminders after upload; review delay on renewals.",
+      "evidence": "server.js: WARN_LADDER, credentialSweep, trainingSweep, moduleState, openRequests",
+      "dependencies": "J06, J09",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Upcoming document/module renewals, affected visits, distinct received/reviewed state.",
+      "implementation_files": [
+        "lib/process-store.js",
+        "lib/process-routes.js"
+      ],
+      "verification": "J22; frontend renewal panels"
+    },
+    {
+      "id": "J23",
+      "title": "Close the loop after the first meeting and first shift",
+      "roles": [
+        "Participant",
+        "Worker",
+        "Office"
+      ],
+      "priority": "P2",
+      "effort": "S–M",
+      "current": "Meet-and-greets, reviews, surveys, messages and support teams exist, but these are separate actions rather than a single follow-up journey.",
+      "proposed": "After a completed first meeting, offer Book this worker or Keep looking. After a first support visit, ask whether the arrangement worked and whether any change is needed. Route a concern to an owned response task and offer a recurring routine when requested.",
+      "automation_trigger": "The first completed event creates one appropriate follow-up, respecting notification preferences and any open concern.",
+      "human_decision": "The participant decides whether to continue and what feedback to share. A poor experience is followed up by a person.",
+      "acceptance_criteria": "An open complaint does not receive a cheerful promotion. A follow-up never books, publishes a testimonial or endorses a worker automatically.",
+      "success_metric": "Meet-and-greet to first-shift conversion; first-shift to repeat support; unresolved first-visit concerns.",
+      "evidence": "server.js: INTRO_HOURS, booking reviews, /api/me/survey, /api/my-workers",
+      "dependencies": "J06, J16",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Separate first-meeting/first-shift follow-up tasks, concern cases and duplicate-answer protection.",
+      "implementation_files": [
+        "lib/process-store.js",
+        "lib/process-routes.js"
+      ],
+      "verification": "J23; handoff test"
+    },
+    {
+      "id": "J24",
+      "title": "Make changes and endings a complete handover",
+      "roles": [
+        "Participant",
+        "Worker",
+        "Office"
+      ],
+      "priority": "P2",
+      "effort": "M",
+      "current": "The site has series ending, individual cancellation, worker pause, delegate revocation, document access controls and data export. These actions do not constitute one coordinated transition checklist.",
+      "proposed": "Offer a reviewed transition flow for changing a worker, ending a series or changing a helper: future visits, outstanding notes, open queries, invoices and access are checked together. Present who will do what and when.",
+      "automation_trigger": "A confirmed transition creates only the necessary follow-up tasks and expires access according to its existing scope rules.",
+      "human_decision": "The participant chooses the arrangement and reviews any cancellation consequence; office handles continuity and record obligations.",
+      "acceptance_criteria": "An ending leaves no future visit silently unstaffed and does not destroy historical records. Revoked people lose access promptly, including calendar feeds and register grants where applicable.",
+      "success_metric": "Transition-related calls; stranded tasks; lingering unauthorised access.",
+      "evidence": "server.js: series end, cancellation, links revocation, pause/resume, policyRegisterPermission",
+      "dependencies": "J03, J07, J09",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Owned transitions and fresh series-end preview; visits, notes, queries, invoice and helper checklist.",
+      "implementation_files": [
+        "lib/process-assistance.js",
+        "public/assets/process-workflows.js"
+      ],
+      "verification": "J24; closure and calendar tests"
+    },
+    {
+      "id": "J25",
+      "title": "Use AI for checked assistance where it removes typing",
+      "roles": [
+        "Participant",
+        "Worker",
+        "Office"
+      ],
+      "priority": "P2",
+      "effort": "M–L",
+      "current": "AI modes, credential suggestions, note triage, a review queue and participant-data gates already exist. Credential extraction currently receives typed metadata and the filename, not the document bytes. It therefore is not full document OCR.",
+      "proposed": "Pilot document-text extraction into suggested fields with source highlights and confidence; the user checks them before saving. Consider a clearly labelled draft summary of user-supplied text only after evaluating usefulness and error rates. Use simple rules for routing and reminders.",
+      "automation_trigger": "A permitted upload or explicitly requested draft assist produces a suggestion tied to its source and model version.",
+      "human_decision": "People verify credentials, confirm care plans and record actual shift observations. Triage assists a reviewer; it never establishes a clinical fact or closes an incident.",
+      "acceptance_criteria": "No document leaves the system until the chosen processing arrangement is approved. The existing consent and processing-location controls are checked. Corrections, false positives and missed concerns are sampled before wider rollout.",
+      "success_metric": "Verified typing time saved; field error rate; suggestion correction and rejection; reviewer workload.",
+      "evidence": "server.js: aiExtractCredential, aiSuggest, aiSimulate, /api/admin/ai/:id/review",
+      "dependencies": "J06, J11; processing arrangements and evaluation",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Off-by-default approved extraction with explicit consent, location/provider gates, source evidence and human review.",
+      "implementation_files": [
+        "lib/process-assistance.js"
+      ],
+      "verification": "J25 disabled/configuration gate; live provider pilot required"
+    },
+    {
+      "id": "J26",
+      "title": "Measure completion and waiting before promising time savings",
+      "roles": [
+        "Office"
+      ],
+      "priority": "P1",
+      "effort": "S–M",
+      "current": "The site has KPI and pipeline endpoints, but current-stage timestamps and a full journey event trail are not present in the reviewed pipeline implementation. No production analytics or user timing data were supplied.",
+      "proposed": "Add privacy-minimised events for task ready, started, saved, submitted, returned, completed and failed. Separate active effort from waiting on participant, office and external reviewer. Count error and recovery paths as well as successes.",
+      "automation_trigger": "Each meaningful task transition emits one versioned event with role, task type, result and timing, excluding the entered care content.",
+      "human_decision": "The service owner reviews the weekly bottleneck report and checks results with participants and workers.",
+      "acceptance_criteria": "Events deduplicate on retries, do not store health text, and distinguish abandoned attempts from resumed tasks. Reports can compare the same flow before and after a change.",
+      "success_metric": "Median and 90th-percentile task time; handoffs; correction rate; completion without help.",
+      "evidence": "server.js: /api/admin/kpis, pipelineBuild, job_runs",
+      "dependencies": "J09",
+      "status": "Implemented in v88.2.0 source; staging/provider validation as documented",
+      "implementation": "Deduplicated minimal events, return/resume and form outcomes, reporting periods and median/P90 waits.",
+      "implementation_files": [
+        "lib/process-store.js",
+        "lib/process-routes.js",
+        "public/assets/process-workflows.js"
+      ],
+      "verification": "J26; frontend metrics panel"
+    }
+  ],
+  "implemented_version": "88.2.0"
+}

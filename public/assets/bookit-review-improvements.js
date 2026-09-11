@@ -2,7 +2,7 @@
 'use strict';
 window.BookItReview = (() => {
   const drafts=new WeakMap(),threads=new Map();
-  let filter=null;
+  let filter=null;try{const saved=JSON.parse(sessionStorage.getItem('careweb-match-preferences')||'null');if(saved&&saved.expires>Date.now())filter=new URLSearchParams(saved.query);}catch{}
   const text=(value)=>esc(String(value??''));
   function bookingSummary(d){
     const b=(d.bookings||[]).filter(x=>['requested','accepted'].includes(x.status)&&new Date(`${x.date}T${x.start}:00`).getTime()+Number(x.hours)*36e5>Date.now()).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start))[0];
@@ -60,6 +60,7 @@ window.BookItReview = (() => {
     const id=form.dataset.noteForm;
     const p={note:form.querySelector('.note-body')?.value||'',scope:form.querySelector(`input[name="bkScope${id}"]:checked`)?.value==='yes',scope_detail:form.querySelector('.note-scope-detail')?.value||'',active_note:form.querySelector('.note-active-note')?.value||''};
     const active=form.querySelector('.note-active');if(active)p.active_hours=active.value;
+    const km=form.querySelector('.note-km');if(km)Object.assign(p,{km:km.value,km_from:form.querySelector('.note-km-from')?.value||'',km_to:form.querySelector('.note-km-to')?.value||''});
     return p;
   }
   function draftStatus(form,message){const el=form.querySelector('.review-note-state');if(el)el.textContent=message;}
@@ -70,7 +71,7 @@ window.BookItReview = (() => {
     try{
       const r=await API.call(`/bookings/${form.dataset.noteForm}/note-draft`);
       if(r.draft){const p=r.draft.payload;state.revision=r.draft.revision;
-        const fields={'.note-body':p.note,'.note-scope-detail':p.scope_detail,'.note-active':p.active_hours,'.note-active-note':p.active_note};
+        const fields={'.note-body':p.note,'.note-scope-detail':p.scope_detail,'.note-active':p.active_hours,'.note-active-note':p.active_note,'.note-km':p.km,'.note-km-from':p.km_from,'.note-km-to':p.km_to};
         for(const [selector,value]of Object.entries(fields)){const el=form.querySelector(selector);if(el&&value!==undefined)el.value=value;}
         const radio=form.querySelector(`input[name="bkScope${form.dataset.noteForm}"][value="${p.scope?'yes':'no'}"]`);if(radio)radio.checked=true;
         const detail=form.querySelector('.note-scope-detail');if(detail)detail.hidden=!p.scope;
@@ -156,8 +157,8 @@ window.BookItReview = (() => {
     if(e.target.id==='reviewAvailabilityForm'){
       e.preventDefault();const f=e.target,fd=new FormData(f),status=f.querySelector('.review-availability-status');
       try{const {windows,leave}=availabilityValues(f);
-        await API.call('/me/profile',{method:'POST',noFor:true,body:{service_areas:String(fd.get('service_areas')||'').split(/[;\n]/).map(x=>x.trim()).filter(Boolean),availability_windows:windows,leave_dates:leave,travel_buffer_minutes:Number(fd.get('travel_buffer_minutes'))}});
-        status.textContent='Saved. Existing accepted visits have not been cancelled.';
+        const saved=await CareFlow.availability({service_areas:String(fd.get('service_areas')||'').split(/[;\n]/).map(x=>x.trim()).filter(Boolean),availability_windows:windows,leave_dates:leave,travel_buffer_minutes:Number(fd.get('travel_buffer_minutes'))});
+        status.textContent=saved?'Saved after reviewing affected visits. Selected cover requests are with the office.':'No changes saved.';
       }catch(err){status.textContent=err.message;}
     }
     if(e.target.id==='reviewVisitFilter'){
@@ -165,11 +166,12 @@ window.BookItReview = (() => {
       // The Care Web's dd/mm date adapter exposes the ISO value on the element, not FormData.
       filter.set('date',e.target.elements.date.value);
       const service=document.getElementById('filterService').value;if(service)filter.set('service',service);
+      try{sessionStorage.setItem('careweb-match-preferences',JSON.stringify({query:filter.toString(),expires:Date.now()+864e5}));}catch{}
       const ok=await loadWorkersLive();document.getElementById('reviewVisitStatus').textContent=ok?'Showing workers matching the requested interval. Booking checks run again before acceptance.':'Worker results could not be loaded. Check the visit details and try again.';
     }
   });
   document.addEventListener('click',async e=>{
-    if(e.target.closest('#reviewClearVisit')){filter=null;await loadWorkersLive();document.getElementById('reviewVisitStatus').textContent='Showing all workers; no particular visit checked.';}
+    if(e.target.closest('#reviewClearVisit')){filter=null;sessionStorage.removeItem('careweb-match-preferences');await loadWorkersLive();document.getElementById('reviewVisitStatus').textContent='Showing all workers; no particular visit checked.';}
     if(e.target.closest('#reviewOlderMessages')){const c=LIVE.convos.find(c=>c.id===LIVE.activeCid);if(c)await renderThreadOnline(c,true);}
     if(e.target.closest('[data-review-incident]'))CMP_TAB='registers';
     const owner=e.target.closest('[data-save-owner]');if(owner){try{const id=owner.dataset.saveOwner;await API.call('/admin/incidents/'+id,{method:'POST',body:{action:'owner',owner:document.querySelector(`[data-incident-owner="${id}"]`).value}});toast('Action owner saved.');}catch(err){toast(err.message);}}
