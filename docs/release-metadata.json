@@ -1,11 +1,11 @@
 {
-  "version": "88.2.2",
-  "base_version": "88.2.1",
-  "base_archive": "The-Care-Web-v88.2.1-source.zip",
-  "base_archive_sha256": "5d8727252c6630b902e752ef327e17489c1c03104eb449e700758def67ae6a0a",
+  "version": "88.2.3",
+  "base_version": "88.2.2",
+  "base_archive": "The-Care-Web-v88.2.2-source.zip",
+  "base_archive_sha256": "8ebcf70b0957eda605b12c7fbfdd6b5edf711fc23c389fc5505d7b22821e8de1",
   "base_commit": null,
   "package_type": "full source archive",
-  "output_archive": "The-Care-Web-v88.2.2-source.zip",
-  "scope": "Verification administration automation: correct office ownership, available-reviewer assignment and deadlines, approved combined checklists with bounded reminders, guided review, consented document suggestions, retained plan comparisons, live queue notices and per-person queue projections. Four additive tables and one case preference column; schema 88202. Earlier workflow improvements and final human verification gates retained.",
+  "output_archive": "The-Care-Web-v88.2.3-source.zip",
+  "scope": "Correct worker document presentation: distinguish uploaded evidence, details-only rows and platform module completions; group worker documents, expose missing evidence options and preselect requests. Preserve stored files, record IDs and review controls. No new schema migration; schema remains 88202.",
   "unchanged_assets": "Existing public artwork, photos, scene videos, fonts and vendor files are unchanged."
 }

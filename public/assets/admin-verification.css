@@ -19,3 +19,13 @@
 .verify-app .vf-inline-actions .vf-form{margin-top:0}.verify-app .vf-heading>.vf-inline-actions{justify-content:flex-end}
 @media(max-width:1100px){.verify-app .vf-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px){.verify-app .vf-heading{align-items:flex-start;flex-direction:column;gap:14px}.verify-app .vf-heading>.vf-inline-actions{justify-content:flex-start}.verify-app .vf-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.verify-app .vf-plan-changes .vf-two-fields{grid-template-columns:1fr}.verify-app .vf-stat{padding:14px}}
+
+/* Worker evidence is grouped separately from internally issued module records. */
+.verify-app .vf-document-summary{margin-bottom:20px}.verify-app .vf-document-summary h3{font-size:15px;margin-bottom:8px}.verify-app .vf-document-summary p{font-size:13px;line-height:1.7;color:var(--vf-muted)}
+.verify-app .vf-document-layout{grid-template-columns:225px minmax(0,1fr)}
+.verify-app .vf-document-group h4{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin:0;padding:12px 10px;background:#f0f4fa;border-top:1px solid var(--vf-line);color:#344d71}.verify-app .vf-document-group h4 span{font-weight:400}
+.verify-app .vf-group-empty{padding:10px;font-size:11px;color:var(--vf-muted);line-height:1.6}.verify-app .vf-missing-types{border-top:1px solid var(--vf-line);padding:10px;font-size:11px}.verify-app .vf-missing-document{display:grid;gap:5px;padding:12px 0;border-top:1px solid #edf0f5}.verify-app .vf-missing-document:first-of-type{margin-top:9px}.verify-app .vf-missing-document strong{font-size:11px;line-height:1.5}.verify-app .vf-missing-document small{font-size:11px;color:var(--vf-muted)}.verify-app .vf-missing-document .vf-button{justify-self:start;font-size:11px!important;padding:6px 9px;min-height:32px}.verify-app .vf-document span{min-width:0;overflow-wrap:anywhere}
+@media(max-width:1100px){.verify-app .vf-document-layout{grid-template-columns:1fr}.verify-app .vf-document-list{display:block;max-height:380px;overflow:auto}.verify-app .vf-document-list-head{display:flex}.verify-app .vf-document{width:100%;min-width:0;border-right:0;border-top:1px solid #edf1f5}}
+@media(max-width:760px){.verify-app .vf-missing-document .vf-button{min-height:44px}.verify-app .vf-missing-types summary{min-height:36px;padding:8px 0}}
+
+@media(min-width:1101px){.verify-app .vf-document-list{max-height:700px;overflow:auto}}

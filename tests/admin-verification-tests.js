@@ -79,5 +79,6 @@ async function main(){const s=http.createServer();await new Promise(r=>s.listen(
    if(process.env.VERIFICATION_FIXTURE_PATH)fs.writeFileSync(process.env.VERIFICATION_FIXTURE_PATH,JSON.stringify({worker:d,participant:await detail(p.id),workerQueue:q,participantQueue:ok(await req('GET','/api/admin/verification?role=participant&q=process.participant',a))},null,2));
  });
  await require('./verification-automation-scenarios')({db,req,ok,test,register,ins,detail,act,a,p,w,stamp,imagePath,ROOT});
+ await require('./verification-document-scenarios')({db,req,ok,test,register,ins,detail,act,a,p,w,stamp,imagePath,ROOT});
 }
 (async()=>{try{await main();}catch(e){results.push({name:'Harness',result:'FAIL',error:e.stack});console.error(e);}finally{if(db)db.close();if(child&&child.exitCode===null){const done=new Promise(r=>child.once('exit',r));child.kill('SIGTERM');await done;}if(process.env.VERIFICATION_RESULTS_PATH)fs.writeFileSync(process.env.VERIFICATION_RESULTS_PATH,JSON.stringify({runtime:process.version,results,serverLog:log},null,2));fs.rmSync(DIR,{recursive:true,force:true});console.log(`verification: ${results.filter(x=>x.result==='PASS').length}/${results.length} passed`);process.exitCode=results.some(x=>x.result==='FAIL')?1:0;}})();

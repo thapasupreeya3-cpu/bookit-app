@@ -1,129 +1,58 @@
-THE CARE WEB - SMALL UPDATE TO v88.2.2
+THE CARE WEB - SMALL UPDATE TO v88.2.3
 
-Supported earlier source versions: 88.1.4, 88.1.5, 88.2.0, 88.2.1.
-Includes all updates since your uploaded bookit-app-main (4).zip (v88.1.4).
+Supported earlier source versions: 88.2.2.
+Use this fix if you installed the last v88.2.2 verification automation release.
 
 This is an update package, not a complete application download.
-It contains 90 new or changed project files. Unchanged images,
+It contains 25 new or changed project files. Unchanged images,
 videos, fonts and other files are omitted.
 
 1. Extract the ZIP on your computer. Do not upload the ZIP itself.
-2. Open your existing GitHub repository root (where server.js, package.json,
-   public and lib are located).
-3. Upload/merge all extracted project files and folders at that root,
-   preserving their paths and replacing matching files. Keep unchanged
-   contents of existing folders. Do not delete folders first.
-4. Review and commit the changes. UPDATE-INSTRUCTIONS.txt is optional to upload.
-5. Follow STARTHERE.txt and docs/CHANGELOG-v88.2.2.md for deployment and setup.
-   Preserve your runtime database, uploaded documents, photos and configuration.
+2. Open your existing GitHub repository root, containing server.js,
+   package.json, public and lib.
+3. Upload/merge the extracted files and folders at that root, preserving
+   their paths and replacing matching files. Keep unchanged folder contents;
+   do not delete existing folders first. UPDATE-INSTRUCTIONS.txt is optional.
+4. Review and commit, then restart/redeploy through your usual process.
+   Preserve the deployed database, uploaded documents, photos and settings.
+   Source archives do not contain your workers' runtime files.
+5. Refresh Admin > Verification. Open a worker > Worker documents.
+   Uploaded evidence is grouped here. Site module completions are in Training.
+   Details-only and missing-document states explain when no copy is uploaded.
 
-Do not create an extra enclosing directory. The application still needs the
-unchanged files already in your repository. Compare separately if your
-repository has later changes that were not supplied in this conversation.
+No extra enclosing directory is needed. Compare separately if your repository
+has later edits not supplied in this conversation. See STARTHERE.txt and
+docs/CHANGELOG-v88.2.3.md for details and validation limits.
 
-AFTER UPDATING
-In Admin > Verification > Automation settings, choose available reviewers,
-roles, workload limits and a review deadline before enabling assignment.
-For follow-ups, open a person and approve a combined missing-items checklist.
-Optional document reading still needs your configured provider and the
-worker's consented extraction request. No real messages were sent in testing.
+No schema migration is needed from v88.2.2; existing automations are retained.
+The app cannot display worker copies held only outside its deployed file store.
+The standalone HTML preview uses labelled examples, not live worker files.
 
-CHANGELOG
-See docs/CHANGELOG-v88.2.2.md (included).
-
-OBSOLETE FILE
-- docs/graphics-command-check.log
-Remove this old generated log if present to match the full release exactly.
-Retaining it does not prevent the application update.
+No existing files need to be deleted for this update.
 
 INCLUDED PROJECT FILES
 RELEASE-FILES.json
 STARTHERE.txt
 docs/ADMIN-VERIFICATION.md
-docs/CHANGELOG-v88.2.2.md
-docs/IMPLEMENTATION-MATRIX.md
+docs/CHANGELOG-v88.2.3.md
 docs/RELEASE-NOTES.md
 docs/TEST-RESULTS.md
-docs/WORKFLOW-OPERATIONS.md
 docs/admin-verification-preview.html
 docs/api-route-inventory.txt
 docs/database-table-inventory.txt
-docs/graphics-baseline.json
-docs/history/IMPLEMENTATION-MATRIX-before-v88.1.5.md
-docs/history/RELEASE-NOTES-before-v88.1.5.md
-docs/history/TEST-RESULTS-before-v88.1.5.md
-docs/history/v88.1.5/IMPLEMENTATION-MATRIX.md
-docs/history/v88.1.5/RELEASE-NOTES.md
-docs/history/v88.1.5/TEST-RESULTS.md
-docs/history/v88.1.5/release-metadata.json
-docs/history/v88.2.0/RELEASE-NOTES.md
-docs/history/v88.2.0/TEST-RESULTS.md
-docs/history/v88.2.0/release-metadata.json
-docs/history/v88.2.1/ADMIN-VERIFICATION.md
-docs/history/v88.2.1/RELEASE-NOTES.md
-docs/history/v88.2.1/TEST-RESULTS.md
-docs/history/v88.2.1/release-metadata.json
 docs/release-metadata.json
-docs/workflow-backlog-completed.json
-lib/active-hours.js
 lib/admin-verification.js
-lib/confirmation-proof.js
-lib/plan-access.js
-lib/process-assistance.js
-lib/process-calendar.js
-lib/process-finance.js
-lib/process-routes.js
-lib/process-store.js
-lib/register-access.js
-lib/travel.js
 lib/verification-automation.js
-lib/version.js
 package-lock.json
 package.json
 public/assets/admin-verification.css
 public/assets/admin-verification.js
-public/assets/bookit-review-improvements.js
-public/assets/policy-fill.js
-public/assets/policy-register-access.js
-public/assets/policy-register-state.js
-public/assets/process-workflows.css
-public/assets/process-workflows.js
 public/index.html
 readme.txt
-scripts/inventory.js
 scripts/release-docs.js
-scripts/verify-release.js
-server.js
 tests/admin-verification-tests.js
-tests/audit-fixes.js
-tests/audit-unit-tests.js
-tests/graphics-tests.js
-tests/process-regression.js
-tests/smoke.js
-tests/verification-automation-scenarios.js
-validation/v88.1.5-audit-fixes-output.txt
-validation/v88.1.5-audit-fixes-results.json
-validation/v88.1.5-audit-unit-output.txt
-validation/v88.1.5-backup-missing-output.txt
-validation/v88.1.5-backup-output.txt
-validation/v88.1.5-check-output.txt
-validation/v88.1.5-check-receipt.json
-validation/v88.1.5-lifecycle-output.txt
-validation/v88.1.5-lifecycle-results.json
-validation/v88.1.5-upgrade-output.txt
-validation/v88.1.5-upgrade-results.json
-validation/v88.2.0-asset-preservation.json
-validation/v88.2.0-check-output.txt
-validation/v88.2.0-check-receipt.json
-validation/v88.2.0-upgrade-results.json
-validation/v88.2.0-workflow-results.json
-validation/v88.2.1-asset-preservation.json
-validation/v88.2.1-check-output.txt
-validation/v88.2.1-check-receipt.json
-validation/v88.2.1-upgrade-results.json
-validation/v88.2.1-verification-results.json
-validation/v88.2.2-asset-preservation.json
-validation/v88.2.2-check-output.txt
-validation/v88.2.2-check-receipt.json
-validation/v88.2.2-upgrade-results.json
-validation/v88.2.2-verification-results.json
+tests/verification-document-scenarios.js
+validation/v88.2.3-asset-preservation.json
+validation/v88.2.3-check-output.txt
+validation/v88.2.3-upgrade-results.json
+validation/v88.2.3-verification-results.json

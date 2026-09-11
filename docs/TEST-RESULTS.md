@@ -1,10 +1,10 @@
-# v88.2.2 test results
+# v88.2.3 test results
 
-The complete `npm run check` release gate passed with exit code 0 on Node v24.19.0. This command includes syntax, inventory and release-document checks, package hashes, and every test suite listed below.
+The full `npm run check` release gate passed with exit code 0 on Node 24.19.0. Documentation and package hashes were refreshed and verified again after recording these results; application code was unchanged.
 
 | Check | Result |
 | --- | --- |
-| JavaScript compilation | 55 scripts, 0 failures; includes 4 inline application scripts |
+| JavaScript compilation | 56 scripts, 0 failures; includes 4 inline application scripts |
 | Generated inventories | 366 registered routes; 83 database tables |
 | Clash tests | 21 passed |
 | Application smoke tests | Passed |
@@ -14,26 +14,26 @@ The complete `npm run check` release gate passed with exit code 0 on Node v24.19
 | Audit unit groups | 8 passed |
 | Audit API scenarios | Passed |
 | Existing workflow scenarios | 32/32 passed |
-| Verification scenarios | 30/30 passed, including 14 new automation scenarios |
-| Upgrade from v88.2.1 | Passed twice; 79 to 83 tables, existing records and uploaded bytes preserved |
+| Verification scenarios | 36/36 passed, including 6 new document regression scenarios |
+| Upgrade from v88.2.2 | Passed on two consecutive boots; 83 tables retained |
+| Records and uploaded file preservation | Existing person, profile, document, ownership and setting records retained; uploaded bytes identical |
 | Database integrity and foreign keys | Passed after each upgrade boot |
-| Existing media, fonts and vendor assets | 120 files byte-identical to v88.2.1 |
+| Existing media, fonts and vendor assets | 119 files byte-identical to v88.2.2 |
 
-The new scenarios cover office-only permissions, settings conflicts, workload/role/capacity-aware assignment, business-day deadlines, manual ownership, correct recruitment task ownership, approved combined requests, duplicate submissions, delivery-aware reminder stages, completion and escalation, stop/closure behaviour, plan snapshots and exact changes, legacy-plan compatibility, in-place plan changes, source-bound extraction suggestions, live-update draft preservation, selective queue invalidation, and a final outbox recheck with a capturing transport.
+## Document regression coverage
 
-The cache test uses an instrumented summary function to verify that an unchanged second queue read rebuilds no people, a single changed person rebuilds one, and policy/time invalidation rebuilds the relevant population. It is a regression check, not a claimed production timing benchmark.
+- Uploaded real synthetic files through the worker upload API for 12 types across every category: passport, driver licence, Medicare, visa, screening, WWCC, orientation, First Aid, CPR, qualification, resume and a labelled engagement agreement under Other.
+- Verified every original-file endpoint was accessible to the office and denied to a different worker.
+- Completed a training module through the actual quiz API. Its generated certificate appeared in Training; uploaded external certificates remained in Worker documents, and queue counts excluded the generated record.
+- Retained unknown legacy types, misleading module-like titles, metadata-only rows, and uploaded files referenced by old completion records. A cross-person completion link did not hide evidence.
+- Exercised the frontend with real API responses: category headings, filenames, missing statuses, details-only warnings, preselected document requests and separate module certificates.
+- Checked a training-only worker's explicit zero-upload message and missing document catalogue.
+- Verified immediate rebuilding of old mixed-document queue counts and preserved participant document behaviour.
 
-## Evidence
+Evidence: `validation/v88.2.3-check-output.txt`, `validation/v88.2.3-verification-results.json`, `validation/v88.2.3-upgrade-results.json`, and `validation/v88.2.3-asset-preservation.json`.
 
-- `validation/v88.2.2-check-output.txt` — complete release gate output.
-- `validation/v88.2.2-check-receipt.json` — command, runtime and scope.
-- `validation/v88.2.2-verification-results.json` — individual verification results.
-- `validation/v88.2.2-upgrade-results.json` — two upgrade boots and preservation checks.
-- `validation/v88.2.2-asset-preservation.json` — asset preservation result.
-- `RELEASE-FILES.json` — final package payload hashes. After adding final documentation and receipts, syntax, inventories, release documents and hashes were checked again; application code was unchanged.
+## Limits
 
-## Remaining staging checks
+Tests used isolated synthetic accounts, temporary databases and local files; no live applicant data or external messages were used. The deployed database and host were not accessed. The standalone preview contains labelled examples only.
 
-The browser environment rejected the local preview with `net::ERR_BLOCKED_BY_CLIENT`. Desktop/mobile rendering, keyboard focus, screen-reader announcements and actual PDF viewing therefore have not been confirmed in a native browser here. The standalone preview is synthetic and cannot send messages or change real records.
-
-Tests ran on Node v24.19.0; the repository declares Node 22. Repeat the release gate on that deployment runtime. No deployed site, live database, real applicant messages, government-register connection or external extraction-provider round trip was used. Email and optional extraction require configuration and authorised staging tests. Queueing does not prove inbox delivery; the existing outbox's transport limitations remain.
+Native browser rendering, keyboard layout and PDF preview interaction need staging verification. Local browser access was blocked in the preceding verification run; this release does not claim a successful visual browser check. The project declares Node 22; repeat the release gate on that deployment runtime. No runtime or dependency change was introduced.
