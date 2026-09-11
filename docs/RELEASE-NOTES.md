@@ -1,80 +1,42 @@
-# The Care Web v86.13.0 — source-review update
+# The Care Web v88.1.5
 
-This is a root-relative, changed/new-files overlay for the user's uploaded v86.12.0 repository. See `release-metadata.json` for the exact base archive hash and embedded commit metadata. Remote HEAD was not read or updated. The existing public design, scene videos, photography, level artwork, branding and single-server architecture remain.
+11 September 2026 · full source package based on the supplied v88.1.4 archive.
 
-## Upload and deployment
+This release fixes the six remaining issue groups in the v88.1.4 follow-up audit. The existing branding, page layout and media are retained.
 
-Extract the ZIP. At the **existing repository root**, use **Add file → Upload files**, and drag the extracted files and folders, not the ZIP and not an enclosing folder. Commit together. Preserve all unchanged repository files, including `public/assets/fonts`, media and vendor assets. Every packaged path is relative to root. No deletion is required and no production database, secrets or dependencies are included.
+## What changed
 
-GitHub's browser upload accepts up to 100 files at once, with a 25 MiB per-file limit. This overlay is built below both limits. Official workflow reference: https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository
+- **Cover acceptance:** a successful review now retains a short-lived, worker-specific review of the current visit and plan. The current-plan access check recognises that review for out-of-area cover. Acceptance rechecks the offer, visit, eligibility, plan and expiry inside the assignment transaction. Changed or expired reviews cannot assign the visit or write confirmation evidence.
+- **Travel confirmations:** the warning returns a signed, 15-minute confirmation token bound to the actor, request, visit(s), worker areas and participant location. Confirming saves the exact displayed provider, distance, duration, origin, destination and checked time. A bare boolean cannot waive the warning. Changed details require a new confirmation. Creation, acceptance, occurrence moves, recurring edits and office assignment use the same validation. Confirmation records include actor ID and actual visit details.
+- **Register access:** shared registers begin with office-only access. The office grants individual approved workers read, append or edit rights with an expiry. Optional participant scope also requires current access to that participant. Scope changes revoke earlier worker grants. Saved entries, register pages and uploaded register source files use the same permission check. A public audience setting does not override register restrictions.
+- **Register recovery:** a failed save retains the working data and edit controls. A conflict shows both versions and offers a three-way merge for safe independent changes or explicit manual recovery for conflicting row edits. Unsaved drafts stay in memory, trigger a leave-page warning and are not placed in localStorage. Read-only users do not see editing controls; append-only users cannot alter earlier rows.
+- **Sleepover hours:** booleans, arrays, whitespace, invalid numbers, negative values, excessive hours and non-quarter-hour values are rejected before completion or invoicing. Valid numeric strings remain supported. Values are never silently rounded. The UI explains 15-minute steps and sends the actual entered value, including an empty value, for validation.
+- **Release handover:** the package, generated documents, inventories and manifest identify v88.1.5 and the actual v88.1.4 base archive. Historical receipts have been moved to docs/history. The manifest covers the complete package payload rather than an alleged overlay.
 
-The pre-existing GitHub Actions workflow already runs `npm run check`; it therefore runs the expanded tests without needing a hidden workflow-file upload. Wait for it to finish. The unchanged `.nvmrc` specifies the repository's deployment pin; local test runtime is separately reported in `TEST-RESULTS.md`.
+## Focused usability improvements
 
-Before production deployment, create and verify the authorised backup set of database **and** document/photo folders. Compare remote work with the named base before replacing files if newer work has landed. Use your existing approved updater; the previous handover uses `sudo bookit-update`. This release does not run it for you. After boot confirm `/api/version` and inspect the service log. Environment overrides of `SCHEMA_VERSION` should not continue to report an old schema identifier.
+Availability now uses add/remove time controls and native leave calendars, with a weekly preview and an explicit midnight option. The sleepover note field has an accessible label and exact-entry guidance. Review and travel dialogs have accessible names. Homepage examples use neutral illustrative framing without testimonial stars or unsupported claims about real customer feedback.
 
-## Changes to plan for
+## Office setup after updating
 
-**Confirm worker areas before relying on new matching.** Go to worker Settings → Availability and service areas. Empty areas mean the worker's own profile suburb only, not all locations. Areas must be explicitly listed as exact suburb-and-state strings or postcodes. A participant with no recorded location will not be silently matched everywhere. No service areas were guessed or mass-populated on production profiles.
+1. Sign in as the office and open the needed register under `/policies`.
+2. Open **Manage access to this register**.
+3. For a participant-specific register, select that participant. Confirm all entries in that register concern that participant. Changing scope does not reorganise historical rows.
+4. Grant named workers only the rights they need, with an expiry. **Append** allows new entries while keeping old rows intact; **edit** also permits corrections/deletion in the current version. Earlier saved versions remain retained.
+5. Use separate registers for different participants. A grant exposes the whole register, so do not grant a mixed historical register to an individual care team. The office can keep such history private and create a separate register through its existing document-publishing workflow.
 
-Workers may declare weekly windows, leave and travel buffers. Without precise windows the existing usual weekdays remain, with the limitation stated. New requests, cover and reassignments are checked again at acceptance. Changing availability does not silently cancel accepted work: the worker/office must arrange cover for commitments they can no longer meet.
+An existing worker without an explicit grant will no longer see the shared register. This is intentional. Personal forms and the existing participant-specific clinical/document routes retain their own permission rules.
 
-**Replacement workers accept for themselves.** Office assignment in open cover now sends an offer; it does not mean the visit is staffed. The existing exceptional office-review action remains for a real documented conversation, with plan version and agreement evidence. It cannot override a block, lack of clearance, hard training lock, wrong service, geography, availability or a clash.
+## Database and deployment
 
-**Plan access ends when the relevant relationship ends.** Historical work no longer grants access to new clinical instructions. A current requested/accepted visit or live eligible cover invitation can grant the preparation access needed to decide about a visit. Worker-owned historical shift notes remain readable under the existing historical-record route.
+Schema identifier **87001** adds `cover_reviews`, `policy_register_settings` and `policy_register_access`. The migration is additive and safe to repeat. Existing register contents, history, settings and files are preserved; no grants are inferred from old free-text rows. Expired grants cease to work immediately. Worker withdrawal or loss of participant access is checked on each scoped request.
 
-**Messages have explicit pages and read receipts.** Newest messages appear first as a page, displayed chronologically. Load earlier messages retrieves older pages. Polling reads forward from the newest loaded ID, so bursts do not silently disappear. GET does not mark unread messages read.
+Use `STARTHERE.txt`. This is a full source ZIP. Preserve the live database, uploads and secrets when replacing application source. The package contains no runtime database, secrets or installed dependencies. Older application versions have broader register permissions; a rollback must account for that behaviour.
 
-**Drafts are not final evidence.** A worker's draft is saved in the application database, recoverable on return, private to that worker and revision-protected. Completion creates the existing immutable note and removes its draft atomically. When a conflict is shown, copy the unsaved text before loading another tab's version. Live-browser close/navigation and mobile interruption checks remain part of staging acceptance.
+## Verification and limits
 
-**Referral corrections are not repayments.** Qualification uses only eligible ordinary shift hours. Below-threshold unpaid awards are held from payroll; an already-paid award remains recorded and is flagged, never silently deleted or clawed back. Review historical awards in Growth & money.
+`npm run check` passes locally. Additional upgrade and backup/restore tests pass. See `docs/TEST-RESULTS.md` and `validation/` for the executed receipts.
 
-## Schema and existing data
+The available runtime here was Node 24.19.0; the repository's declared Node 22 runtime remains a deployment verification gate. Native-browser access to this environment is blocked, so mobile layout, keyboard/screen-reader interaction and full browser save/recovery flows still need staging verification. Live email, payments, AI, cloud backup and Google services were not exercised. The route-provider tests use a local stub. Nothing was pushed or deployed.
 
-Boot adds four availability fields to `worker_profiles`, two provenance fields to `plan_acks`, two review fields to `referrals`, an incident owner field, the `shift_note_drafts` table and two indexes. These are additive, idempotent changes. Tests include restart against the same upgraded database.
-
-Run the included read-only triage on the authorised host:
-
-```sh
-node --no-warnings scripts/review-existing-data.js /actual/path/to/bookit.db
-```
-
-It reports only row identifiers and issue categories for invalid open visits, blocked-worker assignments, below-threshold referral awards and worker areas awaiting confirmation. It is not a repair script. Investigate through The Care Web and retain the evidence/history; do not automatically rewrite delivered records. Do not upload real output to public GitHub.
-
-For a rollback, stop and assess with the operator. Reverting source alone restores the old vulnerabilities even though the additive schema is backwards-compatible in shape. A data restore must use the matching database/documents/photos set and must account for work created since the backup. No automated rollback or live data migration was executed here.
-
-## Staging acceptance
-
-Use synthetic data to test normal sign-in and admin MFA on the actual origin; open a worker offer link from email, acknowledge the displayed current plan and accept once; test participant blocks and replacement cover; test a postcode/suburb and overnight window; read a long message thread, send while older history is open, and confirm receipts; write a note, leave/reopen, handle two-tab conflict and complete it; inspect Today and incident owner edits on phone and desktop; check media playback, cookie settings, CSP and keyboard navigation; test a representative invoice/claim/payroll export in a non-payment environment. Use the existing authorised backup/restore procedure to verify restoration onshore.
-
-This is not a penetration-test certificate, a full accessibility conformance report, an award-payroll or NDIS legal opinion, or proof of the live deployment's operation. It is tested code implementing the latest source-based assessment. The earlier guide-only legal/retention concerns remain explicitly outside this software release's certification.
-
-
-# The Care Web v86.14 — out-of-area visits, and Google drive times
-
-**What changed.** As shipped in v86.13.0, a booking outside a worker's declared service areas was refused — and with no worker having declared areas, that would have stopped every cross-suburb request on deploy day. It is now a warning the person confirms: the participant sees how far and how long (with a link to the route on Google Maps) and confirms; the worker sees the same before accepting and confirms for themselves; the booking records both. The office's own assignment, series edits and open-shift claims work the same way. Automatic pools (cover offers, "next free") stay in-area — an automatic pool never confirms on anyone's behalf.
-
-**Where the distance comes from.** Without a key, The Care Web estimates from static locality centroids in `data/au-localities.json` (no network, no dependency) and labels it an estimate. With a key it asks Google's Routes API (Compute Route Matrix — the successor to the legacy Distance Matrix API), remembers each suburb pair for 24 hours, and falls back to the estimate if Google does not answer within three seconds. The route link is Google's documented Maps URL scheme and is free.
-
-**Turning it on.** In Google Cloud: create a project, link billing and set a budget alert, enable the **Routes API** (not Distance Matrix), create an API key, restrict it to the Routes API and to the server's IP. On the host: add `GOOGLE_MAPS_KEY=…` to `/etc/bookit.env`, then `sudo systemctl restart bookit`. Test by booking a worker whose stated area is elsewhere: the warning should say "in current traffic". Never commit the key.
-
-**What it costs** (Google's global price list, September 2026, US dollars). The Care Web asks for the drive time in current traffic, which is the *Compute Route Matrix Pro* SKU: the first 5,000 lookups a month are free, then US$10 per 1,000. One lookup is one origin to one destination, only when a chosen worker is outside their stated area, cached for 24 hours — a busy month is a few hundred lookups. Set `GOOGLE_MAPS_TRAFFIC=off` to ask without traffic instead: the *Essentials* SKU, 10,000 free then US$5 per 1,000, giving the road-and-speed-limit time rather than the time right now. Google has no hard billing cap by default; the budget alert, and a daily quota on the Routes API in the Cloud console, are the safety nets.
-
-**Schema.** One additive column: `bookings.out_of_area`.
-
-
-# The Care Web v87.0.0 — the rebrand
-
-**What changed.** The product is now **The Care Web** at **thecareweb.com.au**; the registered provider is unchanged (Disability and Mental Health Care Pty Ltd). Every user-facing name, title, email sender, link and policy page was changed. The wordmark keeps the two overlapping circles and the tick (two lives, one web of care) and reads *the care web*.
-
-**What deliberately did not change**, because renaming it would break a running deployment for no visible benefit: the systemd service (`bookit`), the env file (`/etc/bookit.env`) and its variable names (`BOOKIT_*`), the database and folders (`bookit.db`, `bookit-docs/`, `bookit-photos/`), the update script (`sudo bookit-update`), the backup units, the session cookie (`bk_session` — renaming it logs everyone out), CSS class prefixes, and the GitHub repository name. Demo accounts keep their `@demo.bookit.life` addresses and the code also recognises `@demo.thecareweb.com.au`.
-
-**Cutting the domain over** (in this order, so nothing is down):
-1. DNS: at the registrar for thecareweb.com.au, add an A record for `@` and for `www` to `15.134.116.135`. Wait until `ping thecareweb.com.au` answers from the server's IP.
-2. Caddy: on the server, `sudo nano /etc/caddy/Caddyfile`; add `thecareweb.com.au, www.thecareweb.com.au` to the site address (keep `bookit.life` there too for now) and `sudo systemctl reload caddy`. Caddy fetches the new certificate automatically; check `https://thecareweb.com.au/api/version`.
-3. Email: in Zoho Mail, add the domain thecareweb.com.au, verify it, add its MX, SPF and DKIM records at the registrar, create `hello@thecareweb.com.au`, and set the old address to forward to it.
-4. Settings: in `/etc/bookit.env` set `APP_URL=https://thecareweb.com.au` and `MAIL_FROM=hello@thecareweb.com.au` (and the SMTP user if it changed), then `sudo systemctl restart bookit`. Emailed links now point at the new domain.
-5. Stripe: update the business name, statement descriptor and the webhook endpoint URL to `https://thecareweb.com.au/api/stripe/webhook`.
-6. Redirect: once the new domain works, change the Caddyfile so `bookit.life` and `www.bookit.life` 301-redirect to `https://thecareweb.com.au{uri}`; keep the old domain registered for at least a year so old links, business cards and Google results keep working.
-7. Tell people: participants, workers, plan managers and the NDIS Commission (your provider record lists a website and email).
-
-**Schema.** None.
+Broader performance work such as splitting the large page shell into route-loaded modules remains a separate improvement. No mobile speed score or complete accessibility certification is claimed.
