@@ -1,0 +1,156 @@
+PASS Initial boot snapshot exists before the delayed scheduled job
+PASS Full cover review and claim with a current plan: Ryde NSW
+PASS Full cover review and claim with a current plan: Parramatta NSW
+PASS Out-of-area cover without a required plan reaches successful acceptance
+PASS A shown Google travel estimate is preserved with participant confirmation
+PASS Series edits record out-of-area confirmation for each changed visit
+PASS Sleepover completion rejects non-numeric JSON input true
+PASS Sleepover completion rejects non-numeric JSON input []
+PASS Sleepover completion rejects non-numeric JSON input [3]
+PASS Sleepover completion rejects non-numeric JSON input "   "
+PASS Non-quarter-hour activity is either refused or preserved exactly
+PASS Travel proof refuses tampering, changed visits and a bare confirmation flag
+PASS Cover revalidation refuses expired review
+PASS Cover revalidation refuses new plan version
+PASS Cover revalidation refuses changed visit
+PASS Cover revalidation refuses new leave
+PASS Cover revalidation refuses withdrawn eligibility
+PASS Cover revalidation refuses expired offer
+PASS Cover revalidation refuses voided visit
+PASS An out-of-area plan review grants temporary clinical access and revokes it on changed context
+PASS Register records and source files are private until explicitly granted; roles remain separate
+PASS Participant-scoped register grants also require current participant access and scope changes revoke grants
+PASS Rejected active hours leave every completion and invoice field unchanged
+{
+  "runtime": "v24.19.0",
+  "checks": [
+    {
+      "name": "Initial boot snapshot exists before the delayed scheduled job",
+      "result": "PASS",
+      "detail": {
+        "day": "2026-09-11",
+        "reason": "boot",
+        "startupSnapshotErrors": false
+      }
+    },
+    {
+      "name": "Full cover review and claim with a current plan: Ryde NSW",
+      "result": "PASS",
+      "detail": {
+        "review": 200,
+        "claim": 200,
+        "state": {
+          "worker_id": 10,
+          "status": "accepted",
+          "cover_state": "covered"
+        }
+      }
+    },
+    {
+      "name": "Full cover review and claim with a current plan: Parramatta NSW",
+      "result": "PASS",
+      "detail": {
+        "review": 200,
+        "claim": 200,
+        "state": {
+          "worker_id": 10,
+          "status": "accepted",
+          "cover_state": "covered"
+        }
+      }
+    },
+    {
+      "name": "Out-of-area cover without a required plan reaches successful acceptance",
+      "result": "PASS",
+      "detail": {
+        "review": 200,
+        "claim": 200,
+        "state": {
+          "worker_id": 10,
+          "status": "accepted",
+          "cover_state": "covered"
+        }
+      }
+    },
+    {
+      "name": "A shown Google travel estimate is preserved with participant confirmation",
+      "result": "PASS"
+    },
+    {
+      "name": "Series edits record out-of-area confirmation for each changed visit",
+      "result": "PASS",
+      "detail": {
+        "changed": 2
+      }
+    },
+    {
+      "name": "Sleepover completion rejects non-numeric JSON input true",
+      "result": "PASS"
+    },
+    {
+      "name": "Sleepover completion rejects non-numeric JSON input []",
+      "result": "PASS"
+    },
+    {
+      "name": "Sleepover completion rejects non-numeric JSON input [3]",
+      "result": "PASS"
+    },
+    {
+      "name": "Sleepover completion rejects non-numeric JSON input \"   \"",
+      "result": "PASS"
+    },
+    {
+      "name": "Non-quarter-hour activity is either refused or preserved exactly",
+      "result": "PASS"
+    },
+    {
+      "name": "Travel proof refuses tampering, changed visits and a bare confirmation flag",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses expired review",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses new plan version",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses changed visit",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses new leave",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses withdrawn eligibility",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses expired offer",
+      "result": "PASS"
+    },
+    {
+      "name": "Cover revalidation refuses voided visit",
+      "result": "PASS"
+    },
+    {
+      "name": "An out-of-area plan review grants temporary clinical access and revokes it on changed context",
+      "result": "PASS"
+    },
+    {
+      "name": "Register records and source files are private until explicitly granted; roles remain separate",
+      "result": "PASS"
+    },
+    {
+      "name": "Participant-scoped register grants also require current participant access and scope changes revoke grants",
+      "result": "PASS"
+    },
+    {
+      "name": "Rejected active hours leave every completion and invoice field unchanged",
+      "result": "PASS"
+    }
+  ],
+  "startupErrors": []
+}

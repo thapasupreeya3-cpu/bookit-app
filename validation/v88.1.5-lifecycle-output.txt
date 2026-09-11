@@ -1,0 +1,98 @@
+{
+  "checks": [
+    {
+      "name": "All six service videos return real MP4 byte ranges",
+      "result": "PASS",
+      "detail": 6
+    },
+    {
+      "name": "Tier assets referenced dynamically exist for all four tiers",
+      "result": "PASS"
+    },
+    {
+      "name": "Local backup passes and restored database and file match",
+      "result": "PASS",
+      "detail": {
+        "parts": [
+          "bookit.db",
+          "bookit-docs.tar.gz",
+          "bookit-photos.tar.gz"
+        ],
+        "missingReferences": 0
+      }
+    },
+    {
+      "name": "Backup reports a missing referenced document with exit code 2",
+      "result": "PASS"
+    },
+    {
+      "name": "Scheduled snapshot recovers after boot initialization",
+      "result": "PASS",
+      "detail": {
+        "last_ok": "2026-09-11T01:54:55.636Z",
+        "last_error": ""
+      }
+    }
+  ],
+  "media": [
+    {
+      "name": "employment",
+      "status": 206,
+      "bytes": 512,
+      "type": "video/mp4",
+      "range": "bytes 0-511/3330161"
+    },
+    {
+      "name": "personal-care",
+      "status": 206,
+      "bytes": 512,
+      "type": "video/mp4",
+      "range": "bytes 0-511/1962592"
+    },
+    {
+      "name": "transport",
+      "status": 206,
+      "bytes": 512,
+      "type": "video/mp4",
+      "range": "bytes 0-511/2508509"
+    },
+    {
+      "name": "daily-tasks",
+      "status": 206,
+      "bytes": 512,
+      "type": "video/mp4",
+      "range": "bytes 0-511/2925779"
+    },
+    {
+      "name": "household",
+      "status": 206,
+      "bytes": 512,
+      "type": "video/mp4",
+      "range": "bytes 0-511/3311651"
+    },
+    {
+      "name": "community",
+      "status": 206,
+      "bytes": 512,
+      "type": "video/mp4",
+      "range": "bytes 0-511/2252973"
+    }
+  ],
+  "startupLog": [],
+  "jobs": [
+    {
+      "job": "credentials",
+      "runs": 1,
+      "failures": 0,
+      "last_ok": "2026-09-11T01:54:52.610Z",
+      "last_error": ""
+    },
+    {
+      "job": "snapshot",
+      "runs": 1,
+      "failures": 0,
+      "last_ok": "2026-09-11T01:54:55.636Z",
+      "last_error": ""
+    }
+  ]
+}

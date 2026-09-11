@@ -1,0 +1,9 @@
+PASS Confirmation hash ignores object key order, not changed values
+PASS Confirmation rejects tampering, another intent, expiry and excessive input
+PASS Strict hours accept exact valid numeric inputs and reject all coerced shapes
+PASS Append grants cannot replace, delete, reorder or change metadata
+PASS Conflicting appends retain both people’s entries without mutating any input
+PASS Simultaneous existing-row edits require manual recovery and retain local text
+PASS A response lost after a successful save can be reconciled without duplicate rows
+PASS Independent table edits combine while conflicting deletion never overwrites
+8 audit unit groups passed

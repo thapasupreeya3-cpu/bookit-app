@@ -237,9 +237,9 @@ async function main() {
     t('completing a sleepover without the active hours is refused', noActive.status === 400 && /hours/.test(noActive.json.error), noActive.status);
     /* v88.1.3 (audit F06): a non-number, a negative, or more hours than the shift are refused, and the shift stays open */
     for (const [bad, why] of [['invalid', 'text'], [-1, 'negative'], [20, 'more than the shift']]) {
-      const r = await req('PATCH', `/api/bookings/${sid}`, { headers: J2, cookie: wc, body: { status: 'completed', note: 'Up in the night.', scope: false, active_hours: bad, active_note: 'x' } });
+      const r = await req('PATCH', `/api/bookings/${sid}`, { headers: J2, cookie: wc, body: { status: 'completed', note: 'Synthetic valid shift note for active-hours validation.', scope: false, active_hours: bad, active_note: 'x' } });
       const still = db.prepare('SELECT status FROM bookings WHERE id = ?').get(sid).status;
-      t(`active hours ${why} is refused and the sleepover is not completed`, r.status === 400 && still === 'accepted', `${r.status} ${still} ${r.json && r.json.error}`);
+      t(`active hours ${why} is refused and the sleepover is not completed`, r.status === 400 && /^active_hours_/.test(r.json.code) && still === 'accepted', `${r.status} ${still} ${r.json && r.json.error}`);
     }
     const done = await req('PATCH', `/api/bookings/${sid}`, { headers: J2, cookie: wc, body: { status: 'completed', note: 'Up from 1am to 4:30am with a bad night; settled after that.', scope: false, active_hours: 3.5, active_note: 'Repositioning and reassurance, 1am–4:30am.' } });
     t('completing with 3.5 active hours works', done.status === 200, done.status + ' ' + (done.json && done.json.error));
@@ -531,6 +531,8 @@ async function main() {
     const bi = await req('GET', '/policies/feedback-and-complaints-policy');
     t('a built-in policy is a public page with its sections and approval block', bi.status === 200 && bi.text.includes('<h2>Policy Statement</h2>') && bi.text.includes('1800 035 544') && bi.text.includes('Approval Authority') && bi.text.includes('v1, approved August 2025'), bi.status);
     /* the fill layer: a register keeps shared entries, a form keeps a copy per person */
+    const grant = await req('POST','/api/admin/policy-register-access/incident-management-register',{headers:J2,cookie:ac2,body:{worker_id:10,permission:'append',expires_at:new Date(Date.now()+864e5).toISOString()}});
+    t('the office grants explicit append access to this register',grant.status===200,grant.status);
     const regPage = await req('GET', '/policies/incident-management-register', { cookie: wc });
     t('a register page carries the fill layer for a worker, with the sandbox opened for it', regPage.status === 200 && regPage.text.includes('id="policy-fill"') && regPage.text.includes('data-kind="register"') && regPage.text.includes('policy-fill.js') && String(regPage.headers.get('content-security-policy')).includes('allow-same-origin'), regPage.status);
     const polPage = await req('GET', '/policies/feedback-and-complaints-policy', { cookie: wc });
@@ -616,10 +618,10 @@ async function main() {
     const warn = await req('POST', '/api/bookings', { headers: J, cookie: pc, body: { worker_id: 10, service: 'daily-tasks', date: far, start: '10:00', hours: 2, intro: true } });
     t('a booking outside the worker\'s stated area is a warning with the distance and time, not a refusal', warn.status === 409 && warn.json.code === 'out_of_area' && warn.json.confirm === true && warn.json.travel && warn.json.travel.known && warn.json.travel.km > 50 && /by car/.test(warn.json.travel.text), `${warn.status} ${JSON.stringify(warn.json).slice(0, 160)}`);
     t('… with Google\'s drive time when a key is set — labelled a planning estimate with its age (v88.1.4) — the offline estimate kept beside it, and a link to the route', warn.json.travel && warn.json.travel.source === 'google' && warn.json.travel.minutes === 77 && warn.json.travel.km === 87 && warn.json.travel.traffic === true && warn.json.travel.estimate_minutes > 0 && /^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&origin=/.test(warn.json.travel.maps) && /with typical traffic/.test(warn.json.error) && /a planning estimate, checked/.test(warn.json.error) && warn.json.travel.age_minutes === 0, JSON.stringify(warn.json.travel));
-    const go = await req('POST', '/api/bookings', { headers: J, cookie: pc, body: { worker_id: 10, service: 'daily-tasks', date: far, start: '10:00', hours: 2, intro: true, out_of_area_ok: true } });
+    const go = await req('POST', '/api/bookings', { headers: J, cookie: pc, body: { worker_id: 10, service: 'daily-tasks', date: far, start: '10:00', hours: 2, intro: true, out_of_area_ok: true, out_of_area_token:warn.json.out_of_area_token } });
     const oobId = go.json && go.json.id;
     const wWarn = await req('PATCH', `/api/bookings/${oobId}`, { headers: J2, cookie: wc, body: { status: 'accepted' } });
-    const wGo = await req('PATCH', `/api/bookings/${oobId}`, { headers: J2, cookie: wc, body: { status: 'accepted', out_of_area_ok: true } });
+    const wGo = await req('PATCH', `/api/bookings/${oobId}`, { headers: J2, cookie: wc, body: { status: 'accepted', out_of_area_ok: true, out_of_area_token:wWarn.json.out_of_area_token } });
     const oob = db.prepare('SELECT status, out_of_area FROM bookings WHERE id = ?').get(oobId);
     const oobRec = oob && oob.out_of_area ? JSON.parse(oob.out_of_area) : null;
     t('the participant confirms; the worker is warned in turn and confirms; the booking records both', go.status === 200 && wWarn.status === 409 && wWarn.json.code === 'out_of_area' && wGo.status === 200 && oob.status === 'accepted' && oobRec && oobRec.confirmed_by === 'participant' && (oobRec.also || []).some(x => x.confirmed_by === 'worker'), `${go.status} ${wWarn.status} ${wGo.status} ${JSON.stringify(oobRec)}`);

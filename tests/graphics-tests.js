@@ -40,10 +40,10 @@ t('high-contrast override is intact',html.includes('--ink:#000000; --ink-soft:#0
 t('keyboard focus is visible',/:focus-visible\{outline:3px solid/.test(html));
 t('reduced-motion preference is honoured',html.includes('prefers-reduced-motion')&&html.includes('data-motion="reduce"'));
 /* content honesty (audit F10) */
-t('illustrative stories are labelled',html.includes('not verified customer testimonials'));
+t('illustrative stories are labelled',html.includes('not customer testimonials or ratings')&&!html.includes('composites of the feedback we hear'));
 t('no story claims claiming is automatic',!html.includes('Claiming is automatic'));
 /* the animated site is the one that ships: the hero reel and scene videos are still there */
 t('the hero reel is present',html.includes('id="heroReel"'));
 t('the six scene videos are present',(html.match(/data-scene="/g)||[]).length>=6);
-const ver=require('../lib/version');t('database schema is unchanged at 87000',ver.SCHEMA_VERSION===87000);
+const ver=require('../lib/version');t('additive permission/review schema is identified as 87001',ver.SCHEMA_VERSION===87001);
 console.log(`graphics: ${total-failed}/${total} passed`);process.exitCode=failed?1:0;

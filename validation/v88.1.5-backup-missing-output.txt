@@ -1,0 +1,9 @@
+[backup 2026-09-11T01:54:45.939Z] source db /workspace/scratch/7b8cb20b9fa3/fix/lifecycle-runtime-cDHAw7/test.db · docs /workspace/scratch/7b8cb20b9fa3/fix/lifecycle-runtime-cDHAw7/docs · photos /workspace/scratch/7b8cb20b9fa3/fix/lifecycle-runtime-cDHAw7/photos
+[backup 2026-09-11T01:54:45.941Z] writing /workspace/scratch/7b8cb20b9fa3/fix/lifecycle-runtime-cDHAw7/backups/bookit-2026-09-11-115445-2
+[backup 2026-09-11T01:54:45.960Z] database copied and verified · users 13, bookings 0, worker_docs 140, participant_docs 0, incidents 0, complaints 0, shift_notes 0, support_plans 0
+[backup 2026-09-11T01:54:45.971Z] bookit-docs: 2 file(s) → 0.0 MB
+[backup 2026-09-11T01:54:45.978Z] bookit-photos: 0 file(s) → 0.0 MB
+[backup 2026-09-11T01:54:45.978Z] done: bookit-2026-09-11-115445-2 (1 MB)
+[backup 2026-09-11T01:54:45.978Z] WARNING: 1 row(s) in the snapshot refer to a file that is NOT in tonight's archive — see manifest.json. The set is written and copied off the instance as usual, but this run ends INCOMPLETE (exit 2) so the timer shows it: a set that cannot restore what its own database refers to must not read as green.
+[backup 2026-09-11T01:54:45.978Z] WARNING: BACKUP_S3_URI not set — this set exists only on this machine. Instance snapshots are not a substitute for an off-instance copy of the records.
+[backup] INCOMPLETE: 1 file reference(s) from the database were absent from the archives — /workspace/scratch/7b8cb20b9fa3/fix/lifecycle-runtime-cDHAw7/backups/bookit-2026-09-11-115445-2/manifest.json names each one. Fix the rows or the files; the next clean run goes green again.

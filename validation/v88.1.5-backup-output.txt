@@ -1,0 +1,7 @@
+[backup 2026-09-11T01:54:45.854Z] source db /workspace/scratch/7b8cb20b9fa3/fix/lifecycle-runtime-cDHAw7/test.db · docs /workspace/scratch/7b8cb20b9fa3/fix/lifecycle-runtime-cDHAw7/docs · photos /workspace/scratch/7b8cb20b9fa3/fix/lifecycle-runtime-cDHAw7/photos
+[backup 2026-09-11T01:54:45.856Z] writing /workspace/scratch/7b8cb20b9fa3/fix/lifecycle-runtime-cDHAw7/backups/bookit-2026-09-11-115445
+[backup 2026-09-11T01:54:45.872Z] database copied and verified · users 13, bookings 0, worker_docs 139, participant_docs 0, incidents 0, complaints 0, shift_notes 0, support_plans 0
+[backup 2026-09-11T01:54:45.881Z] bookit-docs: 2 file(s) → 0.0 MB
+[backup 2026-09-11T01:54:45.888Z] bookit-photos: 0 file(s) → 0.0 MB
+[backup 2026-09-11T01:54:45.889Z] done: bookit-2026-09-11-115445 (1 MB)
+[backup 2026-09-11T01:54:45.889Z] WARNING: BACKUP_S3_URI not set — this set exists only on this machine. Instance snapshots are not a substitute for an off-instance copy of the records.

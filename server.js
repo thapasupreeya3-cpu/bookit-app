@@ -6097,32 +6097,70 @@ function assignmentContext() {
     platformEligible, moduleState, blockedPair, planAck, bookingClash
   };
 }
-/* v86.14.0 — who confirmed an out-of-area visit, and the estimate they saw */
-function noteOutOfArea(bookingId, fit, who) {
+/* v88.1.5 — confirmations bind the displayed estimate to actor, request and visit. */
+const CONFIRMATION = require('./lib/confirmation-proof');
+const TRAVEL_PROOF = CONFIRMATION.create(SECRET);
+function assignmentIntent(visits) {
+  return visits.map(b => {
+    const p=assignmentContext().profile(b.worker_id);
+    return {id:b.id||null,participant_id:b.participant_id,worker_id:b.worker_id,service:b.service,
+      date:b.date,start:b.start,hours:Number(b.hours),sleepover:!!b.sleepover,kind:b.kind||'shift',
+      status:b.status||'requested',cover_state:b.cover_state||'',
+      from:p?{suburb:p.suburb,areas:p.service_areas}:null,to:assignmentContext().participantPlace(b.participant_id)};
+  });
+}
+function assignmentOptions(req,user,body,visits,extra={}) {
+  const intentBody={...body};delete intentBody.out_of_area_ok;delete intentBody.out_of_area_token;
+  const context=CONFIRMATION.digest({actor_id:user.id,method:req.method,path:req.url,body:intentBody,visits:assignmentIntent(visits)});
+  const proof=body.out_of_area_ok===true ? TRAVEL_PROOF.verify(body.out_of_area_token,context) : null;
+  return {...extra,confirmation_context:context,confirmed_travel:extra.review?.travel || proof?.estimate || null};
+}
+function outOfAreaEntry(fit,who,actor) {
+  const b=fit.booking;
+  return {...fit.out_of_area,confirmed_by:who,confirmed_at:now(),actor_id:actor?.id||null,actor_role:actor?.admin?'office':actor?.role||who,
+    visit:{booking_id:b?.id||null,participant_id:b?.participant_id,worker_id:fit.worker_id,date:b?.date,start:b?.start,hours:b?.hours,service:b?.service},
+    confirmation_context:fit.confirmation_context||''};
+}
+function noteOutOfArea(bookingId, fit, who, actor) {
   if (!fit || !fit.out_of_area || !bookingId) return;
   const cur = db.prepare('SELECT out_of_area FROM bookings WHERE id = ?').get(bookingId);
   const prev = cur && cur.out_of_area ? safeJsonObj(cur.out_of_area) : null;
-  const entry = { ...fit.out_of_area, confirmed_by: who, confirmed_at: now() };
+  const entry = outOfAreaEntry(fit,who,actor);entry.visit.booking_id=bookingId;
   const next = prev && prev.confirmed_by ? { ...prev, also: [...(prev.also || []), entry] } : entry;
   db.prepare('UPDATE bookings SET out_of_area = ? WHERE id = ?').run(JSON.stringify(next), bookingId);
 }
-/* v86.14.1 — the out-of-area answer, with Google's drive time when the office has a key */
 async function outOfAreaReply(res, fit) {
   try { fit.travel = await BOOKIT_TRAVEL.withLive(fit.travel); } catch {}
-  if (fit.travel && fit.travel.known) fit.error = `Out of area: this visit is ${fit.travel.text}. Confirm to go ahead anyway.`;
-  return json(res, 409, fit);
+  fit.travel={...(fit.travel||{known:false,reason:'Travel could not be estimated'}),checked_at:fit.travel?.checked_at||now()};
+  if (fit.travel.known) fit.error = `Out of area: this visit is ${fit.travel.text}. Confirm to go ahead anyway.`;
+  const token=fit.confirmation_context ? TRAVEL_PROOF.issue(fit.confirmation_context,fit.travel) : null;
+  return json(res,409,{...fit,out_of_area_token:token});
 }
 function safeJsonObj(t) { try { const x = JSON.parse(t); return x && typeof x === 'object' ? x : null; } catch { return null; } }
 function assignmentCheck(wid,b,options={}) {
   const full=assignmentContext().completeBooking(b);
   if(full?.sleepover && (!(Number(full.hours)>=SLEEPOVER_HOURS_MIN && Number(full.hours)<=SLEEPOVER_HOURS_MAX) || !(String(full.start)>='20:00'||String(full.start)<='01:00')))return {error:'A sleepover must last 8–10 hours and start between 20:00 and 01:00.',code:'sleepover_shape'};
-  return BOOKIT_ASSIGNMENT.evaluate(assignmentContext(),Number(wid),full,options);
+  const verified=!!options.confirmed_travel;
+  const fit=BOOKIT_ASSIGNMENT.evaluate(assignmentContext(),Number(wid),full,{...options,out_of_area_ok:verified,proof:{...options.proof,out_of_area_ok:verified}});
+  Object.defineProperty(fit,'confirmation_context',{value:options.confirmation_context||'',enumerable:false});
+  if(fit.ok){fit.worker_id=Number(wid);if(fit.out_of_area)fit.out_of_area=options.confirmed_travel;}
+  return fit;
+}
+function coverReviewContext(wid,b) {
+  return CONFIRMATION.digest({visits:assignmentIntent([{...b,worker_id:wid}]),plan:confirmedPlan(b.participant_id)||null});
+}
+function savedCoverReview(wid,b) {
+  const row=db.prepare(`SELECT r.* FROM cover_reviews r JOIN cover_offers o ON o.id=r.offer_id JOIN cover c ON c.id=o.cover_id
+    WHERE r.worker_id=? AND r.booking_id=? AND r.expires_at>? AND o.response IS NULL AND o.expires_at>?
+      AND c.status='open' AND c.booking_id=r.booking_id ORDER BY r.expires_at DESC LIMIT 1`).get(wid,b.id,now(),now());
+  if(!row||row.context_hash!==coverReviewContext(wid,b))return null;
+  return {...row,travel:safeJsonObj(row.travel_json)};
 }
 function currentPlanAccess(wid,pid) {
   const ctx=assignmentContext();
   ctx.activeBookings=(w,p)=>db.prepare("SELECT * FROM bookings WHERE worker_id=? AND participant_id=? AND status IN ('requested','accepted') AND COALESCE(voided,0)=0").all(w,p);
   ctx.activeOffers=(w,p)=>db.prepare("SELECT b.* FROM cover_offers o JOIN cover c ON c.id=o.cover_id JOIN bookings b ON b.id=c.booking_id WHERE o.worker_id=? AND b.participant_id=? AND o.response IS NULL AND o.expires_at>? AND c.status='open' AND b.cover_state='finding' AND b.status IN ('requested','accepted')").all(w,p,now());
-  ctx.candidate=(w,b)=>assignmentCheck(w,b);
+  ctx.candidate=(w,b)=>assignmentCheck(w,b,{confirmed_travel:savedCoverReview(w,b)?.travel});
   return BOOKIT_PLAN_ACCESS.mayReadCurrent(ctx,Number(wid),Number(pid));
 }
 function recordAssignmentAck(wid,fit,proof,req,source='worker') {
@@ -6623,9 +6661,9 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
      are one write: a failure on the ninth shift leaves no rule and no shifts,
      not a rule with eight. */
   const assignmentDates = dates.map(date => ({participant_id:pers.id,worker_id:workerId,service,date,start,hours,sleepover,kind:intro?'intro':'shift'}));
-  let outOfArea = null;
-  for (const proposed of assignmentDates) { const fit=assignmentCheck(workerId,proposed,{out_of_area_ok: body.out_of_area_ok === true}); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit); if (fit.out_of_area) outOfArea = fit.out_of_area; }
-  const outOfAreaNote = outOfArea ? JSON.stringify({ ...outOfArea, confirmed_by: 'participant', confirmed_at: now() }) : '';
+  const assignmentProof=assignmentOptions(req,user,body,assignmentDates);
+  const assignmentFits=new Map();
+  for (const proposed of assignmentDates) { const fit=assignmentCheck(workerId,proposed,assignmentProof); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit); assignmentFits.set(proposed.date,fit); }
   db.exec('BEGIN IMMEDIATE');
   try {
     if (repeat) {
@@ -6637,8 +6675,9 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
     }
     dates.forEach((d, idx) => {
       const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created, kind, out_of_area) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
-        .run(pers.id, workerId, service, d, start, intro ? INTRO_HOURS : hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now(), intro ? 'intro' : 'shift', outOfAreaNote);
+        .run(pers.id, workerId, service, d, start, intro ? INTRO_HOURS : hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now(), intro ? 'intro' : 'shift', '');
       const id = Number(r.lastInsertRowid);
+      noteOutOfArea(id,assignmentFits.get(d),'participant',user);
       if (km > 0) applyKm(id, km, clean(body.km_from, 80), clean(body.km_to, 80));
       ids.push(id);
     });
@@ -6725,10 +6764,10 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
       try {
         const fresh=db.prepare('SELECT * FROM bookings WHERE id=?').get(b.id);
         if(!fresh || fresh.status!=='requested' || fresh.worker_id!==user.id) {db.exec('ROLLBACK');return json(res,409,{error:'This request has changed. Refresh your bookings.'});}
-        const fit=assignmentCheck(user.id,fresh,{accept:true,proof:body,out_of_area_ok: body.out_of_area_ok === true});
+        const fit=assignmentCheck(user.id,fresh,assignmentOptions(req,user,body,[fresh],{accept:true,proof:body}));
         if(!fit.ok){db.exec('ROLLBACK');return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,fit);}
         recordAssignmentAck(user.id,fit,body,req);
-        noteOutOfArea(b.id, fit, 'worker');
+        noteOutOfArea(b.id, fit, 'worker',user);
         db.prepare("UPDATE bookings SET status='accepted',accepted_at=? WHERE id=?").run(now(),b.id);
         db.exec('COMMIT');
       } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
@@ -6834,11 +6873,9 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
        was there, on the screen where the shift is closed off. */
     let activeIn = null;
     if (b.sleepover) {
-      if (body.active_hours === undefined || body.active_hours === null || body.active_hours === '') return json(res, 400, { error: 'How many hours were you up and supporting during the night? Enter 0 if you were not woken.' });
-      const activeRaw = Number(body.active_hours);
-      if (!Number.isFinite(activeRaw) || activeRaw < 0) return json(res, 400, { error: 'Active hours must be a number, zero or more.' });
-      if (activeRaw > (Number(b.hours) || 8)) return json(res, 400, { error: `Active hours cannot be more than the ${Number(b.hours) || 8}-hour shift.` });
-      activeIn = Math.round(activeRaw * 4) / 4; /* v88.1.3 (audit F06): validated, then rounded to the quarter hour */
+      const activeValidation=require('./lib/active-hours').validate(body.active_hours,Number(b.hours)||8);
+      if(activeValidation.error)return json(res,400,activeValidation);
+      activeIn=activeValidation.hours;
       if (activeIn > SLEEPOVER_INCLUDED_ACTIVE_HOURS && !clean(body.active_note, NOTE_MAX)) return json(res, 400, { error: 'More than two active hours is charged to the participant\u2019s plan, so say what the support was in the active-hours note.' });
     }
     let kmLine = null, inv = null, noteId = null, activeLine = null;
@@ -6959,7 +6996,8 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
   const changed = [], locked = [];
   const movable = rows.filter(b => { const t=bookingStart(b); if (!Number.isFinite(+t) || t < cutoff || ['finding','office','allied','referred'].includes(b.cover_state) || b.invoice_no || b.claim_status==='paid' || b.paid_at) {locked.push(b.id);return false;} return true; });
   const material = ['worker_id','start','hours'].some(k => patch[k]!==undefined && String(patch[k])!==String(sr[k]));
-  const fits=new Map(); for(const b of movable) {const proposed={...b,...patch}; const fit=assignmentCheck(proposed.worker_id,proposed,{out_of_area_ok: body.out_of_area_ok === true}); fits.set(b.id,fit); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,{...fit,date:b.date,dates:[b.date]});}
+  const editProof=assignmentOptions(req,user,body,movable.map(b=>({...b,...patch})));
+  const fits=new Map(); for(const b of movable) {const proposed={...b,...patch}; const fit=assignmentCheck(proposed.worker_id,proposed,editProof); fits.set(b.id,fit); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,{...fit,date:b.date,dates:[b.date]});}
   /* The diary gate for a rule: if the new time or the new worker clashes on
      any date, nothing changes and the participant is told which dates. */
   if (patch.start || patch.hours || patch.worker_id) {
@@ -6973,7 +7011,7 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
     for (const b of movable) {
       const changedAssignment=['worker_id','start','hours'].some(k=>patch[k]!==undefined&&String(patch[k])!==String(b[k]));
       db.prepare(`UPDATE bookings SET ${sets}${changedAssignment ? ", status='requested', accepted_at=NULL, office_ok=0" : ''} WHERE id = ?`).run(...vals,b.id);
-      if (changedAssignment) noteOutOfArea(b.id, fits.get(b.id), 'participant'); /* v88.1.3 (audit F08) */
+      if (changedAssignment) noteOutOfArea(b.id, fits.get(b.id), 'participant',user); /* v88.1.3 (audit F08) */
       changed.push(b.id);
     }
     db.exec('COMMIT');
@@ -7007,14 +7045,17 @@ route('PATCH', /^\/api\/bookings\/(\d+)\/occurrence$/, (req, res, m, user, body)
      not a request worth sending */
   if(!incomingInterval(res,date,start,hours))return;
   if(bookingStart(b)<=new Date() || ['finding','office','allied','referred'].includes(b.cover_state) || b.invoice_no || b.paid_at) return json(res,409,{error:'This visit needs office review before it can be moved.'});
-  const fit=assignmentCheck(b.worker_id,{...b,date,start,hours},{out_of_area_ok: body.out_of_area_ok === true});if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,fit);
+  const fit=assignmentCheck(b.worker_id,{...b,date,start,hours},assignmentOptions(req,user,body,[{...b,date,start,hours}]));if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,fit);
   const busy = bookingClash(b.worker_id, date, start, hours, { statuses: ['accepted', 'requested'], participantId: pers.id, excludeId: b.id });
   if (busy) return json(res, 409, { clash: true, error: busy.participant_id === pers.id
     ? `You already have a booking with this worker at ${busy.start} on ${dmy(busy.date)} (${busy.status}) that overlaps the new time.`
     : `This worker already has a shift that overlaps ${dmy(date)} at ${start}. Choose another time.` });
-  db.prepare("UPDATE bookings SET date = ?, start = ?, hours = ?, detached = 1, status = 'requested', accepted_at = NULL, office_ok = 0 WHERE id = ?")
-    .run(date, start, hours, b.id);
-  noteOutOfArea(b.id, fit, 'participant'); /* v88.1.3 (audit F08) */
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.prepare("UPDATE bookings SET date = ?, start = ?, hours = ?, detached = 1, status = 'requested', accepted_at = NULL, office_ok = 0 WHERE id = ?").run(date,start,hours,b.id);
+    noteOutOfArea(b.id,fit,'participant',user);
+    db.exec('COMMIT');
+  } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
   logDelegate(pers, 'Moved one shift', `${SERVICE_LABELS[b.service] || b.service} from ${dmy(b.date)} to ${dmy(date)}`, b.id);
   const wu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
   if (wu) notify(wu.id, 'bookings', wu.email, 'A shift has moved — The Care Web',
@@ -12264,7 +12305,7 @@ function coverAccept(offerId, req, acceptingWorkerId, proof={}) {
     if(!o||o.response)return fail('That offer has already been answered or is unavailable.');
     const cv=db.prepare('SELECT * FROM cover WHERE id=?').get(o.cover_id);
     const b=cv&&db.prepare('SELECT * FROM bookings WHERE id=?').get(cv.booking_id);
-    if(!cv||cv.status!=='open'||!b||!['requested','accepted'].includes(b.status)||b.cover_state!=='finding')return fail('The visit no longer needs cover.');
+    if(!cv||cv.status!=='open'||!b||b.voided||!['requested','accepted'].includes(b.status)||b.cover_state!=='finding')return fail('The visit no longer needs cover.');
     if(!Number.isFinite(Date.parse(o.expires_at))||Date.parse(o.expires_at)<=Date.now())return fail('This offer has expired. Refresh your open shifts.');
     if(!Number.isFinite(+bookingStart(b))||bookingStart(b)<=new Date())return fail('This visit has started or its date needs checking. Contact the office.');
     if(o.tier==='allied'){
@@ -12277,9 +12318,13 @@ function coverAccept(offerId, req, acceptingWorkerId, proof={}) {
     }else{
       const wid=Number(acceptingWorkerId);
       if(!wid||wid!==o.worker_id)return fail('That offer belongs to another worker.');
-      const fit=assignmentCheck(wid,b,{accept:true,proof});
+      const review=savedCoverReview(wid,b);
+      const actor=db.prepare('SELECT id,role,is_admin AS admin FROM users WHERE id=?').get(wid);
+      const fit=assignmentCheck(wid,b,assignmentOptions(req,actor,proof,[{...b,worker_id:wid}],{accept:true,proof,review}));
       if(!fit.ok)return fail(fit);
+      if(fit.ack?.required&&!fit.ack.acked&&!review)return fail({error:'Open and read this visit’s current plan before confirming.',code:'cover_review_required'});
       recordAssignmentAck(wid,fit,proof,req);
+      noteOutOfArea(b.id,fit,'worker',actor);
       db.prepare("UPDATE cover SET status='filled',filled_worker_id=?,filled_at=?,closed_at=? WHERE id=?").run(wid,now(),now(),cv.id);
       db.prepare("UPDATE bookings SET worker_id=?,cover_state='covered',status='accepted',accepted_at=?,office_ok=0,swap_count=swap_count+1,original_worker_id=COALESCE(original_worker_id,worker_id) WHERE id=?").run(wid,now(),b.id);
       worker=db.prepare('SELECT id,name,email FROM users WHERE id=?').get(wid);
@@ -12855,8 +12900,8 @@ route('POST', /^\/api\/admin\/cover\/(\d+)\/assign$/, (req,res,m,user,body)=>{
   const b=cv&&db.prepare('SELECT * FROM bookings WHERE id=?').get(cv.booking_id);
   if(!b||b.cover_state!=='finding'||!['requested','accepted'].includes(b.status))return json(res,409,{error:'This visit no longer needs an offer.'});
   if(bookingStart(b)<=new Date())return json(res,409,{error:'The visit has started. Use the documented office-review assignment.'});
-  const wid=Number(body.worker_id),fit=assignmentCheck(wid,b,{out_of_area_ok: body.out_of_area_ok === true});if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit);
-  noteOutOfArea(b.id, fit, 'office');
+  const wid=Number(body.worker_id),fit=assignmentCheck(wid,b,assignmentOptions(req,user,body,[{...b,worker_id:wid}]));if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit);
+  noteOutOfArea(b.id, fit, 'office',user);
   const existing=db.prepare('SELECT id FROM cover_offers WHERE cover_id=? AND worker_id=? AND response IS NULL AND expires_at>?').get(cv.id,wid,now());
   if(!existing)sendCoverOffer(req,cv,b,'pool',{id:wid},99);
   logCompliance({worker_id:wid,kind:'platform-access',result:'office-offered',detail:`Office invited worker #${wid} for booking #${b.id}. Worker acceptance is still required.`,source:'office',checked_by:user.name});
@@ -12912,10 +12957,9 @@ route('POST', /^\/api\/admin\/bookings\/(\d+)\/office-assign$/, (req, res, m, us
   const consent=clean(body.consent_note,2000);
   if(body.worker_agreed!==true || consent.length<20)return json(res,400,{error:'Record who spoke to the worker, when, and their explicit agreement (at least 20 characters).'});
   const proof={...body,plan_ack:body.plan_read_confirmed===true,recorded_by:user.name};
-  const fit=assignmentCheck(workerId,b,{accept:true,office:true,proof,out_of_area_ok: body.out_of_area_ok === true});if(!w)return json(res,400,{error:'Worker not found.'});if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit);
-  noteOutOfArea(b.id, fit, 'office');
+  const fit=assignmentCheck(workerId,b,assignmentOptions(req,user,body,[{...b,worker_id:workerId}],{accept:true,office:true,proof}));if(!w)return json(res,400,{error:'Worker not found.'});if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit);
   db.exec('BEGIN IMMEDIATE');
-  try {recordAssignmentAck(workerId,fit,proof,req,'office-recorded');
+  try {noteOutOfArea(b.id,fit,'office',user);recordAssignmentAck(workerId,fit,proof,req,'office-recorded');
   db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', accepted_at = ?, swap_count = swap_count + 1, office_ok = 1, original_worker_id = COALESCE(original_worker_id, worker_id) WHERE id = ?").run(workerId, now(), b.id);
   logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'office-assigned',
     detail: `Booking #${b.id} (${b.date} ${b.start}) was in office review (shift had started); ${w.name} recorded onto it by the office. Exceptional assignment evidence: ${consent}. Plan evidence recorded as office-reported, not a worker click.`,
@@ -17381,8 +17425,8 @@ route('GET', /^\/api\/me\/open-shifts$/, (req, res, m, user) => {
 function reviewableCover(wid,coverId,options={}) {
   const cv=db.prepare("SELECT * FROM cover WHERE id=? AND status='open'").get(coverId);
   const b=cv&&db.prepare('SELECT * FROM bookings WHERE id=?').get(cv.booking_id);
-  if(!b||b.cover_state!=='finding'||!['requested','accepted'].includes(b.status)||bookingStart(b)<=new Date())return {error:'This visit is no longer available.'};
-  const fit=assignmentCheck(wid,b,options);if(!fit.ok)return fit;
+  if(!b||b.voided||b.cover_state!=='finding'||!['requested','accepted'].includes(b.status)||bookingStart(b)<=new Date())return {error:'This visit is no longer available.'};
+  const fit=assignmentCheck(wid,b,typeof options==='function'?options(b):options);if(!fit.ok)return fit;
   return {ok:true,cv,b,fit};
 }
 function reviewOffer(wid,cv,b) {
@@ -17393,18 +17437,22 @@ function reviewOffer(wid,cv,b) {
 route('POST', /^\/api\/cover\/(\d+)\/review$/, (req,res,m,user,body,ip)=>{
   if(!user||user.role!=='worker')return json(res,403,{error:'Workers only.'});
   if(limited(ip,'cover-review',40))return json(res,429,{error:'Too many requests. Try again shortly.'});
-  const r=reviewableCover(user.id,Number(m[1]),{out_of_area_ok: body && body.out_of_area_ok === true});if(!r.ok)return r.confirm?outOfAreaReply(res,r):json(res,409,r);
+  const r=reviewableCover(user.id,Number(m[1]),b=>assignmentOptions(req,user,body,[{...b,worker_id:user.id}],{review:savedCoverReview(user.id,b)}));if(!r.ok)return r.confirm?outOfAreaReply(res,r):json(res,409,r);
   const o=reviewOffer(user.id,r.cv,r.b),plan=confirmedPlan(r.b.participant_id);
+  const reviewExpires=new Date(Math.min(Date.parse(o.expires_at),Date.now()+15*60000,+bookingStart(r.b))).toISOString();
+  db.prepare('DELETE FROM cover_reviews WHERE expires_at<=?').run(now());
+  db.prepare(`INSERT INTO cover_reviews(offer_id,worker_id,booking_id,context_hash,travel_json,reviewed_at,expires_at)
+    VALUES(?,?,?,?,?,?,?) ON CONFLICT(offer_id) DO UPDATE SET context_hash=excluded.context_hash,travel_json=excluded.travel_json,reviewed_at=excluded.reviewed_at,expires_at=excluded.expires_at`)
+    .run(o.id,user.id,r.b.id,coverReviewContext(user.id,r.b),JSON.stringify(r.fit.out_of_area),now(),reviewExpires);
   logCompliance({worker_id:user.id,worker_name:user.name,kind:'plan-access',result:'cover-preview',detail:`Eligible worker explicitly opened the brief for cover #${r.cv.id}, booking #${r.b.id}.`,source:'worker',checked_by:user.name});
-  json(res,200,{ok:true,offer_id:o.id,participant_id:r.b.participant_id,brief:workerBrief(r.b.participant_id),plan_id:plan?.id||null,plan_version:plan?.version||null,ack:planAck(r.b.participant_id,user.id),expires_at:o.expires_at});
+  json(res,200,{ok:true,offer_id:o.id,participant_id:r.b.participant_id,brief:workerBrief(r.b.participant_id),plan_id:plan?.id||null,plan_version:plan?.version||null,ack:planAck(r.b.participant_id,user.id),expires_at:reviewExpires});
 });
 route('POST', /^\/api\/cover\/(\d+)\/claim$/, (req,res,m,user,body,ip)=>{
   if(!user||user.role!=='worker')return json(res,403,{error:'Workers only.'});
   if(limited(ip,'claim',30))return json(res,429,{error:'Too many attempts. Try again shortly.'});
-  const r=reviewableCover(user.id,Number(m[1]),{out_of_area_ok: body && body.out_of_area_ok === true});if(!r.ok)return r.confirm?outOfAreaReply(res,r):json(res,409,r);
-  noteOutOfArea(r.b && r.b.id, r.fit || r, 'worker');
-  const fit=assignmentCheck(user.id,r.b,{accept:true,proof:body,out_of_area_ok: body.out_of_area_ok === true});if(!fit.ok)return json(res,fit.confirm?409:400,fit);
-  if(fit.ack?.required&&!fit.ack.acked&&!currentPlanAccess(user.id,r.b.participant_id))return json(res,400,{error:'Open and read this visit’s plan before confirming.',plan_ack_required:true,plan_id:fit.ack.plan_id,version:fit.ack.version});
+  const r=reviewableCover(user.id,Number(m[1]),b=>assignmentOptions(req,user,body,[{...b,worker_id:user.id}],{review:savedCoverReview(user.id,b)}));if(!r.ok)return r.confirm?outOfAreaReply(res,r):json(res,409,r);
+  const fit=assignmentCheck(user.id,r.b,assignmentOptions(req,user,body,[{...r.b,worker_id:user.id}],{accept:true,proof:body,review:savedCoverReview(user.id,r.b)}));if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit);
+  if(fit.ack?.required&&!fit.ack.acked&&!savedCoverReview(user.id,r.b))return json(res,400,{error:'Open and read this visit’s plan before confirming.',plan_ack_required:true,plan_id:fit.ack.plan_id,version:fit.ack.version});
   const o=reviewOffer(user.id,r.cv,r.b);
   const result=coverAccept(o.id,req,user.id,body);json(res,result.error?409:200,result);
 });
@@ -18048,6 +18096,7 @@ route('POST', /^\/api\/me\/forms\/([a-z0-9-]+)$/, (req, res, m, user, body, ip) 
     if (missing.length) return json(res, 400, { error: `Still needed: ${missing.join('; ')}.`, missing });
     if (!user.admin && body.agree !== true) return json(res, 400, { error: 'Tick the declaration to confirm.' });
   }
+  if(t.permission==='append'&&!require('./lib/register-access').appendOnly(cur?policyFillParse(cur.data):{},data))return json(res,403,{error:'Your access allows new entries only. Existing entries need an office correction.'});
   const who = user.admin ? `${user.name} (office)` : user.name;
   let docId = null;
   db.exec('BEGIN IMMEDIATE');
@@ -18387,6 +18436,7 @@ function policyKind(title) {
 }
 const POLICY_PUBLIC_HINT = /complaint|feedback|privacy|rights|money|incident|violence|abuse|decision|information booklet|easy read|participant|service agreement|schedule of supports|tenancy|sil information|behaviour support|living alone|transport|mealtime management policy|medication policy|emergency/i;
 function policyAllowed(user, pg) {
+  if(pg.kind==='register'&&!POLICY_ON_SCREEN[pg.slug])return policyRegisterPermission(user,pg.slug)!=='none';
   if (pg.audience === 'public') return true;
   if (!user) return false;
   if (pg.audience === 'staff') return !!(user.admin || user.role === 'worker');
@@ -18428,13 +18478,14 @@ function policyPageHtml(req, pg, viewer) {
      and /api/policy-fill); a register is written to by workers and the
      office, a form by anyone signed in who may see it. */
   const fillable = policyFillable(pg) && !!pg.body_html && !POLICY_ON_SCREEN[pg.slug];
-  const canSave = fillable && !!viewer && (pg.kind !== 'register' || !!(viewer.admin || viewer.role === 'worker'));
-  const fill = fillable ? `<div id="policy-fill" data-slug="${escHtml(pg.slug)}" data-kind="${escHtml(pg.kind)}" data-can-save="${canSave ? 1 : 0}" data-who="${escHtml(viewer ? viewer.name : '')}"></div>` : '';
+  const permission=pg.kind==='register'?policyRegisterPermission(viewer,pg.slug):viewer?'edit':'none';
+  const canSave=fillable&&['append','edit'].includes(permission);
+  const fill = fillable ? `<div id="policy-fill" data-slug="${escHtml(pg.slug)}" data-kind="${escHtml(pg.kind)}" data-can-save="${canSave ? 1 : 0}" data-permission="${permission}" data-admin="${viewer?.admin?1:0}" data-who="${escHtml(viewer ? viewer.name : '')}"></div>` : '';
   return genPage({ title: pg.title, lede: `${pg.kind === 'policy' ? 'A policy of' : pg.kind === 'procedure' ? 'A procedure of' : 'A document of'} Disability and Mental Health Care Pty Ltd, the registered NDIS provider that runs The Care Web. ${pg.audience === 'staff' ? 'For workers and the office.' : 'Published for the people we support and the people who work with us.'}`,
     meta: [['Kind', pg.kind], ['Edition', pg.edition || `imported ${dmy(String(pg.imported_at).slice(0, 10))}`], ['Source', pg.source_name || 'the office\u2019s policies folder'], ['Audience', pg.audience === 'staff' ? 'staff only' : 'participants and staff']],
     footer: `${pg.title}. Published on The Care Web from the office\u2019s document set; the office keeps it current.` },
     `${policyOnScreenHtml(pg, viewer, baseUrl(req))}${fill}<div class="policy-body">${body}</div>`, { base: baseUrl(req), barNote: fillable ? (pg.kind === 'register' ? 'A register \u00b7 add entries below, or print it \u00b7 back to the list at /policies' : 'A form \u00b7 fill it in on screen, save or print it \u00b7 back to the list at /policies') : 'A policy page \u00b7 print or save as PDF \u00b7 back to the list at /policies' })
-    .replace('</body>', fillable ? '<script src="/assets/policy-fill.js" defer></script></body>' : '</body>')
+    .replace('</body>', fillable ? '<script src="/assets/policy-register-state.js" defer></script><script src="/assets/policy-fill.js" defer></script><script src="/assets/policy-register-access.js" defer></script></body>' : '</body>')
     .replace('</head>', '<style>.on-screen{border:1px solid #2f5d50;border-radius:8px;background:#eef4f2;padding:10px 12px;margin:.6em 0 1em;font-size:.95em}.on-screen a{font-weight:700;margin-left:6px}.policy-body h2{margin-top:1.4em}.policy-body h3{margin-top:1.1em}.policy-body table.grid{width:100%;border-collapse:collapse;margin:1em 0;font-size:.95em}.policy-body table.grid th,.policy-body table.grid td{border:1px solid #d8d3cb;padding:6px 8px;vertical-align:top;text-align:left}.policy-body ul{padding-left:1.3em}</style></head>');
 }
 /* the Policy Register: the office's register of its documents, generated from what is published so it cannot drift from the pages */
@@ -18558,23 +18609,67 @@ function policyFillable(pg) { return !!pg && (pg.kind === 'register' || pg.kind 
 /* safeJson above admits arrays only; a fill is an object */
 function policyFillParse(text) { try { const x = JSON.parse(text); return x && typeof x === 'object' && !Array.isArray(x) ? x : {}; } catch { return {}; } }
 function activeStaffWorker(workerId) {
-  const w = db.prepare('SELECT u.email, p.visible FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?').get(workerId);
-  return !!(w && w.visible && platformEligible(workerId, w.email));
+  const w=db.prepare('SELECT u.email,u.closed_at,p.visible FROM users u JOIN worker_profiles p ON p.user_id=u.id WHERE u.id=?').get(workerId);
+  return !!(w&&!w.closed_at&&w.visible&&platformEligible(workerId,w.email));
+}
+function policyRegisterPermission(user,slug) {
+  if(user?.admin)return 'edit';
+  if(!user||user.role!=='worker'||!activeStaffWorker(user.id))return 'none';
+  const grant=db.prepare('SELECT permission FROM policy_register_access WHERE slug=? AND worker_id=? AND expires_at>?').get(slug,user.id,now());
+  if(!grant)return 'none';
+  const scope=db.prepare('SELECT participant_id FROM policy_register_settings WHERE slug=?').get(slug);
+  if(scope?.participant_id&&!currentPlanAccess(user.id,scope.participant_id))return 'none';
+  return grant.permission;
 }
 function policyFillTarget(user, res, slug) {
   const pg = db.prepare('SELECT slug, kind, audience FROM policy_pages WHERE slug = ?').get(slug);
   if (!pg || !policyFillable(pg) || POLICY_ON_SCREEN[pg.slug]) { json(res, 404, { error: 'No such fillable page.' }); return null; }
-  if (!policyAllowed(user, pg)) { json(res, 403, { error: 'Not permitted.' }); return null; }
+  if (!user || !policyAllowed(user, pg)) { json(res, 403, { error: 'Not permitted.' }); return null; }
   const scope = pg.kind === 'register' ? 'shared' : 'personal';
-  /* v88.1.3 (audit F01) — a shared register is an operational record, not
-     onboarding material: reading or writing it takes the office, or a worker
-     who is approved and active (visible and platform-eligible — the same rule
-     messaging uses). An applicant who has only registered can still read the
-     staff pages and fill their own personal forms, and nothing else. */
-  const staff = !!(user.admin || (user.role === 'worker' && activeStaffWorker(user.id)));
-  if (scope === 'shared' && !staff) { json(res, 403, { error: 'Registers are for the office and approved, active workers.' }); return null; }
-  return { pg, scope, owner: scope === 'personal' ? user.id : null, canWrite: scope === 'shared' ? staff : true };
+  const permission=scope==='shared'?policyRegisterPermission(user,slug):'edit';
+  if(permission==='none'){json(res,403,{error:'This register is restricted. Ask the office for access to the records you need.'});return null;}
+  return {pg,scope,owner:scope==='personal'?user.id:null,permission,canWrite:['append','edit'].includes(permission)};
 }
+function editableRegister(res,slug) {
+  const pg=db.prepare("SELECT slug FROM policy_pages WHERE slug=? AND kind='register'").get(slug);
+  if(!pg||POLICY_ON_SCREEN[slug]){json(res,404,{error:'No such editable register.'});return false;}return true;
+}
+route('GET', /^\/api\/admin\/policy-register-access\/([a-z0-9-]+)$/, (req,res,m,user)=>{
+  if(!requireAdmin(user,res)||!editableRegister(res,m[1]))return;
+  const grants=db.prepare('SELECT a.worker_id,u.name,a.permission,a.expires_at,a.granted_at FROM policy_register_access a JOIN users u ON u.id=a.worker_id WHERE a.slug=? ORDER BY u.name').all(m[1]);
+  const workers=db.prepare("SELECT id,name FROM users WHERE role='worker' AND closed_at IS NULL ORDER BY name").all().filter(w=>activeStaffWorker(w.id));
+  const participants=db.prepare("SELECT id,name FROM users WHERE role='participant' AND closed_at IS NULL ORDER BY name").all();
+  json(res,200,{grants,workers,participants,participant_id:db.prepare('SELECT participant_id FROM policy_register_settings WHERE slug=?').get(m[1])?.participant_id||null});
+});
+route('POST', /^\/api\/admin\/policy-register-access\/([a-z0-9-]+)$/, (req,res,m,user,body)=>{
+  if(!requireAdmin(user,res)||!editableRegister(res,m[1]))return;
+  if(body.action==='scope'){
+    const pid=body.participant_id===null?null:Number(body.participant_id);
+    if(pid!==null&&(!Number.isSafeInteger(pid)||!db.prepare("SELECT id FROM users WHERE id=? AND role='participant' AND closed_at IS NULL").get(pid)))return json(res,400,{error:'Choose a current participant, or the office-wide register option.'});
+    const old=db.prepare('SELECT participant_id FROM policy_register_settings WHERE slug=?').get(m[1])?.participant_id||null;
+    db.exec('BEGIN IMMEDIATE');
+    try{
+      db.prepare('INSERT INTO policy_register_settings(slug,participant_id) VALUES(?,?) ON CONFLICT(slug) DO UPDATE SET participant_id=excluded.participant_id').run(m[1],pid);
+      if(old!==pid)db.prepare('DELETE FROM policy_register_access WHERE slug=?').run(m[1]);
+      logCompliance({kind:'register-access',result:'scope',detail:`Register ${m[1]} assigned to participant ${pid||'office-wide'}; changed scope revokes existing worker grants.`,source:'office',checked_by:user.name});
+      db.exec('COMMIT');
+    }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
+    return json(res,200,{ok:true,grants_revoked:old!==pid});
+  }
+  const wid=Number(body.worker_id);
+  if(!Number.isSafeInteger(wid)||!db.prepare("SELECT id FROM users WHERE id=? AND role='worker'").get(wid))return json(res,400,{error:'Choose a worker.'});
+  if(body.permission==='none')db.prepare('DELETE FROM policy_register_access WHERE slug=? AND worker_id=?').run(m[1],wid);
+  else{
+    if(!['read','append','edit'].includes(body.permission)||!activeStaffWorker(wid))return json(res,400,{error:'Choose read, append or edit access for an approved, active worker.'});
+    const expires=Date.parse(body.expires_at);
+    if(!Number.isFinite(expires)||expires<=Date.now()||expires>Date.now()+366*864e5)return json(res,400,{error:'Choose an access expiry within the next year.'});
+    db.prepare(`INSERT INTO policy_register_access(slug,worker_id,permission,expires_at,granted_by,granted_at) VALUES(?,?,?,?,?,?)
+      ON CONFLICT(slug,worker_id) DO UPDATE SET permission=excluded.permission,expires_at=excluded.expires_at,granted_by=excluded.granted_by,granted_at=excluded.granted_at`)
+      .run(m[1],wid,body.permission,new Date(expires).toISOString(),user.id,now());
+  }
+  logCompliance({worker_id:wid,kind:'register-access',result:body.permission,detail:`Register ${m[1]} access ${body.permission}; expiry ${body.permission==='none'?'revoked':new Date(Date.parse(body.expires_at)).toISOString()}.`,source:'office',checked_by:user.name});
+  json(res,200,{ok:true});
+});
 function policyFillLatest(slug, scope, owner) {
   return scope === 'shared'
     ? db.prepare('SELECT * FROM policy_fills WHERE slug = ? AND scope = ? ORDER BY id DESC LIMIT 1').get(slug, scope)
@@ -18605,18 +18700,20 @@ function policyFillClean(data) {
 route('GET', /^\/api\/policy-fill\/([a-z0-9-]+)$/, (req, res, m, user) => {
   const t = policyFillTarget(user, res, m[1]); if (!t) return;
   const cur = policyFillLatest(t.pg.slug, t.scope, t.owner);
-  json(res, 200, { slug: t.pg.slug, kind: t.pg.kind, scope: t.scope, can_write: t.canWrite,
+  json(res, 200, { slug: t.pg.slug, kind: t.pg.kind, scope: t.scope, can_write: t.canWrite, permission: t.permission,
     id: cur ? cur.id : null, data: cur ? policyFillParse(cur.data) : {}, saved_at: cur ? cur.saved_at : '', saved_by: cur ? cur.saved_by : '' });
 });
 route('POST', /^\/api\/policy-fill\/([a-z0-9-]+)$/, (req, res, m, user, body) => {
   const t = policyFillTarget(user, res, m[1]); if (!t) return;
-  if (!t.canWrite) return json(res, 403, { error: 'Only workers and the office can write to a register.' });
+  if (!t.canWrite) return json(res,403,{error:'You have read access to this register. Ask the office if you need to add an entry.'});
   const data = policyFillClean(body && body.data);
   const text = JSON.stringify(data);
+  if (t.scope==='shared' && JSON.stringify(body?.data)!==JSON.stringify(data)) return json(res,400,{error:'Some register entries exceed the allowed row, column or text limits. Your entries have not been saved; shorten or split them first.'});
   if (text.length > 1500000) return json(res, 413, { error: 'That is too much to keep on one page. Split the register, or shorten the entries.' });
   const cur = policyFillLatest(t.pg.slug, t.scope, t.owner);
   const baseId = body && body.base_id != null ? Number(body.base_id) : null;
   if (t.scope === 'shared' && (cur ? cur.id : null) !== baseId) return json(res, 409, { error: 'Someone else saved this register after you loaded it. Reload to see their entries, then add yours again.' });
+  if(t.permission==='append'&&!require('./lib/register-access').appendOnly(cur?policyFillParse(cur.data):{},data))return json(res,403,{error:'Your access allows new entries only. Existing entries need an office correction.'});
   const who = user.admin ? `${user.name} (office)` : user.name;
   const r = db.prepare('INSERT INTO policy_fills (slug, scope, owner_id, data, saved_at, saved_by) VALUES (?,?,?,?,?,?)').run(t.pg.slug, t.scope, t.owner, text, now(), who);
   json(res, 200, { ok: true, id: Number(r.lastInsertRowid), saved_at: now(), saved_by: who });
@@ -18921,7 +19018,7 @@ function sitemapXml(req) {
   const base = baseUrl(req);
   const urls = [...Object.keys(PUBLIC_PAGES).map(p => `  <url><loc>${escHtml(base + (p === '/' ? '/' : p))}</loc></url>`),
     ...suburbIndex().map(e => `  <url><loc>${escHtml(`${base}/support-workers-in/${e.slug}`)}</loc></url>`),
-    ...db.prepare("SELECT slug FROM policy_pages WHERE audience = 'public' ORDER BY slug").all().map(pg => `  <url><loc>${escHtml(`${base}/policies/${pg.slug}`)}</loc></url>`)].join('\n');
+    ...db.prepare("SELECT slug FROM policy_pages WHERE audience = 'public' AND kind <> 'register' ORDER BY slug").all().map(pg => `  <url><loc>${escHtml(`${base}/policies/${pg.slug}`)}</loc></url>`)].join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
@@ -18947,6 +19044,21 @@ db.exec(`CREATE TABLE IF NOT EXISTS shift_note_drafts (
  PRIMARY KEY(booking_id,worker_id));
  CREATE INDEX IF NOT EXISTS messages_conversation_cursor ON messages(convo_id,id);
  CREATE INDEX IF NOT EXISTS cover_offers_worker_open ON cover_offers(worker_id,response,expires_at);`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS cover_reviews (
+  offer_id INTEGER PRIMARY KEY REFERENCES cover_offers(id) ON DELETE CASCADE,
+  worker_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  context_hash TEXT NOT NULL, travel_json TEXT, reviewed_at TEXT NOT NULL, expires_at TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS policy_register_settings (
+  slug TEXT PRIMARY KEY REFERENCES policy_pages(slug) ON DELETE CASCADE,
+  participant_id INTEGER REFERENCES users(id));
+  CREATE TABLE IF NOT EXISTS policy_register_access (
+  slug TEXT NOT NULL REFERENCES policy_pages(slug) ON DELETE CASCADE,
+  worker_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  permission TEXT NOT NULL CHECK(permission IN ('read','append','edit')),
+  expires_at TEXT NOT NULL, granted_by INTEGER NOT NULL, granted_at TEXT NOT NULL,
+  PRIMARY KEY(slug,worker_id));`);
 
 const server = http.createServer((req, res) => {
   // The Care Web v85.3.0 request-boundary hardening. Keep this before route dispatch.
@@ -19176,6 +19288,7 @@ const server = http.createServer((req, res) => {
       }
       const pg = db.prepare('SELECT * FROM policy_pages WHERE slug = ?').get(slug);
       if (!pg) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end('No such page.'); }
+      if (!policyAllowed(viewer, pg) && viewer && pg.kind==='register') {res.writeHead(403, {'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'});return res.end('This register is restricted. Ask the office for access to the records you need.');}
       if (!policyAllowed(viewer, pg)) { res.writeHead(302, { 'Location': `/#/login?next=${encodeURIComponent(pathname)}`, 'Cache-Control': 'no-store' }); return res.end(); }
       if (file) {
         if (!pg.file_path || !fs.existsSync(pg.file_path)) { res.writeHead(404); return res.end('No file.'); }
@@ -19242,7 +19355,7 @@ const server = http.createServer((req, res) => {
     if (raw.length > bodyCap) {
       overflow = true;
       raw = '';
-      json(res, 413, { error: bodyCap >= 12_000_000 ? 'That file is too big to upload. Photos are shrunk automatically before sending — refresh the page and try again. PDFs and Word files need to be under 8 MB.' : bodyCap > 100_000 ? 'This register has grown past what can be saved in one go (1.5 MB). Nothing was lost — copy the row you were adding, refresh, and ask the office to archive older rows.' : 'That request is too large (the limit here is 100 KB).', limit: bodyCap });
+      json(res, 413, { error: bodyCap >= 12_000_000 ? 'That file is too big to upload. Photos are shrunk automatically before sending — refresh the page and try again. PDFs and Word files need to be under 8 MB.' : bodyCap > 100_000 ? 'This register has grown past what can be saved in one go (1.5 MB). The save was refused. Keep your unsaved entries on this page and ask the office to split or archive the register.' : 'That request is too large (the limit here is 100 KB).', limit: bodyCap });
     }
   });
   req.on('end', () => {
