@@ -11285,7 +11285,10 @@ function auditSnapshot(why) {
       reg.workers, reg.participants, JSON.stringify({ why: why || 'nightly', open: detail }));
   return { day, gaps: reg.counts.gaps, documents: reg.counts.documents };
 }
-try { auditSnapshot('boot'); } catch (e) { console.error('audit snapshot:', e.message); }
+/* v88.1.4 (audit F12): the boot snapshot waits until this file has finished
+   loading — every table created, every helper defined — instead of running
+   in the middle of it and failing on a table or constant defined further down. */
+setImmediate(() => { try { auditSnapshot('boot'); } catch (e) { console.error('audit snapshot:', e.message); } });
 everyJob('snapshot', 86400 * 1000, () => auditSnapshot('nightly'), {
   label: 'Nightly snapshot',
   why: 'Writes one dated row of register counts and open gaps, which is the evidence of ongoing monitoring the audit pack rests on.'
@@ -17688,7 +17691,7 @@ function suburbPage(req, entry, all) {
   const desc = `${entry.workers} verified, insured NDIS support worker${entry.workers === 1 ? '' : 's'} based in ${entry.name} on The Care Web, offering ${[...entry.services].map(s => (SERVICE_LABELS[s] || s).toLowerCase()).join(', ')}. Operated by a registered NDIS provider; agency-managed, plan-managed and self-managed participants welcome.`;
   const others = all.filter(x => x.slug !== entry.slug).slice(0, 12).map(x => `<li><a href="${base}/support-workers-in/${x.slug}">${escHtml(x.name)}</a> (${x.workers})</li>`).join('');
   return `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(title)}</title><meta name="description" content="${escHtml(desc)}"><link rel="canonical" href="${base}/support-workers-in/${entry.slug}"><link rel="stylesheet" href="/assets/fonts/fonts.css">
-<style>body{font-family:Inter,system-ui,sans-serif;margin:0;color:#1c2a30;background:#fbfaf7}main{max-width:720px;margin:0 auto;padding:40px 20px}h1{font-family:Sora,system-ui,sans-serif;font-size:2rem;line-height:1.15;margin:0 0 .6em}p,li{font-size:1.05rem;line-height:1.6}.cta{display:inline-block;background:#0e6b62;color:#fff;padding:.9em 1.4em;border-radius:12px;text-decoration:none;font-weight:600;margin:.6em 0}ul.sv li{display:inline-block;background:#e6f2f0;border-radius:999px;padding:.35em .9em;margin:.2em}nav a{color:#0e6b62}footer{color:#5a6b71;font-size:.9rem;margin-top:3em}</style></head>
+<style>body{font-family:Inter,system-ui,sans-serif;margin:0;color:#1c2a30;background:#fbfaf7}main{max-width:720px;margin:0 auto;padding:40px 20px}h1{font-family:Sora,system-ui,sans-serif;font-size:2rem;line-height:1.15;margin:0 0 .6em}p,li{font-size:1.05rem;line-height:1.6}.cta{display:inline-block;background:#203566;color:#fff;padding:.9em 1.4em;border-radius:12px;text-decoration:none;font-weight:600;margin:.6em 0}ul.sv li{display:inline-block;background:#e6f2f0;border-radius:999px;padding:.35em .9em;margin:.2em}nav a{color:#203566}footer{color:#4A5570;font-size:.9rem;margin-top:3em}</style></head>
 <body><main><nav><a href="${base}/">The Care Web</a> › <a href="${base}/locations">Where we work</a> › ${escHtml(entry.name)}</nav>
 <h1>NDIS support workers in ${escHtml(entry.name)}</h1>
 <p><b>${entry.workers}</b> verified, insured support worker${entry.workers === 1 ? ' is' : 's are'} based in ${escHtml(entry.name)} and available to book through The Care Web. Every one has current NDIS Worker Screening, first aid and CPR, and has been interviewed by our team — nothing appears on a profile until someone has checked it.</p>

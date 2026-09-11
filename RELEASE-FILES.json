@@ -1,43 +1,58 @@
 {
-  "release": "88.1.3",
+  "release": "88.1.4",
   "base_release": "88.1.2",
   "format": "root-relative changed/new-files overlay; preserve other existing repository paths; delete bookit.db, bookit.db-shm and bookit.db-wal from the repository root",
   "files": {
-    "server.js": {
-      "sha256": "9cb89411366ae036235d7505f4416a7dcee01de68bec1090282e3fc1e4002a48"
+    "STARTHERE.txt": {
+      "sha256": "a8797fa84f86efb9a9034f3203d67a4d7d195403ae321129695f7031767c2b41"
+    },
+    "docs/api-route-inventory.txt": {
+      "sha256": "4a3f68009526e7b97be94716ca9a823a3b3f9563926508ca0f8750842d07e015"
+    },
+    "docs/database-table-inventory.txt": {
+      "sha256": "df18f85382e6e546b6a0562eb42dbc135494b87e102608069b973b0c049b7f2b"
+    },
+    "docs/graphics-baseline.json": {
+      "sha256": "0da22bd72489b63ebf7fdad987ff0918959735691c4b6a49fedf05bf27c8dc0c"
+    },
+    "docs/release-metadata.json": {
+      "sha256": "b7bb610fd595c119e3ab67833e525345ba10dbbd93e860e64688885b2042ac7c"
+    },
+    "lib/travel.js": {
+      "sha256": "b51d216e783f28e7e80e651dd471edd27f96a2e239efb5565aa054e4066a9a07"
     },
     "lib/worker-availability.js": {
       "sha256": "e3b6369c30583ba580edb9982ee2d90ecd76c36b771a464f12a08a389ba6562b"
     },
-    "tests/smoke.js": {
-      "sha256": "01d80235907757b4cd9a4983a2621dc0f9de0339cf5d17a6964cedc67d576547"
+    "ops/README.md": {
+      "sha256": "b56a37ab197a88010e8def88096e5aca9efdf1fd0fe31b41a3309f4735751717"
+    },
+    "package-lock.json": {
+      "sha256": "94031e3ddad5996f53eedf2019d8dbe9ecc929aea6400df67437c0237da238fb"
+    },
+    "package.json": {
+      "sha256": "d2e93b0650dba78107140850fd8ed2056ca7bc322443aec244be5724ec00b342"
+    },
+    "public/assets/careweb/identity-source.json": {
+      "sha256": "f86a120806e903f4081fff59c399622ccf37c5bd0a0694d11dc9792a5ca1891c"
+    },
+    "public/index.html": {
+      "sha256": "49c103eae7e922c4f8d03c894cf8e5d890dd385d871b92a691c3b4756f2487ab"
+    },
+    "readme.txt": {
+      "sha256": "45bbc7dd9b777fa90b3d1ccf811732b52c1d0185ba59cfb82822d72e5684c3f3"
+    },
+    "server.js": {
+      "sha256": "7a800440e4b9be0e5e6500b797fd1ba4faadc16b1dfa11e915beb2972454ae05"
+    },
+    "tests/graphics-tests.js": {
+      "sha256": "e813dcaa318748a9acc6eef18cbade42c88efd999778bb7ccf91994ec5eedac7"
     },
     "tests/review-unit-tests.js": {
       "sha256": "062bf7abda19c5391b8cc9343c2d845949e6a3cb091770f610bdda9c640d3401"
     },
-    "package.json": {
-      "sha256": "243c18d795cefdfe17ae591c241e4695eccd5845debf5cbde106a312f7d3e5a3"
-    },
-    "package-lock.json": {
-      "sha256": "6ddffb67f0027dc736b66afaf0ca16f9018e228d1d065a23250f885a79f7f1d5"
-    },
-    "docs/release-metadata.json": {
-      "sha256": "be3c9959704c39887d2dffeaf17c51131b04df569812773e2d00f8d1fa1f060a"
-    },
-    "docs/api-route-inventory.txt": {
-      "sha256": "1a27f344e5edb953d41176d3afa9308f89402885888dec59fd9050ce1323172d"
-    },
-    "docs/database-table-inventory.txt": {
-      "sha256": "fc0fc683f7ec614b7c2c983456c87662910d0e51ab8fb799af1f798a7433a484"
-    },
-    "STARTHERE.txt": {
-      "sha256": "c8ea9e416fd549ef029879dbcd58a6a31444ef6e60485be77d0f049336e704a1"
-    },
-    "readme.txt": {
-      "sha256": "0239b8d81954c02c3a0a4be3a6b755abe48b859404f72810070bea98ed9fed2b"
-    },
-    "ops/README.md": {
-      "sha256": "b56a37ab197a88010e8def88096e5aca9efdf1fd0fe31b41a3309f4735751717"
+    "tests/smoke.js": {
+      "sha256": "c1b056949c383e1908ced065f1c4c636efe4aa7f33489ddff28a3382fe43d53d"
     }
   }
 }
