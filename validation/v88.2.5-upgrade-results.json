@@ -1,0 +1,27 @@
+{
+  "runtime": "v24.19.0",
+  "from": "88.2.4",
+  "to": "88.2.5",
+  "results": [
+    {
+      "boot": 1,
+      "result": "PASS",
+      "original_tables": 83,
+      "tables": 83,
+      "records": "preserved",
+      "uploaded_file": "byte-identical",
+      "integrity": "ok",
+      "foreign_keys": "ok"
+    },
+    {
+      "boot": 2,
+      "result": "PASS",
+      "original_tables": 83,
+      "tables": 83,
+      "records": "preserved",
+      "uploaded_file": "byte-identical",
+      "integrity": "ok",
+      "foreign_keys": "ok"
+    }
+  ]
+}

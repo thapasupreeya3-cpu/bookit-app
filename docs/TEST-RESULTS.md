@@ -1,6 +1,6 @@
-# v88.2.4 test results
+# v88.2.5 test results
 
-`npm run check` passed with exit code 0 on Node 24.19.0. After these results were recorded, final release documents, inventories and package hashes were checked again. Application code did not change after the full regression gate.
+The full `npm run check` release gate passed on Node 24.19.0. Final documentation and packaged receipts were followed by regenerated manifests and a final release integrity check.
 
 | Check | Result |
 | --- | --- |
@@ -9,37 +9,31 @@
 | Clash tests | 21 passed |
 | Application smoke tests | Passed |
 | Review unit assertions | 46 passed |
-| Review integration scenarios | 25/25 passed |
-| Graphics checks | 54/54 passed |
-| Audit unit groups and API scenarios | 8 unit groups passed; API scenarios passed |
-| Existing workflow scenarios | 32/32 passed |
-| Verification scenarios | 42/42 passed, including 6 new PDF viewer scenarios |
-| Actual PDF rendering | Both pages of a synthetic text/vector/image PDF rendered with bundled PDF.js 6.3.289 and native canvas |
-| Upgrade from v88.2.3 | Two consecutive boots passed; 83 tables retained; records and uploaded bytes preserved |
-| Database integrity and foreign keys | Passed after both upgrade boots |
-| Existing artwork, media, fonts and vendor files | 119 files byte-identical to v88.2.3; new PDF viewer resources added |
-| Native browser navigation | Blocked by the test environment: ERR_BLOCKED_BY_CLIENT |
+| Review integration | 25/25 passed |
+| Graphics | 54/54 passed |
+| Audit | 8 unit groups and API scenarios passed |
+| Existing workflows | 32/32 passed |
+| Verification | 46/46 passed, including 4 added HTML/compact-viewer scenarios |
+| Upgrade from v88.2.4 | Two consecutive boots preserved records, uploaded bytes and all 83 tables |
+| Database checks | Integrity and foreign keys passed after both upgrade boots |
+| Existing artwork, media, fonts and vendor resources | 154 files byte-identical to v88.2.4 |
+| Browser visual check | Not completed: Cloud Chrome URL policy blocked the synthetic fixture |
 
-## PDF regression coverage
+## Focused coverage
 
-- Worker upload through the real API, exact stored bytes, raw upload sandbox and DENY framing, private/no-store response, attachment download, and denied access from a different account.
-- Participant PDF access and download retain existing permission rules.
-- The authenticated viewer accepts only worker/participant scopes and positive numeric document IDs. The trusted shell allows same-origin framing; the main app and raw uploaded responses keep DENY.
-- Main/worker JavaScript modules, font files, character maps and WASM decoders are served locally with suitable MIME types.
-- Viewer page navigation, zoom, rotation, fit width, page text and download URLs exercised in the frontend harness.
-- Missing-file, permission, expired-session, non-PDF, encrypted and unreadable-file errors exercised with a retry state.
-- Worker and participant PDF panels embed the new viewer. JPG/PNG evidence keeps direct image preview and an image-error message.
+- Service Agreement, Privacy consent and Medication consent are generated through the real acceptance API. The returned HTML reaches the viewer unchanged after its isolation prefix. Stored accepted versions and original file bytes remain unchanged after reading and downloading.
+- Anonymous/unrelated users cannot read the HTML document; participant owners and admins retain access. The support-plan viewer and underlying plan endpoint remain office-only.
+- Original responses retain DENY framing. The trusted viewer shell alone permits same-origin framing and denies child URL navigation with `frame-src 'none'`.
+- The HTML child has an empty sandbox and a restrictive CSP before the original markup. The tests inspect the produced isolation attributes and policy, rather than claiming that a mocked DOM enforces browser security.
+- HTML does not load PDF.js or show PDF controls. HTML full-size view retains Download; embedded view uses the outer download action.
+- PDFs retain page navigation, fit, bounded zoom, rotation and text extraction. Single-page navigation is hidden; errors expose Retry; successful rendering hides Retry and the duplicate status row. Page-text extraction failure preserves the rendered page.
+- Text controls open/close and return focus to the More control. Images keep direct preview and their existing failure message.
+- Frontend panel rendering is exercised with real API data. PDF renderer interactions use a controlled interface in these tests. The bundled PDF.js resources are unchanged from v88.2.4, whose separate native-canvas rendering receipts remain in `validation/`.
 
-## Actual rendering evidence
+## Limits
 
-The bundled engine rendered a 595 × 842 two-page synthetic PDF. Page 1 contained text and vector content; 5,923 pixels were non-white. Page 2 contained an embedded image and text; 177,795 pixels were non-white. Text was extracted from both pages. The output PNGs were visually inspected locally. This confirms real PDF parsing and canvas rendering rather than only an HTTP success or a stubbed renderer.
+The browser rejected the synthetic fixture URL, so this release has no successful browser screenshot, visual responsive check or observed CSP-enforcement test. No workaround was attempted after that rejection. The user's screenshot shows the v88.2.4 PDF renderer working on their deployed site. HTML previews and compact controls must still be checked there after deployment.
 
-`validation/v88.2.4-pdf-render-results.json` records this test. The renderer was exercised with a native Node canvas; this was not an end-to-end browser test. The frontend control tests use a controlled renderer interface, while the separate rendering run uses the actual bundled PDF.js code.
+Testing used Node 24.19.0; the project declares Node 22. Run the release gate on that deployment runtime. No new npm dependency or schema migration was introduced. No live accounts, private worker files or deployed data were accessed or changed.
 
-Other receipts are in `validation/v88.2.4-check-output.txt`, `validation/v88.2.4-verification-results.json`, `validation/v88.2.4-upgrade-results.json`, `validation/v88.2.4-pdfjs-package.json`, and `validation/v88.2.4-browser-result.txt`.
-
-## Limits and post-deployment check
-
-The available Chrome browser could not navigate to the local synthetic fixture because the environment returned ERR_BLOCKED_BY_CLIENT. Verify the same CPR file from the user's screenshot after deploying: initial page, page controls, full-size view, download, and a JPG/PNG. No live worker file was accessed, and no live account data or messages were changed.
-
-The repository declares Node 22, while this environment provides Node 24.19.0. Repeat the release gate on the deployment runtime. There is no new server dependency or schema migration. The ZIP contains application source and bundled viewer assets, not the deployment's private uploaded files.
+Receipts: `validation/v88.2.5-check-output.txt`, `validation/v88.2.5-verification-results.json`, `validation/v88.2.5-upgrade-results.json`, `validation/v88.2.5-asset-preservation.json`, and `validation/v88.2.5-browser-result.txt`.

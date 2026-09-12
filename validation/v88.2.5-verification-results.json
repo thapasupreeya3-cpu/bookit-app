@@ -1,0 +1,190 @@
+{
+  "runtime": "v24.19.0",
+  "results": [
+    {
+      "name": "Verification queue is office-only and rejects invalid filters",
+      "result": "PASS"
+    },
+    {
+      "name": "Focused file returns only the selected person, safe preview URL and opaque revision",
+      "result": "PASS"
+    },
+    {
+      "name": "Document review needs an explicit method, evidence and confirmation",
+      "result": "PASS"
+    },
+    {
+      "name": "Verification reuses the existing writer and records one attributable action",
+      "result": "PASS"
+    },
+    {
+      "name": "A document from another person cannot be reviewed using this file token",
+      "result": "PASS"
+    },
+    {
+      "name": "File changes reject a stale decision without losing the existing record",
+      "result": "PASS"
+    },
+    {
+      "name": "Expired evidence requires acknowledgement and cannot clear worker eligibility",
+      "result": "PASS"
+    },
+    {
+      "name": "Participant review does not infer funding or grant blanket approval",
+      "result": "PASS"
+    },
+    {
+      "name": "Correction requests retain evidence and explain the replacement needed",
+      "result": "PASS"
+    },
+    {
+      "name": "Requests are specific, validate dates and avoid duplicate messages",
+      "result": "PASS"
+    },
+    {
+      "name": "Reviewer ownership validates staff, survives reload and filters the queue",
+      "result": "PASS"
+    },
+    {
+      "name": "Screening and recruitment preserve their separate evidence and rules",
+      "result": "PASS"
+    },
+    {
+      "name": "Plan review is bound to the current confirmed version",
+      "result": "PASS"
+    },
+    {
+      "name": "Pagination reaches more than 30 people and closed files disappear",
+      "result": "PASS"
+    },
+    {
+      "name": "The frontend verification form reaches the real action and prevents double submission",
+      "result": "PASS"
+    },
+    {
+      "name": "All redesigned panels render with real API data and escape user content",
+      "result": "PASS"
+    },
+    {
+      "name": "Automation settings are office-only, validate all reviewers and reject stale settings",
+      "result": "PASS"
+    },
+    {
+      "name": "Automatic assignment respects availability, role, capacity and manual ownership",
+      "result": "PASS"
+    },
+    {
+      "name": "Recruitment remains office work and cannot be included in a person follow-up",
+      "result": "PASS"
+    },
+    {
+      "name": "Combined request needs approval, creates one message and rejects duplicate submissions",
+      "result": "PASS"
+    },
+    {
+      "name": "Follow-ups wait for delivery, remove completed items and escalate after the limit",
+      "result": "PASS"
+    },
+    {
+      "name": "Claiming a file is attributed, rejects another owner and overdue files are filterable",
+      "result": "PASS"
+    },
+    {
+      "name": "Stopping approved follow-ups cancels unsent messages and account closure prevents new reminders",
+      "result": "PASS"
+    },
+    {
+      "name": "Plan comparisons retain reviewed answers and show exact changes in a newer version",
+      "result": "PASS"
+    },
+    {
+      "name": "Legacy current reviewed plans do not acquire a false extra review requirement",
+      "result": "PASS"
+    },
+    {
+      "name": "Changes to a previously snapshotted plan are flagged even if its version was not incremented",
+      "result": "PASS"
+    },
+    {
+      "name": "Consented document suggestions remain separate from verification and detect changed evidence",
+      "result": "PASS"
+    },
+    {
+      "name": "Live queue refresh reports a changed file without replacing the review or draft",
+      "result": "PASS"
+    },
+    {
+      "name": "Cached queue rebuilds only changed people and invalidates on policy and day changes",
+      "result": "PASS"
+    },
+    {
+      "name": "Outbox rechecks remaining items immediately before transport and respects preferences",
+      "result": "PASS"
+    },
+    {
+      "name": "Worker uploads in all evidence categories reach the selected admin file with protected originals",
+      "result": "PASS"
+    },
+    {
+      "name": "A real module pass moves its completion record to Training without hiding uploaded certificates",
+      "result": "PASS"
+    },
+    {
+      "name": "Legacy records, misleading titles and uploaded copies survive module classification",
+      "result": "PASS"
+    },
+    {
+      "name": "Worker document panels group actual files, disclose missing copies and preselect requests",
+      "result": "PASS"
+    },
+    {
+      "name": "Training-only accounts explicitly show zero uploaded files and the missing document catalogue",
+      "result": "PASS"
+    },
+    {
+      "name": "Old queue projections refresh immediately to the separated worker document count",
+      "result": "PASS"
+    },
+    {
+      "name": "PDF uploads retain exact bytes and original protections; download is an attachment",
+      "result": "PASS"
+    },
+    {
+      "name": "Only the authenticated trusted viewer shell permits same-origin framing",
+      "result": "PASS"
+    },
+    {
+      "name": "All PDF rendering resources are local and served with usable content types",
+      "result": "PASS"
+    },
+    {
+      "name": "Viewer navigates PDF pages, zooms, rotates and exposes safe text without PDF scripting",
+      "result": "PASS"
+    },
+    {
+      "name": "Missing, denied, expired-session, invalid and password-protected PDFs show actionable errors",
+      "result": "PASS"
+    },
+    {
+      "name": "Worker and participant PDF panels embed the trusted viewer; images retain direct preview",
+      "result": "PASS"
+    },
+    {
+      "name": "Accepted HTML copies keep the accepted version and permissions; plan viewer is admin-only",
+      "result": "PASS"
+    },
+    {
+      "name": "HTML uses an opaque sandbox with a leading restrictive policy and no PDF controls",
+      "result": "PASS"
+    },
+    {
+      "name": "Compact PDF controls keep useful actions and show Retry only on failure",
+      "result": "PASS"
+    },
+    {
+      "name": "HTML documents and support plans open in the viewer without PDF instructions",
+      "result": "PASS"
+    }
+  ],
+  "serverLog": "Seeded 12 demo workers (…@demo.bookit.life / demo1234) and d***@demo.bookit.life / demo1234\nBlank forms: 1 filed from forms/ — participants can download them now. 10 skipped, not in the participant catalogue: p-advocate (a screen now; the PDF is not offered), p-agreement (The Care Web generates this one; a PDF on the shelf would only confuse), p-consent-privacy (The Care Web generates this one; a PDF on the shelf would only confuse), p-emergency, p-exit (a screen now; the PDF is not offered), p-intake, p-mealtime (a screen now; the PDF is not offered), p-medication (a screen now; the PDF is not offered), p-money (a screen now; the PDF is not offered), p-risk (a screen now; the PDF is not offered).\nSeeded 8 training modules.\nMarked 12 demo workers as trained (84 records).\nPolicies: 99 built-in document(s) published as pages.\nThe Care Web server running → http://localhost:36887/\nDatabase: /tmp/careweb-admin-review-HqXW5R/test.db · auto-reply bot: off\nTimezone: Australia/Sydney · secret: from /tmp/careweb-admin-review-HqXW5R/secret · demo seed: ON · admin MFA: not required\nEmail: OFF — set RESEND_API_KEY (or SMTP_USER + SMTP_PASS) to enable; emails are logged to console instead\n"
+}

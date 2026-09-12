@@ -24,9 +24,11 @@ Base supplied by the user: ${meta.base_archive} (v${meta.base_version})
 Base SHA-256: ${meta.base_archive_sha256}
 Remote GitHub HEAD and the deployed site were not accessed or changed.
 
-PDF DOCUMENT PREVIEW FIX
+DOCUMENT PREVIEW AND COMPACT CONTROLS
 Open Admin > Verification > Worker documents for grouped uploaded evidence.
-PDF files now open in a bundled page viewer with zoom, rotation and download.
+HTML agreements and support plans open in an isolated read-only preview.
+PDF files use compact page and zoom controls; rotation and page text are in More.
+Retry appears only on failure; downloads remain available.
 Platform-issued module records are shown under Training.
 Details-only records explicitly identify that no file has been uploaded.
 Choose available reviewers in Automation settings to enable automatic assignment.
@@ -60,7 +62,7 @@ INSTALL / UPDATE
       npm ci --ignore-scripts
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
-6. Deploy using your existing process. No schema change is needed from v88.2.3. Earlier additive
+6. Deploy using your existing process. No schema change is needed from v88.2.4. Earlier additive
    migrations still run when upgrading an older release.
    Existing records are retained. This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an

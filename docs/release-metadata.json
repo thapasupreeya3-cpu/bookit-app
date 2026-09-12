@@ -1,11 +1,11 @@
 {
-  "version": "88.2.4",
-  "base_version": "88.2.3",
-  "base_archive": "The-Care-Web-v88.2.3-source.zip",
-  "base_archive_sha256": "0c30a65ae01cc66d9fb57957d012525dc3f2a8e5ced0ddccb7757e5cb9fc81f8",
+  "version": "88.2.5",
+  "base_version": "88.2.4",
+  "base_archive": "The-Care-Web-v88.2.4-source.zip",
+  "base_archive_sha256": "8ad9a3cf51ebd7511f0964e4d6fe2881bf91f78fe45de0f199411ca587310108",
   "base_commit": null,
   "package_type": "full source archive",
-  "output_archive": "The-Care-Web-v88.2.4-source.zip",
-  "scope": "PDF preview fix: trusted same-origin viewer shell renders protected files using bundled PDF.js 6.3.289, with pagination, zoom, rotation, text and download. Uploaded responses retain their original sandbox and DENY framing. Same existing file access rules, no schema change.",
+  "output_archive": "The-Care-Web-v88.2.5-source.zip",
+  "scope": "HTML agreement and support-plan previews use isolated read-only content within the authenticated viewer. Compact PDF controls, error-only Retry, less crowded evidence lists. No new dependency or schema change.",
   "unchanged_assets": "Existing public artwork, photos, scene videos, fonts and vendor files are unchanged."
 }

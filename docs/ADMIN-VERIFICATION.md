@@ -54,3 +54,7 @@ Read [CHANGELOG-v88.2.2.md](CHANGELOG-v88.2.2.md) for automatic assignment, guid
 ## PDF viewer (v88.2.4)
 
 PDF evidence opens in the locally bundled page viewer. Use Previous/Next or the page number, zoom, fit width, rotate, and page text where available. Open full size keeps the same viewer in a new tab. Download original saves the unchanged file through its existing permission checks. Missing/denied/expired-session and unreadable-file errors offer a retry or download; an image load failure also displays an explanation. The original upload response remains sandboxed and cannot itself be framed. Only the first-party viewer shell permits same-origin framing.
+
+## HTML previews and compact controls (v88.2.5)
+
+HTML agreement copies and current support plans use an isolated read-only preview. Open expands the viewer into a new tab; Download keeps the original file. PDFs have a compact page/zoom toolbar. Use the three-dot menu for Rotate and Page text. Retry is shown only when a preview fails. Explanatory notes and missing-copy requests start collapsed. Existing verification actions and permissions are unchanged.

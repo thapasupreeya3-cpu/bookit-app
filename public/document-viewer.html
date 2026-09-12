@@ -1,3 +1,17 @@
 <!doctype html>
-<html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Document preview — The Care Web</title><link rel="stylesheet" href="/assets/document-viewer.css?v=88.2.4"><script defer src="/assets/document-viewer.js?v=88.2.4"></script></head>
-<body><header class="toolbar" aria-label="PDF controls"><div><button id="previousPage" disabled aria-label="Previous page">Previous</button><label>Page <input id="pageNumber" type="number" min="1" value="1" disabled aria-label="Page number"></label><span id="pageTotal"></span><button id="nextPage" disabled aria-label="Next page">Next</button></div><div><button id="zoomOut" disabled aria-label="Zoom out">−</button><span id="zoomLabel">100%</span><button id="zoomIn" disabled aria-label="Zoom in">+</button><button id="fitPage" disabled>Fit width</button><button id="rotatePage" disabled>Rotate</button><a id="downloadPdf" hidden download>Download PDF</a></div></header><div class="feedback"><p id="pdfStatus" role="status" aria-live="polite">Loading PDF…</p><button id="retryPdf" hidden>Retry</button></div><main id="pdfSurface"><canvas id="pdfCanvas" hidden role="img" aria-label="Document page"></canvas></main><details class="text-version"><summary>Text on this page</summary><pre id="pdfText"></pre></details><noscript>Enable JavaScript to preview this PDF. You can download the original from the worker or participant document list.</noscript></body></html>
+<html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Document preview — The Care Web</title><link rel="stylesheet" href="/assets/document-viewer.css?v=88.2.5"><script defer src="/assets/document-viewer.js?v=88.2.5"></script></head>
+<body>
+<header id="viewerToolbar" class="toolbar" aria-label="Document controls">
+  <div id="pdfControls" class="pdf-controls" hidden>
+    <div class="control-group"><button id="previousPage" class="icon-button" disabled aria-label="Previous page" title="Previous page">‹</button><input id="pageNumber" type="number" min="1" value="1" disabled aria-label="Page number"><span id="pageTotal"></span><button id="nextPage" class="icon-button" disabled aria-label="Next page" title="Next page">›</button></div>
+    <div class="control-group zoom-controls"><button id="zoomOut" class="icon-button" disabled aria-label="Zoom out" title="Zoom out">−</button><span id="zoomLabel">100%</span><button id="zoomIn" class="icon-button" disabled aria-label="Zoom in" title="Zoom in">+</button><button id="fitPage" disabled title="Fit page to width">Fit</button></div>
+    <details id="viewerMore" class="more"><summary id="moreToggle" aria-label="More document controls" title="More controls">•••</summary><div class="more-panel"><button id="rotatePage" disabled>Rotate 90°</button><button id="showText" disabled aria-expanded="false" aria-controls="textPanel">Page text</button></div></details>
+  </div>
+  <a id="downloadPdf" class="download" hidden download>Download</a>
+</header>
+<div id="viewerFeedback" class="feedback"><p id="pdfStatus" role="status" aria-live="polite">Loading document…</p><button id="retryPdf" hidden>Retry</button></div>
+<main id="pdfSurface" hidden><canvas id="pdfCanvas" hidden role="img" aria-label="Document page"></canvas></main>
+<iframe id="htmlDocument" hidden title="Document contents" sandbox="" referrerpolicy="no-referrer"></iframe>
+<section id="textPanel" class="text-version" aria-label="Text on this PDF page" hidden><div><strong>Page text</strong><button id="closeText" class="icon-button" aria-label="Close page text" title="Close page text">×</button></div><pre id="pdfText"></pre></section>
+<noscript>Enable JavaScript to preview this document, or download the original from the document list.</noscript>
+</body></html>

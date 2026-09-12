@@ -1,33 +1,32 @@
-THE CARE WEB - SMALL UPDATE TO v88.2.4
+THE CARE WEB - SMALL UPDATE TO v88.2.5
 
-Supported earlier source versions: 88.2.3.
-Use this fix if you installed v88.2.3, the last worker-documents update.
+Supported earlier source versions: 88.2.4.
+Use this package over v88.2.4, the last PDF viewer update.
 
-This is an update package, not a complete application download.
-It contains 67 new or changed project files. Unchanged images,
-videos, fonts and other files are omitted.
+This update contains 27 new or changed project files.
+Unchanged images, videos, fonts, viewer resources and other files are omitted.
+It is an update package, not a standalone application.
 
-1. Extract the ZIP on your computer. Do not upload the ZIP itself.
-2. Open your existing GitHub repository root, containing server.js,
-   package.json, public and lib.
-3. Upload/merge the extracted files and folders at that root, preserving
-   their paths and replacing matching files. Keep unchanged folder contents;
-   do not delete existing folders first. UPDATE-INSTRUCTIONS.txt is optional.
-4. Review and commit, then restart/redeploy through your usual process.
-   Preserve the deployed database, uploaded documents, photos and settings.
-   Source archives do not contain your workers' runtime files.
-5. Refresh Admin > Verification. Open a worker > Worker documents.
-   Select the uploaded PDF. Check page display, navigation, zoom and download.
-   Include all new public/vendor/pdfjs resources and document-viewer assets.
-   JPG/PNG images retain their direct preview.
+1. Extract the ZIP. Upload the extracted files, not the ZIP itself.
+2. Merge its files and folders into the existing repository root, containing
+   server.js, package.json, public and lib. Replace matching files and retain
+   other folder contents. Do not delete existing folders first.
+   UPDATE-INSTRUCTIONS.txt is optional and is not application code.
+3. Review and commit, then restart/redeploy through your usual process.
+   Preserve the deployed database, uploads, photos, settings and configuration.
+4. Refresh Admin > Verification. /api/version should report 88.2.5.
+5. Select an HTML Service Agreement, Privacy consent and Medication consent.
+   Check the preview and Open/Download actions. Also read a support plan.
+6. Check a PDF: compact page/zoom controls, Fit and the three-dot menu for
+   rotation and page text. Retry should appear only after an error. Check
+   an image preview too. The package does not contain private runtime files.
 
-No extra enclosing directory is needed. Compare separately if your repository
-has later edits not supplied in this conversation. See STARTHERE.txt and
-docs/CHANGELOG-v88.2.4.md for details and validation limits.
+Compare separately if your repository has newer edits not supplied here.
+No schema change is needed from v88.2.4. Existing verification and automations
+remain in place. See docs/CHANGELOG-v88.2.5.md and docs/TEST-RESULTS.md.
 
-No schema migration is needed from v88.2.3; existing automations are retained.
-The app cannot display worker copies held only outside its deployed file store.
-The standalone HTML preview uses labelled examples, not live worker files.
+Browser visual testing was blocked by this environment's URL policy.
+Confirm the previews on the deployed site after updating.
 
 No existing files need to be deleted for this update.
 
@@ -35,7 +34,7 @@ INCLUDED PROJECT FILES
 RELEASE-FILES.json
 STARTHERE.txt
 docs/ADMIN-VERIFICATION.md
-docs/CHANGELOG-v88.2.4.md
+docs/CHANGELOG-v88.2.5.md
 docs/RELEASE-NOTES.md
 docs/TEST-RESULTS.md
 docs/admin-verification-preview.html
@@ -43,7 +42,6 @@ docs/api-route-inventory.txt
 docs/database-table-inventory.txt
 docs/release-metadata.json
 lib/admin-verification.js
-lib/bookit-hardening.js
 package-lock.json
 package.json
 public/assets/admin-verification.css
@@ -52,50 +50,11 @@ public/assets/document-viewer.css
 public/assets/document-viewer.js
 public/document-viewer.html
 public/index.html
-public/vendor/pdfjs/CMAPS-LICENSE
-public/vendor/pdfjs/LICENSE
-public/vendor/pdfjs/PROVENANCE.json
-public/vendor/pdfjs/README.txt
-public/vendor/pdfjs/cmaps.json
-public/vendor/pdfjs/pdf.min.mjs
-public/vendor/pdfjs/pdf.worker.min.mjs
-public/vendor/pdfjs/standard_fonts/FoxitDingbats.pfb
-public/vendor/pdfjs/standard_fonts/FoxitFixed.pfb
-public/vendor/pdfjs/standard_fonts/FoxitFixedBold.pfb
-public/vendor/pdfjs/standard_fonts/FoxitFixedBoldItalic.pfb
-public/vendor/pdfjs/standard_fonts/FoxitFixedItalic.pfb
-public/vendor/pdfjs/standard_fonts/FoxitSerif.pfb
-public/vendor/pdfjs/standard_fonts/FoxitSerifBold.pfb
-public/vendor/pdfjs/standard_fonts/FoxitSerifBoldItalic.pfb
-public/vendor/pdfjs/standard_fonts/FoxitSerifItalic.pfb
-public/vendor/pdfjs/standard_fonts/FoxitSymbol.pfb
-public/vendor/pdfjs/standard_fonts/LICENSE_FOXIT
-public/vendor/pdfjs/standard_fonts/LICENSE_LIBERATION
-public/vendor/pdfjs/standard_fonts/LiberationSans-Bold.ttf
-public/vendor/pdfjs/standard_fonts/LiberationSans-BoldItalic.ttf
-public/vendor/pdfjs/standard_fonts/LiberationSans-Italic.ttf
-public/vendor/pdfjs/standard_fonts/LiberationSans-Regular.ttf
-public/vendor/pdfjs/wasm/LICENSE_JBIG2
-public/vendor/pdfjs/wasm/LICENSE_OPENJPEG
-public/vendor/pdfjs/wasm/LICENSE_PDFJS_JBIG2
-public/vendor/pdfjs/wasm/LICENSE_PDFJS_OPENJPEG
-public/vendor/pdfjs/wasm/LICENSE_PDFJS_QCMS
-public/vendor/pdfjs/wasm/LICENSE_QCMS
-public/vendor/pdfjs/wasm/jbig2.wasm
-public/vendor/pdfjs/wasm/jbig2_nowasm_fallback.js
-public/vendor/pdfjs/wasm/openjpeg.wasm
-public/vendor/pdfjs/wasm/openjpeg_nowasm_fallback.js
-public/vendor/pdfjs/wasm/qcms_bg.wasm
 readme.txt
 scripts/release-docs.js
-server.js
-tests/admin-verification-tests.js
-tests/pdf-preview-fixture.js
 tests/pdf-preview-scenarios.js
-validation/v88.2.4-asset-preservation.json
-validation/v88.2.4-browser-result.txt
-validation/v88.2.4-check-output.txt
-validation/v88.2.4-pdf-render-results.json
-validation/v88.2.4-pdfjs-package.json
-validation/v88.2.4-upgrade-results.json
-validation/v88.2.4-verification-results.json
+validation/v88.2.5-asset-preservation.json
+validation/v88.2.5-browser-result.txt
+validation/v88.2.5-check-output.txt
+validation/v88.2.5-upgrade-results.json
+validation/v88.2.5-verification-results.json
