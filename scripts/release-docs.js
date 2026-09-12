@@ -24,8 +24,12 @@ Base supplied by the user: ${meta.base_archive} (v${meta.base_version})
 Base SHA-256: ${meta.base_archive_sha256}
 Remote GitHub HEAD and the deployed site were not accessed or changed.
 
-WORKER SETTINGS LOADING FIX
-Worker Settings now renders with its own page state and a retry on load failure.
+NAVIGATION AND WEBSITE USABILITY
+The header shows three or four primary tasks for the signed-in role.
+The account menu has five to seven actions. Messages remain in the header.
+Credentials > Add or replace files opens the dedicated document uploader.
+Review docs/SITE-USABILITY-REVIEW.md for page coverage and browser limits.
+Worker Settings retains its independent loading state and failure retry.
 Open Settings to manage availability, credentials, earnings, training and security.
 Open Admin > Verification > Worker documents for grouped uploaded evidence.
 HTML agreements and support plans open in an isolated read-only preview.
@@ -64,7 +68,7 @@ INSTALL / UPDATE
       npm ci --ignore-scripts
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
-6. Deploy using your existing process. No schema change is needed from v88.2.5. Earlier additive
+6. Deploy using your existing process. No schema change is needed from v88.2.6. Earlier additive
    migrations still run when upgrading an older release.
    Existing records are retained. This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
@@ -95,7 +99,8 @@ const readme=`The Care Web v${pkg.version} — complete source package.
 
 Extract ${meta.output_archive}; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
-This release corrects PDF previews and retains earlier verification automations.
+This release simplifies navigation and fixes credential-upload navigation.
+PDF/HTML previews and earlier verification automations are retained.
 Configure private billing,
 email, payroll cutover and any optional document assistance before use.
 

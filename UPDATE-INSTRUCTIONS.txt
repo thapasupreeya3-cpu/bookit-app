@@ -1,55 +1,60 @@
-THE CARE WEB - SETTINGS FIX v88.2.6
+THE CARE WEB - NAVIGATION AND USABILITY UPDATE v88.2.7
 
-Supported earlier source versions: 88.2.5.
-Use this package over v88.2.5, the HTML viewer and compact-controls update.
+Supported earlier source versions: 88.2.6.
+Use this package over v88.2.6 (the worker Settings loading fix).
 
-Contains 20 new or changed project files. Unchanged images, videos,
-fonts, viewer assets and other source files are omitted.
+Contains 23 new or changed project files. Unchanged media, fonts,
+PDF viewer dependencies and other source files are omitted.
 This is an update package, not a standalone application.
 
-1. Extract the ZIP. Upload the extracted files, not the ZIP itself.
-2. Merge files and folders into the existing repository root, containing
-   server.js, package.json, public and lib. Replace matching files and retain
-   other folder contents. Do not delete existing folders first.
+1. Extract the ZIP. Upload the extracted contents, not the ZIP itself.
+2. Merge files/folders into the existing repository root (server.js,
+   package.json, public and lib). Replace matching files while retaining
+   other contents. Do not delete existing folders first.
    UPDATE-INSTRUCTIONS.txt is optional and is not application code.
-3. Review and commit, then restart/redeploy through your usual process.
-   Preserve the deployed database, uploads, photos and configuration.
-4. Refresh the site. /api/version should report 88.2.6.
-5. Sign in as a worker and open Settings. The settings list and availability
-   form should load. Also check Credentials, Earnings, Training, Jobs,
-   Notifications, Accessibility, Security, Help and Profile.
-6. A failed or stalled page now offers Try again instead of remaining on
-   Loading indefinitely. Existing saved preferences and documents are retained.
+3. Commit and restart/redeploy using your existing process. Preserve runtime
+   databases, uploaded documents/photos and configuration.
+4. Refresh the site. /api/version should report 88.2.7.
+5. As a worker, open Settings > Credentials & checks > Add or replace files.
+   This now opens Documents, with a direct link back to Credentials.
+6. The worker header now has Bookings, Open shifts and Next actions.
+   Messages and Accessibility remain in the header. The avatar menu has
+   seven actions; pay tiers, rates and referrals are under Settings > Earnings.
+7. Check the header at phone, tablet and desktop sizes and with larger text.
+   Try the main and avatar menus using a keyboard, then open PDF/image files.
 
-Compare separately if your repository has newer edits not supplied here.
-No schema change is needed from v88.2.5. The prior HTML/PDF preview fixes,
-compact verification controls and automations are included in this release.
-See docs/CHANGELOG-v88.2.6.md and docs/TEST-RESULTS.md.
+Compare separately if your repository has newer changes not supplied here.
+No schema change is needed from v88.2.6. The earlier PDF/HTML preview fixes,
+compact verification controls, automations and Settings fixes are retained.
+See docs/CHANGELOG-v88.2.7.md, docs/SITE-USABILITY-REVIEW.md and
+ docs/TEST-RESULTS.md for scope, test results and browser limits.
 
-Tests use the actual frontend renderer functions with real API responses from
-an isolated server. Browser visual testing is blocked in this environment.
-Confirm the worker Settings page on your deployed site after updating.
+Full automated checks passed. Browser visual testing is blocked in this
+workspace; confirm the deployed layout after updating.
 
 No existing files need to be deleted for this update.
 
 INCLUDED PROJECT FILES
 RELEASE-FILES.json
 STARTHERE.txt
-docs/CHANGELOG-v88.2.6.md
+docs/CHANGELOG-v88.2.7.md
 docs/RELEASE-NOTES.md
+docs/SITE-USABILITY-REVIEW.md
 docs/TEST-RESULTS.md
 docs/api-route-inventory.txt
 docs/database-table-inventory.txt
 docs/release-metadata.json
 package-lock.json
 package.json
+public/assets/process-workflows.js
+public/assets/site-usability.css
 public/index.html
 readme.txt
 scripts/release-docs.js
-tests/account-settings-tests.js
-validation/v88.2.6-asset-preservation.json
-validation/v88.2.6-check-output.txt
-validation/v88.2.6-reproduction.json
-validation/v88.2.6-settings-results.json
-validation/v88.2.6-upgrade-results.json
-validation/v88.2.6-verification-results.json
+tests/graphics-tests.js
+tests/navigation-tests.js
+validation/v88.2.7-asset-preservation.json
+validation/v88.2.7-check-output.txt
+validation/v88.2.7-navigation-results.json
+validation/v88.2.7-page-audit.json
+validation/v88.2.7-settings-results.json

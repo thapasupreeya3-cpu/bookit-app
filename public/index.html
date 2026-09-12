@@ -1782,6 +1782,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 <script src="/assets/bookit-review-improvements.js"></script>
 <link rel="stylesheet" href="/assets/process-workflows.css">
 <link rel="stylesheet" href="/assets/admin-verification.css?v=88.2.5">
+<link rel="stylesheet" href="/assets/site-usability.css?v=88.2.7">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
@@ -1796,7 +1797,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
       <ul>
-        <li class="dropdown" id="ddServices">
+        <li class="dropdown" id="ddServices" data-nav-audience="guest">
           <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddServicesBtn" type="button">Support services <span class="caret">▾</span></button>
           <div class="dropdown-menu" role="menu" aria-label="Support services">
             <a href="#/services" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span><span><b>All support services</b><small>Six NDIS registration groups, one team</small></span></a>
@@ -1808,24 +1809,29 @@ html.high-contrast .care-stage-block{display:none!important;}
             <a href="#/services/community" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14.5 14.5c2.6.4 4.5 2.7 4.5 5.5"/></svg></span><span><b>Community participation</b><small>Social & recreation — 0125</small></span></a>
           </div>
         </li>
-        <li><a class="nav-link" href="#/how-it-works">How it works</a></li>
-        <li><a class="nav-link" href="#/pricing">Pricing</a></li>
-        <li><a class="nav-link" href="#/find-workers">Find workers</a></li>
-        <li><a class="nav-link" href="#/bookings" id="navBookings" hidden>Bookings</a></li>
-        <li><a class="nav-link" href="#/shifts" id="navShifts" hidden>Open shifts</a></li>
-        <li><a class="nav-link" href="#/admin" id="navAdmin" hidden>Admin</a></li>
-        <li id="navJourney" hidden><a class="nav-link" href="#/journey">Next actions</a></li>
-        <li id="navForWorkersLi"><a class="nav-link" href="#/support-workers">For support workers</a></li>
-        <li class="dropdown" id="ddAbout">
+
+        <li data-nav-audience="guest"><a class="nav-link" href="#/pricing">Pricing</a></li>
+        <li data-nav-audience="guest participant"><a class="nav-link" href="#/find-workers">Find workers</a></li>
+        <li data-nav-audience="worker participant coordinator" hidden><a class="nav-link" href="#/bookings" id="navBookings">Bookings</a></li>
+        <li data-nav-audience="worker" hidden><a class="nav-link" href="#/shifts" id="navShifts">Open shifts</a></li>
+        <li data-nav-audience="admin" hidden><a class="nav-link" href="#/admin" id="navAdmin">Dashboard</a></li>
+        <li data-nav-audience="admin" hidden><a class="nav-link" href="#/admin/verification">Verification</a></li>
+        <li data-nav-audience="coordinator" hidden><a class="nav-link" href="#/clients">My clients</a></li>
+        <li data-nav-audience="participant" hidden><a class="nav-link" href="#/support-plan" id="navPlan">Support plan</a></li>
+        <li id="navJourney" data-nav-audience="worker participant coordinator admin" hidden><a class="nav-link" href="#/journey">Next actions</a></li>
+
+        <li class="dropdown" id="ddAbout" data-nav-audience="guest">
           <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddAboutBtn" type="button">About <span class="caret">▾</span></button>
           <div class="dropdown-menu" role="menu" aria-label="About">
+            <a href="#/how-it-works" role="menuitem"><span><b>How it works</b></span></a>
+            <a href="#/support-workers" role="menuitem"><span><b>For support workers</b></span></a>
             <a href="#/about" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg></span><span><b>About us</b><small>Our story and values</small></span></a>
             <a href="#/safety" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg></span><span><b>Safety & quality</b><small>Checks, insurance, standards</small></span></a>
             <a href="#/faq" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 114.1 1.9c-.8.7-1.6 1.2-1.6 2.6M12 17h.01"/></svg></span><span><b>FAQ & help</b><small>Answers to common questions</small></span></a>
             <a href="#/easy-read" role="menuitem"><span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20V4H6.5A2.5 2.5 0 004 6.5v13z"/><path d="M9 8.5h7M9 11.5h4"/></svg></span><span><b>Easy Read</b><small>This website in Easy Read</small></span></a>
           </div>
         </li>
-        <li class="nav-mobile-only" id="navGetStartedLi"><a class="nav-link" href="#/get-started" style="color:var(--teal);font-weight:800;">Get started free →</a></li>
+        <li class="nav-mobile-only" id="navGetStartedLi" data-nav-audience="guest"><a class="nav-link" href="#/get-started" style="color:var(--teal);font-weight:800;">Get started free →</a></li>
       </ul>
     </nav>
 
@@ -1841,13 +1847,13 @@ html.high-contrast .care-stage-block{display:none!important;}
       <button class="btn btn-ghost" id="btnLogin" type="button">Log in</button>
       <a href="#/get-started" class="btn btn-primary btn-sm" id="btnGetStarted">Get started</a>
       <div class="acct" id="acctWrap" hidden>
-        <button class="acct-chip" id="acctBtn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu" type="button">
+        <button class="acct-chip" id="acctBtn" aria-controls="acctMenu" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu" type="button">
           <span class="acct-av" id="acctAvWrap"><span class="acct-avatar" id="acctAvatar"></span><span class="tier-pip" id="acctTierPip" hidden></span></span><span class="acct-dot" id="acctDot" hidden aria-label="Something needs your attention"></span>
           <svg class="acct-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="acct-menu" id="acctMenu" role="menu" aria-label="Account" hidden></div>
       </div>
-      <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false" type="button">
+      <button class="burger" id="burger" aria-label="Open main menu" aria-controls="mainNav" aria-expanded="false" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
     </div>
@@ -1913,6 +1919,14 @@ html.high-contrast .care-stage-block{display:none!important;}
 </div>
 <div id="actBar" class="act-bar" hidden></div>
 
+<section class="page" id="page-login" data-title="Sign in — The Care Web">
+  <div class="page-hero"><div class="container"><h1>Sign in</h1></div></div>
+  <div class="section"><div class="container"><p>Sign in to manage your bookings, documents and account.</p><button class="btn btn-primary" type="button" data-open-login>Sign in</button> <a href="#/get-started">Create an account</a></div></div>
+</section>
+<section class="page" id="page-not-found" data-title="Page not found — The Care Web">
+  <div class="page-hero"><div class="container"><h1>We couldn’t find that page</h1></div></div>
+  <div class="section"><div class="container"><p>The link may be out of date. Choose where you want to go next.</p><div class="usability-actions"><a class="btn btn-primary" href="#/">Home</a><a class="btn btn-secondary" href="#/journey">Next actions</a><a href="#/contact">Contact us</a></div></div></div>
+</section>
 <!-- ================= HOME ================= -->
 <section class="page" id="page-home" data-title="The Care Web — Find NDIS support workers who fit your life">
   <div class="hero">
@@ -4131,7 +4145,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 </section>
 
-<section class="page" id="page-messages" data-title="Messages — The Care Web">
+<section class="page" id="page-messages" data-title="Messages — The Care Web"><h1 class="sr-only">Messages</h1>
   <section class="block" style="padding-top:40px;">
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb" style="margin-bottom:14px;"><a href="#/">Home</a> / Messages</nav>
@@ -4623,13 +4637,13 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 </section>
 
-<section class="page" id="page-pay-success" data-title="Payment received — The Care Web">
+<section class="page" id="page-pay-success" data-title="Payment submitted — The Care Web">
   <section class="block">
     <div class="container center" style="max-width:640px;padding-top:70px;">
       <div class="info-card">
-        <h3>💳 Payment received — thank you!</h3>
-        <p>Your card payment went through and the invoice is marked paid on our side automatically. Stripe emails you a receipt for your records — perfect for claiming back through the myplace participant portal if you self-manage.</p>
-        <p style="margin-top:18px;"><a class="btn btn-primary" href="#/bookings">Back to my bookings</a></p>
+        <h1 class="status-page-title">Payment submitted</h1>
+        <p>Your payment provider will confirm the result. Check Invoices &amp; statements for the current invoice status; confirmation can take a moment to arrive. A return to this page alone does not confirm payment.</p>
+        <p style="margin-top:18px;"><a class="btn btn-primary" href="#/statements">Check invoices &amp; statements</a></p>
       </div>
     </div>
   </section>
@@ -4639,9 +4653,9 @@ html.high-contrast .care-stage-block{display:none!important;}
   <section class="block">
     <div class="container center" style="max-width:640px;padding-top:70px;">
       <div class="info-card">
-        <h3>✅ Email confirmed — thank you!</h3>
-        <p>Your address is verified, so password resets and booking updates will always reach you. That's everything — go find some great workers.</p>
-        <p style="margin-top:18px;"><a class="btn btn-primary" href="#/find-workers">Browse support workers</a></p>
+        <h1 class="status-page-title">✅ Email confirmed — thank you!</h1>
+        <p>Your email address is confirmed. Continue to your next actions for bookings, documents and setup.</p>
+        <p style="margin-top:18px;"><a class="btn btn-primary" href="#/journey">Continue to next actions</a></p>
       </div>
     </div>
   </section>
@@ -4651,7 +4665,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   <section class="block">
     <div class="container center" style="max-width:640px;padding-top:70px;">
       <div class="info-card">
-        <h3>That link has expired</h3>
+        <h1 class="status-page-title">That link has expired</h1>
         <p>Confirmation links last 7 days, and each new email replaces the older ones. No drama — log in and press <b>Resend email</b> on the yellow banner, and a fresh link will be in your inbox in seconds.</p>
         <p style="margin-top:18px;"><a class="btn btn-primary" href="#/">Back to The Care Web</a></p>
       </div>
@@ -4727,7 +4741,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 
 <!-- PAGES-INSERT -->
 
-<section class="page" id="page-journey" data-title="Your next actions — The Care Web"><div class="flow-shell"><div class="flow-head"><div><h1>Your next actions</h1><p id="flowPerson"></p></div><a href="#/account">Settings</a></div><nav class="flow-tabs" id="flowTabs" aria-label="My workflow"></nav><div id="flowContent" aria-live="polite"></div></div></section>
+<section class="page" id="page-journey" data-title="Your next actions — The Care Web"><div class="flow-shell"><div class="flow-head"><div><h1 id="flowTitle">Your next actions</h1><p id="flowPerson"></p></div><a href="#/account">Settings</a></div><nav class="flow-tabs" id="flowTabs" aria-label="My workflow"></nav><div id="flowContent" aria-live="polite"></div></div></section>
 </main>
 
 <!-- ============ FOOTER ============ -->
@@ -5303,16 +5317,39 @@ document.addEventListener('keydown', e => {
 
 /* ============ Mobile nav ============ */
 const mainNav = $('#mainNav');
-$('#burger').addEventListener('click', () => {
+function openMobileNav(){
+  closeAcctMenu();
+  setA11yPanel(false);
   mainNav.classList.add('open');
+  document.body.classList.add('main-menu-open');
   $('#burger').setAttribute('aria-expanded','true');
-});
-function closeMobileNav(){
-  mainNav.classList.remove('open');
-  $('#burger').setAttribute('aria-expanded','false');
+  $('#navClose').focus();
 }
-$('#navClose').addEventListener('click', closeMobileNav);
+$('#burger').addEventListener('click', openMobileNav);
+function closeMobileNav(restoreFocus = false){
+  const wasOpen = mainNav.classList.contains('open');
+  mainNav.classList.remove('open');
+  document.body.classList.remove('main-menu-open');
+  $('#burger').setAttribute('aria-expanded','false');
+  if(restoreFocus && wasOpen) $('#burger').focus();
+}
+$('#navClose').addEventListener('click', () => closeMobileNav(true));
 mainNav.addEventListener('click', e => { if(e.target.closest('a')) closeMobileNav(); });
+mainNav.addEventListener('keydown', e => {
+  if(!mainNav.classList.contains('open')) return;
+  if(e.key === 'Escape'){ e.preventDefault(); closeMobileNav(true); return; }
+  if(e.key !== 'Tab') return;
+  const items = Array.from(mainNav.querySelectorAll('a[href],button:not([disabled])')).filter(el => el.getClientRects().length);
+  const first = items[0], last = items[items.length - 1];
+  if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last?.focus(); }
+  else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first?.focus(); }
+});
+window.addEventListener('resize', () => { if(matchMedia('(min-width:1281px)').matches) closeMobileNav(); });
+$('#acctWrap').addEventListener('focusout', e => { if(!e.currentTarget.contains(e.relatedTarget)) closeAcctMenu(); });
+if(typeof ResizeObserver !== 'undefined'){
+  const header = document.querySelector('header.site');
+  new ResizeObserver(() => document.documentElement.style.setProperty('--site-header-height', header.offsetHeight + 'px')).observe(header);
+}
 
 /* ============ Modals ============ */
 function openModal(id){ $(id).classList.add('open'); document.body.style.overflow='hidden'; }
@@ -5325,6 +5362,7 @@ $$('.modal-overlay').forEach(ov => {
 });
 document.addEventListener('click', e => { if(e.target.closest('[data-close]')) closeModals(); });
 $('#btnLogin').addEventListener('click', () => openModal('#loginModal'));
+document.addEventListener('click', e => { if(e.target.closest('[data-open-login]')) openModal('#loginModal'); });
 let MFA_CHALLENGE = null;
 function loginStep(two, name){
   /* the second step lives inside the same modal: going back to the password
@@ -5365,7 +5403,7 @@ document.addEventListener('click', async e => {
     if(location.hash.startsWith('#/messages')) renderMessagesPage();
     if(location.hash.startsWith('#/bookings')) renderBookingsPage();
     if(location.hash.startsWith('#/security')) renderSecurityPage();
-    if(['','#','#/'].includes(location.hash))location.hash=d.user.role==='coordinator'?'#/clients':'#/journey';
+    if(['','#','#/','#/login'].includes(location.hash))location.hash=d.user.role==='coordinator'?'#/clients':'#/journey';
   }catch(err){
     const el = $('#loginMfaErr');
     if(el){ el.textContent = err.message; el.hidden = false; }
@@ -5393,7 +5431,7 @@ $('#loginForm').addEventListener('submit', async e => {
     if(location.hash.startsWith('#/messages')) renderMessagesPage();
     if(location.hash.startsWith('#/bookings')) renderBookingsPage();
     if(location.hash.startsWith('#/invite') && window.renderInvitePage) renderInvitePage();
-    else if(['','#','#/'].includes(location.hash))location.hash=d.user.role==='coordinator'?'#/clients':'#/journey';
+    else if(['','#','#/','#/login'].includes(location.hash))location.hash=d.user.role==='coordinator'?'#/clients':'#/journey';
   }catch(err){ toast(err.message); }
 });
 
@@ -7017,6 +7055,8 @@ function simulateReply(workerId){
 /* ============ Router ============ */
 const ROUTES = {
   '/journey': 'page-journey',
+  '/login': 'page-login',
+  '/not-found': 'page-not-found',
   '': 'page-home',
   '/': 'page-home',
   '/services': 'page-services',
@@ -7127,11 +7167,12 @@ function route(){
   if(/^\/form\/[a-z0-9-]+/.test(path)) path = '/form' + (path.includes('?') ? path.slice(path.indexOf('?')) : '');
   const qi = path.indexOf('?');
   if(qi !== -1) path = path.slice(0, qi);
+  if(path === '/login' && API.me){ location.hash = API.me.role === 'coordinator' ? '#/clients' : '#/journey'; return; }
   const workerMatch = /^\/worker\/(\d+)$/.exec(path);
   const jobMatch = /^\/jobs\/(\d+)$/.exec(path);
   const acctMatch = /^\/account\/[a-z-]+$/.exec(path);
   const admMatch = /^\/admin\/[a-z-]+$/.exec(path);
-  if(!ROUTES[path] && !workerMatch && !jobMatch && !acctMatch && !admMatch) path = '/';
+  if(!ROUTES[path] && !workerMatch && !jobMatch && !acctMatch && !admMatch) path = '/not-found';
   const id = workerMatch ? 'page-worker' : jobMatch ? 'page-job' : acctMatch ? 'page-account'
     : admMatch ? 'page-admin' : ROUTES[path];
   const page = document.getElementById(id);
@@ -7142,7 +7183,7 @@ function route(){
   // nav current state
   $$('nav.main a.nav-link').forEach(a => {
     const href = a.getAttribute('href').replace(/^#/, '');
-    if(href === path || (href !== '/' && path.startsWith(href))) a.setAttribute('aria-current','page');
+    if(href === path) a.setAttribute('aria-current','page');
     else a.removeAttribute('aria-current');
   });
   // reset get-started to chooser each visit
@@ -7191,7 +7232,9 @@ function route(){
   if(!((acctToAcct || admToAdm) && matchMedia('(min-width:901px)').matches)) window.scrollTo({top:0, behavior:'auto'});
   ROUTE_LAST = path;
   $('#main').focus({preventScroll:true});
+  if(id === 'page-login' && !API.me) openModal('#loginModal');
 }
+
 
 /* ---------- the open-shift feed (workers) ---------- */
 window.renderShiftsPage = async function(){
@@ -7206,6 +7249,7 @@ window.renderShiftsPage = async function(){
   }catch(err){ wrap.innerHTML = `<div class="info-card"><p>${esc(err.message)}</p></div>`; }
 };
 document.addEventListener('click', async e => {
+  if(e.target.closest('[data-retry-bookings]')){renderBookingsPage();return;}
   const c = e.target.closest('[data-claim-shift]'); if(!c) return;
   c.disabled = true;
   try{ const done=await BookItReview.acceptCover(Number(c.dataset.claimShift)); if(done){toast('The shift is yours — it is in My bookings.');renderShiftsPage();}else c.disabled=false; }
@@ -7590,6 +7634,14 @@ window.API = {
   }
 };
 
+function syncPrimaryNavigation(){
+  const role = API.online && API.me ? (API.me.admin ? 'admin' : API.me.role) : 'guest';
+  document.body.dataset.navRole = role;
+  document.querySelectorAll('[data-nav-audience]').forEach(el => {
+    el.hidden = !el.dataset.navAudience.split(' ').includes(role);
+  });
+  $('#btnMessages').hidden = role === 'guest';
+}
 function updateAuthUI(){
   if(window.CareFlow){CareFlow.nav();if(location.hash.startsWith('#/journey'))CareFlow.render();}
   const authed = !!(API.online && API.me);
@@ -7613,6 +7665,7 @@ function updateAuthUI(){
   if(na) na.hidden = !(API.online && API.me && API.me.admin);
   const ns = $('#navShifts');
   if(ns) ns.hidden = !(API.online && API.me && API.me.role === 'worker');
+  syncPrimaryNavigation();
   const vb = $('#verifyBanner');
   if(vb) vb.hidden = !(API.online && API.me && API.me.verified === 0);
   const hint = $('#loginHint');
@@ -7698,32 +7751,18 @@ function renderAcctMenu(){
     : '';
   const item = (hash, sec, icon, label, extra) =>
     `<button type="button" class="acct-item" role="menuitem" data-acct="go" data-hash="${hash}"${sec ? ` data-sec="${sec}"` : ''}><span class="mi">${ACCT_ICONS[icon]}</span><span>${label}</span>${extra || ''}</button>`;
-  /* Build 19b — the menu is the short list, the settings hub is the long
-     one. Daily doors only; everything else is one tap away behind Settings,
-     where the complete list lives. Report an incident stays here on
-     purpose: safety shortcuts don't get filed away. */
   let items = '';
-  items += item('#/account/profile', '', 'user', 'Profile');
-  if(m.admin){
-    items += item('#/admin', '', 'grid', 'Admin dashboard', '<span class="acct-pill">Admin</span>');
-    items += item('#/messages', '', 'chat', 'Messages',
-      `<span class="acct-badge" id="acctMsgBadge" ${API.unread ? '' : 'hidden'}>${API.unread || ''}</span>`);
-    items += item('#/account', '', 'gear', 'Settings');
-  }
-  if(!m.admin && m.role === 'coordinator') items += item('#/clients', '', 'grid', 'My clients');
-  if(!m.admin) items += item('#/bookings', '', 'cal', m.role === 'worker' ? 'Bookings & shifts' : 'My bookings');
-  if(!m.admin && m.role === 'worker') items += item('#/shifts', '', 'cal', 'Open shifts');
-  if(!m.admin && m.role === 'worker') items += item('#/earnings', '', 'medal', 'My earnings');
-  if(!m.admin && m.role === 'worker') items += item('#/ladder', '', 'medal', 'The ladder');
-  if(!m.admin && m.role === 'worker') items += item('#/refer-a-worker', '', 'user', 'Refer a worker — earn $150');
-  if(!m.admin && m.role === 'worker') items += item('#/support-workers', '', 'grid', 'Pay rates & working with us');
-  if(!m.admin && m.role === 'participant') items += item('#/support-plan', '', 'flag', 'Support plan',
+  items += item('#/account/profile', '', 'user', 'My profile');
+  if(m.admin) items += item('#/admin/verification', '', 'shield', 'Verification');
+  else if(m.role === 'coordinator') items += item('#/clients', '', 'grid', 'My clients');
+  else if(m.role === 'worker'){
+    items += item('#/account/credentials', '', 'shield', 'Credentials & checks');
+    items += item('#/account/earnings', '', 'medal', 'Earnings');
+  } else items += item('#/support-plan', '', 'flag', 'Support plan',
     `<span class="acct-badge red" data-blk-badge="support_plan" ${blockerCount('support_plan') ? '' : 'hidden'}>${blockerCount('support_plan') || ''}</span>`);
-  if(!m.admin) items += item('#/messages', '', 'chat', 'Messages',
-    `<span class="acct-badge" id="acctMsgBadge" ${API.unread ? '' : 'hidden'}>${API.unread || ''}</span>`);
-  if(!m.admin && m.role !== 'coordinator') items += item('#/bookings', 'cardIncident', 'flag', 'Report an incident');
-  if(!m.admin) items += item('#/account', '', 'gear', 'Settings',
+  items += item('#/account', '', 'gear', 'Settings',
     `<span class="acct-badge red" data-blk-badge="settings" ${blockerCount('settings') ? '' : 'hidden'}>${blockerCount('settings') || ''}</span>`);
+  if(!m.admin && m.role !== 'coordinator') items += item('#/bookings', 'cardIncident', 'flag', 'Report an incident');
   $('#acctMenu').innerHTML = `
     <div class="acct-head">
       <div class="wc-avatar acct-big" style="background:var(--teal);">${m.photo ? `<img src="${m.photo}" alt="">` : acctInitials(m.name)}</div>
@@ -7741,10 +7780,13 @@ function renderAcctMenu(){
     <div class="acct-foot">Signed in as ${esc(m.email)}</div>`;
 }
 function openAcctMenu(){
+  closeMobileNav();
+  setA11yPanel(false);
   renderAcctMenu();
   $('#acctMenu').hidden = false;
   $('#acctBtn').setAttribute('aria-expanded','true');
   $('#acctWrap').classList.add('open');
+  $('#acctMenu .acct-item')?.focus();
 }
 function closeAcctMenu(){
   const men = $('#acctMenu'); if(!men || men.hidden) return;
@@ -7761,12 +7803,12 @@ document.addEventListener('keydown', e => {
   if(e.key === 'Escape' && !$('#acctMenu').hidden){ closeAcctMenu(); $('#acctBtn').focus(); }
 });
 $('#acctMenu').addEventListener('keydown', e => {
-  if(e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  if(e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
   e.preventDefault();
   const items = $$('#acctMenu .acct-item');
   if(!items.length) return;
   const i = items.indexOf(document.activeElement);
-  items[e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length].focus();
+  items[e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length].focus();
 });
 window.addEventListener('hashchange', closeAcctMenu);
 /* document-level, not menu-level: the settings hub's deep-link tiles use the
@@ -7774,6 +7816,8 @@ window.addEventListener('hashchange', closeAcctMenu);
 document.addEventListener('click', e => {
   const it = e.target.closest('[data-acct]');
   if(!it) return;
+  if(it.tagName === 'A' && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)) return;
+  e.preventDefault();
   closeAcctMenu();
   if(it.dataset.acct === 'logout'){ doLogout(); return; }
   PENDING_SECTION = it.dataset.sec || null;
@@ -7784,8 +7828,10 @@ document.addEventListener('click', e => {
 });
 async function doLogout(){
   try{ await API.call('/logout', {method:'POST'}); }catch(e){}
-  API.me = null; API.unread = 0;
+  API.me = null; API.unread = 0; API.actingFor = null; API.blockers = null;
   updateAuthUI();
+  location.hash = '#/';
+  route();
   toast('Logged out. See you soon!');
   if(location.hash.startsWith('#/messages')) renderMessagesPage();
   if(location.hash.startsWith('#/bookings')) renderBookingsPage();
@@ -8471,7 +8517,7 @@ async function renderBookingsPage(){
     try{ seriesCard = seriesCardHtml(await API.call('/series')); }catch(e){}
   }
   let d;
-  try { d = await API.call('/bookings'); } catch(e){ return; }
+  try { d = await API.call('/bookings'); } catch(e){ wrap.innerHTML = `<div class="info-card" role="alert"><p>Bookings couldn’t load. ${esc(e.message)}</p><button class="btn btn-secondary btn-sm" type="button" data-retry-bookings>Try again</button></div>`; return; }
   API.apprDays = d.approval_days || 7;
   const wActive = d.worker_active !== false;
   const trainLock = d.training_lock || '', trainDays = d.training_overdue_days || 0;
@@ -14460,7 +14506,7 @@ async function renderAccountContent(wrap, isCurrent){
   if(me.role === 'worker' && !me.admin){
     S.push(['availability','Availability & service areas','Whole-visit hours, suburbs, leave and travel buffers','<div id="reviewAvailability"><p>Loading availability…</p></div>']);
     S.push(['credentials', 'Credentials & checks', 'Screening, training, expiry dates', '<div id="miniCreds"><p class="muted-sm">Loading…</p></div>']);
-    S.push(['earnings', 'Earnings & pay tier', 'Pay lines, super, next rate', '<div id="miniEarnings"><p class="muted-sm">Loading…</p></div>']);
+    S.push(['earnings', 'Earnings & pay tier', 'Pay lines, super, next rate', '<p class="settings-related"><a href="#/ladder">Pay tiers</a><a href="#/support-workers">Pay rates</a><a href="#/refer-a-worker">Refer a worker</a></p><div id="miniEarnings"><p class="muted-sm">Loading…</p></div>']);
     S.push(['training', 'Training', 'Required, done, due', '<div id="miniTraining"><p class="muted-sm">Loading…</p></div>']);
     S.push(['jobs', 'Jobs board', 'Open posts, your applications', '<p class="mini-note" style="margin:0 0 10px;"><a href="#/jobs"><b>Browse the jobs board →</b></a> — participants post what they need; apply with a short note.</p><div id="miniApps"><p class="muted-sm">Loading…</p></div>']);
   }
@@ -14478,13 +14524,14 @@ async function renderAccountContent(wrap, isCurrent){
     (me.admin ? `<a class="sr-row" href="#/admin"><span class="sr-txt"><b>Admin dashboard</b></span><span class="sr-go" aria-hidden="true">›</span></a>` : '');
   const badgeFor = slug => ({ documents: 'documents', billing: 'billing', training: 'training', credentials: 'credentials' })[slug] || '';
   const rows = S.map(([slug, label]) =>
-    `<a class="sr-row${slug === rowOn ? ' on' : ''}" href="#/account/${slug}"${cur && slug === cur[0] ? ' aria-current="page"' : ''}><span class="sr-txt"><b>${label}${badgeFor(slug) ? `<span class="sr-badge" data-blk-badge="${badgeFor(slug)}" ${blockerCount(badgeFor(slug)) ? '' : 'hidden'}>${blockerCount(badgeFor(slug)) || ''}</span>` : ''}</b></span><span class="sr-go" aria-hidden="true">›</span></a>`).join('');
+    `<a class="sr-row${slug === rowOn ? ' on' : ''}" href="#/account/${slug}"${slug === rowOn ? ' aria-current="page"' : ''}><span class="sr-txt"><b>${label}${badgeFor(slug) ? `<span class="sr-badge" data-blk-badge="${badgeFor(slug)}" ${blockerCount(badgeFor(slug)) ? '' : 'hidden'}>${blockerCount(badgeFor(slug)) || ''}</span>` : ''}</b></span><span class="sr-go" aria-hidden="true">›</span></a>`).join('');
 
   if(!isCurrent()) return;
   wrap.innerHTML = `
   <div class="set-layout ${cur ? 'has-sub' : 'no-sub'}">
     <nav class="set-nav" aria-label="All settings">
       <p class="sn-head">All settings</p>
+      <a class="sr-row" href="#/account/profile"><span class="sr-txt"><b>My profile</b></span><span class="sr-go" aria-hidden="true">›</span></a>
       ${rows}${directRows}
     </nav>
     <div class="set-body">
@@ -14701,21 +14748,21 @@ async function renderCredsMini(){
   const wrap = $('#miniCreds'); if(!wrap || !wrap.closest('.page.active')) return;
   let d;
   try{ d = await API.call('/me/documents', {noFor:true}); }
-  catch(e){ wrap.innerHTML = `<div class="info-card"><p>${esc(e.message)}</p></div>`; return; }
+  catch(e){ wrap.innerHTML = `<div class="info-card" role="alert"><p>${esc(e.message)}</p><button type="button" class="btn btn-secondary btn-sm" id="acctRetry">Try again</button></div>`; return; }
   const docs = d.documents || [];
   const chip = x => x.status === 'valid' ? '<span class="sec-chip on">current</span>'
     : x.status === 'expiring' ? '<span class="acc-chip invited">expiring soon</span>'
     : x.status === 'expired' ? '<span class="acc-chip revoked">EXPIRED</span>' : '';
   const rows = docs.map(x => `
-    <p><b>${esc(x.type_label || x.doc_type || '')}</b>${x.expiry_date ? ' · expires ' + fmtAU(x.expiry_date) : ''} ${chip(x)}${x.review_label ? ` · <span class="muted-sm">${esc(x.review_label)}</span>` : ''}</p>`).join('');
+    <p><b>${esc(x.type_label || x.doc_type || '')}</b>${x.expiry_date ? ' · expires ' + fmtAU(x.expiry_date) : ''} ${chip(x)}${x.review_label ? ` · <span class="muted-sm">${esc(x.review_label)}</span>` : ''}${x.has_file ? `<br><a href="${/\.(png|jpe?g)$/i.test(x.file_name || '') ? '/api/documents/' + Number(x.id) + '/file' : '/api/document-viewer?scope=worker&id=' + Number(x.id)}" target="_blank" rel="noopener noreferrer">${esc(x.file_name || 'View document')}</a>` : '<br><span class="muted-sm">Details only — no file uploaded</span>'}${x.review_note ? `<br><span class="muted-sm">${esc(x.review_note)}</span>` : ''}</p>`).join('');
   const reqs = (d.requests || []);
   wrap.innerHTML = `
   <div class="info-card" style="margin-bottom:12px;" id="cardCredsMini">
     <h3 style="margin:0 0 6px;">Credentials & checks</h3>
-    <p class="mini-note">We check every document within <b>one business day</b> of it arriving, and reminders start 60 days before anything expires — nothing lapses silently.</p>
+    <p class="mini-note">Upload your evidence for office review. Check review notes and expiry dates here. Uploading a replacement does not verify it automatically.</p>
     ${reqs.length ? `<p class="mini-note" style="color:#8a6d00;"><b>The office has asked for:</b> ${reqs.map(r => esc(r.label)).join(', ')}.</p>` : ''}
-    <div class="mini-rows">${rows || '<p class="muted-sm">Nothing on file yet — your screening check and photo are the two that unlock approval.</p>'}</div>
-    <a class="set-tile" style="margin-top:12px;" href="#/bookings" data-acct="go" data-hash="#/bookings" data-sec="cardCreds"><span class="st-txt"><b>Add or replace files</b><small>Uploads live on your bookings page.</small></span><span class="st-go" aria-hidden="true">→</span></a>
+    <div class="mini-rows">${rows || '<p class="muted-sm">No documents yet. Add your ID, screening checks and certificates to start the review.</p>'}</div>
+    <div class="usability-actions"><a class="btn btn-primary btn-sm" href="#/journey?panel=uploads&from=credentials">Add or replace files</a><a href="#/account/training">Training modules</a></div>
   </div>`;
 }
 

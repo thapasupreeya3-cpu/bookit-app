@@ -1,0 +1,45 @@
+{
+  "runtime": "v24.19.0",
+  "results": [
+    {
+      "name": "Each role sees only its relevant primary navigation; desktop has at most four choices",
+      "result": "PASS"
+    },
+    {
+      "name": "Worker account menu has seven useful actions, with no repeated bookings or marketing links",
+      "result": "PASS"
+    },
+    {
+      "name": "Every registered page and dynamic route dispatches to an existing page",
+      "result": "PASS"
+    },
+    {
+      "name": "Credentials opens the dedicated uploader and previews both PDF and image evidence",
+      "result": "PASS"
+    },
+    {
+      "name": "Menu keyboard open, tab boundary, Escape and close return focus correctly",
+      "result": "PASS"
+    },
+    {
+      "name": "Bookings API failures show an escaped explanation and retry instead of silently returning",
+      "result": "PASS"
+    },
+    {
+      "name": "All literal internal navigation destinations resolve and required local assets exist",
+      "result": "PASS"
+    },
+    {
+      "name": "Uploader opens when optional assistance is unavailable and returns directly to Credentials",
+      "result": "PASS"
+    },
+    {
+      "name": "Mixed upload results preserve successful files; retry only sends the failed file and refreshes the list",
+      "result": "PASS"
+    },
+    {
+      "name": "Leaving uploads or changing the signed-in person stops prepared files being sent",
+      "result": "PASS"
+    }
+  ]
+}

@@ -1,46 +1,35 @@
-# v88.2.6 test results
+# v88.2.7 test results
 
-The full `npm run check` gate passed with exit code 0 on Node 24.19.0. Final release documentation and validation receipts were added afterward, followed by a regenerated manifest and final release integrity check. Application code did not change after the full gate.
+The full `npm run check` gate passed with exit code 0 on Node 24.19.0. Final documentation and validation receipts were added afterward, then the release manifest was regenerated and checked. Application code did not change after the full gate.
 
 | Check | Result |
 | --- | --- |
-| Syntax | 60 scripts compiled; 0 failures; 4 inline application scripts included |
-| Inventories | 367 routes; 83 tables; schema 88202 |
+| Syntax | 61 scripts compiled; 0 failures; includes 4 inline application scripts |
+| API/database inventories | 367 routes; 83 tables; schema 88202 |
 | Clash tests | 21 passed |
 | Application smoke tests | Passed |
 | Review unit assertions | 46 passed |
 | Review integration | 25/25 passed |
-| Graphics | 54/54 passed |
+| Graphics/asset contracts | 54/54 passed |
 | Audit | 8 unit groups and API scenarios passed |
 | Existing workflows | 32/32 passed |
 | Verification and document previews | 46/46 passed |
-| New Settings scenarios | 11/11 passed |
-| Upgrade from v88.2.5 | Two consecutive boots preserved records, uploaded bytes and all 83 tables |
-| Database integrity and foreign keys | Passed after both upgrade boots |
-| Existing artwork, media, fonts and vendor resources | 154 files byte-identical to v88.2.5 |
+| Settings | 11/11 passed |
+| New navigation/upload scenarios | 10/10 passed |
+| Page route audit | 54 explicit entries plus dynamic route families dispatch to existing pages |
+| Static source audit | No duplicate static IDs, unlabelled static form controls or unresolved literal internal route families found |
+| Original media/font/binary assets | 147 image, video, font, PDF map/font and binary files byte-identical to v88.2.6 |
 
-## Settings coverage
+## New regression coverage
 
-The suite executes the shipped account renderer, availability helper, and worker-section renderer functions against real responses from a disposable local server. Small DOM containers model the rendering targets; these are functional frontend/API tests, not a full browser DOM or visual test.
+The navigation suite executes the shipped functions in a DOM harness. It verifies the primary link list for visitors, workers, participants, coordinators and admins; the short role-specific account menus; all route dispatches; the credential upload destination; PDF/image link selection; keyboard menu open/close/focus behavior; failed booking/credential load recovery; uploads without the optional assistance service; partial-success retry; and changing page/account while a file is being prepared.
 
-1. Worker Settings opens at `#/account`, without defining any admin render variables, and fetches and renders the real availability form.
-2. Availability, Credentials, Earnings, Training, Jobs, Notifications, Accessibility, Security and Help render their corresponding content and API results.
-3. A section link containing query parameters selects the correct section.
-4. Worker Profile still displays personal details, tier and visibility.
-5. Participant, coordinator and admin Settings lists render; admin's default email section fetches its preferences.
-6. Signed-out state replaces loading with a login prompt.
-7. A thrown section-renderer error displays Retry and retains navigation; Retry recovers successfully.
-8. A simulated stalled request reaches the 15-second deadline; a late result cannot replace the timeout message.
-9. Delayed responses cannot overwrite a new section or a signed-out view.
-10. Email preferences recover after a failed read; optional changes persist while mandatory emails remain on.
-11. Worker details save through the real endpoint and remain escaped when rendered.
-
-The old v88.2.5 Settings renderer was also executed in a controlled harness: it raised `renderSequence is not defined` and left the initial Loading placeholder unchanged. The reproduction is retained in `validation/v88.2.6-reproduction.json`.
+The Settings suite executes real renderer functions with responses from a disposable local server. Existing workflow tests similarly render worker, participant and office panels against scoped API responses. Neither harness is a browser rendering engine.
 
 ## Limits
 
-The Cloud browser URL policy blocked the local/synthetic preview workflow earlier in this session. No further browser workaround was attempted. This release has no live browser screenshot or deployed-account check. Confirm worker Settings after deployment.
+Browser access to the local/synthetic app was blocked earlier in this session. No workaround or further browser attempt was made. Header geometry, font scaling, focus behavior in a real browser, screen-reader behavior and every possible page interaction have not been visually certified. Follow the focused deployed-site acceptance checks in `docs/SITE-USABILITY-REVIEW.md`.
 
-Testing used Node 24.19.0; the repository declares Node 22. Run the release gate on the deployment runtime too. No server dependency, endpoint, database schema, live account or private uploaded file was changed.
+The repository declares Node 22; the available test runtime is Node 24.19.0. The deployment CI should also run the release gate on its declared runtime. No real emails, SMS, payment transactions or live account mutations were made. Backend source, schema and runtime dependencies are unchanged.
 
-Receipts: `validation/v88.2.6-check-output.txt`, `validation/v88.2.6-settings-results.json`, `validation/v88.2.6-verification-results.json`, `validation/v88.2.6-upgrade-results.json`, and `validation/v88.2.6-asset-preservation.json`.
+Evidence is in `validation/v88.2.7-check-output.txt`, `validation/v88.2.7-navigation-results.json`, `validation/v88.2.7-settings-results.json`, `validation/v88.2.7-page-audit.json` and `validation/v88.2.7-asset-preservation.json`. Older receipts identify their own release and are not new test results.

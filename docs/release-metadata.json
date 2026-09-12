@@ -1,11 +1,11 @@
 {
-  "version": "88.2.6",
-  "base_version": "88.2.5",
-  "base_archive": "The-Care-Web-v88.2.5-source.zip",
-  "base_archive_sha256": "76f86816ee3a6dbfbefc58907dd3825442781b24fabd6885ea351b0eaa6dfa1b",
+  "version": "88.2.7",
+  "base_version": "88.2.6",
+  "base_archive": "The-Care-Web-v88.2.6-source.zip",
+  "base_archive_sha256": "9a9ff95f5c5790d0e411e1d6718118b3338a95d09d238b04fb0e8e8dc3c35a0c",
   "base_commit": null,
   "package_type": "full source archive",
-  "output_archive": "The-Care-Web-v88.2.6-source.zip",
-  "scope": "Fix worker Settings stuck on Loading: remove accidental admin-page state reference, isolate Settings render lifecycle, handle load failures/timeouts with Retry, and test Settings sections with real API responses. No server or schema change.",
+  "output_archive": "The-Care-Web-v88.2.7-source.zip",
+  "scope": "Role-based navigation, compact header and account menu, direct credential uploads, recoverable navigation and page usability review.",
   "unchanged_assets": "Existing public artwork, photos, scene videos, fonts and vendor files are unchanged."
 }

@@ -1,0 +1,75 @@
+/* Shared navigation and page usability, v88.2.7. Original brand assets retained. */
+html header.site .nav-wrap{max-width:1440px;min-height:76px;padding:10px 24px;gap:20px;flex-wrap:wrap;}
+html header.site .logo.cw-brand{gap:8px;flex:0 0 auto;}
+html header.site .logo .cw-brand-symbol{width:48px;height:auto;}
+html header.site .logo .cw-brand-wordmark{width:174px;height:auto;}
+html header.site nav.main{flex:1 1 350px;min-width:0;justify-content:flex-end;}
+html header.site nav.main>ul{gap:4px;min-width:0;flex-wrap:wrap;justify-content:flex-end;}
+html header.site nav.main .nav-link{font-size:.94rem;padding:10px 12px;line-height:1.35;white-space:normal;text-align:left;min-height:44px;}
+html header.site .nav-cta{flex:0 0 auto;gap:10px;margin-left:auto;}
+html header.site .a11y-open,html header.site .msg-btn,html header.site .burger{width:44px;height:44px;min-width:44px;padding:10px;align-items:center;justify-content:center;}
+html header.site .a11y-open .a11y-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+html header.site .a11y-open svg{width:22px;height:22px;}
+html header.site .acct,html header.site .acct.tier-worn{margin:0;flex:0 0 66px;}
+html header.site .acct-chip{width:66px;min-height:50px;padding:8px 12px;justify-content:center;}
+html header.site .acct-caret{display:none;}
+html header.site .acct.tier-worn .tier-frame,html header.site .acct.tier-worn .tier-shine{width:150%;height:150%;}
+html header.site .acct-avatar{width:32px;height:32px;}
+html header.site .acct-menu{width:280px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 96px);overflow-y:auto;overscroll-behavior:contain;}
+html header.site .acct-menu>.acct-items{flex:none;min-height:0;overflow:visible;padding:4px;}
+html header.site .acct-head{padding:12px;gap:10px;}
+html header.site .acct-head .acct-big{width:34px;height:34px;}
+html header.site .acct-who b{font-size:.98rem;overflow-wrap:anywhere;}
+html header.site .acct-item{min-height:44px;padding:8px 10px;font-size:.9rem;gap:9px;}
+html header.site .acct-item .mi{width:24px;height:24px;}
+html header.site .acct-item .mi svg{width:18px;height:18px;}
+html header.site .acct-foot{padding:8px 12px;overflow-wrap:anywhere;}
+html header.site .dropdown-menu{max-height:calc(100dvh - 100px);overflow:auto;max-width:min(360px,calc(100vw - 32px));}
+html header.site #ddAbout .dropdown-menu{left:auto;right:0;}
+body[data-nav-role]:not([data-nav-role=guest]) footer.site .foot-hello{display:none;}
+.usability-actions,.settings-related{display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;margin-top:14px;}
+.settings-related{font-size:.9rem;margin:0 0 12px;}
+#page-account .mini-rows p{padding:10px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere;}
+#page-account .mini-rows a{display:inline-block;padding:4px 0;}
+#page-account .set-body,#page-admin .set-body,.flow-shell,.flow-card,.flow-form{min-width:0;}
+#page-account :is(input,select,textarea),.flow-shell :is(input,select,textarea){max-width:100%;box-sizing:border-box;}
+#page-account .set-nav{top:calc(var(--site-header-height,80px) + 12px);max-height:calc(100dvh - var(--site-header-height,80px) - 30px);overflow-y:auto;}
+.flow-shell .flow-tabs{gap:4px;border-bottom:1px solid var(--line);margin:14px 0 20px;padding-bottom:6px;}
+.flow-shell .flow-tabs a{border-radius:6px;border-color:transparent;padding:8px 10px;font-size:.9rem;min-height:40px;}
+.flow-shell .flow-head h1{font-size:clamp(1.8rem,4vw,2.7rem);}
+.flow-shell .flow-card{overflow-wrap:anywhere;}
+.flow-upload-back{display:inline-block;margin:0 0 12px;}
+.flow-file-list{display:grid;gap:8px;}
+.flow-file-row{border-bottom:1px solid var(--line);padding:8px 0;}
+.flow-file-row p{margin:4px 0;}
+.flow-shell .flow-uploads article h3{font-size:1rem;overflow-wrap:anywhere;}
+@media(max-width:1280px){
+ html header.site{backdrop-filter:none;background:var(--cream);}
+ html header.site .nav-wrap{flex-wrap:nowrap;padding:8px 16px;gap:10px;}
+ html header.site nav.main{display:none;position:fixed;inset:0;z-index:250;background:var(--cream);padding:76px 20px 28px;overflow:auto;}
+ html header.site nav.main.open{display:block;}
+ html header.site nav.main>ul{flex-direction:column;align-items:stretch;gap:6px;max-width:640px;margin:auto;}
+ html header.site nav.main .nav-link{font-size:1rem;padding:12px 14px;width:100%;}
+ html header.site .nav-close{display:flex!important;position:absolute;right:20px;top:18px;min-width:44px;min-height:44px;align-items:center;justify-content:center;}
+ html header.site .burger{display:flex;}
+ html header.site .nav-mobile-only{display:block;}
+ html header.site .dropdown-menu{position:static;max-height:none;width:auto;min-width:0;max-width:100%;box-shadow:none;}
+ html header.site #btnLogin{display:inline-flex;padding:8px 12px;min-height:44px;}
+ body.main-menu-open{overflow:hidden;}
+}
+@media(max-width:600px){
+ html header.site .nav-wrap{padding:8px 10px;gap:6px;min-height:66px;}
+ html header.site .logo .cw-brand-symbol{width:38px;}
+ html header.site .logo .cw-brand-wordmark{display:none;}
+ html header.site .nav-cta{gap:4px;}
+ html header.site #btnGetStarted{display:none;}
+ html header.site .acct,html header.site .acct.tier-worn{flex-basis:58px;}
+ html header.site .acct-chip{width:58px;}
+ html header.site .acct-menu{position:fixed;top:calc(var(--site-header-height,66px) + 8px);right:10px;max-height:calc(100dvh - var(--site-header-height,66px) - 20px);}
+ #page-account .set-nav{max-height:none;}
+ #page-account .usability-actions .btn{width:auto;}
+}
+@media(prefers-reduced-motion:reduce){html header.site .acct.tier-worn .tier-frame{transition:none;}}
+
+@media(max-width:900px){#page-account .set-nav{max-height:none;}}
+.status-page-title{font-size:1.8rem;}
