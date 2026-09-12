@@ -31,7 +31,12 @@ Messages remain in the header. Referrals lead to the existing worker referral pa
 Credentials has an essential-document checklist and the complete document dropdown.
 Each uploaded file has View, Replace and Remove or Request removal actions.
 Verified originals remain on record; replacements are submitted for office review.
-Next actions links to personal Settings instead of duplicating setup forms.
+Next actions groups related steps into a short, prioritised list.
+The first three groups are shown; overdue and today groups remain visible.
+Office reviews and secondary tools are collapsed. Buttons describe the next step.
+The office task queue uses compact rows with assignment forms behind Details.
+Personal Settings are linked rather than duplicated.
+A synthetic interactive preview is in docs/next-actions-preview.html.
 Emergency contacts are in Profile; digest, quiet hours and calendar in Notifications.
 Coordinators retain scoped tools for their selected participant.
 Navigation starts at the top; delayed background callbacks cannot scroll other pages.
@@ -75,7 +80,7 @@ INSTALL / UPDATE
       npm ci --ignore-scripts
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
-6. Deploy using your existing process. No schema change is needed from v88.2.7. Earlier additive
+6. Deploy using your existing process. No schema change is needed from v88.2.8. Earlier additive
    migrations still run when upgrading an older release.
    Existing records are retained. This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
@@ -106,7 +111,7 @@ const readme=`The Care Web v${pkg.version} — complete source package.
 
 Extract ${meta.output_archive}; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
-This release restores typed document uploads and simplifies personal setup.
+This release refines Next actions into a compact, prioritised work list.
 PDF/HTML previews and earlier verification automations are retained.
 Configure private billing,
 email, payroll cutover and any optional document assistance before use.

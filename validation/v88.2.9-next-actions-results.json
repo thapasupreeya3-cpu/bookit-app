@@ -1,0 +1,57 @@
+{
+  "runtime": "v24.19.0",
+  "results": [
+    {
+      "name": "Related documents and modules become two actions without discarding their individual steps",
+      "result": "PASS"
+    },
+    {
+      "name": "Missing, renewal and office-request tasks for the same document collapse to one item while retaining notes",
+      "result": "PASS"
+    },
+    {
+      "name": "Overdue and today items come first and no urgent group is hidden in More",
+      "result": "PASS"
+    },
+    {
+      "name": "Document day deadlines use the supplied site date, not midnight UTC or the browser clock",
+      "result": "PASS"
+    },
+    {
+      "name": "Office checks are collapsed, deduplicated and never lead a worker into admin or back to the list",
+      "result": "PASS"
+    },
+    {
+      "name": "Urgent office cover stays visible before the collapsed office section",
+      "result": "PASS"
+    },
+    {
+      "name": "Only one upcoming visit is shown and a visit already needing action is not repeated",
+      "result": "PASS"
+    },
+    {
+      "name": "Completed tasks disappear and the empty state does not claim that office reviews are finished",
+      "result": "PASS"
+    },
+    {
+      "name": "Email verification has a direct user action; coordinators are never offered resend for their own account",
+      "result": "PASS"
+    },
+    {
+      "name": "Distinct visit requests stay distinct; task and person text are escaped",
+      "result": "PASS"
+    },
+    {
+      "name": "Office list fetches its paginated queue once and keeps assignment forms collapsed",
+      "result": "PASS"
+    },
+    {
+      "name": "Secondary workflow tools remain accessible inside one collapsed menu",
+      "result": "PASS"
+    },
+    {
+      "name": "Resend requests use the existing endpoint and show requested rather than unconfirmed delivery",
+      "result": "PASS"
+    }
+  ]
+}

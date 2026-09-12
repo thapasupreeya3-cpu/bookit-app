@@ -1,6 +1,10 @@
-# Website usability review — v88.2.8
+# Website usability review — v88.2.9
 
 Current update reviewed v88.2.7 and corrects the issues in CHANGELOG-v88.2.8.md. The earlier broad page review is retained below. No deployed site, GitHub repository or live account was accessed.
+
+## Current Next actions refinement
+
+v88.2.9 replaces the large task-card grid with an ordered list, groups related document and training steps, collapses office work and secondary tools, and keeps overdue/today work visible. The office list has compact rows and expandable assignment controls. A synthetic interactive preview is available at `docs/next-actions-preview.html`; see the current changelog and test report for exact behavior and validation limits.
 
 ## Navigation after the update
 

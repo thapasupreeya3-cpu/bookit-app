@@ -1,9 +1,9 @@
-THE CARE WEB - DOCUMENTS AND NAVIGATION v88.2.8
+THE CARE WEB - FOCUSED NEXT ACTIONS v88.2.9
 
-Supported earlier source versions: 88.2.7.
-Apply over v88.2.7 (the previous navigation/usability release).
+Supported earlier source versions: 88.2.8.
+Apply over v88.2.8 (the previous Credentials release).
 
-Contains 31 new or changed files; 469 unchanged
+Contains 31 new or changed files; 482 unchanged
 files are omitted. This is an update package, not a standalone application.
 
 1. Extract this ZIP. Upload the extracted CONTENTS to your existing repository
@@ -13,18 +13,19 @@ files are omitted. This is an update package, not a standalone application.
 2. Preserve your runtime database, uploaded documents/photos and configuration.
    Compare separately with any newer source changes not supplied here.
 3. Commit and redeploy with your existing process. Refresh the site and confirm
-   /api/version reports 88.2.8. No schema change is needed from v88.2.7.
-4. Open Settings > Credentials & checks. The essential-document checklist and
-   complete type dropdown are here. Each file has its own View/Replace and
-   Remove or Request removal action. Verified originals remain pending review.
-5. Refer a friend is in the avatar menu and opens the existing worker referral
-   program. Personal Next actions setup links now lead to the relevant Settings
-   page. Coordinators keep scoped editing for their selected participant.
-6. Check navigation between long and short pages, individual file actions,
-   desktop/mobile layout, enlarged text and keyboard navigation after updating.
+   /api/version reports 88.2.9. No schema change is needed from v88.2.8.
+4. Open Next actions. Related documents and training are grouped, urgent work
+   stays visible and routine extra actions expand under Show more. Pending
+   office checks are separate. Use More tools for the other workflow panels.
+5. Settings > Credentials & checks keeps its essential-file checklist, complete
+   document type dropdown and individual View/Replace/Remove controls. Refer a
+   friend remains in the avatar menu and opens the existing worker program.
+6. Check worker, participant and office Next actions after deployment, including
+   record links, assignment, enlarged text, phone layout and keyboard navigation.
 
 Full automated checks passed; browser layout could not be previewed here.
-See docs/CHANGELOG-v88.2.8.md and docs/TEST-RESULTS.md for changes and limits.
+See docs/CHANGELOG-v88.2.9.md and docs/TEST-RESULTS.md for changes and limits.
+Open docs/next-actions-preview.html for interactive synthetic examples.
 Previous PDF/HTML previews, compact header and verification automations remain.
 Do not apply both the latest-only and cumulative update packages.
 
@@ -33,32 +34,32 @@ No existing files need to be deleted for this update.
 INCLUDED PROJECT FILES
 RELEASE-FILES.json
 STARTHERE.txt
-docs/CHANGELOG-v88.2.8.md
+docs/CHANGELOG-v88.2.9.md
 docs/RELEASE-NOTES.md
 docs/SITE-USABILITY-REVIEW.md
 docs/TEST-RESULTS.md
 docs/api-route-inventory.txt
 docs/database-table-inventory.txt
+docs/next-actions-preview.html
 docs/release-metadata.json
 lib/process-routes.js
 lib/process-store.js
 package-lock.json
 package.json
+public/assets/next-actions.css
+public/assets/next-actions.js
 public/assets/process-workflows.js
-public/assets/worker-credentials.css
-public/assets/worker-credentials.js
 public/index.html
 readme.txt
 scripts/release-docs.js
-server.js
-tests/account-settings-tests.js
-tests/credentials-tests.js
 tests/navigation-tests.js
+tests/next-actions-tests.js
 tests/process-regression.js
-validation/v88.2.8-asset-preservation.json
-validation/v88.2.8-check-output.txt
-validation/v88.2.8-credentials-results.json
-validation/v88.2.8-navigation-results.json
-validation/v88.2.8-page-audit.json
-validation/v88.2.8-process-results.json
-validation/v88.2.8-settings-results.json
+validation/v88.2.9-asset-preservation.json
+validation/v88.2.9-check-output.txt
+validation/v88.2.9-credentials-results.json
+validation/v88.2.9-navigation-results.json
+validation/v88.2.9-next-actions-results.json
+validation/v88.2.9-page-audit.json
+validation/v88.2.9-process-results.json
+validation/v88.2.9-settings-results.json

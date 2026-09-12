@@ -1,11 +1,11 @@
 {
-  "version": "88.2.8",
-  "base_version": "88.2.7",
-  "base_archive": "The-Care-Web-v88.2.7-source.zip",
-  "base_archive_sha256": "936fbd43f1b2d67da8ffd5a24327c4868488a6c9fccc1083874009a5833960c6",
+  "version": "88.2.9",
+  "base_version": "88.2.8",
+  "base_archive": "The-Care-Web-v88.2.8-source.zip",
+  "base_archive_sha256": "5a1ac4c8925bd8f5c0dd26695920d50ba45499ce948dd2869c4c50101e5274cd",
   "base_commit": null,
   "package_type": "full source archive",
-  "output_archive": "The-Care-Web-v88.2.8-source.zip",
-  "scope": "Essential document checklist, exact-file replacement/removal, complete document catalogue, predictable navigation, discoverable referrals and consolidated personal settings.",
+  "output_archive": "The-Care-Web-v88.2.9-source.zip",
+  "scope": "Focused Next actions: grouped priorities, compact personal/office lists, clear actions, correct document evidence prompts and sample design preview.",
   "unchanged_assets": "Existing public artwork, photos, scene videos, fonts and vendor files are unchanged."
 }
