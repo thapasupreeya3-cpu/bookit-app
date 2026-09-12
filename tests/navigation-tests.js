@@ -18,9 +18,9 @@ await test('Each role sees only its relevant primary navigation; desktop has at 
  for(const [role,person] of Object.entries(roles)){ctx.API.me=person;ctx.syncPrimaryNavigation();const shown=items.filter(x=>!x.hidden&&!x.mobile);assert.deepEqual(shown.map(x=>x.href),expected[role],role);assert.ok(shown.length<=4);assert.equal(get('btnMessages').hidden,role==='guest');assert.equal(ctx.document.body.dataset.navRole,role);}
  ctx.API.online=false;ctx.syncPrimaryNavigation();assert.equal(ctx.document.body.dataset.navRole,'guest');
 });
-await test('Worker account menu has seven useful actions, with no repeated bookings or marketing links',()=>{
+await test('Worker account menu has eight useful actions, with no repeated bookings or marketing links',()=>{
  const {ctx,get}=baseContext();ctx.ACCT_ICONS=new Proxy({},{get:()=>'<svg></svg>'});vm.runInContext(fn('renderAcctMenu'),ctx);
- for(const [role,person]of Object.entries(roles)){if(!person)continue;ctx.API.me=person;ctx.renderAcctMenu();const out=get('acctMenu').innerHTML,count=(out.match(/role="menuitem"/g)||[]).length;assert.ok(count<=7,role);assert.match(out,/Help & contact/);assert.match(out,/Log out/);assert.match(out,/#\/account/);assert.ok(!out.includes('Open shifts')&&!out.includes('Refer a worker')&&!out.includes('data-hash="#/messages"'));if(role==='worker'){assert.equal(count,7);assert.match(out,/#\/account\/credentials/);assert.match(out,/#\/account\/earnings/);assert.match(out,/data-sec="cardIncident"/);}}
+ for(const [role,person]of Object.entries(roles)){if(!person)continue;ctx.API.me=person;ctx.renderAcctMenu();const out=get('acctMenu').innerHTML,count=(out.match(/role="menuitem"/g)||[]).length;assert.ok(count<=8,role);assert.match(out,/Help & contact/);assert.match(out,/Log out/);assert.match(out,/#\/account/);assert.ok(!out.includes('Open shifts')&&!out.includes('Refer a worker')&&!out.includes('data-hash="#/messages"'));if(role==='worker'){assert.equal(count,8);assert.match(out,/#\/account\/credentials/);assert.match(out,/#\/account\/earnings/);assert.match(out,/Refer a friend/);assert.match(out,/#\/refer-a-worker/);assert.match(out,/data-sec="cardIncident"/);}}
  ctx.API.me={...roles.worker,name:'<img src=x onerror=alert(1)>',email:'<script>'};ctx.renderAcctMenu();assert.ok(!get('acctMenu').innerHTML.includes('<img src=x'));
 });
 await test('Every registered page and dynamic route dispatches to an existing page',()=>{
@@ -32,10 +32,6 @@ await test('Every registered page and dynamic route dispatches to an existing pa
  for(const [route,id]of Object.entries(routes)){assert.ok(pages.some(x=>x.id===id),id);ctx.location.hash='#'+route;ctx.route();assert.equal(pages.filter(x=>x.classList.contains('active')).length,1);assert.ok(get(id).classList.contains('active'));assert.ok(ctx.document.title);}
  for(const [route,id,name]of [['/worker/12','page-worker','renderWorkerPage'],['/jobs/12','page-job','renderJobPage'],['/account/credentials?from=menu','page-account','renderAccountPage'],['/admin/verification','page-admin','renderAdminPage'],['/form/privacy?for=3','page-form-screen',null]]){ctx.location.hash='#'+route;ctx.route();assert.ok(get(id).classList.contains('active'));if(name)assert.equal(called.at(-1).name,name);}
  ctx.location.hash='#/this-page-does-not-exist';ctx.route();assert.ok(get('page-not-found').classList.contains('active'));ctx.location.hash='#/login';ctx.route();assert.equal(ctx.opened,'#loginModal');
-});
-await test('Credentials opens the dedicated uploader and previews both PDF and image evidence',async()=>{
- const {ctx,get}=baseContext(),wrap=get('miniCreds');wrap.closest=()=>true;ctx.fmtAU=x=>x;ctx.API.call=async()=>({documents:[{id:7,doc_type:'cpr',file_name:'CPR.pdf',has_file:true,review_label:'Awaiting review',review_note:'Please include the expiry date'},{id:8,doc_type:'screening',file_name:'Screening.JPG',has_file:true},{id:9,doc_type:'passport',has_file:false}],requests:[]});vm.runInContext(fn('renderCredsMini'),ctx);await ctx.renderCredsMini();assert.match(wrap.innerHTML,/href="#\/journey\?panel=uploads&from=credentials"/);assert.ok(!wrap.innerHTML.includes('href="#/bookings"'));assert.match(wrap.innerHTML,/scope=worker&id=7/);assert.match(wrap.innerHTML,/\/api\/documents\/8\/file/);assert.match(wrap.innerHTML,/Please include the expiry date/);assert.match(wrap.innerHTML,/Details only/);
- ctx.API.call=async()=>{throw Error('Offline');};await ctx.renderCredsMini();assert.match(wrap.innerHTML,/acctRetry/);
 });
 await test('Menu keyboard open, tab boundary, Escape and close return focus correctly',()=>{
  const {ctx,get}=baseContext(),main=get('mainNav'),first=get('navClose'),last=get('lastLink');main.children=[first,last];ctx.closeAcctMenu=()=>{};ctx.setA11yPanel=()=>{};ctx.addEventListener=()=>{};get('acctWrap').contains=()=>true;
@@ -51,34 +47,26 @@ await test('All literal internal navigation destinations resolve and required lo
  for(const match of html.matchAll(/(?:src|href)="(\/assets\/[^"$?]+)(?:\?[^"$]*)?"/g))assert.ok(fs.existsSync(path.join(ROOT,'public',match[1])),match[1]);
 });
 
-function uploadsUI(){
- const {ctx,get}=baseContext(),events={},saved=[],attempts=[];let failSecond=true;
- const tray=get('flowUploadTray'),upload=node('upload');upload.dataset={flowAction:'upload-all'};upload.isConnected=true;upload.closest=()=>null;upload.disabled=true;
- ctx.document.addEventListener=(type,fn)=>(events[type]||=[]).push(fn);ctx.document.querySelector=selector=>selector==='[data-flow-action=upload-all]'?upload:null;
- ctx.location.hash='#/journey?panel=uploads&from=credentials';ctx.API.me={...roles.worker};ctx.crypto=require('node:crypto');ctx.setInterval=()=>{};ctx.fmtAU=x=>x;ctx.toast=()=>{};
- ctx.fileToB64Shrunk=async input=>({name:input.files[0].name,data:'JVBERi0xLjQK',mime:'application/pdf'});
- tray.insertAdjacentHTML=(position,html)=>{const row=node('row'+tray.children.length),fields={doc_type:{value:'cpr'},expiry_date:{value:'2031-01-01'},label:{value:''},check_number:{value:''}},out=node('status');row.querySelector=selector=>selector==='[role=status]'?out:fields[/name=([^\]]+)/.exec(selector)[1]];row.querySelectorAll=()=>Object.values(fields);tray.children.push(row);};
- tray.querySelector=selector=>tray.children[Number(/index="(\d+)"/.exec(selector)[1])];
- ctx.API.call=async(url,options={})=>{
-  if(url==='/journey')return {role:'worker',subject:{name:'Worker'}};
-  if(url==='/doc-catalog')return {types:[{key:'cpr',label:'CPR'}]};
-  if(url==='/journey/assistance')throw Error('Optional assistance is unavailable');
-  if(url==='/me/documents'&&options.method==='POST'){attempts.push(options.body.file.name);if(failSecond&&options.body.file.name==='second.pdf')throw Error('Synthetic upload failure');saved.push({id:saved.length+1,file_name:options.body.file.name,has_file:true,type_label:'CPR',review_label:'Awaiting review'});return {};}
-  if(url==='/me/documents')return {documents:saved};throw Error(url);
- };
- vm.runInContext(fs.readFileSync(path.join(ROOT,'public/assets/process-workflows.js'),'utf8'),ctx);
- async function select(names){for(const f of events.change||[])await f({target:{id:'flowFiles',files:names.map(name=>({name})),value:'',closest:()=>null}});}
- async function click(){for(const f of events.click||[])await f({target:{closest:selector=>selector==='[data-flow-action]'?upload:null},preventDefault(){}});}
- return {ctx,get,tray,saved,attempts,upload,select,click,retry(){failSecond=false;}};
-}
-await test('Uploader opens when optional assistance is unavailable and returns directly to Credentials',async()=>{
- const v=uploadsUI();await v.ctx.CareFlow.render();assert.match(v.get('flowContent').innerHTML,/id="flowFiles"/);assert.match(v.get('flowContent').innerHTML,/href="#\/account\/credentials"/);assert.ok(!v.get('flowContent').innerHTML.includes('Could not load'));assert.equal(v.get('flowTitle').textContent,'Documents');assert.equal(v.upload.disabled,true);
+await test('Legacy document, profile, funding and notification links go to canonical Settings',async()=>{
+ for(const [panel,expected] of [['uploads&type=cpr','#/account/credentials?type=cpr'],['intake','#/account/profile'],['billing','#/account/billing'],['preferences','#/account/notifications']]){
+  const {ctx,get}=baseContext();ctx.location.hash='#/journey?panel='+panel;ctx.API.me=roles.worker;ctx.API.call=async()=>({role:'worker',subject:{name:'Worker'}});ctx.document.addEventListener=()=>{};ctx.setInterval=()=>{};
+  vm.runInContext(fs.readFileSync(path.join(ROOT,'public/assets/process-workflows.js'),'utf8'),ctx);await ctx.CareFlow.render();assert.equal(ctx.location.hash,expected);assert.ok(!get('flowContent').innerHTML.includes('<form'));
+ }
 });
-await test('Mixed upload results preserve successful files; retry only sends the failed file and refreshes the list',async()=>{
- const v=uploadsUI();await v.ctx.CareFlow.render();await v.select(['first.pdf','second.pdf']);assert.equal(v.upload.disabled,false);await v.click();assert.deepEqual(v.attempts,['first.pdf','second.pdf']);assert.match(v.get('flowUploadStatus').textContent,/1 of 2 files saved/);assert.match(v.get('flowOnFile').innerHTML,/first.pdf/);v.retry();await v.click();assert.deepEqual(v.attempts,['first.pdf','second.pdf','second.pdf']);assert.match(v.get('flowUploadStatus').textContent,/2 of 2 files saved/);assert.match(v.get('flowOnFile').innerHTML,/second.pdf/);assert.equal(v.saved.length,2);
+await test('Next actions has no duplicated details, documents, funding or notification editors',async()=>{
+ for(const role of ['worker','participant']){const {ctx,get}=baseContext();ctx.location.hash='#/journey';ctx.API.me=roles[role];ctx.API.call=async()=>({role,subject:{name:'Person'},tasks:[],next:[]});ctx.document.addEventListener=()=>{};ctx.setInterval=()=>{};
+ vm.runInContext(fs.readFileSync(path.join(ROOT,'public/assets/process-workflows.js'),'utf8'),ctx);await ctx.CareFlow.render();for(const panel of ['intake','uploads','billing','preferences'])assert.ok(!get('flowTabs').innerHTML.includes('panel='+panel));assert.match(get('flowContent').innerHTML,/You are up to date/);}
 });
-await test('Leaving uploads or changing the signed-in person stops prepared files being sent',async()=>{
- for(const change of ['route','person']){const v=uploadsUI();await v.ctx.CareFlow.render();await v.select(['first.pdf']);let finish;v.ctx.fileToB64Shrunk=()=>new Promise(r=>finish=r);const pending=v.click();await new Promise(r=>setImmediate(r));if(change==='route')v.ctx.location.hash='#/account';else v.ctx.API.me={...roles.participant};finish({name:'first.pdf'});await pending;assert.equal(v.attempts.length,0,change);}
+await test('Late Next actions fetch cannot redirect after leaving the page',async()=>{
+ const {ctx}=baseContext();ctx.location.hash='#/journey?panel=uploads';ctx.API.me=roles.worker;let finish;ctx.API.call=()=>new Promise(r=>finish=r);ctx.document.addEventListener=()=>{};ctx.setInterval=()=>{};vm.runInContext(fs.readFileSync(path.join(ROOT,'public/assets/process-workflows.js'),'utf8'),ctx);const pending=ctx.CareFlow.render();ctx.location.hash='#/bookings';finish({role:'worker',subject:{name:'Worker'}});await pending;assert.equal(ctx.location.hash,'#/bookings');
+});
+await test('Every Settings/admin navigation resets viewport; pending callbacks cannot scroll another page',()=>{
+ const {ctx,get}=baseContext();ctx.history.scrollRestoration='auto';const scrolls=[];ctx.scrollTo=opts=>scrolls.push(opts);ctx.matchMedia=()=>({matches:true});
+ for(const name of new Set([...fn('route').matchAll(/\b((?:render|paint|apply)[A-Z]\w*)\(/g)].map(m=>m[1])))ctx[name]=()=>{};
+ ctx.showPath=()=>{};ctx.CareFlow={render(){}};vm.runInContext(/const ROUTES = \{[\s\S]*?\n\};/.exec(html)[0]+'\n'+fn('route')+'\nlet ROUTE_LAST=null;',ctx);
+ for(const hash of ['#/account/profile','#/account/credentials','#/account/notifications','#/admin/verification','#/admin/compliance']){ctx.location.hash=hash;ctx.route();assert.equal(scrolls.at(-1).top,0);assert.equal(scrolls.at(-1).behavior,'instant');}assert.equal(ctx.history.scrollRestoration,'manual');
+ const callbacks=[];ctx.setTimeout=f=>callbacks.push(f);const target=get('cardIncident');let moved=0;target.querySelector=()=>null;target.closest=()=>true;target.scrollIntoView=()=>moved++;
+ vm.runInContext('let PENDING_SECTION=null;let PENDING_AT=0;'+fn('revealPendingSection'),ctx);ctx.location.hash='#/bookings';vm.runInContext('PENDING_SECTION="cardIncident";PENDING_AT=Date.now();revealPendingSection();',ctx);ctx.location.hash='#/account';callbacks[0]();assert.equal(moved,0);
 });
 console.log('navigation: '+results.filter(x=>x.result==='PASS').length+'/'+results.length+' passed');if(process.env.NAVIGATION_RESULTS_PATH)fs.writeFileSync(process.env.NAVIGATION_RESULTS_PATH,JSON.stringify({runtime:process.version,results},null,2)+'\n');process.exitCode=results.some(x=>x.result==='FAIL')?1:0;
 })();

@@ -4970,8 +4970,9 @@ route('GET', /^\/api\/doc-catalog$/, (req, res) => json(res, 200, { categories: 
 
 route('GET', /^\/api\/me\/documents$/, (req, res, m, user) => {
   if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  const issued = new Set(db.prepare('SELECT doc_id FROM module_completions WHERE worker_id=? AND passed=1 AND doc_id IS NOT NULL').all(user.id).map(d=>d.doc_id));
   json(res, 200, {
-    documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(user.id).map(docOut),
+    documents: db.prepare('SELECT * FROM worker_docs WHERE worker_id = ? ORDER BY doc_type, id DESC').all(user.id).map(d => ({...docOut(d), evidence_origin:d.file_path?'uploaded-file':issued.has(d.id)?'platform-module':'details-only'})),
     requests: openRequests('worker', user.id),
     summary: onboardingSummary(user.id)
   });
@@ -4983,6 +4984,10 @@ route('POST', /^\/api\/me\/documents$/, (req, res, m, user, body, ip) => {
   const cat = DOC_MAP[clean(body.doc_type, 40)];
   if (!cat) return json(res, 400, { error: 'Pick a document type.' });
   const docType = cat.key;
+  // Replacement targets are explicit, worker-owned, and retain their original evidence.
+  const replacement = body.replaces_id == null ? null : db.prepare('SELECT * FROM worker_docs WHERE id=? AND worker_id=?').get(Number(body.replaces_id) || 0, user.id);
+  if(body.replaces_id != null && (!replacement || replacement.doc_type !== docType)) return json(res, 400, {error:'Choose an existing file of the same document type from your own record.'});
+  if(replacement && !body.file?.data) return json(res, 400, {error:'Choose the replacement file.'});
   const expiry = clean(body.expiry_date, 10);
   if (expiry && !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return json(res, 400, { error: 'Expiry date looks wrong.' });
   if (cat.expiry === 'required' && !expiry) return json(res, 400, { error: `Please enter the expiry date for your ${cat.label} — it drives the automatic checks.` });
@@ -5006,6 +5011,7 @@ route('POST', /^\/api\/me\/documents$/, (req, res, m, user, body, ip) => {
   /* If this is what we asked for, the asking is over. Closing the request
      from the upload rather than from a button means it closes every time. */
   const answered = fulfilRequest('worker', user.id, docType, Number(r.lastInsertRowid));
+  if(replacement) logCompliance({worker_id:user.id, worker_name:user.name, kind:'document-replacement', result:'submitted', detail:`Uploaded document #${r.lastInsertRowid} to replace #${replacement.id} (${docType}). Earlier evidence retained pending review.`, source:'Worker credentials', doc_id:Number(r.lastInsertRowid), ref:String(replacement.id), checked_by:user.name});
   /* Fire-and-forget: the upload must not wait on a model, and must not fail
      because one is down. If it produces anything it lands in the review queue
      beside the document, where the person verifying is already looking. */

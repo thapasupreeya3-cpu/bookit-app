@@ -1,20 +1,24 @@
-# Website usability review — v88.2.7
+# Website usability review — v88.2.8
 
-Reviewed the supplied v88.2.6 source and corrected the issues listed in CHANGELOG-v88.2.7.md. No deployed site, GitHub repository or live account was accessed.
+Current update reviewed v88.2.7 and corrects the issues in CHANGELOG-v88.2.8.md. The earlier broad page review is retained below. No deployed site, GitHub repository or live account was accessed.
 
 ## Navigation after the update
 
 | Audience | Primary header choices | Account menu actions |
 | --- | --- | --- |
 | Visitor | Support services, Pricing, Find workers, About | Sign in / Get started |
-| Worker | Bookings, Open shifts, Next actions | Profile, Credentials, Earnings, Settings, Incident, Help, Log out |
-| Participant | Find workers, Bookings, Support plan, Next actions | Profile, Support plan, Settings, Incident, Help, Log out |
-| Coordinator | Bookings, My clients, Next actions | Profile, My clients, Settings, Help, Log out |
+| Worker | Bookings, Open shifts, Next actions | Profile, Credentials, Earnings, Settings, Refer a friend, Incident, Help, Log out |
+| Participant | Find workers, Bookings, Support plan, Next actions | Profile, Support plan, Settings, Refer a friend, Incident, Help, Log out |
+| Coordinator | Bookings, My clients, Next actions | Profile, My clients, Settings, Refer a friend, Help, Log out |
 | Admin | Dashboard, Verification, Next actions | Profile, Verification, Settings, Help, Log out |
 
 Messages and Accessibility remain header controls. Mobile navigation retains the same choices; the visitor's Get started link is in the main menu on small phones. The footer retains access to public information pages.
 
-## Review coverage
+## Current document and navigation changes
+
+The full 25-type document dropdown, missing-essential checklist and individual file actions now live at Settings → Credentials. Worker upload controls were removed from Bookings. Old personal Next actions setup links open canonical Settings pages. Contact notes, worker emergency contacts, digest/quiet hours, calendar subscriptions and optional document assistance remain accessible. Referrals have a direct avatar-menu shortcut. See the current changelog and test results for details.
+
+## Earlier broad review coverage (v88.2.7)
 
 - 54 explicit route entries (including Home's empty-route alias) and dynamic worker, job, Settings, admin and form routes were exercised through the shipped router with a DOM test harness.
 - All mapped page containers and titles exist. No duplicate static HTML IDs or unlabelled static form controls were found by the source audit. Dynamically generated control accessibility still needs browser and assistive-technology checks.
@@ -88,7 +92,7 @@ Every entry below passed container, title and router-dispatch checks. Dynamic da
 ## Remaining acceptance checks on the deployed site
 
 1. At phone, tablet and desktop widths, open the header and account menu. Check that the logo, message icon, accessibility button and avatar do not overlap. Repeat with larger text and keyboard navigation.
-2. As a worker, open Settings → Credentials → Add or replace files. Upload a permitted file, review its saved entry, open its PDF/image and return to Credentials. Existing files and decisions must remain visible.
+2. As a worker, open Settings → Credentials. Use the full type dropdown or an essential row to add a permitted file. Replace a specific file, review its saved entry, open its PDF/image, and confirm removal of an unverified upload. Existing files and decisions must remain visible.
 3. As a participant and coordinator, confirm the relevant navigation and the currently selected participant. Check bookings, plan, documents, invoices and helper access with normal authorized test accounts.
 4. As an admin, open Verification, worker/participant evidence, PDF and HTML previews. Confirm the earlier compact document controls and verification actions still behave as expected.
 5. Check configured messaging and payment integrations in their authorized test environments. The automated local checks do not send real messages or payments.

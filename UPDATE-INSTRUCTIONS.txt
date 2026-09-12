@@ -1,60 +1,64 @@
-THE CARE WEB - NAVIGATION AND USABILITY UPDATE v88.2.7
+THE CARE WEB - DOCUMENTS AND NAVIGATION v88.2.8
 
-Supported earlier source versions: 88.2.6.
-Use this package over v88.2.6 (the worker Settings loading fix).
+Supported earlier source versions: 88.2.7.
+Apply over v88.2.7 (the previous navigation/usability release).
 
-Contains 23 new or changed project files. Unchanged media, fonts,
-PDF viewer dependencies and other source files are omitted.
-This is an update package, not a standalone application.
+Contains 31 new or changed files; 469 unchanged
+files are omitted. This is an update package, not a standalone application.
 
-1. Extract the ZIP. Upload the extracted contents, not the ZIP itself.
-2. Merge files/folders into the existing repository root (server.js,
-   package.json, public and lib). Replace matching files while retaining
-   other contents. Do not delete existing folders first.
-   UPDATE-INSTRUCTIONS.txt is optional and is not application code.
-3. Commit and restart/redeploy using your existing process. Preserve runtime
-   databases, uploaded documents/photos and configuration.
-4. Refresh the site. /api/version should report 88.2.7.
-5. As a worker, open Settings > Credentials & checks > Add or replace files.
-   This now opens Documents, with a direct link back to Credentials.
-6. The worker header now has Bookings, Open shifts and Next actions.
-   Messages and Accessibility remain in the header. The avatar menu has
-   seven actions; pay tiers, rates and referrals are under Settings > Earnings.
-7. Check the header at phone, tablet and desktop sizes and with larger text.
-   Try the main and avatar menus using a keyboard, then open PDF/image files.
+1. Extract this ZIP. Upload the extracted CONTENTS to your existing repository
+   root, alongside server.js, package.json, public and lib. Replace matching
+   files; merge folders while keeping other contents. Do not upload the ZIP
+   itself or a new enclosing folder. UPDATE-INSTRUCTIONS.txt is optional.
+2. Preserve your runtime database, uploaded documents/photos and configuration.
+   Compare separately with any newer source changes not supplied here.
+3. Commit and redeploy with your existing process. Refresh the site and confirm
+   /api/version reports 88.2.8. No schema change is needed from v88.2.7.
+4. Open Settings > Credentials & checks. The essential-document checklist and
+   complete type dropdown are here. Each file has its own View/Replace and
+   Remove or Request removal action. Verified originals remain pending review.
+5. Refer a friend is in the avatar menu and opens the existing worker referral
+   program. Personal Next actions setup links now lead to the relevant Settings
+   page. Coordinators keep scoped editing for their selected participant.
+6. Check navigation between long and short pages, individual file actions,
+   desktop/mobile layout, enlarged text and keyboard navigation after updating.
 
-Compare separately if your repository has newer changes not supplied here.
-No schema change is needed from v88.2.6. The earlier PDF/HTML preview fixes,
-compact verification controls, automations and Settings fixes are retained.
-See docs/CHANGELOG-v88.2.7.md, docs/SITE-USABILITY-REVIEW.md and
- docs/TEST-RESULTS.md for scope, test results and browser limits.
-
-Full automated checks passed. Browser visual testing is blocked in this
-workspace; confirm the deployed layout after updating.
+Full automated checks passed; browser layout could not be previewed here.
+See docs/CHANGELOG-v88.2.8.md and docs/TEST-RESULTS.md for changes and limits.
+Previous PDF/HTML previews, compact header and verification automations remain.
+Do not apply both the latest-only and cumulative update packages.
 
 No existing files need to be deleted for this update.
 
 INCLUDED PROJECT FILES
 RELEASE-FILES.json
 STARTHERE.txt
-docs/CHANGELOG-v88.2.7.md
+docs/CHANGELOG-v88.2.8.md
 docs/RELEASE-NOTES.md
 docs/SITE-USABILITY-REVIEW.md
 docs/TEST-RESULTS.md
 docs/api-route-inventory.txt
 docs/database-table-inventory.txt
 docs/release-metadata.json
+lib/process-routes.js
+lib/process-store.js
 package-lock.json
 package.json
 public/assets/process-workflows.js
-public/assets/site-usability.css
+public/assets/worker-credentials.css
+public/assets/worker-credentials.js
 public/index.html
 readme.txt
 scripts/release-docs.js
-tests/graphics-tests.js
+server.js
+tests/account-settings-tests.js
+tests/credentials-tests.js
 tests/navigation-tests.js
-validation/v88.2.7-asset-preservation.json
-validation/v88.2.7-check-output.txt
-validation/v88.2.7-navigation-results.json
-validation/v88.2.7-page-audit.json
-validation/v88.2.7-settings-results.json
+tests/process-regression.js
+validation/v88.2.8-asset-preservation.json
+validation/v88.2.8-check-output.txt
+validation/v88.2.8-credentials-results.json
+validation/v88.2.8-navigation-results.json
+validation/v88.2.8-page-audit.json
+validation/v88.2.8-process-results.json
+validation/v88.2.8-settings-results.json

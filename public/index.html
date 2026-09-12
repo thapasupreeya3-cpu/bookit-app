@@ -1783,6 +1783,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 <link rel="stylesheet" href="/assets/process-workflows.css">
 <link rel="stylesheet" href="/assets/admin-verification.css?v=88.2.5">
 <link rel="stylesheet" href="/assets/site-usability.css?v=88.2.7">
+<link rel="stylesheet" href="/assets/worker-credentials.css?v=88.2.8">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
@@ -7225,11 +7226,9 @@ function route(){
   closeMobileNav();
   closeModals();
   stopSpeech();
-  /* moving between settings pages with the list on screen: stay put.
-     Everything else scrolls to the top as always. */
-  const acctToAcct = ROUTE_LAST && ROUTE_LAST.startsWith('/account') && path.startsWith('/account');
-  const admToAdm = ROUTE_LAST && ROUTE_LAST.startsWith('/admin') && path.startsWith('/admin');
-  if(!((acctToAcct || admToAdm) && matchMedia('(min-width:901px)').matches)) window.scrollTo({top:0, behavior:'auto'});
+  // A navigation starts at the top; background refreshes do not call the router.
+  if('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  window.scrollTo({top:0, left:0, behavior:'instant'});
   ROUTE_LAST = path;
   $('#main').focus({preventScroll:true});
   if(id === 'page-login' && !API.me) openModal('#loginModal');
@@ -7762,6 +7761,7 @@ function renderAcctMenu(){
     `<span class="acct-badge red" data-blk-badge="support_plan" ${blockerCount('support_plan') ? '' : 'hidden'}>${blockerCount('support_plan') || ''}</span>`);
   items += item('#/account', '', 'gear', 'Settings',
     `<span class="acct-badge red" data-blk-badge="settings" ${blockerCount('settings') ? '' : 'hidden'}>${blockerCount('settings') || ''}</span>`);
+  if(!m.admin) items += item('#/refer-a-worker', '', 'user', 'Refer a friend');
   if(!m.admin && m.role !== 'coordinator') items += item('#/bookings', 'cardIncident', 'flag', 'Report an incident');
   $('#acctMenu').innerHTML = `
     <div class="acct-head">
@@ -7944,6 +7944,7 @@ window.goEditProfile = function(){
 };
 function revealPendingSection(){
   if(!PENDING_SECTION) return;
+  if(location.hash.split('?')[0] !== '#/bookings'){ PENDING_SECTION = null; return; }
   if(Date.now() - PENDING_AT > 10000){ PENDING_SECTION = null; return; }
   const el = document.getElementById(PENDING_SECTION);
   if(!el) return; /* not rendered yet — stay armed for the render's own call */
@@ -7951,7 +7952,8 @@ function revealPendingSection(){
   for(let ancestor=el;ancestor;ancestor=ancestor.parentElement){if(ancestor.tagName==='DETAILS')ancestor.open=true;}
   const det = el.querySelector('details'); if(det) det.open = true;
   setTimeout(() => {
-    el.scrollIntoView({behavior:'smooth', block:'center'});
+    if(location.hash.split('?')[0] !== '#/bookings' || !el.closest('.page.active')) return;
+    el.scrollIntoView({behavior:'instant', block:'nearest'});
     el.classList.add('sec-flash');
     setTimeout(() => el.classList.remove('sec-flash'), 1750);
   }, 80);
@@ -8027,10 +8029,13 @@ function fmtStamp(iso){
          d.toLocaleTimeString('en-AU', {hour:'numeric', minute:'2-digit'}).toLowerCase();
 }
 async function renderMessagesOnline(){
+  const person = API.me?.id;
   let d;
   try { d = await API.call('/conversations'); } catch(e){ return; }
+  if(person !== API.me?.id) return;
   LIVE.convos = d.conversations || [];
   setUnread(LIVE.convos.reduce((n, c) => n + c.unread, 0));
+  if(location.hash.split('?')[0] !== '#/messages') return;
   $('#convoList').innerHTML = LIVE.convos.map(c => `
     <button class="convo-item ${c.unread ? 'ci-unread' : ''} ${c.id === LIVE.activeCid ? 'active' : ''}" data-cid="${c.id}" role="listitem" type="button">
       <div class="wc-avatar" style="background:${c.other.color};">${c.other.name.split(' ').map(p => p[0]).join('').slice(0,2)}</div>
@@ -8047,11 +8052,12 @@ async function renderMessagesOnline(){
   $('#msgLayout').classList.toggle('show-thread', !!active);
 }
 async function renderThreadOnline(convo, older=false){
+  const person = API.me?.id;
   let d;
   const cursor=older ? BookItReview.messageCursor(convo.id) : BookItReview.latestMessage(convo.id);
   if(older&&!cursor)return;
   try { d = await API.call('/conversations/' + convo.id + '/messages'+(cursor?(older?'?before=':'?after=')+cursor:'')); } catch(e){ toast('Messages could not be loaded. Please retry.'); return; }
-  if(convo.id!==LIVE.activeCid)return;
+  if(convo.id!==LIVE.activeCid || person!==API.me?.id || location.hash.split('?')[0] !== '#/messages')return;
   const fetchedIds=d.messages.map(x=>x.id);
   const moreNew=d.has_newer;
   d=BookItReview.mergeMessages(convo.id,d,older);
@@ -8094,13 +8100,13 @@ async function renderThreadOnline(convo, older=false){
 async function openConvoOnline(cid, focus){
   LIVE.activeCid = cid;
   await renderMessagesOnline();
-  if(focus) $('#composerInput').focus();
+  if(focus && location.hash.split('?')[0] === '#/messages') $('#composerInput').focus({preventScroll:true});
 }
 async function startConvoOnline(workerId){
   try{
     const d = await API.call('/conversations', {method:'POST', body:{worker_id: workerId}});
     location.hash = '#/messages';
-    setTimeout(() => openConvoOnline(d.conversation.id, true), 80);
+    setTimeout(() => { if(location.hash.split('?')[0] === '#/messages') openConvoOnline(d.conversation.id, true); }, 80);
   }catch(e){ toast(e.message); }
 }
 async function sendMessageOnline(text){
@@ -8425,71 +8431,10 @@ async function renderBookingsPage(){
         </div>
       </div>
     </div>`;
-    const chip = s => s === 'valid' ? '<span class="adm-badge" style="background:#E1F3E7;border-color:#1F7A4D;color:#1F7A4D;">current ✓</span>'
-      : s === 'expiring' ? '<span class="adm-badge">expiring soon</span>'
-      : s === 'expired' ? '<span class="adm-badge" style="background:#FCE9E3;border-color:#C8462E;color:#C8462E;">EXPIRED</span>'
-      : '<span class="adm-badge">no expiry set</span>';
-    const obItems = [
-      { done: !!prof.photo, label: 'Profile photo', hint: 'required before approval' },
-      { done: ['valid', 'expiring'].includes(sum.screening), label: 'NDIS Worker Screening', hint: sum.screening === 'expiring' ? 'expiring soon — renew it' : 'required before approval' },
-      { done: !!sum.id_ok, label: '100 points of ID', hint: `${sum.id_points || 0} / 100 pts${sum.has_primary ? ' · primary ✓' : ' · needs a primary (passport, birth or citizenship certificate)'}` },
-      { done: !!sum.right_to_work, label: 'Right to work', hint: 'Australian passport, birth or citizenship certificate — or passport + visa' },
-      { done: !!sum.orientation, label: 'NDIS Orientation Module', hint: 'free 90-minute Commission module' },
-      { done: !!sum.first_aid, label: 'First Aid (HLTAID011)', hint: 'renews every 3 years' },
-      { done: !!sum.cpr, label: 'CPR (HLTAID009)', hint: 'renews yearly — required to be on the platform' },
-      { done: !!sum.resume, label: 'Resume', hint: 'your work history' }
-    ];
-    const obDone = obItems.filter(i => i.done).length;
-    const expRule = {};
-    (catData.types || []).forEach(t => { expRule[t.key] = t.expiry; });
-    const wdSup = supersededIds(docs);
-    const docGroups = (catData.categories || []).map(c => {
-      const items = docs.filter(dd => dd.category === c.key);
-      if(!items.length) return '';
-      return `<div class="doc-group-h">${esc(c.label)}</div>` + items.map(dd =>
-        `<p style="margin:5px 0;font-size:.92rem;${wdSup.has(dd.id) ? 'color:#6B7590;' : ''}"><b>${esc(dd.type_label)}</b>${dd.check_number ? ' · ' + esc(dd.check_number) : ''}${dd.expiry_date ? ' · expires ' + fmtAU(dd.expiry_date) : ''} ${dd.expiry_date ? stageChip(dd, wdSup.has(dd.id)) : (expRule[dd.doc_type] === 'required' ? chip('no-expiry') : '')} ${reviewChip(dd)}${dd.has_file ? ` · <a href="/api/documents/${dd.id}/file" target="_blank">view file</a>` : ''}${!dd.verified_at ? ` · <button type="button" class="adm-btn-sm" data-wd-del="${dd.id}">remove</button>` : ''}${dd.review === 'rejected' && dd.review_note ? `<br><span style="color:#9E2F1C;font-size:.82rem;"><b>Why:</b> ${esc(dd.review_note)} — upload a replacement below and it takes this one's place.</span>` : ''}</p>`).join('');
-    }).join('');
-    const reqPanel = (dreqs && dreqs.length) ? `
-      <div style="margin:0 0 14px;padding:12px 14px;border:1.5px solid #F1BE48;border-radius:12px;background:#FDF9EF;" id="wdRequests">
-        <b style="font-size:.92rem;">The office has asked you for:</b>
-        ${dreqs.map(rq => `
-          <p style="margin:7px 0 0;font-size:.9rem;"><b>${esc(rq.label)}</b>
-            <span class="acc-chip invited" title="${esc(rq.review_hint)}">${esc(rq.review_label)}</span>
-            · asked ${rq.waiting_days === 0 ? 'today' : rq.waiting_days + ' day' + (rq.waiting_days === 1 ? '' : 's') + ' ago'}${rq.due_date ? ` · needed by <b>${fmtAU(rq.due_date)}</b>` : ''}${rq.overdue ? ' <b style="color:#9E2F1C;">— overdue</b>' : ''}${rq.note ? `<br><span class="muted-sm">${esc(rq.note)}</span>` : ''}</p>`).join('')}
-        <p class="muted-sm" style="margin:8px 0 0;">Upload it below — the request closes itself the moment the document lands, nobody has to tick anything.</p>
-      </div>` : '';
-    workerCards += `
-    <div class="info-card" id="cardCreds" style="margin-bottom:18px;">
-      <h3 style="margin:0 0 6px;">My documents & credentials</h3>
-      ${reqPanel}
-      <p class="muted-sm" style="margin:0 0 12px;">Everything The Care Web needs to get you working — ID first, then your checks, training and qualifications. Expiry dates are watched automatically; a lapsed screening pauses your profile until it's renewed.</p>
-      <div class="ob-head">
-        <b style="font-size:.9rem;">Onboarding ${obDone} of ${obItems.length} complete</b>
-        <div class="ob-bar" role="img" aria-label="Onboarding ${obDone} of ${obItems.length} complete"><i style="width:${Math.round(obDone / obItems.length * 100)}%;"></i></div>
-      </div>
-      <div class="ob-grid">${obItems.map(i => `<div class="ob-item ${i.done ? 'done' : ''}"><span class="ob-tick">${i.done ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>' : ''}</span><span><b>${i.label}</b><small>${i.hint}</small></span></div>`).join('')}</div>
-      ${docGroups || '<p class="muted-sm" style="margin-top:8px;">Nothing on file yet — start with a primary ID (passport or birth certificate), then your NDIS Worker Screening Check.</p>'}
-      <details style="margin-top:12px;" ${docs.length ? '' : 'open'}><summary style="cursor:pointer;color:#203566;font-weight:600;">＋ Add a document</summary>
-        <div style="margin-top:10px;">
-          <div id="wdSearchWrap">
-            <label for="wdSearch" style="font-size:.85rem;font-weight:600;">Which document?</label>
-            <div class="typeahead" style="margin-top:5px;">
-              <input id="wdSearch" placeholder="Start typing — passport, first aid, Cert III…" autocomplete="off">
-              <div class="ta-menu" id="wdMenu" hidden></div>
-            </div>
-          </div>
-          <input type="hidden" id="wdType" value="">
-          <span class="ta-chosen" id="wdChosen" hidden></span>
-          <p class="doc-help" id="wdHelp" hidden></p>
-          <div id="wdFieldRow" hidden style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
-            <label style="font-size:.85rem;" id="wdLabelWrap" hidden>Name it<br><input id="wdLabel" placeholder="e.g. Diploma of Nursing" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;width:200px;"></label>
-            <label style="font-size:.85rem;" id="wdNumberWrap"><span id="wdNumberLab">Number</span><br><input id="wdNumber" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;width:170px;"></label>
-            <label style="font-size:.85rem;" id="wdExpiryWrap">Expiry <b id="wdExpReq" style="color:#C8462E;" hidden>(required)</b><br><input id="wdExpiry" type="date" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;"></label>
-            <label style="font-size:.85rem;">File (photo any size, PDF ≤ 4 MB)<br><input id="wdFile" type="file" accept=".pdf,.jpg,.jpeg,.png" style="font-size:.85rem;"></label>
-            <button type="button" class="btn btn-primary btn-sm" id="wdAdd">Add</button>
-          </div>
-        </div>
-      </details>
+    workerCards += `<div class="info-card" id="cardCreds" style="margin-bottom:18px;">
+      <h3>Credentials &amp; checks</h3>
+      <p class="muted-sm">See essential documents, office requests and individual file actions in your checklist.</p>
+      <a class="btn btn-secondary btn-sm" href="#/account/credentials">Open document checklist</a>
     </div>`;
   }
   const incidentCard = `
@@ -13866,13 +13811,15 @@ function jumpFinish(){
      a miss keeps it armed for the next render, with a staleness window so
      an abandoned jump can't flash some far-future visit. */
   if(Date.now() - (ATT.jumpAt || 0) > 10000){ ATT.jump = 0; return; }
+  if(location.hash.split('?')[0] !== '#/messages'){ ATT.jump = 0; return; }
   const mid = ATT.jump;
   const el = document.querySelector(`#threadBody .bubble[data-mid="${mid}"]`);
   if(!el) return;
   ATT.jump = 0;
   ATT.flashMid = mid;
   ATT.flashUntil = Date.now() + 1900;
-  el.scrollIntoView({ block: 'center' });
+  const thread = $('#threadBody');
+  thread.scrollTop += el.getBoundingClientRect().top - thread.getBoundingClientRect().top - thread.clientHeight / 2 + el.clientHeight / 2;
   el.classList.add('flash');
   setTimeout(() => el.classList.remove('flash'), 1900);
 }
@@ -14452,7 +14399,7 @@ async function renderAccountContent(wrap, isCurrent){
        takes its turn behind a tab — the page stops running. Tabs only exist
        for the groups this role actually has. */
     const apPanes = [
-      ['details', 'Your details', detailsCard],
+      ['details', 'Your details', detailsCard + (!me.admin && me.role !== 'coordinator' ? '<div id="miniSharedContacts"></div>' : '')],
       aboutCards ? ['supports', 'Supports & plan', aboutCards] : null,
       workerCards ? ['public', 'Public profile', workerCards] : null,
       ['privacy', 'Privacy & data', privacyCards],
@@ -14486,6 +14433,7 @@ async function renderAccountContent(wrap, isCurrent){
         apShow(n.dataset.pane, true);
       });
     });
+    if(!me.admin && me.role !== 'coordinator') await CareFlow.renderContacts(document.getElementById('miniSharedContacts'));
     return;
   }
 
@@ -14506,12 +14454,12 @@ async function renderAccountContent(wrap, isCurrent){
   if(me.role === 'worker' && !me.admin){
     S.push(['availability','Availability & service areas','Whole-visit hours, suburbs, leave and travel buffers','<div id="reviewAvailability"><p>Loading availability…</p></div>']);
     S.push(['credentials', 'Credentials & checks', 'Screening, training, expiry dates', '<div id="miniCreds"><p class="muted-sm">Loading…</p></div>']);
-    S.push(['earnings', 'Earnings & pay tier', 'Pay lines, super, next rate', '<p class="settings-related"><a href="#/ladder">Pay tiers</a><a href="#/support-workers">Pay rates</a><a href="#/refer-a-worker">Refer a worker</a></p><div id="miniEarnings"><p class="muted-sm">Loading…</p></div>']);
+    S.push(['earnings', 'Earnings & pay tier', 'Pay lines, super, next rate', '<p class="settings-related"><a href="#/ladder">Pay tiers</a><a href="#/support-workers">Pay rates</a><a href="#/refer-a-worker">Refer a friend</a></p><div id="miniEarnings"><p class="muted-sm">Loading…</p></div>']);
     S.push(['training', 'Training', 'Required, done, due', '<div id="miniTraining"><p class="muted-sm">Loading…</p></div>']);
     S.push(['jobs', 'Jobs board', 'Open posts, your applications', '<p class="mini-note" style="margin:0 0 10px;"><a href="#/jobs"><b>Browse the jobs board →</b></a> — participants post what they need; apply with a short note.</p><div id="miniApps"><p class="muted-sm">Loading…</p></div>']);
   }
 
-  S.push(['notifications', 'Emails & notifications', 'Which emails reach you', notCard || card('cardNotifsFallback', 'Emails', '<p class="muted-sm">Couldn’t load your email settings just now.</p><button type="button" class="btn btn-secondary btn-sm" id="acctRetry">Try again</button>')]);
+  S.push(['notifications', 'Emails & notifications', 'Which emails reach you', (notCard || card('cardNotifsFallback', 'Emails', '<p class="muted-sm">Couldn’t load your email settings just now.</p><button type="button" class="btn btn-secondary btn-sm" id="acctRetry">Try again</button>')) + '<div id="miniWorkflowPreferences"></div>']);
   S.push(['accessibility', 'Accessibility', 'Text size, font, motion, contrast', a11yCard]);
   S.push(['security', 'Sign-in & security', 'Password, two-step, devices', pwCard + '<div id="miniSecurity"><p class="muted-sm">Loading…</p></div>']);
   S.push(['help', 'Help & contact', 'A real person, plain answers', card('cardHelpLink', 'Help & contact', `<p style="margin:0 0 6px;font-size:1.05rem;"><b>0488 114 368</b> · <a href="mailto:hello@thecareweb.com.au">hello@thecareweb.com.au</a></p><p class="mini-note" style="margin:0 0 8px;"><b>In an emergency, always call 000 first.</b> National Relay Service and interpreters (TIS 131 450) welcome.</p><p style="margin:0;font-size:.9rem;"><a href="#/contact"><b>Send us a message →</b></a> &nbsp;·&nbsp; <a href="#/faq"><b>FAQ &amp; help →</b></a></p>`)]);
@@ -14551,6 +14499,7 @@ async function renderAccountContent(wrap, isCurrent){
   else if(rowOn === 'earnings') await renderEarningsPage();
   else if(rowOn === 'training') await renderTrainingPage();
   else if(rowOn === 'credentials') await renderCredsMini();
+  else if(rowOn === 'notifications' && !me.admin) await CareFlow.renderPreferences(document.getElementById('miniWorkflowPreferences'));
 }
 /* Build 22 — the documents mini: the participant's file, dense, with a
    one-line add. Same endpoints as the bookings card; its own ids. */
@@ -14746,24 +14695,7 @@ document.addEventListener('change', e => {
 /* the worker's credentials mini — what's on file and its state, dense */
 async function renderCredsMini(){
   const wrap = $('#miniCreds'); if(!wrap || !wrap.closest('.page.active')) return;
-  let d;
-  try{ d = await API.call('/me/documents', {noFor:true}); }
-  catch(e){ wrap.innerHTML = `<div class="info-card" role="alert"><p>${esc(e.message)}</p><button type="button" class="btn btn-secondary btn-sm" id="acctRetry">Try again</button></div>`; return; }
-  const docs = d.documents || [];
-  const chip = x => x.status === 'valid' ? '<span class="sec-chip on">current</span>'
-    : x.status === 'expiring' ? '<span class="acc-chip invited">expiring soon</span>'
-    : x.status === 'expired' ? '<span class="acc-chip revoked">EXPIRED</span>' : '';
-  const rows = docs.map(x => `
-    <p><b>${esc(x.type_label || x.doc_type || '')}</b>${x.expiry_date ? ' · expires ' + fmtAU(x.expiry_date) : ''} ${chip(x)}${x.review_label ? ` · <span class="muted-sm">${esc(x.review_label)}</span>` : ''}${x.has_file ? `<br><a href="${/\.(png|jpe?g)$/i.test(x.file_name || '') ? '/api/documents/' + Number(x.id) + '/file' : '/api/document-viewer?scope=worker&id=' + Number(x.id)}" target="_blank" rel="noopener noreferrer">${esc(x.file_name || 'View document')}</a>` : '<br><span class="muted-sm">Details only — no file uploaded</span>'}${x.review_note ? `<br><span class="muted-sm">${esc(x.review_note)}</span>` : ''}</p>`).join('');
-  const reqs = (d.requests || []);
-  wrap.innerHTML = `
-  <div class="info-card" style="margin-bottom:12px;" id="cardCredsMini">
-    <h3 style="margin:0 0 6px;">Credentials & checks</h3>
-    <p class="mini-note">Upload your evidence for office review. Check review notes and expiry dates here. Uploading a replacement does not verify it automatically.</p>
-    ${reqs.length ? `<p class="mini-note" style="color:#8a6d00;"><b>The office has asked for:</b> ${reqs.map(r => esc(r.label)).join(', ')}.</p>` : ''}
-    <div class="mini-rows">${rows || '<p class="muted-sm">No documents yet. Add your ID, screening checks and certificates to start the review.</p>'}</div>
-    <div class="usability-actions"><a class="btn btn-primary btn-sm" href="#/journey?panel=uploads&from=credentials">Add or replace files</a><a href="#/account/training">Training modules</a></div>
-  </div>`;
+  await WorkerCredentials.render(wrap);
 }
 
 document.addEventListener('change', async e => {
@@ -15605,6 +15537,7 @@ document.addEventListener('click', async e => {
 
 
 <script src="/assets/process-workflows.js"></script>
+<script src="/assets/worker-credentials.js?v=88.2.8"></script>
 <script src="/assets/admin-verification.js?v=88.2.5"></script>
 <script>
 document.addEventListener('click',async event=>{

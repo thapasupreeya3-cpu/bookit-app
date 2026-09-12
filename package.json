@@ -1,12 +1,12 @@
 {
   "name": "bookit-site-v65",
-  "version": "88.2.7",
+  "version": "88.2.8",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "lint": "node scripts/lint.js",
-    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process && npm run test:verification && npm run test:settings && npm run test:navigation",
+    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process && npm run test:verification && npm run test:settings && npm run test:navigation && npm run test:credentials",
     "inventory": "node scripts/inventory.js",
     "check": "npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && node scripts/verify-release.js && npm test",
     "backup": "node --no-warnings scripts/backup.js",
@@ -18,7 +18,8 @@
     "test:process": "node --no-warnings tests/process-regression.js",
     "test:verification": "node --no-warnings tests/admin-verification-tests.js",
     "test:settings": "node --no-warnings tests/account-settings-tests.js",
-    "test:navigation": "node --no-warnings tests/navigation-tests.js"
+    "test:navigation": "node --no-warnings tests/navigation-tests.js",
+    "test:credentials": "node --no-warnings tests/credentials-tests.js"
   },
   "license": "UNLICENSED",
   "engines": {
