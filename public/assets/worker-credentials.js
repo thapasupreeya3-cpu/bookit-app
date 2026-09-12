@@ -10,13 +10,21 @@ window.WorkerCredentials = (() => {
   const platform = d => d.evidence_origin === 'platform-module';
   const reviewed = d => !!d.verified_at && !['rejected','superseded'].includes(d.review_state || d.review);
   const usable = d => (d.has_file || platform(d)) && !['rejected','superseded'].includes(d.review_state || d.review) && d.status !== 'expired';
+  const icon = kind => `<svg class="cred-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle>${kind==='verified'?'<path d="m8 12 2.5 2.5L16 9"></path>':kind==='pending'?'<path d="M12 7v5l3 2"></path>':kind==='neutral'?'<path d="M8 12h8"></path>':'<path d="M12 7v6m0 4h.01"></path>'}</svg>`;
+  const badge = (kind,text) => `<span class="cred-status is-${kind}">${icon(kind)}${e(text)}</span>`;
+  function fileState(d) {
+    if(d.review_state==='superseded') return 'neutral';
+    if(d.review==='rejected' || d.review_state==='rejected' || d.status==='expired' || (!d.has_file && !platform(d))) return 'missing';
+    if(d.status==='expiring') return 'attention';
+    return platform(d) || reviewed(d) ? 'verified' : 'pending';
+  }
   function label(d) {
     if(d.review === 'rejected' || d.review_state === 'rejected') return 'Replace requested';
     if(d.review_state === 'superseded') return 'Earlier record';
     if(d.status === 'expired') return 'Expired';
     if(platform(d)) return 'Completed in Training';
     if(!d.has_file) return 'Needs a file';
-    return reviewed(d) ? (d.status === 'expiring' ? 'Verified · expiring soon' : 'Verified') : 'Awaiting review';
+    return reviewed(d) ? (d.status === 'expiring' ? 'Verified · expiring soon' : 'Verified') : 'Awaiting office review';
   }
   function requirements(types, docs) {
     const held = types.filter(t => docs.some(d => d.doc_type === t.key && usable(d)));
@@ -26,14 +34,14 @@ window.WorkerCredentials = (() => {
     const core = types.filter(t => t.required || t.key === 'resume').map(t => ({key:t.key, title:t.label, keys:[t.key], have:held.includes(t), verified:checked.includes(t), help:t.help || '', type:t.key}));
     return [
       {key:'identity', title:'100 points of identity', keys:types.filter(t=>t.points).map(t=>t.key), have:identity(held), verified:identity(checked), help:`${idPoints} points uploaded. Include a primary document and at least 100 points in total. Each document type counts once.`, type:held.some(t=>t.primary)?'driver-licence':'passport-au'},
-      {key:'work-rights', title:'Right to work in Australia', keys:['visa'], have:held.some(t=>t.rtw), verified:checked.some(t=>t.rtw), help:'Australian passport, birth or citizenship evidence above can cover this too. Otherwise add your visa evidence.', type:'visa'},
+      {key:'work-rights', title:'Right to work in Australia', keys:['visa'], have:held.some(t=>t.rtw), verified:checked.some(t=>t.rtw), help:'Australian passport, birth or citizenship evidence above can cover this too. Otherwise add your visa evidence.', type:'visa', coveredBy:held.filter(t=>t.rtw && t.key!=='visa')},
       ...core
     ];
   }
   function fileRow(d) {
     const source = /\.(png|jpe?g)$/i.test(d.file_name || '') ? '/api/documents/'+Number(d.id)+'/file' : '/api/document-viewer?scope=worker&id='+Number(d.id);
     const name = d.file_name || d.type_label || d.doc_type;
-    return `<div class="cred-file"><div class="cred-file-info"><b>${e(name)}</b><span>${e(label(d))}${d.expiry_date?' · Expires '+e(fmtAU(d.expiry_date)):''} · #${Number(d.id)}</span>${d.check_number?`<span>Reference: ${e(d.check_number)}</span>`:''}${d.review_note?`<p class="cred-review-note">${e(d.review_note)}</p>`:''}</div><div class="cred-actions">${d.has_file?`<a href="${source}" target="_blank" rel="noopener noreferrer" aria-label="View ${e(name)} (opens a new tab)">View</a>`:''}${platform(d)?'<a href="#/account/training">Open training</a>':button('replace',d.has_file?'Replace':'Add file',d.id)+button(d.verified_at?'request-removal':'remove',d.verified_at?'Request removal':'Remove',d.id)}</div></div>`;
+    return `<div class="cred-file"><div class="cred-file-info"><b>${e(name)}</b>${badge(fileState(d),label(d))}<span class="cred-file-meta">${reviewed(d)?'Verified '+e(fmtAU(d.verified_at.slice(0,10)))+' · ':''}${d.expiry_date?'Expires '+e(fmtAU(d.expiry_date))+' · ':''}#${Number(d.id)}</span>${d.check_number?`<span>Reference: ${e(d.check_number)}</span>`:''}${d.review_note?`<p class="cred-review-note">${e(d.review_note)}</p>`:''}</div><div class="cred-actions">${d.has_file?`<a href="${source}" target="_blank" rel="noopener noreferrer" aria-label="View ${e(name)} (opens a new tab)">View</a>`:''}${platform(d)?'<a href="#/account/training">Open training</a>':button('replace',d.has_file?'Replace':'Add file',d.id)+button(d.verified_at?'request-removal':'remove',d.verified_at?'Request removal':'Remove',d.id)}</div></div>`;
   }
   function files(docs) {
     if(!docs.length) return '';
@@ -45,17 +53,28 @@ window.WorkerCredentials = (() => {
     for(const t of types) if(!groups.some(c=>c.key===t.category)) groups.push({key:t.category,label:t.category || 'Other'});
     return '<option value="">Choose a document type…</option>'+groups.map(c=>`<optgroup label="${e(c.label)}">${types.filter(t=>t.category===c.key).map(t=>`<option value="${e(t.key)}">${e(t.label)}${t.points?' — '+t.points+' points':''}</option>`).join('')}</optgroup>`).join('');
   }
+  function requirementRow(r,s) {
+    const kind=r.verified?'verified':r.have?'pending':'missing';
+    const module=s.docs.find(d=>r.keys.includes(d.doc_type) && platform(d) && usable(d));
+    const covered=r.key==='work-rights' && r.coveredBy?.length;
+    const evidence=r.key==='identity'?r.keys.filter(key=>s.docs.some(d=>d.doc_type===key)).map(key=>`<div class="cred-id-group"><b>${e(s.types.find(t=>t.key===key)?.label)}</b>${files(s.docs.filter(d=>d.doc_type===key && !platform(d)))}</div>`).join(''):files(s.docs.filter(d=>r.keys.includes(d.doc_type) && !platform(d)));
+    return `<section class="cred-item" data-cred-requirement="${e(r.key)}"><div class="cred-item-head"><h4>${e(r.title)}</h4>${badge(kind,r.verified?'Verified':r.have?'Awaiting office review':'Needs files')}${button('add',r.have?'Add another':'Add file',r.type)}</div><p class="cred-hint">${e(r.help)}</p>${covered?`<p class="cred-coverage">Covered by ${r.coveredBy.map(t=>e(t.label)).join(' / ')} in your identity documents. ${button('identity','View supporting files')}</p>`:''}${module?`<p class="cred-coverage">${icon('verified')}Completed in <a href="#/account/training">Training</a>${module.verified_at?' · '+e(fmtAU(module.verified_at.slice(0,10))):''}. No separate upload needed for this completion.</p>`:''}${evidence}</section>`;
+  }
   function page(s) {
-    const reqs = requirements(s.types,s.docs), missing = reqs.filter(r=>!r.have);
+    const reqs = requirements(s.types,s.docs), missing = reqs.filter(r=>!r.have), pending=reqs.filter(r=>r.have&&!r.verified), verified=reqs.filter(r=>r.verified);
+    const kind=missing.length?'missing':pending.length?'pending':'verified';
+    const title=missing.length?missing.length===1?'1 essential item needs a file':missing.length+' essential items need files':pending.length?'Essential files received':'Essential documents verified';
+    const message=missing.length?missing.map(r=>r.title).join(' · '):pending.length?`${pending.length} essential ${pending.length===1?'requirement is':'requirements are'} awaiting office review. The files are on record; the office still needs to check them.`:`All ${verified.length} essential requirements are verified. View the status and review dates below.`;
     const used = new Set(reqs.flatMap(r=>r.keys));
     const extra = s.types.filter(t=>!used.has(t.key) && s.docs.some(d=>d.doc_type===t.key && !platform(d)));
     const unknown = s.docs.filter(d=>!s.types.some(t=>t.key===d.doc_type) && !platform(d));
-    return `<section class="credentials-workspace" aria-label="Credentials and checks"><h2>Credentials &amp; checks</h2><p>Choose a document type to add a file, or use Replace beside an existing file. Uploads are checked by the office.</p>
-      <div class="cred-overview"><strong>${missing.length?missing.length+' essential item'+(missing.length===1?'':'s')+' need files':'Essential files received'}</strong><p>${missing.length?missing.map(r=>e(r.title)).join(' · '):'Check the review status beside each item. Received does not mean verified.'}</p></div>
+    return `<section class="credentials-workspace" aria-label="Credentials and checks"><h2>Credentials &amp; checks</h2><p>Add or replace your files here. The office records verification after reviewing them.</p>
+      <div class="cred-overview is-${kind}"><div class="cred-overview-main">${icon(kind)}<div><strong>${e(title)}</strong><p>${e(message)}</p></div><button type="button" data-cred-action="status" aria-controls="credChecklist">View document status</button></div></div>
+      <details class="cred-explainer"><summary>How verification works</summary><p>The office reviews your evidence and records the result. <b>Verified</b> means the check has been recorded. <b>Awaiting office review</b> means the file has arrived and is waiting to be checked. <b>Needs files</b> means a current file still needs to be added or replaced.</p><p>Use View document status to see each item, its review date and any reason for a requested replacement. Uploading a file does not verify it.</p></details>
       ${s.requests.length?`<aside class="cred-requests"><h3>Requested by the office</h3>${s.requests.map(r=>`<p><b>${e(r.label || r.doc_key)}</b>${r.note?' — '+e(r.note):''} ${button('add','Add requested file',s.types.some(t=>t.key===r.doc_key)?r.doc_key:'')}</p>`).join('')}</aside>`:''}
       <div id="credNotice" role="status" aria-live="polite">${e(s.notice || '')}</div>
       <section class="cred-upload" aria-labelledby="credUploadTitle"><h3 id="credUploadTitle">Add a document</h3><label for="credType">Document type — full list</label><select id="credType">${options(s.types,s.categories)}</select><div id="credFormArea"><p class="cred-hint">Select the exact type first so your file is recorded in the right place.</p></div></section>
-      <h3>Essential documents</h3><div class="cred-checklist">${reqs.map(r=>`<section class="cred-item" data-cred-requirement="${e(r.key)}"><div class="cred-item-head"><h4>${e(r.title)}</h4><span class="cred-status ${r.verified?'is-verified':r.have?'is-pending':'is-missing'}">${r.verified?'Verified':r.have?'Awaiting review':'Needs files'}</span>${button('add',r.have?'Add another':'Add file',r.type)}</div><p class="cred-hint">${e(r.help)}</p>${r.key==='identity'?r.keys.filter(key=>s.docs.some(d=>d.doc_type===key)).map(key=>`<div class="cred-id-group"><b>${e(s.types.find(t=>t.key===key)?.label)}</b>${files(s.docs.filter(d=>d.doc_type===key && !platform(d)))}</div>`).join(''):files(s.docs.filter(d=>r.keys.includes(d.doc_type) && !platform(d)))}</section>`).join('')}</div>
+      <h3 id="credChecklistTitle" tabindex="-1">Essential documents</h3><div id="credChecklist" class="cred-checklist">${reqs.map(r=>requirementRow(r,s)).join('')}</div>
       <details class="cred-additional" ${extra.length || unknown.length?'open':''}><summary>Other checks, qualifications &amp; files (${extra.length+unknown.length})</summary><p>Requirements vary with your work: children’s checks, driving, medication and specialist skills. Choose any type from the full list above.</p>${extra.map(t=>`<section class="cred-item"><div class="cred-item-head"><h4>${e(t.label)}</h4>${button('add','Add file',t.key)}</div>${files(s.docs.filter(d=>d.doc_type===t.key && !platform(d)))}</section>`).join('')}${unknown.map(fileRow).join('')}</details>
       <div id="credAssistance"></div><p class="cred-hint">Your <a href="#/account/profile">profile photo</a> and <a href="#/account/training">online training modules</a> are managed separately. Earlier files remain on record when you upload a replacement.</p></section>`;
   }
@@ -97,6 +116,11 @@ window.WorkerCredentials = (() => {
   async function act(s,b) {
     if(!current(s)||s.saving)return;
     const action=b.dataset.credAction,value=b.dataset.value;
+    if(action==='status' || action==='identity') {
+      const target=s.wrap.querySelector(action==='identity'?'[data-cred-requirement="identity"] h4':'#credChecklistTitle');
+      if(target){target.tabIndex=-1;target.focus({preventScroll:true});target.scrollIntoView({block:'start',behavior:'instant'});}
+      return;
+    }
     if(action==='add'){selectType(s,value,null,true);return;}
     if(action==='cancel'){selectType(s,'');return;}
     const d=s.docs.find(d=>d.id===Number(value));if(!d)return;

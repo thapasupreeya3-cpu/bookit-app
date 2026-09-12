@@ -1,0 +1,10 @@
+{
+  "renderer": "Production WorkerCredentials component in a VM; not a browser",
+  "states": [
+    "Verified",
+    "Awaiting office review",
+    "Missing files"
+  ],
+  "scripts": "compiled",
+  "accountActions": "disabled"
+}

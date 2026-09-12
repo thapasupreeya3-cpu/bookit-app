@@ -1,0 +1,29 @@
+{
+  "scope": "Declared CSS colour pairs only; browser colour overrides were not inspected.",
+  "results": [
+    {
+      "state": "verified",
+      "text": "#1d654b",
+      "background": "#edf8f2",
+      "contrast": 6.4
+    },
+    {
+      "state": "pending",
+      "text": "#285a8d",
+      "background": "#eef5fc",
+      "contrast": 6.5
+    },
+    {
+      "state": "missing/attention",
+      "text": "#805019",
+      "background": "#fff6e6",
+      "contrast": 6.36
+    },
+    {
+      "state": "earlier record",
+      "text": "#59616e",
+      "background": "#f1f3f5",
+      "contrast": 5.62
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "runtime": "v24.19.0",
+  "results": [
+    {
+      "name": "Each role sees only its relevant primary navigation; desktop has at most four choices",
+      "result": "PASS"
+    },
+    {
+      "name": "Worker account menu has eight useful actions, with no repeated bookings or marketing links",
+      "result": "PASS"
+    },
+    {
+      "name": "Every registered page and dynamic route dispatches to an existing page",
+      "result": "PASS"
+    },
+    {
+      "name": "Menu keyboard open, tab boundary, Escape and close return focus correctly",
+      "result": "PASS"
+    },
+    {
+      "name": "Bookings API failures show an escaped explanation and retry instead of silently returning",
+      "result": "PASS"
+    },
+    {
+      "name": "All literal internal navigation destinations resolve and required local assets exist",
+      "result": "PASS"
+    },
+    {
+      "name": "Legacy document, profile, funding and notification links go to canonical Settings",
+      "result": "PASS"
+    },
+    {
+      "name": "Next actions has no duplicated details, documents, funding or notification editors",
+      "result": "PASS"
+    },
+    {
+      "name": "Late Next actions fetch cannot redirect after leaving the page",
+      "result": "PASS"
+    },
+    {
+      "name": "Every Settings/admin navigation resets viewport; pending callbacks cannot scroll another page",
+      "result": "PASS"
+    }
+  ]
+}

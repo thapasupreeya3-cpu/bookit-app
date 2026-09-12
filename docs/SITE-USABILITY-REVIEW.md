@@ -1,6 +1,10 @@
-# Website usability review — v88.2.9
+# Website usability review — v88.2.10
 
 Current update reviewed v88.2.7 and corrects the issues in CHANGELOG-v88.2.8.md. The earlier broad page review is retained below. No deployed site, GitHub repository or live account was accessed.
+
+## Credential status clarity
+
+v88.2.10 separates verified, pending and missing-file states with colour, text and icons. A direct checklist shortcut, review dates and supporting-evidence explanations make the status easier to inspect. This is a focused refinement; earlier broad page-audit findings below retain their original scope. See the current changelog and test report.
 
 ## Current Next actions refinement
 

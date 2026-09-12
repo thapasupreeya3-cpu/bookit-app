@@ -1,0 +1,154 @@
+{
+  "runtime": "v24.19.0",
+  "results": [
+    {
+      "name": "J01/J02 private funding is explicit and does not ask for an NDIS plan",
+      "result": "PASS"
+    },
+    {
+      "name": "J01/J12 worker-owned and office-owned setup tasks are structured and separate",
+      "result": "PASS"
+    },
+    {
+      "name": "J03 scoped delegate can edit a plan but loses access immediately on revocation",
+      "result": "PASS"
+    },
+    {
+      "name": "J04 concurrent plan editors cannot overwrite a newer draft",
+      "result": "PASS"
+    },
+    {
+      "name": "J05 async job holds its lock until settlement and records failure truthfully",
+      "result": "PASS"
+    },
+    {
+      "name": "J06 durable outbox retries, deduplicates, groups digests and cancels revoked access",
+      "result": "PASS"
+    },
+    {
+      "name": "J07 a voluntarily paused eligible worker can complete an accepted shift",
+      "result": "PASS"
+    },
+    {
+      "name": "J08/J21 pay batch blocks unresolved exceptions, exports stable IDs and records external payment separately",
+      "result": "PASS"
+    },
+    {
+      "name": "J09 task owner and due date survive refresh; pipeline wait begins at stage entry",
+      "result": "PASS"
+    },
+    {
+      "name": "J10 shared intake uses explicit confirmation and rejects stale saves",
+      "result": "PASS"
+    },
+    {
+      "name": "J11 upload retries deduplicate same user and purpose",
+      "result": "PASS"
+    },
+    {
+      "name": "Targeted replacement validates ownership/type and retains verified evidence with an audit reference",
+      "result": "PASS"
+    },
+    {
+      "name": "Shared contact saves cannot restore stale profile details and keep other contact fields",
+      "result": "PASS"
+    },
+    {
+      "name": "Worker document source identifies real linked module completions instead of category guesses",
+      "result": "PASS"
+    },
+    {
+      "name": "Next actions agrees with Credentials when records have no files; real uploads clear those steps",
+      "result": "PASS"
+    },
+    {
+      "name": "Next visit metadata uses the site clock and only the authorised visit counterpart",
+      "result": "PASS"
+    },
+    {
+      "name": "J12 interview booking, cancellation and evidence review are explicit",
+      "result": "PASS"
+    },
+    {
+      "name": "J13/J15 series acceptance checks the current plan and all selected dates atomically",
+      "result": "PASS"
+    },
+    {
+      "name": "J14 alternatives reveal only available options and reject invalid input",
+      "result": "PASS"
+    },
+    {
+      "name": "J16 saved routine copies preferences but never old notes or a future date",
+      "result": "PASS"
+    },
+    {
+      "name": "J17 availability changes require a fresh impact review and preserve unselected visits",
+      "result": "PASS"
+    },
+    {
+      "name": "J18 shift workspace is scoped, and incident retry creates one linked report",
+      "result": "PASS"
+    },
+    {
+      "name": "J19/J20 approval preferences validate current grants; calendar UID and cancellation sequence are stable",
+      "result": "PASS"
+    },
+    {
+      "name": "J21 private invoice snapshot and delivery survive funding changes",
+      "result": "PASS"
+    },
+    {
+      "name": "J21 payment mismatches stay unpaid and matching receipts are idempotent",
+      "result": "PASS"
+    },
+    {
+      "name": "J21 Stripe evidence must match paid status, currency, amount and stored session",
+      "result": "PASS"
+    },
+    {
+      "name": "J22 renewal task appears once and becomes office review when replacement arrives",
+      "result": "PASS"
+    },
+    {
+      "name": "J23 first-visit follow-up creates an office task without booking anything",
+      "result": "PASS"
+    },
+    {
+      "name": "J24 series end requires current preview; transitions preserve bookings and ownership",
+      "result": "PASS"
+    },
+    {
+      "name": "J25 optional document assistance stays off until configured and explicitly consented",
+      "result": "PASS"
+    },
+    {
+      "name": "J26 metrics report task medians/P90 and capped effort without care text",
+      "result": "PASS"
+    },
+    {
+      "name": "Workflow handoffs preserve interview history, follow-up answers and atomic settings",
+      "result": "PASS"
+    },
+    {
+      "name": "A helper without booking scope cannot see upcoming visits on the next-action page",
+      "result": "PASS"
+    },
+    {
+      "name": "Calendar reassignment cancels the old worker event without exposing the replacement",
+      "result": "PASS"
+    },
+    {
+      "name": "Account closure removes new personal workflow data and revokes calendar and queued delivery",
+      "result": "PASS"
+    },
+    {
+      "name": "Frontend panel rendering uses real scoped API responses without runtime errors",
+      "result": "PASS"
+    },
+    {
+      "name": "Workflow routes require authentication and office routes reject ordinary users",
+      "result": "PASS"
+    }
+  ],
+  "serverLog": "Seeded 12 demo workers (…@demo.bookit.life / demo1234) and d***@demo.bookit.life / demo1234\nBlank forms: 1 filed from forms/ — participants can download them now. 10 skipped, not in the participant catalogue: p-advocate (a screen now; the PDF is not offered), p-agreement (The Care Web generates this one; a PDF on the shelf would only confuse), p-consent-privacy (The Care Web generates this one; a PDF on the shelf would only confuse), p-emergency, p-exit (a screen now; the PDF is not offered), p-intake, p-mealtime (a screen now; the PDF is not offered), p-medication (a screen now; the PDF is not offered), p-money (a screen now; the PDF is not offered), p-risk (a screen now; the PDF is not offered).\nSeeded 8 training modules.\nMarked 12 demo workers as trained (84 records).\nPolicies: 99 built-in document(s) published as pages.\nThe Care Web server running → http://localhost:35919/\nDatabase: /tmp/careweb-workflows-WWAODd/test.db · auto-reply bot: off\nTimezone: Australia/Sydney · secret: from /tmp/careweb-workflows-WWAODd/secret · demo seed: ON · admin MFA: not required\nEmail: OFF — set RESEND_API_KEY (or SMTP_USER + SMTP_PASS) to enable; emails are logged to console instead\n[claims] Sarah M.: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n"
+}

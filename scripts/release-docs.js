@@ -30,6 +30,10 @@ The worker account menu has eight actions, including Refer a friend.
 Messages remain in the header. Referrals lead to the existing worker referral page.
 Credentials has an essential-document checklist and the complete document dropdown.
 Each uploaded file has View, Replace and Remove or Request removal actions.
+Credentials uses green for verified, blue for pending office review and amber
+for missing files. Text and icons accompany colour. View document status jumps
+straight to the checklist, and verified files show the recorded review date.
+See docs/credential-status-preview.html for synthetic examples.
 Verified originals remain on record; replacements are submitted for office review.
 Next actions groups related steps into a short, prioritised list.
 The first three groups are shown; overdue and today groups remain visible.
@@ -80,7 +84,7 @@ INSTALL / UPDATE
       npm ci --ignore-scripts
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
-6. Deploy using your existing process. No schema change is needed from v88.2.8. Earlier additive
+6. Deploy using your existing process. No schema change is needed from v88.2.9. Earlier additive
    migrations still run when upgrading an older release.
    Existing records are retained. This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
@@ -111,7 +115,7 @@ const readme=`The Care Web v${pkg.version} — complete source package.
 
 Extract ${meta.output_archive}; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
-This release refines Next actions into a compact, prioritised work list.
+This release clarifies credential review states and keeps the refined Next actions.
 PDF/HTML previews and earlier verification automations are retained.
 Configure private billing,
 email, payroll cutover and any optional document assistance before use.
