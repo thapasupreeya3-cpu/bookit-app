@@ -24,8 +24,9 @@ Base supplied by the user: ${meta.base_archive} (v${meta.base_version})
 Base SHA-256: ${meta.base_archive_sha256}
 Remote GitHub HEAD and the deployed site were not accessed or changed.
 
-WORKER DOCUMENT DISPLAY FIX
+PDF DOCUMENT PREVIEW FIX
 Open Admin > Verification > Worker documents for grouped uploaded evidence.
+PDF files now open in a bundled page viewer with zoom, rotation and download.
 Platform-issued module records are shown under Training.
 Details-only records explicitly identify that no file has been uploaded.
 Choose available reviewers in Automation settings to enable automatic assignment.
@@ -59,7 +60,7 @@ INSTALL / UPDATE
       npm ci --ignore-scripts
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
-6. Deploy using your existing process. No schema change is needed from v88.2.2. Earlier additive
+6. Deploy using your existing process. No schema change is needed from v88.2.3. Earlier additive
    migrations still run when upgrading an older release.
    Existing records are retained. This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
@@ -90,7 +91,7 @@ const readme=`The Care Web v${pkg.version} — complete source package.
 
 Extract ${meta.output_archive}; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
-This release corrects worker document display and retains earlier verification automations.
+This release corrects PDF previews and retains earlier verification automations.
 Configure private billing,
 email, payroll cutover and any optional document assistance before use.
 

@@ -50,3 +50,7 @@ Read `TEST-RESULTS.md` for executed verification and limits. This source was not
 ## Verification automation
 
 Read [CHANGELOG-v88.2.2.md](CHANGELOG-v88.2.2.md) for automatic assignment, guided review, combined checklists, bounded reminders, document suggestions and plan comparisons. Automatic assignment requires choosing available reviewers in the verification workspace. Follow-ups start only after an office-approved checklist. The queue refreshes without replacing the selected review or its drafts.
+
+## PDF viewer (v88.2.4)
+
+PDF evidence opens in the locally bundled page viewer. Use Previous/Next or the page number, zoom, fit width, rotate, and page text where available. Open full size keeps the same viewer in a new tab. Download original saves the unchanged file through its existing permission checks. Missing/denied/expired-session and unreadable-file errors offer a retry or download; an image load failure also displays an explanation. The original upload response remains sandboxed and cannot itself be framed. Only the first-party viewer shell permits same-origin framing.

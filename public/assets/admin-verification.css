@@ -29,3 +29,5 @@
 @media(max-width:760px){.verify-app .vf-missing-document .vf-button{min-height:44px}.verify-app .vf-missing-types summary{min-height:36px;padding:8px 0}}
 
 @media(min-width:1101px){.verify-app .vf-document-list{max-height:700px;overflow:auto}}
+
+.verify-app .vf-image-error{font-size:13px;line-height:1.6;padding:16px;color:#8c3f2b;background:#fff4ed}.verify-app .vf-image-error[hidden],.verify-app img[data-v-evidence-image][hidden]{display:none!important}.verify-app .vf-preview-head>span:last-child{flex-wrap:wrap}

@@ -1,39 +1,45 @@
-# v88.2.3 test results
+# v88.2.4 test results
 
-The full `npm run check` release gate passed with exit code 0 on Node 24.19.0. Documentation and package hashes were refreshed and verified again after recording these results; application code was unchanged.
+`npm run check` passed with exit code 0 on Node 24.19.0. After these results were recorded, final release documents, inventories and package hashes were checked again. Application code did not change after the full regression gate.
 
 | Check | Result |
 | --- | --- |
-| JavaScript compilation | 56 scripts, 0 failures; includes 4 inline application scripts |
-| Generated inventories | 366 registered routes; 83 database tables |
+| Syntax | 59 scripts compiled; 0 failures; 4 inline scripts included |
+| Inventories | 367 routes; 83 tables; schema 88202 |
 | Clash tests | 21 passed |
 | Application smoke tests | Passed |
 | Review unit assertions | 46 passed |
 | Review integration scenarios | 25/25 passed |
 | Graphics checks | 54/54 passed |
-| Audit unit groups | 8 passed |
-| Audit API scenarios | Passed |
+| Audit unit groups and API scenarios | 8 unit groups passed; API scenarios passed |
 | Existing workflow scenarios | 32/32 passed |
-| Verification scenarios | 36/36 passed, including 6 new document regression scenarios |
-| Upgrade from v88.2.2 | Passed on two consecutive boots; 83 tables retained |
-| Records and uploaded file preservation | Existing person, profile, document, ownership and setting records retained; uploaded bytes identical |
-| Database integrity and foreign keys | Passed after each upgrade boot |
-| Existing media, fonts and vendor assets | 119 files byte-identical to v88.2.2 |
+| Verification scenarios | 42/42 passed, including 6 new PDF viewer scenarios |
+| Actual PDF rendering | Both pages of a synthetic text/vector/image PDF rendered with bundled PDF.js 6.3.289 and native canvas |
+| Upgrade from v88.2.3 | Two consecutive boots passed; 83 tables retained; records and uploaded bytes preserved |
+| Database integrity and foreign keys | Passed after both upgrade boots |
+| Existing artwork, media, fonts and vendor files | 119 files byte-identical to v88.2.3; new PDF viewer resources added |
+| Native browser navigation | Blocked by the test environment: ERR_BLOCKED_BY_CLIENT |
 
-## Document regression coverage
+## PDF regression coverage
 
-- Uploaded real synthetic files through the worker upload API for 12 types across every category: passport, driver licence, Medicare, visa, screening, WWCC, orientation, First Aid, CPR, qualification, resume and a labelled engagement agreement under Other.
-- Verified every original-file endpoint was accessible to the office and denied to a different worker.
-- Completed a training module through the actual quiz API. Its generated certificate appeared in Training; uploaded external certificates remained in Worker documents, and queue counts excluded the generated record.
-- Retained unknown legacy types, misleading module-like titles, metadata-only rows, and uploaded files referenced by old completion records. A cross-person completion link did not hide evidence.
-- Exercised the frontend with real API responses: category headings, filenames, missing statuses, details-only warnings, preselected document requests and separate module certificates.
-- Checked a training-only worker's explicit zero-upload message and missing document catalogue.
-- Verified immediate rebuilding of old mixed-document queue counts and preserved participant document behaviour.
+- Worker upload through the real API, exact stored bytes, raw upload sandbox and DENY framing, private/no-store response, attachment download, and denied access from a different account.
+- Participant PDF access and download retain existing permission rules.
+- The authenticated viewer accepts only worker/participant scopes and positive numeric document IDs. The trusted shell allows same-origin framing; the main app and raw uploaded responses keep DENY.
+- Main/worker JavaScript modules, font files, character maps and WASM decoders are served locally with suitable MIME types.
+- Viewer page navigation, zoom, rotation, fit width, page text and download URLs exercised in the frontend harness.
+- Missing-file, permission, expired-session, non-PDF, encrypted and unreadable-file errors exercised with a retry state.
+- Worker and participant PDF panels embed the new viewer. JPG/PNG evidence keeps direct image preview and an image-error message.
 
-Evidence: `validation/v88.2.3-check-output.txt`, `validation/v88.2.3-verification-results.json`, `validation/v88.2.3-upgrade-results.json`, and `validation/v88.2.3-asset-preservation.json`.
+## Actual rendering evidence
 
-## Limits
+The bundled engine rendered a 595 × 842 two-page synthetic PDF. Page 1 contained text and vector content; 5,923 pixels were non-white. Page 2 contained an embedded image and text; 177,795 pixels were non-white. Text was extracted from both pages. The output PNGs were visually inspected locally. This confirms real PDF parsing and canvas rendering rather than only an HTTP success or a stubbed renderer.
 
-Tests used isolated synthetic accounts, temporary databases and local files; no live applicant data or external messages were used. The deployed database and host were not accessed. The standalone preview contains labelled examples only.
+`validation/v88.2.4-pdf-render-results.json` records this test. The renderer was exercised with a native Node canvas; this was not an end-to-end browser test. The frontend control tests use a controlled renderer interface, while the separate rendering run uses the actual bundled PDF.js code.
 
-Native browser rendering, keyboard layout and PDF preview interaction need staging verification. Local browser access was blocked in the preceding verification run; this release does not claim a successful visual browser check. The project declares Node 22; repeat the release gate on that deployment runtime. No runtime or dependency change was introduced.
+Other receipts are in `validation/v88.2.4-check-output.txt`, `validation/v88.2.4-verification-results.json`, `validation/v88.2.4-upgrade-results.json`, `validation/v88.2.4-pdfjs-package.json`, and `validation/v88.2.4-browser-result.txt`.
+
+## Limits and post-deployment check
+
+The available Chrome browser could not navigate to the local synthetic fixture because the environment returned ERR_BLOCKED_BY_CLIENT. Verify the same CPR file from the user's screenshot after deploying: initial page, page controls, full-size view, download, and a JPG/PNG. No live worker file was accessed, and no live account data or messages were changed.
+
+The repository declares Node 22, while this environment provides Node 24.19.0. Repeat the release gate on the deployment runtime. There is no new server dependency or schema migration. The ZIP contains application source and bundled viewer assets, not the deployment's private uploaded files.

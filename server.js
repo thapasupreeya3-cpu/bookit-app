@@ -5140,7 +5140,7 @@ route('GET', /^\/api\/documents\/(\d+)\/file$/, (req, res, m, user) => {
        nosniff stops the browser second-guessing the declared type. */
   res.writeHead(200, {
     'Content-Type': d.file_mime || 'application/octet-stream',
-    'Content-Disposition': `inline; filename="${(d.file_name || 'document').replace(/[^\w.\- ]/g, '')}"`,
+    'Content-Disposition': `${new URL(req.url, 'http://local').searchParams.get('download') === '1' ? 'attachment' : 'inline'}; filename="${(d.file_name || 'document').replace(/[^\w.\- ]/g, '')}"`,
     'Content-Security-Policy': 'sandbox',
     'X-Content-Type-Options': 'nosniff',
     'Cache-Control': 'no-store, private'
@@ -10706,7 +10706,7 @@ route('GET', /^\/api\/participant-documents\/(\d+)\/file$/, (req, res, m, user) 
   const ours = !!(d.accepted_at && String(d.file_mime || '').startsWith('text/html') && /-accepted-[a-z0-9-]+-\d+\.html$/.test(String(d.file_path || '')));
   res.writeHead(200, {
     'Content-Type': d.file_mime || 'application/octet-stream',
-    'Content-Disposition': `inline; filename="${(d.file_name || 'document').replace(/[^\w.\- ]/g, '')}"`,
+    'Content-Disposition': `${new URL(req.url, 'http://local').searchParams.get('download') === '1' ? 'attachment' : 'inline'}; filename="${(d.file_name || 'document').replace(/[^\w.\- ]/g, '')}"`,
     'Content-Security-Policy': ours ? 'sandbox allow-scripts allow-modals' : 'sandbox',
     'X-Content-Type-Options': 'nosniff',
     'Cache-Control': 'no-store, private'

@@ -1,6 +1,6 @@
 {
-  "release": "88.2.3",
-  "base_release": "88.2.2",
+  "release": "88.2.4",
+  "base_release": "88.2.3",
   "format": "full-source",
   "note": "All package files are listed except RELEASE-FILES.json itself. Preserve deployed runtime databases, uploads and secrets.",
   "files": {
@@ -17,7 +17,7 @@
       "sha256": "08062faf0d7a2d22f5d7933c50e975dd1527034275597be7c1b3b9fd2b9d079a"
     },
     "STARTHERE.txt": {
-      "sha256": "077e9e3f25f6acb803df14f643899c650adc992d7dac2f9c2d5d0a2a5b717886"
+      "sha256": "650aca6b1ed7f3cadb651af00addfa5e2e7bae10488b05331aa04dbee46effef"
     },
     "blank-forms/p-advocate \u2014 Advocate, nominee or decision-maker form.pdf": {
       "sha256": "a8c898cc4a2b56f8c44d388846a900873e8a3331f6d1027e7e85766400281ac7"
@@ -356,13 +356,16 @@
       "sha256": "639b8f0e11159a460ee3dbea4813e9e7314c684bb0afbf208e2101883fbf631c"
     },
     "docs/ADMIN-VERIFICATION.md": {
-      "sha256": "4100b8e1a0f4faf93880389ba5be64129799d30a9f0b01ae02591cc115036311"
+      "sha256": "c3639e795241afe6dfacfd6413e808c9e7c310072c1fe1fb4592851909b09e88"
     },
     "docs/CHANGELOG-v88.2.2.md": {
       "sha256": "07fea5e58e7b06ebcc34aa24a8be5c95bd7efce589cd97f3c0df08b54464a9bc"
     },
     "docs/CHANGELOG-v88.2.3.md": {
       "sha256": "d682f1c81e064773acdbd5b723c86a1768f62265272b60ccb3a333428dd736ae"
+    },
+    "docs/CHANGELOG-v88.2.4.md": {
+      "sha256": "4c796636cc4091c3217e1a7f7e98031688092b7848ba8a81de2cc604a9796d82"
     },
     "docs/GRAPHICS-REDESIGN.md": {
       "sha256": "2c691864ff1fcc0680c03cb4a32e31f3bb36cda644aa87f921b8efa5bc1a3420"
@@ -374,22 +377,22 @@
       "sha256": "0585773d6e69c8411d75107597498e64c8a12593e959530ae651514668b847b6"
     },
     "docs/RELEASE-NOTES.md": {
-      "sha256": "d682f1c81e064773acdbd5b723c86a1768f62265272b60ccb3a333428dd736ae"
+      "sha256": "4c796636cc4091c3217e1a7f7e98031688092b7848ba8a81de2cc604a9796d82"
     },
     "docs/TEST-RESULTS.md": {
-      "sha256": "6c428a4c2a0cbb088700277134b52c5349372b4cc218300b09005f7f1f349ef2"
+      "sha256": "b838118deec5671e6c294e5939032579036798eb67597b416efc3dd54c2f3d66"
     },
     "docs/WORKFLOW-OPERATIONS.md": {
       "sha256": "6d56747006ab86cd85ac36ddb810c4c24bfb2500901108b3bc2ec19866cd5ef3"
     },
     "docs/admin-verification-preview.html": {
-      "sha256": "f8fa8786ad21b8e597d09ec140adf145f3249828293bc03dbca23e5b65f4945b"
+      "sha256": "a3165d52851f4d0d30696011d84332f78bd37604b20210d1f0534f0e00195f4c"
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "5781a6a0b6f5f352b2c0a6d8d0dedf881c1251da52c3cfbff7085fc1c816a60b"
+      "sha256": "cd98644c9d41a969efa1eeb019647a552e01f7af96a3e9a0fffd5bb802b0220d"
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "58e30b6ec9550cbd11e61d475ae3feb8e36b9417bb49f98f80b3069047f4a3df"
+      "sha256": "9b18edb72b4380cfe1ee9d68db172e6b7bd3ada02f2aff881ad3767c9dab390d"
     },
     "docs/graphics-asset-http.json": {
       "sha256": "83c95f6733f48d799353d36cb15116aa9424d0cbb2a760fe3f114734c2e0c46b"
@@ -455,7 +458,7 @@
       "sha256": "c2540544bb51584837c24648f470e6bb2bdd1703df0cb0c0e1417c0d0e46b00c"
     },
     "docs/release-metadata.json": {
-      "sha256": "7dd72bc2e4b3b4f3ded377c8ff82c8b7da70dd7a6e1ceeaa55d8387e2874a3f5"
+      "sha256": "8f304d3bfcd6e2440a6acb32d04aaf2f29f1c52936ec5f4749cc51043d8261bf"
     },
     "docs/validation/check-output.txt": {
       "sha256": "b052405632d23028f8f03e86564e63aa4615e0ff4b9e4c2314605a2e3bce8671"
@@ -506,7 +509,7 @@
       "sha256": "a74a0e6bb0296bfb2e78d3ec54df69f0be8b6cd5a432f3a07ab72aa42ce1c98a"
     },
     "lib/admin-verification.js": {
-      "sha256": "5f0bb09a0fecfaf5a75377a7a9714cbf0ca0f3d15c05b672cae77fba4e930db4"
+      "sha256": "a343c7609198da3cde8d832761eb764773785c3927eb7150b433d80e25c1eeba"
     },
     "lib/assignment-policy.js": {
       "sha256": "7768378d7fc1a0f31234cb51c4b85cf1f81af00e19110ea27d4e146a03dc6219"
@@ -515,7 +518,7 @@
       "sha256": "8b19e4afab3110651a57b506278eb353331125f911231db9d66a542e58c131c5"
     },
     "lib/bookit-hardening.js": {
-      "sha256": "b3c5e0a08893b92eb02ab2dedc8611b8f1e0963dfc54850a658b989155d75d14"
+      "sha256": "8bd949a084991a9ecb971910c2509a5347552a71dfb7b1d967edb94010a6e8b6"
     },
     "lib/confirmation-proof.js": {
       "sha256": "41552fb4455c973059e6e8d03c3265a379a6711133b043c3ee0f46690dfa944d"
@@ -572,19 +575,19 @@
       "sha256": "65bafd60044e3d30d98ab6d0a21ccca993933578452ba69452431b233d84914e"
     },
     "package-lock.json": {
-      "sha256": "68d57104c41afdf4964134c96220ae269948c205b8b2336bbcc981f27183dea5"
+      "sha256": "a0e2d212a40086735b1ca2e711b555b841ba8cd6ebe0a34ebd1b989ecfc08af0"
     },
     "package.json": {
-      "sha256": "f632f4c3ecf35a71cd2bfa73faf4cf066ec8c6c01fce46435d7ecc8ae4045744"
+      "sha256": "a093eed32780170e70ce32a0c4bd43c6885de049e6d12860e6a0c4d1b6c35096"
     },
     "prefill-walkthrough.js": {
       "sha256": "8cdc0cba5675f33b4ccefc4cdebf896c8933b68ac2fedea86ea13a5f3115235b"
     },
     "public/assets/admin-verification.css": {
-      "sha256": "50bb903baa0fabc01c97a556908142da1f9724b7e235a5e146df5d9a26b9ae4f"
+      "sha256": "072d910dbee8b0600709776ac8c80958621d96b8def5bdb7ee2081cd9b05b2fb"
     },
     "public/assets/admin-verification.js": {
-      "sha256": "b99f3d5424344ec9b61d17c112f255508c1c736cf01c38b8e46ed83b937c99bc"
+      "sha256": "c5c0e62a951a17ab3aadf96edec04dd8e3cefe02f8fd67481911b97550d21d5e"
     },
     "public/assets/bookit-a11y-dialogs.js": {
       "sha256": "3fec0ce36ef5c9762ad3cd62296711f44b8d282292b2f842b074ed597fde012f"
@@ -708,6 +711,12 @@
     },
     "public/assets/characters/walker.webp": {
       "sha256": "d79c89634c1b915ef37e7a9ad7e924947e75909370253e3a805b3ba632bedf7e"
+    },
+    "public/assets/document-viewer.css": {
+      "sha256": "a7249ac8bc2adf4a1f1667ad6a9e1dedc1394b42eb5eded9b6d0c031cbab6b40"
+    },
+    "public/assets/document-viewer.js": {
+      "sha256": "c10de0b4dcdfe6936f0636090cc57a665b9bcbbaba3ecd6fbcec06c676b5bf05"
     },
     "public/assets/fonts/LICENSE-FRAUNCES.txt": {
       "sha256": "cd3384cafac6f2bddc3955273958a2e029f97027c8037ac539ef5744a77b579e"
@@ -1024,8 +1033,11 @@
     "public/assets/tiers/tier-silver.svg": {
       "sha256": "f5530a058abf08a89840c32bb80616f6b417a92b9c3325e392fc04c02a7a0af8"
     },
+    "public/document-viewer.html": {
+      "sha256": "d0c6ee82cc6ef0021ff831166588d5c1bf545ee2e161df05ef41ddd7144e08e5"
+    },
     "public/index.html": {
-      "sha256": "4e7ecad2d9fe38346639698bc49cc352d0adfb68dd77e25d2eadc937bc2f70f5"
+      "sha256": "b3b0e300b902626ad632fb8df6995333d99f7c41b8c5f23dbfb4610f07c36b15"
     },
     "public/vendor/care-cast.js": {
       "sha256": "6461468f0755d4797be60b29095744fdd701de092ae8f7f5fc1ee60149aa9a37"
@@ -1045,6 +1057,108 @@
     "public/vendor/package.json": {
       "sha256": "609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8"
     },
+    "public/vendor/pdfjs/CMAPS-LICENSE": {
+      "sha256": "aa92ab5a472974865a96fd4a4e9c13bb41bf6fe1b309cb6b8da48bc9e19839a2"
+    },
+    "public/vendor/pdfjs/LICENSE": {
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+    },
+    "public/vendor/pdfjs/PROVENANCE.json": {
+      "sha256": "be2cfd2490895da52e5dbeec205ffa5cd525c1346c452c8f3f2d32584448ee4d"
+    },
+    "public/vendor/pdfjs/README.txt": {
+      "sha256": "69458aaa0832997fddc50c0f9e7d7add216d37d9dc10b8debbad7f1ba3e23887"
+    },
+    "public/vendor/pdfjs/cmaps.json": {
+      "sha256": "d281cf6c93308f5da28fd26c857bdad67f87205bfc694cd551c3b4c0944af677"
+    },
+    "public/vendor/pdfjs/pdf.min.mjs": {
+      "sha256": "f401927e692efc7735e0cd528c490d0dd31b7f0972c122b7040df805be45cce4"
+    },
+    "public/vendor/pdfjs/pdf.worker.min.mjs": {
+      "sha256": "a33cfe728c584fdba4fcc1fd54bcdc2f9f2f13889ddbb5b2bd1d0f8cbe49b84e"
+    },
+    "public/vendor/pdfjs/standard_fonts/FoxitDingbats.pfb": {
+      "sha256": "845c752392b6c914fb989c75a08b7792b88f542d2499042ef2889f8c814a16ed"
+    },
+    "public/vendor/pdfjs/standard_fonts/FoxitFixed.pfb": {
+      "sha256": "b6c8fe53f134b8b6d4578cd2d544df4cee9624c4efa8d51a560fb40ea296101b"
+    },
+    "public/vendor/pdfjs/standard_fonts/FoxitFixedBold.pfb": {
+      "sha256": "f1b7159702973f54fc86254ea38bcf3712b2a736eb3a0995751e9f4bb45ad603"
+    },
+    "public/vendor/pdfjs/standard_fonts/FoxitFixedBoldItalic.pfb": {
+      "sha256": "8a000945843bd31add06aee63bf9fd41b7578b4f3242a4b7cd46349ad9d24d4d"
+    },
+    "public/vendor/pdfjs/standard_fonts/FoxitFixedItalic.pfb": {
+      "sha256": "5007faf8320fa1fcc08b8894b356ad976f60b992ba29ee5272578bbdebaf3876"
+    },
+    "public/vendor/pdfjs/standard_fonts/FoxitSerif.pfb": {
+      "sha256": "4f57d2b9d884af8f907bf22df6019b52d86cbf6214fdbd02b1ae05472a543f35"
+    },
+    "public/vendor/pdfjs/standard_fonts/FoxitSerifBold.pfb": {
+      "sha256": "0bdf4b04e964139818d51eda03d566ba999fc3ba2421b1c6c51f9dc969022e80"
+    },
+    "public/vendor/pdfjs/standard_fonts/FoxitSerifBoldItalic.pfb": {
+      "sha256": "a406cac82583bf98175cb62c87ed5e95c45fbb34eece63a10b0a13e793cb2e10"
+    },
+    "public/vendor/pdfjs/standard_fonts/FoxitSerifItalic.pfb": {
+      "sha256": "610ae0687198045c4db5d1a6650fd5e92536631706382eb8b72e38df578d0ae9"
+    },
+    "public/vendor/pdfjs/standard_fonts/FoxitSymbol.pfb": {
+      "sha256": "47967d055530e7357088a08403115425643ec2cdfd6201ba8af0fbd7116c1539"
+    },
+    "public/vendor/pdfjs/standard_fonts/LICENSE_FOXIT": {
+      "sha256": "b578cdd2345840ada550bd12519533812320d5f1d21cf4c1c7e1b1b0a31c98b7"
+    },
+    "public/vendor/pdfjs/standard_fonts/LICENSE_LIBERATION": {
+      "sha256": "d2c4d5b3e115a519cb58eb691aa64538397e2611f9ebe801392cf9667997e7dc"
+    },
+    "public/vendor/pdfjs/standard_fonts/LiberationSans-Bold.ttf": {
+      "sha256": "361c61b82d575c5c35fd9157fda8b0194bcfcd0d88ea8521a4fb5dd53d33dddc"
+    },
+    "public/vendor/pdfjs/standard_fonts/LiberationSans-BoldItalic.ttf": {
+      "sha256": "a224075ac17495ad0a3af3bc0a419ac0704a8b3fd1095456201fb9b095fc281d"
+    },
+    "public/vendor/pdfjs/standard_fonts/LiberationSans-Italic.ttf": {
+      "sha256": "832b4406dbef23628800d3aaad21048534ac84d7e3ad955be83b8172ed8ef512"
+    },
+    "public/vendor/pdfjs/standard_fonts/LiberationSans-Regular.ttf": {
+      "sha256": "f8ace1f892b2bd9dc1792ba7f097fa7588f84fed48321480e04de5390828221f"
+    },
+    "public/vendor/pdfjs/wasm/LICENSE_JBIG2": {
+      "sha256": "9e66b7f1b934a28b37f3bc4dac97915de1674271e79a0a88182a18ed9731b4d1"
+    },
+    "public/vendor/pdfjs/wasm/LICENSE_OPENJPEG": {
+      "sha256": "a6af136f3e15038a666b61f376612a07d9a4e48cb7c01adbf3e33b3f14ab49b6"
+    },
+    "public/vendor/pdfjs/wasm/LICENSE_PDFJS_JBIG2": {
+      "sha256": "aad3cce09842e00e9e11ad5e8fef8cc02fbc3a3768fe2f007443b9cee37aaee5"
+    },
+    "public/vendor/pdfjs/wasm/LICENSE_PDFJS_OPENJPEG": {
+      "sha256": "717fc62da03292dbb4dd0c8280bd4ce7bb8550dcf31d772bc93455fb50313425"
+    },
+    "public/vendor/pdfjs/wasm/LICENSE_PDFJS_QCMS": {
+      "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1"
+    },
+    "public/vendor/pdfjs/wasm/LICENSE_QCMS": {
+      "sha256": "36d847ae882f6574ebc72f56a4f354e4f104fde4a584373496482e97d52d31bc"
+    },
+    "public/vendor/pdfjs/wasm/jbig2.wasm": {
+      "sha256": "e6bee67724a7b5436fe8162638e3708cfc8d52b6342db69a49715e30ff27cfdc"
+    },
+    "public/vendor/pdfjs/wasm/jbig2_nowasm_fallback.js": {
+      "sha256": "04c795a6657a4553a64b781ea3e85256203d913c3b71b72b85fa3ce00622f458"
+    },
+    "public/vendor/pdfjs/wasm/openjpeg.wasm": {
+      "sha256": "004a0e62db930ba9ff2a22212f4554d0bb57a0635a8287caf70f98117cee14ba"
+    },
+    "public/vendor/pdfjs/wasm/openjpeg_nowasm_fallback.js": {
+      "sha256": "0f998419819da4491d8302222aa9e2ff2494685641aa2a6c21c3760c29f3e319"
+    },
+    "public/vendor/pdfjs/wasm/qcms_bg.wasm": {
+      "sha256": "663d86126d5f5fcb1c61490f94353e2a8375660b8c5498ab3ebab5a34b08800e"
+    },
     "public/vendor/three.core.min.js": {
       "sha256": "79f2b4f58d3e99a9948a4d3b7f6d5c2daf705bdefe9fb82ebec715623966551c"
     },
@@ -1052,7 +1166,7 @@
       "sha256": "06552c54e4071fbc7305117aafe6765d92c5d2a2a83507d4f05b9bf4f3d4d463"
     },
     "readme.txt": {
-      "sha256": "9caee34e0bf1c1a2ed65e8d1e49d59a21fa5a3b4fd9efeb7cf674c3821cb4591"
+      "sha256": "77d387cdd03c204dd91fd4d62cb153b9a23dd0cf61c6254874156658828e1694"
     },
     "scripts/NDIS_plan__sample_for_walkthrough.pdf": {
       "sha256": "8ef1ce7de6bc4247997252664267635ee011b51362f57699bbcb0e688dd55e82"
@@ -1076,7 +1190,7 @@
       "sha256": "ea54bcd8fb61e1acff0f7b1290e45fd0a8e67b11df6b47fa88948341a2214e19"
     },
     "scripts/release-docs.js": {
-      "sha256": "517697e6e146b0a3c00216b63d87fd32327479ae11394eecea61d0527f980a79"
+      "sha256": "815fafda4025fb40af8974fec848c08ed369c15101eb029bdbb576dd12d4d9f0"
     },
     "scripts/reset-test-agreements.js": {
       "sha256": "1b9b724eb295c8b652d80b07471a53487794ffef80da699dc8122d1ffcdf663f"
@@ -1094,10 +1208,10 @@
       "sha256": "8952d95bced1c7bc3acd23875a4a4180ff537540d21c8f86fb85e78ce16dcfd1"
     },
     "server.js": {
-      "sha256": "f74253e21ee991e8956c5d163384ebe311c08aae933b9887fd7e02dcc7e367ec"
+      "sha256": "1bd05bcb7d9bcaf2bb8f18f6e084e1c5a6022902e0c27ce49ecefaae2e0b83ad"
     },
     "tests/admin-verification-tests.js": {
-      "sha256": "f19b4b988d473e465184756bca205ca95982e293c3463e74da43d0e5e63cb7a2"
+      "sha256": "a8c2fbd6fda2d5c4bcb3bf98fede5cc9107270fc0e601287fcc1b9d30d97e6db"
     },
     "tests/audit-fixes.js": {
       "sha256": "c33024a84f6eed5e9a07768dac7590fae02ca6c0da20cd8616a425e2b77e56ee"
@@ -1113,6 +1227,12 @@
     },
     "tests/graphics-tests.js": {
       "sha256": "dfd42040c2cb23615d6b8c4df282920da0c44416153b115855f752c45bf5b422"
+    },
+    "tests/pdf-preview-fixture.js": {
+      "sha256": "92647452e35c8ebb29ecfd6489b9abe3ababab2ff22638ba1e20501ed3a0d1c7"
+    },
+    "tests/pdf-preview-scenarios.js": {
+      "sha256": "5560958edbe84226e89c72647ce778a8bb237e935c5f1277ea4990f1a764f64e"
     },
     "tests/process-regression.js": {
       "sha256": "96351dc972313e442a22d4fed4ff7914744ab987f7bc5160c25b16cc8848abaf"
@@ -1221,6 +1341,27 @@
     },
     "validation/v88.2.3-verification-results.json": {
       "sha256": "b491edadb50ca371efdfa6570404170b0a2fdc5fd7eea631fb14f35e66c97c86"
+    },
+    "validation/v88.2.4-asset-preservation.json": {
+      "sha256": "2a96c6fc4238433c9bd8dc540e96935799f001ef9d7a76b0388ed4f076cb92af"
+    },
+    "validation/v88.2.4-browser-result.txt": {
+      "sha256": "9806860ef0ca45a152d4c6715856488f7c0be223ac22794cc612e348b8135679"
+    },
+    "validation/v88.2.4-check-output.txt": {
+      "sha256": "0d773234cf4b35116756c0cc13a75ca4a6a4f81f22065d8ecd2b97d599e1d89d"
+    },
+    "validation/v88.2.4-pdf-render-results.json": {
+      "sha256": "9057df64f199588aa896ebc421510b3bbfbc9cf122ac23ed9de9291c1099b9ac"
+    },
+    "validation/v88.2.4-pdfjs-package.json": {
+      "sha256": "c4124d9286315705da3f55635fef68d4356ca742d7f8f60b9b1cd45211553b5b"
+    },
+    "validation/v88.2.4-upgrade-results.json": {
+      "sha256": "525268d98c6830efde8f54063afdc31938a6993af64698c7ce9162d2869c163d"
+    },
+    "validation/v88.2.4-verification-results.json": {
+      "sha256": "a38f35dacac0db64e180b74df34d310ee2d7f7c42c8c31694f8e032803a334a7"
     },
     "word-originals/Advocate or Support Person Request Form.docx": {
       "sha256": "b08a58697fd2b2ca5b6096ce69e04fd37605db685f4002299167c79cd9526210"

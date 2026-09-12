@@ -1,10 +1,10 @@
-THE CARE WEB - SMALL UPDATE TO v88.2.3
+THE CARE WEB - SMALL UPDATE TO v88.2.4
 
-Supported earlier source versions: 88.2.2.
-Use this fix if you installed the last v88.2.2 verification automation release.
+Supported earlier source versions: 88.2.3.
+Use this fix if you installed v88.2.3, the last worker-documents update.
 
 This is an update package, not a complete application download.
-It contains 25 new or changed project files. Unchanged images,
+It contains 67 new or changed project files. Unchanged images,
 videos, fonts and other files are omitted.
 
 1. Extract the ZIP on your computer. Do not upload the ZIP itself.
@@ -17,14 +17,15 @@ videos, fonts and other files are omitted.
    Preserve the deployed database, uploaded documents, photos and settings.
    Source archives do not contain your workers' runtime files.
 5. Refresh Admin > Verification. Open a worker > Worker documents.
-   Uploaded evidence is grouped here. Site module completions are in Training.
-   Details-only and missing-document states explain when no copy is uploaded.
+   Select the uploaded PDF. Check page display, navigation, zoom and download.
+   Include all new public/vendor/pdfjs resources and document-viewer assets.
+   JPG/PNG images retain their direct preview.
 
 No extra enclosing directory is needed. Compare separately if your repository
 has later edits not supplied in this conversation. See STARTHERE.txt and
-docs/CHANGELOG-v88.2.3.md for details and validation limits.
+docs/CHANGELOG-v88.2.4.md for details and validation limits.
 
-No schema migration is needed from v88.2.2; existing automations are retained.
+No schema migration is needed from v88.2.3; existing automations are retained.
 The app cannot display worker copies held only outside its deployed file store.
 The standalone HTML preview uses labelled examples, not live worker files.
 
@@ -34,7 +35,7 @@ INCLUDED PROJECT FILES
 RELEASE-FILES.json
 STARTHERE.txt
 docs/ADMIN-VERIFICATION.md
-docs/CHANGELOG-v88.2.3.md
+docs/CHANGELOG-v88.2.4.md
 docs/RELEASE-NOTES.md
 docs/TEST-RESULTS.md
 docs/admin-verification-preview.html
@@ -42,17 +43,59 @@ docs/api-route-inventory.txt
 docs/database-table-inventory.txt
 docs/release-metadata.json
 lib/admin-verification.js
-lib/verification-automation.js
+lib/bookit-hardening.js
 package-lock.json
 package.json
 public/assets/admin-verification.css
 public/assets/admin-verification.js
+public/assets/document-viewer.css
+public/assets/document-viewer.js
+public/document-viewer.html
 public/index.html
+public/vendor/pdfjs/CMAPS-LICENSE
+public/vendor/pdfjs/LICENSE
+public/vendor/pdfjs/PROVENANCE.json
+public/vendor/pdfjs/README.txt
+public/vendor/pdfjs/cmaps.json
+public/vendor/pdfjs/pdf.min.mjs
+public/vendor/pdfjs/pdf.worker.min.mjs
+public/vendor/pdfjs/standard_fonts/FoxitDingbats.pfb
+public/vendor/pdfjs/standard_fonts/FoxitFixed.pfb
+public/vendor/pdfjs/standard_fonts/FoxitFixedBold.pfb
+public/vendor/pdfjs/standard_fonts/FoxitFixedBoldItalic.pfb
+public/vendor/pdfjs/standard_fonts/FoxitFixedItalic.pfb
+public/vendor/pdfjs/standard_fonts/FoxitSerif.pfb
+public/vendor/pdfjs/standard_fonts/FoxitSerifBold.pfb
+public/vendor/pdfjs/standard_fonts/FoxitSerifBoldItalic.pfb
+public/vendor/pdfjs/standard_fonts/FoxitSerifItalic.pfb
+public/vendor/pdfjs/standard_fonts/FoxitSymbol.pfb
+public/vendor/pdfjs/standard_fonts/LICENSE_FOXIT
+public/vendor/pdfjs/standard_fonts/LICENSE_LIBERATION
+public/vendor/pdfjs/standard_fonts/LiberationSans-Bold.ttf
+public/vendor/pdfjs/standard_fonts/LiberationSans-BoldItalic.ttf
+public/vendor/pdfjs/standard_fonts/LiberationSans-Italic.ttf
+public/vendor/pdfjs/standard_fonts/LiberationSans-Regular.ttf
+public/vendor/pdfjs/wasm/LICENSE_JBIG2
+public/vendor/pdfjs/wasm/LICENSE_OPENJPEG
+public/vendor/pdfjs/wasm/LICENSE_PDFJS_JBIG2
+public/vendor/pdfjs/wasm/LICENSE_PDFJS_OPENJPEG
+public/vendor/pdfjs/wasm/LICENSE_PDFJS_QCMS
+public/vendor/pdfjs/wasm/LICENSE_QCMS
+public/vendor/pdfjs/wasm/jbig2.wasm
+public/vendor/pdfjs/wasm/jbig2_nowasm_fallback.js
+public/vendor/pdfjs/wasm/openjpeg.wasm
+public/vendor/pdfjs/wasm/openjpeg_nowasm_fallback.js
+public/vendor/pdfjs/wasm/qcms_bg.wasm
 readme.txt
 scripts/release-docs.js
+server.js
 tests/admin-verification-tests.js
-tests/verification-document-scenarios.js
-validation/v88.2.3-asset-preservation.json
-validation/v88.2.3-check-output.txt
-validation/v88.2.3-upgrade-results.json
-validation/v88.2.3-verification-results.json
+tests/pdf-preview-fixture.js
+tests/pdf-preview-scenarios.js
+validation/v88.2.4-asset-preservation.json
+validation/v88.2.4-browser-result.txt
+validation/v88.2.4-check-output.txt
+validation/v88.2.4-pdf-render-results.json
+validation/v88.2.4-pdfjs-package.json
+validation/v88.2.4-upgrade-results.json
+validation/v88.2.4-verification-results.json

@@ -1,0 +1,23 @@
+{
+  "runtime": "v24.19.0",
+  "pdfjs": "6.3.289",
+  "method": "PDF.js actual canvas rendering with native Node canvas; not a browser screenshot",
+  "pages": [
+    {
+      "page": 1,
+      "width": 595,
+      "height": 842,
+      "nonwhite_pixels": 5923,
+      "text": "SYNTHETIC CERTIFICATE  Page one: worker PDF preview test.",
+      "result": "PASS"
+    },
+    {
+      "page": 2,
+      "width": 595,
+      "height": 842,
+      "nonwhite_pixels": 177795,
+      "text": "Page two: scanned-image test.",
+      "result": "PASS"
+    }
+  ]
+}

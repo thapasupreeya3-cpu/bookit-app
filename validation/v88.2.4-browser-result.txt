@@ -1,0 +1,1 @@
+Attempted embedded synthetic PDF fixture in the available Chrome browser. Navigation to http://127.0.0.1:8789/ failed: net::ERR_BLOCKED_BY_CLIENT. No successful native browser rendering is claimed.

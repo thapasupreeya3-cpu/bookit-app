@@ -1,0 +1,7 @@
+{
+  "base": "88.2.3",
+  "current": "88.2.4",
+  "existing_files": 119,
+  "result": "byte-identical",
+  "new_assets": "PDF.js viewer libraries, fonts, character maps and decoders"
+}
