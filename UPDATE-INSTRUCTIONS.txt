@@ -1,60 +1,55 @@
-THE CARE WEB - SMALL UPDATE TO v88.2.5
+THE CARE WEB - SETTINGS FIX v88.2.6
 
-Supported earlier source versions: 88.2.4.
-Use this package over v88.2.4, the last PDF viewer update.
+Supported earlier source versions: 88.2.5.
+Use this package over v88.2.5, the HTML viewer and compact-controls update.
 
-This update contains 27 new or changed project files.
-Unchanged images, videos, fonts, viewer resources and other files are omitted.
-It is an update package, not a standalone application.
+Contains 20 new or changed project files. Unchanged images, videos,
+fonts, viewer assets and other source files are omitted.
+This is an update package, not a standalone application.
 
 1. Extract the ZIP. Upload the extracted files, not the ZIP itself.
-2. Merge its files and folders into the existing repository root, containing
+2. Merge files and folders into the existing repository root, containing
    server.js, package.json, public and lib. Replace matching files and retain
    other folder contents. Do not delete existing folders first.
    UPDATE-INSTRUCTIONS.txt is optional and is not application code.
 3. Review and commit, then restart/redeploy through your usual process.
-   Preserve the deployed database, uploads, photos, settings and configuration.
-4. Refresh Admin > Verification. /api/version should report 88.2.5.
-5. Select an HTML Service Agreement, Privacy consent and Medication consent.
-   Check the preview and Open/Download actions. Also read a support plan.
-6. Check a PDF: compact page/zoom controls, Fit and the three-dot menu for
-   rotation and page text. Retry should appear only after an error. Check
-   an image preview too. The package does not contain private runtime files.
+   Preserve the deployed database, uploads, photos and configuration.
+4. Refresh the site. /api/version should report 88.2.6.
+5. Sign in as a worker and open Settings. The settings list and availability
+   form should load. Also check Credentials, Earnings, Training, Jobs,
+   Notifications, Accessibility, Security, Help and Profile.
+6. A failed or stalled page now offers Try again instead of remaining on
+   Loading indefinitely. Existing saved preferences and documents are retained.
 
 Compare separately if your repository has newer edits not supplied here.
-No schema change is needed from v88.2.4. Existing verification and automations
-remain in place. See docs/CHANGELOG-v88.2.5.md and docs/TEST-RESULTS.md.
+No schema change is needed from v88.2.5. The prior HTML/PDF preview fixes,
+compact verification controls and automations are included in this release.
+See docs/CHANGELOG-v88.2.6.md and docs/TEST-RESULTS.md.
 
-Browser visual testing was blocked by this environment's URL policy.
-Confirm the previews on the deployed site after updating.
+Tests use the actual frontend renderer functions with real API responses from
+an isolated server. Browser visual testing is blocked in this environment.
+Confirm the worker Settings page on your deployed site after updating.
 
 No existing files need to be deleted for this update.
 
 INCLUDED PROJECT FILES
 RELEASE-FILES.json
 STARTHERE.txt
-docs/ADMIN-VERIFICATION.md
-docs/CHANGELOG-v88.2.5.md
+docs/CHANGELOG-v88.2.6.md
 docs/RELEASE-NOTES.md
 docs/TEST-RESULTS.md
-docs/admin-verification-preview.html
 docs/api-route-inventory.txt
 docs/database-table-inventory.txt
 docs/release-metadata.json
-lib/admin-verification.js
 package-lock.json
 package.json
-public/assets/admin-verification.css
-public/assets/admin-verification.js
-public/assets/document-viewer.css
-public/assets/document-viewer.js
-public/document-viewer.html
 public/index.html
 readme.txt
 scripts/release-docs.js
-tests/pdf-preview-scenarios.js
-validation/v88.2.5-asset-preservation.json
-validation/v88.2.5-browser-result.txt
-validation/v88.2.5-check-output.txt
-validation/v88.2.5-upgrade-results.json
-validation/v88.2.5-verification-results.json
+tests/account-settings-tests.js
+validation/v88.2.6-asset-preservation.json
+validation/v88.2.6-check-output.txt
+validation/v88.2.6-reproduction.json
+validation/v88.2.6-settings-results.json
+validation/v88.2.6-upgrade-results.json
+validation/v88.2.6-verification-results.json

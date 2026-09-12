@@ -1,11 +1,11 @@
 {
-  "version": "88.2.5",
-  "base_version": "88.2.4",
-  "base_archive": "The-Care-Web-v88.2.4-source.zip",
-  "base_archive_sha256": "8ad9a3cf51ebd7511f0964e4d6fe2881bf91f78fe45de0f199411ca587310108",
+  "version": "88.2.6",
+  "base_version": "88.2.5",
+  "base_archive": "The-Care-Web-v88.2.5-source.zip",
+  "base_archive_sha256": "76f86816ee3a6dbfbefc58907dd3825442781b24fabd6885ea351b0eaa6dfa1b",
   "base_commit": null,
   "package_type": "full source archive",
-  "output_archive": "The-Care-Web-v88.2.5-source.zip",
-  "scope": "HTML agreement and support-plan previews use isolated read-only content within the authenticated viewer. Compact PDF controls, error-only Retry, less crowded evidence lists. No new dependency or schema change.",
+  "output_archive": "The-Care-Web-v88.2.6-source.zip",
+  "scope": "Fix worker Settings stuck on Loading: remove accidental admin-page state reference, isolate Settings render lifecycle, handle load failures/timeouts with Retry, and test Settings sections with real API responses. No server or schema change.",
   "unchanged_assets": "Existing public artwork, photos, scene videos, fonts and vendor files are unchanged."
 }

@@ -1,0 +1,49 @@
+{
+  "runtime": "v24.19.0",
+  "results": [
+    {
+      "name": "Worker Settings renders on first visit and loads real availability without admin state",
+      "result": "PASS"
+    },
+    {
+      "name": "Every worker Settings section reaches its shipped renderer and own API data",
+      "result": "PASS"
+    },
+    {
+      "name": "Settings routes with query parameters select the correct section",
+      "result": "PASS"
+    },
+    {
+      "name": "Worker Profile still renders details, tier and visibility after parallel reads",
+      "result": "PASS"
+    },
+    {
+      "name": "Participant, coordinator and admin Settings lists remain available",
+      "result": "PASS"
+    },
+    {
+      "name": "Missing account gives a sign-in prompt instead of perpetual loading",
+      "result": "PASS"
+    },
+    {
+      "name": "Failed render keeps Settings navigation and Retry recovers the page",
+      "result": "PASS"
+    },
+    {
+      "name": "Hung Settings request times out and a late response cannot replace the error",
+      "result": "PASS"
+    },
+    {
+      "name": "Late Settings response cannot overwrite a new section or a signed-out account",
+      "result": "PASS"
+    },
+    {
+      "name": "Email preference load errors offer Retry and mandatory messages stay protected",
+      "result": "PASS"
+    },
+    {
+      "name": "Worker details save through the existing endpoint and remain escaped in Profile",
+      "result": "PASS"
+    }
+  ]
+}

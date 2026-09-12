@@ -1,6 +1,6 @@
 {
-  "release": "88.2.5",
-  "base_release": "88.2.4",
+  "release": "88.2.6",
+  "base_release": "88.2.5",
   "format": "full-source",
   "note": "All package files are listed except RELEASE-FILES.json itself. Preserve deployed runtime databases, uploads and secrets.",
   "files": {
@@ -17,7 +17,7 @@
       "sha256": "08062faf0d7a2d22f5d7933c50e975dd1527034275597be7c1b3b9fd2b9d079a"
     },
     "STARTHERE.txt": {
-      "sha256": "5e415502ad9b56bc2cd89ddc310cd479dba1cc99b62a38d6ae7a84e708c35d25"
+      "sha256": "8865bb8a136855ff65e18b57a4cf5a91175cbf339150dd731b4b044ea1460fee"
     },
     "blank-forms/p-advocate \u2014 Advocate, nominee or decision-maker form.pdf": {
       "sha256": "a8c898cc4a2b56f8c44d388846a900873e8a3331f6d1027e7e85766400281ac7"
@@ -370,6 +370,9 @@
     "docs/CHANGELOG-v88.2.5.md": {
       "sha256": "fae085e428e664e81f92e6f0d0a7b8c5ca50bc6f4fa20680a1546fb1637b45b5"
     },
+    "docs/CHANGELOG-v88.2.6.md": {
+      "sha256": "1a279d5e3d131a37887e0ce2a58c956ca2c36dae99146997188c71b03018d61d"
+    },
     "docs/GRAPHICS-REDESIGN.md": {
       "sha256": "2c691864ff1fcc0680c03cb4a32e31f3bb36cda644aa87f921b8efa5bc1a3420"
     },
@@ -380,10 +383,10 @@
       "sha256": "0585773d6e69c8411d75107597498e64c8a12593e959530ae651514668b847b6"
     },
     "docs/RELEASE-NOTES.md": {
-      "sha256": "fae085e428e664e81f92e6f0d0a7b8c5ca50bc6f4fa20680a1546fb1637b45b5"
+      "sha256": "1a279d5e3d131a37887e0ce2a58c956ca2c36dae99146997188c71b03018d61d"
     },
     "docs/TEST-RESULTS.md": {
-      "sha256": "a6105ed6c30cbdb67af8ba9d5eea98b90257652068f6eed275923f15af9e9091"
+      "sha256": "30220059ba25ec209e13cbd0c6d707d8dfbd75f9e672464fc5926fcca44b6d0d"
     },
     "docs/WORKFLOW-OPERATIONS.md": {
       "sha256": "6d56747006ab86cd85ac36ddb810c4c24bfb2500901108b3bc2ec19866cd5ef3"
@@ -392,10 +395,10 @@
       "sha256": "a37c011ff63151d3276dab34d64a592a420da13afa065869328b2cdcbc5c3d1c"
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "297cfa571d9f9274f16a0016571fb64710de3d9b834a5142ac04b23eaad4c6e3"
+      "sha256": "c640390919447035dc3fa4ebb66b639e113ce256c6f3d1d5c88736a0339e449d"
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "45ca446aa0fef4d02d52463d3c84857e87934a9a0a97306be0e48aea7ba289d5"
+      "sha256": "fd9b3066b3ce63c5ca4d057d628738f7d0c114c24a7006f343af0d34ac2034c6"
     },
     "docs/graphics-asset-http.json": {
       "sha256": "83c95f6733f48d799353d36cb15116aa9424d0cbb2a760fe3f114734c2e0c46b"
@@ -461,7 +464,7 @@
       "sha256": "c2540544bb51584837c24648f470e6bb2bdd1703df0cb0c0e1417c0d0e46b00c"
     },
     "docs/release-metadata.json": {
-      "sha256": "aa76b28538c4bd06a3ee9cbaff3c2244ae4f744b047a77cbe09fa6dae24b226b"
+      "sha256": "2eccd51c8e952cd2b3f62efe594d28c927de432708c94e4a492921195528838b"
     },
     "docs/validation/check-output.txt": {
       "sha256": "b052405632d23028f8f03e86564e63aa4615e0ff4b9e4c2314605a2e3bce8671"
@@ -578,10 +581,10 @@
       "sha256": "65bafd60044e3d30d98ab6d0a21ccca993933578452ba69452431b233d84914e"
     },
     "package-lock.json": {
-      "sha256": "4edc9db54ee020b00636ff115dbfd878c253ddb558d45fdd90af4ef905963f13"
+      "sha256": "139c267ae03e12781988ec1ab50b09a688b65f1e3c029289fd39ae2dfa0f0179"
     },
     "package.json": {
-      "sha256": "e20de4c630b4aee8b560e717408dff2f45a5ccd7e1daa0e2ad4c6b135b55942e"
+      "sha256": "e0034b562115604ab39597499673da36f173a515fe70c1c52ba94ff8c8dedaff"
     },
     "prefill-walkthrough.js": {
       "sha256": "8cdc0cba5675f33b4ccefc4cdebf896c8933b68ac2fedea86ea13a5f3115235b"
@@ -1040,7 +1043,7 @@
       "sha256": "ad025e807e4906ebfc0f448e5bebcd1a44c5e2e9b9cf6759f9b728661062a382"
     },
     "public/index.html": {
-      "sha256": "e0cc923abbd885bbf77dab3d8a128501949d17a5f47f07aeca5673dba7e8dda5"
+      "sha256": "64f4db4390d1e7ac70bfad4a31bd43a1cc18a08cedc4f4d16d96e57860085ab7"
     },
     "public/vendor/care-cast.js": {
       "sha256": "6461468f0755d4797be60b29095744fdd701de092ae8f7f5fc1ee60149aa9a37"
@@ -1169,7 +1172,7 @@
       "sha256": "06552c54e4071fbc7305117aafe6765d92c5d2a2a83507d4f05b9bf4f3d4d463"
     },
     "readme.txt": {
-      "sha256": "65b0382d1d7e12d369da0d3ce30eff97941bf3f87b9662fd11809e1b3068bd47"
+      "sha256": "8471b34be2080e6c9e912be6879deda98d4bd6abd50a15d267c4c0a31e86b68a"
     },
     "scripts/NDIS_plan__sample_for_walkthrough.pdf": {
       "sha256": "8ef1ce7de6bc4247997252664267635ee011b51362f57699bbcb0e688dd55e82"
@@ -1193,7 +1196,7 @@
       "sha256": "ea54bcd8fb61e1acff0f7b1290e45fd0a8e67b11df6b47fa88948341a2214e19"
     },
     "scripts/release-docs.js": {
-      "sha256": "fefc8f721e936bccaa0292da23252bf38a1fcf53a66051ce5e15349483496eb4"
+      "sha256": "1bc053d81c82dcf254f61aa574350cca840d8a76c649145e00728e0e238e2766"
     },
     "scripts/reset-test-agreements.js": {
       "sha256": "1b9b724eb295c8b652d80b07471a53487794ffef80da699dc8122d1ffcdf663f"
@@ -1212,6 +1215,9 @@
     },
     "server.js": {
       "sha256": "1bd05bcb7d9bcaf2bb8f18f6e084e1c5a6022902e0c27ce49ecefaae2e0b83ad"
+    },
+    "tests/account-settings-tests.js": {
+      "sha256": "a3924e15b025cee4fdffa3940b4d62422159519f2b96d7effd9d5c06ba9f11dc"
     },
     "tests/admin-verification-tests.js": {
       "sha256": "a8c2fbd6fda2d5c4bcb3bf98fede5cc9107270fc0e601287fcc1b9d30d97e6db"
@@ -1380,6 +1386,24 @@
     },
     "validation/v88.2.5-verification-results.json": {
       "sha256": "11bee4a3e2941da6f0f29bef64e4a1f441be83507bcf65a2312c0871730d1be4"
+    },
+    "validation/v88.2.6-asset-preservation.json": {
+      "sha256": "e4d3697a53798a7462a36371acb2d963564c24c1ee8d7e14c421f7dea078c191"
+    },
+    "validation/v88.2.6-check-output.txt": {
+      "sha256": "8e063bd039c42c91b5243f0b62b428cb0cb33992b169fa3b3075a9b8eafce48e"
+    },
+    "validation/v88.2.6-reproduction.json": {
+      "sha256": "83d3a45ff66df96b242b1e96947365b286b66aed279a61f1a05b4bea5803aab3"
+    },
+    "validation/v88.2.6-settings-results.json": {
+      "sha256": "9699f8b3f1d23ed62d7926c9f597e066e827ca1e827409accc164ff24ab462ab"
+    },
+    "validation/v88.2.6-upgrade-results.json": {
+      "sha256": "89958facbe8b459fa02c3c5fa8ea0aa31a6242c019fdc6e41f08f75fc1f073e3"
+    },
+    "validation/v88.2.6-verification-results.json": {
+      "sha256": "f7ac3bf3ed589dd46d408f4c2136cc7a704ff80f75dacc437462ac9ee534d3e5"
     },
     "word-originals/Advocate or Support Person Request Form.docx": {
       "sha256": "b08a58697fd2b2ca5b6096ce69e04fd37605db685f4002299167c79cd9526210"

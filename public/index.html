@@ -14175,23 +14175,55 @@ const HIDDEN_WORDS = {
   approval: ['Hidden — awaiting approval', 'The team hasn\'t approved your profile yet. Photo and screening check on file are what unlock it.'],
   blocked: ['Hidden — by The Care Web team', 'The office has stopped your profile from showing. This is not about your documents — contact hello@thecareweb.com.au and a person will tell you exactly why and what happens next.']
 };
+// Settings owns its render lifecycle; office-page state must not gate it.
+let ACCOUNT_RENDER_SEQUENCE = 0;
 async function renderAccountPage(){
   const wrap = $('#acctWrapPage'); if(!wrap) return;
+  const sequence = ++ACCOUNT_RENDER_SEQUENCE, accountId = API.me?.id,
+    hash = location.hash, actingFor = API.actingFor?.id || null;
+  const isCurrent = () => sequence === ACCOUNT_RENDER_SEQUENCE &&
+    accountId === API.me?.id && hash === location.hash &&
+    actingFor === (API.actingFor?.id || null) && wrap === $('#acctWrapPage');
+  let timer;
+  wrap.setAttribute('aria-busy', 'true');
+  try{
+    await Promise.race([
+      renderAccountContent(wrap, isCurrent),
+      new Promise((resolve,reject) => { timer = setTimeout(() => reject(new Error('Settings timed out')), 15000); })
+    ]);
+  }catch(e){
+    if(!isCurrent()) return;
+    // Ignore a late response after timeout; keep the settings list available.
+    ++ACCOUNT_RENDER_SEQUENCE;
+    const target = wrap.querySelector('.set-body') || wrap;
+    target.innerHTML = `<div class="info-card" role="alert"><h3>Settings couldn’t load</h3><p>Try again. If this keeps happening, refresh the page or sign in again.</p><button type="button" class="btn btn-secondary btn-sm" id="acctRetry">Try again</button> <a href="#/account">All settings</a></div>`;
+    wrap.setAttribute('aria-busy', 'false');
+  }finally{
+    clearTimeout(timer);
+    if(isCurrent()) wrap.setAttribute('aria-busy', 'false');
+  }
+}
+async function renderAccountContent(wrap, isCurrent){
+  const me = API.me;
   if(!(API.online && API.me)){
     wrap.innerHTML = '<div class="info-card"><p><b>Log in first</b> — these are your settings.</p></div>';
     return;
   }
-  const subRaw = (location.hash.split('/')[2] || '').replace(/[^a-z-]/g, '');
+  const subRaw = (location.hash.split('?')[0].split('/')[2] || '').replace(/[^a-z-]/g, '');
   let nots = null, prof = null, sp = null;
-  if(subRaw === 'notifications'){ try{ nots = await API.call('/me/notifications', {noFor:true}); }catch(e){} }
+  const startsWithNotifications = me.role !== 'coordinator' && !(me.role === 'worker' && !me.admin) && !(me.role === 'participant' && !API.actingFor && !me.admin);
+  if(subRaw === 'notifications' || (!subRaw && startsWithNotifications)){ try{ nots = await API.call('/me/notifications', {noFor:true}); }catch(e){} }
   let myTier = null;
-  if(API.me.role === 'worker' && subRaw === 'profile'){
-    try{ prof = (await API.call('/me/profile', {noFor:true})).profile; }catch(e){}
-    try{ myTier = await API.call('/me/tier', {noFor:true}); }catch(e){}
+  if(me.role === 'worker' && subRaw === 'profile'){
+    const results = await Promise.allSettled([API.call('/me/profile', {noFor:true}), API.call('/me/tier', {noFor:true})]);
+    if(results[0].status === 'fulfilled') prof = results[0].value.profile;
+    if(results[1].status === 'fulfilled') myTier = results[1].value;
   }
-  if(API.me.role === 'participant' && !API.actingFor && subRaw === 'profile'){
+  if(me.role === 'participant' && !API.actingFor && subRaw === 'profile'){
     try{ sp = await API.call('/me/support-plan'); }catch(e){}
   }
+
+  if(!isCurrent()) return;
 
   /* --- notifications: built from the server's own kinds, locked ones shown
      locked rather than hidden — a gap reads as "all off", a lock reads true */
@@ -14229,7 +14261,7 @@ async function renderAccountPage(){
 
   /* --- worker visibility --- */
   let visCard = '';
-  if(API.me.role === 'worker' && prof){
+  if(me.role === 'worker' && prof){
     const hr = prof.hidden_reason || '';
     const words = HIDDEN_WORDS[hr];
     visCard = `
@@ -14251,20 +14283,20 @@ async function renderAccountPage(){
 
   /* --- participant payer --- */
   let payCard = '';
-  if(API.me.role === 'participant'){
+  if(me.role === 'participant'){
     const fundOpts = [['self', 'Self-managed'], ['plan', 'Plan-managed'], ['ndia', 'NDIA-managed'], ['private', 'Private — I pay directly'], ['', 'Choose funding']];
     payCard = `
     <div class="info-card" style="margin-bottom:18px;" id="cardPayer">
       <h3 style="margin:0 0 6px;">How your supports are paid</h3>
-      <p class="muted-sm" style="margin:0 0 10px;">Claimed shifts keep their payer; unclaimed ones move with this setting — we name the money before anything changes. The plan dates are on the front page of your NDIS plan; we need them, not a copy of the plan.${API.me.plan_end && API.me.plan_end < ymd() ? ' <b style="color:#9E2F1C;">Your plan end date has passed — if you have a new plan, update the dates.</b>' : ''}</p>
+      <p class="muted-sm" style="margin:0 0 10px;">Claimed shifts keep their payer; unclaimed ones move with this setting — we name the money before anything changes. The plan dates are on the front page of your NDIS plan; we need them, not a copy of the plan.${me.plan_end && me.plan_end < ymd() ? ' <b style="color:#9E2F1C;">Your plan end date has passed — if you have a new plan, update the dates.</b>' : ''}</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <label style="font-size:.85rem;">Managed<br><select id="payPlan" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;">
-          ${fundOpts.map(([v, l]) => `<option value="${v}" ${API.me.plan === v ? 'selected' : ''}>${l}</option>`).join('')}
+          ${fundOpts.map(([v, l]) => `<option value="${v}" ${me.plan === v ? 'selected' : ''}>${l}</option>`).join('')}
         </select></label>
-        <label style="font-size:.85rem;">NDIS number<br><input id="payNdis" maxlength="12" value="${esc(API.me.ndis_number || '')}" placeholder="9 digits" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;width:130px;"></label>
-        <label style="font-size:.85rem;">Plan manager email<br><input id="payPm" maxlength="120" value="${esc(API.me.pm_email || '')}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;width:220px;"></label>
-        <label style="font-size:.85rem;">NDIS plan starts<br><input id="payStart" type="date" value="${esc(API.me.plan_start || '')}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;"></label>
-        <label style="font-size:.85rem;">Plan ends<br><input id="payEnd" type="date" value="${esc(API.me.plan_end || '')}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;"></label>
+        <label style="font-size:.85rem;">NDIS number<br><input id="payNdis" maxlength="12" value="${esc(me.ndis_number || '')}" placeholder="9 digits" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;width:130px;"></label>
+        <label style="font-size:.85rem;">Plan manager email<br><input id="payPm" maxlength="120" value="${esc(me.pm_email || '')}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;width:220px;"></label>
+        <label style="font-size:.85rem;">NDIS plan starts<br><input id="payStart" type="date" value="${esc(me.plan_start || '')}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;"></label>
+        <label style="font-size:.85rem;">Plan ends<br><input id="payEnd" type="date" value="${esc(me.plan_end || '')}" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;"></label>
         <button type="button" class="btn btn-primary btn-sm" id="payGo">Save</button>
       </div>
       <div id="payConfirm" hidden style="margin-top:12px;padding:12px 14px;border:1.5px solid #F1BE48;border-radius:12px;background:#FDF9EF;"></div>
@@ -14275,7 +14307,6 @@ async function renderAccountPage(){
      section is its own page at #/account/<slug>. A phone shows one thing
      at a time with a back link; a desktop keeps the list beside the open
      page. Profile leads the list, exactly like the menu. ---- */
-  const me = API.me;
   const roleLabel = me.role === 'worker' ? 'Support worker' : me.role === 'coordinator' ? 'Support coordinator' : 'Participant';
   const inputCss = 'font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;';
 
@@ -14434,7 +14465,7 @@ async function renderAccountPage(){
     S.push(['jobs', 'Jobs board', 'Open posts, your applications', '<p class="mini-note" style="margin:0 0 10px;"><a href="#/jobs"><b>Browse the jobs board →</b></a> — participants post what they need; apply with a short note.</p><div id="miniApps"><p class="muted-sm">Loading…</p></div>']);
   }
 
-  S.push(['notifications', 'Emails & notifications', 'Which emails reach you', notCard || card('cardNotifsFallback', 'Emails', '<p class="muted-sm">Couldn’t load your email settings just now — refresh to try again.</p>')]);
+  S.push(['notifications', 'Emails & notifications', 'Which emails reach you', notCard || card('cardNotifsFallback', 'Emails', '<p class="muted-sm">Couldn’t load your email settings just now.</p><button type="button" class="btn btn-secondary btn-sm" id="acctRetry">Try again</button>')]);
   S.push(['accessibility', 'Accessibility', 'Text size, font, motion, contrast', a11yCard]);
   S.push(['security', 'Sign-in & security', 'Password, two-step, devices', pwCard + '<div id="miniSecurity"><p class="muted-sm">Loading…</p></div>']);
   S.push(['help', 'Help & contact', 'A real person, plain answers', card('cardHelpLink', 'Help & contact', `<p style="margin:0 0 6px;font-size:1.05rem;"><b>0488 114 368</b> · <a href="mailto:hello@thecareweb.com.au">hello@thecareweb.com.au</a></p><p class="mini-note" style="margin:0 0 8px;"><b>In an emergency, always call 000 first.</b> National Relay Service and interpreters (TIS 131 450) welcome.</p><p style="margin:0;font-size:.9rem;"><a href="#/contact"><b>Send us a message →</b></a> &nbsp;·&nbsp; <a href="#/faq"><b>FAQ &amp; help →</b></a></p>`)]);
@@ -14449,7 +14480,7 @@ async function renderAccountPage(){
   const rows = S.map(([slug, label]) =>
     `<a class="sr-row${slug === rowOn ? ' on' : ''}" href="#/account/${slug}"${cur && slug === cur[0] ? ' aria-current="page"' : ''}><span class="sr-txt"><b>${label}${badgeFor(slug) ? `<span class="sr-badge" data-blk-badge="${badgeFor(slug)}" ${blockerCount(badgeFor(slug)) ? '' : 'hidden'}>${blockerCount(badgeFor(slug)) || ''}</span>` : ''}</b></span><span class="sr-go" aria-hidden="true">›</span></a>`).join('');
 
-  if(renderSequence!==ADMIN_RENDER_SEQUENCE)return;
+  if(!isCurrent()) return;
   wrap.innerHTML = `
   <div class="set-layout ${cur ? 'has-sub' : 'no-sub'}">
     <nav class="set-nav" aria-label="All settings">
@@ -14464,15 +14495,15 @@ async function renderAccountPage(){
 
   /* Build 22: the pane IS the page — no redirects, the real thing renders
      right here (pickWrap points each renderer at the mini container). */
-  if(rowOn === 'availability') BookItReview.renderAvailability();
-  if(rowOn === 'billing' || rowOn === 'statements') renderStatementsPage();
-  else if(rowOn === 'documents') renderPdocsMini();
-  else if(rowOn === 'access') renderAccessPage();
-  else if(rowOn === 'jobs'){ if(me.role === 'worker') renderMyApplications(); else renderMyJobs(); }
-  else if(rowOn === 'security') renderSecurityPage();
-  else if(rowOn === 'earnings') renderEarningsPage();
-  else if(rowOn === 'training') renderTrainingPage();
-  else if(rowOn === 'credentials') renderCredsMini();
+  if(rowOn === 'availability') await BookItReview.renderAvailability();
+  if(rowOn === 'billing' || rowOn === 'statements') await renderStatementsPage();
+  else if(rowOn === 'documents') await renderPdocsMini();
+  else if(rowOn === 'access') await renderAccessPage();
+  else if(rowOn === 'jobs'){ if(me.role === 'worker') await renderMyApplications(); else await renderMyJobs(); }
+  else if(rowOn === 'security') await renderSecurityPage();
+  else if(rowOn === 'earnings') await renderEarningsPage();
+  else if(rowOn === 'training') await renderTrainingPage();
+  else if(rowOn === 'credentials') await renderCredsMini();
 }
 /* Build 22 — the documents mini: the participant's file, dense, with a
    one-line add. Same endpoints as the bookings card; its own ids. */
@@ -14709,6 +14740,7 @@ document.addEventListener('change', async e => {
 });
 document.addEventListener('click', async e => {
   const id = e.target.id;
+  if(id === 'acctRetry'){ await renderAccountPage(); return; }
   if(id === 'a11yFromSettings'){
     const b = $('#a11yOpen');
     if(b && b.getAttribute('aria-expanded') !== 'true') b.click();
