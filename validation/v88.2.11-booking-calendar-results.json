@@ -1,0 +1,57 @@
+{
+  "runtime": "v24.19.0",
+  "results": [
+    {
+      "name": "The worker gets compact request counts on Bookings and mobile menu; reading does not clear requests",
+      "result": "PASS"
+    },
+    {
+      "name": "Participants and office accounts never inherit a worker request warning",
+      "result": "PASS"
+    },
+    {
+      "name": "Calendar displays server-time dates, overnight carry-over and exact existing booking controls",
+      "result": "PASS"
+    },
+    {
+      "name": "Month arithmetic crosses leap years and years without browser timezone drift",
+      "result": "PASS"
+    },
+    {
+      "name": "Day selection and arrow keys preserve focus and update the day agenda without a page jump",
+      "result": "PASS"
+    },
+    {
+      "name": "Month/week, date picker and Today controls request the intended date range",
+      "result": "PASS"
+    },
+    {
+      "name": "Cancelled visits are optional and toggling their display is read-only",
+      "result": "PASS"
+    },
+    {
+      "name": "Badge refresh is visible-page only, throttled and updated after booking actions",
+      "result": "PASS"
+    },
+    {
+      "name": "Late badge responses cannot leak into a new account or undo a more recent count",
+      "result": "PASS"
+    },
+    {
+      "name": "Late calendar reads cannot overwrite another page or a different client",
+      "result": "PASS"
+    },
+    {
+      "name": "Calendar failures and timeouts offer retry; a stale timeout response cannot overwrite recovery",
+      "result": "PASS"
+    },
+    {
+      "name": "Calendar strings are escaped and the selected day survives opening a booking and returning",
+      "result": "PASS"
+    },
+    {
+      "name": "Following the request notice refreshes even when it already points to the current calendar URL",
+      "result": "PASS"
+    }
+  ]
+}

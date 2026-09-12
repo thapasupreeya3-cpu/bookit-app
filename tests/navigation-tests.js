@@ -39,7 +39,7 @@ await test('Menu keyboard open, tab boundary, Escape and close return focus corr
  vm.runInContext(block,ctx);ctx.openMobileNav();assert.equal(first.focused,true);assert.equal(get('burger').attrs['aria-expanded'],'true');ctx.document.activeElement=last;let prevented=false;main.listeners.keydown({key:'Tab',preventDefault(){prevented=true;}});assert.ok(prevented&&first.focused);main.listeners.keydown({key:'Escape',preventDefault(){}});assert.equal(get('burger').attrs['aria-expanded'],'false');assert.equal(get('burger').focused,true);assert.equal(main.classList.contains('open'),false);
 });
 await test('Bookings API failures show an escaped explanation and retry instead of silently returning',async()=>{
- const {ctx}=baseContext();ctx.wrap={innerHTML:''};ctx.API.call=async()=>{throw Error('<offline>');};const block=/try \{ d = await API.call\('\/bookings'\); \} catch\(e\)\{[^\n]+\}/.exec(html);assert.ok(block);await vm.runInContext('(async()=>{let d;'+block[0]+'})()',ctx);assert.match(ctx.wrap.innerHTML,/data-retry-bookings/);assert.match(ctx.wrap.innerHTML,/&lt;offline&gt;/);
+ const {ctx}=baseContext();ctx.wrap={innerHTML:''};ctx.current=()=>true;ctx.bookingPath='/bookings';ctx.API.call=async()=>{throw Error('<offline>');};const block=/try \{ d = await API.call\(bookingPath\); \} catch\(e\)\{[^\n]+\}/.exec(html);assert.ok(block);await vm.runInContext('(async()=>{let d;'+block[0]+'})()',ctx);assert.match(ctx.wrap.innerHTML,/data-retry-bookings/);assert.match(ctx.wrap.innerHTML,/&lt;offline&gt;/);
 });
 await test('All literal internal navigation destinations resolve and required local assets exist',()=>{
  const routes=Object.keys(vm.runInNewContext(/const ROUTES = \{[\s\S]*?\n\};/.exec(html)[0]+'\nROUTES'));

@@ -1,0 +1,7 @@
+{
+  "artifact": "docs/booking-calendar-preview.html",
+  "script": "Compiled with node --check",
+  "production_component": "Worker and participant renderings and controls exercised by the VM/DOM calendar tests",
+  "browser_rendering": "Not performed; browser access blocked earlier in this session",
+  "data": "Fictional examples; no real account mutations"
+}

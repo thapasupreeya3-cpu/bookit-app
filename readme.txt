@@ -1,8 +1,8 @@
-The Care Web v88.2.10 — complete source package.
+The Care Web v88.2.11 — complete source package.
 
-Extract The-Care-Web-v88.2.10-source.zip; use the contents of bookit-app-main at the
+Extract The-Care-Web-v88.2.11-source.zip; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
-This release clarifies credential review states and keeps the refined Next actions.
+This release adds booking request badges and a month/week calendar.
 PDF/HTML previews and earlier verification automations are retained.
 Configure private billing,
 email, payroll cutover and any optional document assistance before use.

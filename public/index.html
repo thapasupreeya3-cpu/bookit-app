@@ -1784,6 +1784,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 <link rel="stylesheet" href="/assets/admin-verification.css?v=88.2.5">
 <link rel="stylesheet" href="/assets/site-usability.css?v=88.2.7">
 <link rel="stylesheet" href="/assets/worker-credentials.css?v=88.2.10">
+<link rel="stylesheet" href="/assets/booking-calendar.css?v=88.2.11">
 <link rel="stylesheet" href="/assets/next-actions.css?v=88.2.9">
 </head>
 <body>
@@ -1814,7 +1815,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 
         <li data-nav-audience="guest"><a class="nav-link" href="#/pricing">Pricing</a></li>
         <li data-nav-audience="guest participant"><a class="nav-link" href="#/find-workers">Find workers</a></li>
-        <li data-nav-audience="worker participant coordinator" hidden><a class="nav-link" href="#/bookings" id="navBookings">Bookings</a></li>
+        <li data-nav-audience="worker participant coordinator" hidden><a class="nav-link" href="#/bookings" id="navBookings">Bookings <span class="booking-request-badge" id="bookingNavBadge" aria-hidden="true" hidden></span></a></li>
         <li data-nav-audience="worker" hidden><a class="nav-link" href="#/shifts" id="navShifts">Open shifts</a></li>
         <li data-nav-audience="admin" hidden><a class="nav-link" href="#/admin" id="navAdmin">Dashboard</a></li>
         <li data-nav-audience="admin" hidden><a class="nav-link" href="#/admin/verification">Verification</a></li>
@@ -1856,7 +1857,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <div class="acct-menu" id="acctMenu" role="menu" aria-label="Account" hidden></div>
       </div>
       <button class="burger" id="burger" aria-label="Open main menu" aria-controls="mainNav" aria-expanded="false" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span class="booking-request-badge" id="bookingMobileBadge" aria-hidden="true" hidden></span>
       </button>
     </div>
   </div>
@@ -4549,6 +4550,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   </div>
   <section class="block">
     <div class="container">
+      <div id="bookingViewControls" class="bc-view-controls"></div><span id="bookingAlertAnnounce" class="sr-only" role="status" aria-live="polite"></span>
       <div id="bookingsInvoiceNote"></div>
       <div id="bookingsList" class="bk-list"></div>
     </div>
@@ -7630,6 +7632,7 @@ window.API = {
     /* v86.4: anything that changes the account re-counts the red marks at
        once, so pressing I agree takes the 2 to a 1 without a refresh */
     if((opts.method || 'GET') !== 'GET' && typeof loadBlockers === 'function') setTimeout(loadBlockers, 0);
+    if((opts.method || 'GET') !== 'GET') window.CareBookingCalendar?.changed(path);
     return data;
   }
 };
@@ -7643,6 +7646,7 @@ function syncPrimaryNavigation(){
   $('#btnMessages').hidden = role === 'guest';
 }
 function updateAuthUI(){
+  window.CareBookingCalendar?.sync();
   if(window.CareFlow){CareFlow.nav();if(location.hash.startsWith('#/journey'))CareFlow.render();}
   const authed = !!(API.online && API.me);
   $('#btnLogin').hidden = authed;
@@ -7823,7 +7827,7 @@ document.addEventListener('click', e => {
   if(it.dataset.acct === 'logout'){ doLogout(); return; }
   PENDING_SECTION = it.dataset.sec || null;
   PENDING_AT = Date.now();
-  const h = it.dataset.hash;
+  const h = it.dataset.sec && it.dataset.hash === '#/bookings' ? '#/bookings?view=list' : it.dataset.hash;
   if(location.hash === h){ if(PENDING_SECTION) revealPendingSection(); else route(); }
   else location.hash = h;
 });
@@ -7940,8 +7944,8 @@ let PENDING_AT = 0;
 window.goEditProfile = function(){
   PENDING_SECTION = 'cardProfile';
   PENDING_AT = Date.now();
-  if(location.hash === '#/bookings') revealPendingSection();
-  else location.hash = '#/bookings';
+  if(location.hash === '#/bookings?view=list') revealPendingSection();
+  else location.hash = '#/bookings?view=list';
 };
 function revealPendingSection(){
   if(!PENDING_SECTION) return;
@@ -8246,10 +8250,15 @@ $('#bookingForm').addEventListener('submit', async e => {
 document.addEventListener('click', e => {
   if(e.target.closest('[data-close-modal]')) closeModals();
 });
+let BOOKINGS_RENDER_SEQUENCE=0;
 async function renderBookingsPage(){
+  const generation=++BOOKINGS_RENDER_SEQUENCE,who=API.me?.id,subject=API.actingFor?.id,hash=location.hash;
+  const current=()=>generation===BOOKINGS_RENDER_SEQUENCE&&who===API.me?.id&&subject===API.actingFor?.id&&hash===location.hash;
+  window.CareBookingCalendar?.setup();
+  if(window.CareBookingCalendar?.handles())return CareBookingCalendar.render();
   const wrap = $('#bookingsList');
   if(!wrap) return;
-  const invNote = $('#bookingsInvoiceNote'); if(invNote){ invoiceBanner().then(html => { invNote.innerHTML = html; }); }
+  const invNote = $('#bookingsInvoiceNote'); if(invNote){ invoiceBanner().then(html => { if(current())invNote.innerHTML = html; }).catch(()=>{}); }
   if(!API.online){
     wrap.innerHTML = '<div class="info-card"><p><b>Bookings run on the live The Care Web server.</b> This preview is demo-only — on the deployed site this page shows real requests, confirmations and history.</p></div>';
     return;
@@ -8458,12 +8467,16 @@ async function renderBookingsPage(){
   /* cover: a live offer is the most urgent thing on this page, so it goes above
      everything; the care web / standby settings sit with the other saved settings. */
   const cover = await renderCoverPanels();
+  if(!current())return;
   let seriesCard = '';
   if(vrole() === 'participant'){
     try{ seriesCard = seriesCardHtml(await API.call('/series')); }catch(e){}
   }
   let d;
-  try { d = await API.call('/bookings'); } catch(e){ wrap.innerHTML = `<div class="info-card" role="alert"><p>Bookings couldn’t load. ${esc(e.message)}</p><button class="btn btn-secondary btn-sm" type="button" data-retry-bookings>Try again</button></div>`; return; }
+  const selectedBooking=new URLSearchParams(location.hash.split('?')[1]||'').get('booking');
+  const bookingPath='/bookings'+(selectedBooking?'?booking='+encodeURIComponent(selectedBooking):'');
+  try { d = await API.call(bookingPath); } catch(e){ if(!current())return; wrap.innerHTML = `<div class="info-card" role="alert"><p>Bookings couldn’t load. ${esc(e.message)}</p><button class="btn btn-secondary btn-sm" type="button" data-retry-bookings>Try again</button></div>`; return; }
+  if(!current())return;
   API.apprDays = d.approval_days || 7;
   const wActive = d.worker_active !== false;
   const trainLock = d.training_lock || '', trainDays = d.training_overdue_days || 0;
@@ -8551,7 +8564,7 @@ async function renderBookingsPage(){
           <p class="note-locked">Once it's saved it can't be edited — if you need to correct something you add a note underneath it.</p>
         </div>` : ''}
       </div>
-      <span class="bk-status bk-${b.status}">${STATUS_LABEL[b.status] || b.status}</span>
+      <span class="bk-status bk-${b.status}${b.needs_response?' bk-request-warning':''}">${b.needs_response?'! Response needed':STATUS_LABEL[b.status] || b.status}</span>
       <div class="bk-actions">
         ${vrole() === 'worker' && b.status === 'requested' && wActive && !bookingProviderLocked(b) && bookingStartLocal(b) > new Date() ? (trainLock === 'hard'
           ? `<button class="btn btn-primary btn-sm" type="button" disabled aria-disabled="true" title="Finish your training first">Accept</button><button class="btn btn-secondary btn-sm" data-bk="${b.id}" data-act="declined" type="button">Decline</button><span class="accept-why">Your training is ${trainDays} days overdue, so you can't accept new shifts. <a href="#/account/training">Finish it on the Training page</a> and this button comes back straight away.</span>`
@@ -15540,6 +15553,7 @@ document.addEventListener('click', async e => {
 <script src="/assets/next-actions.js?v=88.2.9"></script>
 <script src="/assets/process-workflows.js?v=88.2.9"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
+<script src="/assets/booking-calendar.js?v=88.2.11"></script>
 <script src="/assets/admin-verification.js?v=88.2.5"></script>
 <script>
 document.addEventListener('click',async event=>{

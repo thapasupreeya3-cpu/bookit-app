@@ -1,11 +1,11 @@
 {
-  "version": "88.2.10",
-  "base_version": "88.2.9",
-  "base_archive": "The-Care-Web-v88.2.9-source.zip",
-  "base_archive_sha256": "d6d958a42388e2edd8d6bc60bf2dd70503672d72a8492cb3c2a190fa86574280",
+  "version": "88.2.11",
+  "base_version": "88.2.10",
+  "base_archive": "The-Care-Web-v88.2.10-source.zip",
+  "base_archive_sha256": "6594357a351215cd8e4b5cd8806cac14fafea878f373531e14c4dda0c31b564a",
   "base_commit": null,
   "package_type": "full source archive",
-  "output_archive": "The-Care-Web-v88.2.10-source.zip",
-  "scope": "Clear worker credential status colours, verified dates, review guidance and direct checklist access; preserve prior Next actions refinements.",
+  "output_archive": "The-Care-Web-v88.2.11-source.zip",
+  "scope": "Worker booking-request badges and a scoped month/week calendar for workers and participants, with existing booking controls and overnight/date safeguards.",
   "unchanged_assets": "Existing public artwork, photos, scene videos, fonts and vendor files are unchanged."
 }

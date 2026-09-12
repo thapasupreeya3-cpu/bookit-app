@@ -1,38 +1,44 @@
-# v88.2.10 test results
+# v88.2.11 test results
 
-The complete `npm run check` gate passed with exit code 0 on Node 24.19.0 after regenerating the versioned inventories. The report and current receipts were added afterward; the payload manifest was regenerated and verified. Application code did not change after the final full gate.
+The complete `npm run check` gate passed with exit code 0 on Node 24.19.0. This report and current receipts were added afterward; the payload manifest was regenerated and verified. Application code did not change after the final full gate.
 
 | Check | Result |
 | --- | --- |
-| Syntax | 65 scripts compiled; 0 failures; includes 4 inline application scripts |
-| API/database inventories | 367 routes; 83 tables; schema 88202 |
+| Syntax | 67 scripts compiled; 0 failures; includes 4 inline application scripts |
+| API/database inventories | 369 routes; 83 tables; schema 88202 |
 | Clash tests | 21 passed |
 | Application smoke tests | All passed |
 | Review unit assertions | 46 passed |
 | Review integration | 25/25 passed |
 | Graphics/asset contracts | 54/54 passed |
 | Audit | 8 unit groups and API scenarios passed |
-| Workflows and API checks | 37/37 passed |
+| Workflows and API checks | 42/42 passed |
 | Verification/document previews | 46/46 passed |
 | Settings | 11/11 passed |
 | Navigation | 10/10 passed |
 | Document workspace | 17/17 passed |
 | Next actions | 13/13 passed |
+| Booking calendar and request badge | 13/13 passed |
 | Structural page audit | 54 explicit route entries; no unresolved literal links, duplicate static IDs or unlabelled static controls found |
-| Asset preservation | 147 original image, media, font and binary files byte-identical to v88.2.9 |
-| Status text contrast | Declared text/background pairs: 6.40 verified, 6.50 pending, 6.36 attention, 5.62 earlier record |
-| Standalone preview | All 3 fictional states render using the production component in a VM; the preview script compiles |
+| Asset preservation | 147 original image, media, font and binary files byte-identical to v88.2.10 |
+| Preview | Standalone script compiled; production component tested with fictional worker and participant data |
 
-## Current behavior exercised
+## New API behavior exercised
 
-Four new credential scenarios cover received-versus-verified summaries, mixed evidence and earlier rejected records, explicit checklist focus/scroll navigation without a route or data change, and shared identity/Training evidence explanations. Existing credential scenarios still cover the full 25-type catalogue, missing essentials, current versus expired/rejected/details-only evidence, file previews, type-specific fields, size limits, exact replacement targets, history, retries, removal requests and stale page/account guards.
+Five new scenarios run against the actual server with disposable accounts and databases. They verify worker-only request counts and a real decline action, exclusion of past/cancelled/covered/voided records, participant and worker ownership, omission of care notes from the calendar payload, active helper booking scope and revocation, exact scoped booking lookup, Sydney daylight saving and overnight carry-in, exclusive midnight endings, leap-month boundaries, 405 bookings in one calendar range, an old focused record outside the list cap, and invalid dates/view/booking-ID rejection.
 
-The real API tests run against disposable local accounts and databases. The UI tests execute the actual application renderers and handlers using a minimal DOM model. The status preview uses fictional data and disables upload/account actions. This release changes presentation only: no backend, review/eligibility rules, schema or runtime dependencies changed.
+## New UI behavior exercised
+
+Thirteen scenarios execute the production component in a VM with a minimal DOM model. They verify desktop/mobile counts, no worker badge on participant/admin accounts, server-time display, carry-over visits, exact record links, calendar arithmetic, arrow-key/day focus, month/week/date/Today controls, optional cancelled records, read-only display actions, polling cadence and hidden-page suppression, refresh after mutation, stale response/account isolation, timeouts/retry, escaped names, return-to-calendar selection and same-URL request refresh.
+
+Existing tests retain coverage of booking acceptance, cancellation, completion and timesheet rules; account loading/navigation; document file actions and review status; and verification automation. The new calendar opens the existing booking controls instead of introducing separate approval or payment handlers.
 
 ## Limits
 
-The DOM models are not browser rendering engines. Local browser access was blocked earlier in the session; no alternate browser route was used. The preview was not visually inspected in a browser. Deployed layout, focus behavior, enlarged text, screen readers and browser colour overrides remain unverified. Calculated contrast refers to the declared CSS pairs only. No live site was accessed or deployed, and no real messages or payments were sent.
+DOM models are not browser rendering engines. Local browser access was blocked earlier in this session; no alternate browser route was used. The interactive preview was not visually inspected in a real browser. Deployed layout, mobile/enlarged text, focus behavior, screen readers and browser colour overrides remain unverified. The preview uses fictional data and does not perform real account mutations.
 
-The project declares Node 22; the available runtime was Node 24.19.0. Deployment CI should run the same gate on its declared runtime.
+The request badge polls approximately every 30 seconds while the site is visible. It is not an operating-system push notification. Calendar data refreshes on opening, date/view changes, Today or Refresh; the selected calendar is not continuously replaced in the background. Existing email and external-calendar behavior is unchanged. No live deployment, real messages or payment transactions were performed.
 
-Current evidence is under `validation/v88.2.10-*`, including the complete check output, credential/Settings/navigation/workflow/Next actions results, structural page audit, asset comparison, status contrast calculations and preview execution receipt. Earlier receipts describe their own releases.
+The project declares Node 22; the test runtime was Node 24.19.0. Deployment CI should run the same gate on its declared runtime. No schema or runtime dependencies changed.
+
+Current evidence is under `validation/v88.2.11-*`: check output, workflow/API, calendar, Next actions, Credentials, Settings and navigation results, page audit, asset comparison and preview receipt. Earlier validation files describe their own releases.

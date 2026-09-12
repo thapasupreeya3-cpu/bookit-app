@@ -6482,12 +6482,57 @@ route('POST', /^\/api\/admin\/participants\/(\d+)\/plan-review$/, (req, res, m, 
   json(res, 200, { ok: true, version: cur.version, reviewed_at: now(), reviewed_by: user.name });
 });
 
+/* Read-only booking calendar and request badge. Reuse the existing booking scope. */
+function bookingNeedsResponse(b, at = Date.now()) {
+  return b.status === 'requested' && !b.voided
+    && !['finding','office','uncovered','failed','referred','allied'].includes(String(b.cover_state || ''))
+    && bookingStart(b).getTime() > at;
+}
+function workerBookingAlerts(user) {
+  if (!user || user.admin || user.role !== 'worker') return { count: 0, next_date: null };
+  const rows = db.prepare("SELECT date,start,hours,status,cover_state,voided FROM bookings WHERE worker_id=? AND status='requested' AND date>=? ORDER BY date,start,id").all(user.id, ymd());
+  const pending = rows.filter(b => bookingNeedsResponse(b));
+  return { count: pending.length, next_date: pending[0]?.date || null };
+}
+route('GET', /^\/api\/me\/booking-alerts$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  json(res, 200, { ...workerBookingAlerts(user), as_of: new Date().toISOString() });
+});
+route('GET', /^\/api\/bookings\/calendar$/, (req, res, m, user) => {
+  if (!user) return json(res, 401, { error: 'Please log in.' });
+  const pers = user.role === 'worker' ? null : actFor(req, user, 'bookings');
+  if (user.role !== 'worker' && !pers) return json(res, 403, { error: 'Choose a client with booking access, or ask them to grant it.' });
+  const q = new URL(req.url, 'http://local').searchParams;
+  const date = q.get('date') || ymd(), view = q.get('view') || 'month';
+  if (!BOOKIT_TIME.validDate(date) || Number(date.slice(0,4)) < 1901 || Number(date.slice(0,4)) > 9998 || !['month','week'].includes(view)) return json(res, 400, { error: 'Choose a valid calendar date and month or week view.' });
+  const iso = d => d.toISOString().slice(0,10), anchor = new Date(date+'T12:00:00Z');
+  const from = new Date(anchor), to = new Date(anchor);
+  if (view === 'month') { from.setUTCDate(1); to.setUTCMonth(to.getUTCMonth()+1,0); }
+  from.setUTCDate(from.getUTCDate() - (from.getUTCDay()+6)%7);
+  to.setUTCDate(to.getUTCDate() + 6 - (to.getUTCDay()+6)%7);
+  const lower = new Date(from); lower.setUTCDate(lower.getUTCDate()-2);
+  const fromDay = iso(from), toDay = iso(to), endDay = new Date(to); endDay.setUTCDate(endDay.getUTCDate()+1);
+  const rangeStart = new Date(fromDay+'T00:00:00'), rangeEnd = new Date(iso(endDay)+'T00:00:00');
+  const worker = user.role === 'worker', col = worker ? 'worker_id' : 'participant_id', other = worker ? 'participant_id' : 'worker_id';
+  // No legacy 400-row cap: this query is bounded to the visible month/week.
+  const rows = db.prepare(`SELECT b.id,b.date,b.start,b.hours,b.status,b.service,b.sleepover,b.kind,b.series_id,b.cover_state,b.voided,u.name AS other_name FROM bookings b JOIN users u ON u.id=b.${other} WHERE b.${col}=? AND b.date>=? AND b.date<=? AND COALESCE(b.voided,0)=0 ORDER BY b.date,b.start,b.id`).all(worker ? user.id : pers.id, iso(lower), toDay);
+  const pad = n => String(n).padStart(2,'0');
+  const bookings = rows.filter(b => bookingStart(b) < rangeEnd && bookingEnd(b) > rangeStart).map(b => {
+    const start = bookingStart(b), end = bookingEnd(b);
+    return { id:b.id,date:b.date,start:b.start,hours:b.hours,status:b.status,service:b.service,other_name:b.other_name,sleepover:!!b.sleepover,intro:b.kind==='intro',series_id:b.series_id,cover_state:b.cover_state,
+      starts_at:start.toISOString(),ends_at:end.toISOString(),end_date:ymd(end),end_time:pad(end.getHours())+':'+pad(end.getMinutes()),last_date:ymd(new Date(end.getTime()-1)),needs_response:worker && bookingNeedsResponse(b) };
+  });
+  json(res, 200, {bookings,date,view,from:fromDay,to:toDay,today:ymd(),time_zone:Intl.DateTimeFormat().resolvedOptions().timeZone,as_of:new Date().toISOString(),role:worker?'worker':'participant',subject:{id:worker?user.id:pers.id,name:worker?user.name:pers.name},alerts:workerBookingAlerts(user)});
+});
+
 route('GET', /^\/api\/bookings$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   /* A coordinator sees a client's diary through exactly the same route, and
      only for the client the request names. Everyone else sees their own. */
   const pers = user.role === 'worker' ? null : actFor(req, user, 'bookings');
   if (user.role === 'coordinator' && !pers) return json(res, 403, { error: 'Choose a client first, or ask them to give you access to bookings.' });
+  const only = new URL(req.url, 'http://local').searchParams.get('booking');
+  if (only !== null && !/^[1-9]\d*$/.test(only)) return json(res,400,{error:'Choose a valid booking.'});
   const whoId = pers ? pers.id : user.id;
   const col = user.role === 'worker' ? 'worker_id' : 'participant_id';
   const otherCol = user.role === 'worker' ? 'participant_id' : 'worker_id';
@@ -6498,10 +6543,12 @@ route('GET', /^\/api\/bookings$/, (req, res, m, user) => {
     FROM bookings b
     JOIN users u ON u.id = b.${otherCol}
     LEFT JOIN worker_profiles p ON p.user_id = u.id
-    WHERE b.${col} = ? ORDER BY b.date DESC, b.id DESC LIMIT 400`).all(whoId);
+    WHERE b.${col} = ? AND (? IS NULL OR b.id=?) ORDER BY b.date DESC, b.id DESC LIMIT 400`).all(whoId,only,only);
+  if(only !== null && !rows.length) return json(res,404,{error:'Booking not found or no longer available to this account.'});
   /* The approval clock, computed rather than stored, so it is right the
      moment it is read instead of the last time a sweep ran. */
   for (const b of rows) {
+    b.needs_response = user.role === 'worker' && bookingNeedsResponse(b);
     if (b.status === 'completed' && b.approval_state === 'pending') {
       /* approval_from, not completed_at: after a query is answered the window
          restarts, and a screen counting from the original completion would

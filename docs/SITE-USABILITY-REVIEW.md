@@ -1,6 +1,10 @@
-# Website usability review — v88.2.10
+# Website usability review — v88.2.11
 
 Current update reviewed v88.2.7 and corrects the issues in CHANGELOG-v88.2.8.md. The earlier broad page review is retained below. No deployed site, GitHub repository or live account was accessed.
+
+## Booking calendar and request indicator
+
+v88.2.11 adds the month/week diary, a compact Calendar/List switch, exact-record links and a worker request badge. Its date queries and badge refreshes use existing account scopes. See the current changelog and test report; historical audit sections retain their original scope.
 
 ## Credential status clarity
 
