@@ -1,8 +1,8 @@
 {
-  "release": "88.3.0",
-  "base_release": "88.2.12",
+  "release": "88.3.2",
+  "base_release": "88.3.0",
   "format": "full-source",
-  "note": "All project payload hashes except this manifest. Preserve runtime data. External launch acceptance is not certified.",
+  "note": "Installed source tree after the update; runtime data excluded.",
   "files": {
     ".env.example": {
       "sha256": "370eda7ea5edf49085cd0ce509cf73232f2e9f364e228827054b591cecd54121"
@@ -17,7 +17,7 @@
       "sha256": "08062faf0d7a2d22f5d7933c50e975dd1527034275597be7c1b3b9fd2b9d079a"
     },
     "STARTHERE.txt": {
-      "sha256": "fe599d0107487ad11537b34e43347fb5f69c665f8ce5c925da092dba0e640ba6"
+      "sha256": "c8ead5e87c5557f33a797911c3047f42fe87b3c0069d23a63c709cb6c0252d3d"
     },
     "blank-forms/p-advocate \u2014 Advocate, nominee or decision-maker form.pdf": {
       "sha256": "a8c898cc4a2b56f8c44d388846a900873e8a3331f6d1027e7e85766400281ac7"
@@ -358,6 +358,9 @@
     "docs/ADMIN-VERIFICATION.md": {
       "sha256": "3e37c411de257f1e17082a9ec28258bbf3cc36dedea1aab8da1fff1ee4b703c3"
     },
+    "docs/BLOCKS-AND-AUTOMATION.md": {
+      "sha256": "443fd55256e7d7c08cdc39b54de413bdc0c9b830707fd92a753b0acea30a8ca5"
+    },
     "docs/CHANGELOG-v88.2.10.md": {
       "sha256": "ef90f19fe11541c9d67ed440acd3d6ed7ab9358583442995669b12c219532c4a"
     },
@@ -394,6 +397,12 @@
     "docs/CHANGELOG-v88.3.0.md": {
       "sha256": "c2aeea84dfc28e0bd19e4e20fe7ce2b70b893eda7524eae6362ecd30ab32e5b0"
     },
+    "docs/CHANGELOG-v88.3.1.md": {
+      "sha256": "03fae5052cc053d036a0fd037991a1dfaebcd933d536ac693c38f71fc14d941b"
+    },
+    "docs/CHANGELOG-v88.3.2.md": {
+      "sha256": "ebb0d5075da5aeda144c409fe2652cf19b583f8b7b595d6063a57d0ba72eca2e"
+    },
     "docs/DATA-AND-PROCESSOR-INVENTORY.md": {
       "sha256": "0eed4be99d447a1d05fc19e98cb1ce5bfaea48aa0faa08ac7128e3c94110bb87"
     },
@@ -407,7 +416,7 @@
       "sha256": "0585773d6e69c8411d75107597498e64c8a12593e959530ae651514668b847b6"
     },
     "docs/LAUNCH-ACCEPTANCE.md": {
-      "sha256": "4505b3b30882215002cd4a7a171dadd6a22641cf8e58f703733c38c5b7289946"
+      "sha256": "8611c4b9b86eaae0d0f858186ff32d6391600be6a4607764250c474e0713c3e8"
     },
     "docs/PUBLIC-CLAIMS-REVIEW.json": {
       "sha256": "7b10d97c7989fc2e37a8f6c08174d739b73fafc1302ff45c81e818392eeda0d6"
@@ -422,10 +431,10 @@
       "sha256": "23f5391da23d5a52af6e049eb7a4df2c379faa1099386e6973fae19f33ae5d98"
     },
     "docs/TEST-RESULTS.md": {
-      "sha256": "c37c38ccf6f305c6758b902a261455bac6ef24ab985d5718d3dac1627b2d1385"
+      "sha256": "d7760a7ea67454c6c7e28201c164ba7f9ed02b2104cf0b7aeafae7aec8123eba"
     },
     "docs/USER-GUIDE.html": {
-      "sha256": "5e60c072832a46d5d33af9fca542a28a521cb29c2f834eab80f77cfdd64b1485"
+      "sha256": "8043032b9c232e418f368d47e2d2f442e3591428a938c3dc9aaf7c05192ac877"
     },
     "docs/WORKFLOW-OPERATIONS.md": {
       "sha256": "6d56747006ab86cd85ac36ddb810c4c24bfb2500901108b3bc2ec19866cd5ef3"
@@ -434,7 +443,22 @@
       "sha256": "a37c011ff63151d3276dab34d64a592a420da13afa065869328b2cdcbc5c3d1c"
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "5a7798ecb2b18ee2ddcce612812ba7993a905447cba43507b90118b94bb40df9"
+      "sha256": "769c474500ffa8b7c0362be1b0822f0e53778e79f0d6c2053579e43d0963c661"
+    },
+    "docs/block-register/branches.csv": {
+      "sha256": "843fc696dd647370986b1be6f7386268da31f9da48bc1e5ace1afd73fab173e2"
+    },
+    "docs/block-register/branches.json": {
+      "sha256": "0dfc0f1e9480663abba29f67e1a4c142335588478a8190df9167dc67078bea40"
+    },
+    "docs/block-register/index.html": {
+      "sha256": "5da5b4cfd3174ccda43eea9d1909afef6b0a52bd35e2249dca6632436e09867c"
+    },
+    "docs/block-register/register.csv": {
+      "sha256": "0b0e778380a769b53401c5c876b8777dab7c62d246889907b75a8c97cd94e44e"
+    },
+    "docs/block-register/register.json": {
+      "sha256": "3e08ec7449b813716cb23ba51a0b6e1eba579b41cd40489f8e18cc9f9a5cee86"
     },
     "docs/booking-calendar-preview.html": {
       "sha256": "d9e3e7522136a8a0b0ed733683da262c175e7b15bee5b1b8259b294e95b46a90"
@@ -443,7 +467,7 @@
       "sha256": "9c4d07074b47490dc87b79b79e9fb38a30170437d238402922eb10607b945b44"
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "e89a2c1ae7a3f8c631c577b0b65d16cd3d9228f53d0e44b91cedfff2d20d4d6c"
+      "sha256": "675096b2a83113f93856138343a59f583a9036a7a80314e2ac2eee6df043cd91"
     },
     "docs/dependency-provenance.json": {
       "sha256": "b5fe529aada0548ffb813d89455cfea3385f13f96616d2d0b47d99809234cee3"
@@ -506,7 +530,7 @@
       "sha256": "733b72b5a3da6ade4334c0ca30321e734e95366fc4e47811f6a29cb1bfada3f2"
     },
     "docs/launch-actions.json": {
-      "sha256": "ef21213e89b4abc0402af5286502b38f5e3a79b934cb367b34af873f12f735b7"
+      "sha256": "836db532b454fc980ca0f61d68c0d123c7bdd9a2d6e395cc280976ec7c8aae47"
     },
     "docs/launch-research-sources.json": {
       "sha256": "806617cf1b49e30e3cba0505670f4d77d2258c0c010d9fb27c1f3b8652b892b5"
@@ -521,7 +545,7 @@
       "sha256": "c2540544bb51584837c24648f470e6bb2bdd1703df0cb0c0e1417c0d0e46b00c"
     },
     "docs/release-metadata.json": {
-      "sha256": "ecc2caf0107c7e8a91d4e797e8d103e49f1d3ba23f3963726e15b8f94f666f68"
+      "sha256": "06909c89c669d2fa123c2dc46ed74191420f3a344e733c920edae286564760ba"
     },
     "docs/validation/check-output.txt": {
       "sha256": "b052405632d23028f8f03e86564e63aa4615e0ff4b9e4c2314605a2e3bce8671"
@@ -577,6 +601,15 @@
     "lib/assignment-policy.js": {
       "sha256": "7768378d7fc1a0f31234cb51c4b85cf1f81af00e19110ea27d4e146a03dc6219"
     },
+    "lib/automatic-invoicing.js": {
+      "sha256": "7d19213b4d50840036d3ead54f2deb87e9e962548b389862b2df34e1ca07781f"
+    },
+    "lib/automatic-pricing.js": {
+      "sha256": "279b4acdcd4ee0b46824d1a699e0eb956454ff3e7e1fb466e31f4eade2310b23"
+    },
+    "lib/billing-setup.js": {
+      "sha256": "d52c1f595fb64350f1ed00c2d4b08c5630aa1697b14999c70590c8193225fbd2"
+    },
     "lib/booking-time.js": {
       "sha256": "8b19e4afab3110651a57b506278eb353331125f911231db9d66a542e58c131c5"
     },
@@ -590,10 +623,10 @@
       "sha256": "f564143b35c3e935b60da638d3737cded091dca9528d2b84f95e3eaec81f5bd9"
     },
     "lib/incident-policy.js": {
-      "sha256": "c0244d836d6704a86956cf94142513ff03010097c03124c7d32e10cd78c099e3"
+      "sha256": "3234e08497e6c806ea1c6b1bcaf42688373796dd5779bd8bc6b62311ab301de7"
     },
     "lib/launch-assurance.js": {
-      "sha256": "e2d9589b8a5d9413f195c1258154ffb046b48f0ddf7facfb480b6688dcb8fe60"
+      "sha256": "b5f956ff8eb172ad1a14b2cfec4a877fa4002124f7556805f4a9220030c3aa4c"
     },
     "lib/message-pagination.js": {
       "sha256": "5262ad0331c46edc7dc4e0f3321d2e3ae6bb1c297c372a1a20cf11647c23b930"
@@ -614,10 +647,16 @@
       "sha256": "0db67e43e1d8edf3e41a8d1a2c1f42bfc828122d7e4ff345110b7478e108ccc0"
     },
     "lib/process-routes.js": {
-      "sha256": "f738f7675b246deee3a9f48b4fa183427ad1c21a5c0e23e9c7bf4de9b8607373"
+      "sha256": "843b3b9eb7557dd1bdfeb6d9476739544cff820117f90aa300d54cae7f2003f3"
     },
     "lib/process-store.js": {
-      "sha256": "2b7446a3df892b4d5582691004d9fc28e39b5be18056ebf3e9c81c4bb0a79520"
+      "sha256": "aa14f7f7a814d6b74fef44b7f9c1ac3b44881bff2565d151bac1f9a1d06b6e87"
+    },
+    "lib/public-holidays-nsw.json": {
+      "sha256": "47c55277bfd6c5cfb1f193b14744bdf69d95fee78c1a73fdbc14ef01a1213bb8"
+    },
+    "lib/public-holidays.js": {
+      "sha256": "ee50f5089fd1a125aea3e7d78f15931632588d7bc24d3334b698f27a5535bf09"
     },
     "lib/referral-policy.js": {
       "sha256": "8b50e4d004a0ab70765cb53733e98e421767378f7021b71af9075e795adc5d92"
@@ -632,7 +671,7 @@
       "sha256": "613e4a8a0cb0de565c21bec64b58a79a3f26509cab783d947cf5fbe6dcc66882"
     },
     "lib/version.js": {
-      "sha256": "d8c14d588c2465660ef0fe940762b67b8383f8ea26a7fcc23a98646b749a2a8c"
+      "sha256": "3785591c86de6ad32d04bd89fdac821c6c6df585ef3eb94c8d9e0143f949f5f2"
     },
     "lib/worker-availability.js": {
       "sha256": "e3b6369c30583ba580edb9982ee2d90ecd76c36b771a464f12a08a389ba6562b"
@@ -647,10 +686,10 @@
       "sha256": "65bafd60044e3d30d98ab6d0a21ccca993933578452ba69452431b233d84914e"
     },
     "package-lock.json": {
-      "sha256": "b573a7a650c6058ea2cc88bbf6f1188765fe23e4631a1e16a0fd54c6a3b9e9d9"
+      "sha256": "bf33d70579370124a535575d5fabc20753cf59c1a77d3a7685296fc90e992853"
     },
     "package.json": {
-      "sha256": "88dd062ef8c74ba375661d41bce8c972965fa02d2feaa6c32848441d9214de67"
+      "sha256": "539ad98ab391658f759f9f44b0b39216e8d790fe21fb4af03bd8f937c4d681ae"
     },
     "prefill-walkthrough.js": {
       "sha256": "8cdc0cba5675f33b4ccefc4cdebf896c8933b68ac2fedea86ea13a5f3115235b"
@@ -660,6 +699,12 @@
     },
     "public/assets/admin-verification.js": {
       "sha256": "d3f2b78c38f101a7887653db879ea56355383a93d382a01897e5126b501828be"
+    },
+    "public/assets/billing-setup.css": {
+      "sha256": "51e4c3835a38dd17d79c58cbb1a256941b4bfe2c6da9e8e9e81b1868cfe51699"
+    },
+    "public/assets/billing-setup.js": {
+      "sha256": "369f123323e57be518caa3c6204b01b5d4d6cf1427fb792ae3c2d34612a6c5ee"
     },
     "public/assets/booking-calendar.css": {
       "sha256": "2caf5c5abf2f13d913cfa9f20e42bf7da477658fafebcab957ae24185bec3be9"
@@ -872,7 +917,7 @@
       "sha256": "15b89b2ce3cd72b0200e1ebc9dc9a4af4cfb4d8c5a4aad53ee18d9144f2b4ad7"
     },
     "public/assets/launch-assurance.js": {
-      "sha256": "5b12e2bb39c3434d6924ce3c4d0407a83541e0885f915942a21e71c6fc1c32ce"
+      "sha256": "697a621b4251510c2692f1ca6ef08aa065f24b29528721eea6f2ad5f803c8818"
     },
     "public/assets/next-actions.css": {
       "sha256": "de4864a412eed5dbce20c5c337a3c6009399278aeebccf37e4caf2840d6c9a4d"
@@ -1028,7 +1073,7 @@
       "sha256": "60bb8ac24217e532aa72ac34007451af0123d94d3626c45833140c27ee48a3a2"
     },
     "public/assets/process-workflows.js": {
-      "sha256": "ca887032861fc54bae2a3b4ac35107259bb5a44d0dd4e81ffce8a8a01ab426f9"
+      "sha256": "bd59233f2401f67d58307e098d3b29927791a879fbd89ead0b0e3517ae51b2b4"
     },
     "public/assets/scenes/community-real.jpg": {
       "sha256": "9b8f3378789499ca95eada4c3799d10767a616d3984f2392f7dc7e3006f48db1"
@@ -1136,7 +1181,7 @@
       "sha256": "ad025e807e4906ebfc0f448e5bebcd1a44c5e2e9b9cf6759f9b728661062a382"
     },
     "public/index.html": {
-      "sha256": "0770c3f0963526fa5c407bcb46d8c68ccbabf1703c86b08dd352cd0deab24e11"
+      "sha256": "964fa2ecd6d10df0688f1216fd021d94bb649f2bd31211f863eec255f8ecaea9"
     },
     "public/vendor/care-cast.js": {
       "sha256": "6461468f0755d4797be60b29095744fdd701de092ae8f7f5fc1ee60149aa9a37"
@@ -1265,10 +1310,13 @@
       "sha256": "06552c54e4071fbc7305117aafe6765d92c5d2a2a83507d4f05b9bf4f3d4d463"
     },
     "readme.txt": {
-      "sha256": "a24ed611b97b7e424e89eb244453fc90522f939ba01abf633493ba77073b02d8"
+      "sha256": "5ca0df53c3650207aa530e6a729b77498ab867462a5c5aef5a81b64952087707"
     },
     "scripts/NDIS_plan__sample_for_walkthrough.pdf": {
       "sha256": "8ef1ce7de6bc4247997252664267635ee011b51362f57699bbcb0e688dd55e82"
+    },
+    "scripts/audit-blocks.js": {
+      "sha256": "119a35b99476d594d1db9b6155bc4077b48d18538967218f2138982a0ac54e1c"
     },
     "scripts/backup.js": {
       "sha256": "597bf106c65792f8f56e3cfedcc927251e406dec9919143f61170260654c0363"
@@ -1289,7 +1337,7 @@
       "sha256": "ea54bcd8fb61e1acff0f7b1290e45fd0a8e67b11df6b47fa88948341a2214e19"
     },
     "scripts/release-docs.js": {
-      "sha256": "18278f828c48a2d5962001a0720c89bcedcadcafa6fb6ad688e99ed33b93cf42"
+      "sha256": "8700db7a916faaf00363de85cb0e0ab1a2839672d8911c43ec42b32acd798ed0"
     },
     "scripts/reset-test-agreements.js": {
       "sha256": "1b9b724eb295c8b652d80b07471a53487794ffef80da699dc8122d1ffcdf663f"
@@ -1307,7 +1355,7 @@
       "sha256": "8952d95bced1c7bc3acd23875a4a4180ff537540d21c8f86fb85e78ce16dcfd1"
     },
     "server.js": {
-      "sha256": "eb246421bb7ebfb659f9bd955bb9da6ec241123e0b48ceed620f0d760195697b"
+      "sha256": "803b0df63620675bf1b29e23da19bb19e5d08c0a37987b40b05cc72a03a08058"
     },
     "tests/account-settings-tests.js": {
       "sha256": "45489d9aaa691f1a49234683ebf4a8efb25235c34f427ea0c6aa28a3261a5858"
@@ -1320,6 +1368,12 @@
     },
     "tests/audit-unit-tests.js": {
       "sha256": "912da0513f4464984679c19aefcee2d40d19835216d178922681a29989a3baf2"
+    },
+    "tests/automatic-billing-unit.js": {
+      "sha256": "234e63b2e009b56cf1eb1d70d15bf24b044a30ded747dce5dea87a469616d0c0"
+    },
+    "tests/billing-flow-tests.js": {
+      "sha256": "4896dda515f27c4637f685783fb7f7300264f3d862e8abe342f05603f22cbe9f"
     },
     "tests/booking-calendar-tests.js": {
       "sha256": "08b5dcacecb3979a6def7e912c3c36bd03ceff43b4ea37854a0de544c32f49a4"
@@ -1334,10 +1388,10 @@
       "sha256": "b0fa79ff1b02bbf56efe14182e0f2ce6c9bee05f163862f1ddc8cb8ad8a80dbb"
     },
     "tests/graphics-tests.js": {
-      "sha256": "c40e075536c99f1625ac05bfbb67433180563111210c565adbcdb28f63b24734"
+      "sha256": "4b4ca837c8091c6b08cd5d2699294c596b699ef1b342ad6f73320b5cab6c1f95"
     },
     "tests/launch-regression.js": {
-      "sha256": "565728eb726d5f94ef6682fa3a000bc81c02fef14986b8868061e87f362d8617"
+      "sha256": "9fc19746143f79363563fc29a1c5e7a8172e344a94692515e4f50e319e610310"
     },
     "tests/navigation-tests.js": {
       "sha256": "9e20754ecdfe1766b5248cb729ef3ec59fca53eb3855f00caadd745a4a1e721a"
@@ -1352,7 +1406,7 @@
       "sha256": "0b6d8caba88c71fc1a45b695667f5b3d0a98c0745d7c769db655d426601e10b0"
     },
     "tests/process-regression.js": {
-      "sha256": "f16f17e67a9d85c7fe5fec347aa49215c55d2686c144b255b5c191cee04729ba"
+      "sha256": "be976624d04757d4f6dc527c20f138ff11e928543c246139ab327e29be3b295a"
     },
     "tests/review-regression.js": {
       "sha256": "254495febc62893665be808cb243ba98b7a4dfb74cd491e2e82007974728d243"
@@ -1361,7 +1415,7 @@
       "sha256": "062bf7abda19c5391b8cc9343c2d845949e6a3cb091770f610bdda9c640d3401"
     },
     "tests/smoke.js": {
-      "sha256": "2b890ab3538af6fceb76ea1dbf91736bc3ff4558f190251a7757f95a9fc4fa97"
+      "sha256": "676885df4eb22a6ccb19331af3bd90d12213e3151a988aa1b5482422cfca95a1"
     },
     "tests/verification-automation-scenarios.js": {
       "sha256": "fbed0af07e657d2353b9d03bcad5a700b34a337b2a73e803d38284b1207663e0"
@@ -1662,6 +1716,69 @@
     },
     "validation/v88.3.0-upgrade-results.json": {
       "sha256": "fe186b313846e17b81a6ef22ebabf297c6a7885fa31a87f2ffdc7e088b877a1c"
+    },
+    "validation/v88.3.1-billing-output.txt": {
+      "sha256": "29c1e25f7368e54f76520ea05909a3a85f6b7de5eb9e963c941c3561d0b65064"
+    },
+    "validation/v88.3.1-billing-results.json": {
+      "sha256": "c3fc344db6d3c0b47f5d253b2471e37f07aa72b8da669516d04806e0055e67e1"
+    },
+    "validation/v88.3.1-browser-check.txt": {
+      "sha256": "cc19cb8fe7bf711c3faafa97232cadc68bb4387d893aefeec09f86db20195a21"
+    },
+    "validation/v88.3.1-full-test-output.txt": {
+      "sha256": "bbf95e0de110d088da7343981df7bd1fd579546efa0ac5bb7bdb77a7c99871d5"
+    },
+    "validation/v88.3.1-guide-validation.json": {
+      "sha256": "bd716e793759e7ad59940bff19d5e2e53fcd43a03ebb282e21d11749f328e00c"
+    },
+    "validation/v88.3.1-inventory-check.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "validation/v88.3.1-lint-output.txt": {
+      "sha256": "a8c04481bbb45f4ee621942b5ea15f303c12e653872b0a8fb9d9e59df87688cb"
+    },
+    "validation/v88.3.1-release-docs-check.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "validation/v88.3.1-upgrade-output.txt": {
+      "sha256": "3a80d38ebdf4b64e3a61f7f38218c448c4b7ee61dcbc6d575e2fe62c57470289"
+    },
+    "validation/v88.3.1-upgrade-results.json": {
+      "sha256": "454de1d4bcf7d3bc265451f982f2713e5288fb18175dd391e1bb3c5e440847c1"
+    },
+    "validation/v88.3.2-automatic-unit-output.txt": {
+      "sha256": "63f93f2a91758a8e6fe6fe73ff7d6e1df014d5c418a0288a0c6077c5df98ed05"
+    },
+    "validation/v88.3.2-billing-output.txt": {
+      "sha256": "a3db17fd57a62427653a1acf4e812fb4c3f3ec55330f0059bce0c089ca5c400c"
+    },
+    "validation/v88.3.2-block-scan.txt": {
+      "sha256": "dfc4e11d510fd35d4759d13ffe37d25bfb79c4b8c30f441b63f2048f6cdbc2b9"
+    },
+    "validation/v88.3.2-browser-check.txt": {
+      "sha256": "e763693606f464044b5d09ebef8df875693a0d79f6eda3136cc1d27ae7204506"
+    },
+    "validation/v88.3.2-full-test-output.txt": {
+      "sha256": "767d486f9d8e476cd4cbfd9b59bc0214b004f90eb1b948796dc5b657bd9f1684"
+    },
+    "validation/v88.3.2-guide-validation.json": {
+      "sha256": "e33c2be6f4109936778723f72c008edc08011ff9cc83619846ae04689752f5d7"
+    },
+    "validation/v88.3.2-inventory-output.txt": {
+      "sha256": "54261da113c99c311dcbf65fb74e5400fd263359a8a6448c5dc6261d832e6121"
+    },
+    "validation/v88.3.2-lint-output.txt": {
+      "sha256": "567c2ae3261d0842d8da11188c7d284e11c3f22eb67f2c57e74d161912ad5b3a"
+    },
+    "validation/v88.3.2-report-validation.json": {
+      "sha256": "a5fb0415c83d21bb35dfbba8c219a8ded6742316cfc40880034348abd7b63ddb"
+    },
+    "validation/v88.3.2-upgrade-output.txt": {
+      "sha256": "3804121cafd2ed54ca17314855edf58f8fd8b39cff0e1ba55649fc5f442024d8"
+    },
+    "validation/v88.3.2-upgrade-results.json": {
+      "sha256": "dcc39d8bfda901f436123ba817646532e5f00bcdabb7fd6a0ec50e2e239499d3"
     },
     "word-originals/Advocate or Support Person Request Form.docx": {
       "sha256": "b08a58697fd2b2ca5b6096ce69e04fd37605db685f4002299167c79cd9526210"

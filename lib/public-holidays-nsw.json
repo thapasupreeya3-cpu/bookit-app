@@ -1,0 +1,345 @@
+{
+  "refreshed_at": "2026-09-12T11:27:51.570485+00:00",
+  "sources": [
+    "https://www.nsw.gov.au/about-nsw/public-holidays",
+    "https://www.nsw.gov.au/about-nsw/public-holidays/local-public-holidays"
+  ],
+  "years": {
+    "2026": [
+      {
+        "date": "2026-01-01",
+        "name": "New Year's Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-01-26",
+        "name": "Australia Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-04-03",
+        "name": "Good Friday",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-04-04",
+        "name": "Easter Saturday",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-04-05",
+        "name": "Easter Sunday",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-04-06",
+        "name": "Easter Monday",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-04-25",
+        "name": "Anzac Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-04-27",
+        "name": "Anzac Day (additional day)",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-06-08",
+        "name": "King's Birthday",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-10-05",
+        "name": "Labour Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-12-25",
+        "name": "Christmas Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-12-26",
+        "name": "Boxing Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2026-12-28",
+        "name": "Boxing Day (additional day)",
+        "from": 0,
+        "to": 1440
+      }
+    ],
+    "2027": [
+      {
+        "date": "2027-01-01",
+        "name": "New Year's Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-01-26",
+        "name": "Australia Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-03-26",
+        "name": "Good Friday",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-03-27",
+        "name": "Easter Saturday",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-03-28",
+        "name": "Easter Sunday",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-03-29",
+        "name": "Easter Monday",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-04-25",
+        "name": "Anzac Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-04-26",
+        "name": "Anzac Day (additional day)",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-06-14",
+        "name": "King's Birthday",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-10-04",
+        "name": "Labour Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-12-25",
+        "name": "Christmas Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-12-26",
+        "name": "Boxing Day",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-12-27",
+        "name": "Christmas Day (additional day)",
+        "from": 0,
+        "to": 1440
+      },
+      {
+        "date": "2027-12-28",
+        "name": "Boxing Day (additional day)",
+        "from": 0,
+        "to": 1440
+      }
+    ]
+  },
+  "local": [
+    {
+      "date": "2027-02-05",
+      "name": "Walcha Cup",
+      "area": "Walcha local government area",
+      "from": 720,
+      "to": 1080
+    },
+    {
+      "date": "2027-02-12",
+      "name": "Kangaroo Valley Show",
+      "area": "The locality of Kangaroo Valley within the City of Shoalhaven local government area, as highlighted on the map and published on the Shoalhaven City Council website",
+      "from": 540,
+      "to": 1020
+    },
+    {
+      "date": "2027-03-19",
+      "name": "Albury Gold Cup",
+      "area": "City of Albury local government area",
+      "from": 720,
+      "to": 1440
+    },
+    {
+      "date": "2027-05-12",
+      "name": "Coonamble Show",
+      "area": "Coonamble local government area",
+      "from": 0,
+      "to": 1440
+    },
+    {
+      "date": "2027-05-14",
+      "name": "Scone Cup",
+      "area": "Aberdeen, Blandford, Bunnan, Ellerston, Gundy, Moonan Brook, Moonan Flat, Murrurundi, Parkville, Rouchel, Scone, Timor and Wingen within the Upper Hunter Shire local government area",
+      "from": 720,
+      "to": 1440
+    },
+    {
+      "date": "2027-08-18",
+      "name": "Trundle Show",
+      "area": "Bogan Gate, Bruie Plains and Trundle, as shown edged red on the map marked \u201cTrundle Show Boundaries\u201d published on the Parkes Shire Council website",
+      "from": 540,
+      "to": 1020
+    },
+    {
+      "date": "2027-08-25",
+      "name": "Peak Hill Show",
+      "area": "Peak Hill, as shown edged blue on the map marked \u201cPeak Hill Show Boundaries\u201d published on the Parkes Shire Council website",
+      "from": 540,
+      "to": 1020
+    },
+    {
+      "date": "2027-08-31",
+      "name": "Parkes Show",
+      "area": "Alectown, Cooks Myalls, Goonumbla, Gunningbland, Nelungaloo, Parkes, Tichborne, part of Cookamidgera and part of Mandagery, as shown edged pink on the map marked \u201cParkes Show Boundaries\u201d published on the Parkes Shire Council website",
+      "from": 720,
+      "to": 1020
+    },
+    {
+      "date": "2026-02-06",
+      "name": "Walcha Cup",
+      "area": "Walcha local government area",
+      "from": 720,
+      "to": 1080
+    },
+    {
+      "date": "2026-02-13",
+      "name": "Kangaroo Valley Show",
+      "area": "The locality of Kangaroo Valley within the City of Shoalhaven local government area, as highlighted on the map and published on the Shoalhaven City Council website",
+      "from": 540,
+      "to": 1020
+    },
+    {
+      "date": "2026-03-20",
+      "name": "Albury Gold Cup",
+      "area": "City of Albury local government area",
+      "from": 720,
+      "to": 1440
+    },
+    {
+      "date": "2026-04-22",
+      "name": "Maclean Show",
+      "area": "Police Patrol Districts of Iluka, Maclean and Yamba within the Clarence Valley local government area, as shown on the \u201cPolice Patrol District Map\u201d published on the Clarence Valley Council website",
+      "from": 780,
+      "to": 1020
+    },
+    {
+      "date": "2026-05-12",
+      "name": "Yeoval Show",
+      "area": "The part of Yeoval within the Cabonne local government area",
+      "from": 510,
+      "to": 1140
+    },
+    {
+      "date": "2026-05-15",
+      "name": "Scone Cup",
+      "area": "Aberdeen, Blandford, Bunnan, Ellerston, Gundy, Moonan Brook, Moonan Flat, Murrurundi, Parkville, Rouchel, Scone, Timor and Wingen within the Upper Hunter Shire local government area",
+      "from": 720,
+      "to": 1440
+    },
+    {
+      "date": "2026-05-18",
+      "name": "Nyngan Show",
+      "area": "Bogan local government area",
+      "from": 720,
+      "to": 1440
+    },
+    {
+      "date": "2026-05-27",
+      "name": "Coonamble Show",
+      "area": "Coonamble local government area",
+      "from": 0,
+      "to": 1440
+    },
+    {
+      "date": "2026-07-15",
+      "name": "Ramornie Race Day",
+      "area": "Area shaded blue and marked \u201cArea within City of Grafton\u201d on the \u201cCity of Grafton Map\u201d published on the Clarence Valley Council website",
+      "from": 780,
+      "to": 1020
+    },
+    {
+      "date": "2026-07-16",
+      "name": "Grafton Cup",
+      "area": "Area shaded blue and marked \u201cArea within City of Grafton\u201d on the \u201cCity of Grafton Map\u201d published on the Clarence Valley Council website",
+      "from": 780,
+      "to": 1020
+    },
+    {
+      "date": "2026-08-19",
+      "name": "Trundle Show",
+      "area": "Bogan Gate, Bruie Plains and Trundle, as shown edged red on the map marked \u201cTrundle Show Boundaries\u201d published on the Parkes Shire Council website",
+      "from": 540,
+      "to": 1020
+    },
+    {
+      "date": "2026-08-26",
+      "name": "Peak Hill Show",
+      "area": "Peak Hill, as shown edged blue on the map marked \u201cPeak Hill Show Boundaries\u201d published on the Parkes Shire Council website",
+      "from": 540,
+      "to": 1020
+    },
+    {
+      "date": "2026-09-01",
+      "name": "Parkes Show",
+      "area": "Alectown, Cooks Myalls, Goonumbla, Gunningbland, Nelungaloo, Parkes, Tichborne, part of Cookamidgera and part of Mandagery, as shown edged pink on the map marked \u201cParkes Show Boundaries\u201d published on the Parkes Shire Council website",
+      "from": 720,
+      "to": 1020
+    },
+    {
+      "date": "2026-09-09",
+      "name": "West Wyalong Show",
+      "area": "Bland Shire Council local government area",
+      "from": 720,
+      "to": 1080
+    },
+    {
+      "date": "2026-11-03",
+      "name": "Muswellbrook Mayors Cup Race Day",
+      "area": "Muswellbrook local government area",
+      "from": 720,
+      "to": 1080
+    },
+    {
+      "date": "2026-11-05",
+      "name": "Jacaranda Festival",
+      "area": "Area shaded blue and marked \u201cArea within City of Grafton\u201d on the \u201cCity of Grafton Map\u201d published on the Clarence Valley Council website",
+      "from": 780,
+      "to": 1020
+    }
+  ]
+}

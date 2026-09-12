@@ -1,31 +1,9 @@
-# Validation — The Care Web v88.3.0
+# Validation — v88.3.2
 
-Executed in this workspace using Node 24.19.0 and disposable synthetic accounts/databases. The declared Node 22 runtime was unavailable. No production database, personal live file, external email provider, real payment or regulator submission was used.
+All automated suites passed on Node 24.19.0. The full log is validation/v88.3.2-full-test-output.txt. The 26 focused billing scenarios comprise 11 unit/transport/queue checks and 15 real local API journeys. They cover holiday fallback, actual worker completion and participant approval, invoice/outbox creation, duplicate protection, disputes, missing payer recovery, and immutable issued snapshots. Mail and external payment acceptance were not tested against live services.
 
-| Check | Result |
-|---|---|
-| npm test (full automated suite) | Passed; includes all suites below |
-| Booking clashes | 21 passed |
-| Smoke / access / invoicing / exports | All passed |
-| Review unit / integration | 46 assertions and 25 integration scenarios passed |
-| Graphics / source conventions | Passed |
-| Existing audit fixes | 8 unit groups and integration scenarios passed |
-| Workflows | 42 passed |
-| Verification / local document viewers | 46 passed |
-| Settings | 11 passed |
-| Navigation | 10 passed |
-| Credentials | 17 passed |
-| Next actions | 13 passed |
-| Calendar / badge | 13 passed |
-| New launch regression | 22 passed; rerun after the final operational-alert changes |
-| Syntax | 72 scripts / 4 inline application scripts compiled; zero errors |
-| Runtime inventory | 381 registered routes; 91 migrated tables; generated inventory verification passed |
-| Deterministic handover documents | Verification passed |
-| Upgrade from 88.2.12 | Two consecutive boots; 83 → 91 tables; synthetic account/document/reviewer/settings preserved; upload byte identical; integrity and foreign-key checks passed |
-| HTML guide | 13 new current-workflow sections, unique anchors and internal links checked; embedded script compiled |
+Two synthetic v88.3.1 → v88.3.2 upgrades passed, preserving existing records and uploaded bytes; integrity and foreign-key checks passed. New schema: 88302, 92 tables, 386 registered routes. No production database was accessed.
 
-New scenarios cover reset/MFA assurance and replay, photo permissions/cache, evidence absence/staleness, actual weak secrets, awareness/harm/holiday reporting obligations, calendar void tombstones, urgent/resolved email queue rules, guarded boundary billing, partial/idempotent receipts, independently approved reversals, private owned operations, disabled unapproved AI, stale intake, incomplete backups, changed support arrangements, itemised billing revisions, actual API-backed office panel rendering and runtime route discovery.
+The block scanner completed without parse errors. Exact source scope, hashes, entries and the complete control-flow census are in docs/block-register/. A census entry is not necessarily an active or unique business block.
 
-Browser navigation to the local site returned ERR_BLOCKED_BY_CLIENT. The interface harness renders HTML strings against real APIs; it is not a browser layout or assistive-technology test. No real-browser pass, production performance, external-service delivery/settlement, independent penetration test, regulatory/financial approval or real-user research is claimed. Complete LAUNCH-ACCEPTANCE.md in authorised staging.
-
-Package integrity/hash and overlay equivalence are recorded beside the delivered ZIPs. Per-suite receipts are in validation/v88.3.0-*. Existing older receipts remain historical.
+Guide anchors, links and inline script syntax were checked. Chrome returned ERR_BLOCKED_BY_CLIENT for the current local site; native browser layout, assistive technology, the declared Node 22 runtime and deployed provider integrations remain unverified. The authoritative NSW HTML pages were retrieved to create and validate the shipped calendar snapshot; daily production refresh behavior still depends on the actual host's internet access, with a tested saved fallback.

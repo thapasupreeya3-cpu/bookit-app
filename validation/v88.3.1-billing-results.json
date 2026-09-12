@@ -1,0 +1,55 @@
+{
+  "runtime": "v24.19.0",
+  "scope": "Disposable synthetic accounts; no external services or real approvals",
+  "results": [
+    {
+      "name": "Screenshot reproduction: valid Saturday charge waits only for setup; ready totals exclude it",
+      "result": "PASS"
+    },
+    {
+      "name": "NSW defaults cover published substitute holidays, exclude the bank-only holiday, and are never silently approved",
+      "result": "PASS"
+    },
+    {
+      "name": "Only MFA-authenticated office users can read or save billing setup",
+      "result": "PASS"
+    },
+    {
+      "name": "Confirmation, evidence and valid bounded calendar dates are required without partial writes",
+      "result": "PASS"
+    },
+    {
+      "name": "Shipped setup form submits actual API values and refreshes readiness",
+      "result": "PASS"
+    },
+    {
+      "name": "An older browser cannot overwrite a newer setup review",
+      "result": "PASS"
+    },
+    {
+      "name": "Three-hour Saturday shift creates one correct immutable invoice and one delivery entry",
+      "result": "PASS"
+    },
+    {
+      "name": "Repeated and concurrent run clicks do not issue or queue a duplicate",
+      "result": "PASS"
+    },
+    {
+      "name": "Actual claims button handler accepts server result names without a post-success exception",
+      "result": "PASS"
+    },
+    {
+      "name": "Holidays and cross-midnight shifts remain exceptions, while pending approval stays out of ready totals",
+      "result": "PASS"
+    },
+    {
+      "name": "Exact charge reviews cannot bypass expired approval or a changed holiday calendar",
+      "result": "PASS"
+    },
+    {
+      "name": "Custom calendar survives setup reload and issued invoice retains its original lines",
+      "result": "PASS"
+    }
+  ],
+  "serverLog": "Blank forms: 1 filed from forms/ — participants can download them now. 10 skipped, not in the participant catalogue: p-advocate (a screen now; the PDF is not offered), p-agreement (The Care Web generates this one; a PDF on the shelf would only confuse), p-consent-privacy (The Care Web generates this one; a PDF on the shelf would only confuse), p-emergency, p-exit (a screen now; the PDF is not offered), p-intake, p-mealtime (a screen now; the PDF is not offered), p-medication (a screen now; the PDF is not offered), p-money (a screen now; the PDF is not offered), p-risk (a screen now; the PDF is not offered).\nSeeded 8 training modules.\nPolicies: 99 built-in document(s) published as pages.\nThe Care Web server running → http://localhost:39177/\nDatabase: /tmp/careweb-billing-regression-TIwT4a/test.db · auto-reply bot: off\nTimezone: Australia/Sydney · secret: from /tmp/careweb-billing-regression-TIwT4a/secret · demo seed: off · admin MFA: required\nEmail: OFF — set RESEND_API_KEY (or SMTP_USER + SMTP_PASS) to enable; emails are logged to console instead\n[claims] Synthetic launch-admin: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n"
+}

@@ -230,7 +230,7 @@ async function main() {
        so the accepted sleepover goes straight into the diary, dated last Wednesday */
     const sid = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, sleepover, status, accepted_at, created) VALUES (13,10,'personal-care','2026-08-26','22:00',8,1,'accepted',?,?)").run(new Date().toISOString(), new Date().toISOString()).lastInsertRowid);
     t('an 8-hour sleepover from 10pm sits in the diary', sid > 0);
-    /* active hours at completion: 3.5 active → 1.5 extra at the weekday-night rate */
+    /* active hours at completion: 3.5 active → 1.5 extra at the weekday minimum Saturday rate */
     const wl = await req('POST', '/api/login', { headers: J2, body: { email: db.prepare("SELECT email FROM users WHERE id = 10").get().email, password: 'demo1234' } });
     const wc = cookieOf(wl);
     const noActive = await req('PATCH', `/api/bookings/${sid}`, { headers: J2, cookie: wc, body: { status: 'completed', note: 'Quiet night, up once at 3am for the bathroom.', scope: false } });
@@ -245,12 +245,12 @@ async function main() {
     t('completing with 3.5 active hours works', done.status === 200, done.status + ' ' + (done.json && done.json.error));
     const row = db.prepare('SELECT * FROM bookings WHERE id = ?').get(sid);
     t('the night is one flat $311.79', row.rate_category === 'sleepover' && Math.abs(row.total - 311.79) < 0.01, `${row.rate_category} ${row.total}`);
-    t('the 1.5 extra hours are charged at the weekday-night rate on their own line', row.active_extra_hours === 1.5 && row.active_extra_category === 'weekday-night' && Math.abs(row.active_extra_total - 1.5 * 82.57) < 0.01 && row.active_extra_item === '01_002_0107_1_1', `${row.active_extra_hours} ${row.active_extra_category} ${row.active_extra_total} ${row.active_extra_item}`);
+    t('the 1.5 extra hours use the Saturday minimum rate on their own line', row.active_extra_hours === 1.5 && row.active_extra_category === 'saturday' && Math.abs(row.active_extra_total - 1.5 * 103.54) < 0.01 && row.active_extra_item === '01_013_0107_1_1', `${row.active_extra_hours} ${row.active_extra_category} ${row.active_extra_total} ${row.active_extra_item}`);
     t('the worker is paid a share of the extra hours', row.active_extra_share > 0 && row.active_extra_share < row.active_extra_total, row.active_extra_share);
     /* the statement carries the grand total including the extra */
     const st = await req('GET', '/api/statements', { cookie: pc });
     const stRow = st.status === 200 ? (st.json.rows || st.json.lines || st.json.shifts || []).find(x => x.id === sid || x.booking_id === sid) : null;
-    t('the statement grand total carries the night plus the extra hours', st.status === 200 && (!stRow || Math.abs((stRow.grand || 0) - (311.79 + 1.5 * 82.57)) < 0.02), st.status + ' ' + (stRow ? stRow.grand : 'no row'));
+    t('the statement grand total carries the night plus the extra hours', st.status === 200 && (!stRow || Math.abs((stRow.grand || 0) - (311.79 + 1.5 * 103.54)) < 0.02), st.status + ' ' + (stRow ? stRow.grand : 'no row'));
 
     /* a meet-and-greet needs only a confirmed email and a funding lane */
     const terms2 = /const CURRENT_TERMS_VERSION = '([^']+)'/.exec(fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8'))[1];
@@ -648,7 +648,7 @@ async function main() {
     const kmRow = claims.text.split(/\r?\n/).find(l => l.includes(`BK${kmId}T`));
     t('the PACE export carries the kilometres as a non-labour travel row', claims.status === 200 && !!kmRow && kmRow.includes('04_799_0125_6_1') && kmRow.includes('12.50'), claims.status + ' ' + (kmRow || 'no travel row: ' + claims.text.split(/\r?\n/).length + ' lines; ' + claims.text.slice(0, 400).replace(/\n/g, ' | ')));
     const nightRow = claims.text.split(/\r?\n/).find(l => l.includes(`BK${sid}A`));
-    t('… and the sleepover\'s extra active hours as their own row', !!nightRow && nightRow.includes('01_002_0107_1_1'), nightRow || 'no row');
+    t('… and the sleepover\'s extra active hours as their own row', !!nightRow && nightRow.includes('01_013_0107_1_1'), nightRow || 'no row');
   }
   db.close();
 

@@ -1,0 +1,11 @@
+PASS A government source outage preserves the complete bundled calendar without a billing hold
+PASS Statutory fallback follows NSW substitution rules and does not invent future Anzac substitutes
+PASS Local public holidays apply only to the named place and published hours
+PASS Official table parser accepts complete data and rejects incomplete page redesigns
+PASS A failed refresh does not delete previously cached official dates
+PASS Invoice failures enter durable backoff and recover after a queue restart
+PASS Unissued work released after a withdrawal is eligible for automatic reprocessing
+PASS Invoice emails bypass digest and quiet hours, preserve attachments and retry beyond five failures
+PASS An unconfigured email provider leaves messages queued for automatic recovery
+PASS Resend transport receives a stable idempotency key across invoice retries
+automatic billing unit: 10 passed

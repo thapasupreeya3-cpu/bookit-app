@@ -1,0 +1,16 @@
+PASS The reported Saturday needs no finance review or holiday setup
+PASS Automatic holiday rates use official substitute dates and exclude the bank-only holiday
+PASS Date and time transitions become itemised lines, not manual holds
+PASS Ordinary weekday overnight support and post-holiday early hours use the night category
+PASS DST prices actual elapsed hours and rejects nonexistent starts before booking
+PASS Worker completion calculates the charge and keeps approval with the participant
+PASS Participant approval creates the invoice and attached queued email without an admin run
+PASS Double approval and concurrent catch-up runs do not duplicate invoice or email
+PASS A queried timesheet is never automatically invoiced
+PASS Missing payer data resumes automatically once the profile is corrected
+PASS Old finance review expiry and absent manual calendar cannot stop approved invoices
+PASS Issued invoice contents are immutable after calendar, profile and rule changes
+PASS An itemised correction remains valid when its participant approves the timesheet
+PASS NDIA approval automatically prepares distinct time-band lines in the actual claim export
+PASS Billing queue and retry endpoints are office-only; disabled email reports queued, never sent
+billing: 15/15 passed

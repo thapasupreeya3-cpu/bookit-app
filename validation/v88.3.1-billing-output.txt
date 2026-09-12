@@ -1,0 +1,13 @@
+PASS Screenshot reproduction: valid Saturday charge waits only for setup; ready totals exclude it
+PASS NSW defaults cover published substitute holidays, exclude the bank-only holiday, and are never silently approved
+PASS Only MFA-authenticated office users can read or save billing setup
+PASS Confirmation, evidence and valid bounded calendar dates are required without partial writes
+PASS Shipped setup form submits actual API values and refreshes readiness
+PASS An older browser cannot overwrite a newer setup review
+PASS Three-hour Saturday shift creates one correct immutable invoice and one delivery entry
+PASS Repeated and concurrent run clicks do not issue or queue a duplicate
+PASS Actual claims button handler accepts server result names without a post-success exception
+PASS Holidays and cross-midnight shifts remain exceptions, while pending approval stays out of ready totals
+PASS Exact charge reviews cannot bypass expired approval or a changed holiday calendar
+PASS Custom calendar survives setup reload and issued invoice retains its original lines
+billing: 12/12 passed

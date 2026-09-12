@@ -1,3 +1,5 @@
+> v88.3.2 update: A09 finance/calendar evidence is an operating review, not an invoice gate. Automatic NSW holidays and approval-triggered invoicing replace the earlier blanket holds. Use CHANGELOG-v88.3.2.md and BLOCKS-AND-AUTOMATION.md for current behavior.
+
 # Deployment acceptance — record actual evidence
 
 Use separate named office accounts. Run in authorised staging with fictional records and provider test modes. Do not mark evidence complete because an automated local suite passed. Each row needs person, date/build, environment, result, evidence link, defect and retest.

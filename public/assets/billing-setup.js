@@ -1,0 +1,18 @@
+(function(){
+ 'use strict';
+ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const money=x=>'$'+Number(x||0).toFixed(2);
+ const field=(name,label,value,type='text',extra='')=>`<label>${label}<input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
+ let current;
+ function render(s,rows=[],automation={},emailEnabled){
+  if(!s)return '<p role="status">Automatic billing continues in the background. Refresh to see its current status.</p>';
+  const h=s.automation||{},pending=(automation.jobs||[]).filter(j=>j.status!=='complete');
+  return `<section class="billing-setup billing-ready" id="billingSetup" aria-label="Automatic billing"><div class="billing-summary"><strong>✓ Automatic billing is on</strong><span>Participant approval → invoice → queued email</span></div><p>Approved shifts are processed automatically. Public holidays and date/time rate changes are calculated before approval. The button below is an optional catch-up run.</p><details><summary>Calendar and delivery status</summary><p>Official NSW calendar: ${esc((h.years||[]).join(', '))}. Checked daily; saved dates stay available if the source is offline.</p>${h.notice?`<p role="status">Calendar refresh notice: ${esc(h.notice)} Saved dates remain in use.</p>`:''}${emailEnabled===false?'<p role="status">Email delivery is not connected. Invoices remain queued and will send once delivery is available.</p>':''}${pending.length?'<ul>'+pending.slice(0,8).map(j=>`<li>Visit #${Number(j.booking_id)}: ${esc(j.status)}${j.last_error?' — '+esc(j.last_error):''}</li>`).join('')+'</ul>':''}<p><a href="https://www.nsw.gov.au/about-nsw/public-holidays" target="_blank" rel="noopener">Official public holidays</a> · <a href="#/journey?panel=deliveries">Check email delivery</a></p><p>Invoice creation, email delivery and payment are separate statuses. The site must have a working email provider to send queued messages.</p></details></section>`;
+ }
+ function rowStatus(r){const flags=r.flags||[],other=flags.filter(f=>!(r.setup_flags||[]).includes(f)&&!f.startsWith('confirm'));
+  if(other.length){const charge=other.some(f=>/crosses|Sleepover|cancellation entitlement|travel agreement|shared-support|Public-holiday|finance review/.test(f)),person=other.some(f=>/funding|NDIS number|plan manager email/.test(f));return `<span class="billing-held">${other.length===1&&other[0]==='Awaiting timesheet approval.'?'Waiting for timesheet approval':'Needs attention'}</span><div class="billing-row-notes">${other.map(esc).join('<br>')}</div>${charge?`<a class="adm-btn-sm" href="#/admin/assurance?tab=billing&amp;booking=${r.id}">Review charge</a>`:person?'<a class="adm-btn-sm" href="#/admin/people">Check participant details</a>':other.includes('Awaiting timesheet approval.')?'<small class="billing-row-notes">The participant or authorised approver reviews the timesheet in Bookings.</small>':''}`;}
+  return '<span class="billing-ok">Ready ✓</span>'+(flags.length?'<small class="billing-row-notes">Check the suggested support item.</small>':'');
+ }
+ function resultText(r){const bits=[],ndia=r.ndiaClaimed?.length||0,invoices=r.invoices?.length||0,held=r.needs?.length||0;if(ndia)bits.push(ndia+' NDIA shift'+(ndia===1?'':'s')+' added to the claim file');if(invoices)bits.push(invoices+' invoice'+(invoices===1?'':'s')+' created; email queued for delivery');if(held)bits.push(held+' shift'+(held===1?'':'s')+' still need attention');return bits.length?bits.join(' · ')+'.':'No ready shifts to process. Nothing was changed.';}
+ window.CareBilling={render,rowStatus,resultText};
+})();

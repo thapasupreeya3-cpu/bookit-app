@@ -1,0 +1,22 @@
+[
+  {
+    "boot": 1,
+    "result": "PASS",
+    "original_tables": 91,
+    "tables": 92,
+    "records": "preserved",
+    "uploaded_file": "byte-identical",
+    "integrity": "ok",
+    "foreign_keys": "ok"
+  },
+  {
+    "boot": 2,
+    "result": "PASS",
+    "original_tables": 91,
+    "tables": 92,
+    "records": "preserved",
+    "uploaded_file": "byte-identical",
+    "integrity": "ok",
+    "foreign_keys": "ok"
+  }
+]

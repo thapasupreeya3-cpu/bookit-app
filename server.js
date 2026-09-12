@@ -47,6 +47,7 @@ const AUTO_REPLY = (process.env.AUTO_REPLY || 'on') !== 'off';
 const SESSION_DAYS = 30;
 let WORKFLOW = null;
 let LAUNCH = null;
+let HOLIDAYS=null, AUTO_PRICING=null, AUTO_BILLING=null;
 
 /* ---------- secret ---------- */
 const SECRET_FILE = process.env.SECRET_FILE || path.join(__dirname, '.secret');
@@ -1645,8 +1646,8 @@ function publicRates() {
 
 /* ---------- invoicing (NDIS Pricing Arrangements 2026–27 price limits) ----------
    A completed shift gets a rate category. The category is auto-suggested from
-   the booking's date/time (public holidays can't be auto-detected — admins can
-   override any line from the dashboard before exporting). */
+   the booking's date/time (public holidays use the automatic official NSW calendar; approved charges
+   are retained when invoices issue). */
 const INVOICE_RATES = {
   'weekday-day':     { label: 'Weekday daytime', price: 73.58,  worker: 53.25 },
   'weekday-evening': { label: 'Weekday evening', price: 81.07,  worker: 58.70 },
@@ -1661,22 +1662,13 @@ const INVOICE_RATES = {
   'sleepover':       { label: 'Night-time sleepover (inactive)', price: 311.79, worker: 225.65, perNight: true }
 };
 const REG_GROUPS = { 'employment': '0102', 'personal-care': '0107', 'transport': '0108', 'daily-tasks': '0115/0138', 'household': '0120', 'community': '0125' };
+HOLIDAYS=require('./lib/public-holidays')({db,setting,setSetting});
+AUTO_PRICING=require('./lib/automatic-pricing')({rates:INVOICE_RATES,holidays:HOLIDAYS,start:bookingStart,end:bookingEnd,ymd,itemFor:(service,category,ratio)=>ratio>1&&GROUP_ITEMS[category]?GROUP_ITEMS[category]:supportItemFor(service,category)});
+if(!db.prepare('PRAGMA table_info(bookings)').all().some(x=>x.name==='automatic_invoice_lines'))db.exec('ALTER TABLE bookings ADD COLUMN automatic_invoice_lines TEXT');
 function suggestCategory(b) {
-  if (b.sleepover) return 'sleepover';
-  if (b.service === 'household') return 'household';
-  if (b.service === 'employment') return 'employment';
-  const dow = new Date(b.date + 'T00:00:00').getDay();
-  if (dow === 6) return 'saturday';
-  if (dow === 0) return 'sunday';
-  const [h, min] = String(b.start).split(':').map(Number);
-  const endH = h + (min || 0) / 60 + Number(b.hours);
-  let cat = 'weekday-day';
-  if (h < 6) cat = 'weekday-night';
-  else if (h >= 20 || endH > 20) cat = 'weekday-evening';
-  /* the 0125 set has no night item — night community/transport shifts claim the evening item */
-  if (cat === 'weekday-night' && (b.service === 'community' || b.service === 'transport')) cat = 'weekday-evening';
-  return cat;
+  return AUTO_PRICING.category(b,bookingStart(b),Number(String(b.start).split(':')[0])<6);
 }
+
 /* Verified verbatim against the official NDIS Pricing Schedule 2026-27 v1.2
    (Schedule 1 pp.5-15, Schedule 3 Table 13 p.25), supplied by the provider:
    - 0107 self-care: 01_002 night · 01_010 SLEEPOVER (Each $311.79) · 01_011 day
@@ -1737,7 +1729,7 @@ const ITEM_NAMES = {
   '01_806_0115_1_1': 'Assistance in Supported Independent Living - Standard - Public Holiday',
   '01_832_0115_1_1': 'Assistance in Supported Independent Living - Night-Time Sleepover',
   '04_049_0125_1_1': 'Establishment Fee For Personal Care/Participation',
-  '04_102_0125_6_1': 'Community Engagement Assistance - Standard - Weekday Daytime',
+  '04_102_0125_6_1': 'Access Community Social and Rec Activ - Standard - Public Holiday',
   '04_102_0136_6_1': 'Group Activities - Standard - Weekday Daytime',
   '04_103_0125_6_1': 'Access Community Social and Rec Activ - Standard - Weekday Evening',
   '04_103_0136_6_1': 'Group Activities - Standard - Weekday Evening',
@@ -1796,13 +1788,13 @@ function invoiceFor(invNo) {
     };
     const extra = r.active_extra_hours > 0 && !canc ? [{ date: dmy(r.date), item: r.active_extra_item, description: `${itemName(r.active_extra_item, 'Active support during the sleepover')} — beyond the two hours included`, when: 'during the night', qty: r.active_extra_hours, unit: 'hours', rate: r.active_extra_rate || 0, amount: r.active_extra_total || 0 }] : [];
     const km = r.km > 0 && r.km_total > 0 && !canc ? [{ date: dmy(r.date), item: TRAVEL_ITEMS[r.service] || '', description: `${itemName(TRAVEL_ITEMS[r.service], 'Provider travel - non-labour costs')}${r.km_from ? ` - ${r.km_from} to ${r.km_to}` : ''}`, when: `${r.km} km`, qty: `$${Number(r.km_total).toFixed(2)}`, unit: 'at $1.00/km', rate: 1, amount: r.km_total }] : [];
-    return LAUNCH?.invoiceLines(r) || [main, ...extra, ...km];
+    return LAUNCH?.invoiceLines(r) || (r.automatic_invoice_lines?[...JSON.parse(r.automatic_invoice_lines),...extra,...km]:[main,...extra,...km]);
   });
   const total = round2(lines.reduce((a, l) => a + (l.amount || 0), 0));
   const paidRows = rows.filter(r => r.claim_status === 'paid');
   const paid = WORKFLOW?.paymentBalance?.(invNo,total,paidRows.length === rows.length ? total : 0)?.paid ?? (paidRows.length === rows.length ? total : 0);
   return {
-    tax_note:first.funding==='private' ? (setting('private_gst_percent','0')==='10'?'Includes GST (10%)':'No GST — office confirmed') : 'GST-free NDIS supports',
+    tax_note:first.funding==='private' ? (setting('private_gst_percent','0')==='10'?'Includes GST (10%)':'No GST — configured private tax treatment') : 'GST-free NDIS supports',
     invoice_no: invNo, date: dmy(issued), issued, due_date: dmy(due), due, self, funding: first.funding,
     participant: { id: first.pid, name: p.name || first.participant_name, email: p.email || first.participant_email, phone: p.phone || '', suburb: p.suburb || '', ndis_number: p.ndis_number || first.ndis_number || '' },
     bill_to: self
@@ -1904,7 +1896,17 @@ function makeInvoicePdf(inv) {
    audit two years from now has to be able to see what was actually paid and
    why. workerPay() is the only function allowed to answer "what is this hour
    worth" — see THE AWARDS LADDER further down. */
-function applyInvoice(id, category) {
+function applyInvoice(id, category, automatic=false) {
+  if(automatic){
+    const visit=db.prepare('SELECT * FROM bookings WHERE id=?').get(id),lines=visit&&AUTO_PRICING.lines(visit);
+    if(!lines?.length)return null;
+    const total=round2(lines.reduce((n,l)=>n+l.amount,0)),ratio=Math.max(1,Number(visit.ratio)||1),cat=lines.every(l=>l.category===lines[0].category)?lines[0].category:'mixed';
+    const pay=lines.reduce((n,l)=>n+(workerPay(visit.worker_id,l.category,l.unit==='night'?visit.hours:l.qty)?.amount??round2(INVOICE_RATES[l.category].worker*l.qty))/ratio,0),firstPay=workerPay(visit.worker_id,lines[0].category,visit.hours)||{};
+    const unit=lines.length===1?lines[0].rate:round2(total/visit.hours);
+    db.prepare('UPDATE bookings SET rate_category=?,unit_price=?,worker_share=?,total=?,tier_at_shift=?,share_pct=?,award_floored=?,automatic_invoice_lines=? WHERE id=?').run(cat,unit,round2(pay),total,firstPay.tier||'bronze',firstPay.share_pct||null,firstPay.floored?1:0,JSON.stringify(lines),id);
+    return {category:cat,label:cat==='mixed'?'Rates by time and date':INVOICE_RATES[cat].label,unit_price:unit,qty:visit.sleepover?1:visit.hours,total,ratio,worker_share:round2(pay),lines,tier:firstPay.tier,pay_note:firstPay.why||''};
+  }
+  db.prepare('UPDATE bookings SET automatic_invoice_lines=NULL WHERE id=?').run(id);
   const r = INVOICE_RATES[category];
   const b = db.prepare('SELECT hours, worker_id, ratio FROM bookings WHERE id = ?').get(id);
   if (!r || !b) return null;
@@ -2227,10 +2229,11 @@ const prettyDate = d => { try { return new Date(d + 'T00:00:00').toLocaleDateStr
 
 function b64wrap(str) { return Buffer.from(str, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n'); }
 
-function smtpSend(to, subject, html, text, replyTo, attachments) {
+function smtpSend(to, subject, html, text, replyTo, attachments, metadata={}) {
   return new Promise((resolve, reject) => {
     const boundary = 'bk' + crypto.randomBytes(12).toString('hex');
-    const msgId = `<${crypto.randomBytes(12).toString('hex')}@thecareweb.com.au>`;
+    const messageKey=metadata.event_key?crypto.createHash('sha256').update(metadata.event_key).digest('hex'):'';
+    const msgId = `<${messageKey||crypto.randomBytes(12).toString('hex')}@thecareweb.com.au>`;
     const altPart =
       `--${boundary}\r\n` +
       `Content-Type: text/plain; charset=utf-8\r\n` +
@@ -2264,7 +2267,7 @@ function smtpSend(to, subject, html, text, replyTo, attachments) {
       (replyTo ? `Reply-To: <${replyTo}>\r\n` : '') +
       `Subject: =?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=\r\n` +
       `Date: ${new Date().toUTCString()}\r\n` +
-      `Message-ID: ${msgId}\r\n` +
+      `Message-ID: ${msgId}\r\n` + (messageKey?`Resend-Idempotency-Key: ${messageKey}\r\n`:'') +
       `MIME-Version: 1.0\r\n` +
       `Content-Type: ${topType}\r\n` +
       `\r\n` +
@@ -2304,10 +2307,10 @@ function smtpSend(to, subject, html, text, replyTo, attachments) {
   });
 }
 
-async function resendSend(to, subject, html, text, replyTo, attachments) {
+async function resendSend(to, subject, html, text, replyTo, attachments, metadata={}) {
   const res = await fetch(`${RESEND_BASE}/emails`, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+    headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json', ...(metadata.event_key?{'Idempotency-Key':crypto.createHash('sha256').update(metadata.event_key).digest('hex')}:{}) },
     body: JSON.stringify({
       from: `The Care Web <${MAIL_FROM}>`, to: [to], subject, html, text,
       ...(replyTo ? { reply_to: replyTo } : {}),
@@ -2362,7 +2365,7 @@ function sendMailDirect(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo
     + '\n\n— The Care Web · Disability & Mental Health Care Pty Ltd · ABN 19 658 578 575';
   if (!EMAIL_ON) { console.info('[mail disabled] transactional email suppressed; token and recipient were not logged'); return Promise.resolve('skipped-off'); }
   const transport = RESEND_KEY ? resendSend : smtpSend;
-  return transport(dest, subject, html, text, replyTo, attachments).then(
+  return transport(dest, subject, html, text, replyTo, attachments, metadata).then(
     ok => { console.log(`[email] sent '${subject}' → ${dest}`); return ok; },
     err => { console.error(`[email] FAILED '${subject}' → ${dest}: ${err.message}`); throw err; }
   );
@@ -3311,6 +3314,7 @@ function route(method, pattern, handler) { routes.push({ method, pattern, handle
    the office, before its handler is even called (see the dispatcher). A new
    public route is added here on purpose, by name. */
 const PUBLIC_API = [
+  ['GET', /^\/api\/pricing\/quote$/],
   ['GET', /^\/api\/health$/], ['GET', /^\/api\/me$/],
   ['GET', /^\/api\/scope$/], ['GET', /^\/api\/high-intensity$/], ['GET', /^\/api\/rates$/], ['GET', /^\/api\/cancel-policy$/],
   ['GET', /^\/api\/doc-catalog$/], ['GET', /^\/api\/templates$/], ['GET', /^\/api\/support-plan\/questions$/],
@@ -4036,7 +4040,7 @@ function claimRows(where, ...params) {
       b.active_extra_hours, b.active_extra_total, b.active_extra_item, b.active_extra_rate, b.active_extra_category, b.kind, b.ratio, b.sleepover,
       b.km, b.km_total, b.km_from, b.km_to, b.claim_hold, b.hold_reason,
       b.claim_status, b.claim_ref, b.invoice_no, b.support_item, b.claimed_at, b.paid_at, b.pay_url,
-      b.status, b.short_notice, b.notice_hours, b.cancel_code, b.cancel_reason,
+      b.status, b.approval_state, b.automatic_invoice_lines, b.short_notice, b.notice_hours, b.cancel_code, b.cancel_reason,
       up.id AS pid, up.name AS participant_name, up.email AS participant_email, up.plan AS funding, up.ndis_number, up.pm_email,
       uw.name AS worker_name
     FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id
@@ -4054,10 +4058,11 @@ const TRAVEL_ITEMS = { 'personal-care': '01_799_0107_1_1', 'daily-tasks': '01_79
 const GROUP_ITEMS = { 'weekday-day': '04_102_0136_6_1', 'weekday-evening': '04_103_0136_6_1', 'saturday': '04_104_0136_6_1', 'sunday': '04_105_0136_6_1', 'public-holiday': '04_106_0136_6_1' };
 function effectiveItem(r) {
   if (r.ratio > 1 && GROUP_ITEMS[r.rate_category]) return GROUP_ITEMS[r.rate_category];
-  return r.support_item || supportItemFor(r.service, r.rate_category) || '';
+  return r.support_item || (r.rate_category==='mixed'&&r.automatic_invoice_lines?JSON.parse(r.automatic_invoice_lines)[0]?.item:'') || supportItemFor(r.service, r.rate_category) || '';
 }
 function lineFlags(r) {
   const flags = LAUNCH?LAUNCH.billingFlags(r):[];
+  if(r.approval_state!=='approved')flags.push('Awaiting timesheet approval.');
   /* a line the office has held (after withdrawing an invoice, or on purpose)
      waits for a decision — remove it, fix it, or release it — and no run,
      manual or nightly, will pick it up until then */
@@ -4065,7 +4070,6 @@ function lineFlags(r) {
   if (!['ndia', 'plan', 'self', 'private'].includes(r.funding)) flags.push('no funding type on the participant profile');
   if (r.funding === 'ndia' && !/^\d{9}$/.test(r.ndis_number || '')) flags.push('NDIS number missing');
   if (r.funding === 'plan' && !r.pm_email) flags.push('plan manager email missing');
-  if (r.funding === 'private' && setting('private_billing_ready','off') !== 'on') flags.push('office must confirm private billing setup');
   if (r.funding !== 'private' && !effectiveItem(r)) flags.push('support item number needed');
   else if (r.funding !== 'private' && ITEM_CONFIRM[r.service] && !r.support_item) flags.push('confirm the prefilled support item');
   return flags;
@@ -4079,6 +4083,8 @@ route('GET', /^\/api\/admin\/claims$/, (req, res, m, user) => {
      are claimed differently and an auditor will ask. */
   const rows = claimRows().map(r => ({
     ...r, item: effectiveItem(r), flags: r.claim_status ? [] : lineFlags(r),
+    setup_flags:r.claim_status?[]:(LAUNCH?.billingSetup.flags(r)||[]),
+    charge_total:round2((r.total||0)+(r.active_extra_total||0)+(r.status==='cancelled'?0:(r.km_total||0))),
     cancelled: r.status === 'cancelled',
     cancel_code: r.cancel_code || (r.status === 'cancelled' ? 'NSDO' : ''),
     cancel_label: r.status === 'cancelled' ? (CANCEL_CODES[r.cancel_code || 'NSDO'] || CANCEL_CODES.NSDO) : ''
@@ -4086,10 +4092,12 @@ route('GET', /^\/api\/admin\/claims$/, (req, res, m, user) => {
   const unclaimed = rows.filter(r => !r.claim_status);
   const claimed = rows.filter(r => r.claim_status === 'claimed');
   const paid = rows.filter(r => r.claim_status === 'paid');
-  const sum = a => Math.round(a.reduce((n, r) => n + (r.total || 0), 0) * 100) / 100;
+  const sum = a => round2(a.reduce((n,r)=>n+r.charge_total,0));
+  const ready=unclaimed.filter(r=>!r.flags.some(f=>!f.startsWith('confirm'))),held=unclaimed.filter(r=>!ready.includes(r));
   json(res, 200, {
     unclaimed, claimed, paid,
-    totals: { unclaimed: sum(unclaimed), claimed: sum(claimed), paid: sum(paid) },
+    totals: { unclaimed: sum(unclaimed), ready:sum(ready), held:sum(held), claimed: sum(claimed), paid: sum(paid) },
+    ready_count:ready.length,held_count:held.length,billing_setup:LAUNCH?.billingSetup.state(),billing_automation:AUTO_BILLING?.status(),email_enabled:EMAIL_ON,
     reg_no: NDIS_REG_NO
   });
 });
@@ -4108,11 +4116,14 @@ route('POST', /^\/api\/admin\/claims\/(\d+)\/item$/, (req, res, m, user, body) =
    Agency-managed lines are stamped claimed for the PACE file the office
    uploads; self- and plan-managed lines are grouped into one invoice per
    participant, stamped, emailed with the PDF (and a card link for the
-   self-managed), and shown to the participant in their account. The office
-   presses Run on the Claims board; the nightly job runs the self and plan
-   lanes on its own, so nobody waits on the office to be told what they owe. */
-async function runClaims(lanes, actor) {
-  const rows = claimRows("AND (b.claim_status IS NULL OR b.claim_status = '') AND b.approval_state = 'approved'");
+   self-managed), and shown to the participant in their account. Approval queues the invoice immediately; the durable catch-up job also
+   resumes approved, unissued visits after a restart. */
+let claimsRun=Promise.resolve();
+function runClaims(lanes,actor,bookingIds=null){
+  const next=claimsRun.then(()=>runClaimsUnlocked(lanes,actor,bookingIds));claimsRun=next.catch(()=>{});return next;
+}
+async function runClaimsUnlocked(lanes, actor, bookingIds) {
+  const rows = claimRows("AND (b.claim_status IS NULL OR b.claim_status = '') AND b.approval_state = 'approved'").filter(r=>!bookingIds||bookingIds.includes(r.id));
   const needs = [], ndiaClaimed = [], invoiceGroups = new Map();
   for (const r of rows) {
     if (!lanes.includes(r.funding)) continue;
@@ -4146,7 +4157,7 @@ async function runClaims(lanes, actor) {
       const pdf=makeInvoicePdf(frozen);
       sendMail(dest,`Invoice ${invNo} — The Care Web`, `Invoice ${invNo}`,
         `<p>Your invoice for $${frozen.total.toFixed(2)} is attached. ${escHtml(frozen.tax_note||'')} Payment reference: ${invNo}. Open your statement to see payment options.</p>`,
-        'Open statement',`${APP_URL}/#/statements`,MAIL_FROM,[{filename:invNo+'.pdf',mime:'application/pdf',buffer:pdf}],{event_key:'invoice:'+invNo,kind:'invoice'});
+        'Open statement',`${APP_URL}/#/statements`,MAIL_FROM,[{filename:invNo+'.pdf',mime:'application/pdf',buffer:pdf}],{event_key:'invoice:'+invNo,kind:'invoice',transactional:true});
       db.exec('COMMIT');
     } catch(e) {db.exec('ROLLBACK');throw e;}
     let payUrl = null;
@@ -4194,9 +4205,13 @@ route('GET', /^\/api\/admin\/claims\/pace\.csv$/, (req, res, m, user) => {
        payment-integrity review, and it is the participant's plan that pays for
        it. A cancellation is claimed as CANC with the reason we were given. */
     const canc = r.status === 'cancelled';
+    const reviewed=LAUNCH?.invoiceLines(r),automatic=r.automatic_invoice_lines?JSON.parse(r.automatic_invoice_lines):null;
+    if(reviewed||automatic){for(const [i,line]of (reviewed||automatic).entries()){const date=line.date.includes('-')?dmy(line.date):line.date;lines.push([q(NDIS_REG_NO),q(r.ndis_number),q(date),q(date),q(line.item),q((r.claim_ref||`BK${r.id}`)+'L'+(i+1)),line.qty,'',Number(line.rate).toFixed(2),'P2',q(canc?'CANC':''),q(canc?(r.cancel_code||'NSDO'):''),q(COMPANY_ABN),'','',Number(line.amount).toFixed(2)].join(','));}if(reviewed)continue;}
+    else {
     lines.push([q(NDIS_REG_NO), q(r.ndis_number), q(dmy(r.date)), q(dmy(r.date)), q(effectiveItem(r)), q(r.claim_ref || `BK${r.id}`),
       qty, '', (r.unit_price || 0).toFixed(2), 'P2', q(canc ? 'CANC' : ''), q(canc ? (r.cancel_code || 'NSDO') : ''),
       q(COMPANY_ABN), '', '', (r.total || 0).toFixed(2)].join(','));
+    }
     /* the active hours beyond the two inside a sleepover are their own claim
        line against the night item for that day */
     if (r.active_extra_hours > 0 && !canc) {
@@ -5768,13 +5783,8 @@ const INCIDENT_CATS = {
   'restrictive-practice': 'Unauthorised restrictive practice', 'near-miss': 'Near miss', 'other': 'Other incident'
 };
 const INCIDENT_POLICY=require('./lib/incident-policy');
-const INCIDENTS=INCIDENT_POLICY.mount({db,now,setting});
-function addBusinessDays(fromIso, n) {
-  const d = new Date(fromIso);
-  let added = 0;
-  while (added < n) { d.setDate(d.getDate() + 1); const w = d.getDay(); if (w !== 0 && w !== 6) added++; }
-  return d.toISOString();
-}
+const INCIDENTS=INCIDENT_POLICY.mount({db,now,setting,holidays:HOLIDAYS});
+function addBusinessDays(fromIso,n){return INCIDENT_POLICY.businessDays(fromIso,n,INCIDENTS.holidays(fromIso));}
 function incidentOut(i) {
   let hoursLeft = null;
   if (i.notify_due && !i.commission_notified_at) hoursLeft = Math.round((new Date(i.notify_due) - Date.now()) / 36e5);
@@ -5789,7 +5799,7 @@ route('POST', /^\/api\/incidents$/, (req, res, m, user, body, ip) => {
   if (!description) return json(res, 400, { error: 'Describe what happened.' });
   const reportable = REPORTABLE_24H.includes(category) || category === 'restrictive-practice' ? 1 : 0;
   const created = now();
-  let rule;try{rule=INCIDENT_POLICY.deadlines({...body,category,created},INCIDENTS.holidays());}catch(e){return json(res,400,{error:e.message});}
+  let rule;try{rule=INCIDENT_POLICY.deadlines({...body,category,created},INCIDENTS.holidays(body.provider_aware_at||created));}catch(e){return json(res,400,{error:e.message});}
   const due=rule.notify_due;
   const incidentBooking=body.booking_id?db.prepare('SELECT * FROM bookings WHERE id=?').get(Number(body.booking_id)):null;
   if(body.booking_id && (!incidentBooking || !WORKFLOW?.bookingAllowed(req,user,incidentBooking)))return json(res,403,{error:'Not your booking.'});
@@ -6360,7 +6370,6 @@ function firstBookingBlockers(pid, self) {
     missing.push({ what: 'how the support is funded', where: '#/account/billing', key: 'billing', section: 'billing', yours: true,
       why: 'An invoice has to have somewhere to go before a shift is worth booking.' });
   }
-  if (u.plan === 'private' && setting('private_billing_ready','off') !== 'on') missing.push({key:'private-billing-review',section:'billing',what:'office confirmation of private billing',where:'#/journey',yours:false,why:'The office confirms the billing and tax treatment for private supports.'});
   const agreed = k => db.prepare("SELECT id FROM participant_docs WHERE participant_id = ? AND form_key = ? AND COALESCE(review_state,'') <> 'rejected'").get(Number(pid), k);
   if (!agreed('p-agreement')) {
     missing.push({ what: 'the Service Agreement', where: '#/account/documents', key: 'p-agreement', section: 'documents', yours: true,
@@ -6878,7 +6887,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
         claim_status = '', claim_ref = NULL, invoice_no = NULL, support_item = NULL, claimed_at = NULL, paid_at = NULL WHERE id = ?`).run(b.id);
     }
     let inv = null;
-    if (charge) inv = applyInvoice(b.id, suggestCategory(b));
+    if (charge) inv = applyInvoice(b.id, suggestCategory(b), true);
     logDelegate(pers, providerUnable ? 'Stood down an unstaffed shift' : 'Cancelled a shift',
       `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}${charge ? ' (short notice — charged)' : providerUnable ? ' (provider could not staff)' : ''}`, b.id);
     const wu2 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
@@ -6947,7 +6956,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     db.exec('BEGIN IMMEDIATE');
     try {
       if (kmIn > 0) kmLine = applyKm(b.id, kmIn, body.km_from, body.km_to);
-      inv = b.kind === 'intro' ? applyIntroPay(b.id) : applyInvoice(b.id, suggestCategory(b));
+      inv = b.kind === 'intro' ? applyIntroPay(b.id) : applyInvoice(b.id, suggestCategory(b), true);
       if (b.sleepover) activeLine = applySleepoverActive(b.id, activeIn, clean(body.active_note, NOTE_MAX));
       /* 7. the state between "done" and "claimed". */
       db.prepare("UPDATE bookings SET status = 'completed', completed_at = ?, approval_state = 'pending', approval_from = ? WHERE id = ?").run(now(), now(), b.id);
@@ -6971,7 +6980,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     const kmBlock = kmLine ? `<p><b>${kmLine.km} km</b> ${escHtml(kmLine.from)} &rarr; ${escHtml(kmLine.to)} at $${kmLine.rate.toFixed(2)}/km = <b>$${kmLine.total.toFixed(2)}</b>.</p>` : '';
     if (pu2 && inv) notify(pu2.id, 'timesheets', pu2.email, 'Timesheet to approve — The Care Web',
       `One timesheet to look at, ${firstName(pu2.name)}`,
-      `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${inv.qty === 1 && inv.category === 'sleepover' ? '1 night (flat)' : `${b.hours} hours ×`} $${inv.unit_price.toFixed(2)}</b> (${inv.label} — the NDIA's published national maximum price, 2026–27) = <b>$${inv.total.toFixed(2)}</b>.</p>${kmBlock}<p><b>${firstName(user.name)} has written a shift note</b> about how it went — you can read it on your bookings page.</p><p><b>You have until ${prettyDate(ymd(deadline))} to approve it or ask a question.</b> After that it is approved automatically so ${firstName(user.name)} is paid on time. Approving is not the same as saying the shift was perfect — you can raise a concern at any point, before or after.</p>`,
+      `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${inv.category==='mixed'?'Itemised date/time rates for '+b.hours+' hours':inv.qty === 1 && inv.category === 'sleepover' ? '1 night (flat)' : `${b.hours} hours × $${inv.unit_price.toFixed(2)}`}</b> (${inv.label} — the NDIA's published national maximum price, 2026–27) = <b>$${inv.total.toFixed(2)}</b>.</p>${inv.lines?.length>1?'<ul>'+inv.lines.map(l=>'<li>'+escHtml(l.date+' '+l.when+' · '+l.description)+': '+l.qty+' '+l.unit+' × $'+l.rate.toFixed(2)+' = $'+l.amount.toFixed(2)+'</li>').join('')+'</ul>':''}${kmBlock}<p><b>${firstName(user.name)} has written a shift note</b> about how it went — you can read it on your bookings page.</p><p><b>You have until ${prettyDate(ymd(deadline))} to approve it or ask a question.</b> After that it is approved automatically so ${firstName(user.name)} is paid on time. Approving is not the same as saying the shift was perfect — you can raise a concern at any point, before or after.</p>`,
       'Approve the timesheet', `${baseUrl(req)}/#/bookings`).catch(() => {});
     return json(res, 200, { ok: true, invoice: inv, km: kmLine, approval_state: 'pending', approve_by: ymd(deadline) });
   }
@@ -6982,7 +6991,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
      an addendum, which is the same append-only rule the whole evidence
      trail runs on. --- */
   if (isParticipantSide && ['approved', 'queried'].includes(status) && b.status === 'completed') {
-    if (b.approval_state === 'approved') return json(res, 400, { error: 'That timesheet is already approved.' });
+    if (b.approval_state === 'approved') {if(status==='approved'){if(!b.claim_status)AUTO_BILLING?.wake(b.id);return json(res,200,{ok:true,approval_state:'approved',billing_status:b.claim_status?'issued':'queued',duplicate:true});}return json(res,400,{error:'This timesheet has already been approved. Contact the office to correct an issued charge.'});}
     if (status === 'approved') {
       db.prepare("UPDATE bookings SET approval_state = 'approved', approved_at = ?, approved_by = ?, approval_source = ? WHERE id = ?")
         .run(now(), user.id, pers.self ? 'participant' : 'coordinator', b.id);
@@ -6992,7 +7001,9 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
         `Approved, ${firstName(wu3.name)}`,
         `<p><b>${escHtml(pers.name)}</b> has approved your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>.</p><p>It goes into the next pay run.</p>`,
         'See my earnings', `${baseUrl(req)}/#/earnings`).catch(() => {});
-      return json(res, 200, { ok: true, approval_state: 'approved' });
+      LAUNCH?.retainApprovalReview(b);
+      AUTO_BILLING?.wake(b.id);
+      return json(res, 200, { ok: true, approval_state: 'approved',billing_status:'queued' });
     }
     const q = clean(body.query_note, NOTE_MAX);
     if (q.length < 10) return json(res, 400, { error: 'Tell us what doesn\'t look right, in a sentence or two, so it can be sorted quickly.' });
@@ -7167,7 +7178,7 @@ route('POST', /^\/api\/series\/(\d+)\/end$/, (req, res, m, user, body) => {
         charge ? 1 : 0, sn.hours, providerUnable ? 'stood-down' : (b.cover_state || ''), b.id);
     if (providerUnable) db.prepare(`UPDATE bookings SET rate_category = NULL, unit_price = NULL, worker_share = NULL, total = NULL,
       claim_status = '', claim_ref = NULL, invoice_no = NULL, support_item = NULL, claimed_at = NULL, paid_at = NULL WHERE id = ?`).run(b.id);
-    if (charge) { applyInvoice(b.id, suggestCategory(b)); charged++; }
+    if (charge) { applyInvoice(b.id, suggestCategory(b), true); charged++; }
   }
   db.prepare('UPDATE booking_series SET ended_at = ?, ended_by = ? WHERE id = ?').run(now(), user.name, sr.id);
   db.exec('COMMIT');
@@ -12062,6 +12073,7 @@ function bookingClash(workerId, date, start, hours, opts = {}) {
 }
 function leadMinutes(b) { return Math.round((bookingStart(b) - Date.now()) / 60000); }
 function standbyBand(dateIso) {
+  if(HOLIDAYS.at(dateIso).holiday)return 'other';
   const d = new Date(dateIso + 'T00:00:00').getDay();
   return (d === 0 || d === 6) ? 'other' : 'weekday';
 }
@@ -13804,10 +13816,7 @@ everyJob('tiers', 86400 * 1000, () => reviewAllTiers(), {
   label: 'Pay tier review',
   why: 'Moves workers up the ladder immediately when they qualify, and down by at most one step after notice.'
 });
-everyJob('invoices', 86400 * 1000, () => runClaims(['self', 'private', 'plan'], 'nightly'), {
-  label: 'Nightly invoicing',
-  why: 'Every approved shift for a self- or plan-managed participant is invoiced the night it is approved, with the PDF, the card link and a message in their account. Agency lines wait for the office to run the PACE file.'
-});
+everyJob('invoices', 15000, () => AUTO_BILLING?.drain(), {label:'Automatic invoicing',why:'Participant approval queues invoices immediately. Retries and recovered approved work run every 15 seconds. NDIA rows are prepared automatically for the claim file.'});
 everyJob('referrals', 86400 * 1000, () => reviewReferrals(), {
   label: 'Referral bonuses',
   why: 'Marks a referral payable, and emails the referrer, the day the referred worker\u2019s completed hours reach the mark.'
@@ -16353,6 +16362,7 @@ function approvalSweep(req) {
          <p>We are telling you because it happened without you doing anything, and you should never find that out from a statement.</p>
          <p><b>This does not close anything off.</b> Approving was never the same as agreeing the shift was perfect — if something about it wasn't right, ring us on 0488 114 368 or reply to this email and we will sort it out, today or in three weeks.</p>`,
         'See the shift and its note', `${base}/#/bookings`).catch(() => {});
+      LAUNCH?.retainApprovalReview(b);AUTO_BILLING?.wake(b.id);
       out.push({ booking: b.id, action: 'deemed', days });
       continue;
     }
@@ -17484,10 +17494,11 @@ function applyIntroPay(id) {
   return { category: 'intro', label: hours > 0 ? `Meet-and-greet — no charge, paid by The Care Web (${hours} h)` : 'Meet-and-greet — no charge, not time worked', unit_price: 0, qty: 1, total: 0, worker_share: pay.amount, paid_hours: hours };
 }
 function sleepoverActiveCategory(b) {
+  if(HOLIDAYS.at(b.date,720,b).holiday)return 'public-holiday';
   const dow = new Date(b.date + 'T00:00:00').getDay();
   if (dow === 6) return 'saturday';
   if (dow === 0) return 'sunday';
-  return 'weekday-night';
+  return 'saturday'; // Additional sleepover active hours use at least the Saturday limit on weekdays.
 }
 function applySleepoverActive(id, activeHours, note) {
   const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
@@ -19176,7 +19187,13 @@ everyJob('journey-tasks',60000,()=>WORKFLOW.syncAll(),{label:'Next actions',why:
 everyJob('payroll-drafts',86400000,()=>WORKFLOW.scheduledPayroll(),{label:'Pay preparation',why:'Prepares unbatched lines from the last fourteen days for office review; never pays automatically.'});
 everyJob('journey-cleanup',86400000,()=>WORKFLOW.cleanup(),{label:'Workflow maintenance',why:'Prunes old delivery metadata and refreshes task status.'});
 
-LAUNCH=require('./lib/launch-assurance')({...processContext,requireAdmin,now,scopeWarning,jobs:JOB_META,storage:{database:path.dirname(DB_PATH),documents:DOCS_DIR,photos:PHOTOS_DIR},backupDir:process.env.BACKUP_DIR||path.join(path.dirname(DB_PATH),'backups')},WORKFLOW);
+LAUNCH=require('./lib/launch-assurance')({...processContext,requireAdmin,now,invoiceRates:INVOICE_RATES,holidays:HOLIDAYS,scopeWarning,jobs:JOB_META,storage:{database:path.dirname(DB_PATH),documents:DOCS_DIR,photos:PHOTOS_DIR},backupDir:process.env.BACKUP_DIR||path.join(path.dirname(DB_PATH),'backups')},WORKFLOW);
+
+AUTO_BILLING=require('./lib/automatic-invoicing')({db,now,billable,runClaims,wakeMail:()=>WORKFLOW.drain().catch(e=>console.error('[invoice-email]',e.message))});
+everyJob('holiday-calendar',86400000,()=>HOLIDAYS.refresh(),{label:'Automatic public holidays',why:'Refreshes official NSW state and local dates. Cached/statutory dates remain available during a source outage.'});
+route('GET',/^\/api\/admin\/billing\/automation$/,(req,res,m,u)=>{if(!requireAdmin(u,res))return;json(res,200,{...AUTO_BILLING.status(),calendar:HOLIDAYS.status(),email_enabled:EMAIL_ON});});
+route('POST',/^\/api\/admin\/billing\/retry$/,(req,res,m,u)=>{if(!requireAdmin(u,res))return;db.prepare("UPDATE billing_jobs SET next_at=? WHERE status<>'complete'").run(now());AUTO_BILLING.drain().catch(e=>console.error('[billing-retry]',e.message));json(res,200,{ok:true});});
+route('GET',/^\/api\/pricing\/quote$/,(req,res)=>{const q=new URL(req.url,'http://local').searchParams,b={date:q.get('date'),start:q.get('start'),hours:Number(q.get('hours')),service:q.get('service'),sleepover:q.get('sleepover')==='1',suburb:q.get('suburb')||''};if(!SERVICES.includes(b.service)||b.sleepover&&!['personal-care','daily-tasks'].includes(b.service))return json(res,400,{error:'Choose a supported service.'});const error=BOOKIT_TIME.intervalError(b);if(error)return json(res,400,{error});const lines=AUTO_PRICING.lines(b);json(res,200,{lines,total:round2(lines.reduce((n,l)=>n+l.amount,0)),calendar:HOLIDAYS.status()});});
 
 const server = http.createServer((req, res) => {
   // The Care Web v85.3.0 request-boundary hardening. Keep this before route dispatch.

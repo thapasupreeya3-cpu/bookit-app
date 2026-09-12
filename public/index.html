@@ -1786,7 +1786,8 @@ html.high-contrast .care-stage-block{display:none!important;}
 <link rel="stylesheet" href="/assets/worker-credentials.css?v=88.2.10">
 <link rel="stylesheet" href="/assets/booking-calendar.css?v=88.3.0">
 <link rel="stylesheet" href="/assets/next-actions.css?v=88.2.9">
-<link rel="stylesheet" href="/assets/launch-assurance.css?v=88.3.0">
+<link rel="stylesheet" href="/assets/launch-assurance.css?v=88.3.2">
+<link rel="stylesheet" href="/assets/billing-setup.css?v=88.3.2">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
@@ -8524,7 +8525,7 @@ async function renderBookingsPage(){
           <button type="button" class="btn btn-primary btn-sm" data-mv-save="${b.id}">Move it</button>
         </div>` : ''}
         ${outOfAreaHtml(b)}${coverStripHtml(b)}
-        ${b.status === 'completed' && b.total ? `<span class="muted-sm"><b>$${Number(b.total).toFixed(2)}</b> — ${b.rate_category === 'sleepover' ? '1 night flat' : `${b.hours}h × $${Number(b.unit_price).toFixed(2)}`} (${RATE_LABEL[b.rate_category] || b.rate_category} rate)${b.approval_state === 'approved' ? ' · <b style="color:#1F7A4D;">Approved ✓</b>' : ''}</span>` : ''}
+        ${b.status === 'completed' && b.total ? `<span class="muted-sm"><b>$${Number(b.total).toFixed(2)}</b> — ${b.rate_category === 'sleepover' ? '1 night flat' : b.rate_category==='mixed'?'Itemised by date/time':`${b.hours}h × $${Number(b.unit_price).toFixed(2)}`} (${RATE_LABEL[b.rate_category] || b.rate_category} rate)${b.approval_state === 'approved' ? ' · <b style="color:#1F7A4D;">Approved ✓</b>' : ''}</span>` : ''}
         ${apprPanelHtml(b)}
         ${vrole() === 'participant' && b.status === 'completed' && !b.reviewed ? `
         <div class="rate-row" data-rate-bk="${b.id}">
@@ -9725,7 +9726,7 @@ async function renderAdminPage(){
   catch(e){ sn = { notes: [], people: [], flagged_open: 0 }; }
   let cl;
   try{ cl = await API.call('/admin/claims'); }
-  catch(e){ cl = { unclaimed: [], claimed: [], paid: [], totals: { unclaimed: 0, claimed: 0, paid: 0 } }; }
+  catch(e){ cl = { error:e.message, unclaimed: [], claimed: [], paid: [], totals: { unclaimed: 0, ready:0, held:0, claimed: 0, paid: 0 } }; }
   let creds = { workers: [] }, incs = { incidents: [] }, comps = { complaints: [] }, revs = { reviews: [] }, sil = { houses: [], workers: [], participants: [] };
   try{ creds = await API.call('/admin/credentials'); }catch(e){}
   let cmp = null, clog = { entries: [] };
@@ -9902,7 +9903,7 @@ async function renderAdminPage(){
       <td><select class="adm-inv-cat" data-inv="${r.id}" style="font:inherit;padding:4px 6px;border-radius:8px;border:1.5px solid #E2E0DA;">
         ${inv.categories.map(cat => `<option value="${cat.key}" ${cat.key === r.rate_category ? 'selected' : ''}>${esc(cat.label)} — $${cat.price.toFixed(2)}/h</option>`).join('')}
       </select></td>
-      <td><b>$${Number(r.total || 0).toFixed(2)}</b></td></tr>`).join('')}
+      <td><b>$${Number(r.charge_total ?? r.total ?? 0).toFixed(2)}</b></td></tr>`).join('')}
     <tr><td colspan="6" style="text-align:right;"><b>Total billed</b> (worker share $${inv.totals.worker_share.toFixed(2)})</td><td><b>$${inv.totals.billed.toFixed(2)}</b></td></tr>
     </tbody></table></div>` : '<p class="adm-empty">No completed shifts yet — when a worker marks an accepted booking as done, its invoice line appears here.</p>';
   const pending = d.pending.length ? d.pending.map(w => `
@@ -10232,18 +10233,20 @@ async function renderAdminPage(){
     <td>${fmtAU(r.date)}</td><td>${esc(r.participant_name)}</td><td>${esc(FUND_LABEL[r.funding] || r.funding)}</td>
     <td>${esc(svcName(r.service))} · ${r.hours}h</td>
     <td>${showActions
-      ? `<input class="adm-claim-item" data-cid="${r.id}" value="${esc(r.item || '')}" placeholder="e.g. 01_011_0107_1_1" style="font:inherit;font-size:.82rem;width:150px;padding:4px 6px;border-radius:8px;border:1.5px solid ${r.flags.length ? '#C8462E' : '#E2E0DA'};">`
+      ? `<input class="adm-claim-item" data-cid="${r.id}" value="${esc(r.item || '')}" placeholder="e.g. 01_011_0107_1_1" style="font:inherit;font-size:.82rem;width:150px;padding:4px 6px;border-radius:8px;border:1.5px solid ${r.flags.some(f=>f==='support item number needed') ? '#C8462E' : '#E2E0DA'};">`
       : esc(r.support_item || r.item || '—') + (r.invoice_no ? `<br><span style="font-size:.78rem;color:#4A5570;">${esc(r.invoice_no)}</span>` : '')}</td>
-    <td><b>$${Number(r.total || 0).toFixed(2)}</b></td>
+    <td><b>$${Number(r.charge_total ?? r.total ?? 0).toFixed(2)}</b></td>
     <td>${showActions
-      ? `${r.flags.length ? `<span style="color:${r.claim_hold ? '#8a6d00' : '#C8462E'};font-size:.78rem;">${esc(r.flags.join(' · '))}</span>` : '<span style="color:#1F7A4D;font-size:.78rem;">ready ✓</span>'}
+      ? `${CareBilling.rowStatus(r)}
          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${r.claim_hold ? `<button class="adm-btn-sm" data-claim-release="${r.id}" type="button" title="Let the next run invoice it after all">Release</button>` : ''}<button class="adm-btn-sm" data-remove-booking="${r.id}" data-delivered="${r.status === 'completed' ? 1 : 0}" type="button" title="Void or erase this shift, with a reason" style="color:#9E2F1C;">Remove…</button></div>`
       : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `${r.invoice_no ? `<button class="adm-btn-sm" data-inv-paid="${esc(r.invoice_no)}" type="button" title="Bank transfer received for the whole invoice">Invoice paid</button> <button class="adm-btn-sm" data-inv-withdraw="${esc(r.invoice_no)}" type="button" title="Take the whole invoice back; its lines return to unclaimed" style="color:#9E2F1C;">Withdraw invoice…</button> ` : ''}${r.claim_status === 'claimed' && !r.invoice_no ? `<button class="adm-btn-sm" data-claim-unclaim="${r.id}" type="button" title="Take this line off the agency claim" style="color:#9E2F1C;">Unclaim…</button> ` : ''}${!r.claim_status ? `<button class="adm-btn-sm" data-remove-booking="${r.id}" data-delivered="${r.status === 'completed' ? 1 : 0}" type="button" title="Void or erase this shift, with a reason" style="color:#9E2F1C;">Remove…</button> ` : ''}<button class="adm-btn-sm" data-claim-paid="${r.id}" type="button">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
   </tr>`;
   const claimTable = (rows, showActions) => `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Date</th><th>Participant</th><th>Funding</th><th>Shift</th><th>Support item</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(r => claimRow(r, showActions)).join('')}</tbody></table></div>`;
-  const claims = `
+  const claims = cl.error?`<p role="alert">Claims could not be loaded: ${esc(cl.error)}. <button class="adm-btn-sm" type="button" data-claims-retry>Try again</button></p>`:`
+    ${CareBilling.render(cl.billing_setup,cl.unclaimed,cl.billing_automation,cl.email_enabled)}
     <div class="adm-tiles">
-      <div class="adm-tile"><b style="${cl.totals.unclaimed ? 'color:#C8462E;' : ''}">$${cl.totals.unclaimed.toFixed(2)}</b><span>Ready to claim</span></div>
+      <div class="adm-tile"><b>$${Number(cl.totals.ready||0).toFixed(2)}</b><span>Ready to process (${cl.ready_count||0})</span></div>
+      <div class="adm-tile"><b>$${Number(cl.totals.held||0).toFixed(2)}</b><span>Waiting / needs attention (${cl.held_count||0})</span></div>
       <div class="adm-tile"><b>$${cl.totals.claimed.toFixed(2)}</b><span>Claimed — awaiting payment</span></div>
       <div class="adm-tile"><b style="color:#1F7A4D;">$${cl.totals.paid.toFixed(2)}</b><span>Paid</span></div>
     </div>
@@ -10251,8 +10254,8 @@ async function renderAdminPage(){
       <h3 style="margin:14px 0 8px;">Uninvoiced completed shifts (${cl.unclaimed.length})</h3>
       ${claimTable(cl.unclaimed, true)}
       <p style="margin:12px 0 4px;">
-        <button class="btn btn-primary" id="admRunClaims" type="button">▶ Run claims &amp; invoices</button>
-        <span style="font-size:.85rem;color:#4A5570;margin-left:10px;">NDIA-managed shifts join the claim file below · plan-managed and self-managed shifts get a PDF invoice emailed automatically from hello@thecareweb.com.au. Lines with red notes are skipped until fixed.</span>
+        <button class="adm-btn-sm" id="admRunClaims" type="button" ${cl.ready_count?'':'disabled'}>Run claims &amp; invoices (${cl.ready_count||0} ready)</button>
+        <span style="font-size:.85rem;color:#4A5570;margin-left:10px;">Ready NDIA shifts join the claim file. Ready plan-managed and self-managed shifts get a PDF invoice with email queued for delivery. Waiting shifts stay here. <a href="#/journey?panel=deliveries">Check email delivery</a>.</span>
       </p>`
       : '<p class="adm-empty">Nothing waiting to be claimed — all completed shifts are processed. 🎉</p>'}
     ${cl.claimed.length ? `
@@ -10592,15 +10595,12 @@ document.addEventListener('change', async e => {
   }catch(err){ toast(err.message); renderAdminPage(); }
 });
 document.addEventListener('click', async e => {
+  if(e.target.closest('[data-claims-retry]')){renderAdminPage();return;}
   if(e.target && e.target.id === 'admRunClaims'){
     e.target.disabled = true;
     try{
       const r = await API.call('/admin/claims/run', {method:'POST'});
-      const bits = [];
-      if(r.ndia_claimed) bits.push(r.ndia_claimed + ' NDIA shift' + (r.ndia_claimed > 1 ? 's' : '') + ' added to the claim file');
-      if(r.invoices.length) bits.push(r.invoices.length + ' invoice' + (r.invoices.length > 1 ? 's' : '') + ' emailed');
-      if(r.needs_attention.length) bits.push(r.needs_attention.length + ' line' + (r.needs_attention.length > 1 ? 's' : '') + ' skipped (see red notes)');
-      toast(bits.length ? 'Done — ' + bits.join(' · ') + '.' : 'Nothing to claim yet.');
+      toast(CareBilling.resultText(r));
       renderAdminPage();
     }catch(err){ toast(err.message); e.target.disabled = false; }
     return;
@@ -13238,15 +13238,20 @@ document.addEventListener('click', async e => {
 
 
 /* ============ Build 7 — the approval clock, on the shift it times ============ */
+function automaticChargeDetails(b){
+  let lines=[];try{lines=JSON.parse(b.automatic_invoice_lines||'[]');}catch{}
+  return lines.length>1?`<details class="booking-charge-lines"><summary>Charge breakdown — ${lines.length} date/time lines</summary><ul>${lines.map(l=>`<li>${esc(l.date)} ${esc(l.when)} · ${esc(l.description)}: ${Number(l.qty).toFixed(2)} ${esc(l.unit)} × $${Number(l.rate).toFixed(2)} = <b>$${Number(l.amount).toFixed(2)}</b></li>`).join('')}</ul></details>`:'';
+}
 function apprPanelHtml(b){
   if(b.status !== 'completed') return '';
+  if(b.approval_state==='approved')return `<p class="muted-sm">Approved ✓ · ${b.invoice_no?'Invoice '+esc(b.invoice_no):b.claim_status?'Claim prepared':'Invoice processing automatically'}</p>`+automaticChargeDetails(b);
   const first = esc((b.other_name || '').split(' ')[0]);
   if(vrole() === 'participant' && b.approval_state === 'pending'){
     const days = Number(b.approve_days_left || 0);
     const total = Number((window.API && API.apprDays) || 7);
     /* the bar shows the window still LEFT — it drains, it does not fill */
     const pct = Math.max(3, Math.min(100, Math.round(days / total * 100)));
-    return `<div class="appr-panel" data-appr="${b.id}">
+    return `<div class="appr-panel" data-appr="${b.id}">${automaticChargeDetails(b)}
       ${b.approve_restarted ? `<p class="muted-sm" style="margin:0 0 8px;"><b>${first} answered your question in the shift note</b> — it is the entry marked “Added later”. The ${total} days started again so you have time to read it.</p>` : ''}
       <div class="appr-clock">
         <span><b>${days} day${days === 1 ? '' : 's'} left</b> — approved automatically on ${fmtAU(b.approve_deadline)}</span>
@@ -15485,7 +15490,8 @@ document.addEventListener('click', async e => {
 <script src="/assets/process-workflows.js?v=88.2.9"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
 <script src="/assets/booking-calendar.js?v=88.2.11"></script>
-<script src="/assets/launch-assurance.js?v=88.3.0"></script>
+<script src="/assets/launch-assurance.js?v=88.3.2"></script>
+<script src="/assets/billing-setup.js?v=88.3.2"></script>
 <script src="/assets/admin-verification.js?v=88.2.5"></script>
 <script>
 document.addEventListener('click',async event=>{

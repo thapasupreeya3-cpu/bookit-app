@@ -1,85 +1,96 @@
-THE CARE WEB v88.3.0 — LAUNCH SOURCE FIXES AND FULL GUIDE
+THE CARE WEB v88.3.2 — AUTOMATION UPDATE
 
-Supported prior supplied source versions: 88.2.12.
-57 new/changed project files. Unchanged media excluded.
-This is an update package, not a standalone application. Apply one update ZIP only.
+Applies over the supplied v88.3.0 OR v88.3.1 source. 65 changed/new files.
+Unchanged media, fonts and PDF viewer assets are excluded.
 
-1. Take and verify a backup of the deployed database, uploads/photos and configuration.
-2. EXTRACT this ZIP. Merge its CONTENTS into your existing repository root, replacing
-   matching files and keeping existing folder contents. Do not upload the ZIP itself
-   or nest an extra project folder. UPDATE-INSTRUCTIONS.txt is optional.
-3. Preserve runtime databases, uploaded documents/photos, secrets and environment settings.
-   Compare any newer source changes made outside the supplied versions separately.
-4. Stage on the declared Node 22 runtime, install using the lockfile, and run npm run check.
-   Additive migrations run at boot. Confirm /api/version = 88.3.0 and schema = 88300.
-   Existing enrolled sessions must sign in again; review migrated incident awareness/deadlines.
-5. Open Admin > Launch & operations. Record actual current A09 financial rule/agreement
-   review and dated holiday configuration before automatic invoicing. Review every payroll
-   line's wages/super/allowances and obtain a DIFFERENT approver before export.
-6. Read docs/USER-GUIDE.html and docs/CHANGELOG-v88.3.0.md. Complete the real staging
-   browser, runtime, integration, restore, specialist and user acceptance tasks in
-   docs/LAUNCH-ACCEPTANCE.md before launch. The ZIP does not certify them complete.
+1. Keep a verified backup of your database, uploads, configuration and previous source.
+2. EXTRACT the ZIP. Merge its CONTENTS into your existing repository ROOT, replacing
+   matching files and keeping all other folder contents. Do not upload the ZIP itself.
+   Do not replace an entire existing folder with the partial folder in this update.
+3. Preserve runtime data and any separate work made after the supplied baselines.
+   No source files need deleting. Install dependencies using your usual lockfile workflow.
+4. Redeploy and refresh. /api/version defaults to 88.3.2, schema 88302.
+   Preserve the service timezone Australia/Sydney. New schema: 92 tables, 386 routes.
+5. Participant approval now triggers invoice/PDF-email processing automatically.
+   Existing approved unissued visits are also recovered after restart. Explicit holds,
+   disputes and invalid payer/charge data still need their specific issue resolved.
+6. There is NO holiday-review or blanket finance-approval setup checkbox to complete.
+   NSW dates refresh automatically with saved/statutory fallback. Email must have a
+   working configured transport; queued messages resume when it is available.
 
-Automated tests passed on Node 24.19.0. Browser URL access was blocked here.
-No live deployment, real transactions or external regulator submissions were performed.
+Read docs/CHANGELOG-v88.3.2.md, docs/USER-GUIDE.html and docs/BLOCKS-AND-AUTOMATION.md.
+The complete searchable source register is docs/block-register/index.html; its
+CSV/JSON and full branch census are in that folder. Entries include nonblocking
+statuses for completeness; this is not a claim about every live production setting.
 
-No source files need to be deleted for this update.
+All automated suites passed, including 26 billing checks and two upgrade boots.
+The browser refused local preview; native browser/Node 22/live service acceptance
+remain unverified. Existing approved charges and invoice snapshots are preserved.
+No live deployment, real message delivery or payment was performed here.
 
-INCLUDED PROJECT FILES
-.env.example
+PROJECT FILES IN THIS UPDATE
 RELEASE-FILES.json
 STARTHERE.txt
-docs/CHANGELOG-v88.3.0.md
-docs/DATA-AND-PROCESSOR-INVENTORY.md
+docs/BLOCKS-AND-AUTOMATION.md
+docs/CHANGELOG-v88.3.1.md
+docs/CHANGELOG-v88.3.2.md
 docs/LAUNCH-ACCEPTANCE.md
-docs/PUBLIC-CLAIMS-REVIEW.json
-docs/RELEASE-NOTES.md
-docs/RESEARCH-PILOTS.md
 docs/TEST-RESULTS.md
 docs/USER-GUIDE.html
 docs/api-route-inventory.txt
+docs/block-register/branches.csv
+docs/block-register/branches.json
+docs/block-register/index.html
+docs/block-register/register.csv
+docs/block-register/register.json
 docs/database-table-inventory.txt
-docs/dependency-provenance.json
 docs/launch-actions.json
-docs/launch-research-sources.json
 docs/release-metadata.json
-lib/admin-verification.js
-lib/bookit-hardening.js
-lib/evidence-policy.js
+lib/automatic-invoicing.js
+lib/automatic-pricing.js
+lib/billing-setup.js
 lib/incident-policy.js
 lib/launch-assurance.js
-lib/process-assistance.js
-lib/process-calendar.js
-lib/process-finance.js
 lib/process-routes.js
 lib/process-store.js
-lib/verification-automation.js
+lib/public-holidays-nsw.json
+lib/public-holidays.js
 lib/version.js
 package-lock.json
 package.json
-public/assets/admin-verification.js
-public/assets/booking-calendar.js
-public/assets/bookit-review-improvements.js
-public/assets/launch-assurance.css
+public/assets/billing-setup.css
+public/assets/billing-setup.js
 public/assets/launch-assurance.js
 public/assets/process-workflows.js
-public/assets/worker-credentials.js
 public/index.html
 readme.txt
-scripts/backup.js
-scripts/inventory.js
+scripts/audit-blocks.js
 scripts/release-docs.js
 server.js
-tests/booking-calendar-tests.js
+tests/automatic-billing-unit.js
+tests/billing-flow-tests.js
 tests/graphics-tests.js
 tests/launch-regression.js
 tests/process-regression.js
 tests/smoke.js
-validation/v88.3.0-full-test-output.txt
-validation/v88.3.0-guide-validation.json
-validation/v88.3.0-inventory-check.txt
-validation/v88.3.0-launch-results.json
-validation/v88.3.0-lint-output.txt
-validation/v88.3.0-release-docs-check.txt
-validation/v88.3.0-upgrade-output.txt
-validation/v88.3.0-upgrade-results.json
+validation/v88.3.1-billing-output.txt
+validation/v88.3.1-billing-results.json
+validation/v88.3.1-browser-check.txt
+validation/v88.3.1-full-test-output.txt
+validation/v88.3.1-guide-validation.json
+validation/v88.3.1-inventory-check.txt
+validation/v88.3.1-lint-output.txt
+validation/v88.3.1-release-docs-check.txt
+validation/v88.3.1-upgrade-output.txt
+validation/v88.3.1-upgrade-results.json
+validation/v88.3.2-automatic-unit-output.txt
+validation/v88.3.2-billing-output.txt
+validation/v88.3.2-block-scan.txt
+validation/v88.3.2-browser-check.txt
+validation/v88.3.2-full-test-output.txt
+validation/v88.3.2-guide-validation.json
+validation/v88.3.2-inventory-output.txt
+validation/v88.3.2-lint-output.txt
+validation/v88.3.2-report-validation.json
+validation/v88.3.2-upgrade-output.txt
+validation/v88.3.2-upgrade-results.json

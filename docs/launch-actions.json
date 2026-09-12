@@ -91,12 +91,12 @@
     "id": "A09",
     "priority": "P0",
     "area": "Billing",
-    "title": "Validate time bands, holidays and current NDIS prices before automatic issue",
-    "basis": "Reproduced implementation + rule-validation gate",
-    "action": "Create effective-dated, jurisdiction-aware billing rules with reviewed exceptions. Reconcile every offered item against the current schedule and agreements. Route ambiguous cross-boundary, overnight, cancellation and transport lines to review.",
+    "title": "Check automatic pricing against actual service agreements",
+    "basis": "Automatic calculation plus business acceptance evidence; not an invoice gate",
+    "action": "Verify automatic NSW holiday/time-band calculations and actual agreement/tax settings using representative cases. Correct only genuinely missing or inconsistent charge data. Routine approved visits issue automatically without an A09 sign-off.",
     "acceptance": "An independent billing reviewer signs expected amounts for weekdays, weekends, holidays, midnight, DST, sleepovers, active overnight time, cancellation, travel and funding types. Compare invoices and calculator/public prices against the same fixtures.",
     "owner": "Finance + engineering",
-    "implementation_status": "Implemented guarded billing: current rule/agreement approval and dated jurisdiction calendar are required; boundary/holiday/night/travel/cancellation/shared cases are held for itemised review. No new authoritative rate catalogue was invented or certified."
+    "implementation_status": "Replaced blanket finance/holiday and boundary holds in v88.3.2 with automatic NSW calendars, itemised date/time pricing, immediate approval-triggered invoice processing and a durable retry queue. Actual invalid/stale edited charges remain visible exceptions. Financial specialist acceptance of business agreements and configured tax/payroll remains an operating responsibility, not a per-invoice software gate."
   },
   {
     "id": "A10",
