@@ -1,32 +1,25 @@
-THE CARE WEB - BOOKING REQUESTS AND CALENDAR v88.2.11
+THE CARE WEB - CALENDAR LAYOUT FIX v88.2.12
 
-Supported earlier source versions: 88.2.10.
-Apply over v88.2.10 (the previous credential-status release).
-
-Contains 31 new or changed files; 509 unchanged
-files are omitted. This is an update package, not a standalone application.
+Supported earlier source versions: 88.2.11.
+Apply over v88.2.11 (the booking-calendar release).
+Contains 17 new or changed files; 526 unchanged files omitted.
+This is an update package, not a standalone application.
 
 1. Extract this ZIP. Upload the extracted CONTENTS to your existing repository
    root, alongside server.js, package.json, public and lib. Replace matching
-   files; merge folders while keeping other contents. Do not upload the ZIP
-   itself or a new enclosing folder. UPDATE-INSTRUCTIONS.txt is optional.
-2. Preserve your runtime database, uploaded documents/photos and configuration.
+   files and merge folders. Do not upload the ZIP itself or an enclosing folder.
+   UPDATE-INSTRUCTIONS.txt is optional.
+2. Preserve runtime databases, uploaded documents/photos and configuration.
    Compare separately with any newer source changes not supplied here.
-3. Commit and redeploy with your existing process. Refresh the site and confirm
-   /api/version reports 88.2.11. No schema change is needed from v88.2.10.
-4. Open Bookings as a worker or participant. Calendar / List switches views.
-   Calendar includes month/week, Today and a date picker. Select a day, then
-   Open booking or Review request to use the existing booking controls.
-5. Workers see a small red booking-request count, which updates while the site
-   is open. It remains until answered or no longer current. It is not a push
-   notification and does not send extra messages.
-6. Check new requests, an overnight visit, cancelled/declined toggles, booking
-   controls, mobile layout and keyboard navigation on the deployed site.
+3. Commit and redeploy normally, then refresh the page. Check that /api/version
+   reports 88.2.12. No database or dependency changes from v88.2.11.
+4. Open Bookings in month view. All seven columns, including Sunday the 6th in
+   September 2026, should be visible. Select the 6th to open its visit details.
+   On smaller screens the selected-day panel sits below the calendar.
+5. Check month/week views, narrow screens and browser zoom on the deployed site.
 
-Full automated checks passed; browser layout could not be previewed here.
-See docs/CHANGELOG-v88.2.11.md and docs/TEST-RESULTS.md for changes and limits.
-Open docs/booking-calendar-preview.html for fictional interactive examples.
-Previous Next actions, file controls and status colours are retained.
+See docs/CHANGELOG-v88.2.12.md and docs/TEST-RESULTS.md for changes and checks.
+Automated checks passed. Deployed browser appearance remains unverified.
 Do not apply both the latest-only and cumulative update packages.
 
 No existing files need to be deleted for this update.
@@ -34,9 +27,8 @@ No existing files need to be deleted for this update.
 INCLUDED PROJECT FILES
 RELEASE-FILES.json
 STARTHERE.txt
-docs/CHANGELOG-v88.2.11.md
+docs/CHANGELOG-v88.2.12.md
 docs/RELEASE-NOTES.md
-docs/SITE-USABILITY-REVIEW.md
 docs/TEST-RESULTS.md
 docs/api-route-inventory.txt
 docs/booking-calendar-preview.html
@@ -45,21 +37,8 @@ docs/release-metadata.json
 package-lock.json
 package.json
 public/assets/booking-calendar.css
-public/assets/booking-calendar.js
 public/index.html
 readme.txt
 scripts/release-docs.js
-server.js
-tests/booking-calendar-tests.js
-tests/navigation-tests.js
-tests/process-regression.js
-validation/v88.2.11-asset-preservation.json
-validation/v88.2.11-booking-calendar-results.json
-validation/v88.2.11-check-output.txt
-validation/v88.2.11-credentials-results.json
-validation/v88.2.11-navigation-results.json
-validation/v88.2.11-next-actions-results.json
-validation/v88.2.11-page-audit.json
-validation/v88.2.11-preview-results.json
-validation/v88.2.11-process-results.json
-validation/v88.2.11-settings-results.json
+validation/v88.2.12-check-output.txt
+validation/v88.2.12-layout-review.json

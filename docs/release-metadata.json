@@ -1,11 +1,11 @@
 {
-  "version": "88.2.11",
-  "base_version": "88.2.10",
-  "base_archive": "The-Care-Web-v88.2.10-source.zip",
-  "base_archive_sha256": "6594357a351215cd8e4b5cd8806cac14fafea878f373531e14c4dda0c31b564a",
+  "version": "88.2.12",
+  "base_version": "88.2.11",
+  "base_archive": "The-Care-Web-v88.2.11-source.zip",
+  "base_archive_sha256": "e793f3d525816b88a24f1ccea12f0925052cdb59b76ff9b92b0f11ab0159ca16",
   "base_commit": null,
   "package_type": "full source archive",
-  "output_archive": "The-Care-Web-v88.2.11-source.zip",
-  "scope": "Worker booking-request badges and a scoped month/week calendar for workers and participants, with existing booking controls and overnight/date safeguards.",
+  "output_archive": "The-Care-Web-v88.2.12-source.zip",
+  "scope": "Fix calendar Sunday overlap by removing inherited table minimum width and wrapping the selected-day panel on narrower layouts.",
   "unchanged_assets": "Existing public artwork, photos, scene videos, fonts and vendor files are unchanged."
 }

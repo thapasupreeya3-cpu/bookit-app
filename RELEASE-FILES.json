@@ -1,6 +1,6 @@
 {
-  "release": "88.2.11",
-  "base_release": "88.2.10",
+  "release": "88.2.12",
+  "base_release": "88.2.11",
   "format": "full-source",
   "note": "All package files are listed except RELEASE-FILES.json itself. Preserve deployed runtime databases, uploads and secrets.",
   "files": {
@@ -17,7 +17,7 @@
       "sha256": "08062faf0d7a2d22f5d7933c50e975dd1527034275597be7c1b3b9fd2b9d079a"
     },
     "STARTHERE.txt": {
-      "sha256": "11d134eee60c20c26afdacffcb3cf21698f08ab383b02edea6c99ecf1d483f73"
+      "sha256": "ac320cf310d841659f8e67f705473fb3389c61e97b37f03d01b5c70e89b77ff9"
     },
     "blank-forms/p-advocate \u2014 Advocate, nominee or decision-maker form.pdf": {
       "sha256": "a8c898cc4a2b56f8c44d388846a900873e8a3331f6d1027e7e85766400281ac7"
@@ -364,6 +364,9 @@
     "docs/CHANGELOG-v88.2.11.md": {
       "sha256": "3cb8f4ecba70c24ba7bf2713b488562412a76c8bd52677c035f85772c7fe8160"
     },
+    "docs/CHANGELOG-v88.2.12.md": {
+      "sha256": "7dcb8f6c1c6e455bf2badb2857efc1b2178338958d811ef8cc235379a9c407bd"
+    },
     "docs/CHANGELOG-v88.2.2.md": {
       "sha256": "07fea5e58e7b06ebcc34aa24a8be5c95bd7efce589cd97f3c0df08b54464a9bc"
     },
@@ -398,13 +401,13 @@
       "sha256": "0585773d6e69c8411d75107597498e64c8a12593e959530ae651514668b847b6"
     },
     "docs/RELEASE-NOTES.md": {
-      "sha256": "3cb8f4ecba70c24ba7bf2713b488562412a76c8bd52677c035f85772c7fe8160"
+      "sha256": "7dcb8f6c1c6e455bf2badb2857efc1b2178338958d811ef8cc235379a9c407bd"
     },
     "docs/SITE-USABILITY-REVIEW.md": {
       "sha256": "23f5391da23d5a52af6e049eb7a4df2c379faa1099386e6973fae19f33ae5d98"
     },
     "docs/TEST-RESULTS.md": {
-      "sha256": "d991087345d8ed8b1f30dff7624ac3e8c7a204553de5f1d554a1b544c76c03d8"
+      "sha256": "7fb9128e889db98033be54cadde90f7014a3bdb2dfe9b6253bd4a5c628b494d6"
     },
     "docs/WORKFLOW-OPERATIONS.md": {
       "sha256": "6d56747006ab86cd85ac36ddb810c4c24bfb2500901108b3bc2ec19866cd5ef3"
@@ -413,16 +416,16 @@
       "sha256": "a37c011ff63151d3276dab34d64a592a420da13afa065869328b2cdcbc5c3d1c"
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "9207e4aadecfb296206a291330610e8430a95145f12ab0048f3cb6386a2abe11"
+      "sha256": "e263247092086f9485765c65b46a33a9205bde15a8cddf881289f27df64c126f"
     },
     "docs/booking-calendar-preview.html": {
-      "sha256": "9dfb20af3fa882eb2b2f5c14479c666943e3de7b46f8e248626ea7d5125161a5"
+      "sha256": "d9e3e7522136a8a0b0ed733683da262c175e7b15bee5b1b8259b294e95b46a90"
     },
     "docs/credential-status-preview.html": {
       "sha256": "9c4d07074b47490dc87b79b79e9fb38a30170437d238402922eb10607b945b44"
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "0080aea48dda2621bb16761128a7ddddafecd08d9942a638dd2515eb5888c007"
+      "sha256": "060db27f09417414e0161e441bb3d2271925f2cf19392baee675047656961a20"
     },
     "docs/graphics-asset-http.json": {
       "sha256": "83c95f6733f48d799353d36cb15116aa9424d0cbb2a760fe3f114734c2e0c46b"
@@ -491,7 +494,7 @@
       "sha256": "c2540544bb51584837c24648f470e6bb2bdd1703df0cb0c0e1417c0d0e46b00c"
     },
     "docs/release-metadata.json": {
-      "sha256": "5a57bf34f5c189f21d19b56b274fd17471b0e44a4f814d8869d8ad319dbd9dce"
+      "sha256": "0f3c14c864f378eac692576ef57b45f3aa5e4dc16f01b35bb9557e60e4c81012"
     },
     "docs/validation/check-output.txt": {
       "sha256": "b052405632d23028f8f03e86564e63aa4615e0ff4b9e4c2314605a2e3bce8671"
@@ -608,10 +611,10 @@
       "sha256": "65bafd60044e3d30d98ab6d0a21ccca993933578452ba69452431b233d84914e"
     },
     "package-lock.json": {
-      "sha256": "d10edc8055fecfca3123e913e031544264c06d9c841f36fc8fe85f231759bd57"
+      "sha256": "c9ff18cf8791a680842d8618a503aa45b1a44d20a254e5c23e4f320bc3685632"
     },
     "package.json": {
-      "sha256": "ea5edc37fcb49903a37b7c001df6fb9488f8f5e159d4d9cfd50d5bd9323faff5"
+      "sha256": "58cb9bda74e18652025c233aeb5ed6d7ebc90a4b5ae94504430653db859a286e"
     },
     "prefill-walkthrough.js": {
       "sha256": "8cdc0cba5675f33b4ccefc4cdebf896c8933b68ac2fedea86ea13a5f3115235b"
@@ -623,7 +626,7 @@
       "sha256": "6faf27910a2bbb166c6d2dfe4d6542761559503664a8e3ef395d23c3277d8be4"
     },
     "public/assets/booking-calendar.css": {
-      "sha256": "e0fdb50b932a0882ecfa84500da58e8f5d676f1f4ecc3433a767d1821aa45a4d"
+      "sha256": "2caf5c5abf2f13d913cfa9f20e42bf7da477658fafebcab957ae24185bec3be9"
     },
     "public/assets/booking-calendar.js": {
       "sha256": "057794b2e9ec9f170bfaabb766d009c0c6e3a89d2fa26675a2aa3f306c0708a9"
@@ -1091,7 +1094,7 @@
       "sha256": "ad025e807e4906ebfc0f448e5bebcd1a44c5e2e9b9cf6759f9b728661062a382"
     },
     "public/index.html": {
-      "sha256": "503b4368b0402ffdef5832917a072993703ba73e035a0e043889ca78e6762e54"
+      "sha256": "d1a221fe65c0104500c161b9b0729bcf79d58fa8d60c170bb48f82be0132c190"
     },
     "public/vendor/care-cast.js": {
       "sha256": "6461468f0755d4797be60b29095744fdd701de092ae8f7f5fc1ee60149aa9a37"
@@ -1220,7 +1223,7 @@
       "sha256": "06552c54e4071fbc7305117aafe6765d92c5d2a2a83507d4f05b9bf4f3d4d463"
     },
     "readme.txt": {
-      "sha256": "f5c8e7aa657afe72272fb29c45898c87d07475b20d14577c7571baa9e7189a01"
+      "sha256": "229950d1030e3e1a84a00aae573c1c94f8bd67ebeb6aa53c63b4ced68a9199aa"
     },
     "scripts/NDIS_plan__sample_for_walkthrough.pdf": {
       "sha256": "8ef1ce7de6bc4247997252664267635ee011b51362f57699bbcb0e688dd55e82"
@@ -1244,7 +1247,7 @@
       "sha256": "ea54bcd8fb61e1acff0f7b1290e45fd0a8e67b11df6b47fa88948341a2214e19"
     },
     "scripts/release-docs.js": {
-      "sha256": "570e5d5ade625d9c3836aa3b236a2c1d581366ef9bb418dbf9a755da28330cfd"
+      "sha256": "b3dd2aeebecb239aedc0786d59cb09f554cbc0ab69891e9dc4a459147cec88c7"
     },
     "scripts/reset-test-agreements.js": {
       "sha256": "1b9b724eb295c8b652d80b07471a53487794ffef80da699dc8122d1ffcdf663f"
@@ -1443,6 +1446,12 @@
     },
     "validation/v88.2.11-settings-results.json": {
       "sha256": "9699f8b3f1d23ed62d7926c9f597e066e827ca1e827409accc164ff24ab462ab"
+    },
+    "validation/v88.2.12-check-output.txt": {
+      "sha256": "a0c222ee8afc08f884e01653aa13e4ff833464515bdc944c120a9075a873ec4c"
+    },
+    "validation/v88.2.12-layout-review.json": {
+      "sha256": "1435b5348c65ca6d7c588b1a8bcb3a8d7461adb3bb896d811ed0bc1153483c3f"
     },
     "validation/v88.2.2-asset-preservation.json": {
       "sha256": "4644c90e509e6218f9bc73ef7db2042b0b48d0cf1017ab9a93b7eeaa74798873"

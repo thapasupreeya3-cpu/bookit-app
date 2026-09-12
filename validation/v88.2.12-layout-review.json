@@ -1,0 +1,8 @@
+{
+  "review": "Source inspection and byte comparison",
+  "cause": "Global table minimum of 640px exceeded calendar column",
+  "fix": "Calendar minimum width reset to 0; children can shrink; wrapping columns; single column at <=1050px; long detail text wraps",
+  "assets_preserved": 147,
+  "server_and_calendar_logic": "byte-identical to v88.2.11",
+  "browser_layout": "Not verified; browser access blocked earlier in session"
+}

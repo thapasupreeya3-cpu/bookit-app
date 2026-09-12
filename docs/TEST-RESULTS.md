@@ -1,44 +1,15 @@
-# v88.2.11 test results
+# v88.2.12 verification
 
-The complete `npm run check` gate passed with exit code 0 on Node 24.19.0. This report and current receipts were added afterward; the payload manifest was regenerated and verified. Application code did not change after the final full gate.
+The complete `npm run check` gate passed with exit code 0 on Node 24.19.0. It includes syntax, route/schema inventories, release-document consistency, payload integrity, and the existing functional suites. The 13 calendar scenarios and 42 workflow/API scenarios passed. No new functional test was needed for this stylesheet-only fix.
 
-| Check | Result |
-| --- | --- |
-| Syntax | 67 scripts compiled; 0 failures; includes 4 inline application scripts |
-| API/database inventories | 369 routes; 83 tables; schema 88202 |
-| Clash tests | 21 passed |
-| Application smoke tests | All passed |
-| Review unit assertions | 46 passed |
-| Review integration | 25/25 passed |
-| Graphics/asset contracts | 54/54 passed |
-| Audit | 8 unit groups and API scenarios passed |
-| Workflows and API checks | 42/42 passed |
-| Verification/document previews | 46/46 passed |
-| Settings | 11/11 passed |
-| Navigation | 10/10 passed |
-| Document workspace | 17/17 passed |
-| Next actions | 13/13 passed |
-| Booking calendar and request badge | 13/13 passed |
-| Structural page audit | 54 explicit route entries; no unresolved literal links, duplicate static IDs or unlabelled static controls found |
-| Asset preservation | 147 original image, media, font and binary files byte-identical to v88.2.10 |
-| Preview | Standalone script compiled; production component tested with fictional worker and participant data |
+The calendar stylesheet and its versioned link are the only production behavior changes. Source review identified the global `table { min-width:640px }` rule as the cause of the date grid overflowing beneath the agenda. The calendar overrides it with `min-width:0`, allows its children to shrink, wraps its columns, uses a single column at 1050 CSS pixels and below, and wraps long agenda text. The example preview now includes the general table rule so it no longer omits that interaction.
 
-## New API behavior exercised
+The preview script passed `node --check`. Server code and calendar JavaScript are byte-identical to v88.2.11. All 147 original image, media, font and binary assets are unchanged. Schema remains 88202, with 83 tables and 369 registered routes. No database or dependency changes.
 
-Five new scenarios run against the actual server with disposable accounts and databases. They verify worker-only request counts and a real decline action, exclusion of past/cancelled/covered/voided records, participant and worker ownership, omission of care notes from the calendar payload, active helper booking scope and revocation, exact scoped booking lookup, Sydney daylight saving and overnight carry-in, exclusive midnight endings, leap-month boundaries, 405 bookings in one calendar range, an old focused record outside the list cap, and invalid dates/view/booking-ID rejection.
-
-## New UI behavior exercised
-
-Thirteen scenarios execute the production component in a VM with a minimal DOM model. They verify desktop/mobile counts, no worker badge on participant/admin accounts, server-time display, carry-over visits, exact record links, calendar arithmetic, arrow-key/day focus, month/week/date/Today controls, optional cancelled records, read-only display actions, polling cadence and hidden-page suppression, refresh after mutation, stale response/account isolation, timeouts/retry, escaped names, return-to-calendar selection and same-URL request refresh.
-
-Existing tests retain coverage of booking acceptance, cancellation, completion and timesheet rules; account loading/navigation; document file actions and review status; and verification automation. The new calendar opens the existing booking controls instead of introducing separate approval or payment handlers.
+The current gate log and source review are in `validation/v88.2.12-*`. Earlier validation files describe their own releases. This report was added after the gate; packaging regenerated and verified all payload hashes afterward.
 
 ## Limits
 
-DOM models are not browser rendering engines. Local browser access was blocked earlier in this session; no alternate browser route was used. The interactive preview was not visually inspected in a real browser. Deployed layout, mobile/enlarged text, focus behavior, screen readers and browser colour overrides remain unverified. The preview uses fictional data and does not perform real account mutations.
+Actual browser layout was not inspected: browser access was blocked earlier in this session and no alternate browser was used. The screenshot establishes the original overlap; the source change addresses its cause. After deployment, confirm that Sunday the 6th is visible and selectable in September 2026, and check month/week layouts on phones, desktop and enlarged browser zoom. No live site was deployed or real account data changed.
 
-The request badge polls approximately every 30 seconds while the site is visible. It is not an operating-system push notification. Calendar data refreshes on opening, date/view changes, Today or Refresh; the selected calendar is not continuously replaced in the background. Existing email and external-calendar behavior is unchanged. No live deployment, real messages or payment transactions were performed.
-
-The project declares Node 22; the test runtime was Node 24.19.0. Deployment CI should run the same gate on its declared runtime. No schema or runtime dependencies changed.
-
-Current evidence is under `validation/v88.2.11-*`: check output, workflow/API, calendar, Next actions, Credentials, Settings and navigation results, page audit, asset comparison and preview receipt. Earlier validation files describe their own releases.
+The project declares Node 22; the available test runtime was Node 24.19.0.

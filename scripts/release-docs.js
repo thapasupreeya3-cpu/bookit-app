@@ -33,6 +33,7 @@ A small red request count appears beside Bookings and on the mobile menu for
 workers with future unanswered requests. It updates while the site is open.
 Calendar queries use the visible date range and carry overnight visits across
 midnight; each booking opens its own scoped record even beyond the old list cap.
+The date grid fits its column; the selected-day panel moves below it on narrow layouts.
 See docs/booking-calendar-preview.html for fictional examples.
 Messages remain in the header. Referrals lead to the existing worker referral page.
 Credentials has an essential-document checklist and the complete document dropdown.
@@ -91,7 +92,7 @@ INSTALL / UPDATE
       npm ci --ignore-scripts
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
-6. Deploy using your existing process. No schema change is needed from v88.2.10. Earlier additive
+6. Deploy using your existing process. No schema change is needed from v88.2.11. Earlier additive
    migrations still run when upgrading an older release.
    Existing records are retained. This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
@@ -122,7 +123,7 @@ const readme=`The Care Web v${pkg.version} — complete source package.
 
 Extract ${meta.output_archive}; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
-This release adds booking request badges and a month/week calendar.
+This release fixes calendar dates being covered by the selected-day panel.
 PDF/HTML previews and earlier verification automations are retained.
 Configure private billing,
 email, payroll cutover and any optional document assistance before use.
