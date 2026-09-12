@@ -154,16 +154,19 @@ async function main() {
       manifest.counts[t].snapshot = n;
       if (manifest.counts[t].live_after_snapshot !== n) manifest.notes.push(`${t}: snapshot ${n}, live read a moment later ${manifest.counts[t].live_after_snapshot} — the site wrote during the run`);
     }
-    /* every column that points at a file on disk: the four document tables
-       and the two profile-photo columns */
-    for (const [table, owner, col] of [['worker_docs', 'worker_id', 'file_path'], ['participant_docs', 'participant_id', 'file_path'], ['form_templates', 'form_key', 'file_path'], ['form_template_versions', 'form_key', 'file_path'], ['users', 'id', 'photo'], ['worker_profiles', 'user_id', 'photo']]) {
-      let rows = [];
-      try { rows = chk.prepare(`SELECT rowid AS id, ${owner} AS owner, ${col} AS file_path FROM ${table} WHERE ${col} IS NOT NULL AND ${col} <> ''`).all(); } catch { continue; }
-      for (const r of rows) {
-        if (!/^[/\\]/.test(r.file_path) && !/^[A-Za-z]:/.test(r.file_path)) continue;   /* a URL or a colour, not a file */
-        const fp = path.resolve(r.file_path);
-        const bucket = fp.startsWith(PHOTOS_DIR + path.sep) ? 'photos' : 'docs';
-        referenced[bucket].push({ table, column: col, id: r.id, owner: r.owner, file_path: fp });
+    for (const table of chk.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(t=>t.name)) {
+      const quote=v=>'"'+v.replace(/"/g,'""')+'"';
+      for (const col of chk.prepare(`PRAGMA table_info(${quote(table)})`).all().map(c=>c.name).filter(n=>['file_path','photo','source_file','document_path'].includes(n))) {
+        for (const r of chk.prepare(`SELECT rowid AS id, ${quote(col)} AS file_path FROM ${quote(table)} WHERE ${quote(col)} IS NOT NULL AND ${quote(col)}<>''`).all()) {
+          if(/^(https?:|data:|#[a-f0-9]{3,8}$)/i.test(r.file_path))continue;
+          const fp=path.resolve(ROOT,r.file_path),row={table,column:col,id:r.id,file_path:fp};
+          const bucket=fp.startsWith(PHOTOS_DIR+path.sep)?'photos':fp.startsWith(DOCS_DIR+path.sep)?'docs':null;
+          if(!bucket){manifest.missing_from_archive.push({...row,reason:'outside archived roots'});continue;}
+          let real;try{real=fs.realpathSync(fp);}catch{}
+          const root=bucket==='photos'?PHOTOS_DIR:DOCS_DIR;
+          if(!real||!real.startsWith(fs.realpathSync(root)+path.sep)){manifest.missing_from_archive.push({...row,reason:real?'symlink outside archived root':'missing source file'});continue;}
+          referenced[bucket].push(row);
+        }
       }
     }
     chk.close();

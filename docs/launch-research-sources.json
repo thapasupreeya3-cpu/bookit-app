@@ -1,0 +1,146 @@
+[
+  {
+    "id": "S01",
+    "author": "NDIS Quality and Safeguards Commission",
+    "title": "Reportable incidents",
+    "date": "Current official guidance; accessed 12 Sep 2026",
+    "url": "https://www.ndiscommission.gov.au/rules-and-standards/reportable-incidents-and-incident-management/reportable-incidents",
+    "relevance": "Australian incident notification timeframes and five-day form.",
+    "limitations": "Official regulator guidance; apply with final rules and safeguarding advice."
+  },
+  {
+    "id": "S02",
+    "author": "NDIS Quality and Safeguards Commission",
+    "title": "Mandatory registration and transition pathways for NDIS digital platforms",
+    "date": "From 1 Jul 2026; accessed 12 Sep 2026",
+    "url": "https://www.ndiscommission.gov.au/about-us/ndis-commission-reform-hub/mandatory-registration/mandatory-registration-digital",
+    "relevance": "0137 platform registration and transition review.",
+    "limitations": "Page summary still references draft definitions; does not establish this provider\u2019s certificate or pathway."
+  },
+  {
+    "id": "S03",
+    "author": "NDIA",
+    "title": "Pricing arrangements",
+    "date": "Page updated 22 Jul 2026; schedule effective 1 Jul 2026",
+    "url": "https://www.ndis.gov.au/providers/pricing-and-payments/pricing/pricing-arrangements",
+    "relevance": "Effective-dated pricing and agreement review.",
+    "limitations": "Landing page checked; every code rate was not reconciled to every detailed item/rule."
+  },
+  {
+    "id": "S04",
+    "author": "Fair Work Ombudsman",
+    "title": "Hours of work in the SCHADS Award",
+    "date": "Changes from first full pay period on/after 1 Jun 2026",
+    "url": "https://www.fairwork.gov.au/find-help-for/disability-support-and-aged-care-services/understanding-schads/hours-of-work-in-the-schads-award",
+    "relevance": "Sleepover continuity, hours, overtime and rest review.",
+    "limitations": "Apply to actual employment arrangements; further Commission proceedings remain."
+  },
+  {
+    "id": "S05",
+    "author": "W3C",
+    "title": "Web Content Accessibility Guidelines (WCAG) 2.2",
+    "date": "Recommendation 2023; republished with errata 12 Dec 2024",
+    "url": "https://www.w3.org/TR/WCAG22/",
+    "relevance": "AA task-based accessibility target.",
+    "limitations": "A target standard, not a certification of this site."
+  },
+  {
+    "id": "S06",
+    "author": "W3C",
+    "title": "Making Content Usable for People with Cognitive and Learning Disabilities",
+    "date": "Working Group Note, 29 Apr 2021",
+    "url": "https://www.w3.org/TR/coga-usable/",
+    "relevance": "Clear steps, help, understandable language and user involvement.",
+    "limitations": "Informative guidance; supplements WCAG, not an additional mandatory conformance level."
+  },
+  {
+    "id": "S07",
+    "author": "W3C",
+    "title": "Web Authentication: An API for accessing Public Key Credentials \u2014 Level 3",
+    "date": "Recommendation, 25 Aug 2026",
+    "url": "https://www.w3.org/TR/2026/REC-webauthn-3-20260825/",
+    "relevance": "Standards-based passkey roadmap.",
+    "limitations": "Browser capabilities and recovery must still be tested; passkeys did not begin with this version."
+  },
+  {
+    "id": "S08",
+    "author": "NIST",
+    "title": "Digital Identity Guidelines, SP 800-63 Revision 4",
+    "date": "Final, Jul 2025",
+    "url": "https://pages.nist.gov/800-63-4/",
+    "relevance": "Authentication and recovery assurance; syncable authenticators.",
+    "limitations": "US technical guidance, not an Australian statutory mandate."
+  },
+  {
+    "id": "S09",
+    "author": "OWASP",
+    "title": "Application Security Verification Standard",
+    "date": "Version 5.0.0 released 30 May 2025",
+    "url": "https://owasp.org/www-project-application-security-verification-standard/",
+    "relevance": "Structured independent security verification.",
+    "limitations": "Control framework; not evidence that this site complies."
+  },
+  {
+    "id": "S10",
+    "author": "Lukac et al.",
+    "title": "Ambient AI Scribes in Clinical Practice: A Randomized Trial",
+    "date": "NEJM AI, Nov/Dec 2025; PMID 41497288",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41497288/",
+    "relevance": "Randomised evidence on documentation assistance.",
+    "limitations": "238 outpatient physicians, 14 specialties; not an NDIS study. Abstract-level appraisal; full-text endpoint challenged browser."
+  },
+  {
+    "id": "S11",
+    "author": "Ulloa-P\u00e9rez et al.",
+    "title": "Pragmatic Randomized Study of Targeted Text Message Reminders to Reduce Missed Clinic Visits",
+    "date": "The Permanente Journal, 5 Apr 2022; data collected 2019",
+    "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9126539/",
+    "relevance": "Targeted extra reminders reduced missed visits in a US health system.",
+    "limitations": "Single-system high-risk visits; no guarantee of effect in disability home support; not percentage-point effects."
+  },
+  {
+    "id": "S12",
+    "author": "Hsiao et al.",
+    "title": "Preferences for Personalized Text Message Appointment Reminders Among Outpatients in a Universal Health System: Cross-Sectional Study",
+    "date": "JMIR, 7 Apr 2026; doi:10.2196/81324",
+    "url": "https://www.jmir.org/2026/1/e81324",
+    "relevance": "Reminder preferences differ; test content locally.",
+    "limitations": "1,095 respondents in Taiwan; online convenience sample, excludes known cognitive impairments; preference, not attendance efficacy."
+  },
+  {
+    "id": "S13",
+    "author": "Chapman et al.",
+    "title": "Beyond a buzzword: the need for shared language, education, and enhanced reporting of disability inclusive co-design research",
+    "date": "Research Involvement and Engagement 12:11, 26 Jan 2026",
+    "url": "https://link.springer.com/article/10.1186/s40900-025-00831-y",
+    "relevance": "Accountable disability-inclusive co-design and decision reporting.",
+    "limitations": "Commentary, not a controlled effectiveness study."
+  },
+  {
+    "id": "S14",
+    "author": "OAIC",
+    "title": "Guidance on privacy and the use of commercially available AI products",
+    "date": "Published Oct 2024; guidance accessed 12 Sep 2026",
+    "url": "https://www.oaic.gov.au/privacy/privacy-guidance-for-organisations-and-government-agencies/guidance-on-privacy-and-the-use-of-commercially-available-ai-products",
+    "relevance": "Privacy assessment, appropriate data use, accuracy and human oversight.",
+    "limitations": "Provider-specific due diligence required; a region label is not assurance."
+  },
+  {
+    "id": "S15",
+    "author": "Google web.dev",
+    "title": "Interaction to Next Paint (INP)",
+    "date": "Current technical guidance, accessed 12 Sep 2026",
+    "url": "https://web.dev/articles/inp",
+    "relevance": "Measure real interaction latency; good INP <=200 ms at the 75th percentile.",
+    "limitations": "Field performance was not measured in this audit."
+  },
+  {
+    "id": "S16",
+    "author": "OAIC",
+    "title": "What is a health service provider?",
+    "date": "Official guidance, accessed 12 Sep 2026",
+    "url": "https://www.oaic.gov.au/privacy/your-privacy-rights/health-information/what-is-a-health-service-provider",
+    "relevance": "Privacy Act scope can include small health service providers.",
+    "limitations": "Assess actual services and information held; not a legal classification of The Care Web."
+  }
+]

@@ -1784,8 +1784,9 @@ html.high-contrast .care-stage-block{display:none!important;}
 <link rel="stylesheet" href="/assets/admin-verification.css?v=88.2.5">
 <link rel="stylesheet" href="/assets/site-usability.css?v=88.2.7">
 <link rel="stylesheet" href="/assets/worker-credentials.css?v=88.2.10">
-<link rel="stylesheet" href="/assets/booking-calendar.css?v=88.2.12">
+<link rel="stylesheet" href="/assets/booking-calendar.css?v=88.3.0">
 <link rel="stylesheet" href="/assets/next-actions.css?v=88.2.9">
+<link rel="stylesheet" href="/assets/launch-assurance.css?v=88.3.0">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
@@ -5497,6 +5498,7 @@ $('#resetForm').addEventListener('submit', async e => {
   const token = new URLSearchParams(qs).get('token') || '';
   try{
     const d = await API.call('/reset', {method:'POST', body:{token, password: pw}});
+    if(d.requires_login){API.me=null;updateAuthUI();toast(d.message);location.hash='#/login';return;}
     API.me = d.user; updateAuthUI();
     if(window.refreshUnreadBadge) refreshUnreadBadge();
     toast('Password updated — welcome back, ' + d.user.name.split(' ')[0] + '!');
@@ -8460,7 +8462,7 @@ async function renderBookingsPage(){
           <label style="font-size:.85rem;">Participant (if any)<br><input id="incPart" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;width:150px;"></label>
         </div>
         <label style="font-size:.85rem;display:block;margin-top:10px;">What happened<br><textarea id="incDesc" rows="3" style="font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;"></textarea></label>
-        <label style="font-size:.85rem;display:block;margin-top:8px;">What you did straight away<br><textarea id="incAction" rows="2" style="font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;"></textarea></label>
+        <label>When did the provider first become aware? <input type="datetime-local" id="incAware"></label><label>Did this cause harm? <select id="incHarm"><option value="unknown">Not yet known</option><option value="yes">Yes</option><option value="no">No</option></select></label><p class="muted-sm">If awareness is unknown, leave it blank and contact the office immediately. Do not delay reporting to finish this form.</p><label style="font-size:.85rem;display:block;margin-top:8px;">What you did straight away<br><textarea id="incAction" rows="2" style="font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;"></textarea></label>
         <button type="button" class="btn btn-primary btn-sm" id="incSubmitW" style="margin-top:10px;">Submit incident report</button>
       </details>
     </div>`;
@@ -9226,7 +9228,7 @@ document.addEventListener('click', async e => {
   if(e.target && e.target.id === 'incSubmitW'){
     e.target.disabled = true;
     try{
-      const r = await API.call('/incidents', {method:'POST', body:{category:$('#incCat').value, occurred_at:$('#incWhen').value, location:$('#incWhere').value, participant_name:$('#incPart').value, description:$('#incDesc').value, immediate_action:$('#incAction').value}});
+      const r = await API.call('/incidents', {method:'POST', body:{category:$('#incCat').value, occurred_at:$('#incWhen').value, provider_aware_at:$('#incAware').value, harm:$('#incHarm').value==='unknown'?null:$('#incHarm').value==='yes', location:$('#incWhere').value, participant_name:$('#incPart').value, description:$('#incDesc').value, immediate_action:$('#incAction').value}});
       toast(r.reportable ? 'Reported — management has been alerted. For serious incidents the Commission must be notified within 24 hours.' : 'Incident logged — thank you for reporting it.');
       renderBookingsPage();
     }catch(err){ toast(err.message); e.target.disabled = false; }
@@ -9707,6 +9709,7 @@ async function renderAdminPage(){
       : 'The admin dashboard needs the live The Care Web server.') + '</p></div>';
     return;
   }
+  if(window.CareLaunch?.handles())return CareLaunch.render(wrap);
   if(window.CareVerify?.handles())return CareVerify.render(wrap);
   let d;
   try{ d = await API.call('/admin/overview'); }
@@ -10181,13 +10184,13 @@ async function renderAdminPage(){
     <td>${i.commission_notified_at ? '<span style="color:#1F7A4D;">notified ✓</span>'
       : i.reportable ? (i.hours_left < 0 ? '<span style="color:#C8462E;font-weight:800;">OVERDUE</span>' : `<span style="color:${i.hours_left <= 6 ? '#C8462E' : '#8a6d00'};font-weight:700;">${i.hours_left}h left</span>`)
       : '—'}</td>
-    <td>${esc(i.status)}</td>
+    <td>${esc(i.status)}${i.awareness_review_required?'<br>Awareness time needs review':''}<br>${(i.obligations||[]).filter(o=>!o.filed_at).map(o=>esc(o.key)+': '+esc(fmtStamp(o.due))).join('<br>')}</td>
     <td>${i.reportable && !i.commission_notified_at ? `<button class="adm-btn-sm" data-inc-act="notified" data-nid="${i.id}" type="button">Commission notified</button> ` : ''}
-        ${i.status !== 'closed' ? `<button class="adm-btn-sm" data-inc-act="close" data-nid="${i.id}" type="button">Close</button>` : ''}</td>
+        ${i.status !== 'closed' ? `<a class="adm-btn-sm" href="#/admin/assurance?incident=${i.id}">Review reporting steps</a> <button class="adm-btn-sm" data-inc-act="close" data-nid="${i.id}" type="button">Close</button>` : ''}</td>
   </tr>`;
   const incidents = `
     <p style="margin:0 0 10px;"><a class="adm-btn-sm" style="text-decoration:none;" href="/api/admin/incidents.csv" download>⬇ Incident register CSV</a>
-    <span style="font-size:.85rem;color:#4A5570;margin-left:8px;">Reportable incidents: notify the Commission portal within <b>24 hours</b> (5 business days for unauthorised restrictive practice), full report within 14 days. Workers can log incidents from their Bookings page.</span></p>
+    <span style="font-size:.85rem;color:#4A5570;margin-left:8px;">Deadlines run from provider awareness. Notify within <b>24 hours</b>; unauthorised restrictive practice without harm uses five business days. The five-day form is due within five business days of awareness. Record each submission separately. Workers can log incidents from their Bookings page.</span></p>
     ${incs.incidents.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>#</th><th>What</th><th>Who</th><th>Commission</th><th>Status</th><th></th></tr></thead><tbody>${incs.incidents.map(incRow).join('')}</tbody></table></div>` : '<p class="adm-empty">No incidents logged — may it stay that way.</p>'}`;
   const compRow = x => `<tr>
     <td>#${x.id}<br><span style="font-size:.78rem;color:#4A5570;">${fmtStamp(x.created)}</span></td>
@@ -10437,6 +10440,7 @@ async function renderAdminPage(){
   const rUrgent = (c.urgent_incidents || 0) + srOpen.length;
   const tab = (key, label, n) => `<button type="button" class="cmp-tab${key === CMP_TAB ? ' on' : ''}" data-cmp-tab="${key}" role="tab" aria-selected="${key === CMP_TAB}">${label}${n ? ` <span class="cmp-n">${n}</span>` : ''}</button>`;
   const cmpPane = (key, inner) => `<div class="cmp-pane" data-cmp-pane="${key}"${key === CMP_TAB ? '' : ' hidden'}>${inner}</div>`;
+  g('assurance','Launch & operations','Review launch evidence, delivery, support arrangements and billing',0,'<p><a href="#/admin/assurance">Open launch and operations workspace</a></p>');
   g('verification','Verification','Review worker and participant files',wUrgent+pUrgent,'<p><a href="#/admin/verification">Open the verification workspace</a></p>');
   g('compliance', 'Compliance', 'Verify a worker, verify a participant, the registers',
     wUrgent + rUrgent,
@@ -10918,53 +10922,8 @@ document.addEventListener('click', async e => {
      part an auditor asks about, so the button now opens a short form: how you
      checked it, against what, and any note. Two clicks instead of one, and a
      defensible record instead of a tick. */
-  const dv = e.target.closest('[data-doc-verify]');
-  if(dv){
-    if(dv.dataset.open === '1') return;
-    dv.dataset.open = '1';
-    const box = document.createElement('div');
-    box.className = 'vr-box';
-    box.innerHTML = `
-      <label><b>How did you verify this?</b><br>
-        <select class="vr-method">
-          <option value="sighted-original">Sighted the original document</option>
-          <option value="sighted-copy" selected>Sighted a copy of the document</option>
-          <option value="issuer-register">Checked against the issuing register</option>
-          <option value="issuer-confirmed">Confirmed directly with the issuer</option>
-          <option value="other">Other — see note</option>
-        </select></label>
-      <label>Reference you checked it against <span style="color:#4A5570;">(clearance number, registration number, receipt)</span><br>
-        <input class="vr-ref" placeholder="e.g. NDISWC-123456789" maxlength="120"></label>
-      <label>Note <span style="color:#4A5570;">(optional)</span><br>
-        <input class="vr-note" placeholder="e.g. rang the RTO, confirmed with A. Nguyen" maxlength="400"></label>
-      <button class="btn btn-primary btn-sm vr-go" data-doc-verify-go="${dv.dataset.docVerify}" style="margin-top:4px;" type="button">Record verification</button>
-      <button class="adm-btn-sm vr-cancel" style="margin-left:6px;" type="button">Cancel</button>`;
-    dv.parentNode.insertBefore(box, dv.nextSibling);
-    box.querySelector('.vr-ref').focus();
-    return;
-  }
-  if(e.target && e.target.classList.contains('vr-cancel')){
-    const bx = e.target.closest('.vr-box');
-    const btn = bx && bx.previousElementSibling;
-    if(btn && btn.dataset) btn.dataset.open = '';
-    if(bx) bx.remove();
-    return;
-  }
-  const dvg = e.target.closest('[data-doc-verify-go]');
-  if(dvg){
-    const bx = dvg.closest('.vr-box');
-    dvg.disabled = true;
-    try{
-      await API.call('/admin/documents/' + dvg.dataset.docVerifyGo + '/verify', {method:'POST', body:{
-        method: bx.querySelector('.vr-method').value,
-        ref: bx.querySelector('.vr-ref').value.trim(),
-        note: bx.querySelector('.vr-note').value.trim()
-      }});
-      toast('Verified — how you checked it is now on the record. ✓');
-      renderAdminPage();
-    }catch(err){ toast(err.message); dvg.disabled = false; }
-    return;
-  }
+  const dv=e.target.closest('[data-doc-verify]');
+  if(dv){location.hash='#/admin/verification';toast('Select the person and open their evidence to record a review.');return;}
   /* ---- participant files: file on behalf, check, remove ---- */
   const paAdd = e.target.closest('[data-pa-add]');
   if(paAdd){
@@ -10989,38 +10948,8 @@ document.addEventListener('click', async e => {
     }catch(err){ toast(err.message); paAdd.disabled = false; }
     return;
   }
-  const pdv = e.target.closest('[data-pdoc-verify]');
-  if(pdv){
-    if(pdv.dataset.open) return;
-    pdv.dataset.open = '1';
-    const tpl = $('#pdocMethodOpts');
-    const bx = document.createElement('div');
-    bx.className = 'vr-box';
-    bx.innerHTML = `
-      <label><b>How did you satisfy yourself this is genuine?</b><br>
-        <select class="vr-method">${tpl ? tpl.innerHTML : '<option value="signed-copy">Signed copy on file</option>'}</select></label>
-      <label>Note <span style="color:#4A5570;">(optional)</span><br>
-        <input class="vr-note" placeholder="e.g. signed original sighted 12/08/2026, filed in the Illawong folder" maxlength="300"></label>
-      <button class="btn btn-primary btn-sm" data-pdoc-verify-go="${pdv.dataset.pdocVerify}" style="margin-top:4px;" type="button">Record the check</button>
-      <button class="adm-btn-sm vr-cancel" style="margin-left:6px;" type="button">Cancel</button>`;
-    pdv.parentNode.insertBefore(bx, pdv.nextSibling);
-    bx.querySelector('.vr-note').focus();
-    return;
-  }
-  const pdvg = e.target.closest('[data-pdoc-verify-go]');
-  if(pdvg){
-    const bx = pdvg.closest('.vr-box');
-    pdvg.disabled = true;
-    try{
-      await API.call('/admin/participant-documents/' + pdvg.dataset.pdocVerifyGo + '/verify', {method:'POST', body:{
-        method: bx.querySelector('.vr-method').value,
-        note: bx.querySelector('.vr-note').value.trim()
-      }});
-      toast('Checked — it is on the evidence log with how you checked it. ✓');
-      renderAdminPage();
-    }catch(err){ toast(err.message); pdvg.disabled = false; }
-    return;
-  }
+  const pdv=e.target.closest('[data-pdoc-verify]');
+  if(pdv){location.hash='#/admin/verification';toast('Select the participant and open their evidence to record a review.');return;}
   const pdd = e.target.closest('[data-pdoc-del]');
   if(pdd){
     try{ await API.call('/admin/participant-documents/' + pdd.dataset.pdocDel + '/delete', {method:'POST'}); toast('Removed from their file.'); renderAdminPage(); }
@@ -11113,6 +11042,7 @@ document.addEventListener('click', async e => {
     return;
   }
   const ia = e.target.closest('[data-inc-act]');
+  if(ia){location.hash='#/admin/assurance?incident='+ia.dataset.nid;return;}
   if(ia){
     let bodyx = {action: ia.dataset.incAct};
     if(ia.dataset.incAct === 'close'){
@@ -12354,7 +12284,7 @@ function actBarSync(){
   bar.hidden = !on;
   if(on) bar.innerHTML = `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-    <span>Acting for <b>${esc(API.actingFor.name)}</b> — everything you do is recorded on their account, against your name.</span>
+    <span>Acting for <b>${esc(API.actingFor.name)}</b> — permitted actions are recorded on their account, against your name. <small>Permissions: ${esc((API.actingFor.scopes||[]).join(", ")||"checked when you open each area")}</small></span>
     <button type="button" id="actStop">Stop</button>`;
 }
 document.addEventListener('click', e => {
@@ -12362,7 +12292,7 @@ document.addEventListener('click', e => {
 });
 
 function setActingFor(c){
-  API.actingFor = c ? { id: Number(c.id), name: c.name } : null;
+  API.actingFor = c ? { id: Number(c.id), name: c.name, scopes:c.scopes||[] } : null;
   try{
     if(API.actingFor) sessionStorage.setItem('bk_for', JSON.stringify(API.actingFor));
     else sessionStorage.removeItem('bk_for');
@@ -13426,6 +13356,7 @@ async function renderSecurityPage(){
       </div>
       <div id="secPwWrap" hidden style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <input type="password" id="secPw" placeholder="Your password" autocomplete="current-password" style="font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;">
+        <label>Two-step or recovery code <input id="secFactor" autocomplete="one-time-code" autocapitalize="none" spellcheck="false"></label>
         <button type="button" class="btn btn-primary btn-sm" id="secPwGo">Confirm</button>
         <span class="muted-sm">Your password, because this is the door burglars would love to close behind themselves.</span>
       </div>`
@@ -13531,11 +13462,11 @@ document.addEventListener('click', async e => {
   if(id === 'secPwGo'){
     try{
       if(SEC.mode === 'off'){
-        await API.call('/me/mfa/disable', {method:'POST', noFor:true, body:{ password: $('#secPw').value }});
+        await API.call('/me/mfa/disable', {method:'POST', noFor:true, body:{ password: $('#secPw').value, code:$('#secFactor').value }});
         toast('Two-step is off. A password alone opens this account again.');
         renderSecurityPage();
       } else {
-        const r = await API.call('/me/mfa/recovery', {method:'POST', noFor:true, body:{ password: $('#secPw').value }});
+        const r = await API.call('/me/mfa/recovery', {method:'POST', noFor:true, body:{ password: $('#secPw').value, code:$('#secFactor').value }});
         $('#secPwWrap').hidden = true;
         secShowCodes(r.codes, 'Fresh recovery codes. The old ones are dead.');
         const left = $('#secRecLeft'); if(left) left.textContent = r.recovery_left;
@@ -15554,6 +15485,7 @@ document.addEventListener('click', async e => {
 <script src="/assets/process-workflows.js?v=88.2.9"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
 <script src="/assets/booking-calendar.js?v=88.2.11"></script>
+<script src="/assets/launch-assurance.js?v=88.3.0"></script>
 <script src="/assets/admin-verification.js?v=88.2.5"></script>
 <script>
 document.addEventListener('click',async event=>{

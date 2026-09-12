@@ -12,15 +12,7 @@ const ROOT = path.resolve(__dirname, '..');
 const src = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8')+'\n'+fs.readdirSync(path.join(ROOT,'lib')).filter(n=>/^(process-.*|admin-verification|verification-automation)\.js$/.test(n)).map(n=>fs.readFileSync(path.join(ROOT,'lib',n),'utf8')).join('\n');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
-const routes = [];
-for (const m of src.matchAll(/^\s*(?:route|add)\('(GET|POST|PATCH|PUT|DELETE)',\s*\/\^(.*?)\$\/,/gm)) {
-  routes.push({ method: m[1], path: m[2].replace(/\\\//g, '/').replace(/\\\./g, '.').replace(/[()]/g, '') });
-}
-const publicApi = ['GET /api/calendar/[a-f0-9]{64}.ics'];
-{
-  const m = /const PUBLIC_API = \[([\s\S]*?)\];/.exec(src);
-  if (m) for (const x of m[1].matchAll(/\['(GET|POST)',\s*\/\^(.*?)\$\/\]/g)) publicApi.push(`${x[1]} ${x[2].replace(/\\\//g, '/').replace(/\\\./g, '.').replace(/[()]/g, '')}`);
-}
+let routes=[],publicApi=[];
 /* The tables come from a real database, not from reading the SQL: the server
    is booted once against an empty throwaway file (no demo seed), every
    migration runs, and sqlite_master plus PRAGMA table_info are read back.
@@ -37,11 +29,13 @@ const boot = spawnSync(process.execPath, ['--no-warnings', '-e', `
   /* let the server finish its boot work, then leave before it serves anything */
   http.Server.prototype.listen = function () { setImmediate(() => process.exit(0)); return this; };
   require(${JSON.stringify(path.join(ROOT, 'server.js'))});
-`], { cwd: ROOT, env: { ...require('./test-environment')(), DB_PATH: dbFile, DOCS_DIR: path.join(tmp, 'docs'), PHOTOS_DIR: path.join(tmp, 'photos'), SECRET_FILE: path.join(tmp, '.secret'), SEED_DEMO: 'off', NODE_ENV: '' }, encoding: 'utf8', timeout: 60000 });
+`], { cwd: ROOT, env: { ...require('./test-environment')(), DB_PATH: dbFile, DOCS_DIR: path.join(tmp, 'docs'), PHOTOS_DIR: path.join(tmp, 'photos'), SECRET_FILE: path.join(tmp, '.secret'), CAREWEB_ROUTE_INVENTORY_FILE:path.join(tmp,'routes.json'), SEED_DEMO: 'off', NODE_ENV: '' }, encoding: 'utf8', timeout: 60000 });
 if (boot.status !== 0 || !fs.existsSync(dbFile)) {
   console.error('could not boot server.js against a throwaway database:\n' + (boot.stderr || boot.stdout));
   process.exit(1);
 }
+routes=JSON.parse(fs.readFileSync(path.join(tmp,'routes.json'),'utf8')).map(r=>({...r,path:r.path.replace(/\\\//g,'/')}));
+publicApi=routes.filter(r=>r.public).map(r=>r.method+' '+r.path);
 const tables = [];
 {
   const db = new DatabaseSync(dbFile, { readOnly: true });
@@ -60,7 +54,7 @@ const routeDoc = head + `# ${routes.length} routes registered through route(). M
   + `# Everything under /api/admin/ requires an admin session and everything else a signed-in session,\n`
   + `# enforced in the dispatcher before the handler runs, except the ${publicApi.length} public routes marked *.\n\n`
   + routes.map(r => `${publicApi.includes(`${r.method} ${r.path}`) ? '*' : ' '} ${r.method.padEnd(6)} ${r.path}`).join('\n') + '\n'
-  + `\n# Handled before the route table: GET /api/version, GET /api/health/live, GET /api/health/ready, POST /api/stripe/webhook,\n# GET /verify-email, GET /cover, POST /cover, GET /service-agreement, GET /privacy-consent, GET /templates, GET /sitemap.xml, GET /robots.txt.\n`;
+  + `\n# Handled before the route table: GET /api/version, GET /api/health/live, GET /api/health/ready, POST /api/stripe/webhook,\n# GET /photos/{id} (publication/relationship policy), GET /verify-email, GET /cover, POST /cover, GET /service-agreement, GET /privacy-consent, GET /templates, GET /sitemap.xml, GET /robots.txt.\n`;
 const tableDoc = head + `# ${tables.length} tables, read back with PRAGMA table_info from a database the server created and migrated at boot.\n# Column, then declared type; PK marks the primary key. Order is the order in the file.\n\n`
   + tables.map(t => `${t.name} (${t.cols.length} columns)\n  ${t.cols.join(', ')}\n`).join('\n');
 

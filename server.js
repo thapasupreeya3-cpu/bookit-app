@@ -8,6 +8,7 @@ const BOOKIT_MESSAGES = require('./lib/message-pagination');
 const BOOKIT_REFERRALS = require('./lib/referral-policy');
 const BOOKIT_HARDENING = require('./lib/bookit-hardening');
 const BOOKIT_VERSION = require('./lib/version');
+const EVIDENCE_POLICY = require('./lib/evidence-policy');
 const BOOKIT_MIGRATIONS = require('./lib/migration-runner');
 try { process.umask(0o077); } catch (_) {}
 BOOKIT_HARDENING.installFsUploadGuards(require('fs'));
@@ -45,13 +46,11 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const AUTO_REPLY = (process.env.AUTO_REPLY || 'on') !== 'off';
 const SESSION_DAYS = 30;
 let WORKFLOW = null;
+let LAUNCH = null;
 
 /* ---------- secret ---------- */
 const SECRET_FILE = process.env.SECRET_FILE || path.join(__dirname, '.secret');
-const SECRET = process.env.SESSION_SECRET || process.env.BOOKIT_SESSION_SECRET || process.env.BOOKIT_SECRET || process.env.SECRET || (() => {
-  try { return fs.readFileSync(SECRET_FILE, 'utf8').trim(); }
-  catch { const s = crypto.randomBytes(32).toString('hex'); fs.writeFileSync(SECRET_FILE, s, { mode: 0o600 }); return s; }
-})();
+const SECRET = BOOKIT_HARDENING.selectedSecret(process.env, __dirname);
 
 /* ---------- database ---------- */
 const db = new DatabaseSync(DB_PATH);
@@ -1274,6 +1273,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id, revoked_at);`);
 
+if (!db.prepare('PRAGMA table_info(sessions)').all().some(c=>c.name==='mfa_verified_at')) db.exec("ALTER TABLE sessions ADD COLUMN mfa_verified_at TEXT");
+
 /* --- 10. Team and Saved, which were always the same list.
    Saved lived in the browser's localStorage, so it vanished when someone
    changed laptop and could never be shown to the office. Team lived
@@ -1493,7 +1494,7 @@ const CLOCK = {
   screening_recheck_days: () => Number(setting('screening_recheck_days', '90')) || 90,
   screening_grace_days: () => Number(setting('screening_grace_days', '14')) || 14,
   /* The written report that follows a reportable incident. */
-  report_days: 14,
+  report_days: 5, // business days from provider awareness; incident-policy owns the calculation
   /* How long a complaint may sit before somebody has acknowledged it. */
   ack_days: () => Number(setting('complaint_ack_days', '2')) || 2,
   /* A shift whose end time has passed and which nobody marked complete. */
@@ -1795,11 +1796,11 @@ function invoiceFor(invNo) {
     };
     const extra = r.active_extra_hours > 0 && !canc ? [{ date: dmy(r.date), item: r.active_extra_item, description: `${itemName(r.active_extra_item, 'Active support during the sleepover')} — beyond the two hours included`, when: 'during the night', qty: r.active_extra_hours, unit: 'hours', rate: r.active_extra_rate || 0, amount: r.active_extra_total || 0 }] : [];
     const km = r.km > 0 && r.km_total > 0 && !canc ? [{ date: dmy(r.date), item: TRAVEL_ITEMS[r.service] || '', description: `${itemName(TRAVEL_ITEMS[r.service], 'Provider travel - non-labour costs')}${r.km_from ? ` - ${r.km_from} to ${r.km_to}` : ''}`, when: `${r.km} km`, qty: `$${Number(r.km_total).toFixed(2)}`, unit: 'at $1.00/km', rate: 1, amount: r.km_total }] : [];
-    return [main, ...extra, ...km];
+    return LAUNCH?.invoiceLines(r) || [main, ...extra, ...km];
   });
   const total = round2(lines.reduce((a, l) => a + (l.amount || 0), 0));
   const paidRows = rows.filter(r => r.claim_status === 'paid');
-  const paid = paidRows.length === rows.length ? total : 0;
+  const paid = WORKFLOW?.paymentBalance?.(invNo,total,paidRows.length === rows.length ? total : 0)?.paid ?? (paidRows.length === rows.length ? total : 0);
   return {
     tax_note:first.funding==='private' ? (setting('private_gst_percent','0')==='10'?'Includes GST (10%)':'No GST — office confirmed') : 'GST-free NDIS supports',
     invoice_no: invNo, date: dmy(issued), issued, due_date: dmy(due), due, self, funding: first.funding,
@@ -1988,7 +1989,7 @@ function stampLegacyCutoff(uid) {
 }
 /* the user object handed to routes and returned by /api/me — includes the worker's
    photo url + live (visible) flag so the front-end account menu can show them */
-function sessionUser(uid) {
+function sessionUser(uid, assurance=false) {
   const u = db.prepare('SELECT id, role, name, email, phone, suburb, plan, verified, created, ndis_number, pm_email, hi_flags, hi_at, hi_referred_at, photo, photo_at, is_admin, atsi, contact_pref, plan_start, plan_end, under_18, nominee_role, nominee_name, nominee_at, share_plans FROM users WHERE id = ?').get(Number(uid));
   if (!u) return null;
   u.hi_flags = safeJson(u.hi_flags, []);
@@ -2003,7 +2004,7 @@ function sessionUser(uid) {
     u.photo = u.photo ? `/photos/${u.id}?v=${encodeURIComponent(u.photo_at || '')}` : null;
   }
   delete u.photo_at;
-  return withAdmin(u);
+  return withAdmin(u, assurance);
 }
 function readSession(cookieHeader) {
   const m = /(?:^|;\s*)bk_session=([^;]+)/.exec(cookieHeader || '');
@@ -2023,7 +2024,10 @@ function readSession(cookieHeader) {
     const cut = legacyCutoff(uid);
     if (cut && (Number(exp) - SESSION_DAYS * 864e5) < cut) return null;
   }
-  const u = sessionUser(uid);
+  const recorded=four?db.prepare('SELECT user_id,mfa_verified_at FROM sessions WHERE sid=? AND revoked_at IS NULL').get(sid):null;
+  if(four&&(!recorded||recorded.user_id!==Number(uid)))return null;
+  if(mfaOn(uid)&&!recorded?.mfa_verified_at)return null;
+  const u = sessionUser(uid, !!recorded?.mfa_verified_at);
   if (u && four && u.is_admin === 1 && sessionIdle(sid)) {
     try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE sid = ? AND revoked_at IS NULL').run(now(), sid); } catch {}
     return null;
@@ -2047,9 +2051,10 @@ function json(res, status, data, headers = {}) {
   });
   res.end(body);
 }
-function setSessionHeaders(uid, req, ip) {
+function setSessionHeaders(uid, req, ip, assurance=false) {
   const sid = newSid();
-  try { registerSession(uid, sid, ip || '', (req && req.headers && req.headers['user-agent']) || ''); } catch {}
+  registerSession(uid, sid, ip || '', (req && req.headers && req.headers['user-agent']) || '');
+  if(assurance)db.prepare('UPDATE sessions SET mfa_verified_at=? WHERE sid=?').run(now(),sid);
   return { 'Set-Cookie': `bk_session=${makeSession(uid, sid)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_DAYS * 86400}${COOKIE_SECURE}` };
 }
 /* behind Caddy every real request is HTTPS; the Secure attribute keeps the
@@ -2187,7 +2192,7 @@ function handleStripeWebhook(req, res, raw) {
   }
   let event = {};
   try { event = JSON.parse(raw); } catch { return json(res, 400, { error: 'Bad payload.' }); }
-  if (['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type))WORKFLOW.recordStripePayment(event);
+  if (['checkout.session.completed','checkout.session.async_payment_succeeded','charge.refunded','refund.created','refund.updated','refund.failed','charge.dispute.created','charge.dispute.updated','charge.dispute.closed'].includes(event.type))WORKFLOW.recordStripePayment(event);
   json(res, 200, { received: true });
 }
 
@@ -2198,13 +2203,13 @@ const ADMIN_EMAILS = String(process.env.ADMIN_EMAILS || '').toLowerCase().split(
 /* KEEP IN SYNC with TERMS_VERSION in public/index.html — bump BOTH when the
    legal sections change. Registration refuses any other value. */
 const CURRENT_TERMS_VERSION = '2026-07-31';
-function withAdmin(u) {
+function withAdmin(u, assurance=false) {
   /* Review round 3, finding 1: matching an email at request time meant
      whoever REGISTERED the address first became admin. Now the flag lives
      on the row and only provisioning paths set it. On HTTPS (production)
      an admin session must also have two-step sign-in enrolled — a password
      alone never opens the admin board there. */
-  if (u) u.admin = (u.is_admin === 1 && (!ADMIN_MFA || mfaOn(u.id))) ? 1 : 0;
+  if (u) u.admin = (u.is_admin === 1 && (!ADMIN_MFA || (mfaOn(u.id) && assurance))) ? 1 : 0;
   return u;
 }
 function requireAdmin(user, res) { if (!user || !user.admin) { json(res, 403, { error: 'Admin only.' }); return false; } return true; }
@@ -3559,7 +3564,7 @@ route('POST', /^\/api\/login\/mfa$/, (req, res, m, user, body, ip) => {
   const row = readEmailToken('m', body.challenge, x => String(x.pass).slice(0, 16));
   if (!row) return json(res, 401, { error: 'That sign-in took too long \u2014 enter your email and password again.' });
   const rec = db.prepare('SELECT secret, enabled, last_used_step FROM mfa WHERE user_id = ?').get(row.id);
-  if (!rec || !rec.enabled) return json(res, 200, { user: sessionUser(row.id) }, setSessionHeaders(row.id, req, ip));
+  if (!rec || !rec.enabled) return json(res,401,{error:'Security settings changed. Sign in again.'});
 
   const typed = String(body.code || '').trim();
   let usedRecovery = false;
@@ -3584,7 +3589,7 @@ route('POST', /^\/api\/login\/mfa$/, (req, res, m, user, body, ip) => {
        <p>You have <b>${left}</b> recovery ${left === 1 ? 'code' : 'codes'} left. If this was you and you have lost your phone, set up your authenticator app again from Account \u203a Security. If it wasn\u2019t you, change your password now \u2014 that signs out every device.</p>`);
   }
   newDeviceAlert(req, row, ip);
-  json(res, 200, { user: sessionUser(row.id), recovery_used: usedRecovery }, setSessionHeaders(row.id, req, ip));
+  json(res, 200, { user: sessionUser(row.id,true), recovery_used: usedRecovery }, setSessionHeaders(row.id, req, ip,true));
 });
 
 route('POST', /^\/api\/logout$/, (req, res, m, user) => {
@@ -3724,6 +3729,7 @@ route('POST', /^\/api\/reset$/, (req, res, m, user, body, ip) => {
      their laptop signed in makes the reset theatre. */
   try { db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now(), u.id); } catch (e) { console.warn('[sessions] sign-out-everywhere after reset failed:', e.message); }
   stampLegacyCutoff(u.id);
+  if(mfaOn(u.id))return json(res,200,{ok:true,requires_login:true,message:'Password updated. Sign in with your new password and two-step code.'},CLEAR_COOKIE);
   const me = sessionUser(u.id);
   json(res, 200, { user: me }, setSessionHeaders(u.id, req, ip));
 });
@@ -4011,7 +4017,7 @@ route('POST', /^\/api\/admin\/invoices\/(\d+)\/category$/, (req, res, m, user, b
 route('GET', /^\/api\/admin\/invoices\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   const q = v => BOOKIT_HARDENING.safeSpreadsheetCell(v);
-  const lines = [['Shift ID', 'Date', 'Start', 'Hours', 'Service', 'Registration group', 'Participant', 'Participant email', 'Worker', 'Rate category', 'Unit price ($/h)', 'Total billed ($)', 'Worker share incl. super ($)', 'Completed at'].map(q).join(',')];
+  const lines = [['Shift ID', 'Date', 'Start', 'Hours', 'Service', 'Registration group', 'Participant', 'Participant email', 'Worker', 'Rate category', 'Unit price ($/h)', 'Total billed ($)', 'Booking allocation estimate incl. super ($) — not payroll', 'Completed at'].map(q).join(',')];
   for (const r of invoiceRows()) {
     lines.push([r.id, r.date, r.start, r.hours, SERVICE_LABELS[r.service] || r.service, REG_GROUPS[r.service] || '', r.participant_name, r.participant_email, r.worker_name,
       (INVOICE_RATES[r.rate_category] || {}).label || r.rate_category, (r.unit_price ?? 0).toFixed(2), (r.total ?? 0).toFixed(2), (r.worker_share ?? 0).toFixed(2), r.completed_at].map(q).join(','));
@@ -4051,7 +4057,7 @@ function effectiveItem(r) {
   return r.support_item || supportItemFor(r.service, r.rate_category) || '';
 }
 function lineFlags(r) {
-  const flags = [];
+  const flags = LAUNCH?LAUNCH.billingFlags(r):[];
   /* a line the office has held (after withdrawing an invoice, or on purpose)
      waits for a decision — remove it, fix it, or release it — and no run,
      manual or nightly, will pick it up until then */
@@ -4441,7 +4447,7 @@ function screeningState(workerId) {
 function docOut(d) {
   const cat = DOC_MAP[d.doc_type] || {};
   const rv = reviewState(d);
-  return { ...d, file_path: undefined, status: docStatus(d), days: docDays(d), stage: docStage(d),
+  return { ...d, evidence_revision:EVIDENCE_POLICY.revision(d), file_path: undefined, status: docStatus(d), days: docDays(d), stage: docStage(d),
     review: rv, review_label: REVIEW_STATES[rv].label, review_hint: REVIEW_STATES[rv].hint,
     type_label: d.label || cat.label || d.doc_type, category: cat.category || 'other', has_file: Boolean(d.file_path) };
 }
@@ -4834,6 +4840,7 @@ function holdFutureShifts(workerId, workerName, why, req) {
    are you on the platform right now, and does a cover in flight own this
    slot? */
 function workerBookingGate(workerId, b) {
+  const scope=LAUNCH?.scopeState(b);if(b.status==='requested'&&scope&&!scope.ready)return {error:'The office must agree and review arrangements for excluded support before this visit can be accepted.',office_review:true};
   const w = db.prepare("SELECT u.email, p.visible, p.self_paused FROM users u JOIN worker_profiles p ON p.user_id = u.id WHERE u.id = ?").get(workerId);
   const finishingPaused = w?.self_paused && b.status==='accepted';
   if (!w || (!w.visible && !finishingPaused) || !platformEligible(workerId, w.email))
@@ -5188,7 +5195,8 @@ route('POST', /^\/api\/admin\/documents\/(\d+)\/verify$/, (req, res, m, user, bo
     'issuer-confirmed': 'Confirmed directly with the issuer',
     'other': 'Other — see note'
   };
-  const method = METHODS[body.method] ? body.method : 'sighted-copy';
+  const invalid=EVIDENCE_POLICY.validate(d,body,EVIDENCE_POLICY.workerMethods);if(invalid)return json(res,invalid.status,{error:invalid.message});
+  const method=body.method;
   const ref = clean(body.ref, 120);
   const note = clean(body.note, 400);
   db.prepare(`UPDATE worker_docs SET verified_at = ?, verified_by = ?, verify_method = ?, verify_ref = ?,
@@ -5759,6 +5767,8 @@ const INCIDENT_CATS = {
   'unlawful-contact': 'Unlawful sexual or physical contact', 'sexual-misconduct': 'Sexual misconduct or grooming',
   'restrictive-practice': 'Unauthorised restrictive practice', 'near-miss': 'Near miss', 'other': 'Other incident'
 };
+const INCIDENT_POLICY=require('./lib/incident-policy');
+const INCIDENTS=INCIDENT_POLICY.mount({db,now,setting});
 function addBusinessDays(fromIso, n) {
   const d = new Date(fromIso);
   let added = 0;
@@ -5768,7 +5778,7 @@ function addBusinessDays(fromIso, n) {
 function incidentOut(i) {
   let hoursLeft = null;
   if (i.notify_due && !i.commission_notified_at) hoursLeft = Math.round((new Date(i.notify_due) - Date.now()) / 36e5);
-  return { ...i, category_label: INCIDENT_CATS[i.category] || i.category, hours_left: hoursLeft };
+  return { ...i, category_label: INCIDENT_CATS[i.category] || i.category, hours_left: hoursLeft, obligations:[{key:'notification',due:i.notify_due,filed_at:i.commission_notified_at},{key:'five-day-form',due:i.report_due,filed_at:i.report_filed_at},{key:'requested-final-report',due:i.final_report_due,filed_at:i.final_report_filed_at}].filter(o=>o.due) };
 }
 
 route('POST', /^\/api\/incidents$/, (req, res, m, user, body, ip) => {
@@ -5779,8 +5789,8 @@ route('POST', /^\/api\/incidents$/, (req, res, m, user, body, ip) => {
   if (!description) return json(res, 400, { error: 'Describe what happened.' });
   const reportable = REPORTABLE_24H.includes(category) || category === 'restrictive-practice' ? 1 : 0;
   const created = now();
-  const due = REPORTABLE_24H.includes(category) ? new Date(Date.now() + 24 * 3600e3).toISOString()
-    : category === 'restrictive-practice' ? addBusinessDays(created, 5) : null;
+  let rule;try{rule=INCIDENT_POLICY.deadlines({...body,category,created},INCIDENTS.holidays());}catch(e){return json(res,400,{error:e.message});}
+  const due=rule.notify_due;
   const incidentBooking=body.booking_id?db.prepare('SELECT * FROM bookings WHERE id=?').get(Number(body.booking_id)):null;
   if(body.booking_id && (!incidentBooking || !WORKFLOW?.bookingAllowed(req,user,incidentBooking)))return json(res,403,{error:'Not your booking.'});
   const duplicate=body.event_key&&db.prepare('SELECT id FROM incidents WHERE event_key=? AND created_by=?').get(clean(body.event_key,80),user.id);
@@ -5792,9 +5802,10 @@ route('POST', /^\/api\/incidents$/, (req, res, m, user, body, ip) => {
       clean(body.occurred_at, 25) || created, clean(body.location, 120), category, reportable,
       description, clean(body.immediate_action, 2000), due, created);
   db.prepare('UPDATE incidents SET booking_id=?,event_key=? WHERE id=?').run(incidentBooking?.id||null,clean(body.event_key,80),Number(r.lastInsertRowid));
+  INCIDENTS.apply(Number(r.lastInsertRowid),{...body,category,created});
   if (reportable && MAIL_FROM) sendMail(MAIL_FROM, `⚠ REPORTABLE INCIDENT logged — The Care Web`,
     'Reportable incident — the clock is running',
-    `<p><b>${escHtml(INCIDENT_CATS[category])}</b> logged by ${escHtml(user.name)}.</p><p><b>Notify the NDIS Commission ${REPORTABLE_24H.includes(category) ? 'within 24 HOURS' : 'within 5 business days'}</b> via the Commission portal, then record it in the incident register. Full written report within 14 days.</p><p>${escHtml(description.slice(0, 300))}</p>`,
+    `<p><b>${escHtml(INCIDENT_CATS[category])}</b> logged by ${escHtml(user.name)}.</p><p><b>Notify the NDIS Commission ${category==='restrictive-practice'&&rule.harm_state==='no' ? 'within 5 business days of provider awareness' : 'within 24 HOURS of provider awareness'}</b> via the Commission portal, then record it in the incident register. ${escHtml(INCIDENT_POLICY.text)}</p><p>${escHtml(description.slice(0, 300))}</p>`,
     'Open the incident register', `${baseUrl(req)}/#/admin`).catch(() => {});
   json(res, 200, { ok: true, id: Number(r.lastInsertRowid), reportable, notify_due: due });
 });
@@ -5815,10 +5826,7 @@ route('POST', /^\/api\/admin\/incidents\/(\d+)$/, (req, res, m, user, body) => {
   const i = db.prepare('SELECT * FROM incidents WHERE id = ?').get(Number(m[1]));
   if (!i) return json(res, 404, { error: 'No such incident.' });
   if(body.action==='owner'){const owner=clean(body.owner,100);db.prepare('UPDATE incidents SET action_owner=? WHERE id=?').run(owner,i.id);logCompliance({kind:'incident-owner',result:'assigned',detail:`Incident #${i.id} action owner: ${owner||'unassigned'}`,source:'office',checked_by:user.name});return json(res,200,{ok:true});}
-  if (body.action === 'notified') db.prepare('UPDATE incidents SET commission_notified_at = ?, status = ? WHERE id = ?').run(now(), 'investigating', i.id);
-  else if (body.action === 'investigating') db.prepare('UPDATE incidents SET status = ? WHERE id = ?').run('investigating', i.id);
-  else if (body.action === 'close') db.prepare('UPDATE incidents SET status = ?, closed_at = ?, lessons = ? WHERE id = ?').run('closed', now(), clean(body.lessons, 2000), i.id);
-  else return json(res, 400, { error: 'Unknown action.' });
+  try{INCIDENTS.action(i,body,user);}catch(e){return json(res,409,{error:e.message});}
   json(res, 200, { ok: true });
 });
 
@@ -5878,7 +5886,7 @@ route('GET', /^\/api\/admin\/payroll\.csv$/, (req, res, m, user) => {
       uw.name AS worker_name, uw.email AS worker_email
     FROM bookings b JOIN users uw ON uw.id = b.worker_id
     WHERE ${payable('b')} ORDER BY uw.name, b.date`).all();
-  const lines = [['Worker', 'Worker email', 'Date', 'Start', 'Hours', 'Service', 'Pay type', 'Rate category', 'Worker share incl. super ($)', 'Claim status'].map(q).join(',')];
+  const lines = [['Worker', 'Worker email', 'Date', 'Start', 'Hours', 'Service', 'Pay type', 'Rate category', 'Booking allocation estimate incl. super ($) — not payroll', 'Claim status'].map(q).join(',')];
   for (const r of rows) {
     /* The pay type column is what the bookkeeper reads. A short-notice
        cancellation is paid at the same rate as the shift and must appear on the
@@ -6137,6 +6145,7 @@ async function outOfAreaReply(res, fit) {
 function safeJsonObj(t) { try { const x = JSON.parse(t); return x && typeof x === 'object' ? x : null; } catch { return null; } }
 function assignmentCheck(wid,b,options={}) {
   const full=assignmentContext().completeBooking(b);
+  if(options.accept){const scope=LAUNCH?.scopeState({...full,worker_id:Number(wid)});if(scope&&!scope.ready)return {ok:false,error:'The office must record and independently review the excluded-support arrangement for this worker and visit before acceptance.',code:'scope_handoff'};}
   if(full?.sleepover && (!(Number(full.hours)>=SLEEPOVER_HOURS_MIN && Number(full.hours)<=SLEEPOVER_HOURS_MAX) || !(String(full.start)>='20:00'||String(full.start)<='01:00')))return {error:'A sleepover must last 8–10 hours and start between 20:00 and 01:00.',code:'sleepover_shape'};
   const verified=!!options.confirmed_travel;
   const fit=BOOKIT_ASSIGNMENT.evaluate(assignmentContext(),Number(wid),full,{...options,out_of_area_ok:verified,proof:{...options.proof,out_of_area_ok:verified}});
@@ -6753,14 +6762,14 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
       <b>Before you accept — one thing about this booking.</b> ${escHtml(pers.name)} has told us they need help with
       ${warn.labels.map(l => escHtml(l)).join(', ')}. That is a high intensity daily personal activity and DMHC is not
       registered to deliver it, so it is not part of this shift and you must not do it. If you are asked on the day,
-      say you're not able to and write a shift note — the office is already arranging that support with another provider.</p>` : '';
+      say you're not able to and write a shift note — contact the office to confirm the named provider and reviewed arrangement before accepting. A warning alone is not a confirmed handoff.</p>` : '';
   const onBehalf = pers.self ? '' : `<p style="color:#5B6B68;font-size:14px;">Requested by <b>${escHtml(user.name)}</b>, ${escHtml(pers.name)}&rsquo;s support coordinator.</p>`;
   const repeatBlock = repeat ? `<p><b>This is a repeating booking</b> \u2014 ${dates.length} shifts, ${repeat}, from ${prettyDate(dates[0])} to ${prettyDate(dates[dates.length - 1])}. Accepting the first one does not accept the rest; each shift is yours to accept or decline.</p>` : '';
   const wu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(workerId);
   if (wu) notify(wu.id, 'bookings', wu.email, 'New booking request — The Care Web',
     `New booking request, ${firstName(wu.name)}!`,
     `<p><b>${escHtml(pers.name)}</b> has requested <b>${SERVICE_LABELS[service] || service}</b> on <b>${prettyDate(date)}</b> starting <b>${escHtml(start)}</b> (${hours} hours).</p>${onBehalf}${repeatBlock}${scopeBlock}<p>Accept or decline from your bookings page — they'll see your answer straight away.</p>`,
-    'View the request', `${baseUrl(req)}/#/bookings`).catch(() => {});
+    'View the request', `${baseUrl(req)}/#/journey?panel=shift&booking=${ids[0]}`,undefined,undefined,{event_kind:'booking-request',booking_id:ids[0],event_key:'booking-request:'+ids[0],response_deadline:bookingStart({date:dates[0],start,hours}).toISOString(),expires_at:bookingStart({date:dates[0],start,hours}).toISOString()}).catch(() => {});
   json(res, 200, { id: ids[0], ids, series_id: seriesId, count: ids.length, ok: true, scope_warning: warn });
 });
 
@@ -9070,7 +9079,7 @@ function serviceAgreementBody() {
     <p class="say"><b>Standard of care.</b> We use our best efforts to ensure that every Support Worker performs their duties conscientiously, professionally and competently, in accordance with the NDIS Code of Conduct, the NDIS Practice Standards, our policies and the law.</p>
     <p class="say"><b>Verification and clearances.</b> No Support Worker is visible or bookable on The Care Web unless they hold a current NDIS Worker Screening clearance, we have checked the three banning-order registers (NDIS, aged care, and the former aged-care commission register) and displayed the result, and they hold current first aid and CPR certificates and have completed our induction training. If a clearance lapses or is withdrawn, the worker\u2019s profile is removed from The Care Web the same day and their future Bookings are cancelled (clause 5.5).</p>
     <p class="say"><b>Support Workers are our employees.</b> We employ every Support Worker on The Care Web and are solely responsible for their wages, superannuation, leave, taxes, workers\u2019 compensation and insurances. You never pay a worker directly.</p>
-    <p class="say"><b>Incidents.</b> If an incident occurs during a Booking we respond in accordance with the NDIS Practice Standards and the NDIS (Incident Management and Reportable Incidents) Rules 2018: the incident is recorded; your family, guardian or advocate is told if you agree, noting that some incidents must be reported whether or not you consent; and a reportable incident is notified to the NDIS Commission within 24 hours, or within five business days for an unauthorised restrictive practice.</p>
+    <p class="say"><b>Incidents.</b> If an incident occurs during a Booking we respond in accordance with the NDIS Practice Standards and the NDIS (Incident Management and Reportable Incidents) Rules 2018: the incident is recorded; your family, guardian or advocate is told if you agree, noting that some incidents must be reported whether or not you consent; and a reportable incident is notified to the NDIS Commission within 24 hours, or within five business days of provider awareness for unauthorised restrictive practice without harm; where harm occurs, within 24 hours. The five-day form is due within five business days of provider awareness.</p>
     <p class="say"><b>Continuity of support.</b> If a Support Worker cannot attend a Confirmed Booking, The Care Web looks for cover in a fixed order: the workers you have named as your care web, then workers on paid standby, then the wider pool of matched workers, then our partner providers. We tell you what is happening and ask before any alternative arrangement is made. We do not guarantee cover (clause 5.1), and when we or a worker cancel you are never charged.</p>
     <p class="say"><b>Emergencies and disasters.</b> We follow our Business Continuity Plan and Emergency and Disaster Management Policy. Your own emergency and disaster plan is the emergency, continuity and safety sections of your Support Plan, written by you and printed from it on request; if your plan says you need essential support within eight hours of a disaster, you are on the list we work down first.</p>
 
@@ -9559,7 +9568,7 @@ function renderGenerated(key, pid, req) {
 function pdocOut(d) {
   const cat = PDOC_MAP[d.form_key] || {};
   const rv = reviewState(d);
-  return { ...d, file_path: undefined, status: docStatus(d), days: docDays(d), stage: docStage(d),
+  return { ...d, evidence_revision:EVIDENCE_POLICY.revision(d), file_path: undefined, status: docStatus(d), days: docDays(d), stage: docStage(d),
     review: rv, review_label: REVIEW_STATES[rv].label, review_hint: REVIEW_STATES[rv].hint,
     type_label: d.label || cat.label || (FORMS.find(f => f.key === d.form_key) || {}).name || d.form_key,
     form_name: cat.label || d.form_key,
@@ -10819,7 +10828,8 @@ route('POST', /^\/api\/admin\/participant-documents\/(\d+)\/verify$/, (req, res,
     JOIN users u ON u.id = pd.participant_id WHERE pd.id = ?`).get(Number(m[1]));
   if (!d) return json(res, 404, { error: 'No such document.' });
   body = body || {};
-  const method = PDOC_METHODS[clean(body.method, 30)] ? clean(body.method, 30) : 'signed-copy';
+  const invalid=EVIDENCE_POLICY.validate(d,body,PDOC_METHODS);if(invalid)return json(res,invalid.status,{error:invalid.message});
+  const method=body.method;
   const note = clean(body.note, 300);
   const when = now();
   db.prepare(`UPDATE participant_docs SET verified_at = ?, verified_by = ?, verify_method = ?, verify_note = ?,
@@ -11319,7 +11329,7 @@ const AUDIT_REPORTS = [
   { path: 'registers/08-support-plans.csv', url: '/api/admin/support-plans.csv', title: 'Support plans — version, continuity tier, confirmation and review dates' },
   { path: 'evidence/compliance-log.csv', url: '/api/admin/compliance/log.csv', title: 'Every automated check the platform has ever run, with its result' },
   { path: 'finance/invoices.csv', url: '/api/admin/invoices.csv', title: 'Invoices raised' },
-  { path: 'finance/payroll.csv', url: '/api/admin/payroll.csv', title: 'Worker payments including SCHADS on-call allowances' },
+  { path: 'finance/payroll.csv', url: '/api/admin/payroll.csv', title: 'Booking allocation estimates — use reviewed payroll batches for pay' },
   { path: 'finance/pace-claims.csv', url: '/api/admin/claims/pace.csv', title: 'PACE claim file as submitted' },
   { path: 'finance/invoice-register.csv', url: '/api/admin/invoice-register.csv', title: 'Every invoice: total, paid, balance, status, and the withdrawn ones with the reason' },
   { path: 'finance/night-care.csv', url: '/api/admin/night-care.csv', title: 'Every sleepover: active hours recorded, the two included, the extra charged and paid' },
@@ -14861,6 +14871,9 @@ route('POST', /^\/api\/me\/mfa\/confirm$/, (req, res, m, user, body, ip) => {
   if (step === null) return json(res, 400, { error: 'That code isn’t right. Check your phone’s clock is set automatically, wait for the next code, and try again.' });
   db.prepare('UPDATE mfa SET enabled = 1, confirmed_at = ?, last_used_step = ?, disabled_at = NULL WHERE user_id = ?')
     .run(now(), step, user.id);
+  if(user.sid)db.prepare('UPDATE sessions SET mfa_verified_at=? WHERE sid=?').run(now(),user.sid);
+  db.prepare('UPDATE sessions SET revoked_at=? WHERE user_id=? AND sid<>? AND revoked_at IS NULL').run(now(),user.id,user.sid||'');
+  stampLegacyCutoff(user.id);
   const codes = newRecoveryCodes(user.id);
   securityMail(req, user, 'Two-step sign-in is now on',
     `<p>Two-step sign-in was switched on for your Care Web account from ${escHtml(deviceName(req.headers['user-agent']))}. From now on you will be asked for a six-digit code after your password.</p>
@@ -14872,7 +14885,14 @@ route('POST', /^\/api\/me\/mfa\/confirm$/, (req, res, m, user, body, ip) => {
   json(res, 200, { ok: true, codes, ...mfaStatus(user.id) });
 });
 
-/* Turning it off asks for the password, not for a code. Someone whose phone
+function confirmSecurityFactor(uid,code) {
+  const r=db.prepare('SELECT * FROM mfa WHERE user_id=? AND enabled=1').get(uid);if(!r)return false;
+  const typed=String(code||'').trim(),step=totpCheck(r.secret,typed,r.last_used_step);
+  if(step!==null){db.prepare('UPDATE mfa SET last_used_step=? WHERE user_id=?').run(step,uid);return true;}
+  return useRecoveryCode(uid,typed);
+}
+/* Sensitive MFA changes require the current password and a fresh authenticator or recovery code.
+   Legacy note: Someone whose phone
    is in the sea cannot produce a code, and locking them out of their own
    account is not security, it is a support ticket. The password plus a live
    session is the same bar as changing it. */
@@ -14881,8 +14901,11 @@ route('POST', /^\/api\/me\/mfa\/disable$/, (req, res, m, user, body, ip) => {
   if (limited(ip, 'mfadisable', 10)) return json(res, 429, { error: 'Too many attempts — try again in a few minutes.' });
   const row = db.prepare('SELECT pass FROM users WHERE id = ?').get(user.id);
   if (!verifyPassword(String(body.password || ''), row.pass)) return json(res, 401, { error: 'That password doesn’t match.' });
+  if(!confirmSecurityFactor(user.id,body.code))return json(res,401,{error:'Enter a fresh two-step code or an unused recovery code.'});
   db.prepare('UPDATE mfa SET enabled = 0, disabled_at = ? WHERE user_id = ?').run(now(), user.id);
   db.prepare('DELETE FROM mfa_recovery WHERE user_id = ?').run(user.id);
+  db.prepare('UPDATE sessions SET revoked_at=? WHERE user_id=? AND sid<>? AND revoked_at IS NULL').run(now(),user.id,user.sid||'');
+  stampLegacyCutoff(user.id);
   securityMail(req, user, 'Two-step sign-in has been turned off',
     `<p>Two-step sign-in was switched off for your Care Web account from ${escHtml(deviceName(req.headers['user-agent']))}. Your password is now the only thing protecting it, and your old recovery codes no longer work.</p>
      <p>If you did not do this, change your password now and switch two-step back on.</p>`);
@@ -14900,6 +14923,7 @@ route('POST', /^\/api\/me\/mfa\/recovery$/, (req, res, m, user, body, ip) => {
   if (!mfaOn(user.id)) return json(res, 400, { error: 'Recovery codes only exist once two-step sign-in is on.' });
   const row = db.prepare('SELECT pass FROM users WHERE id = ?').get(user.id);
   if (!verifyPassword(String(body.password || ''), row.pass)) return json(res, 401, { error: 'That password doesn’t match.' });
+  if(!confirmSecurityFactor(user.id,body.code))return json(res,401,{error:'Enter a fresh two-step code or an unused recovery code.'});
   const codes = newRecoveryCodes(user.id);
   securityMail(req, user, 'New recovery codes were issued',
     `<p>A fresh set of ten recovery codes was issued for your Care Web account. <b>Your previous codes stopped working the moment these were made.</b></p>
@@ -16404,7 +16428,7 @@ function complianceClockSweep(req) {
      row. This is the part that watches them. */
   for (const i of db.prepare(`SELECT * FROM incidents
       WHERE reportable = 1 AND commission_notified_at IS NULL AND notify_due IS NOT NULL`).all()) {
-    const stage = clockStage(i.notify_due, i.created);
+    const stage = clockStage(i.notify_due, i.provider_aware_at||i.created);
     if (!stage || stage === i.notify_stage) continue;
     db.prepare('UPDATE incidents SET notify_stage = ? WHERE id = ?').run(stage, i.id);
     const late = stage.startsWith('breach');
@@ -16423,29 +16447,17 @@ function complianceClockSweep(req) {
       'Open the incident register', `${base}/#/admin`).catch(() => {});
   }
 
-  /* ---- 2. reportable incidents: the 14-day written report ---------------
-     Previously this existed nowhere at all — no field, no clock, no state.
-     The due date is set the moment the notification is recorded, because that
-     is the event the fortnight runs from. */
-  for (const i of db.prepare(`SELECT * FROM incidents
-      WHERE reportable = 1 AND commission_notified_at IS NOT NULL AND report_filed_at IS NULL`).all()) {
-    let due = i.report_due;
-    if (!due) {
-      due = new Date(new Date(i.commission_notified_at).getTime() + CLOCK.report_days * 864e5).toISOString();
-      db.prepare('UPDATE incidents SET report_due = ? WHERE id = ?').run(due, i.id);
+  // Each reporting obligation has its own completion evidence and reminder clock.
+  for(const i of db.prepare('SELECT * FROM incidents WHERE reportable=1').all()){
+    for(const obligation of [{key:'five-day',due:i.report_due,filed:i.report_filed_at},{key:'requested-final',due:i.final_report_due,filed:i.final_report_filed_at}]){
+      if(!obligation.due||obligation.filed)continue;
+      const stage=clockStage(obligation.due,i.provider_aware_at||i.created);if(!stage)continue;
+      const eventKey=`incident:${i.id}:${obligation.key}:${stage}`;
+      if(db.prepare('SELECT 1 FROM incident_obligation_events WHERE action=? AND incident_id=?').get(eventKey,i.id))continue;
+      db.prepare('INSERT INTO incident_obligation_events(incident_id,action,actor_id,at) VALUES(?,?,0,?)').run(i.id,eventKey,now());
+      say('incident-report',`Incident #${i.id}: ${obligation.key} report due ${obligation.due}`,{stage,id:i.id});
+      sendMail(OFFICE(),`${stage.startsWith('breach')?'OVERDUE':'Due soon'}: incident #${i.id} ${obligation.key} report`,'Incident report needs attention',`<p>Open the incident register to record the actual submission reference and time. Due: ${escHtml(obligation.due)}.</p>`,'Open incident register',`${base}/#/admin/compliance`).catch(()=>{});
     }
-    const stage = clockStage(due, i.commission_notified_at);
-    if (!stage || stage === i.report_stage) continue;
-    db.prepare('UPDATE incidents SET report_stage = ? WHERE id = ?').run(stage, i.id);
-    const late = stage.startsWith('breach');
-    const days = Math.round(hrsLeft(due) / 24);
-    say('incident-report', `Incident #${i.id} — written report ${late ? `overdue by ${Math.abs(days)}d` : `due in ${days}d`}`, { stage, id: i.id });
-    sendMail(OFFICE(),
-      `${late ? 'OVERDUE' : 'Due soon'}: written report for incident #${i.id}`,
-      late ? 'The written report is late' : 'The written report is coming due',
-      `<p>Incident <b>#${i.id}</b> was notified to the Commission on ${dmyT(i.commission_notified_at)}. The final written report is ${late
-        ? `<b>${Math.abs(days)} days overdue</b>` : `due in <b>${days} days</b>`}.</p>`,
-      'Open the incident register', `${base}/#/admin`).catch(() => {});
   }
 
   /* ---- 3. complaints: acknowledgement ----------------------------------
@@ -16791,6 +16803,11 @@ const AI = {
      have to be managed. Anything carrying participant data refuses to leave
      unless the configured region says Australia. */
   onshore: () => /^au/i.test(AI.region() || ''),
+  approved: () => {
+    try{const a=JSON.parse(setting('ai_provider_approval','{}')),endpoint=new URL(AI.endpoint()),allowed=JSON.parse(process.env.AI_APPROVED_ENDPOINTS||'[]');
+      return endpoint.protocol==='https:'&&!endpoint.username&&!endpoint.password&&!endpoint.hash&&(!endpoint.port||endpoint.port==='443')&&Array.isArray(allowed)&&allowed.includes(endpoint.href)&&a.endpoint===endpoint.href&&a.model===AI.model()&&a.region===AI.region()&&a.review_due>=ymd()&&a.controls?.length>=80&&a.evidence?.length>=40&&!!db.prepare("SELECT 1 FROM users WHERE id=? AND is_admin=1 AND COALESCE(closed_at,'')=''").get(a.reviewed_by);
+    }catch{return false;}
+  },
 
   /* Consent is specific, recorded and per participant. Not implied by a
      privacy policy, not implied by notice — the OAIC is explicit that notice
@@ -16809,12 +16826,17 @@ const AI = {
    a settings change rather than a rebuild. */
 function aiFetch(payload) {
   const url = AI.endpoint();
-  if (!url) throw new Error('No AI endpoint configured.');
+  if (!url || !AI.approved()) throw new Error('AI provider assessment and approved endpoint configuration are required.');
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const body = Buffer.from(JSON.stringify(payload));
     const r = https.request({
       hostname: u.hostname, port: u.port || 443, path: u.pathname + u.search, method: 'POST',
+      lookup:(host,options,done)=>require('node:dns').lookup(host,{all:true},(err,records)=>{
+        const unsafe=records?.some(r=>{const ip=r.address.toLowerCase();return ip.includes(':')||/^(0\.|10\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(ip);});
+        if(err||!records?.length||unsafe)return done(new Error('AI destination must resolve only to approved public IPv4 addresses.'));
+        return options?.all?done(null,records):done(null,records[0].address,records[0].family);
+      }),
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': body.length,
@@ -19144,7 +19166,7 @@ const processContext={db,json,route,actFor,sessionUser,firstBookingBlockers,onbo
  bookingStart,bookingEnd,ymd,isDemoWorker,openRequests,mailPrefs,emailOn:()=>EMAIL_ON,sendMailDirect,notify,baseUrl,escHtml,
  activeLink,linkScopes,coordsFor,assignmentOptions,assignmentCheck,workerBookingGate,recordAssignmentAck,noteOutOfArea,
  outOfAreaReply,workerPay,suggestCategory,openCover,services:SERVICES,sign,setting,setSetting,payable,billable,
- reviewReferrals,csvCell:BOOKIT_HARDENING.safeSpreadsheetCell,publicAPI:PUBLIC_API,shortNotice,planQuestions:PLAN_QUESTIONS,AI,aiFetch,invoiceFor};
+ reviewReferrals,scopeWarning,scopeState:b=>LAUNCH?.scopeState(b),csvCell:BOOKIT_HARDENING.safeSpreadsheetCell,publicAPI:PUBLIC_API,shortNotice,planQuestions:PLAN_QUESTIONS,AI,aiFetch,invoiceFor};
 WORKFLOW=require('./lib/process-store')(processContext);
 require('./lib/process-routes')(processContext,WORKFLOW);
 const VERIFICATION=require('./lib/admin-verification')({...processContext,requireAdmin,routes,docOut,pdocOut,pdocMethods:PDOC_METHODS,participantFile,planReviewState},WORKFLOW);
@@ -19153,6 +19175,8 @@ everyJob('deliveries',15000,()=>WORKFLOW.drain(),{label:'Message delivery',why:'
 everyJob('journey-tasks',60000,()=>WORKFLOW.syncAll(),{label:'Next actions',why:'Refreshes individual and office tasks from current records.'});
 everyJob('payroll-drafts',86400000,()=>WORKFLOW.scheduledPayroll(),{label:'Pay preparation',why:'Prepares unbatched lines from the last fourteen days for office review; never pays automatically.'});
 everyJob('journey-cleanup',86400000,()=>WORKFLOW.cleanup(),{label:'Workflow maintenance',why:'Prunes old delivery metadata and refreshes task status.'});
+
+LAUNCH=require('./lib/launch-assurance')({...processContext,requireAdmin,now,scopeWarning,jobs:JOB_META,storage:{database:path.dirname(DB_PATH),documents:DOCS_DIR,photos:PHOTOS_DIR},backupDir:process.env.BACKUP_DIR||path.join(path.dirname(DB_PATH),'backups')},WORKFLOW);
 
 const server = http.createServer((req, res) => {
   // The Care Web v85.3.0 request-boundary hardening. Keep this before route dispatch.
@@ -19292,18 +19316,15 @@ const server = http.createServer((req, res) => {
   const photoMatch = pathname.match(/^\/photos\/(\d+)$/);
   if (photoMatch && req.method === 'GET') {
     const uid = Number(photoMatch[1]);
-    let row = db.prepare('SELECT photo FROM worker_profiles WHERE user_id = ?').get(uid);
-    let priv = false;
-    if (!row || !row.photo) {
-      /* not a worker's public photo — a participant's or coordinator's, which
-         only signed-in people ever see, and which never caches shared */
-      priv = true;
-      row = readSession(req.headers.cookie) ? db.prepare("SELECT photo FROM users WHERE id = ? AND photo != ''").get(uid) : null;
-    }
-    if (!row || !row.photo || !fs.existsSync(row.photo)) { res.writeHead(404); return res.end(); }
+    const actor=readSession(req.headers.cookie),owner=db.prepare('SELECT id,role,photo,closed_at FROM users WHERE id=?').get(uid);
+    const profile=owner?.role==='worker'?db.prepare('SELECT photo,visible FROM worker_profiles WHERE user_id=?').get(uid):null;
+    const publicPhoto=!!(owner&&!owner.closed_at&&profile?.visible&&platformStatus(uid).ok);
+    const privateAccess=!!(actor&&owner&&!owner.closed_at&&(actor.id===uid||actor.admin||(owner.role==='participant'&&(actor.role==='coordinator'?linkScopes(activeLink(actor.id,uid)).includes('bookings'):actor.role==='worker'&&currentPlanAccess(actor.id,uid)))));
+    const row=profile||owner;
+    if ((!publicPhoto&&!privateAccess)||!row?.photo||!fs.existsSync(row.photo)) { res.writeHead(404,{'Cache-Control':'no-store'}); return res.end(); }
     res.writeHead(200, {
       'Content-Type': row.photo.endsWith('.png') ? 'image/png' : 'image/jpeg',
-      'Cache-Control': priv ? 'private, max-age=3600' : 'public, max-age=86400'
+      'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'
     });
     return fs.createReadStream(row.photo).pipe(res);
   }
@@ -19497,6 +19518,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
+if(process.env.CAREWEB_ROUTE_INVENTORY_FILE && process.env.NODE_ENV!=='production')fs.writeFileSync(process.env.CAREWEB_ROUTE_INVENTORY_FILE,JSON.stringify(routes.map(r=>({method:r.method,path:r.pattern.source.replace(/^\^|\$$/g,''),public:PUBLIC_API.some(([method,p])=>method===r.method&&p.source===r.pattern.source)}))));
 server.listen(PORT, BOOKIT_BIND_HOST, () => {
   console.log(`The Care Web server running → http://localhost:${PORT}`);
   console.log(`Database: ${DB_PATH} · auto-reply bot: ${AUTO_REPLY ? 'on' : 'off'}`);

@@ -346,6 +346,10 @@ async function main() {
     const unapproved = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, rate_category, unit_price, worker_share, total, support_item, created) VALUES (13,10,'personal-care','2026-08-30','18:00',3,'completed',?,'pending','sunday',133.50,80,400.50,'01_014_0107_1_1',?)").run(now2, now2).lastInsertRowid);
     const before = await req('GET', '/api/me/invoices', { cookie: pc });
     t('before the run: no invoice, and the page says one comes overnight', before.status === 200 && before.json.invoices.length === 0, before.status);
+    const review = await req('POST','/api/admin/assurance/review',{headers:J2,cookie:ac2,body:{finding_id:'A09',owner_id:db.prepare("SELECT id FROM users WHERE email='smoke.test@example.com'").get().id,decision:'approved',review_due:'2035-01-01',evidence:'Synthetic fixture only: the regression prices and agreements are approved for this disposable test.',confirm:true}});
+    t('billing requires a recorded synthetic rules review',review.status===200,JSON.stringify(review.json));
+    const calendar=await req('POST','/api/admin/assurance/configuration',{headers:J2,cookie:ac2,body:{kind:'billing',version:'synthetic-rules-1',calendar:JSON.stringify({from:'2020-01-01',to:'2035-01-01',jurisdiction:'NSW',dates:[]}),evidence:'Synthetic test calendar only, no real holiday or rate assertion.',confirm:true}});
+    t('billing records the dated fixture calendar',calendar.status===200,JSON.stringify(calendar.json));
     const run = await req('POST', '/api/admin/claims/run', { headers: J2, cookie: ac2, body: {} });
     t('the claims run invoices the approved self-managed shifts', run.status === 200 && run.json.invoices.length >= 1, run.status + ' ' + JSON.stringify(run.json).slice(0, 120));
     t('… and leaves the unapproved shift alone', !db.prepare('SELECT invoice_no FROM bookings WHERE id = ?').get(unapproved).invoice_no);

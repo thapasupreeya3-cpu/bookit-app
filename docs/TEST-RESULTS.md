@@ -1,15 +1,31 @@
-# v88.2.12 verification
+# Validation — The Care Web v88.3.0
 
-The complete `npm run check` gate passed with exit code 0 on Node 24.19.0. It includes syntax, route/schema inventories, release-document consistency, payload integrity, and the existing functional suites. The 13 calendar scenarios and 42 workflow/API scenarios passed. No new functional test was needed for this stylesheet-only fix.
+Executed in this workspace using Node 24.19.0 and disposable synthetic accounts/databases. The declared Node 22 runtime was unavailable. No production database, personal live file, external email provider, real payment or regulator submission was used.
 
-The calendar stylesheet and its versioned link are the only production behavior changes. Source review identified the global `table { min-width:640px }` rule as the cause of the date grid overflowing beneath the agenda. The calendar overrides it with `min-width:0`, allows its children to shrink, wraps its columns, uses a single column at 1050 CSS pixels and below, and wraps long agenda text. The example preview now includes the general table rule so it no longer omits that interaction.
+| Check | Result |
+|---|---|
+| npm test (full automated suite) | Passed; includes all suites below |
+| Booking clashes | 21 passed |
+| Smoke / access / invoicing / exports | All passed |
+| Review unit / integration | 46 assertions and 25 integration scenarios passed |
+| Graphics / source conventions | Passed |
+| Existing audit fixes | 8 unit groups and integration scenarios passed |
+| Workflows | 42 passed |
+| Verification / local document viewers | 46 passed |
+| Settings | 11 passed |
+| Navigation | 10 passed |
+| Credentials | 17 passed |
+| Next actions | 13 passed |
+| Calendar / badge | 13 passed |
+| New launch regression | 22 passed; rerun after the final operational-alert changes |
+| Syntax | 72 scripts / 4 inline application scripts compiled; zero errors |
+| Runtime inventory | 381 registered routes; 91 migrated tables; generated inventory verification passed |
+| Deterministic handover documents | Verification passed |
+| Upgrade from 88.2.12 | Two consecutive boots; 83 → 91 tables; synthetic account/document/reviewer/settings preserved; upload byte identical; integrity and foreign-key checks passed |
+| HTML guide | 13 new current-workflow sections, unique anchors and internal links checked; embedded script compiled |
 
-The preview script passed `node --check`. Server code and calendar JavaScript are byte-identical to v88.2.11. All 147 original image, media, font and binary assets are unchanged. Schema remains 88202, with 83 tables and 369 registered routes. No database or dependency changes.
+New scenarios cover reset/MFA assurance and replay, photo permissions/cache, evidence absence/staleness, actual weak secrets, awareness/harm/holiday reporting obligations, calendar void tombstones, urgent/resolved email queue rules, guarded boundary billing, partial/idempotent receipts, independently approved reversals, private owned operations, disabled unapproved AI, stale intake, incomplete backups, changed support arrangements, itemised billing revisions, actual API-backed office panel rendering and runtime route discovery.
 
-The current gate log and source review are in `validation/v88.2.12-*`. Earlier validation files describe their own releases. This report was added after the gate; packaging regenerated and verified all payload hashes afterward.
+Browser navigation to the local site returned ERR_BLOCKED_BY_CLIENT. The interface harness renders HTML strings against real APIs; it is not a browser layout or assistive-technology test. No real-browser pass, production performance, external-service delivery/settlement, independent penetration test, regulatory/financial approval or real-user research is claimed. Complete LAUNCH-ACCEPTANCE.md in authorised staging.
 
-## Limits
-
-Actual browser layout was not inspected: browser access was blocked earlier in this session and no alternate browser was used. The screenshot establishes the original overlap; the source change addresses its cause. After deployment, confirm that Sunday the 6th is visible and selectable in September 2026, and check month/week layouts on phones, desktop and enlarged browser zoom. No live site was deployed or real account data changed.
-
-The project declares Node 22; the available test runtime was Node 24.19.0.
+Package integrity/hash and overlay equivalence are recorded beside the delivered ZIPs. Per-suite receipts are in validation/v88.3.0-*. Existing older receipts remain historical.

@@ -1,0 +1,95 @@
+{
+  "runtime": "v24.19.0",
+  "scope": "Disposable synthetic accounts; no external services or real approvals",
+  "results": [
+    {
+      "name": "A01 reset revokes sessions and requires MFA before office access",
+      "result": "PASS"
+    },
+    {
+      "name": "A01 legacy assurance and password-only MFA security changes are refused",
+      "result": "PASS"
+    },
+    {
+      "name": "A02 participant photo requires an authorised relationship and is never publicly cached",
+      "result": "PASS"
+    },
+    {
+      "name": "A03 unpublished and closed worker photos are unavailable to the public",
+      "result": "PASS"
+    },
+    {
+      "name": "A05 legacy and workspace endpoints cannot verify absent or stale evidence",
+      "result": "PASS"
+    },
+    {
+      "name": "A06 production rejects empty, weak and repeated actual signing secrets",
+      "result": "PASS"
+    },
+    {
+      "name": "A04 harmful restrictive-practice clocks use actual earlier awareness and preserve separate obligations",
+      "result": "PASS"
+    },
+    {
+      "name": "A04 no-harm five-day submission and a separately requested final report have distinct evidence",
+      "result": "PASS"
+    },
+    {
+      "name": "A04 business-day deadlines exclude weekends and configured holidays",
+      "result": "PASS"
+    },
+    {
+      "name": "A12 voided visits leave a stable cancellation in existing calendar subscriptions",
+      "result": "PASS"
+    },
+    {
+      "name": "A13 booking requests bypass digests and resolved requests are suppressed before transport",
+      "result": "PASS"
+    },
+    {
+      "name": "A09 unreviewed current rules and cross-midnight billing are held for finance",
+      "result": "PASS"
+    },
+    {
+      "name": "A14 partial receipts reduce the balance and duplicates do not double count",
+      "result": "PASS"
+    },
+    {
+      "name": "A25 reversals need separate approval and an approval cannot be reused",
+      "result": "PASS"
+    },
+    {
+      "name": "A16 operations are private, expose missing backup/task evidence and support ownership",
+      "result": "PASS"
+    },
+    {
+      "name": "A22 arbitrary endpoint and region labels cannot enable document assistance",
+      "result": "PASS"
+    },
+    {
+      "name": "A27 account changes invalidate an older intake confirmation",
+      "result": "PASS"
+    },
+    {
+      "name": "A07 backup marks missing policy sources and outside-root file references incomplete",
+      "result": "PASS"
+    },
+    {
+      "name": "A20 excluded support needs separate review and changed visits invalidate approval",
+      "result": "PASS"
+    },
+    {
+      "name": "A09 exact itemised billing reviews become stale after visit changes",
+      "result": "PASS"
+    },
+    {
+      "name": "Launch workspace renders each tab and incident detail against actual API results",
+      "result": "PASS"
+    },
+    {
+      "name": "A44 runtime route inventory includes independently mounted and pre-dispatch routes",
+      "result": "PASS"
+    }
+  ],
+  "serverLog": "Blank forms: 1 filed from forms/ — participants can download them now. 10 skipped, not in the participant catalogue: p-advocate (a screen now; the PDF is not offered), p-agreement (The Care Web generates this one; a PDF on the shelf would only confuse), p-consent-privacy (The Care Web generates this one; a PDF on the shelf would only confuse), p-emergency, p-exit (a screen now; the PDF is not offered), p-intake, p-mealtime (a screen now; the PDF is not offered), p-medication (a screen now; the PDF is not offered), p-money (a screen now; the PDF is not offered), p-risk (a screen now; the PDF is not offered).\nSeeded 8 training modules.\nPolicies: 99 built-in document(s) published as pages.\nThe Care Web server running → http://localhost:44731/\nDatabase: /tmp/careweb-launch-regression-Kwc0SB/test.db · auto-reply bot: off\nTimezone: Australia/Sydney · secret: from /tmp/careweb-launch-regression-Kwc0SB/secret · demo seed: off · admin MFA: required\nEmail: OFF — set RESEND_API_KEY (or SMTP_USER + SMTP_PASS) to enable; emails are logged to console instead\n"
+}

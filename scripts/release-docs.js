@@ -69,6 +69,12 @@ recruitment, pay batches, message delivery, invoice exceptions and setup panels.
 The earlier scoped register permissions remain in force.
 
 CONFIGURATION BEFORE USE
+- Open Admin > Launch & operations for all 44 finding/acceptance records.
+- Record actual independent A09 pricing/agreement review and dated holiday rules before invoice issue.
+- Every payroll line needs reviewed wages, super, allowances and a calculation reference; a different
+  approver signs the batch. Booking allocation exports are estimates.
+- Review migrated incident awareness and separate notification/five-day/final-report obligations.
+- Read docs/LAUNCH-ACCEPTANCE.md and docs/USER-GUIDE.html before launch.
 - Confirm private billing arrangements and tax treatment in Next actions > Setup.
 - Confirm the first externally unprocessed payroll date before enabling daily
   draft preparation. Exporting a batch does not mark anyone paid.
@@ -92,8 +98,9 @@ INSTALL / UPDATE
       npm ci --ignore-scripts
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
-6. Deploy using your existing process. No schema change is needed from v88.2.11. Earlier additive
-   migrations still run when upgrading an older release.
+6. Stage the update first. Additive migrations introduce session assurance, incident obligations,
+   finance review and operational evidence tables. Existing records are retained.
+   Enrolled accounts must sign in again; review migrated incident awareness/deadlines.
    Existing records are retained. This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
    explicit SCHEMA_VERSION environment override if your host uses one.
@@ -123,7 +130,8 @@ const readme=`The Care Web v${pkg.version} — complete source package.
 
 Extract ${meta.output_archive}; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
-This release fixes calendar dates being covered by the selected-day panel.
+This release implements launch-audit source corrections and updates the full user guide.
+Current billing-rule review and independently reviewed payroll components are required.
 PDF/HTML previews and earlier verification automations are retained.
 Configure private billing,
 email, payroll cutover and any optional document assistance before use.

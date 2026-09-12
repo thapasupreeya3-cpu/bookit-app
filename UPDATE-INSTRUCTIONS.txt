@@ -1,44 +1,85 @@
-THE CARE WEB - CALENDAR LAYOUT FIX v88.2.12
+THE CARE WEB v88.3.0 — LAUNCH SOURCE FIXES AND FULL GUIDE
 
-Supported earlier source versions: 88.2.11.
-Apply over v88.2.11 (the booking-calendar release).
-Contains 17 new or changed files; 526 unchanged files omitted.
-This is an update package, not a standalone application.
+Supported prior supplied source versions: 88.2.12.
+57 new/changed project files. Unchanged media excluded.
+This is an update package, not a standalone application. Apply one update ZIP only.
 
-1. Extract this ZIP. Upload the extracted CONTENTS to your existing repository
-   root, alongside server.js, package.json, public and lib. Replace matching
-   files and merge folders. Do not upload the ZIP itself or an enclosing folder.
-   UPDATE-INSTRUCTIONS.txt is optional.
-2. Preserve runtime databases, uploaded documents/photos and configuration.
-   Compare separately with any newer source changes not supplied here.
-3. Commit and redeploy normally, then refresh the page. Check that /api/version
-   reports 88.2.12. No database or dependency changes from v88.2.11.
-4. Open Bookings in month view. All seven columns, including Sunday the 6th in
-   September 2026, should be visible. Select the 6th to open its visit details.
-   On smaller screens the selected-day panel sits below the calendar.
-5. Check month/week views, narrow screens and browser zoom on the deployed site.
+1. Take and verify a backup of the deployed database, uploads/photos and configuration.
+2. EXTRACT this ZIP. Merge its CONTENTS into your existing repository root, replacing
+   matching files and keeping existing folder contents. Do not upload the ZIP itself
+   or nest an extra project folder. UPDATE-INSTRUCTIONS.txt is optional.
+3. Preserve runtime databases, uploaded documents/photos, secrets and environment settings.
+   Compare any newer source changes made outside the supplied versions separately.
+4. Stage on the declared Node 22 runtime, install using the lockfile, and run npm run check.
+   Additive migrations run at boot. Confirm /api/version = 88.3.0 and schema = 88300.
+   Existing enrolled sessions must sign in again; review migrated incident awareness/deadlines.
+5. Open Admin > Launch & operations. Record actual current A09 financial rule/agreement
+   review and dated holiday configuration before automatic invoicing. Review every payroll
+   line's wages/super/allowances and obtain a DIFFERENT approver before export.
+6. Read docs/USER-GUIDE.html and docs/CHANGELOG-v88.3.0.md. Complete the real staging
+   browser, runtime, integration, restore, specialist and user acceptance tasks in
+   docs/LAUNCH-ACCEPTANCE.md before launch. The ZIP does not certify them complete.
 
-See docs/CHANGELOG-v88.2.12.md and docs/TEST-RESULTS.md for changes and checks.
-Automated checks passed. Deployed browser appearance remains unverified.
-Do not apply both the latest-only and cumulative update packages.
+Automated tests passed on Node 24.19.0. Browser URL access was blocked here.
+No live deployment, real transactions or external regulator submissions were performed.
 
-No existing files need to be deleted for this update.
+No source files need to be deleted for this update.
 
 INCLUDED PROJECT FILES
+.env.example
 RELEASE-FILES.json
 STARTHERE.txt
-docs/CHANGELOG-v88.2.12.md
+docs/CHANGELOG-v88.3.0.md
+docs/DATA-AND-PROCESSOR-INVENTORY.md
+docs/LAUNCH-ACCEPTANCE.md
+docs/PUBLIC-CLAIMS-REVIEW.json
 docs/RELEASE-NOTES.md
+docs/RESEARCH-PILOTS.md
 docs/TEST-RESULTS.md
+docs/USER-GUIDE.html
 docs/api-route-inventory.txt
-docs/booking-calendar-preview.html
 docs/database-table-inventory.txt
+docs/dependency-provenance.json
+docs/launch-actions.json
+docs/launch-research-sources.json
 docs/release-metadata.json
+lib/admin-verification.js
+lib/bookit-hardening.js
+lib/evidence-policy.js
+lib/incident-policy.js
+lib/launch-assurance.js
+lib/process-assistance.js
+lib/process-calendar.js
+lib/process-finance.js
+lib/process-routes.js
+lib/process-store.js
+lib/verification-automation.js
+lib/version.js
 package-lock.json
 package.json
-public/assets/booking-calendar.css
+public/assets/admin-verification.js
+public/assets/booking-calendar.js
+public/assets/bookit-review-improvements.js
+public/assets/launch-assurance.css
+public/assets/launch-assurance.js
+public/assets/process-workflows.js
+public/assets/worker-credentials.js
 public/index.html
 readme.txt
+scripts/backup.js
+scripts/inventory.js
 scripts/release-docs.js
-validation/v88.2.12-check-output.txt
-validation/v88.2.12-layout-review.json
+server.js
+tests/booking-calendar-tests.js
+tests/graphics-tests.js
+tests/launch-regression.js
+tests/process-regression.js
+tests/smoke.js
+validation/v88.3.0-full-test-output.txt
+validation/v88.3.0-guide-validation.json
+validation/v88.3.0-inventory-check.txt
+validation/v88.3.0-launch-results.json
+validation/v88.3.0-lint-output.txt
+validation/v88.3.0-release-docs-check.txt
+validation/v88.3.0-upgrade-output.txt
+validation/v88.3.0-upgrade-results.json

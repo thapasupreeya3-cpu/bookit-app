@@ -67,7 +67,7 @@ window.BookItReview = (() => {
   async function loadDraft(form){
     if(drafts.has(form))return;
     const state={revision:0,loaded:false,dirty:false,conflict:false,saving:null,timer:null,closed:false};drafts.set(form,state);
-    const controls=[...form.querySelectorAll('input,textarea,[data-note-save]')];controls.forEach(x=>x.disabled=true);
+    const controls=[...form.querySelectorAll('input,textarea,[data-note-save],[data-draft-save]')];controls.forEach(x=>x.disabled=true);
     try{
       const r=await API.call(`/bookings/${form.dataset.noteForm}/note-draft`);
       if(r.draft){const p=r.draft.payload;state.revision=r.draft.revision;
@@ -76,7 +76,7 @@ window.BookItReview = (() => {
         const radio=form.querySelector(`input[name="bkScope${form.dataset.noteForm}"][value="${p.scope?'yes':'no'}"]`);if(radio)radio.checked=true;
         const detail=form.querySelector('.note-scope-detail');if(detail)detail.hidden=!p.scope;
       }
-      state.loaded=true;draftStatus(form,r.draft?'Saved draft recovered. This is not yet a completed shift record.':'Draft ready. Changes save securely to your account.');
+      state.loaded=true;draftStatus(form,r.draft?'Draft recovered; last saved '+new Date(r.draft.updated).toLocaleString('en-AU')+'. Not yet a completed shift record.':'Draft ready. Changes save securely to your account.');
     }catch(e){draftStatus(form,'Draft could not be loaded. Refresh before writing: '+e.message);}
     finally{controls.forEach(x=>x.disabled=!state.loaded);}
   }
@@ -90,7 +90,7 @@ window.BookItReview = (() => {
     draftStatus(form,'Saving draft…');
     st.saving=(async()=>{try{
       const r=await API.call(`/bookings/${form.dataset.noteForm}/note-draft`,{method:'PUT',body:{revision:st.revision,payload}});
-      st.revision=r.revision;draftStatus(form,st.dirty?'New changes waiting to save…':'Draft saved securely. The shift is not marked completed.');
+      st.revision=r.revision;draftStatus(form,st.dirty?'New changes waiting to save…':'Saved to your account at '+new Date().toLocaleTimeString('en-AU')+'. Shift not completed.');
     }catch(e){st.dirty=true;st.conflict=!!e.data?.draft_conflict||/another tab|draft changed/i.test(e.message);draftStatus(form,'Not saved: '+e.message);if(throwOnFailure)throw e;}finally{st.saving=null;}})();
     await st.saving;
     if(st.dirty&&!st.conflict&&throwOnFailure)throw Error('Some draft changes are not saved. Try saving again before completing.');
@@ -171,6 +171,7 @@ window.BookItReview = (() => {
     }
   });
   document.addEventListener('click',async e=>{
+    const retry=e.target.closest('[data-draft-save]');if(retry){retry.disabled=true;try{await saveDraft(retry.closest('[data-note-form]'),true);}catch(err){toast(err.message);}finally{retry.disabled=false;}return;}
     if(e.target.closest('#reviewClearVisit')){filter=null;sessionStorage.removeItem('careweb-match-preferences');await loadWorkersLive();document.getElementById('reviewVisitStatus').textContent='Showing all workers; no particular visit checked.';}
     if(e.target.closest('#reviewOlderMessages')){const c=LIVE.convos.find(c=>c.id===LIVE.activeCid);if(c)await renderThreadOnline(c,true);}
     if(e.target.closest('[data-review-incident]'))CMP_TAB='registers';
