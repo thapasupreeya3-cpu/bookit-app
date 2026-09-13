@@ -1,6 +1,6 @@
-The Care Web v88.4.4 — complete source package.
+The Care Web v88.4.5 — complete source package.
 
-Extract The-Care-Web-v88.4.4-launch-and-overnight-update-only.zip; merge its files at the repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
+Extract The-Care-Web-v88.4.5-booking-email-update-only.zip; merge its files at the repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
 This release implements launch-audit source corrections and updates the full user guide.
 NSW holidays and ordinary invoicing are automatic. Independently reviewed payroll
 components remain required; preparing/exporting payroll does not transfer wages.

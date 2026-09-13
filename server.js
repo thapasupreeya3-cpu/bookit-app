@@ -46,6 +46,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const AUTO_REPLY = (process.env.AUTO_REPLY || 'on') !== 'off';
 const SESSION_DAYS = 30;
 let WORKFLOW = null;
+let BOOKING_NOTICES = null;
 let PAYMENT_FLOW = null;
 let SERVICE_LOCATIONS = null;
 let LAUNCH = null;
@@ -2129,6 +2130,11 @@ const APP_URL = (process.env.APP_URL || '').replace(/\/+$/, '');
 const RESEND_KEY = process.env.RESEND_API_KEY || '';
 const RESEND_BASE = (process.env.RESEND_BASE || 'https://api.resend.com').replace(/\/+$/, '');
 const EMAIL_ON = Boolean(RESEND_KEY || (SMTP_USER && SMTP_PASS));
+function emailConnection(user) {
+  return {configured:EMAIL_ON,provider:RESEND_KEY?'resend':SMTP_USER&&SMTP_PASS?'smtp':'none',from:MAIL_FROM,reply_to:MAIL_FROM,
+    smtp_host:RESEND_KEY?'':SMTP_HOST,smtp_port:RESEND_KEY?null:SMTP_PORT,account_email:user?.email||'',
+    last_accepted_at:db.prepare("SELECT MAX(sent_at) AS at FROM delivery_outbox WHERE sent_at IS NOT NULL").get()?.at||null};
+}
 
 /* ---------- Stripe (card payments for self-managed invoices) ----------
    Set STRIPE_SECRET_KEY (sk_live_… from dashboard.stripe.com → Developers → API keys)
@@ -3757,17 +3763,27 @@ route('POST', /^\/api\/resend-verification$/, (req, res, m, user, body, ip) => {
 route('POST', /^\/api\/email-test$/, async (req, res, m, user, body, ip) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   if (limited(ip, 'emailtest', 6)) return json(res, 429, { error: 'Too many attempts — try again later.' });
-  if (!EMAIL_ON) return json(res, 200, { ok: false, error: 'Email is not configured yet — set SMTP_USER and SMTP_PASS.' });
-  if (user.email.endsWith('@demo.bookit.life')) return json(res, 400, { error: 'Demo accounts never receive email — log in with a real account to test.' });
+  if (!EMAIL_ON) return json(res, 200, { ok: false, status:'not-configured', error: 'Email sending is not configured. The office must configure Resend or the mailbox SMTP connection on the server.' });
+  if (/@demo\.(bookit\.life|thecareweb\.com\.au)$/i.test(user.email)) return json(res, 400, { error: 'Demo accounts never receive email — log in with a real account to test.' });
   try {
+    const key='email-test:'+user.id+':'+crypto.randomUUID();
     await sendMail(user.email, 'The Care Web email test',
-      `It works, ${firstName(user.name)}!`,
-      `<p>This test email was sent by your Care Web server through <b>${RESEND_KEY ? 'the Resend API' : escHtml(SMTP_HOST)}</b>. Welcome emails, password resets and booking updates are all go.</p>`,
-      'Open The Care Web', baseUrl(req));
-    json(res, 200, { ok: true, sent_to: user.email, via: RESEND_KEY ? 'resend-api' : `${SMTP_HOST}:${SMTP_PORT}` });
+      'Your email delivery test',
+      '<p>You requested this email from your Care Web account. If you can read it in your inbox, this test message reached you. Other messages have their own delivery results.</p>',
+      'Open The Care Web', baseUrl(req),MAIL_FROM,[],{event_key:key,user_id:user.id,kind:'security',event_kind:'email-test',transactional:true,expires_at:new Date(Date.now()+864e5).toISOString()});
+    const delivery=WORKFLOW&&db.prepare('SELECT id,status FROM delivery_outbox WHERE event_key=?').get(key);
+    if(!delivery)throw Error('The test message was not queued.');
+    json(res, 200, { ok: true, status:'queued',delivery_id:delivery.id,queued_to:user.email,via:RESEND_KEY?'resend-api':`${SMTP_HOST}:${SMTP_PORT}`,message:'Test email queued. Check its sending status, then check your inbox and junk folder.' });
   } catch (e) {
     json(res, 502, { ok: false, error: e.message });
   }
+});
+route('GET', /^\/api\/email-test\/(\d+)$/, (req,res,m,user)=>{
+  if(!user)return json(res,401,{error:'Please log in.'});
+  const row=db.prepare('SELECT id,event_key,user_id,recipient,status,sent_at,error,delivery_result,delivery_checked_at FROM delivery_outbox WHERE id=?').get(Number(m[1]));
+  if(!row||row.user_id!==user.id||!row.event_key.startsWith('email-test:'+user.id+':'))return json(res,404,{error:'Test email not found.'});
+  const {event_key,user_id,...result}=row;
+  json(res,200,{...result,state:row.delivery_result||row.status});
 });
 
 /* ---------- admin: dashboard + worker vetting ---------- */
@@ -6833,13 +6849,7 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
       ${warn.labels.map(l => escHtml(l)).join(', ')}. That is a high intensity daily personal activity and DMHC is not
       registered to deliver it, so it is not part of this shift and you must not do it. If you are asked on the day,
       say you're not able to and write a shift note — contact the office to confirm the named provider and reviewed arrangement before accepting. A warning alone is not a confirmed handoff.</p>` : '';
-  const onBehalf = pers.self ? '' : `<p style="color:#5B6B68;font-size:14px;">Requested by <b>${escHtml(user.name)}</b>, ${escHtml(pers.name)}&rsquo;s support coordinator.</p>`;
-  const repeatBlock = repeat ? `<p><b>This is a repeating booking</b> \u2014 ${dates.length} shifts, ${repeat}, from ${prettyDate(dates[0])} to ${prettyDate(dates[dates.length - 1])}. Accepting the first one does not accept the rest; each shift is yours to accept or decline.</p>` : '';
-  const wu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(workerId);
-  if (wu) notify(wu.id, 'bookings', wu.email, 'New booking request — The Care Web',
-    `New booking request, ${firstName(wu.name)}!`,
-    `<p><b>${escHtml(pers.name)}</b> has requested <b>${SERVICE_LABELS[service] || service}</b> on <b>${prettyDate(date)}</b> starting <b>${escHtml(start)}</b> (${hours} hours).</p>${onBehalf}${repeatBlock}${scopeBlock}<p>Accept or decline from your bookings page — they'll see your answer straight away.</p>`,
-    'View the request', `${baseUrl(req)}/#/journey?panel=shift&booking=${ids[0]}`,undefined,undefined,{event_kind:'booking-request',booking_id:ids[0],event_key:'booking-request:'+ids[0],response_deadline:bookingStart({date:dates[0],start,hours}).toISOString(),expires_at:bookingStart({date:dates[0],start,hours}).toISOString()}).catch(() => {});
+  BOOKING_NOTICES.queue(req,'requested',ids,{workerHtml:scopeBlock,event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
   json(res, 200, { id: ids[0], ids, series_id: seriesId, count: ids.length, ok: true, scope_warning: warn });
 });
 
@@ -6907,14 +6917,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
         db.exec('COMMIT');
       } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
     } else db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status,b.id);
-    const pu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.participant_id);
-    if (pu) notify(pu.id, 'bookings', pu.email, `Booking ${status} — The Care Web`,
-      status === 'accepted' ? 'Your booking is confirmed 🎉' : 'About your booking request',
-      `<p><b>${escHtml(user.name)}</b> has <b>${status}</b> your booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>` +
-      (status === 'accepted'
-        ? `<p>You can message ${firstName(user.name)} any time to sort the details before the day.</p>`
-        : '<p>No stress — every worker on Find Workers is ready to hear from you, and Meet &amp; Greets are always free.</p>'),
-      'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+    BOOKING_NOTICES.queue(req,status,[b.id],{event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
     return json(res, 200, { ok: true });
   }
 
@@ -6952,16 +6955,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
     if (charge) inv = applyInvoice(b.id, suggestCategory(b), true);
     logDelegate(pers, providerUnable ? 'Stood down an unstaffed shift' : 'Cancelled a shift',
       `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}${charge ? ' (short notice — charged)' : providerUnable ? ' (provider could not staff)' : ''}`, b.id);
-    const wu2 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
-    if (wu2) notify(wu2.id, 'bookings', wu2.email, 'Booking cancelled — The Care Web',
-      `A booking was cancelled, ${firstName(wu2.name)}`,
-      (providerUnable
-        ? `<p>The booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> has been stood down because The Care Web could not staff it.</p><p><b>The participant is not charged and no worker payment is created.</b></p>`
-        : `<p><b>${escHtml(pers.name)}</b> has cancelled the booking for <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>` +
-          (charge
-            ? `<p><b>This was inside the ${sn.window / 24 >= 1 ? Math.round(sn.window / 24) + '-day' : sn.window + '-hour'} notice window</b> (${sn.hours} hours&rsquo; notice), so the shift is charged in full and <b>you are paid in full</b>. You do not need to do anything.</p>`
-            : `<p>That was ${sn.hours === null ? 'outside' : Math.round(sn.hours / 24) + ' days'} ahead — outside the notice window — so there is no charge and no payment. Your calendar for that time is free again.</p>`)),
-      'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+    BOOKING_NOTICES.queue(req,'cancelled',[b.id],{event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
     return json(res, 200, { ok: true, short_notice: charge, notice_hours: sn.hours, window_hours: sn.window,
       cancel_code: code, cancel_label: code ? CANCEL_CODES[code] : '', invoice: inv, provider_unable: providerUnable });
   }
@@ -7165,7 +7159,6 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
     AND status IN ('requested','accepted') ORDER BY date`).all(sr.id);
   const changed = [], locked = [];
   const movable = rows.filter(b => { const t=bookingStart(b); if (!Number.isFinite(+t) || t < cutoff || ['finding','office','allied','referred'].includes(b.cover_state) || b.invoice_no || b.claim_status==='paid' || b.paid_at) {locked.push(b.id);return false;} return true; });
-  const material = ['worker_id','start','hours'].some(k => patch[k]!==undefined && String(patch[k])!==String(sr[k]));
   const editProof=assignmentOptions(req,user,body,movable.map(b=>({...b,...patch})));
   const fits=new Map(); for(const b of movable) {const proposed={...b,...patch}; const fit=assignmentCheck(proposed.worker_id,proposed,editProof); fits.set(b.id,fit); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,{...fit,date:b.date,dates:[b.date]});}
   /* The diary gate for a rule: if the new time or the new worker clashes on
@@ -7189,7 +7182,7 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
     try { db.exec('ROLLBACK'); } catch {}
     throw e;
   }
-  if(material) {const ids=[...new Set([sr.worker_id,patch.worker_id].filter(Boolean))];for(const wid of ids){const w=db.prepare('SELECT * FROM users WHERE id=?').get(wid);if(w)notify(w.id,'bookings',w.email,'Repeating visits changed — The Care Web','Please review your visits',`<p>${changed.length} future visits have changed. Replacement workers and changed times require a fresh acceptance; the previous acceptance is not carried over.</p>`,'Open bookings',`${baseUrl(req)}/#/bookings`).catch(()=>{});}}
+  BOOKING_NOTICES.queue(req,'changed',changed,{previousRows:movable,event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
   logDelegate(pers, 'Changed a repeating booking', `${Object.keys(patch).join(', ')} on ${changed.length} shifts`, sr.id);
   json(res, 200, { ok: true, changed: changed.length, locked: locked.length, lock_hours: SERIES_LOCK_HOURS });
 });
@@ -7227,11 +7220,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)\/occurrence$/, (req, res, m, user, body)
     db.exec('COMMIT');
   } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
   logDelegate(pers, 'Moved one shift', `${SERVICE_LABELS[b.service] || b.service} from ${dmy(b.date)} to ${dmy(date)}`, b.id);
-  const wu = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
-  if (wu) notify(wu.id, 'bookings', wu.email, 'A shift has moved — The Care Web',
-    `One shift has moved, ${firstName(wu.name)}`,
-    `<p><b>${escHtml(pers.name)}</b> has moved the <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift from <b>${prettyDate(b.date)}</b> to <b>${prettyDate(date)}</b> at <b>${escHtml(start)}</b> (${hours} hours).</p><p>The rest of the repeating booking is unchanged. Please accept or decline the new time.</p>`,
-    'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+  BOOKING_NOTICES.queue(req,'changed',[b.id],{previousRows:[b],event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
   json(res, 200, { ok: true, detached: true });
 });
 
@@ -7280,6 +7269,7 @@ route('POST', /^\/api\/series\/(\d+)\/end$/, (req, res, m, user, body) => {
     try { db.exec('ROLLBACK'); } catch {}
     throw e;
   }
+  BOOKING_NOTICES.queue(req,'ended',future,{event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
   logDelegate(pers, 'Ended a repeating booking', `${future.length} future shifts cancelled`, sr.id);
   json(res, 200, { ok: true, cancelled: future.length, charged });
 });
@@ -16000,6 +15990,7 @@ route('GET', /^\/api\/me\/notifications$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const on = mailPrefs(user.id);
   json(res, 200, {
+    receiving_email:user.email,email_enabled:EMAIL_ON,
     kinds: Object.keys(MAIL_KINDS).map(k => ({
       key: k, label: MAIL_KINDS[k].label, optional: MAIL_KINDS[k].optional, on: on[k]
     })),
@@ -19274,11 +19265,14 @@ db.exec(`CREATE TABLE IF NOT EXISTS cover_reviews (
 
 const processContext={db,json,route,bookingPriceView,actFor,sessionUser,firstBookingBlockers,onboardingSummary,platformStatus,
  banningWindowDays,moduleState,docMap:DOC_MAP,pdocMap:PDOC_MAP,confirmedPlan,currentPlanAccess,workerBrief,planAck,
- bookingStart,bookingEnd,ymd,isDemoWorker,openRequests,mailPrefs,emailOn:()=>EMAIL_ON,sendMailDirect,notify,baseUrl,escHtml,
+ bookingStart,bookingEnd,ymd,isDemoWorker,openRequests,mailPrefs,emailOn:()=>EMAIL_ON,emailConnection,sendMailDirect,notify,baseUrl,escHtml,
  activeLink,linkScopes,coordsFor,assignmentOptions,assignmentCheck,workerBookingGate,recordAssignmentAck,noteOutOfArea,
  outOfAreaReply,workerPay,suggestCategory,openCover,services:SERVICES,sign,setting,setSetting,payable,billable,
  reviewReferrals,scopeWarning,scopeState:b=>LAUNCH?.scopeState(b),csvCell:BOOKIT_HARDENING.safeSpreadsheetCell,publicAPI:PUBLIC_API,shortNotice,planQuestions:PLAN_QUESTIONS,AI,aiFetch,invoiceFor};
 WORKFLOW=require('./lib/process-store')(processContext);
+BOOKING_NOTICES=require('./lib/booking-notifications')({...processContext,prettyDate,serviceLabels:SERVICE_LABELS,blockedPair});
+WORKFLOW.deliveryHooks.booking=BOOKING_NOTICES.suppress;
+processContext.bookingNotices=BOOKING_NOTICES;
 SERVICE_LOCATIONS=require('./lib/service-locations')({...processContext,now,sendMail,blockedPair,appUrl:APP_URL,
   reviewLocationChange:async(req,user,body,b,location)=>{
     const place=SERVICE_LOCATIONS.placeForBooking({service_location:location});

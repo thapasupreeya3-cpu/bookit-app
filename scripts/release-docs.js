@@ -41,7 +41,14 @@ remain deliberate stops. Invoice mail retries automatically with visible status.
 Email transport must be configured; queued does not mean sent or paid.
 The complete source register is docs/block-register/index.html, with CSV/JSON and
 all conditional branches. docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
-See docs/CHANGELOG-v88.4.4.md and docs/USER-GUIDE.html.
+See docs/CHANGELOG-v88.4.5.md and docs/USER-GUIDE.html.
+
+BOOKING EMAILS
+Admin > Settings > Email setup shows the configured sender and a test to your
+own account. Today > Email delivery shows message subjects and recipient/status
+evidence. Participant booking receipts, authorised helper updates and recurring
+changes use the durable queue. Provider acceptance is not inbox confirmation.
+See docs/EMAIL-SETUP-v88.4.5.md for diagnosis on this existing website.
 
 LAUNCH CHECKS AND OVERNIGHT SUPPORT
 Launch checks groups six practical areas, automatic monitoring and optional
