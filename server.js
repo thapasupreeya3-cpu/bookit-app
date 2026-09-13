@@ -50,7 +50,7 @@ let PAYMENT_FLOW = null;
 let SERVICE_LOCATIONS = null;
 let LAUNCH = null;
 let INVOICE_FLOW = null;
-let HOLIDAYS=null, AUTO_PRICING=null, AUTO_BILLING=null;
+let HOLIDAYS=null, AUTO_PRICING=null, AUTO_BILLING=null, SLEEPOVER_PRICING=null;
 
 /* ---------- secret ---------- */
 const SECRET_FILE = process.env.SECRET_FILE || path.join(__dirname, '.secret');
@@ -178,6 +178,7 @@ for (const col of ['active_hours REAL DEFAULT 0', 'active_extra_hours REAL DEFAU
   'kind TEXT DEFAULT \'shift\'', 'ratio INTEGER DEFAULT 1', 'group_key TEXT DEFAULT \'\'']) {
   BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`)
 }
+for(const col of ['active_periods TEXT','active_extra_lines TEXT','booking_quote TEXT']) BOOKIT_MIGRATIONS.runLegacyAlter(db, `ALTER TABLE bookings ADD COLUMN ${col}`);
 /* migration (profiles build): worker profile photos */
 for (const col of ['photo TEXT DEFAULT \'\'', 'photo_at TEXT DEFAULT \'\'',
   /* Build 2: the two facts participants actually filter on that we never
@@ -1667,6 +1668,7 @@ const INVOICE_RATES = {
 const REG_GROUPS = { 'employment': '0102', 'personal-care': '0107', 'transport': '0108', 'daily-tasks': '0115/0138', 'household': '0120', 'community': '0125' };
 HOLIDAYS=require('./lib/public-holidays')({db,setting,setSetting,bookingPlace:b=>SERVICE_LOCATIONS?.placeForBooking(b)});
 AUTO_PRICING=require('./lib/automatic-pricing')({rates:INVOICE_RATES,holidays:HOLIDAYS,start:bookingStart,end:bookingEnd,ymd,itemFor:(service,category,ratio)=>ratio>1&&GROUP_ITEMS[category]?GROUP_ITEMS[category]:supportItemFor(service,category)});
+SLEEPOVER_PRICING=require('./lib/sleepover-pricing')({rates:INVOICE_RATES,holidays:HOLIDAYS,start:bookingStart,end:bookingEnd,ymd,itemFor:(service,category,ratio)=>ratio>1&&GROUP_ITEMS[category]?GROUP_ITEMS[category]:supportItemFor(service,category)});
 if(!db.prepare('PRAGMA table_info(bookings)').all().some(x=>x.name==='automatic_invoice_lines'))db.exec('ALTER TABLE bookings ADD COLUMN automatic_invoice_lines TEXT');
 function suggestCategory(b) {
   return AUTO_PRICING.category(b,bookingStart(b),Number(String(b.start).split(':')[0])<6);
@@ -1777,7 +1779,7 @@ function invoiceFor(invNo) {
       when: perNight ? `${r.start} sleepover` : `${r.start}-${endTime(r.start, r.hours)}`,
       qty: perNight ? 1 : r.hours, unit: perNight ? 'night' : 'hours', rate: r.unit_price || 0, amount: r.total || 0
     };
-    const extra = r.active_extra_hours > 0 && !canc ? [{ date: dmy(r.date), item: r.active_extra_item, description: `${itemName(r.active_extra_item, 'Active support during the sleepover')} — beyond the two hours included`, when: 'during the night', qty: r.active_extra_hours, unit: 'hours', rate: r.active_extra_rate || 0, amount: r.active_extra_total || 0 }] : [];
+    const extra = !canc ? sleepoverExtraLines(r) : [];
     const km = r.km > 0 && r.km_total > 0 && !canc ? [{ date: dmy(r.date), item: TRAVEL_ITEMS[r.service] || '', description: `${itemName(TRAVEL_ITEMS[r.service], 'Provider travel - non-labour costs')}${r.km_from ? ` - ${r.km_from} to ${r.km_to}` : ''}`, when: `${r.km} km`, qty: `$${Number(r.km_total).toFixed(2)}`, unit: 'at $1.00/km', rate: 1, amount: r.km_total }] : [];
     return LAUNCH?.invoiceLines(r) || (r.automatic_invoice_lines?[...JSON.parse(r.automatic_invoice_lines),...extra,...km]:[main,...extra,...km]);
   });
@@ -4050,7 +4052,7 @@ route('GET', /^\/api\/admin\/invoices\.csv$/, (req, res, m, user) => {
 const dmy = iso => String(iso || '').split('-').reverse().join('/');
 function claimRows(where, ...params) {
   return db.prepare(`SELECT b.id, b.service, b.date, b.start, b.hours, b.rate_category, b.unit_price, b.total,
-      b.active_extra_hours, b.active_extra_total, b.active_extra_item, b.active_extra_rate, b.active_extra_category, b.kind, b.ratio, b.sleepover,
+      b.active_extra_hours, b.active_extra_total, b.active_extra_item, b.active_extra_rate, b.active_extra_category, b.active_extra_lines, b.kind, b.ratio, b.sleepover,
       b.km, b.km_total, b.km_from, b.km_to, b.claim_hold, b.hold_reason,
       b.claim_status, b.claim_ref, b.invoice_no, b.support_item, b.claimed_at, b.paid_at, b.pay_url,
       b.status, b.approval_state, b.approval_source, b.completed_at, b.automatic_invoice_lines, b.short_notice, b.notice_hours, b.cancel_code, b.cancel_reason,
@@ -4270,10 +4272,9 @@ route('GET', /^\/api\/admin\/claims\/pace\.csv$/, (req, res, m, user) => {
     }
     /* the active hours beyond the two inside a sleepover are their own claim
        line against the night item for that day */
-    if (r.active_extra_hours > 0 && !canc) {
-      lines.push([q(NDIS_REG_NO), q(r.ndis_number), q(dmy(r.date)), q(dmy(r.date)), q(r.active_extra_item), q(`${r.claim_ref || `BK${r.id}`}A`),
-        r.active_extra_hours, '', (r.active_extra_rate || 0).toFixed(2), 'P2', '', '',
-        q(COMPANY_ABN), '', '', (r.active_extra_total || 0).toFixed(2)].join(','));
+    if (!canc) for (const [i,line] of sleepoverExtraLines(r).entries()) {
+      const day=line.date.includes('-')?dmy(line.date):line.date;
+      lines.push([q(NDIS_REG_NO),q(r.ndis_number),q(day),q(day),q(line.item),q(`${r.claim_ref||`BK${r.id}`}A${i+1}`),line.qty,'',Number(line.rate).toFixed(2),'P2','','',q(COMPANY_ABN),'','',Number(line.amount).toFixed(2)].join(','));
     }
     /* the kilometres: the $1.00 non-labour travel item, quantity = dollars */
     if (r.km > 0 && r.km_total > 0 && !canc && TRAVEL_ITEMS[r.service]) {
@@ -6146,7 +6147,7 @@ route('GET', /^\/api\/rates$/, (req, res) => {
     extras: {
       meet_and_greet: { minutes: 15, price: 0, longer_than: 30, who_pays: 'nobody — it is a conversation, not a shift; past thirty minutes the participant books a shift so the worker is paid', worker_paid_hours: INTRO_PAID_HOURS() },
       sleepover: { price: INVOICE_RATES.sleepover.price, worker: INVOICE_RATES.sleepover.worker, hours_min: SLEEPOVER_HOURS_MIN, hours_max: SLEEPOVER_HOURS_MAX, included_active_hours: SLEEPOVER_INCLUDED_ACTIVE_HOURS,
-        extra_active: { 'weekday-night': INVOICE_RATES['weekday-night'].price, 'saturday': INVOICE_RATES['saturday'].price, 'sunday': INVOICE_RATES['sunday'].price } },
+        extra_active: { 'weekday-night': INVOICE_RATES['saturday'].price, 'weekday': INVOICE_RATES['saturday'].price, 'saturday': INVOICE_RATES['saturday'].price, 'sunday': INVOICE_RATES['sunday'].price, 'public-holiday': INVOICE_RATES['public-holiday'].price } },
       active_overnight: { price: INVOICE_RATES['weekday-night'].price, saturday: INVOICE_RATES['saturday'].price, sunday: INVOICE_RATES['sunday'].price, public_holiday: INVOICE_RATES['public-holiday'].price },
       travel: { per_km: KM_RATE_CHARGE(), max_km: KM_MAX_SHIFT, item: 'Provider travel — non-labour costs' },
       short_notice: { charged: true, windows: Object.entries(CANCEL_HOURS).map(([service, hours]) => ({ service, label: SERVICE_LABELS[service] || service, hours })) },
@@ -6214,7 +6215,7 @@ function safeJsonObj(t) { try { const x = JSON.parse(t); return x && typeof x ==
 function assignmentCheck(wid,b,options={}) {
   const full=assignmentContext().completeBooking(b);
   if(options.accept){const scope=LAUNCH?.scopeState({...full,worker_id:Number(wid)});if(scope&&!scope.ready)return {ok:false,error:'The office must record and independently review the excluded-support arrangement for this worker and visit before acceptance.',code:'scope_handoff'};}
-  if(full?.sleepover && (!(Number(full.hours)>=SLEEPOVER_HOURS_MIN && Number(full.hours)<=SLEEPOVER_HOURS_MAX) || !(String(full.start)>='20:00'||String(full.start)<='01:00')))return {error:'A sleepover must last 8–10 hours and start between 20:00 and 01:00.',code:'sleepover_shape'};
+  if(full?.sleepover){const check=SLEEPOVER_PRICING.validate(full);if(check.error)return {ok:false,...check};}
   const verified=!!options.confirmed_travel;
   const fit=BOOKIT_ASSIGNMENT.evaluate(assignmentContext(),Number(wid),full,{...options,out_of_area_ok:verified,proof:{...options.proof,out_of_area_ok:verified}});
   Object.defineProperty(fit,'confirmation_context',{value:options.confirmation_context||'',enumerable:false});
@@ -6625,6 +6626,7 @@ route('GET', /^\/api\/bookings$/, (req, res, m, user) => {
      moment it is read instead of the last time a sweep ran. */
   for (const b of rows) {
     b.needs_response = user.role === 'worker' && bookingNeedsResponse(b);
+    bookingPriceView(b);
     if (b.status === 'completed' && b.approval_state === 'pending') {
       /* approval_from, not completed_at: after a query is answered the window
          restarts, and a screen counting from the original completion would
@@ -6718,15 +6720,7 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
     return json(res, 409, { error: 'That start time has already passed. Choose a future time.' });
   const sleepover = body.sleepover && ['personal-care', 'daily-tasks'].includes(service) ? 1 : 0;
   if (sleepover && intro) return json(res, 400, { error: 'A meet-and-greet is a fifteen-minute hello, not a sleepover.' });
-  if (sleepover) {
-    /* Inactive night care is a night, not a number of hours: the NDIS item is
-       one flat price for an eight-hour sleepover. Ten hours is allowed for a
-       house whose evening runs late; fewer than eight is an active overnight
-       shift and is booked as one. */
-    if (!(hours >= SLEEPOVER_HOURS_MIN && hours <= SLEEPOVER_HOURS_MAX)) return json(res, 400, { error: `A sleepover is a night: ${SLEEPOVER_HOURS_MIN} hours, up to ${SLEEPOVER_HOURS_MAX}. For a shorter time overnight, book an ordinary shift \u2014 it is charged by the hour at the night rate.` });
-    const sh = Number(String(start).split(':')[0]);
-    if (!(sh >= 20 || sh <= 1)) return json(res, 400, { error: 'A sleepover starts between 8pm and 1am.' });
-  }
+  if(sleepover){const check=SLEEPOVER_PRICING.validate({date,start,hours,service,sleepover});if(check.error)return json(res,400,check);}
   const notes = clean(body.notes, 600);
   let serviceLocation;
   try { serviceLocation=SERVICE_LOCATIONS.resolve(pers.id,body.service_location); }
@@ -6787,6 +6781,9 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
     });
   }
 
+  const requestedQuotes=dates.map(d=>bookingQuote({participant_id:pers.id,service,date:d,start,hours:intro?INTRO_HOURS:hours,sleepover,kind:intro?'intro':'shift',service_location:serviceLocation,service_place:SERVICE_LOCATIONS.placeForBooking({service_location:serviceLocation})}));
+  const badQuote=requestedQuotes.find(q=>q.error);if(badQuote)return json(res,400,badQuote);
+  if(body.quote_keys!==undefined&&(!Array.isArray(body.quote_keys)||body.quote_keys.length!==requestedQuotes.length||body.quote_keys.some((key,i)=>key!==requestedQuotes[i].quote_key)))return json(res,409,{code:'booking_quote_changed',error:'The booking price has changed. Review the refreshed price before sending the request. Nothing has been booked.'});
   let seriesId = null;
   const km = Number(body.km) || 0;
   const ids = [];
@@ -6809,6 +6806,8 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
     dates.forEach((d, idx) => {
       const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created, kind, out_of_area) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
         .run(pers.id, workerId, service, d, start, intro ? INTRO_HOURS : hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now(), intro ? 'intro' : 'shift', '');
+      const shown={...requestedQuotes[idx],display_label:body.quote_keys?'Price shown at booking':'Price calculated when requested'};
+      db.prepare('UPDATE bookings SET booking_quote=? WHERE id=?').run(JSON.stringify(shown),Number(r.lastInsertRowid));
       const id = Number(r.lastInsertRowid);
       SERVICE_LOCATIONS.saveBooking(id,serviceLocation,user);
       noteOutOfArea(id,assignmentFits.get(d),'participant',user);
@@ -6861,6 +6860,7 @@ route('PUT', /^\/api\/bookings\/(\d+)\/note-draft$/, (req,res,m,user,body)=>{
   const raw=body.payload;
   if(!raw||typeof raw!=='object'||Array.isArray(raw)||typeof raw.note!=='string'||raw.note.length>4000)return json(res,400,{error:'A draft note may contain up to 4000 characters.'});
   const payload={note:raw.note,scope:raw.scope===true,scope_detail:clean(raw.scope_detail,4000),active_note:clean(raw.active_note,2000)};
+  if(raw.active_periods!==undefined){if(!Array.isArray(raw.active_periods)||raw.active_periods.length>24||raw.active_periods.some(p=>!p||typeof p!=='object'||typeof p.start!=='string'||typeof p.end!=='string'||p.start.length>40||p.end.length>40))return json(res,400,{error:'Record up to 24 support periods.'});payload.active_periods=raw.active_periods.map(p=>({start:p.start,end:p.end}));}
   if(raw.active_hours!==undefined){if(raw.active_hours!==''&&(!Number.isFinite(Number(raw.active_hours))||Number(raw.active_hours)<0||Number(raw.active_hours)>24))return json(res,400,{error:'Active hours need a valid number.'});payload.active_hours=raw.active_hours;}
   if(raw.km!==undefined){const km=Number(raw.km);if(!Number.isFinite(km)||km<0||km>KM_MAX_SHIFT)return json(res,400,{error:'Enter valid participant transport kilometres.'});Object.assign(payload,{km,km_from:clean(raw.km_from,80),km_to:clean(raw.km_to,80)});}
   const expected=Number(body.revision);if(!Number.isInteger(expected)||expected<0)return json(res,400,{error:'Include the draft revision you loaded.'});
@@ -7010,13 +7010,17 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
        a booking that reaches completed closes any open cover with it. */
     /* inactive night care: how much of the night was awake and working. Up
        to two hours is inside the flat price; beyond that the extra is charged
-       by the hour at the night rate for that day. Recorded by the worker who
+       at the applicable extra-support rate for the actual time delivered. Recorded by the worker who
        was there, on the screen where the shift is closed off. */
-    let activeIn = null;
+    let activeIn = null, activeCalculation = null;
     if (b.sleepover) {
       const activeValidation=require('./lib/active-hours').validate(body.active_hours,Number(b.hours)||8);
       if(activeValidation.error)return json(res,400,activeValidation);
       activeIn=activeValidation.hours;
+      const legacyShape=SLEEPOVER_PRICING.validate(b);
+      activeCalculation=SLEEPOVER_PRICING.active(b,activeIn,body.active_periods,{legacy:!!legacyShape.error});
+      if(activeCalculation.error)return json(res,400,activeCalculation);
+      if(legacyShape.error)activeCalculation.legacy_review=legacyShape.error;
       if (activeIn > SLEEPOVER_INCLUDED_ACTIVE_HOURS && !clean(body.active_note, NOTE_MAX)) return json(res, 400, { error: 'More than two active hours is charged to the participant\u2019s plan, so say what the support was in the active-hours note.' });
     }
     let kmLine = null, inv = null, noteId = null, activeLine = null;
@@ -7024,7 +7028,8 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
     try {
       if (kmIn > 0) kmLine = applyKm(b.id, kmIn, body.km_from, body.km_to);
       inv = b.kind === 'intro' ? applyIntroPay(b.id) : applyInvoice(b.id, suggestCategory(b), true);
-      if (b.sleepover) activeLine = applySleepoverActive(b.id, activeIn, clean(body.active_note, NOTE_MAX));
+      if (b.sleepover) activeLine = applySleepoverActive(b.id, activeCalculation, clean(body.active_note, NOTE_MAX));
+      if(activeCalculation?.legacy_review)db.prepare('UPDATE bookings SET claim_hold=1,hold_reason=? WHERE id=?').run('Review legacy overnight booking: '+activeCalculation.legacy_review+' The completed work is saved. Confirm the actual arrangement and charge before issuing.',b.id);
       /* 7. the state between "done" and "claimed". */
       db.prepare("UPDATE bookings SET status = 'completed', completed_at = ?, approval_state = 'pending', approval_from = ? WHERE id = ?").run(now(), now(), b.id);
       noteId = Number(db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,0,?)')
@@ -7057,10 +7062,10 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
     if(pu2&&inv&&!issued?.invoice_no){
       const reviewers=WORKFLOW?.approvalRecipients(b.participant_id,[pu2,...coordsFor(b.participant_id,'bookings')])||[pu2];
       for(const reviewer of reviewers)notify(reviewer.id,'timesheets',reviewer.email,'Completed shift ready to review — The Care Web','Review completed shift',
-        `<p><b>${escHtml(user.name)}</b> has submitted the completed shift on <b>${prettyDate(b.date)}</b>. The recorded support charge is <b>$${inv.total.toFixed(2)}</b>.</p>${kmBlock}<p>Open the shift details and note to approve them or report an issue. Review by ${prettyDate(ymd(deadline))}. Worker pay is managed on its payroll cycle.</p>`,
+        `<p><b>${escHtml(user.name)}</b> has submitted the completed shift on <b>${prettyDate(b.date)}</b>. ${activeCalculation?.legacy_review?'The completed work is saved; the office is confirming the overnight arrangement before issuing a charge.':`The recorded support charge is <b>$${round2(inv.total+(activeLine?.total||0)).toFixed(2)}</b>.`}</p>${kmBlock}<p>Open the shift details and note to approve them or report an issue. Review by ${prettyDate(ymd(deadline))}. Worker pay is managed on its payroll cycle.</p>`,
         'Review completed shift',`${baseUrl(req)}/#/bookings`+(reviewer.id!==b.participant_id?'?for='+b.participant_id:''),undefined,[],{event_key:`shift-review:${b.id}:${reviewer.id}:${b.completed_at||'submitted'}`,requires_approval:true,booking_id:b.id}).catch(()=>{});
     }
-    return json(res,200,{ok:true,invoice:inv,invoice_no:issued?.invoice_no||null,billing_status:issued?.invoice_no?'issued':(b.kind==='intro'?'not-claimable':'queued'),km:kmLine,approval_state:'pending',approve_by:ymd(deadline)});
+    return json(res,200,{ok:true,invoice:inv,invoice_no:issued?.invoice_no||null,billing_status:activeCalculation?.legacy_review?'needs-charge-review':issued?.invoice_no?'issued':(b.kind==='intro'?'not-claimable':'queued'),billing_notice:activeCalculation?.legacy_review?'Shift completed and work saved. The office needs to confirm the overnight charge.':null,support_total:round2((inv?.total||0)+(activeLine?.total||0)),km:kmLine,approval_state:'pending',approve_by:ymd(deadline)});
 
   }
 
@@ -9481,7 +9486,7 @@ const GENERATED_DOCS = {
         ${tables}
         ${notUsed.length ? `<p class="help">Not in this schedule because you told us you do not use them: ${escHtml(notUsed.join(', '))}. Tick one on your support plan and it appears here the same day.</p>` : ''}
         <h2>How a shift is priced</h2>
-        <p class="say">Every price above is the NDIS price limit for that item, and we invoice at the limit. A weekday shift that starts at or after 8pm, or runs past 8pm, is charged at the evening rate for the whole shift; one that starts before 6am at the night rate. Saturday, Sunday and public holiday rates apply to the whole of a shift on that day. A sleepover is an inactive overnight and is charged per night, not per hour. Bookings run from 2 to 10 hours.</p>
+        <p class="say">The booking quote shows the applicable rates and estimated charge before you request support. Hourly support is itemised by the applicable date and time bands, including weekend and public-holiday changes; a continuous ordinary weekday overnight uses the night band. Inactive overnight sleepovers use one flat nightly charge, including up to two active hours. Additional active support uses Saturday rates on weekdays, or the applicable Saturday, Sunday or public-holiday rate at the time it is delivered. The worker records the actual support. Standard bookings run from 2 to 10 hours; sleepover bookings run from 8 to 10 hours and cross midnight. Worker payroll is calculated separately.</p>
         <p class="say">When a worker drives you in their own car, the kilometres are charged at <b>$${km.toFixed(2)} per km</b> under activity-based transport (04_590_0125_6_1), on top of the worker\u2019s time.</p>
         <h2>Cancellations</h2>
         <p class="say">A booking cancelled inside the notice window is charged in full and the worker is paid in full, which is the NDIS short-notice position and the only reason a worker can afford to hold the slot. The window is ${escHtml(cancel)}. Outside the window, nothing is charged. When we or the worker cancel, nothing is charged either.</p>
@@ -17558,7 +17563,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
    The NDIS "Night-Time Sleepover Support" item is one flat price for an
    eight-hour night with the worker asleep on the premises. It includes up to
    two hours of active support across the night; more than that is charged
-   by the hour at the night rate that applies to the day. The worker records
+   by the hour at Saturday rates on weekdays, or the applicable weekend/holiday rate. The worker records
    the active hours when the shift is closed; the extra becomes its own line
    on the invoice and its own claim line, and the worker is paid their ladder
    share of it. Check these three numbers against each July's Pricing
@@ -17582,31 +17587,42 @@ function applyIntroPay(id) {
     .run(pay.amount, pay.tier, pay.share_pct, pay.floored ? 1 : 0, id);
   return { category: 'intro', label: hours > 0 ? `Meet-and-greet — no charge, paid by The Care Web (${hours} h)` : 'Meet-and-greet — no charge, not time worked', unit_price: 0, qty: 1, total: 0, worker_share: pay.amount, paid_hours: hours };
 }
-function sleepoverActiveCategory(b) {
-  if(HOLIDAYS.at(b.date,720,b).holiday)return 'public-holiday';
-  const dow = new Date(b.date + 'T00:00:00').getDay();
-  if (dow === 6) return 'saturday';
-  if (dow === 0) return 'sunday';
-  return 'saturday'; // Additional sleepover active hours use at least the Saturday limit on weekdays.
+function sleepoverExtraLines(b) {
+  if (b.active_extra_lines) return JSON.parse(b.active_extra_lines);
+  // Preserve previously recorded totals and dates; never invent historical timings.
+  return Number(b.active_extra_hours)>0?[{date:b.date,item:b.active_extra_item,description:'Active support during the sleepover — beyond the two hours included',when:'during the night (legacy record)',qty:b.active_extra_hours,unit:'hours',rate:b.active_extra_rate||0,amount:b.active_extra_total||0}]:[];
 }
-function applySleepoverActive(id, activeHours, note) {
-  const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
-  if (!b) return null;
-  const active = Math.round(Math.max(0, Math.min(Number(b.hours) || SLEEPOVER_HOURS_MIN, Number(activeHours) || 0)) * 4) / 4;
-  const extra = Math.max(0, round2(active - SLEEPOVER_INCLUDED_ACTIVE_HOURS));
-  let category = '', item = '', rate = 0, total = 0, share = 0;
-  if (extra > 0) {
-    category = sleepoverActiveCategory(b);
-    const r = INVOICE_RATES[category];
-    rate = r.price; total = round2(rate * extra);
-    item = supportItemFor(b.service, category) || '';
-    const pay = workerPay(b.worker_id, category, extra);
-    share = pay ? pay.amount : round2(r.worker * extra);
-  }
-  db.prepare(`UPDATE bookings SET active_hours = ?, active_extra_hours = ?, active_extra_category = ?, active_extra_item = ?,
-    active_extra_rate = ?, active_extra_total = ?, active_extra_share = ?, active_note = ? WHERE id = ?`)
-    .run(active, extra, category, item, rate, total, share, String(note || ''), id);
-  return { active, included: SLEEPOVER_INCLUDED_ACTIVE_HOURS, extra, category, item, rate, total, share };
+function applySleepoverActive(id, calculated, note) {
+  const b=db.prepare('SELECT * FROM bookings WHERE id=?').get(id);
+  if(!b||calculated.error)throw Error(calculated.error||'Booking unavailable');
+  const lines=calculated.lines,one=lines[0],same=lines.every(l=>l.category===one?.category),ratio=Math.max(1,Number(b.ratio)||1);
+  // This allocation estimate is not payroll: all active time is supplied to the reviewed payroll process.
+  const share=round2(lines.reduce((sum,l)=>sum+(workerPay(b.worker_id,l.category,l.qty)?.amount??INVOICE_RATES[l.category].worker*l.qty)/ratio,0));
+  db.prepare(`UPDATE bookings SET active_hours=?,active_extra_hours=?,active_extra_category=?,active_extra_item=?,active_extra_rate=?,active_extra_total=?,active_extra_share=?,active_note=?,active_periods=?,active_extra_lines=? WHERE id=?`)
+    .run(calculated.active,calculated.extra,one?(same?one.category:'mixed'):'',one&&same?one.item:'',one&&same?one.rate:0,calculated.total,share,String(note||''),JSON.stringify(calculated.periods||[]),JSON.stringify(lines),id);
+  return {...calculated,category:one?(same?one.category:'mixed'):'',item:one&&same?one.item:'',rate:one&&same?one.rate:0,share};
+}
+function sleepoverMetadata(b) {
+  if(!b.sleepover)return null;
+  const bands=SLEEPOVER_PRICING.extraRates(b);
+  return {start_at:bookingStart(b).toISOString(),end_at:bookingEnd(b).toISOString(),time_zone:'Australia/Sydney',legacy_review_required:bands.error||'',timing_required_for_extras:!!bands.requires_periods,extra_active_rates:bands.rates||[],rate_bands:bands.bands,included_active_hours:2};
+}
+function bookingQuote(b) {
+  const basic=BOOKIT_TIME.intervalError(b);if(basic)return {error:basic};
+  if(b.sleepover){const valid=SLEEPOVER_PRICING.validate(b);if(valid.error)return valid;}
+  const from=bookingStart(b),to=bookingEnd(b),lines=b.kind==='intro'?[]:AUTO_PRICING.lines(b);
+  if(!lines)return {error:'The price could not be calculated. Check the date and time.'};
+  const clock=d=>`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const extra=b.sleepover?SLEEPOVER_PRICING.extraRates(b):null;
+  const quote={lines,total:round2(lines.reduce((n,l)=>n+l.amount,0)),support_type:b.kind==='intro'?'intro':b.sleepover?'sleepover':'hourly',label:b.kind==='intro'?'15-minute meet-and-greet — no charge':b.sleepover?'Inactive overnight — sleepover':ymd(from)!==ymd(to)?'Active overnight — hourly support':'Hourly support',date:b.date,start:b.start,duration_hours:Number(b.hours),end_date:ymd(to),end_time:clock(to),included_active_hours:b.sleepover?2:0,extra_active_rates:extra?.rates||[],rate_bands:extra?.bands||[],rate_note:b.sleepover?'One flat night price, including up to two active hours. Additional active support is itemised at the applicable weekday/Saturday, Sunday or public-holiday rate. Choose active overnight when an awake worker is routinely needed.':'Hourly rates follow the dates and times shown. Unplanned extra support and agreed transport are additional.',quoted_at:now()};
+  quote.quote_key=sign('booking-price:'+JSON.stringify([b.service,Number(b.ratio)||1,b.date,b.start,Number(b.hours),!!b.sleepover,quote.lines,quote.extra_active_rates,quote.rate_bands]));
+  return quote;
+}
+function bookingPriceView(b) {
+  b.booking_quote=b.booking_quote?typeof b.booking_quote==='string'?JSON.parse(b.booking_quote):b.booking_quote:null;
+  if(b.booking_quote&&(b.booking_quote.date!==b.date||b.booking_quote.start!==b.start||Number(b.booking_quote.duration_hours)!==Number(b.hours)))b.booking_quote={...b.booking_quote,display_label:'Original booking estimate — booking times have changed',changed:true};
+  if(b.sleepover){b.sleepover_pricing=sleepoverMetadata(b);b.active_periods=b.active_periods?typeof b.active_periods==='string'?JSON.parse(b.active_periods):b.active_periods:[];}
+  return b;
 }
 
 /* ---------- the open-shift feed ----------
@@ -19256,7 +19272,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS cover_reviews (
   expires_at TEXT NOT NULL, granted_by INTEGER NOT NULL, granted_at TEXT NOT NULL,
   PRIMARY KEY(slug,worker_id));`);
 
-const processContext={db,json,route,actFor,sessionUser,firstBookingBlockers,onboardingSummary,platformStatus,
+const processContext={db,json,route,bookingPriceView,actFor,sessionUser,firstBookingBlockers,onboardingSummary,platformStatus,
  banningWindowDays,moduleState,docMap:DOC_MAP,pdocMap:PDOC_MAP,confirmedPlan,currentPlanAccess,workerBrief,planAck,
  bookingStart,bookingEnd,ymd,isDemoWorker,openRequests,mailPrefs,emailOn:()=>EMAIL_ON,sendMailDirect,notify,baseUrl,escHtml,
  activeLink,linkScopes,coordsFor,assignmentOptions,assignmentCheck,workerBookingGate,recordAssignmentAck,noteOutOfArea,
@@ -19322,7 +19338,20 @@ AUTO_BILLING=require('./lib/automatic-invoicing')({db,now,billable,runClaims,wak
 everyJob('holiday-calendar',86400000,()=>HOLIDAYS.refresh(),{label:'Automatic public holidays',why:'Refreshes official NSW state and local dates. Cached/statutory dates remain available during a source outage.'});
 route('GET',/^\/api\/admin\/billing\/automation$/,(req,res,m,u)=>{if(!requireAdmin(u,res))return;json(res,200,{...AUTO_BILLING.status(),calendar:HOLIDAYS.status(),email_enabled:EMAIL_ON});});
 route('POST',/^\/api\/admin\/billing\/retry$/,(req,res,m,u)=>{if(!requireAdmin(u,res))return;db.prepare("UPDATE billing_jobs SET next_at=? WHERE status<>'complete'").run(now());AUTO_BILLING.drain().catch(e=>console.error('[billing-retry]',e.message));json(res,200,{ok:true});});
-route('GET',/^\/api\/pricing\/quote$/,(req,res)=>{const q=new URL(req.url,'http://local').searchParams,b={date:q.get('date'),start:q.get('start'),hours:Number(q.get('hours')),service:q.get('service'),sleepover:q.get('sleepover')==='1',suburb:q.get('suburb')||''};if(!SERVICES.includes(b.service)||b.sleepover&&!['personal-care','daily-tasks'].includes(b.service))return json(res,400,{error:'Choose a supported service.'});const error=BOOKIT_TIME.intervalError(b);if(error)return json(res,400,{error});const lines=AUTO_PRICING.lines(b);json(res,200,{lines,total:round2(lines.reduce((n,l)=>n+l.amount,0)),calendar:HOLIDAYS.status()});});
+function replyBookingQuote(req,res,user,raw,privateQuote=false){
+  const b={date:raw.date,start:raw.start,hours:Number(raw.hours),service:raw.service,sleepover:raw.sleepover===true||raw.sleepover==='1',suburb:clean(raw.suburb,120)};
+  if(!SERVICES.includes(b.service)||b.sleepover&&!['personal-care','daily-tasks'].includes(b.service))return json(res,400,{error:'Choose a supported service.'});
+  if(privateQuote){
+    if(!user)return json(res,401,{error:'Please log in.'});
+    const person=actFor(req,user,'bookings');if(!person)return json(res,403,{error:'Booking permission is required to price this location.'});
+    try{b.service_location=SERVICE_LOCATIONS.resolve(person.id,raw.service_location);b.service_place=SERVICE_LOCATIONS.placeForBooking(b);}catch(e){return json(res,e.status||400,{error:e.message});}
+    if(!(b.hours>=2&&b.hours<=10))return json(res,400,{error:'Bookings are between 2 and 10 hours.'});
+  }
+  const result=bookingQuote(b);if(result.error)return json(res,400,result);
+  json(res,200,{...result,calendar:HOLIDAYS.status()});
+}
+route('GET',/^\/api\/pricing\/quote$/,(req,res,m,u)=>replyBookingQuote(req,res,u,Object.fromEntries(new URL(req.url,'http://local').searchParams)));
+route('POST',/^\/api\/pricing\/quote$/,(req,res,m,u,b)=>replyBookingQuote(req,res,u,b,true));
 
 const server = http.createServer((req, res) => {
   // The Care Web v85.3.0 request-boundary hardening. Keep this before route dispatch.

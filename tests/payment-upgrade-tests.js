@@ -21,6 +21,16 @@ async function start(source,label){log='';const portServer=http.createServer();a
 async function stop(){if(db){db.close();db=null;}if(child&&child.exitCode===null){const exited=new Promise(r=>child.once('exit',r));child.kill();await exited;}child=null;}
 async function test(name,fn){try{await fn();results.push({name,result:'PASS'});console.log('PASS '+name);}catch(e){results.push({name,result:'FAIL',error:e.stack});console.error('FAIL '+name+' '+e.stack);throw e;}}
 function snapshotState(){return db.prepare('SELECT invoice_no,data,created_at FROM invoice_snapshots ORDER BY invoice_no').all();}
+function assertMigratedBookings(actual,expected){
+ const added=['active_extra_lines','active_periods','booking_quote'];
+ assert.equal(actual.length,expected.length,'Existing booking count must be preserved');
+ for(let i=0;i<expected.length;i++){
+  const before=expected[i],after=actual[i],original=Object.keys(before);
+  assert.deepEqual(Object.keys(after).filter(key=>!Object.hasOwn(before,key)).sort(),[...added].sort(),'Only the expected nullable booking columns may be added');
+  for(const key of original)assert.deepEqual(after[key],before[key],`Booking ${before.id}: ${key} must be preserved`);
+  for(const key of added)assert.equal(after[key],null,`Legacy booking ${before.id}: ${key} must start empty`);
+ }
+}
 function assertFiles(){for(const f of files){assert.ok(fs.existsSync(f.path),f.relative);assert.equal(sha(fs.readFileSync(f.path)),f.sha256,f.relative);}}
 (async()=>{try{
  await test('Trusted v88.3.4 archive extracts to a disposable source tree',()=>{
@@ -37,7 +47,7 @@ function assertFiles(){for(const f of files){assert.ok(fs.existsSync(f.path),f.r
   for(const dir of [docs,photos])for(const file of fs.readdirSync(dir)){const full=path.join(dir,file);if(fs.statSync(full).isFile())files.push({path:full,relative:path.relative(DIR,full),sha256:sha(fs.readFileSync(full)),bytes:fs.statSync(full).size});}assert.ok(files.length>=2);await stop();
  });
  await test('First v88.4.0 boot preserves users, existing shifts, upload records/bytes and invoice snapshots',async()=>{
-  const boot=await start(ROOT,'upgrade-first');assert.equal(boot.APP_VERSION,version);assert.deepEqual(db.prepare('SELECT id,name,email,phone,suburb,plan,is_admin,pass FROM users WHERE id IN (?,?,?) ORDER BY id').all(admin.id,participant.id,worker.id),trackedRows.users);assert.deepEqual(db.prepare('SELECT * FROM bookings WHERE id<>? ORDER BY id').all(backlogId),trackedRows.bookings);assert.deepEqual(db.prepare('SELECT * FROM invoice_withdrawals WHERE invoice_no=?').get(archiveNo),trackedRows.withdrawal);assert.deepEqual(db.prepare('SELECT * FROM worker_docs WHERE id=?').get(documentRow.id),trackedRows.documents);assert.deepEqual(snapshotState(),trackedSnapshots);assertFiles();const photo=await request('GET','/photos/'+participant.id,participant);assert.equal(photo.status,200);assert.deepEqual(photo.bytes,photoBytes);
+  const boot=await start(ROOT,'upgrade-first');assert.equal(boot.APP_VERSION,version);assert.deepEqual(db.prepare('SELECT id,name,email,phone,suburb,plan,is_admin,pass FROM users WHERE id IN (?,?,?) ORDER BY id').all(admin.id,participant.id,worker.id),trackedRows.users);assertMigratedBookings(db.prepare('SELECT * FROM bookings WHERE id<>? ORDER BY id').all(backlogId),trackedRows.bookings);assert.deepEqual(db.prepare('SELECT * FROM invoice_withdrawals WHERE invoice_no=?').get(archiveNo),trackedRows.withdrawal);assert.deepEqual(db.prepare('SELECT * FROM worker_docs WHERE id=?').get(documentRow.id),trackedRows.documents);assert.deepEqual(snapshotState(),trackedSnapshots);assertFiles();const photo=await request('GET','/photos/'+participant.id,participant);assert.equal(photo.status,200);assert.deepEqual(photo.bytes,photoBytes);
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);cutover=db.prepare("SELECT cutover_at FROM billing_policy WHERE policy_key='immediate-per-shift'").get().cutover_at;assert.ok(cutover);assert.equal(db.prepare('SELECT count(*) n FROM immediate_invoice_submissions').get().n,0);
  });
  await test('Current catch-up issues approved backlog while old unapproved and withdrawn-held work remains unissued',async()=>{

@@ -41,7 +41,16 @@ remain deliberate stops. Invoice mail retries automatically with visible status.
 Email transport must be configured; queued does not mean sent or paid.
 The complete source register is docs/block-register/index.html, with CSV/JSON and
 all conditional branches. docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
-See docs/CHANGELOG-v88.4.3.md and docs/USER-GUIDE.html.
+See docs/CHANGELOG-v88.4.4.md and docs/USER-GUIDE.html.
+
+LAUNCH CHECKS AND OVERNIGHT SUPPORT
+Launch checks groups six practical areas, automatic monitoring and optional
+research, with all original findings retained in Audit history. No all-approved
+launch gate is introduced. Inactive overnight bookings show a flat nightly quote
+and included active support; hourly support shows the date/time breakdown.
+Signed price keys protect the displayed estimate before a request is saved.
+Additional sleepover support uses actual date/time rates. Legacy invalid
+arrangements preserve recorded work and require charge correction before issue.
 
 ADMIN WORKSPACE
 One shared navigation: Today, People, Bookings, Money, Records, Reports, Settings.

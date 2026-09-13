@@ -225,7 +225,7 @@ async function main() {
     const s1 = await req('POST', '/api/bookings', { headers: J2, cookie: pc, body: { worker_id: 10, service: 'personal-care', date: '2027-05-05', start: '22:00', hours: 3, sleepover: true } });
     t('a 3-hour sleepover is refused (a sleepover is a night)', s1.status === 400 && /night/.test(s1.json.error), s1.status + ' ' + (s1.json && s1.json.error));
     const s2 = await req('POST', '/api/bookings', { headers: J2, cookie: pc, body: { worker_id: 10, service: 'personal-care', date: '2027-05-05', start: '14:00', hours: 8, sleepover: true } });
-    t('a sleepover starting at 2pm is refused', s2.status === 400 && /8pm/.test(s2.json.error), s2.status);
+    t('an eight-hour afternoon visit that does not cross midnight is not a sleepover', s2.status === 400 && s2.json.code === 'sleepover_midnight', s2.status);
     /* the demo participant is deliberately not fully set up (the gate is its own test),
        so the accepted sleepover goes straight into the diary, dated last Wednesday */
     const sid = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, sleepover, status, accepted_at, created) VALUES (13,10,'personal-care','2026-08-26','22:00',8,1,'accepted',?,?)").run(new Date().toISOString(), new Date().toISOString()).lastInsertRowid);
