@@ -113,12 +113,12 @@
     "id": "A11",
     "priority": "P0",
     "area": "Launch assurance",
-    "title": "Complete real-browser and production-like launch journeys",
+    "title": "Complete the essential journeys on the deployed website",
     "basis": "Not performed in this environment",
-    "action": "Run the release and focused defect regressions on the declared runtime and a production-like staging environment. Execute the browser matrix, provider integrations and incident/restore drills described in this report before a public launch.",
-    "acceptance": "Named testers complete all four role journeys with screenshots and results on desktop, iOS and Android; keyboard, zoom and screen-reader checks cover critical tasks; no unresolved P0; approved deployment checklist and rollback rehearsal exist.",
+    "action": "Use the existing prelaunch website for participant, helper, worker and office journeys on the devices people will use. Confirm actual email and payment-provider outcomes. Run recovery drills against an isolated copy so the website is not overwritten.",
+    "acceptance": "Record the essential journey outcomes, devices and any important barriers with their fixes and retest. Confirm actual provider delivery and payment results; retain a recovery procedure. Local automated tests are evidence of code behaviour, not proof of live integrations.",
     "owner": "QA + operations + product",
-    "implementation_status": "External acceptance required: local browser URL is blocked; Node 24.19.0 tests do not establish Node 22 or deployed-browser acceptance. Concrete staging matrix supplied."
+    "implementation_status": "Local automated release checks have passed on Node 22.23.2. Actual deployed-browser and provider outcomes need their own evidence; a separate permanent test website is not required."
   },
   {
     "id": "A12",
@@ -173,7 +173,7 @@
     "action": "Add separate authenticated operational checks for storage, queue age, failed jobs, backup age and certificate expiry. Define alerts, on-call ownership and a manual continuity procedure.",
     "acceptance": "Synthetic disk-full, mail failure, missed backup and stopped job conditions create actionable alerts; public health endpoints do not reveal private operational detail.",
     "owner": "Operations",
-    "implementation_status": "Implemented: private operational checks for writable/free storage, job freshness/failure, old mail, complete local backup evidence, imminent unanswered visits and recorded TLS expiry. External monitoring/alert delivery still require configuration."
+    "implementation_status": "Implemented: private operational checks for writable/free storage, job freshness/failure, ageing mail, complete local backup evidence, imminent unanswered visits and automatic HTTPS certificate monitoring with retries. Confirm that the responsible person receives actual alerts and that off-instance backups can be restored."
   },
   {
     "id": "A17",
@@ -415,7 +415,7 @@
     "action": "Maintain an asset/version/license register and a scheduled advisory review. Verify hashes and supported runtimes; pin updates and run the real document fixture suite on upgrades.",
     "acceptance": "Each vendored component has a provenance/version and owner; alerts are triaged; the declared Node version is tested before release. No current vulnerability is asserted solely from version age.",
     "owner": "Engineering + operations",
-    "implementation_status": "Supplied dependency provenance and hashes for runtime declaration, lockfile, PDF.js, fonts and existing vendors; advisory/runtime support scan and Node 22 release acceptance remain external."
+    "implementation_status": "Supplied dependency provenance and hashes for the runtime declaration, lockfile, PDF.js, fonts and other vendors. Local automated release checks have passed on Node 22.23.2; confirm the deployed runtime and keep advisory reviews current."
   },
   {
     "id": "A39",

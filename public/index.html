@@ -1779,16 +1779,16 @@ html.high-contrast .care-stage-block{display:none!important;}
 .review-dialog::backdrop{background:rgba(0,0,0,.4);}
 @media(max-width:900px){#page-admin .set-layout.no-sub .set-body{display:block;margin-top:18px;}.review-dialog{padding:16px;}}
 </style>
-<script src="/assets/bookit-review-improvements.js"></script>
+<script src="/assets/bookit-review-improvements.js?v=88.4.4"></script>
 <link rel="stylesheet" href="/assets/admin-workspace.css?v=88.4.2">
-<script src="/assets/admin-workspace.js?v=88.4.2"></script>
+<script src="/assets/admin-workspace.js?v=88.4.3"></script>
 <link rel="stylesheet" href="/assets/process-workflows.css?v=88.4.2">
 <link rel="stylesheet" href="/assets/admin-verification.css?v=88.4.2">
 <link rel="stylesheet" href="/assets/site-usability.css?v=88.2.7">
 <link rel="stylesheet" href="/assets/worker-credentials.css?v=88.2.10">
 <link rel="stylesheet" href="/assets/booking-calendar.css?v=88.3.0">
 <link rel="stylesheet" href="/assets/next-actions.css?v=88.3.3">
-<link rel="stylesheet" href="/assets/launch-assurance.css?v=88.4.2">
+<link rel="stylesheet" href="/assets/launch-assurance.css?v=88.4.4">
 <link rel="stylesheet" href="/assets/billing-setup.css?v=88.3.4">
 </head>
 <body>
@@ -4873,7 +4873,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     <h2 id="bkTitle">Request a booking</h2>
     <p class="muted-sm">with <b id="bkWorkerName"></b> — they'll accept or suggest another time. An accepted short-notice cancellation may be charged under your service agreement. Otherwise, delivered support is billed after approval.</p>
     <form class="form-grid" id="bookingForm">
-      <div class="field"><label for="bkService">Support type</label><select id="bkService" required></select><p class="muted-sm" id="bkRateLine" style="margin:6px 0 0;"></p></div>
+      <div class="field"><label for="bkService">Support type</label><select id="bkService" required></select></div>
       <div class="field"><label for="bkDate">Date</label><input id="bkDate" type="date" required></div>
       <div class="field"><label for="bkStart">Start time</label><input id="bkStart" type="time" value="09:00" required></div>
       <div class="field"><label for="bkHours">Hours</label>
@@ -4881,8 +4881,8 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
       <div class="field full" id="bkSleepWrap" hidden>
         <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-weight:400;">
-          <input type="checkbox" id="bkSleep" style="margin-top:4px;" onchange="if(this.checked){$('#bkHours').value='8';if($('#bkStart').value<'20:00'&&$('#bkStart').value>'01:00')$('#bkStart').value='22:00';}">
-          <span><b>Overnight sleepover (inactive night)</b> — your worker sleeps over and helps if needed. Billed at the flat NDIS sleepover limit of <b>$311.79 per night</b> instead of hourly.</span>
+          <input type="checkbox" id="bkSleep" style="margin-top:4px;" >
+          <span><b>Inactive overnight — sleepover</b> — your worker may sleep when support is not needed. One flat nightly charge includes up to two hours of active support. Select this for a sleepover; leave it unchecked for hourly support with an awake worker. The applicable price appears below.</span>
         </label>
         <label class="check-row" id="bkIntroWrap" style="margin-top:8px;">
           <input type="checkbox" id="bkIntro" style="margin-top:4px;">
@@ -4910,6 +4910,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <p class="muted-sm" id="bkRepeatNote" hidden style="margin:8px 0 0;">One rule, many shifts — you can change the time, the worker or end it whenever you like, and each shift can still be moved on its own.</p>
       </div>
       <div class="field full" id="bookingServiceLocation"></div>
+      <section class="field full" id="bkRateLine" role="status" aria-live="polite" aria-atomic="true" aria-label="Booking price"></section>
       <div class="field full"><label for="bkNotes">Anything your worker should know? <span class="hint">(optional)</span></label><textarea id="bkNotes" rows="3"></textarea></div>
       <button type="submit" class="btn btn-primary" id="bkSubmit">Send booking request</button>
     </form>
@@ -7566,7 +7567,7 @@ window.paintExtras = async function(){
     const $m = n => '$' + Number(n).toFixed(2);
     const rows = [
       ['Meet-and-greet', 'Free', `A ${x.meet_and_greet.minutes}-minute video call or quick hello with a worker before the paperwork — needs only a confirmed email and how your supports are funded. It is a conversation, not a shift: no support is given, nobody is charged and nobody is paid. If it runs past ${x.meet_and_greet.longer_than} minutes, book a shift so the worker is paid. Never repeats, never counted.`],
-      ['Sleepover — inactive night care', $m(x.sleepover.price) + ' per night', `One flat price for an ${x.sleepover.hours_min}-hour night (up to ${x.sleepover.hours_max}), starting between 8pm and 1am, any day of the week. Includes up to ${x.sleepover.included_active_hours} hours of active support. Beyond that, the extra is charged by the hour at the night rate for the day: ${$m(x.sleepover.extra_active['weekday-night'])} weekday, ${$m(x.sleepover.extra_active.saturday)} Saturday, ${$m(x.sleepover.extra_active.sunday)} Sunday — on its own line, so you can see it.`],
+      ['Sleepover — inactive night care', $m(x.sleepover.price) + ' per night', `One flat price for ${x.sleepover.hours_min}–${x.sleepover.hours_max} hours crossing midnight, when the worker can sleep. Includes up to ${x.sleepover.included_active_hours} active hours. Extra support is itemised by its actual date and time: ${$m(x.sleepover.extra_active.weekday)} per hour on weekdays/Saturday, ${$m(x.sleepover.extra_active.sunday)} Sunday and ${$m(x.sleepover.extra_active['public-holiday'])} public holidays. If an awake worker is routinely needed, choose active overnight hourly support.`],
       ['Active overnight', $m(x.active_overnight.price) + ' per hour', `A worker awake and working through the night, two hours or more. Saturday ${$m(x.active_overnight.saturday)}, Sunday ${$m(x.active_overnight.sunday)}, public holiday ${$m(x.active_overnight.public_holiday)}.`],
       ['Provider travel', $m(x.travel.per_km) + ' per km', `When your worker drives as part of the shift (not their commute), entered by the worker with where from and where to, up to ${x.travel.max_km} km on a shift. Claimed as "${x.travel.item}".`],
       ['Short-notice cancellation', 'The shift\u2019s price', `Cancel inside the notice window and the shift is charged as if delivered, as the NDIS allows: ${x.short_notice.windows.map(w => `${w.label} ${w.hours % 24 === 0 ? (w.hours/24) + ' clear day' + (w.hours/24 === 1 ? '' : 's') : w.hours + ' hours'}`).join(' · ')}. Outside the window, nothing. Never charged when the shortfall was ours.`],
@@ -8166,7 +8167,8 @@ let bookingWorker = null;
 function syncSleepoverOption(){
   const ok = ['personal-care','daily-tasks'].includes($('#bkService').value);
   $('#bkSleepWrap').hidden = !ok;
-  if(!ok) $('#bkSleep').checked = false;
+  if(!ok){$('#bkSleep').checked=false;$('#bkIntro').checked=false;}
+  $('#bkSleep').disabled=!!$('#bkIntro').checked;
 }
 function openBookingModal(w){
   bookingWorker = w;
@@ -8187,6 +8189,7 @@ function openBookingModal(w){
   syncSleepoverOption();
   if(window.CareFlow)CareFlow.restoreBooking();
   window.CareLocations?.mountChooser(document.getElementById('bookingServiceLocation'));
+  if(window.syncBkRateLine)syncBkRateLine();
   openModal('#bookingModal');
 }
 function syncBkRateLine(){
@@ -8217,6 +8220,7 @@ $('#bookingForm').addEventListener('submit', async e => {
   e.preventDefault();
   if(!bookingWorker) return;
   try{
+    if(window.CareBookingPricing)await CareBookingPricing.ensureCurrent();
     const repeat = $('#bkRepeat').value;
     const body = {
       worker_id: bookingWorker.id,
@@ -8230,6 +8234,7 @@ $('#bookingForm').addEventListener('submit', async e => {
       intro: !!($('#bkIntro') && $('#bkIntro').checked)
     };
     if(body.intro){ body.hours = 1; body.sleepover = false; }
+    if(!body.intro&&window.CareBookingPricing)body.quote_keys=CareBookingPricing.quoteKeys();
     if(repeat){
       body.repeat = repeat;
       if($('#bkRepeatMode').value === 'until') body.repeat_until = $('#bkRepeatUntil').value;
@@ -8243,6 +8248,7 @@ $('#bookingForm').addEventListener('submit', async e => {
     location.hash = '#/bookings';
     renderBookingsPage();
   }catch(err){
+    if(err.data?.code==='booking_quote_changed')window.CareBookingPricing?.refresh(true);
     /* A refusal that only says no is a dead end. If the account is short of
        the three things a first booking needs, name them and put the link to
        each one in the same breath — the person is trying to book support, not
@@ -8534,6 +8540,7 @@ async function renderBookingsPage(){
         <span class="muted-sm">${SVC_NAME[b.service] || b.service} · ${fmtAU(b.date)} · ${b.start} · ${b.hours} hrs</span>
         ${b.notes ? `<span class="muted-sm">“${esc(b.notes)}”</span>` : ''}
         ${b.sleepover ? '<span class="muted-sm">🌙 Overnight sleepover (inactive night — flat rate)</span>' : ''}
+        ${b.booking_quote&&window.CareBookingPricing?CareBookingPricing.summary(b.booking_quote):''}
         ${b.series_id ? `<span class="muted-sm">${b.detached ? '↳ Moved out of its repeating booking — a one-off now' : `🔁 Part of a repeating booking — shift #${(b.series_index || 0) + 1}`}</span>` : ''}
         ${vrole() === 'participant' && ['requested','accepted'].includes(b.status) ? `<div data-cancel-box="${b.id}" data-cb-svc="${b.service}" data-cb-date="${b.date}" data-cb-start="${b.start}" data-cb-status="${b.status}" data-cb-worker="${esc(b.other_name.split(' ')[0])}" hidden></div>` : ''}
         ${vrole() === 'participant' && b.series_id && !b.detached && ['requested','accepted'].includes(b.status) && b.date >= ymd() ? `
@@ -8574,9 +8581,9 @@ async function renderBookingsPage(){
               <label class="choice-pill"><input type="radio" name="bkScope${b.id}" value="yes"><span>Yes</span></label>
             </div>
             ${b.sleepover ? `<div style="margin-top:12px;"><b style="font-size:.9rem;">How many hours were you up and supporting during the night?</b>
-              <p class="muted-sm" style="margin:4px 0 7px;">Up to two hours is inside the sleepover price. Anything beyond two is charged to the participant\u2019s plan by the hour at the night rate and paid to you at your share of it, so say what the support was.</p>
+              <p class="muted-sm" style="margin:4px 0 7px;">Up to two active hours is included in the participant’s nightly charge. Extra support uses the applicable weekday/Saturday, Sunday or public-holiday rate. Record all work performed; worker pay is calculated separately through payroll, including work within those first two hours.</p>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><input class="note-active" type="number" min="0" max="${b.hours}" step="0.25" value="0" style="width:90px;" aria-label="Active hours during the sleepover"> <span class="muted-sm">hours (0 if you were not woken; 15-minute steps such as 2.25)</span></div>
-              <p class="muted-sm">Hours are saved exactly as entered in 15-minute steps; they are never rounded automatically.</p><textarea class="note-active-note" aria-label="What active support was provided during the sleepover" rows="2" maxlength="4000" style="margin-top:8px;" placeholder="If more than two: what the support was, roughly when."></textarea></div>` : ''}
+              <p class="muted-sm">Hours are saved exactly as entered in 15-minute steps; they are never rounded automatically.</p><textarea class="note-active-note" aria-label="What active support was provided during the sleepover" rows="2" maxlength="4000" style="margin-top:8px;" placeholder="What support was provided?"></textarea>${window.CareSleepoverSupport?CareSleepoverSupport.render(b):''}</div>` : ''}
             <textarea class="note-scope-detail" rows="2" maxlength="4000" hidden style="margin-top:9px;" placeholder="What were you asked to do? We'll follow it up — you're not in trouble for telling us."></textarea>
           </div>
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -9122,12 +9129,12 @@ document.addEventListener('click', async e => {
     try{
       await BookItReview.saveDraft(form,true);
       const activeEl = form.querySelector('.note-active');
-      const extra = activeEl ? { active_hours: activeEl.value, active_note: (form.querySelector('.note-active-note') || {}).value || '' } : {};
+      const extra = activeEl ? { active_hours: activeEl.value, active_note: (form.querySelector('.note-active-note') || {}).value || '',active_periods:window.CareSleepoverSupport?.read(form)||[] } : {};
       const r = await API.call('/bookings/' + id, {method:'PATCH', body:{status:'completed', note: body, scope, scope_detail: detail, ...extra}});
       BookItReview.finishDraft(form);
-      toast(scope
+      toast(r.billing_notice || (scope
         ? 'Shift completed and your note is saved. Thanks for flagging that — the office has been alerted and will call you.'
-        : (r.invoice ? `Shift completed — note saved and $${r.invoice.total.toFixed(2)} recorded for invoicing. 🎉` : 'Shift completed — note saved.'));
+        : (r.invoice ? `Shift completed — note saved and $${Number(r.support_total??r.invoice.total).toFixed(2)} recorded for invoicing.` : 'Shift completed — note saved.')));
       renderBookingsPage();
     }catch(err){ toast(err.message); nSave.disabled = false; }
     return;
@@ -13140,7 +13147,7 @@ document.addEventListener('click', async e => {
 
 /* ============ Build 7 — the approval clock, on the shift it times ============ */
 function automaticChargeDetails(b){
-  let lines=[];try{lines=JSON.parse(b.automatic_invoice_lines||'[]');}catch{}
+  let lines=[];try{lines=[...JSON.parse(b.automatic_invoice_lines||'[]'),...JSON.parse(b.active_extra_lines||'[]')];}catch{}
   return lines.length>1?`<details class="booking-charge-lines"><summary>Charge breakdown — ${lines.length} date/time lines</summary><ul>${lines.map(l=>`<li>${esc(l.date)} ${esc(l.when)} · ${esc(l.description)}: ${Number(l.qty).toFixed(2)} ${esc(l.unit)} × $${Number(l.rate).toFixed(2)} = <b>$${Number(l.amount).toFixed(2)}</b></li>`).join('')}</ul></details>`:'';
 }
 function apprPanelHtml(b){
@@ -15393,16 +15400,20 @@ document.addEventListener('click', async e => {
 </script>
 
 
-<link rel="stylesheet" href="/assets/payment-automation.css?v=88.4.2">
+<link rel="stylesheet" href="/assets/payment-automation.css?v=88.4.3">
 <script src="/assets/next-actions.js?v=88.4.2"></script>
-<script src="/assets/process-workflows.js?v=88.4.2"></script>
+<script src="/assets/process-workflows.js?v=88.4.4"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
 <script src="/assets/booking-calendar.js?v=88.4.0"></script>
-<script src="/assets/payment-automation.js?v=88.4.2"></script>
+<script src="/assets/payment-automation.js?v=88.4.3"></script>
 <link rel="stylesheet" href="/assets/service-locations.css?v=88.4.1">
-<script src="/assets/service-locations.js?v=88.4.1"></script>
-<script src="/assets/launch-assurance.js?v=88.4.2"></script>
+<script src="/assets/service-locations.js?v=88.4.4"></script>
+<script src="/assets/launch-assurance.js?v=88.4.4"></script>
 <script src="/assets/billing-setup.js?v=88.3.4"></script>
+<link rel="stylesheet" href="/assets/booking-pricing.css?v=88.4.4">
+<script src="/assets/booking-pricing.js?v=88.4.4"></script>
+<link rel="stylesheet" href="/assets/sleepover-support.css?v=88.4.4">
+<script src="/assets/sleepover-support.js?v=88.4.4"></script>
 <script src="/assets/admin-verification.js?v=88.4.2"></script>
 <script>
 document.addEventListener('click',async event=>{

@@ -1,3 +1,12 @@
+# v88.4.4 validation
+
+- Full `npm run check` passed on Node 22.23.2: syntax, generated route/table inventories, release documentation, source hashes and the complete automated test suite.
+- 78 new focused checks passed: launch clarity 14, sleepover pricing 13, booking-price UI 20, active-support UI 13, real HTTP overnight flow 18.
+- Upgrade acceptance passed 5/5 from v88.3.4, including two boots, preservation of original booking fields, exactly three new nullable fields, invoice snapshot and withdrawal history, document records and uploaded file bytes, database integrity and no duplicate backlog invoices.
+- The cumulative ZIP is checked by exact byte overlay from v88.3.4, v88.4.0, v88.4.1, v88.4.2 and both v88.4.3 source variants.
+- Test accounts and records were synthetic. No actual payment, wage transfer, email delivery or business/specialist sign-off was performed.
+- Chrome refused the local preview with `ERR_BLOCKED_BY_CLIENT`; rendered layout remains unverified. The website has not been deployed by this source update.
+
 # Validation — v88.4.3
 
 Verified on 13 September 2026 with Node **22.23.2**.

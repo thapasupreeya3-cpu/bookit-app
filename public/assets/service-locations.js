@@ -59,13 +59,13 @@ window.CareLocations=(()=>{
   function paintChooser(host,state){
     host.innerHTML=chooserMarkup(state);
     const select=host.querySelector('[data-sl-mode]');
-    select.onchange=()=>{if(['other','community'].includes(state.mode))state.draft=readFields(host);state.mode=select.value;paintChooser(host,state);host.querySelector('[data-sl-mode]')?.focus();};
+    select.onchange=()=>{if(['other','community'].includes(state.mode))state.draft=readFields(host);state.mode=select.value;paintChooser(host,state);if(!state.editing)window.syncBkRateLine?.();host.querySelector('[data-sl-mode]')?.focus();};
   }
   async function mountChooser(host,initial){
     if(!host)return;
     const state={mode:initial?initial.mode==='saved'?'other':initial.mode||'unconfirmed':'saved',draft:{...initial},editing:!!initial,saved:null,loading:true,identity:subject()};
     chooserStates.set(host,state);paintChooser(host,state);
-    try{const data=await API.call('/me/service-address');if(chooserStates.get(host)!==state||state.identity!==subject()||!host.isConnected)return;if(['other','community'].includes(state.mode))state.draft=readFields(host);state.saved=data;state.loading=false;paintChooser(host,state);}
+    try{const data=await API.call('/me/service-address');if(chooserStates.get(host)!==state||state.identity!==subject()||!host.isConnected)return;if(['other','community'].includes(state.mode))state.draft=readFields(host);state.saved=data;state.loading=false;paintChooser(host,state);if(!state.editing)window.syncBkRateLine?.();}
     catch(error){if(chooserStates.get(host)!==state||state.identity!==subject()||!host.isConnected)return;if(['other','community'].includes(state.mode))state.draft=readFields(host);state.loading=false;state.error=error.message;if(state.mode==='saved'){state.mode='unconfirmed';paintChooser(host,state);host.insertAdjacentHTML('beforeend',`<p class="sl-notice" role="status">Saved address could not be loaded. Enter a place or confirm it later.</p>`);}}
   }
   function chooserValue(host){

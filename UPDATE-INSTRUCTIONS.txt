@@ -1,6 +1,6 @@
-THE CARE WEB v88.4.3 — CUMULATIVE CHANGED-FILES UPDATE
+THE CARE WEB v88.4.4 — CUMULATIVE CHANGED-FILES UPDATE
 
-Apply over v88.3.4 or v88.4.0–v88.4.2. This includes the earlier payment,
+Apply over v88.3.4 or v88.4.0–v88.4.3. This includes the earlier payment,
 private address and admin usability updates.
 
 EXISTING LIGHTSAIL WEBSITE
@@ -9,8 +9,9 @@ bookit > Connect using SSH and run:
   sudo bookit-update
 Then check:
   sudo systemctl is-active bookit
+Refresh the browser with Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows).
 The update must complete successfully. Confirm /api/version shows APP_VERSION
-88.4.3 and SCHEMA_VERSION 88401. No second website is required.
+88.4.4 and SCHEMA_VERSION 88402. No second website is required.
 
 ZIP ALTERNATIVE
 1. Preserve a backup of source, database, uploads, photos and environment.
@@ -18,6 +19,13 @@ ZIP ALTERNATIVE
    matching source files. This is a partial ZIP; do not delete absent files.
 3. Preserve runtime data, secrets, live settings and provider keys.
 4. Use Node 22 (>=22.12 <23), install dependencies if required and redeploy.
+
+LAUNCH CHECKS AND OVERNIGHT SUPPORT
+Admin > Settings > Launch checks opens the simplified launch workspace.
+When booking personal care or daily tasks, select Inactive overnight for a
+sleepover; leave it unchecked for hourly support. Review the price below
+the location before sending. Extra active support is recorded at completion.
+Existing issued invoices and recorded reviews are preserved.
 
 PAYMENT CHANGE
 New customer payments use the invoice link with Stripe card or enabled PayTo.
@@ -37,6 +45,6 @@ does not confirm onward bank settlement or transfer wages.
 
 User guide: docs/USER-GUIDE.html
 Payment setup: docs/PAYMENT-SETUP-v88.4.0.md
-Changes: docs/CHANGELOG-v88.4.3.md
+Changes: docs/CHANGELOG-v88.4.4.md
 Checks and limitations: docs/TEST-RESULTS.md
 Full installed-tree hashes: RELEASE-FILES.json

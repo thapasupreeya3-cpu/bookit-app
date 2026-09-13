@@ -59,7 +59,7 @@ window.BookItReview = (() => {
   function draftPayload(form){
     const id=form.dataset.noteForm;
     const p={note:form.querySelector('.note-body')?.value||'',scope:form.querySelector(`input[name="bkScope${id}"]:checked`)?.value==='yes',scope_detail:form.querySelector('.note-scope-detail')?.value||'',active_note:form.querySelector('.note-active-note')?.value||''};
-    const active=form.querySelector('.note-active');if(active)p.active_hours=active.value;
+    const active=form.querySelector('.note-active');if(active){p.active_hours=active.value;p.active_periods=window.CareSleepoverSupport?.read(form)||[];}
     const km=form.querySelector('.note-km');if(km)Object.assign(p,{km:km.value,km_from:form.querySelector('.note-km-from')?.value||'',km_to:form.querySelector('.note-km-to')?.value||''});
     return p;
   }
@@ -67,15 +67,17 @@ window.BookItReview = (() => {
   async function loadDraft(form){
     if(drafts.has(form))return;
     const state={revision:0,loaded:false,dirty:false,conflict:false,saving:null,timer:null,closed:false};drafts.set(form,state);
-    const controls=[...form.querySelectorAll('input,textarea,[data-note-save],[data-draft-save]')];controls.forEach(x=>x.disabled=true);
+    const controls=[...form.querySelectorAll('input,textarea,select,button')];controls.forEach(x=>x.disabled=true);
     try{
       const r=await API.call(`/bookings/${form.dataset.noteForm}/note-draft`);
       if(r.draft){const p=r.draft.payload;state.revision=r.draft.revision;
         const fields={'.note-body':p.note,'.note-scope-detail':p.scope_detail,'.note-active':p.active_hours,'.note-active-note':p.active_note,'.note-km':p.km,'.note-km-from':p.km_from,'.note-km-to':p.km_to};
         for(const [selector,value]of Object.entries(fields)){const el=form.querySelector(selector);if(el&&value!==undefined)el.value=value;}
+        window.CareSleepoverSupport?.restore(form,p.active_periods||[]);
         const radio=form.querySelector(`input[name="bkScope${form.dataset.noteForm}"][value="${p.scope?'yes':'no'}"]`);if(radio)radio.checked=true;
         const detail=form.querySelector('.note-scope-detail');if(detail)detail.hidden=!p.scope;
       }
+      window.CareSleepoverSupport?.update(form);
       state.loaded=true;draftStatus(form,r.draft?'Draft recovered; last saved '+new Date(r.draft.updated).toLocaleString('en-AU')+'. Not yet a completed shift record.':'Draft ready. Changes save securely to your account.');
     }catch(e){draftStatus(form,'Draft could not be loaded. Refresh before writing: '+e.message);}
     finally{controls.forEach(x=>x.disabled=!state.loaded);}

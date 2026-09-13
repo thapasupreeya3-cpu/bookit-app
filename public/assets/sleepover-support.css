@@ -1,0 +1,14 @@
+.sleepover-support{min-width:0;margin:1rem 0;padding:1rem;border:1px solid var(--line,#71818a);border-radius:12px}
+.sleepover-support legend{padding:0 .4rem;font-weight:700;font-size:1.05rem}
+.sleepover-support p{margin:.5rem 0;line-height:1.5}
+.sleepover-support details{margin:.75rem 0}
+.sleepover-support summary{cursor:pointer;font-weight:700;min-height:2.75rem;display:list-item;align-content:center}
+.sleepover-period{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:.65rem;align-items:end;margin:.75rem 0;padding:.75rem 0;border-bottom:1px solid var(--line,#71818a)}
+.sleepover-period label{display:grid;gap:.35rem;min-width:0;font-weight:600}
+.sleepover-period select{box-sizing:border-box;width:100%;min-width:0;min-height:2.75rem;font:inherit;padding:.5rem;border:1px solid var(--line,#71818a);border-radius:6px;background:var(--card,#fff);color:var(--ink,#182637)}
+.sleepover-support button{min-height:2.75rem}
+.sleepover-support-note{font-size:.9rem}
+.sleepover-support-status{font-size:.95rem}
+.sleepover-support-warning{border-left:3px solid #b57610;padding-left:.7rem}
+.sleepover-support :is(button,select,summary):focus-visible{outline:3px solid #bd6e17;outline-offset:3px}
+@media(max-width:720px){.sleepover-period{grid-template-columns:minmax(0,1fr)}.sleepover-period button{justify-self:start}.sleepover-support{padding:.75rem}}
