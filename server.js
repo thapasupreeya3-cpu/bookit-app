@@ -47,6 +47,7 @@ const AUTO_REPLY = (process.env.AUTO_REPLY || 'on') !== 'off';
 const SESSION_DAYS = 30;
 let WORKFLOW = null;
 let PAYMENT_FLOW = null;
+let SERVICE_LOCATIONS = null;
 let LAUNCH = null;
 let INVOICE_FLOW = null;
 let HOLIDAYS=null, AUTO_PRICING=null, AUTO_BILLING=null;
@@ -1664,7 +1665,7 @@ const INVOICE_RATES = {
   'sleepover':       { label: 'Night-time sleepover (inactive)', price: 311.79, worker: 225.65, perNight: true }
 };
 const REG_GROUPS = { 'employment': '0102', 'personal-care': '0107', 'transport': '0108', 'daily-tasks': '0115/0138', 'household': '0120', 'community': '0125' };
-HOLIDAYS=require('./lib/public-holidays')({db,setting,setSetting});
+HOLIDAYS=require('./lib/public-holidays')({db,setting,setSetting,bookingPlace:b=>SERVICE_LOCATIONS?.placeForBooking(b)});
 AUTO_PRICING=require('./lib/automatic-pricing')({rates:INVOICE_RATES,holidays:HOLIDAYS,start:bookingStart,end:bookingEnd,ymd,itemFor:(service,category,ratio)=>ratio>1&&GROUP_ITEMS[category]?GROUP_ITEMS[category]:supportItemFor(service,category)});
 if(!db.prepare('PRAGMA table_info(bookings)').all().some(x=>x.name==='automatic_invoice_lines'))db.exec('ALTER TABLE bookings ADD COLUMN automatic_invoice_lines TEXT');
 function suggestCategory(b) {
@@ -2540,6 +2541,7 @@ function publicWorker(row) {
   const v = publicVerification(row.user_id, row.email);
   return {
     id: row.user_id, name: row.name, suburb: row.suburb, color: row.color,
+    service_areas: safeJson(row.service_areas, []).filter(x=>typeof x==='string').map(x=>x.trim()).filter(Boolean),
     /* the badge, not the pay: tier key + label only. What a tier is worth is
        the worker's business and lives behind the workers-only /api/me/tier. */
     tier: ['bronze', 'silver', 'gold', 'platinum'].includes(row.tier) ? row.tier : 'bronze',
@@ -6180,7 +6182,7 @@ function assignmentContext() {
     completeBooking: b => b && b.id ? {...db.prepare('SELECT * FROM bookings WHERE id=?').get(b.id),...b} : b,
     profile: wid => db.prepare('SELECT p.*,u.email,u.suburb,u.closed_at FROM worker_profiles p JOIN users u ON u.id=p.user_id WHERE p.user_id=?').get(wid),
     participantClosed: pid => {const p=db.prepare('SELECT closed_at FROM users WHERE id=?').get(pid); return !p||!!p.closed_at;},
-    participantPlace: pid => db.prepare('SELECT suburb FROM users WHERE id=?').get(pid)?.suburb || '',
+    participantPlace: (pid,b) => b && SERVICE_LOCATIONS && (b.id||b.service_location||typeof b.service_place==='string') ? SERVICE_LOCATIONS.placeForBooking(b) : db.prepare('SELECT suburb FROM users WHERE id=?').get(pid)?.suburb || '',
     withdrawnFromOpenCover: (wid,bid) => !!(bid && db.prepare("SELECT id FROM cover WHERE booking_id=? AND from_worker_id=? AND status='open'").get(bid,wid)),
     travel: (p, place) => { const areas = safeJson(p.service_areas, []); return BOOKIT_TRAVEL.estimate(areas.length ? areas : [p.suburb], place, 'NSW'); },
     platformEligible, moduleState, blockedPair, planAck, bookingClash
@@ -6195,7 +6197,7 @@ function assignmentIntent(visits) {
     return {id:b.id||null,participant_id:b.participant_id,worker_id:b.worker_id,service:b.service,
       date:b.date,start:b.start,hours:Number(b.hours),sleepover:!!b.sleepover,kind:b.kind||'shift',
       status:b.status||'requested',cover_state:b.cover_state||'',
-      from:p?{suburb:p.suburb,areas:p.service_areas}:null,to:assignmentContext().participantPlace(b.participant_id)};
+      from:p?{suburb:p.suburb,areas:p.service_areas}:null,to:assignmentContext().participantPlace(b.participant_id,b)};
   });
 }
 function assignmentOptions(req,user,body,visits,extra={}) {
@@ -6218,13 +6220,14 @@ function noteOutOfArea(bookingId, fit, who, actor) {
   const next = prev && prev.confirmed_by ? { ...prev, also: [...(prev.also || []), entry] } : entry;
   db.prepare('UPDATE bookings SET out_of_area = ? WHERE id = ?').run(JSON.stringify(next), bookingId);
 }
-async function outOfAreaReply(res, fit) {
+async function outOfAreaPayload(fit) {
   try { fit.travel = await BOOKIT_TRAVEL.withLive(fit.travel); } catch {}
   fit.travel={...(fit.travel||{known:false,reason:'Travel could not be estimated'}),checked_at:fit.travel?.checked_at||now()};
   if (fit.travel.known) fit.error = `Out of area: this visit is ${fit.travel.text}. Confirm to go ahead anyway.`;
   const token=fit.confirmation_context ? TRAVEL_PROOF.issue(fit.confirmation_context,fit.travel) : null;
-  return json(res,409,{...fit,out_of_area_token:token});
+  return {...fit,out_of_area_token:token};
 }
+async function outOfAreaReply(res, fit) { return json(res,409,await outOfAreaPayload(fit)); }
 function safeJsonObj(t) { try { const x = JSON.parse(t); return x && typeof x === 'object' ? x : null; } catch { return null; } }
 function assignmentCheck(wid,b,options={}) {
   const full=assignmentContext().completeBooking(b);
@@ -6743,6 +6746,9 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
     if (!(sh >= 20 || sh <= 1)) return json(res, 400, { error: 'A sleepover starts between 8pm and 1am.' });
   }
   const notes = clean(body.notes, 600);
+  let serviceLocation;
+  try { serviceLocation=SERVICE_LOCATIONS.resolve(pers.id,body.service_location); }
+  catch(e){return json(res,e.status||400,{error:e.message});}
 
   /* --- what has to be true before a first shift can be asked for ---------
 
@@ -6805,7 +6811,7 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   /* The rule and its occurrences are one thing to the participant, so they
      are one write: a failure on the ninth shift leaves no rule and no shifts,
      not a rule with eight. */
-  const assignmentDates = dates.map(date => ({participant_id:pers.id,worker_id:workerId,service,date,start,hours,sleepover,kind:intro?'intro':'shift'}));
+  const assignmentDates = dates.map(date => ({participant_id:pers.id,worker_id:workerId,service,date,start,hours,sleepover,kind:intro?'intro':'shift',service_place:SERVICE_LOCATIONS.placeForBooking({service_location:serviceLocation})}));
   const assignmentProof=assignmentOptions(req,user,body,assignmentDates);
   const assignmentFits=new Map();
   for (const proposed of assignmentDates) { const fit=assignmentCheck(workerId,proposed,assignmentProof); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit); assignmentFits.set(proposed.date,fit); }
@@ -6822,6 +6828,7 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
       const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created, kind, out_of_area) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
         .run(pers.id, workerId, service, d, start, intro ? INTRO_HOURS : hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now(), intro ? 'intro' : 'shift', '');
       const id = Number(r.lastInsertRowid);
+      SERVICE_LOCATIONS.saveBooking(id,serviceLocation,user);
       noteOutOfArea(id,assignmentFits.get(d),'participant',user);
       if (km > 0) applyKm(id, km, clean(body.km_from, 80), clean(body.km_to, 80));
       ids.push(id);
@@ -18147,6 +18154,11 @@ route('DELETE', /^\/api\/admin\/users\/(\d+)$/, (req, res, m, user, body) => {
     recordErasure(mode === 'erase' ? 'user' : 'user-deidentified', u.id, `${u.role} ${u.name} <${u.email}>`, snapshot, reason, user.name);
     removeFiles(u.id);
     if(WORKFLOW)WORKFLOW.closePersonal(u.id);
+    if(SERVICE_LOCATIONS) {
+      db.prepare('DELETE FROM participant_addresses WHERE participant_id=?').run(u.id);
+      db.prepare('DELETE FROM booking_locations WHERE booking_id IN (SELECT id FROM bookings WHERE participant_id=?)').run(u.id);
+      db.prepare('DELETE FROM booking_location_notices WHERE worker_id=? OR booking_id IN (SELECT id FROM bookings WHERE participant_id=?)').run(u.id,u.id);
+    }
     db.prepare('DELETE FROM verification_cases WHERE user_id=?').run(u.id);
     if (mode === 'erase') {
       cascadeErase('users', 'id = ?', [u.id]);
@@ -19269,6 +19281,34 @@ const processContext={db,json,route,actFor,sessionUser,firstBookingBlockers,onbo
  outOfAreaReply,workerPay,suggestCategory,openCover,services:SERVICES,sign,setting,setSetting,payable,billable,
  reviewReferrals,scopeWarning,scopeState:b=>LAUNCH?.scopeState(b),csvCell:BOOKIT_HARDENING.safeSpreadsheetCell,publicAPI:PUBLIC_API,shortNotice,planQuestions:PLAN_QUESTIONS,AI,aiFetch,invoiceFor};
 WORKFLOW=require('./lib/process-store')(processContext);
+SERVICE_LOCATIONS=require('./lib/service-locations')({...processContext,now,sendMail,blockedPair,appUrl:APP_URL,
+  reviewLocationChange:async(req,user,body,b,location)=>{
+    const place=SERVICE_LOCATIONS.placeForBooking({service_location:location});
+    // Arrival-note edits do not restart worker eligibility or travel reviews.
+    if(!b.worker_id||place===SERVICE_LOCATIONS.placeForBooking(b))return {ok:true,preserve_travel:true};
+    const p=assignmentContext().profile(b.worker_id);if(!p)return {ok:true};
+    const areas=safeJson(p.service_areas,[]),effective=areas.length?areas:[p.suburb];
+    if(!place||effective.some(a=>BOOKIT_AVAILABILITY.areaMatches(a,place)))return {ok:true};
+    const proposed={...b,service_place:place},proof=assignmentOptions(req,user,body,[proposed]);
+    const fit={ok:false,confirm:true,code:'out_of_area',travel:assignmentContext().travel(p,place)};
+    Object.defineProperty(fit,'confirmation_context',{value:proof.confirmation_context,enumerable:false});
+    if(!proof.confirmed_travel)return {ok:false,status:409,payload:await outOfAreaPayload(fit)};
+    return {ok:true,fit:{...fit,ok:true,booking:proposed,worker_id:b.worker_id,out_of_area:proof.confirmed_travel,confirmation_context:proof.confirmation_context}};
+  },
+  afterLocationChange:(b,location,user,review)=>{if(review?.preserve_travel)db.prepare('UPDATE bookings SET out_of_area=? WHERE id=?').run(b.out_of_area||'',b.id);else noteOutOfArea(b.id,review?.fit,user.admin?'office':'participant',user);}
+},WORKFLOW);
+WORKFLOW.locationTasks=uid=>{
+  const u=db.prepare('SELECT id,role FROM users WHERE id=?').get(uid),tasks=[];
+  const add=(key,label,destination,detail,due=null)=>tasks.push({task_key:uid+':location:'+key,user_id:uid,kind:'booking',label,owner_kind:'person',destination,detail,scope:u.role==='participant'?'bookings':'',due_at:due});
+  if(u?.role==='participant'){
+    if(!SERVICE_LOCATIONS.profile(uid).complete)add('address','Add your support address','#/account/address','Save your usual meeting place and arrival details when ready.');
+    for(const b of db.prepare("SELECT * FROM bookings WHERE participant_id=? AND status IN ('requested','accepted') AND COALESCE(voided,0)=0 AND date>=?").all(uid,ymd()))if(!SERVICE_LOCATIONS.getPrivate(b.id)?.complete)add(b.id,'Confirm meeting place for '+b.date+' '+b.start,'#/journey?panel=shift&booking='+b.id,'Add the agreed meeting place before the visit.',bookingStart(b).toISOString());
+  }else if(u?.role==='worker'){
+    for(const b of db.prepare("SELECT * FROM bookings WHERE worker_id=? AND status='accepted' AND COALESCE(voided,0)=0").all(uid))if(SERVICE_LOCATIONS.summary(b,u,{url:'/'})?.needs_acknowledgement)add(b.id,'Review changed visit location','#/journey?panel=shift&booking='+b.id,'Check the latest meeting place and arrival details for '+b.date+' '+b.start+'.',bookingStart(b).toISOString());
+  }
+  return tasks;
+};
+everyJob('visit-location-notices',15000,()=>SERVICE_LOCATIONS.tick(),{label:'Visit location updates',why:'Retries private visit change notices without including the address in email previews.'});
 require('./lib/process-routes')(processContext,WORKFLOW);
 INVOICE_FLOW=require('./lib/invoice-lifecycle')({db,now,invoiceFor,recordErasure,sendMail,escHtml,appUrl:APP_URL,stripeRequest,stripeEnabled:()=>!!STRIPE_KEY},WORKFLOW);
 everyJob('checkout-cleanup',15000,()=>INVOICE_FLOW.drain(),{label:'Close retired card links',why:'Closes card checkout links after invoice withdrawal or recorded payment, with durable retries.'});

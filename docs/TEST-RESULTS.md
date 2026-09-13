@@ -1,4 +1,20 @@
-# Validation — v88.4.0
+# Validation — v88.4.1
+
+Verified on 13 September 2026 with Node **22.23.2**.
+
+- The full `npm test` suite passed, including existing payment, billing, security, calendar and task tests. Evidence: `validation/v88.4.1-full-test-output.txt`.
+- New location tests: **60/60 passed** — 25 storage/permission/migration cases, 4 assignment/calendar context cases, 18 interface cases and 13 real HTTP workflows. These include snapshots, helper revocation, blocked workers, accepted/requested disclosure, concurrent saves, signed travel confirmation, changed-location alerts, acknowledgements and account closure.
+- The v88.3.4 upgrade test passed all five acceptance cases across first and repeated startup, preserving records, uploaded file bytes and issued invoice snapshots. Approved backlog processed once; old pending and withdrawn work stayed held. Evidence: `validation/v88.4.1-upgrade-verification.json`.
+- Generated inventories contain **401 routes, 107 tables**, schema **88401**. The source census contains 2,961 explicit controls and 25,315 branches across 80 files, with zero parse errors. These are source controls, not 2,961 active user blockers.
+- The guide has no duplicate IDs or unresolved internal fragments; the supplied corrected travel section is preserved byte-for-byte. New documentation contains no competitor name.
+- Stripe connector read-only verification returned **The Care Web sandbox**, test mode. Its webhook endpoint list is empty. No live account, live charge, receiving-account assignment or real payment was created or changed.
+- Browser navigation to the new local preview returned `ERR_BLOCKED_BY_CLIENT`. Rendered layout, mobile/assistive-technology behaviour and real email delivery remain unverified.
+
+The cumulative ZIP includes the earlier payment implementation. Real bank-transfer reconciliation still needs the receiving-account integration and verified callbacks described in `PAYMENT-SETUP-v88.4.0.md`; connecting a Stripe sandbox does not establish those flows. Worker wage transfers, payroll-provider result feeds and onward business-bank settlement are not claimed by this release.
+
+---
+
+## Historical validation — v88.4.0
 
 Verified on 13 September 2026 using the declared Node **22.23.2** runtime.
 
@@ -15,4 +31,4 @@ Verified on 13 September 2026 using the declared Node **22.23.2** runtime.
 
 No production database, real email recipient or actual money movement was used. The browser navigation attempt returned `ERR_BLOCKED_BY_CLIENT`, so rendered browser layout, mobile/assistive-technology behaviour and live deployment remain unverified. Provider credentials, receiving-account onboarding, real signed callbacks, inbox delivery and onward settlement require the deployment acceptance described in `PAYMENT-SETUP-v88.4.0.md`.
 
-Stripe was connected in ChatGPT during this work, but no callable Stripe account tools were exposed to this session. No claim is made that the live account or its webhook configuration was inspected or changed. The site integration uses its own protected server settings. Zai activation and receiving-account assignments remain required for automatically tracked ordinary bank transfers. Wage transfers, payroll-provider results, payslips, automatic saved-method collection and business-bank settlement feeds are not implemented.
+The earlier payment implementation did not change a live Stripe account or its webhook configuration. The current connection check is recorded above. The site integration uses its own protected server settings. Zai activation and receiving-account assignments remain required for automatically tracked ordinary bank transfers. Wage transfers, payroll-provider results, payslips, automatic saved-method collection and business-bank settlement feeds are not implemented.

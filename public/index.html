@@ -4907,6 +4907,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         </div>
         <p class="muted-sm" id="bkRepeatNote" hidden style="margin:8px 0 0;">One rule, many shifts — you can change the time, the worker or end it whenever you like, and each shift can still be moved on its own.</p>
       </div>
+      <div class="field full" id="bookingServiceLocation"></div>
       <div class="field full"><label for="bkNotes">Anything your worker should know? <span class="hint">(optional)</span></label><textarea id="bkNotes" rows="3"></textarea></div>
       <button type="submit" class="btn btn-primary" id="bkSubmit">Send booking request</button>
     </form>
@@ -5954,7 +5955,7 @@ function renderWorkerGrid(){
     (!f.gender || w.gender === f.gender) &&
     (!f.rating || (w.shifts > 0 && w.rating >= Number(f.rating))) &&
     (!f.ints.length || f.ints.some(t => (w.interests || []).includes(t))) &&
-    (!q || w.name.toLowerCase().includes(q) || w.suburb.toLowerCase().includes(q))
+    (!q || w.name.toLowerCase().includes(q) || w.suburb.toLowerCase().includes(q) || (w.service_areas || []).some(area => String(area).toLowerCase().includes(q)))
   );
   list = list.slice().sort(
     f.sort === 'rating' ? (a, b) => (b.shifts ? b.rating : 0) - (a.shifts ? a.rating : 0)
@@ -6138,6 +6139,7 @@ async function renderWorkerPage(id){
           <div class="wp-fact"><small>Languages</small><b>${esc(w.langs || 'English')}</b></div>
           ${w.gender ? `<div class="wp-fact"><small>Gender</small><b>${esc(w.gender === 'non-binary' ? 'Non-binary' : w.gender[0].toUpperCase() + w.gender.slice(1))}</b></div>` : ''}
         </div>
+        ${window.CareLocations ? CareLocations.workerAreas(w) : ''}
         ${(w.interests || []).length ? `<div style="margin-top:14px;"><small style="display:block;font-size:.82rem;color:#7A6E5F;margin-bottom:6px;">Things ${first} loves</small>${w.interests.map(t => `<span class="wp-int">${esc(t)}</span>`).join('')}</div>` : ''}
       </div>
       </div>
@@ -8185,6 +8187,7 @@ function openBookingModal(w){
   $('#bkDate').value = ymd(tomorrow);
   syncSleepoverOption();
   if(window.CareFlow)CareFlow.restoreBooking();
+  window.CareLocations?.mountChooser(document.getElementById('bookingServiceLocation'));
   openModal('#bookingModal');
 }
 function syncBkRateLine(){
@@ -8223,6 +8226,7 @@ $('#bookingForm').addEventListener('submit', async e => {
       start: $('#bkStart').value,
       hours: Number($('#bkHours').value),
       notes: $('#bkNotes').value,
+      service_location: window.CareLocations?.chooserValue(document.getElementById('bookingServiceLocation')),
       sleepover: $('#bkSleep').checked,
       intro: !!($('#bkIntro') && $('#bkIntro').checked)
     };
@@ -8539,6 +8543,7 @@ async function renderBookingsPage(){
           <label style="font-size:.82rem;">Start<input type="time" data-mv-start="${b.id}" value="${b.start}" style="display:block;font:inherit;padding:6px 8px;border-radius:8px;border:1.5px solid #E2E0DA;margin-top:3px;"></label>
           <button type="button" class="btn btn-primary btn-sm" data-mv-save="${b.id}">Move it</button>
         </div>` : ''}
+        <details class="sl-booking-details" data-service-location-details="${b.id}"><summary>Support location</summary><div data-service-location-booking="${b.id}"></div></details>
         ${outOfAreaHtml(b)}${coverStripHtml(b)}
         ${b.status === 'completed' && b.total ? `<span class="muted-sm"><b>$${Number(b.total).toFixed(2)}</b> — ${b.rate_category === 'sleepover' ? '1 night flat' : b.rate_category==='mixed'?'Itemised by date/time':`${b.hours}h × $${Number(b.unit_price).toFixed(2)}`} (${RATE_LABEL[b.rate_category] || b.rate_category} rate)${b.approval_state === 'approved' ? ' · <b style="color:#1F7A4D;">Approved ✓</b>' : ''}</span>` : ''}
         ${apprPanelHtml(b)}
@@ -8598,6 +8603,7 @@ async function renderBookingsPage(){
       </div>
     </div>`).join('') + reviewAccountCards;
   revealPendingSection();
+  window.CareLocations?.mountList(wrap);
   /* the chain of who's been asked is a second call per shift, so it paints after the list */
   d.bookings.filter(b => b.cover_state === 'finding').forEach(b => paintCoverChain(b.id));
 }
@@ -14367,7 +14373,7 @@ async function renderAccountContent(wrap, isCurrent){
        takes its turn behind a tab — the page stops running. Tabs only exist
        for the groups this role actually has. */
     const apPanes = [
-      ['details', 'Your details', detailsCard + (!me.admin && me.role !== 'coordinator' ? '<div id="miniSharedContacts"></div>' : '')],
+      ['details', 'Your details', detailsCard + (me.role === 'participant' ? '<p class="sl-profile-link"><a href="#/account/address">Address &amp; arrival details →</a></p>' : '') + (!me.admin && me.role !== 'coordinator' ? '<div id="miniSharedContacts"></div>' : '')],
       aboutCards ? ['supports', 'Supports & plan', aboutCards] : null,
       workerCards ? ['public', 'Public profile', workerCards] : null,
       ['privacy', 'Privacy & data', privacyCards],
@@ -14415,6 +14421,10 @@ async function renderAccountContent(wrap, isCurrent){
     S.push(['jobs', 'My job posts', 'Post what you need', '<div id="miniJobs"><p class="muted-sm">Loading…</p></div>']);
   }
 
+  if(me.role === 'participant' && !me.admin || me.role === 'coordinator'){
+    S.push(['address', 'Address & arrival details', 'Support location, parking and access', '<div id="serviceAddressSettings"><p class="muted-sm">Loading your address…</p></div>']);
+  }
+
   if(me.role === 'coordinator'){
     S.push(['statements', 'Invoices & statements', 'Statements for the people you support', '<div id="miniStatements"><p class="muted-sm">Loading…</p></div>']);
   }
@@ -14458,6 +14468,7 @@ async function renderAccountContent(wrap, isCurrent){
 
   /* Build 22: the pane IS the page — no redirects, the real thing renders
      right here (pickWrap points each renderer at the mini container). */
+  if(rowOn === 'address') await window.CareLocations?.mountSettings(document.getElementById('serviceAddressSettings'));
   if(rowOn === 'availability') await BookItReview.renderAvailability();
   if(rowOn === 'billing' || rowOn === 'statements') await renderStatementsPage();
   else if(rowOn === 'documents') await renderPdocsMini();
@@ -15510,6 +15521,8 @@ document.addEventListener('click', async e => {
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
 <script src="/assets/booking-calendar.js?v=88.4.0"></script>
 <script src="/assets/payment-automation.js?v=88.4.0"></script>
+<link rel="stylesheet" href="/assets/service-locations.css?v=88.4.1">
+<script src="/assets/service-locations.js?v=88.4.1"></script>
 <script src="/assets/launch-assurance.js?v=88.3.4"></script>
 <script src="/assets/billing-setup.js?v=88.3.4"></script>
 <script src="/assets/admin-verification.js?v=88.2.5"></script>

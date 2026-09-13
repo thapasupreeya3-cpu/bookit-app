@@ -1,35 +1,32 @@
-THE CARE WEB v88.4.0 PAYMENT AUTOMATION UPDATE
+THE CARE WEB v88.4.1 — CUMULATIVE CHANGED-FILES UPDATE
 
-Apply over v88.3.4, verified source commit 943ad08ec492129ff5bba3169a906812ebafdff9.
-This ZIP contains changed files only. Merge its contents into the existing
-repository root, replacing matching files, then redeploy. Do not replace the
-whole repository with this partial ZIP.
+Apply over v88.3.4 or v88.4.0. This ZIP includes the payment update and the
+participant-address, booking-location and worker-service-area changes.
 
-Preserve the live database, uploaded documents/photos and protected settings.
-Keep a normal pre-update backup and compare any newer/custom repository changes.
-Use Node 22.23.2 (see .nvmrc), npm ci --ignore-scripts, then npm run check.
-The server applies additive migrations at startup. /api/version should show
-88.4.0 and schema 88400. Update a host SCHEMA_VERSION override if present.
+1. Preserve a backup of your existing source, deployed database, uploads,
+   photos and environment settings.
+2. Extract the ZIP and MERGE its files into your existing repository root,
+   replacing matching source files. Do not replace the repository with this
+   partial ZIP and do not delete files absent from it.
+3. Preserve live databases, document/photo folders, secrets and provider keys.
+4. Use Node 22 (>=22.12 <23), install dependencies if required and redeploy.
+5. Check /api/version: APP_VERSION 88.4.1, SCHEMA_VERSION 88401. If your host
+   overrides SCHEMA_VERSION, update that override accordingly.
+6. In Settings, open Address & arrival details. New bookings have a Where will
+   support start? choice. Existing visits retain their own location and may
+   show Confirm meeting place. Missing addresses do not block invoicing.
+7. Validate a participant/helper save, worker acceptance and location update
+   on your deployed site. Local browser rendering and real message delivery
+   remain unverified.
 
-New self-managed/private shifts invoice immediately after worker submission.
-The participant reviews and can approve/pay in the same invoice page.
-Plan-managed and NDIA routing retain required approval and the correct payer.
-Legacy unapproved pending work is not unexpectedly invoiced by installation.
-Existing approved unissued work continues through automatic recovery.
+Payment setup remains one-time environment configuration. See
+  docs/PAYMENT-SETUP-v88.4.0.md
+  docs/STRIPE-CONNECTION-STATUS.md
+The connected Stripe account checked here is a sandbox with no registered
+webhooks. No live payment activation, wage transfer or deployment is claimed.
 
-PAYMENT ACTIVATION
-Read docs/PAYMENT-SETUP-v88.4.0.md. Configure server Stripe keys and its signed
-webhook once; optionally enable account-supported PayTo. Ordinary bank transfer
-matching requires Zai onboarding, credentials, signed webhook and verified
-receiving-account assignments. An existing standard BSB/account transfer is
-not automatically tracked merely by adding a Stripe payment link.
-
-Office: Money > Payment tracking. Participant: Next actions, Bookings or
-Statements > invoice. Worker: Next actions > Pay status.
-Read docs/USER-GUIDE.html, docs/PAYMENT-ALERT-COVERAGE-v88.4.0.md and
-validation/v88.4.0-upgrade-verification.json.
-
-This is source code, not confirmation of deployment or provider activation.
-Live payments, email, browser layout, business-bank settlement and payroll
-provider transfers were not verified. Exports and office payment records are
-labelled accurately; they do not mean the site sent wages.
+User guide: docs/USER-GUIDE.html
+Changes: docs/CHANGELOG-v88.4.1.md
+Privacy/locations: docs/LOCATION-PRIVACY-v88.4.1.md
+Checks: docs/TEST-RESULTS.md
+Full installed-tree hashes: RELEASE-FILES.json

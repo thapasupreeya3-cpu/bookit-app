@@ -1,0 +1,6 @@
+PASS Trusted v88.3.4 archive extracts to a disposable source tree
+PASS Node 22 baseline creates realistic synthetic users, uploads and invoice history
+PASS First v88.4.0 boot preserves users, existing shifts, upload records/bytes and invoice snapshots
+PASS Current catch-up issues approved backlog while old unapproved and withdrawn-held work remains unissued
+PASS Second v88.4.0 boot is idempotent and retains the cutover, invoice numbers and uploaded bytes
+payment upgrade: 5/5 passed

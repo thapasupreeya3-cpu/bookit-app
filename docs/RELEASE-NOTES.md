@@ -1,4 +1,8 @@
-# Current release: v88.4.0
+# Current release: v88.4.1
+
+Private participant addresses, per-visit meeting locations and worker service areas. See [CHANGELOG-v88.4.1.md](CHANGELOG-v88.4.1.md), [LOCATION-PRIVACY-v88.4.1.md](LOCATION-PRIVACY-v88.4.1.md) and [TEST-RESULTS.md](TEST-RESULTS.md). Includes the v88.4.0 payment update.
+
+# Historical release: v88.4.0
 
 See [CHANGELOG-v88.4.0.md](CHANGELOG-v88.4.0.md), [PAYMENT-SETUP-v88.4.0.md](PAYMENT-SETUP-v88.4.0.md) and [TEST-RESULTS.md](TEST-RESULTS.md) for this payment update. Earlier release notes below are historical.
 

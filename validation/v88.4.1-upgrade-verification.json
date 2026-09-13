@@ -1,0 +1,91 @@
+{
+  "runtime": "v22.23.2",
+  "baseline_version": "88.3.4",
+  "target_version": "88.4.1",
+  "scope": "Disposable synthetic database, accounts and uploaded image/document samples; no provider credentials or live financial data.",
+  "baseline_archive_sha256": "d3f133177fdcdfe48c6984ba463209fea04b7cd438c06e3b21f2c398ba69dbb6",
+  "boots": [
+    {
+      "label": "baseline",
+      "version": {
+        "APP_VERSION": "88.3.4",
+        "BUILD_SHA": "development",
+        "BUILD_DATE": "2026-09-12T00:00:00+10:00",
+        "SCHEMA_VERSION": 88304
+      }
+    },
+    {
+      "label": "upgrade-first",
+      "version": {
+        "APP_VERSION": "88.4.1",
+        "BUILD_SHA": "development",
+        "BUILD_DATE": "2026-09-13T00:00:00+10:00",
+        "SCHEMA_VERSION": 88401
+      }
+    },
+    {
+      "label": "upgrade-second",
+      "version": {
+        "APP_VERSION": "88.4.1",
+        "BUILD_SHA": "development",
+        "BUILD_DATE": "2026-09-13T00:00:00+10:00",
+        "SCHEMA_VERSION": 88401
+      }
+    }
+  ],
+  "results": [
+    {
+      "name": "Trusted v88.3.4 archive extracts to a disposable source tree",
+      "result": "PASS"
+    },
+    {
+      "name": "Node 22 baseline creates realistic synthetic users, uploads and invoice history",
+      "result": "PASS"
+    },
+    {
+      "name": "First v88.4.0 boot preserves users, existing shifts, upload records/bytes and invoice snapshots",
+      "result": "PASS"
+    },
+    {
+      "name": "Current catch-up issues approved backlog while old unapproved and withdrawn-held work remains unissued",
+      "result": "PASS"
+    },
+    {
+      "name": "Second v88.4.0 boot is idempotent and retains the cutover, invoice numbers and uploaded bytes",
+      "result": "PASS"
+    }
+  ],
+  "cutover_at": "2026-09-13T05:49:27.671Z",
+  "uploads": [
+    {
+      "relative": "uploads/tpl-p-satisfaction-1789278567080.pdf",
+      "sha256": "7a249ccdd1eb5c864d7b516188dbf9fa90ab8019cdbe02600e6526341c318146",
+      "bytes": 42629
+    },
+    {
+      "relative": "uploads/w3-1789278567482-a56a4fff.png",
+      "sha256": "3f957714532461ddbc05347dec67c77db906c6b7673092891dda98f8ddf167cf",
+      "bytes": 1549
+    },
+    {
+      "relative": "photos/u2-1789278567476.png",
+      "sha256": "3f957714532461ddbc05347dec67c77db906c6b7673092891dda98f8ddf167cf",
+      "bytes": 1549
+    }
+  ],
+  "preserved_snapshot_hashes": [
+    {
+      "invoice_no": "INV-20260913-2",
+      "sha256": "8859eb5eff68cb03953cbc27bed2cee97e81b263950f3beefac037b5156e4b63"
+    },
+    {
+      "invoice_no": "INV-20260913-2-2",
+      "sha256": "d410d320071dd98ba4f59526d7f709d4fc115f367bd99e024f8f3d061f4b4be4"
+    },
+    {
+      "invoice_no": "INV-20260913-2-3",
+      "sha256": "e8abded741632b2b385e7ade202c85ad4f2c88d8ce5ef2e56d1663f11491c282"
+    }
+  ],
+  "status": "PASS"
+}

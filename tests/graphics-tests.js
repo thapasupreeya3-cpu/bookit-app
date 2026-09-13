@@ -45,5 +45,5 @@ t('no story claims claiming is automatic',!html.includes('Claiming is automatic'
 /* the animated site is the one that ships: the hero reel and scene videos are still there */
 t('the hero reel is present',html.includes('id="heroReel"'));
 t('the six scene videos are present',(html.match(/data-scene="/g)||[]).length>=6);
-const ver=require('../lib/version');t('additive payment schema is identified as 88400',ver.SCHEMA_VERSION===88400);
+const ver=require('../lib/version');t('additive payment schema is identified as 88401',ver.SCHEMA_VERSION===88401);
 console.log(`graphics: ${total-failed}/${total} passed`);process.exitCode=failed?1:0;

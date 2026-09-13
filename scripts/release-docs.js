@@ -41,7 +41,16 @@ remain deliberate stops. Invoice mail retries automatically with visible status.
 Email transport must be configured; queued does not mean sent or paid.
 The complete source register is docs/block-register/index.html, with CSV/JSON and
 all conditional branches. docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
-See docs/CHANGELOG-v88.4.0.md and docs/USER-GUIDE.html.
+See docs/CHANGELOG-v88.4.1.md and docs/USER-GUIDE.html.
+
+ADDRESSES AND VISIT LOCATIONS
+Participants can save private address and arrival details in Settings. Bookings
+keep independent location snapshots, with saved/other/community/confirm-later
+choices. Assigned workers see the area before acceptance and exact meeting
+details after acceptance. Explicit changes queue generic notices and a worker
+review task without changing the booking status. No new billing gate is added.
+Worker profiles show their declared service areas; no live location is tracked.
+See docs/LOCATION-PRIVACY-v88.4.1.md and the updated USER-GUIDE.html.
 
 PAYMENT TRACKING
 Invoices link to a protected payment page. Provider confirmations update balances
@@ -131,8 +140,8 @@ CONFIGURATION BEFORE USE
 INSTALL / UPDATE
 1. Back up the deployed database, documents, photos and configuration using the
    existing authorised backup process. Keep the previous source for rollback.
-2. Extract the ZIP. Work with the CONTENTS of bookit-app-main at the repository
-   root; do not upload an enclosing folder inside the existing project.
+2. Extract the changed-files ZIP and merge its files at the repository root.
+   Do not upload an enclosing folder inside the existing project.
 3. Compare any newer repository changes before replacing source. Include all
    source/configuration files from this package, including the CI workflow.
 4. Runtime databases, uploaded documents/photos, secrets and node_modules are
@@ -173,8 +182,7 @@ docs/history/ — historical receipts, not current deployment instructions
 `;
 const readme=`The Care Web v${pkg.version} — complete source package.
 
-Extract ${meta.output_archive}; use the contents of bookit-app-main at the
-repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
+Extract ${meta.output_archive}; merge its files at the repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
 This release implements launch-audit source corrections and updates the full user guide.
 NSW holidays and ordinary invoicing are automatic. Independently reviewed payroll
 components remain required; preparing/exporting payroll does not transfer wages.
