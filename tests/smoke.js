@@ -417,7 +417,7 @@ async function main() {
     t('a shift on an invoice cannot be removed until the invoice is withdrawn', stuck.status === 409 && /Withdraw the invoice/.test(stuck.json.error), stuck.status + ' ' + (stuck.json && stuck.json.error));
     const wd = await req('POST', '/api/admin/invoices/INV-TEST-WD/withdraw', { headers: J2, cookie: ac2, body: { reason: 'Invoice raised on a trial shift; withdrawing it before removing the shift.' } });
     t('the invoice can be withdrawn with a reason', wd.status === 200 && wd.json.lines === 1 && !db.prepare('SELECT invoice_no FROM bookings WHERE id = ?').get(wdId).invoice_no, wd.status + ' ' + (wd.json && wd.json.error));
-    t('… and the participant no longer sees it', !(await req('GET', '/api/me/invoices', { cookie: pc })).json.invoices.some(i => i.invoice_no === 'INV-TEST-WD'));
+    t('… and the participant sees withdrawn history with nothing to pay', (await req('GET', '/api/me/invoices', { cookie: pc })).json.invoices.some(i => i.invoice_no === 'INV-TEST-WD' && i.status === 'withdrawn' && i.balance === 0 && !i.pay_url));
     /* the withdrawn line is held: Run does not re-invoice it, and it says so */
     const rerun = await req('POST', '/api/admin/claims/run', { headers: J2, cookie: ac2, body: {} });
     t('running claims again does not re-invoice the withdrawn shift', rerun.status === 200 && !db.prepare('SELECT invoice_no FROM bookings WHERE id = ?').get(wdId).invoice_no && rerun.json.needs.some(n => n.id === wdId && n.flags.some(f => /^held/.test(f))), rerun.status + ' ' + JSON.stringify(rerun.json.needs).slice(0, 160));

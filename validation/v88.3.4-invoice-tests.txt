@@ -1,0 +1,14 @@
+PASS The previous confirmation bug is reproducible: a missing focus variable prevents resolution
+PASS The actual withdrawal dialog resolves with its reason and restores the invoking button
+PASS Cancel and Escape settle cleanly without an invoice mutation
+PASS Validation stays in the dialog; failed focus restoration cannot prevent submission
+PASS Opening another removal dialog settles the earlier promise
+PASS The actual invoice click handler waits for confirmation, submits once and reports the API outcome
+PASS Withdrawal stores the original invoice, cancels queued demand and creates one original-payer notice
+PASS Notification queue failure rolls back withdrawal and holds together
+PASS Checkout expiration is requested and an already-expired session is confirmed by retrieval
+PASS Provider failures retain a durable retry without undoing withdrawal
+PASS Checkout completion racing withdrawal becomes reconciliation, not a new invoice payment
+PASS A late-created checkout after withdrawal is retired and never attached to a replacement invoice
+PASS Partial-payment hooks remove stale full-value links and queue their closure
+invoice lifecycle: 13/13 passed

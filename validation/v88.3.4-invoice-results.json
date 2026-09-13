@@ -1,0 +1,61 @@
+{
+  "runtime": "v24.19.0",
+  "results": [
+    {
+      "name": "The previous confirmation bug is reproducible: a missing focus variable prevents resolution",
+      "result": "PASS"
+    },
+    {
+      "name": "The actual withdrawal dialog resolves with its reason and restores the invoking button",
+      "result": "PASS"
+    },
+    {
+      "name": "Cancel and Escape settle cleanly without an invoice mutation",
+      "result": "PASS"
+    },
+    {
+      "name": "Validation stays in the dialog; failed focus restoration cannot prevent submission",
+      "result": "PASS"
+    },
+    {
+      "name": "Opening another removal dialog settles the earlier promise",
+      "result": "PASS"
+    },
+    {
+      "name": "The actual invoice click handler waits for confirmation, submits once and reports the API outcome",
+      "result": "PASS"
+    },
+    {
+      "name": "Withdrawal stores the original invoice, cancels queued demand and creates one original-payer notice",
+      "result": "PASS"
+    },
+    {
+      "name": "Notification queue failure rolls back withdrawal and holds together",
+      "result": "PASS"
+    },
+    {
+      "name": "Checkout expiration is requested and an already-expired session is confirmed by retrieval",
+      "result": "PASS"
+    },
+    {
+      "name": "Provider failures retain a durable retry without undoing withdrawal",
+      "result": "PASS"
+    },
+    {
+      "name": "Checkout completion racing withdrawal becomes reconciliation, not a new invoice payment",
+      "result": "PASS"
+    },
+    {
+      "name": "A late-created checkout after withdrawal is retired and never attached to a replacement invoice",
+      "result": "PASS"
+    },
+    {
+      "name": "Partial-payment hooks remove stale full-value links and queue their closure",
+      "result": "PASS"
+    },
+    {
+      "name": "Late Stripe payment and refund events retain the withdrawn invoice reference for reconciliation",
+      "result": "PASS"
+    }
+  ]
+}

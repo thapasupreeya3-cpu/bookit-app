@@ -1,6 +1,6 @@
-The Care Web v88.3.2 — complete source package.
+The Care Web v88.3.4 — complete source package.
 
-Extract The-Care-Web-v88.3.2-source.zip; use the contents of bookit-app-main at the
+Extract The-Care-Web-v88.3.4-invoice-flow-update-only.zip; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
 This release implements launch-audit source corrections and updates the full user guide.
 Current billing-rule review and independently reviewed payroll components are required.

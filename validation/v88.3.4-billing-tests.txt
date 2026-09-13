@@ -1,0 +1,58 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> bookit-site-v65@88.3.4 test:billing
+> node --no-warnings tests/automatic-billing-unit.js && node --no-warnings tests/billing-flow-tests.js && node --no-warnings tests/invoice-lifecycle-tests.js
+
+PASS A government source outage preserves the complete bundled calendar without a billing hold
+PASS Statutory fallback follows NSW substitution rules and does not invent future Anzac substitutes
+PASS Local public holidays apply only to the named place and published hours
+PASS Official table parser accepts complete data and rejects incomplete page redesigns
+PASS A failed refresh does not delete previously cached official dates
+PASS Incident business-day calendars include automatic state holidays without office setup
+PASS Invoice failures enter durable backoff and recover after a queue restart
+PASS Unissued work released after a withdrawal is eligible for automatic reprocessing
+PASS Invoice emails bypass digest and quiet hours, preserve attachments and retry beyond five failures
+PASS An unconfigured email provider leaves messages queued for automatic recovery
+PASS A withdrawn invoice cannot resume a stale demand email, while its withdrawal notice still sends
+PASS Resend transport receives a stable idempotency key across invoice retries
+automatic billing unit: 12 passed
+PASS The reported Saturday needs no finance review or holiday setup
+PASS Automatic holiday rates use official substitute dates and exclude the bank-only holiday
+PASS Date and time transitions become itemised lines, not manual holds
+PASS Ordinary weekday overnight support and post-holiday early hours use the night category
+PASS DST prices actual elapsed hours and rejects nonexistent starts before booking
+PASS Worker completion calculates the charge and keeps approval with the participant
+PASS Participant approval creates the invoice and attached queued email without an admin run
+PASS Double approval and concurrent catch-up runs do not duplicate invoice or email
+PASS A queried timesheet is never automatically invoiced
+PASS Missing payer data resumes automatically once the profile is corrected
+PASS Old finance review expiry and absent manual calendar cannot stop approved invoices
+PASS Issued invoice contents are immutable after calendar, profile and rule changes
+PASS An itemised correction remains valid when its participant approves the timesheet
+PASS NDIA approval automatically prepares distinct time-band lines in the actual claim export
+PASS Billing queue and retry endpoints are office-only; disabled email reports queued, never sent
+PASS Withdrawal cancels queued demand, preserves the snapshot and holds every line
+PASS Repeated withdrawal is idempotent and neither manual nor automatic runs reissue held lines
+PASS Withdrawn invoice history and PDF remain scoped, show do not pay and add no amount owing
+PASS Releasing a held shift automatically creates a fresh invoice number and separate email
+PASS Plan-managed withdrawal goes to the original payer even after profile changes
+PASS Partial receipts keep accurate balances and cannot be bypassed by per-shift Mark paid
+PASS Overpayment stays in reconciliation and is never labelled paid or silently withdrawn
+PASS Withdrawal requires office access and a recorded reason
+PASS Legacy per-shift paid markers preserve the partial invoice balance during upgrade
+billing: 24/24 passed
+PASS The previous confirmation bug is reproducible: a missing focus variable prevents resolution
+PASS The actual withdrawal dialog resolves with its reason and restores the invoking button
+PASS Cancel and Escape settle cleanly without an invoice mutation
+PASS Validation stays in the dialog; failed focus restoration cannot prevent submission
+PASS Opening another removal dialog settles the earlier promise
+PASS The actual invoice click handler waits for confirmation, submits once and reports the API outcome
+PASS Withdrawal stores the original invoice, cancels queued demand and creates one original-payer notice
+PASS Notification queue failure rolls back withdrawal and holds together
+PASS Checkout expiration is requested and an already-expired session is confirmed by retrieval
+PASS Provider failures retain a durable retry without undoing withdrawal
+PASS Checkout completion racing withdrawal becomes reconciliation, not a new invoice payment
+PASS A late-created checkout after withdrawal is retired and never attached to a replacement invoice
+PASS Partial-payment hooks remove stale full-value links and queue their closure
+PASS Late Stripe payment and refund events retain the withdrawn invoice reference for reconciliation
+invoice lifecycle: 14/14 passed

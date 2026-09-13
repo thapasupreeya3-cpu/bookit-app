@@ -1,0 +1,21 @@
+PASS Office, participant follow-up and website maintenance have distinct responsibility and destinations
+PASS Time deadlines use Sydney midnight while document dates retain calendar-day meaning
+PASS Person reminders stay blue; missing due dates do not invent urgency
+PASS Specific actions lead to messages, payroll, recruitment, support and incidents
+PASS The queue filters responsibility before pagination, sorts urgency and searches displayed subject
+PASS Task rows expose next step and status without requiring details to be opened
+PASS Participant follow-ups have no office assignment form or admin implication
+PASS Website tasks show the website rather than the admin name; all supplied content is escaped
+PASS Empty office view keeps the other counts visible and makes no claim that their work is complete
+PASS Pagination retains the active responsibility view
+PASS Personal first-visit feedback is explicitly optional rather than a missing requirement
+PASS Text on all task status colours meets 4.5:1 contrast
+PASS Missing hostname requests hosting setup; no handshake is attempted for a local or unsafe origin
+PASS A healthy certificate clears the alert and cached checks do not repeat before their next due time
+PASS Certificate expiry produces a dated renewal task and renewal clears it automatically
+PASS Transient failures retry automatically; repeated failures become one clear technical alert
+PASS Certificate trust failures alert immediately and successful recovery clears them
+PASS A stopped scheduler cannot leave a healthy badge indefinitely
+PASS Probe rejects private DNS answers and validates hostname with TLS trust enabled
+PASS DNS and TLS stalls time out; a late DNS result cannot open a connection
+task clarity: 20/20 passed

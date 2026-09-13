@@ -1,0 +1,20 @@
+[
+  {
+    "file": "/workspace/scratch/7b8cb20b9fa3/invoice-flow/source/bookit-app-main/docs/USER-GUIDE.html",
+    "ids": 64,
+    "inline_scripts": 1,
+    "anchors": "PASS"
+  },
+  {
+    "file": "/workspace/scratch/7b8cb20b9fa3/invoice-flow/source/bookit-app-main/docs/invoice-flow-preview.html",
+    "ids": 4,
+    "inline_scripts": 1,
+    "anchors": "not applicable"
+  },
+  {
+    "file": "/workspace/scratch/7b8cb20b9fa3/invoice-flow/source/bookit-app-main/docs/block-register/index.html",
+    "ids": 5,
+    "inline_scripts": 1,
+    "anchors": "not applicable"
+  }
+]

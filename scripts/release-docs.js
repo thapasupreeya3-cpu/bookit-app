@@ -38,7 +38,23 @@ remain deliberate stops. Invoice mail retries automatically with visible status.
 Email transport must be configured; queued does not mean sent or paid.
 The complete source register is docs/block-register/index.html, with CSV/JSON and
 all conditional branches. docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
-See docs/CHANGELOG-v88.3.2.md and docs/USER-GUIDE.html.
+See docs/CHANGELOG-v88.3.4.md and docs/USER-GUIDE.html.
+
+INVOICE WITHDRAWAL
+Withdraw invoice confirms and submits correctly. Each invoice has one Record
+payment action. Withdrawal keeps its snapshot and history, cancels queued demand
+mail, queues notice to the original payer and holds its shifts until released.
+Reissue uses a fresh invoice number. Retired card links close with durable retries.
+Partial payments show the remaining balance; paid invoices require payment review
+before withdrawal. NDIA claims appear separately from participant invoices.
+
+CLEAR TASKS
+Office actions, Waiting on people and Website checks have separate views.
+Every row shows responsibility, status and next step; buttons name the action.
+Red: urgent/overdue. Amber: action required. Blue: waiting. Labels accompany colour.
+Website HTTPS certificates are checked automatically from APP_URL. Healthy checks
+clear alerts; connection failures retry hourly. Hosting handles certificate renewal.
+See docs/task-clarity-preview.html for interactive fictional examples.
 
 NAVIGATION AND WEBSITE USABILITY
 The header shows three or four primary tasks for the signed-in role.

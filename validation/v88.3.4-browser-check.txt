@@ -1,0 +1,1 @@
+Browser skill: Chrome navigation to http://localhost:3096/docs/invoice-flow-preview.html failed with ERR_BLOCKED_BY_CLIENT. No alternate mechanism was used to bypass the block. Native browser layout and real provider validation are not claimed.

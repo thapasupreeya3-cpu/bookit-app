@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "checks": [
+    "Actual renderer in standalone preview",
+    "Office urgent and ordinary actions",
+    "Waiting on participant",
+    "Website subject",
+    "All-clear state",
+    "Theme example control"
+  ],
+  "limit": "VM interactions only; native browser layout unavailable"
+}

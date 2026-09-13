@@ -1,0 +1,85 @@
+{
+  "runtime": "v24.19.0",
+  "results": [
+    {
+      "name": "Office, participant follow-up and website maintenance have distinct responsibility and destinations",
+      "result": "PASS"
+    },
+    {
+      "name": "Time deadlines use Sydney midnight while document dates retain calendar-day meaning",
+      "result": "PASS"
+    },
+    {
+      "name": "Person reminders stay blue; missing due dates do not invent urgency",
+      "result": "PASS"
+    },
+    {
+      "name": "Specific actions lead to messages, payroll, recruitment, support and incidents",
+      "result": "PASS"
+    },
+    {
+      "name": "The queue filters responsibility before pagination, sorts urgency and searches displayed subject",
+      "result": "PASS"
+    },
+    {
+      "name": "Task rows expose next step and status without requiring details to be opened",
+      "result": "PASS"
+    },
+    {
+      "name": "Participant follow-ups have no office assignment form or admin implication",
+      "result": "PASS"
+    },
+    {
+      "name": "Website tasks show the website rather than the admin name; all supplied content is escaped",
+      "result": "PASS"
+    },
+    {
+      "name": "Empty office view keeps the other counts visible and makes no claim that their work is complete",
+      "result": "PASS"
+    },
+    {
+      "name": "Pagination retains the active responsibility view",
+      "result": "PASS"
+    },
+    {
+      "name": "Personal first-visit feedback is explicitly optional rather than a missing requirement",
+      "result": "PASS"
+    },
+    {
+      "name": "Text on all task status colours meets 4.5:1 contrast",
+      "result": "PASS"
+    },
+    {
+      "name": "Missing hostname requests hosting setup; no handshake is attempted for a local or unsafe origin",
+      "result": "PASS"
+    },
+    {
+      "name": "A healthy certificate clears the alert and cached checks do not repeat before their next due time",
+      "result": "PASS"
+    },
+    {
+      "name": "Certificate expiry produces a dated renewal task and renewal clears it automatically",
+      "result": "PASS"
+    },
+    {
+      "name": "Transient failures retry automatically; repeated failures become one clear technical alert",
+      "result": "PASS"
+    },
+    {
+      "name": "Certificate trust failures alert immediately and successful recovery clears them",
+      "result": "PASS"
+    },
+    {
+      "name": "A stopped scheduler cannot leave a healthy badge indefinitely",
+      "result": "PASS"
+    },
+    {
+      "name": "Probe rejects private DNS answers and validates hostname with TLS trust enabled",
+      "result": "PASS"
+    },
+    {
+      "name": "DNS and TLS stalls time out; a late DNS result cannot open a connection",
+      "result": "PASS"
+    }
+  ]
+}

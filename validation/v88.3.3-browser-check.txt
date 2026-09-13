@@ -1,0 +1,1 @@
+Browser skill used; existing Chrome browser session. Navigating to http://localhost:3095/docs/task-clarity-preview.html returned ERR_BLOCKED_BY_CLIENT. No native browser layout, keyboard or live certificate validation claimed.

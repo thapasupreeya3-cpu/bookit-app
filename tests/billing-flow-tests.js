@@ -43,4 +43,55 @@ function totp(){const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567',bits=secret.sp
  await test('An itemised correction remains valid when its participant approves the timesheet',async()=>{const id=booking({date:'2026-09-08',status:'completed',approval_state:'pending',total:null});const x=ok(await req('GET','/api/admin/assurance',admin.cookie)).billing.find(x=>x.booking.id===id);ok(await req('POST','/api/admin/assurance/billing/'+id,admin.cookie,{context_hash:x.context_hash,reference:'SYNTHETIC-AGREED-CHARGE',reason:'Synthetic correction to agreed hours and charge, checked before participant approval.',lines:[{item:'01_011_0107_1_1',description:'Synthetic agreed personal support',qty:2,rate:70}],confirm:true}));ok(await req('PATCH','/api/bookings/'+id,p.cookie,{status:'approved'}));const no=await waitFor(()=>db.prepare('SELECT invoice_no FROM bookings WHERE id=?').get(id).invoice_no);const snap=JSON.parse(db.prepare('SELECT data FROM invoice_snapshots WHERE invoice_no=?').get(no).data);assert.equal(snap.total,140);assert.equal(snap.lines[0].rate,70);});
  await test('NDIA approval automatically prepares distinct time-band lines in the actual claim export',async()=>{const q=await quote({date:'2026-09-18',start:'23:00',hours:3});db.prepare("UPDATE users SET plan='ndia',ndis_number='123456789' WHERE id=?").run(p.id);const id=booking({date:'2026-09-18',start:'23:00',hours:3,service:'personal-care',status:'completed',approval_state:'pending',rate_category:'mixed',total:q.total,unit_price:q.total/3,automatic_invoice_lines:JSON.stringify(q.lines)});ok(await req('PATCH','/api/bookings/'+id,p.cookie,{status:'approved'}));await waitFor(()=>db.prepare('SELECT claim_status FROM bookings WHERE id=?').get(id).claim_status==='claimed');const csv=await req('GET','/api/admin/claims/pace.csv',admin.cookie);ok(csv);const lines=csv.text.split(/\r?\n/).filter(l=>l.includes('BK'+id+'L'));assert.equal(lines.length,2);assert.match(lines[0],/01_015_0107_1_1/);assert.match(lines[0],/81.07/);assert.match(lines[1],/01_013_0107_1_1/);assert.match(lines[1],/103.54/);db.prepare("UPDATE users SET plan='self' WHERE id=?").run(p.id);});
  await test('Billing queue and retry endpoints are office-only; disabled email reports queued, never sent',async()=>{ok(await req('GET','/api/admin/billing/automation',p.cookie),403);ok(await req('POST','/api/admin/billing/retry',worker.cookie,{}),403);const s=ok(await req('GET','/api/admin/billing/automation',admin.cookie));assert.equal(s.enabled,true);assert.equal(s.email_enabled,false);assert.equal(db.prepare('SELECT status FROM delivery_outbox WHERE event_key=?').get('invoice:'+invoice).status,'queued');});
+
+ const reason='Synthetic test invoice withdrawn after checking the record.';
+ await test('Withdrawal cancels queued demand, preserves the snapshot and holds every line',async()=>{
+  const before=db.prepare('SELECT data FROM invoice_snapshots WHERE invoice_no=?').get(invoice).data;
+  const result=ok(await req('POST','/api/admin/invoices/'+invoice+'/withdraw',admin.cookie,{reason}));assert.equal(result.held,true);assert.equal(result.notice,'queued');
+  const b=db.prepare('SELECT * FROM bookings WHERE id=?').get(completed);assert.equal(b.invoice_no,'');assert.equal(b.claim_hold,1);assert.equal(b.claim_status,'');
+  assert.equal(db.prepare('SELECT data FROM invoice_snapshots WHERE invoice_no=?').get(invoice).data,before);
+  assert.equal(db.prepare('SELECT status FROM delivery_outbox WHERE event_key=?').get('invoice:'+invoice).status,'cancelled');
+  const notice=db.prepare('SELECT * FROM delivery_outbox WHERE event_key=?').get('invoice-withdrawal:'+invoice);assert.equal(notice.status,'queued');assert.equal(notice.urgent,1);assert.equal(notice.recipient,p.email);
+ });
+ await test('Repeated withdrawal is idempotent and neither manual nor automatic runs reissue held lines',async()=>{
+  const repeat=ok(await req('POST','/api/admin/invoices/'+invoice+'/withdraw',admin.cookie,{reason}));assert.equal(repeat.duplicate,true);assert.equal(db.prepare('SELECT count(*) n FROM invoice_withdrawals WHERE invoice_no=?').get(invoice).n,1);
+  assert.equal(db.prepare('SELECT count(*) n FROM delivery_outbox WHERE event_key=?').get('invoice-withdrawal:'+invoice).n,1);
+  ok(await req('POST','/api/admin/claims/run',admin.cookie,{}));ok(await req('POST','/api/admin/billing/retry',admin.cookie,{}));assert.equal(db.prepare('SELECT invoice_no FROM bookings WHERE id=?').get(completed).invoice_no,'');
+ });
+ await test('Withdrawn invoice history and PDF remain scoped, show do not pay and add no amount owing',async()=>{
+  const list=ok(await req('GET','/api/me/invoices',p.cookie)),entry=list.invoices.find(i=>i.invoice_no===invoice);assert.equal(entry.status,'withdrawn');assert.equal(entry.balance,0);assert.equal(entry.pay_url,'');
+  const pdf=okPdf(await req('GET','/api/me/invoices/'+invoice+'.pdf',p.cookie));assert.match(pdf,/WITHDRAWN/);assert.match(pdf,/DO NOT PAY/);
+  ok(await req('GET','/api/me/invoices/'+invoice+'.pdf',other.cookie),403);ok(await req('GET','/api/me/invoices/'+invoice+'.pdf',worker.cookie),403);
+  ok(await req('POST','/api/admin/invoices/'+invoice+'/paid',admin.cookie,{amount:10,reference:'WITHDRAWN-NO-PAY',note:'Synthetic payment test',confirm:true}),404);
+  assert.match((await req('GET','/api/admin/invoice-register.csv',admin.cookie)).text,/withdrawn/);
+ });
+ function okPdf(r){ok(r);assert.match(r.headers.get('content-type'),/pdf/);return r.bytes.toString();}
+ await test('Releasing a held shift automatically creates a fresh invoice number and separate email',async()=>{
+  ok(await req('POST','/api/admin/claims/'+completed+'/release',admin.cookie,{}));const replacement=await waitFor(()=>db.prepare('SELECT invoice_no FROM bookings WHERE id=?').get(completed).invoice_no);assert.notEqual(replacement,invoice);
+  assert.equal(db.prepare('SELECT status FROM delivery_outbox WHERE event_key=?').get('invoice:'+invoice).status,'cancelled');assert.ok(db.prepare('SELECT 1 FROM delivery_outbox WHERE event_key=?').get('invoice:'+replacement));
+ });
+ const issue=async(extra={})=>{const id=booking({date:'2026-09-07',status:'completed',approval_state:'approved',total:147.16,unit_price:73.58,...extra});ok(await req('POST','/api/admin/billing/retry',admin.cookie,{}));const no=await waitFor(()=>db.prepare('SELECT invoice_no FROM bookings WHERE id=?').get(id).invoice_no);return {id,no};};
+ await test('Plan-managed withdrawal goes to the original payer even after profile changes',async()=>{
+  db.prepare("UPDATE users SET plan='plan',pm_email='original-payer@example.test' WHERE id=?").run(p.id);const x=await issue();db.prepare("UPDATE users SET pm_email='changed-payer@example.test' WHERE id=?").run(p.id);
+  ok(await req('POST','/api/admin/invoices/'+x.no+'/withdraw',admin.cookie,{reason}));assert.equal(db.prepare('SELECT recipient FROM delivery_outbox WHERE event_key=?').get('invoice-withdrawal:'+x.no).recipient,'original-payer@example.test');db.prepare("UPDATE users SET plan='self' WHERE id=?").run(p.id);
+ });
+ await test('Partial receipts keep accurate balances and cannot be bypassed by per-shift Mark paid',async()=>{
+  const x=await issue();const proof={amount:50,reference:'SYNTHETIC-PARTIAL-50',note:'Synthetic partial bank receipt matched to the invoice.',confirm:true};const r=ok(await req('POST','/api/admin/invoices/'+x.no+'/paid',admin.cookie,proof));assert.equal(r.paid,50);assert.equal(r.balance,97.16);
+  ok(await req('POST','/api/admin/claims/'+x.id+'/paid',admin.cookie,{paid:true}),409);const again=ok(await req('POST','/api/admin/invoices/'+x.no+'/paid',admin.cookie,proof));assert.equal(again.duplicate,true);
+  const denied=ok(await req('POST','/api/admin/invoices/'+x.no+'/withdraw',admin.cookie,{reason}),409);assert.match(denied.error,/recorded payment/);
+  const claims=await req('GET','/api/admin/claims',admin.cookie);const inv=ok(claims).invoices.find(i=>i.invoice_no===x.no);assert.equal(inv.balance,97.16);const board=claims.data;assert.equal(board.totals.claimed,Math.round((board.invoices.reduce((n,i)=>n+i.balance,0)+board.claimed.filter(b=>!b.invoice_no).reduce((n,b)=>n+b.charge_total,0))*100)/100);
+  const rendered=ui.CareBilling.invoiceList([inv],[]);assert.match(rendered,/Part paid/);assert.match(rendered,/Record payment/);assert.ok(!rendered.includes('data-claim-paid'));assert.ok(!rendered.includes('data-inv-withdraw'));
+ });
+ await test('Overpayment stays in reconciliation and is never labelled paid or silently withdrawn',async()=>{
+  const x=await issue();const result=ok(await req('POST','/api/admin/invoices/'+x.no+'/paid',admin.cookie,{amount:200,reference:'SYNTHETIC-OVERPAYMENT',note:'Synthetic amount intentionally exceeds the invoice.',confirm:true}));assert.equal(result.state,'exception');assert.equal(result.balance,147.16);
+  const denied=ok(await req('POST','/api/admin/invoices/'+x.no+'/withdraw',admin.cookie,{reason}),409);assert.match(denied.error,/unmatched payment/);
+ });
+ await test('Withdrawal requires office access and a recorded reason',async()=>{
+  const x=await issue();ok(await req('POST','/api/admin/invoices/'+x.no+'/withdraw',p.cookie,{reason}),403);ok(await req('POST','/api/admin/invoices/'+x.no+'/withdraw',worker.cookie,{reason}),403);ok(await req('POST','/api/admin/invoices/'+x.no+'/withdraw',admin.cookie,{reason:'short'}),400);assert.equal(db.prepare('SELECT invoice_no FROM bookings WHERE id=?').get(x.id).invoice_no,x.no);
+ });
+ await test('Legacy per-shift paid markers preserve the partial invoice balance during upgrade',async()=>{
+  const no='INV-LEGACY-PARTIAL';booking({date:'2026-09-06',status:'completed',approval_state:'approved',claim_status:'paid',invoice_no:no,claimed_at:stamp,total:50,unit_price:25});booking({date:'2026-09-06',status:'completed',approval_state:'approved',claim_status:'claimed',invoice_no:no,claimed_at:stamp,total:100,unit_price:50});
+  const first=(await claims()).invoices.find(i=>i.invoice_no===no);assert.equal(first.total,150);assert.equal(first.paid,50);assert.equal(first.balance,100);ok(await req('POST','/api/admin/invoices/'+no+'/withdraw',admin.cookie,{reason}),409);
+  const result=ok(await req('POST','/api/admin/invoices/'+no+'/paid',admin.cookie,{amount:50,reference:'LEGACY-NEW-RECEIPT',note:'Synthetic receipt after retaining the legacy payment.',confirm:true}));assert.equal(result.paid,100);assert.equal(result.balance,50);assert.equal(db.prepare("SELECT amount FROM invoice_payment_evidence WHERE invoice_no=? AND state='opening'").get(no).amount,50);
+ });
 }finally{if(db)db.close();if(child&&child.exitCode===null){const exited=new Promise(r=>child.once('exit',r));child.kill();await exited;}if(process.env.BILLING_RESULTS)fs.writeFileSync(process.env.BILLING_RESULTS,JSON.stringify({runtime:process.version,scope:'Disposable synthetic accounts; no external services or real approvals',results,serverLog:log},null,2));fs.rmSync(DIR,{recursive:true,force:true});console.log(`billing: ${results.filter(x=>x.result==='PASS').length}/${results.length} passed`);if(results.some(x=>x.result==='FAIL'))process.exitCode=1;}})().catch(e=>{console.error(e);process.exitCode=1;});

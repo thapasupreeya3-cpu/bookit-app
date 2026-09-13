@@ -1,39 +1,45 @@
-THE CARE WEB v88.3.2 — AUTOMATION UPDATE
+THE CARE WEB v88.3.4 — INVOICE FLOW UPDATE
 
-Applies over the supplied v88.3.0 OR v88.3.1 source. 65 changed/new files.
-Unchanged media, fonts and PDF viewer assets are excluded.
+Apply over v88.3.0, v88.3.1, v88.3.2 or v88.3.3. 103 changed or added project files.
 
-1. Keep a verified backup of your database, uploads, configuration and previous source.
-2. EXTRACT the ZIP. Merge its CONTENTS into your existing repository ROOT, replacing
-   matching files and keeping all other folder contents. Do not upload the ZIP itself.
-   Do not replace an entire existing folder with the partial folder in this update.
-3. Preserve runtime data and any separate work made after the supplied baselines.
-   No source files need deleting. Install dependencies using your usual lockfile workflow.
-4. Redeploy and refresh. /api/version defaults to 88.3.2, schema 88302.
-   Preserve the service timezone Australia/Sydney. New schema: 92 tables, 386 routes.
-5. Participant approval now triggers invoice/PDF-email processing automatically.
-   Existing approved unissued visits are also recovered after restart. Explicit holds,
-   disputes and invalid payer/charge data still need their specific issue resolved.
-6. There is NO holiday-review or blanket finance-approval setup checkbox to complete.
-   NSW dates refresh automatically with saved/statutory fallback. Email must have a
-   working configured transport; queued messages resume when it is available.
+1. Extract the ZIP.
+2. Merge its contents into your EXISTING repository ROOT, replacing matching files
+   and preserving all other folder contents. Do not replace an entire folder with
+   a partial update folder. Do not upload the ZIP itself.
+3. Redeploy and refresh. Keep your database, uploads, configuration and backups.
 
-Read docs/CHANGELOG-v88.3.2.md, docs/USER-GUIDE.html and docs/BLOCKS-AND-AUTOMATION.md.
-The complete searchable source register is docs/block-register/index.html; its
-CSV/JSON and full branch census are in that folder. Entries include nonblocking
-statuses for completeness; this is not a claim about every live production setting.
+Version 88.3.4; schema 88304; 386 routes; 94 tables. No deletions.
+Unchanged media, fonts, viewer assets, dependencies and runtime data are excluded.
 
-All automated suites passed, including 26 billing checks and two upgrade boots.
-The browser refused local preview; native browser/Node 22/live service acceptance
-remain unverified. Existing approved charges and invoice snapshots are preserved.
-No live deployment, real message delivery or payment was performed here.
+The previous task-layout update is included; no separate installation is needed.
 
-PROJECT FILES IN THIS UPDATE
+Open Admin → Growth & money. Invoices show separate payment and delivery states,
+with one Record payment action. NDIA claims have their own section.
+Withdraw invoice records the reason, cancels unsent invoice emails and queues a
+withdrawal notice to the original payer. Withdrawn shifts remain held until you
+choose to release or remove them. Reissue uses a new invoice number.
+Queued messages and card-link closure remain visible until confirmed.
+
+Preview: docs/invoice-flow-preview.html. Guide: docs/USER-GUIDE.html.
+Changelog: docs/CHANGELOG-v88.3.4.md. Source register: docs/block-register/.
+Two additive tables retain withdrawn invoices and card-checkout cleanup jobs.
+
+The full automated release checks passed, including 50 invoice/billing checks.
+Two upgrade boots from v88.3.0 and v88.3.3 preserved synthetic records/uploads.
+Native browser appearance, real email delivery and live card-provider outcomes
+remain unverified. No live site, messages or payments were changed here.
+Messages already with a provider cannot be recalled; completed card payments
+need reconciliation. Withdrawal does not perform an automatic refund or withdraw
+an NDIA claim already uploaded to the external provider portal.
+
+CHANGED PROJECT FILES
 RELEASE-FILES.json
 STARTHERE.txt
 docs/BLOCKS-AND-AUTOMATION.md
 docs/CHANGELOG-v88.3.1.md
 docs/CHANGELOG-v88.3.2.md
+docs/CHANGELOG-v88.3.3.md
+docs/CHANGELOG-v88.3.4.md
 docs/LAUNCH-ACCEPTANCE.md
 docs/TEST-RESULTS.md
 docs/USER-GUIDE.html
@@ -44,23 +50,32 @@ docs/block-register/index.html
 docs/block-register/register.csv
 docs/block-register/register.json
 docs/database-table-inventory.txt
+docs/invoice-flow-preview.html
 docs/launch-actions.json
 docs/release-metadata.json
+docs/task-clarity-preview.html
 lib/automatic-invoicing.js
 lib/automatic-pricing.js
 lib/billing-setup.js
+lib/certificate-monitor.js
 lib/incident-policy.js
+lib/invoice-lifecycle.js
 lib/launch-assurance.js
+lib/process-finance.js
 lib/process-routes.js
 lib/process-store.js
 lib/public-holidays-nsw.json
 lib/public-holidays.js
+lib/task-queue.js
 lib/version.js
 package-lock.json
 package.json
 public/assets/billing-setup.css
 public/assets/billing-setup.js
+public/assets/launch-assurance.css
 public/assets/launch-assurance.js
+public/assets/next-actions.css
+public/assets/next-actions.js
 public/assets/process-workflows.js
 public/index.html
 readme.txt
@@ -70,9 +85,11 @@ server.js
 tests/automatic-billing-unit.js
 tests/billing-flow-tests.js
 tests/graphics-tests.js
+tests/invoice-lifecycle-tests.js
 tests/launch-regression.js
 tests/process-regression.js
 tests/smoke.js
+tests/task-clarity-tests.js
 validation/v88.3.1-billing-output.txt
 validation/v88.3.1-billing-results.json
 validation/v88.3.1-browser-check.txt
@@ -94,3 +111,28 @@ validation/v88.3.2-lint-output.txt
 validation/v88.3.2-report-validation.json
 validation/v88.3.2-upgrade-output.txt
 validation/v88.3.2-upgrade-results.json
+validation/v88.3.3-block-scan.txt
+validation/v88.3.3-browser-check.txt
+validation/v88.3.3-check.txt
+validation/v88.3.3-full-tests.txt
+validation/v88.3.3-guide-validation.json
+validation/v88.3.3-lint.txt
+validation/v88.3.3-preview-validation.json
+validation/v88.3.3-release-docs.txt
+validation/v88.3.3-report-validation.json
+validation/v88.3.3-task-results.json
+validation/v88.3.3-task-tests.txt
+validation/v88.3.4-billing-results.json
+validation/v88.3.4-billing-tests.txt
+validation/v88.3.4-block-scan.txt
+validation/v88.3.4-browser-check.txt
+validation/v88.3.4-check.txt
+validation/v88.3.4-full-tests.txt
+validation/v88.3.4-guide-validation.json
+validation/v88.3.4-invoice-results.json
+validation/v88.3.4-invoice-tests.txt
+validation/v88.3.4-lint.txt
+validation/v88.3.4-release-docs.txt
+validation/v88.3.4-report-validation.json
+validation/v88.3.4-upgrade-88.3.0-results.json
+validation/v88.3.4-upgrade-88.3.3-results.json

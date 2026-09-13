@@ -144,6 +144,17 @@ async function main(){const s=http.createServer();await new Promise(r=>s.listen(
    await render('recruitment',a,{id:1,role:'worker',admin:true},'&worker='+w.id);
    const id=booking({date:'2031-01-09',status:'accepted'});await render('shift',wc,{id:10,role:'worker'},'&booking='+id);
  });
+ await test('Office task views separate participant follow-up and site checks with real API actions',async()=>{
+   const b=booking({date:'2018-01-01',status:'completed',approval_state:'approved'});
+   db.prepare('DELETE FROM journey_transitions WHERE participant_id=?').run(p.id);
+   const people=ok(await req('GET','/api/admin/journey-queue?view=people',a)),follow=people.rows.find(t=>t.user_id===p.id&&t.kind==='followup');
+   assert.ok(follow);assert.equal(follow.ui.status,'Waiting on participant');assert.equal(follow.ui.action,'View participant');
+   const office=ok(await req('GET','/api/admin/journey-queue',a));assert.ok(office.rows.every(t=>t.owner_kind==='office'&&t.ui.bucket==='office'));assert.ok(!office.rows.some(t=>t.task_key===follow.task_key));
+   ok(await req('PATCH','/api/admin/journey-tasks',a,{task_key:follow.task_key,owner_id:1}),409);
+   const website=ok(await req('GET','/api/admin/journey-queue?view=website',a));assert.ok(website.rows.some(t=>t.ui.action==='Check website security'));assert.ok(website.rows.every(t=>t.ui.subject==='The Care Web website'));
+   const api=ok(await req('GET','/api/admin/assurance',a));assert.equal(api.certificate.state,'setup');assert.ok(!JSON.stringify(api.operations).includes('TLS certificate check required'));
+   db.prepare('DELETE FROM bookings WHERE id=?').run(b);
+ });
  await test('Workflow routes require authentication and office routes reject ordinary users',async()=>{for(const path of ['/api/journey','/api/journey/preferences','/api/journey/calendar','/api/me/billing'])ok(await req('GET',path),401);for(const path of ['/api/admin/journey-queue','/api/admin/deliveries','/api/admin/payroll-batches','/api/admin/journey-metrics','/api/admin/finance-exceptions'])ok(await req('GET',path,p.cookie),403);});
 }
 (async()=>{try{await main();}catch(e){results.push({name:'Harness',result:'FAIL',error:e.stack});console.error(e);}finally{if(db)db.close();if(child&&child.exitCode===null){const done=new Promise(r=>child.once('exit',r));child.kill('SIGTERM');await done;}if(process.env.PROCESS_RESULTS_PATH)fs.writeFileSync(process.env.PROCESS_RESULTS_PATH,JSON.stringify({runtime:process.version,results,serverLog:log},null,2));fs.rmSync(DIR,{recursive:true,force:true});console.log(`workflows: ${results.filter(x=>x.result==='PASS').length}/${results.length} passed`);process.exitCode=results.some(x=>x.result==='FAIL')?1:0;}})();

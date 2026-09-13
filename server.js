@@ -47,6 +47,7 @@ const AUTO_REPLY = (process.env.AUTO_REPLY || 'on') !== 'off';
 const SESSION_DAYS = 30;
 let WORKFLOW = null;
 let LAUNCH = null;
+let INVOICE_FLOW = null;
 let HOLIDAYS=null, AUTO_PRICING=null, AUTO_BILLING=null;
 
 /* ---------- secret ---------- */
@@ -1792,8 +1793,10 @@ function invoiceFor(invNo) {
   });
   const total = round2(lines.reduce((a, l) => a + (l.amount || 0), 0));
   const paidRows = rows.filter(r => r.claim_status === 'paid');
-  const paid = WORKFLOW?.paymentBalance?.(invNo,total,paidRows.length === rows.length ? total : 0)?.paid ?? (paidRows.length === rows.length ? total : 0);
+  const legacyPaid=paidRows.length===rows.length?total:round2(paidRows.reduce((n,r)=>n+(r.total||0)+(r.active_extra_total||0)+(r.status==='cancelled'?0:(r.km_total||0)),0));
+  const paid = WORKFLOW?.paymentBalance?.(invNo,total,legacyPaid)?.paid ?? legacyPaid;
   return {
+    payer_email:['self','private'].includes(first.funding)?(p.email||first.participant_email):(p.pm_email||first.pm_email),
     tax_note:first.funding==='private' ? (setting('private_gst_percent','0')==='10'?'Includes GST (10%)':'No GST — configured private tax treatment') : 'GST-free NDIS supports',
     invoice_no: invNo, date: dmy(issued), issued, due_date: dmy(due), due, self, funding: first.funding,
     participant: { id: first.pid, name: p.name || first.participant_name, email: p.email || first.participant_email, phone: p.phone || '', suburb: p.suburb || '', ndis_number: p.ndis_number || first.ndis_number || '' },
@@ -1816,11 +1819,11 @@ function makeInvoicePdf(inv) {
     T(40, 781, 8.5, 'F', COMPANY_NAME + ' · ABN 19 658 578 575', SOFT);
     T(40, 770, 8.5, 'F', COMPANY_ADDRESS, SOFT);
     T(40, 759, 8.5, 'F', `Registered NDIS provider ${NDIS_REG_NO} · ${COMPANY_EMAIL} · ${COMPANY_PHONE}`, SOFT);
-    T(400, 795, 15, 'FB', 'TAX INVOICE');
+    T(400, 795, 15, 'FB', inv.withdrawn?'WITHDRAWN':'TAX INVOICE');
     T(400, 781, 8.5, 'F', inv.tax_note || 'GST-free NDIS supports', SOFT);
     T(400, 767, 10, 'FB', `Invoice ${inv.invoice_no}`);
     T(400, 755, 9, 'F', `Date: ${inv.date}`);
-    T(400, 744, 9, 'F', `Due: ${inv.due_date}`);
+    T(400, 744, 9, 'F', inv.withdrawn?'DO NOT PAY':`Due: ${inv.due_date}`);
     if (pageNo > 1) T(400, 733, 8.5, 'F', `Page ${pageNo}`, SOFT);
   };
   const tableHead = y => {
@@ -1855,7 +1858,7 @@ function makeInvoicePdf(inv) {
   T(400, y, 10, 'FB', 'Invoice total'); T(cols.amt, y, 10, 'FB', `$${inv.total.toFixed(2)}`); y -= 14;
   T(400, y, 9.5, 'F', 'Paid'); T(cols.amt, y, 9.5, 'F', `$${inv.paid.toFixed(2)}`); y -= 14;
   T(400, y, 11, 'FB', 'Balance due', TEAL); T(cols.amt, y, 11, 'FB', `$${inv.balance.toFixed(2)}`, TEAL); y -= 26;
-  T(40, y, 9.5, 'FB', inv.balance > 0 ? `Payment — due by ${inv.due_date}` : 'Paid — thank you'); y -= 13;
+  T(40, y, 9.5, 'FB', inv.withdrawn?'Withdrawn — do not pay':inv.balance > 0 ? `Payment — due by ${inv.due_date}` : 'Paid — thank you'); y -= 13;
   if (inv.balance > 0) {
     if (inv.self) { T(40, y, 9, 'F', 'Pay by bank transfer to:'); y -= 12; }
     else { T(40, y, 9, 'F', 'Please pay from plan funds by bank transfer to:'); y -= 12; }
@@ -2137,7 +2140,7 @@ const EMAIL_ON = Boolean(RESEND_KEY || (SMTP_USER && SMTP_PASS));
 const STRIPE_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 const STRIPE_API_URL = (process.env.STRIPE_API_URL || 'https://api.stripe.com').replace(/\/+$/, ''); /* overridable for tests */
-function stripeRequest(pathName, params) {
+function stripeRequest(pathName, params, options={}) {
   return new Promise((resolve, reject) => {
     const form = new URLSearchParams();
     const add = (k, v) => { if (v !== undefined && v !== null) form.append(k, String(v)); };
@@ -2147,11 +2150,12 @@ function stripeRequest(pathName, params) {
     const mod = u.protocol === 'http:' ? http : https;
     const req2 = mod.request({
       hostname: u.hostname, port: u.port || (u.protocol === 'http:' ? 80 : 443), path: u.pathname,
-      method: 'POST',
+      method: options.method || 'POST',
       headers: {
         'Authorization': `Bearer ${STRIPE_KEY}`,
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(body)
+        'Content-Length': options.method==='GET'?0:Buffer.byteLength(body),
+        ...(options.idempotencyKey?{'Idempotency-Key':options.idempotencyKey}:{})
       }
     }, r => {
       let data = '';
@@ -2166,7 +2170,7 @@ function stripeRequest(pathName, params) {
     });
     req2.on('error', reject);
     req2.setTimeout(15000, () => req2.destroy(new Error('Stripe request timed out.')));
-    req2.end(body);
+    req2.end(options.method==='GET'?undefined:body);
   });
 }
 function verifyStripeSig(raw, header) {
@@ -4094,11 +4098,13 @@ route('GET', /^\/api\/admin\/claims$/, (req, res, m, user) => {
   const paid = rows.filter(r => r.claim_status === 'paid');
   const sum = a => round2(a.reduce((n,r)=>n+r.charge_total,0));
   const ready=unclaimed.filter(r=>!r.flags.some(f=>!f.startsWith('confirm'))),held=unclaimed.filter(r=>!ready.includes(r));
+  const invoices=[...new Set(rows.filter(r=>r.invoice_no).map(r=>r.invoice_no))].map(no=>({...invoiceFor(no),delivery_status:db.prepare('SELECT COALESCE(delivery_result,status) AS state FROM delivery_outbox WHERE event_key=?').get('invoice:'+no)?.state||'unknown'}));
   json(res, 200, {
     unclaimed, claimed, paid,
-    totals: { unclaimed: sum(unclaimed), ready:sum(ready), held:sum(held), claimed: sum(claimed), paid: sum(paid) },
+    totals: { unclaimed: sum(unclaimed), ready:sum(ready), held:sum(held), claimed: round2(sum(claimed.filter(r=>!r.invoice_no))+invoices.reduce((n,i)=>n+i.balance,0)), paid: sum(paid), received:round2(sum(paid.filter(r=>!r.invoice_no))+invoices.reduce((n,i)=>n+i.paid,0)) },
     ready_count:ready.length,held_count:held.length,billing_setup:LAUNCH?.billingSetup.state(),billing_automation:AUTO_BILLING?.status(),email_enabled:EMAIL_ON,
-    reg_no: NDIS_REG_NO
+    invoices,
+    withdrawn:INVOICE_FLOW.summaries(),reg_no: NDIS_REG_NO
   });
 });
 
@@ -4145,7 +4151,7 @@ async function runClaimsUnlocked(lanes, actor, bookingIds) {
     const first = group[0];
     let invNo = `INV-${ymd().replace(/-/g, '')}-${first.pid}`;
     let n = 1;
-    while (db.prepare('SELECT 1 FROM bookings WHERE invoice_no = ?').get(n === 1 ? invNo : `${invNo}-${n}`)) n++;
+    while (!INVOICE_FLOW.unused(n === 1 ? invNo : `${invNo}-${n}`)) n++;
     if (n > 1) invNo = `${invNo}-${n}`;
     const self = ['self','private'].includes(first.funding);
     const dest = self ? first.participant_email : first.pm_email;
@@ -4174,14 +4180,13 @@ async function runClaimsUnlocked(lanes, actor, bookingIds) {
           customer_email: dest,
           success_url: `${APP_URL || 'https://thecareweb.com.au'}/#/pay-success`,
           cancel_url: `${APP_URL || 'https://thecareweb.com.au'}/#/statements`
-        });
-        payUrl = session.url || '';
-        if (payUrl) db.prepare('UPDATE bookings SET stripe_session = ?, pay_url = ? WHERE invoice_no = ?').run(session.id || '', payUrl, invNo);
+        },{idempotencyKey:'invoice-checkout:'+invNo});
+        payUrl = INVOICE_FLOW.attachCheckout(invNo,session)?(session.url||''):null;
       } catch (e) { console.error(`[stripe] session failed for ${invNo}: ${e.message}`); }
     }
     const inv=invoiceFor(invNo);
     const emailed=false; // Transport acceptance is recorded by the delivery job, never by issuing an invoice.
-    invoices.push({ invoice_no: invNo, participant: first.participant_name, to: dest, lines: group.length, total, emailed, delivery_status: 'queued', pay_url: payUrl, due: inv.due_date, by: actor });
+    invoices.push({ invoice_no: invNo, participant: first.participant_name, to: dest, lines: group.length, total, emailed, delivery_status: 'queued', pay_url: payUrl, due: inv?.due_date||null, by: actor });
   }
   if (invoices.length || ndiaClaimed.length) console.log(`[claims] ${actor}: ${invoices.length} invoice(s), ${ndiaClaimed.length} agency line(s) stamped, ${needs.length} held back`);
   return { invoices, needs, ndiaClaimed };
@@ -4235,8 +4240,9 @@ route('GET', /^\/api\/admin\/claims\/pace\.csv$/, (req, res, m, user) => {
 
 route('POST', /^\/api\/admin\/claims\/(\d+)\/paid$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
-  const r = db.prepare(`SELECT id, claim_status FROM bookings WHERE id = ? AND ${billable('bookings')}`).get(Number(m[1]));
+  const r = db.prepare(`SELECT id, claim_status, invoice_no FROM bookings WHERE id = ? AND ${billable('bookings')}`).get(Number(m[1]));
   if (!r || !r.claim_status) return json(res, 404, { error: 'No such claimed shift.' });
+  if(r.invoice_no)return json(res,409,{error:'Use Record payment for the whole invoice so its payment reference and balance stay together.'});
   if (body.paid === false) db.prepare("UPDATE bookings SET claim_status = 'claimed', paid_at = NULL WHERE id = ?").run(r.id);
   else db.prepare("UPDATE bookings SET claim_status = 'paid', paid_at = ? WHERE id = ?").run(now(), r.id);
   json(res, 200, { ok: true });
@@ -17873,11 +17879,13 @@ ${others ? `<h2>Other suburbs</h2><ul>${others}</ul>` : ''}
 function invoiceSummaries(participantId) {
   const nos = db.prepare(`SELECT DISTINCT invoice_no FROM bookings WHERE participant_id = ? AND COALESCE(invoice_no,'') <> '' ORDER BY claimed_at DESC`).all(participantId).map(r => r.invoice_no);
   const today = ymd();
-  return nos.map(no => {
+  const active=nos.map(no => {
     const inv = invoiceFor(no); if (!inv) return null;
     return { invoice_no: no, date: inv.date, due_date: inv.due_date, total: inv.total, paid: inv.paid, balance: inv.balance, pay_url: inv.balance > 0 ? inv.pay_url : '',
       funding: inv.funding, lines: inv.lines.length, status: inv.balance <= 0 ? 'paid' : (inv.due < today ? 'overdue' : 'due'), paid_at: inv.paid_at ? dmy(String(inv.paid_at).slice(0, 10)) : '' };
   }).filter(Boolean);
+  const history=db.prepare('SELECT invoice_no FROM invoice_withdrawals WHERE participant_id=? ORDER BY withdrawn_at DESC').all(participantId).map(r=>{const inv=INVOICE_FLOW.archived(r.invoice_no);return {invoice_no:inv.invoice_no,date:inv.date,due_date:inv.due_date,total:inv.total,paid:0,balance:0,pay_url:'',funding:inv.funding,lines:inv.lines.length,status:'withdrawn',withdrawn_at:inv.withdrawn_at,withdrawn_reason:inv.withdrawn_reason};});
+  return [...active,...history];
 }
 route('GET', /^\/api\/me\/invoices$/, (req, res, m, user) => {
   if (user.role === 'worker') return json(res, 403, { error: 'Participants and their coordinators only.' });
@@ -17889,7 +17897,7 @@ route('GET', /^\/api\/me\/invoices$/, (req, res, m, user) => {
   json(res, 200, { invoices, owing: round2(invoices.filter(i => i.status !== 'paid').reduce((a, i) => a + i.balance, 0)), bank: bankLines(), due_days: INVOICE_DUE_DAYS() });
 });
 route('GET', /^\/api\/me\/invoices\/([A-Z0-9-]+)\.pdf$/, (req, res, m, user) => {
-  const inv = invoiceFor(m[1]);
+  const inv = invoiceFor(m[1])||INVOICE_FLOW.archived(m[1]);
   if (!inv) return json(res, 404, { error: 'No such invoice.' });
   if (!user.admin) {
     const pers = user.role === 'worker' ? null : actFor(req, user, 'invoices');
@@ -18064,26 +18072,13 @@ route('DELETE', /^\/api\/admin\/users\/(\d+)$/, (req, res, m, user, body) => {
   } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
   json(res, 200, { ok: true, mode, id: u.id });
 });
-/* an invoice taken back: its lines return to "unclaimed" and can be removed,
-   corrected or re-invoiced by the next run. Refused while it is paid — a paid
-   invoice is a record; mark it unpaid first if that was a mistake. An agency
-   claim (no invoice number) is withdrawn line by line from the Claims board. */
+/* Withdrawing an unpaid invoice retains its history and holds all of its lines.
+   Reissue requires an explicit release. Recorded payments are reconciled first.
+   Agency claims without an invoice number are withdrawn one line at a time. */
 route('POST', /^\/api\/admin\/invoices\/([A-Z0-9-]+)\/withdraw$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
-  const reason = reasonOr400(res, body); if (!reason) return;
-  const rows = db.prepare('SELECT id, claim_status, total, participant_id FROM bookings WHERE invoice_no = ?').all(m[1]);
-  if (!rows.length) return json(res, 404, { error: 'No such invoice.' });
-  if (rows.some(r => r.claim_status === 'paid')) return json(res, 409, { error: 'This invoice has been marked paid. If that was a mistake, mark it unpaid first (Invoice paid › unpaid), then withdraw it.' });
-  const p = db.prepare('SELECT name, email FROM users WHERE id = ?').get(rows[0].participant_id) || {};
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    recordErasure('invoice', rows[0].participant_id, `${m[1]} ${p.name || ''} $${round2(rows.reduce((a, r) => a + (r.total || 0), 0)).toFixed(2)}`, { invoice_no: m[1], booking_ids: rows.map(r => r.id) }, reason, user.name);
-    db.prepare("UPDATE bookings SET invoice_no = '', claim_status = '', claim_ref = NULL, claimed_at = NULL, pay_url = NULL, stripe_session = NULL, claim_hold = 1, hold_reason = ? WHERE invoice_no = ?").run(`withdrawn ${ymd()}: ${reason}`.slice(0, 200), m[1]);
-    db.exec('COMMIT');
-  } catch (e) { try { db.exec('ROLLBACK'); } catch {} throw e; }
-  if (p.email) notify(rows[0].participant_id, 'invoice', p.email, `Invoice ${m[1]} has been withdrawn — The Care Web`, 'An invoice was withdrawn',
-    `<p>Invoice <b>${m[1]}</b> has been withdrawn by our office and should not be paid. If a corrected invoice is needed it will arrive separately. Reason given: ${escHtml(reason)}</p>`, 'Open my statement', `${APP_URL}/#/statements`);
-  json(res, 200, { ok: true, lines: rows.length, held: true });
+  const reason=reasonOr400(res,body);if(!reason)return;
+  try{json(res,200,INVOICE_FLOW.withdraw(m[1],user,reason));}catch(e){json(res,e.status||409,{error:e.message});}
 });
 /* a held line goes back to "ready" once the office has decided it should be invoiced after all */
 route('POST', /^\/api\/admin\/claims\/(\d+)\/release$/, (req, res, m, user) => {
@@ -18091,6 +18086,7 @@ route('POST', /^\/api\/admin\/claims\/(\d+)\/release$/, (req, res, m, user) => {
   const r = db.prepare('SELECT id, claim_hold FROM bookings WHERE id = ?').get(Number(m[1]));
   if (!r || !r.claim_hold) return json(res, 404, { error: 'That shift is not held.' });
   db.prepare("UPDATE bookings SET claim_hold = 0, hold_reason = '' WHERE id = ?").run(r.id);
+  AUTO_BILLING?.wake(r.id);
   json(res, 200, { ok: true });
 });
 route('POST', /^\/api\/admin\/claims\/(\d+)\/unclaim$/, (req, res, m, user, body) => {
@@ -19180,6 +19176,8 @@ const processContext={db,json,route,actFor,sessionUser,firstBookingBlockers,onbo
  reviewReferrals,scopeWarning,scopeState:b=>LAUNCH?.scopeState(b),csvCell:BOOKIT_HARDENING.safeSpreadsheetCell,publicAPI:PUBLIC_API,shortNotice,planQuestions:PLAN_QUESTIONS,AI,aiFetch,invoiceFor};
 WORKFLOW=require('./lib/process-store')(processContext);
 require('./lib/process-routes')(processContext,WORKFLOW);
+INVOICE_FLOW=require('./lib/invoice-lifecycle')({db,now,invoiceFor,recordErasure,sendMail,escHtml,appUrl:APP_URL,stripeRequest,stripeEnabled:()=>!!STRIPE_KEY},WORKFLOW);
+everyJob('checkout-cleanup',15000,()=>INVOICE_FLOW.drain(),{label:'Close retired card links',why:'Closes card checkout links after invoice withdrawal or recorded payment, with durable retries.'});
 const VERIFICATION=require('./lib/admin-verification')({...processContext,requireAdmin,routes,docOut,pdocOut,pdocMethods:PDOC_METHODS,participantFile,planReviewState},WORKFLOW);
 everyJob('verification-automation',60000,()=>VERIFICATION.tick(),{label:'Verification assistance',why:'Assigns files to available reviewers and follows up approved checklists; never verifies evidence automatically.'});
 everyJob('deliveries',15000,()=>WORKFLOW.drain(),{label:'Message delivery',why:'Retries queued messages and records transport failures.'});
@@ -19187,7 +19185,9 @@ everyJob('journey-tasks',60000,()=>WORKFLOW.syncAll(),{label:'Next actions',why:
 everyJob('payroll-drafts',86400000,()=>WORKFLOW.scheduledPayroll(),{label:'Pay preparation',why:'Prepares unbatched lines from the last fourteen days for office review; never pays automatically.'});
 everyJob('journey-cleanup',86400000,()=>WORKFLOW.cleanup(),{label:'Workflow maintenance',why:'Prunes old delivery metadata and refreshes task status.'});
 
-LAUNCH=require('./lib/launch-assurance')({...processContext,requireAdmin,now,invoiceRates:INVOICE_RATES,holidays:HOLIDAYS,scopeWarning,jobs:JOB_META,storage:{database:path.dirname(DB_PATH),documents:DOCS_DIR,photos:PHOTOS_DIR},backupDir:process.env.BACKUP_DIR||path.join(path.dirname(DB_PATH),'backups')},WORKFLOW);
+LAUNCH=require('./lib/launch-assurance')({...processContext,appUrl:APP_URL,requireAdmin,now,invoiceRates:INVOICE_RATES,holidays:HOLIDAYS,scopeWarning,jobs:JOB_META,storage:{database:path.dirname(DB_PATH),documents:DOCS_DIR,photos:PHOTOS_DIR},backupDir:process.env.BACKUP_DIR||path.join(path.dirname(DB_PATH),'backups')},WORKFLOW);
+
+everyJob('website-certificate',3600000,()=>LAUNCH.certificates.tick(),{label:'Website security check',why:'Checks the public HTTPS certificate daily, retries connection failures hourly and clears alerts after recovery.'});
 
 AUTO_BILLING=require('./lib/automatic-invoicing')({db,now,billable,runClaims,wakeMail:()=>WORKFLOW.drain().catch(e=>console.error('[invoice-email]',e.message))});
 everyJob('holiday-calendar',86400000,()=>HOLIDAYS.refresh(),{label:'Automatic public holidays',why:'Refreshes official NSW state and local dates. Cached/statutory dates remain available during a source outage.'});

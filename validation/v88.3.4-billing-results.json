@@ -1,0 +1,103 @@
+{
+  "runtime": "v24.19.0",
+  "scope": "Disposable synthetic accounts; no external services or real approvals",
+  "results": [
+    {
+      "name": "The reported Saturday needs no finance review or holiday setup",
+      "result": "PASS"
+    },
+    {
+      "name": "Automatic holiday rates use official substitute dates and exclude the bank-only holiday",
+      "result": "PASS"
+    },
+    {
+      "name": "Date and time transitions become itemised lines, not manual holds",
+      "result": "PASS"
+    },
+    {
+      "name": "Ordinary weekday overnight support and post-holiday early hours use the night category",
+      "result": "PASS"
+    },
+    {
+      "name": "DST prices actual elapsed hours and rejects nonexistent starts before booking",
+      "result": "PASS"
+    },
+    {
+      "name": "Worker completion calculates the charge and keeps approval with the participant",
+      "result": "PASS"
+    },
+    {
+      "name": "Participant approval creates the invoice and attached queued email without an admin run",
+      "result": "PASS"
+    },
+    {
+      "name": "Double approval and concurrent catch-up runs do not duplicate invoice or email",
+      "result": "PASS"
+    },
+    {
+      "name": "A queried timesheet is never automatically invoiced",
+      "result": "PASS"
+    },
+    {
+      "name": "Missing payer data resumes automatically once the profile is corrected",
+      "result": "PASS"
+    },
+    {
+      "name": "Old finance review expiry and absent manual calendar cannot stop approved invoices",
+      "result": "PASS"
+    },
+    {
+      "name": "Issued invoice contents are immutable after calendar, profile and rule changes",
+      "result": "PASS"
+    },
+    {
+      "name": "An itemised correction remains valid when its participant approves the timesheet",
+      "result": "PASS"
+    },
+    {
+      "name": "NDIA approval automatically prepares distinct time-band lines in the actual claim export",
+      "result": "PASS"
+    },
+    {
+      "name": "Billing queue and retry endpoints are office-only; disabled email reports queued, never sent",
+      "result": "PASS"
+    },
+    {
+      "name": "Withdrawal cancels queued demand, preserves the snapshot and holds every line",
+      "result": "PASS"
+    },
+    {
+      "name": "Repeated withdrawal is idempotent and neither manual nor automatic runs reissue held lines",
+      "result": "PASS"
+    },
+    {
+      "name": "Withdrawn invoice history and PDF remain scoped, show do not pay and add no amount owing",
+      "result": "PASS"
+    },
+    {
+      "name": "Releasing a held shift automatically creates a fresh invoice number and separate email",
+      "result": "PASS"
+    },
+    {
+      "name": "Plan-managed withdrawal goes to the original payer even after profile changes",
+      "result": "PASS"
+    },
+    {
+      "name": "Partial receipts keep accurate balances and cannot be bypassed by per-shift Mark paid",
+      "result": "PASS"
+    },
+    {
+      "name": "Overpayment stays in reconciliation and is never labelled paid or silently withdrawn",
+      "result": "PASS"
+    },
+    {
+      "name": "Withdrawal requires office access and a recorded reason",
+      "result": "PASS"
+    },
+    {
+      "name": "Legacy per-shift paid markers preserve the partial invoice balance during upgrade",
+      "result": "PASS"
+    }
+  ],
+  "serverLog": "Seeded 12 demo workers (…@demo.bookit.life / demo1234) and d***@demo.bookit.life / demo1234\nBlank forms: 1 filed from forms/ — participants can download them now. 10 skipped, not in the participant catalogue: p-advocate (a screen now; the PDF is not offered), p-agreement (The Care Web generates this one; a PDF on the shelf would only confuse), p-consent-privacy (The Care Web generates this one; a PDF on the shelf would only confuse), p-emergency, p-exit (a screen now; the PDF is not offered), p-intake, p-mealtime (a screen now; the PDF is not offered), p-medication (a screen now; the PDF is not offered), p-money (a screen now; the PDF is not offered), p-risk (a screen now; the PDF is not offered).\nSeeded 8 training modules.\nMarked 12 demo workers as trained (84 records).\nPolicies: 99 built-in document(s) published as pages.\nThe Care Web server running → http://localhost:42137/\nDatabase: /tmp/careweb-billing-regression-efW8uL/test.db · auto-reply bot: off\nTimezone: Australia/Sydney · secret: from /tmp/careweb-billing-regression-efW8uL/secret · demo seed: ON · admin MFA: required\nEmail: OFF — set RESEND_API_KEY (or SMTP_USER + SMTP_PASS) to enable; emails are logged to console instead\n[claims] automatic approval: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n[claims] automatic approval: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n[claims] automatic approval: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n[claims] automatic approval: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n[claims] automatic approval: 0 invoice(s), 1 agency line(s) stamped, 0 held back\n[claims] automatic approval: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n[claims] automatic approval: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n[claims] automatic approval: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n[claims] automatic approval: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n[claims] automatic approval: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n"
+}

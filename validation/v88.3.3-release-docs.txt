@@ -1,0 +1,7 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> bookit-site-v65@88.3.3 release:docs
+> node scripts/inventory.js && node scripts/release-docs.js
+
+docs/api-route-inventory.txt: 386 routes · docs/database-table-inventory.txt: 92 tables
+Release docs: v88.3.3, schema 88302, 386 routes, 92 tables
