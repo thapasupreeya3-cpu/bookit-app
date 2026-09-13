@@ -2002,8 +2002,8 @@
       "bytes": 9222
     },
     "tests/billing-flow-tests.js": {
-      "sha256": "9f8d271c3d7e217b8fd6b0e1ee5066eb597aa39bb7356e42d845e08f3d062aff",
-      "bytes": 24738
+      "sha256": "ad1acfe2778882425b36799231783ed0b520a63e6b804bd518c7a17a47ae6bad",
+      "bytes": 24110
     },
     "tests/booking-calendar-tests.js": {
       "sha256": "08b5dcacecb3979a6def7e912c3c36bd03ceff43b4ea37854a0de544c32f49a4",
