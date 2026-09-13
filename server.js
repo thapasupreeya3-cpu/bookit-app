@@ -1700,9 +1700,6 @@ function supportItemFor(service, category) {
 }
 const NDIS_REG_NO = process.env.NDIS_REG_NO || '4-LO5XNY0';
 const COMPANY_ABN = '19658578575';
-/* the account every invoice is paid into; BANK_DETAILS in /etc/bookit.env overrides it */
-const BANK_DETAILS = process.env.BANK_DETAILS || 'Account name: Disability & Mental Health Care Pty Ltd · BSB 067-873 · Account 2577 2190';
-
 /* ---------- tiny PDF invoice generator (zero-dependency) ---------- */
 function pdfEsc(s) {
   /* the built-in Helvetica knows WinAnsi only: dashes, arrows and curly quotes
@@ -1758,15 +1755,6 @@ function endTime(start, hours) {
   const [h, m] = String(start || '00:00').split(':').map(Number);
   const t = h * 60 + m + Math.round((Number(hours) || 0) * 60);
   return `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
-}
-/* the bank line from the environment, read three ways: "BSB 062-198 · Account 10970494 · Name",
-   "BSB: 062198, Account: 10970494", or anything else printed as it is */
-function bankLines() {
-  const raw = String(BANK_DETAILS || '');
-  const bsb = /BSB[:\s]*([\d-]{6,7})/i.exec(raw), acc = /Acc(?:ount|t)(?: number| no\.?)?[:\s]*(\d[\d ]{4,14}\d)/i.exec(raw), name = /(?:Account name|Name)[:\s]*([^·,;]+?)\s*(?:·|,|;|$)/i.exec(raw);
-  if (!raw) return ['Payment details are provided separately.'];
-  if (!bsb && !acc) return [raw];
-  return [`Account name: ${name ? name[1].trim() : COMPANY_NAME}`, bsb ? `BSB: ${bsb[1]}` : '', acc ? `Account number: ${acc[1]}` : ''].filter(Boolean);
 }
 /* One invoice, assembled from the bookings that carry its number. Used by the
    claims run (to email it), by the participant's download, and by the office. */
@@ -1861,24 +1849,18 @@ function makeInvoicePdf(inv) {
   T(400, y, 9.5, 'F', 'Paid'); T(cols.amt, y, 9.5, 'F', `$${inv.paid.toFixed(2)}`); y -= 14;
   T(400, y, 11, 'FB', 'Balance due', TEAL); T(cols.amt, y, 11, 'FB', `$${inv.balance.toFixed(2)}`, TEAL); y -= 26;
   T(40, y, 9.5, 'FB', inv.withdrawn?'Withdrawn — do not pay':inv.balance > 0 ? `Payment — due by ${inv.due_date}` : 'Paid — thank you'); y -= 13;
-  if (inv.balance > 0) {
-    if (inv.self) { T(40, y, 9, 'F', 'Pay by bank transfer to:'); y -= 12; }
-    else { T(40, y, 9, 'F', 'Please pay from plan funds by bank transfer to:'); y -= 12; }
-    const receiving=PAYMENT_FLOW?.bankForInvoice?.(inv);
-    const instructions=receiving?.automatically_tracked?[
-      `Account name: ${receiving.account_name||COMPANY_NAME}`,
-      `BSB: ${receiving.bsb}`,`Account number: ${receiving.account_number}`
-    ]:bankLines();
-    for(const b of instructions){T(52,y,9,'F',b);y-=12;}
-    T(40, y, 9, 'F', `Payment reference: ${inv.invoice_no}`); y -= 12;
+  if (inv.balance > 0 && !inv.withdrawn) {
+    T(40, y, 9, 'F', 'Please pay using the secure invoice link.'); y -= 12;
     const viewUrl=inv.view_url||PAYMENT_FLOW?.invoiceUrl(inv.invoice_no);
     if(viewUrl){
       T(40,y,9,'FB','View & pay invoice online',TEAL);
       pageLinks.push({url:viewUrl,y});y-=12;
-      // A compact label is clickable in the PDF; the full URL remains in the
-      // invoice email and signed-in statement, without overflowing the page.
-      T(40,y,8,'F','Secure payment page; review the shift in your Care Web account.',SOFT);y-=12;
-    } else if(inv.pay_url){T(40,y,9,'F','Payment options are in your Care Web account (Statements & invoices).');y-=12;}
+      T(40,y,8,'F','Choose an available payment method on the secure payment page.',SOFT);y-=12;
+      T(40,y,8,'F','Review the shift in your Care Web account before payment.',SOFT);y-=12;
+    } else {
+      T(40,y,9,'F','Open the invoice link in your email or Care Web account.');y-=12;
+      T(40,y,8,'F','Contact the office if you need your invoice link resent.',SOFT);y-=12;
+    }
     if (inv.self) { T(40, y, 9, 'F', 'Self-managed: claim this invoice back through the myplace participant portal.', SOFT); y -= 12; }
   }
   T(40, y - 4, 8.5, 'F', inv.funding === 'private' ? (inv.tax_note || 'Private supports') : 'Prices follow the NDIS Pricing Arrangements and Price Limits 2026-27. No GST applies.', SOFT);
@@ -2152,7 +2134,7 @@ const EMAIL_ON = Boolean(RESEND_KEY || (SMTP_USER && SMTP_PASS));
    Set STRIPE_WEBHOOK_SECRET (whsec_… — add a webhook in the Stripe dashboard pointing
    at https://thecareweb.com.au/api/stripe/webhook for the checkout.session.completed event)
    and paid shifts mark themselves paid the moment the card goes through.
-   No keys set = feature dormant, invoices show bank transfer only. */
+   No keys set = checkout unavailable; invoices retain their secure payment link. */
 const STRIPE_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 const STRIPE_API_URL = (process.env.STRIPE_API_URL || 'https://api.stripe.com').replace(/\/+$/, ''); /* overridable for tests */
@@ -4237,7 +4219,7 @@ async function runClaimsUnlocked(lanes, actor, bookingIds) {
       const pdf=makeInvoicePdf({...frozen,view_url:paymentUrl});
       const reviewText=self&&reviewNeeded?`<p><a href="${escHtml(reviewUrl)}">Review this completed shift</a>, then choose <b>Review &amp; pay</b>, <b>Approve and pay later</b>, or <b>Report an issue</b>. Payment is due by ${escHtml(frozen.due_date)}. Reporting an issue pauses collection for this invoice.</p>`:'';
       sendMail(dest,`Invoice ${invNo} — The Care Web`, reviewNeeded&&self?'Your invoice is ready to review':`Invoice ${invNo}`,
-        `<p>Your invoice for <b>$${frozen.total.toFixed(2)}</b> is attached. ${escHtml(frozen.tax_note||'')} Payment reference: ${invNo}.</p>${reviewText}`,
+        `<p>Your invoice for <b>$${frozen.total.toFixed(2)}</b> is attached. ${escHtml(frozen.tax_note||'')} Invoice: ${invNo}. Please pay using the secure invoice link below.</p>${reviewText}`,
         self&&reviewNeeded?'Review & pay':'View & pay invoice',self&&reviewNeeded?reviewUrl:paymentUrl,MAIL_FROM,[{filename:invNo+'.pdf',mime:'application/pdf',buffer:pdf}],{event_key:'invoice:'+invNo,kind:'invoice',transactional:true});
       if(reviewNeeded){
         const participant=db.prepare('SELECT id,name,email FROM users WHERE id=?').get(first.pid);
@@ -17995,7 +17977,7 @@ route('GET', /^\/api\/me\/invoices$/, (req, res, m, user) => {
   const pid = user.admin ? Number(new URL(req.url, 'http://x').searchParams.get('for')) : pers.id;
   if (!pid) return json(res, 400, { error: 'Which participant?' });
   const invoices = invoiceSummaries(pid);
-  json(res, 200, { invoices, owing: round2(invoices.filter(i => i.status !== 'paid').reduce((a, i) => a + i.balance, 0)), bank: bankLines(), due_days: INVOICE_DUE_DAYS() });
+  json(res, 200, { invoices, owing: round2(invoices.filter(i => i.status !== 'paid').reduce((a, i) => a + i.balance, 0)), bank: [], payment_policy: 'invoice-link-only', due_days: INVOICE_DUE_DAYS() });
 });
 route('GET', /^\/api\/me\/invoices\/([A-Z0-9-]+)\.pdf$/, (req, res, m, user) => {
   const inv = invoiceFor(m[1])||INVOICE_FLOW.archived(m[1]);
@@ -18008,7 +17990,7 @@ route('GET', /^\/api\/me\/invoices\/([A-Z0-9-]+)\.pdf$/, (req, res, m, user) => 
   res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Length': pdf.length, 'Content-Disposition': `inline; filename="${inv.invoice_no}.pdf"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
   res.end(pdf);
 });
-/* a bank transfer arrived: the office marks the whole invoice paid at once */
+/* Record actual legacy/external payment evidence for office reconciliation. */
 route('POST', /^\/api\/admin\/invoices\/([A-Z0-9-]+)\/paid$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
   const inv = invoiceFor(m[1]);
@@ -19317,8 +19299,10 @@ PAYMENT_FLOW=require('./lib/payment-automation')({...processContext,now,appUrl:A
   stripeEnvironment:()=>STRIPE_KEY.startsWith('sk_live_')?'live':'test',
   paytoEnabled:()=>/^(1|true|on|yes)$/i.test(process.env.STRIPE_PAYTO_ENABLED||''),
   reviewInvoice:(inv,user,req,body)=>reviewIssuedInvoice(inv,user,req,body),
-  bankDetails:()=>{const raw=String(BANK_DETAILS||''),bsb=/BSB[:\s]*([\d-]{6,7})/i.exec(raw),acc=/Acc(?:ount|t)(?: number| no\.?)?[:\s]*(\d[\d ]{4,14}\d)/i.exec(raw);return {bsb:bsb?.[1]||'',account_number:acc?.[1]?.replace(/\s/g,'')||'',account_name:COMPANY_NAME,details:bankLines()};}
 },WORKFLOW);
+WORKFLOW.deliveryHooks.prepare=require('./lib/invoice-link-mail')({
+  invoiceFor:no=>WORKFLOW.invoiceSnapshot(no),makeInvoicePdf,paymentPageURL:no=>PAYMENT_FLOW.invoiceUrl(no)
+});
 WORKFLOW.payrollNotices=require('./lib/payroll-notifications')({...processContext,now,appUrl:APP_URL,sendMail},WORKFLOW);
 everyJob('payment-confirmations',15000,()=>PAYMENT_FLOW.tick(),{label:'Payment confirmations and receipts',why:'Matches confirmed incoming payments, retries checkout and receipt delivery, and updates invoice balances.'});
 everyJob('payroll-notifications',60000,()=>WORKFLOW.payrollNotices.tick(),{label:'Worker pay updates',why:'Queues truthful payroll status updates from recorded pay-batch transitions.'});

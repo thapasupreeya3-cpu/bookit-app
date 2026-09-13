@@ -1,6 +1,6 @@
 {
   "name": "bookit-site-v65",
-  "version": "88.4.2",
+  "version": "88.4.3",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -25,7 +25,7 @@
     "test:launch": "node --no-warnings tests/launch-regression.js",
     "test:billing": "node --no-warnings tests/automatic-billing-unit.js && node --no-warnings tests/billing-flow-tests.js && node --no-warnings tests/invoice-lifecycle-tests.js",
     "test:tasks": "node --no-warnings tests/task-clarity-tests.js",
-    "test:payments": "node --no-warnings tests/immediate-invoice-tests.js && node --no-warnings tests/payment-automation-tests.js && node --no-warnings tests/payment-ui-tests.js && node --no-warnings tests/payroll-notifications-tests.js && node --no-warnings tests/zai-payments-tests.js && node --no-warnings tests/payment-http-tests.js && node --no-warnings tests/payroll-recovery-tests.js",
+    "test:payments": "node --no-warnings tests/immediate-invoice-tests.js && node --no-warnings tests/payment-automation-tests.js && node --no-warnings tests/payment-ui-tests.js && node --no-warnings tests/payroll-notifications-tests.js && node --no-warnings tests/zai-payments-tests.js && node --no-warnings tests/payment-http-tests.js && node --no-warnings tests/payroll-recovery-tests.js && node --no-warnings tests/invoice-link-mail-tests.js",
     "test:locations": "node --no-warnings tests/service-locations-tests.js && node --no-warnings tests/service-location-context-tests.js && node --no-warnings tests/service-locations-ui-tests.js && node --no-warnings tests/service-location-http-tests.js",
     "test:admin": "node --no-warnings tests/admin-workspace-tests.js && node --no-warnings tests/admin-payment-workspace-tests.js && node --no-warnings tests/admin-workflow-ui-tests.js && node --no-warnings tests/admin-specialist-ui-tests.js && node --no-warnings tests/admin-task-links-tests.js"
   },

@@ -1,32 +1,42 @@
-THE CARE WEB v88.4.1 — CUMULATIVE CHANGED-FILES UPDATE
+THE CARE WEB v88.4.3 — CUMULATIVE CHANGED-FILES UPDATE
 
-Apply over v88.3.4 or v88.4.0. This ZIP includes the payment update and the
-participant-address, booking-location and worker-service-area changes.
+Apply over v88.3.4 or v88.4.0–v88.4.2. This includes the earlier payment,
+private address and admin usability updates.
 
-1. Preserve a backup of your existing source, deployed database, uploads,
-   photos and environment settings.
-2. Extract the ZIP and MERGE its files into your existing repository root,
-   replacing matching source files. Do not replace the repository with this
-   partial ZIP and do not delete files absent from it.
-3. Preserve live databases, document/photo folders, secrets and provider keys.
+EXISTING LIGHTSAIL WEBSITE
+After this release is published to your repository, open AWS Lightsail >
+bookit > Connect using SSH and run:
+  sudo bookit-update
+Then check:
+  sudo systemctl is-active bookit
+The update must complete successfully. Confirm /api/version shows APP_VERSION
+88.4.3 and SCHEMA_VERSION 88401. No second website is required.
+
+ZIP ALTERNATIVE
+1. Preserve a backup of source, database, uploads, photos and environment.
+2. Extract and MERGE this ZIP into your existing repository root, replacing
+   matching source files. This is a partial ZIP; do not delete absent files.
+3. Preserve runtime data, secrets, live settings and provider keys.
 4. Use Node 22 (>=22.12 <23), install dependencies if required and redeploy.
-5. Check /api/version: APP_VERSION 88.4.1, SCHEMA_VERSION 88401. If your host
-   overrides SCHEMA_VERSION, update that override accordingly.
-6. In Settings, open Address & arrival details. New bookings have a Where will
-   support start? choice. Existing visits retain their own location and may
-   show Confirm meeting place. Missing addresses do not block invoicing.
-7. Validate a participant/helper save, worker acceptance and location update
-   on your deployed site. Local browser rendering and real message delivery
-   remain unverified.
 
-Payment setup remains one-time environment configuration. See
-  docs/PAYMENT-SETUP-v88.4.0.md
-  docs/STRIPE-CONNECTION-STATUS.md
-The connected Stripe account checked here is a sandbox with no registered
-webhooks. No live payment activation, wage transfer or deployment is claimed.
+PAYMENT CHANGE
+New customer payments use the invoice link with Stripe card or enabled PayTo.
+Zai receiving-account setup and ordinary bank-transfer instructions are removed.
+Stale Zai/BANK_DETAILS settings cannot restore them. No new Zai setup is needed.
+Payment connections: Admin > Settings > Payment connections.
+Tracking: Admin > Money > Payment tracking.
+Historical receipts and allocations remain. No payment evidence is erased.
+Queued invoice emails/PDFs are refreshed before delivery. Previously sent or
+saved copies cannot be recalled; existing external receiving accounts are not
+closed by this source update.
+
+Stripe confirmations update invoice balances and receipts. PayTo is a payment
+for the selected invoice, not permission to debit future shifts automatically.
+NDIA claims and external payroll retain their existing routes. This source
+does not confirm onward bank settlement or transfer wages.
 
 User guide: docs/USER-GUIDE.html
-Changes: docs/CHANGELOG-v88.4.1.md
-Privacy/locations: docs/LOCATION-PRIVACY-v88.4.1.md
-Checks: docs/TEST-RESULTS.md
+Payment setup: docs/PAYMENT-SETUP-v88.4.0.md
+Changes: docs/CHANGELOG-v88.4.3.md
+Checks and limitations: docs/TEST-RESULTS.md
 Full installed-tree hashes: RELEASE-FILES.json

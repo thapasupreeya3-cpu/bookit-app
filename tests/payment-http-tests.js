@@ -7,7 +7,7 @@ const {spawn}=require('node:child_process'),{DatabaseSync}=require('node:sqlite'
 const ROOT=path.resolve(__dirname,'..'),DIR=fs.mkdtempSync(path.join(os.tmpdir(),'careweb-payment-http-'));
 const results=[],requests=[],sessions=new Map(),byKey=new Map(),stamp=new Date().toISOString();
 const password='Copper-Rainstorm!82',webhookSecret='whsec_synthetic_http_fixture_only',stripeKey='sk_test_synthetic_http_fixture_only';
-let child,db,stub,base,log='',participant,other,helper,worker,bookingId,invoiceNo,token,checkout,successfulEvent;
+let child,db,stub,base,log='',participant,other,helper,worker,admin,bookingId,invoiceNo,token,checkout,successfulEvent;
 const ins=(table,values)=>Number(db.prepare(`INSERT INTO ${table} (${Object.keys(values).join(',')}) VALUES (${Object.keys(values).map(()=>'?').join(',')})`).run(...Object.values(values)).lastInsertRowid);
 async function request(method,url,options={}){
   const response=await fetch(base+url,{method,headers:{'Content-Type':'application/json',...(options.origin===false?{}:{Origin:base}),...(options.cookie?{Cookie:options.cookie}:{}),...(options.forId?{'X-Bookit-For':String(options.forId)}:{}),...options.headers},body:options.raw??(options.body===undefined?undefined:JSON.stringify(options.body)),redirect:'manual'});
@@ -70,11 +70,13 @@ const local=value=>{const h=typeof value==='string'||value instanceof URL?new UR
 for(const name of ['node:http','node:https']){const m=require(name),request=m.request;m.request=function(...args){local(args[0]);return request.apply(this,args);};const get=m.get;m.get=function(...args){local(args[0]);return get.apply(this,args);};}
 const fetch=global.fetch;global.fetch=function(input,...args){local(typeof input==='string'||input instanceof URL?input:input.url);return fetch.call(this,input,...args);};
 `);
-  child=spawn(process.execPath,['--no-warnings','--require',guard,'server.js'],{cwd:ROOT,env:{PATH:process.env.PATH,PORT:String(port),BIND_HOST:'127.0.0.1',APP_URL:base,DB_PATH:DIR+'/test.db',DOCS_DIR:DIR+'/docs',PHOTOS_DIR:DIR+'/photos',SECRET_FILE:DIR+'/secret',SEED_DEMO:'on',AUTO_REPLY:'off',TZ:'Australia/Sydney',ADMIN_MFA_REQUIRED:'off',STRIPE_API_URL:'http://127.0.0.1:'+stub.address().port,STRIPE_SECRET_KEY:stripeKey,STRIPE_WEBHOOK_SECRET:webhookSecret,STRIPE_PAYTO_ENABLED:'true'},stdio:['ignore','pipe','pipe']});
+  child=spawn(process.execPath,['--no-warnings','--require',guard,'server.js'],{cwd:ROOT,env:{PATH:process.env.PATH,PORT:String(port),BIND_HOST:'127.0.0.1',APP_URL:base,DB_PATH:DIR+'/test.db',DOCS_DIR:DIR+'/docs',PHOTOS_DIR:DIR+'/photos',SECRET_FILE:DIR+'/secret',SEED_DEMO:'on',AUTO_REPLY:'off',TZ:'Australia/Sydney',ADMIN_MFA_REQUIRED:'off',STRIPE_API_URL:'http://127.0.0.1:'+stub.address().port,STRIPE_SECRET_KEY:stripeKey,STRIPE_WEBHOOK_SECRET:webhookSecret,STRIPE_PAYTO_ENABLED:'true',BANK_DETAILS:'Account name: Retired fixture bank; BSB: 654321; Account number: 76543210',ZAI_ENABLED:'true',ZAI_ENVIRONMENT:'sandbox',ZAI_CLIENT_ID:'retired-http-fixture',ZAI_CLIENT_SECRET:'retired-http-fixture',ZAI_SCOPE:'retired-http-fixture',ZAI_WEBHOOK_SECRET:'retired-http-fixture-signing-secret-12345678'},stdio:['ignore','pipe','pipe']});
   child.stdout.on('data',chunk=>log+=chunk);child.stderr.on('data',chunk=>log+=chunk);
   for(let n=0;n<100;n++){try{if((await fetch(base+'/api/version')).ok)break;}catch{}if(child.exitCode!==null)throw Error(log);await new Promise(resolve=>setTimeout(resolve,100));}
   db=new DatabaseSync(DIR+'/test.db');db.exec('PRAGMA busy_timeout=5000');
   participant=await register('http-payment-owner');other=await register('http-payment-other');helper=await register('http-payment-helper');
+  admin=await register('http-payment-admin');db.prepare('UPDATE users SET is_admin=1 WHERE id=?').run(admin.id);
+  ins('payment_accounts',{participant_id:participant.id,environment:'sandbox',provider_user_id:'retired-fixture-user',wallet_account_id:'20000000-0000-4000-8000-000000000001',virtual_account_id:'30000000-0000-4000-8000-000000000001',bsb:'123456',account_number:'100000017',account_name:'Retired mapped account',payid:'retired-bank@example.test',verified_at:stamp,verified_by:admin.id});
   db.prepare("UPDATE users SET role='coordinator',verified=1 WHERE id=?").run(helper.id);
   const linkId=ins('account_links',{participant_id:participant.id,coordinator_id:helper.id,invite_email:helper.email,invite_token:'synthetic-http-link',scopes:JSON.stringify(['bookings']),status:'active',invited_at:stamp});
   const workerLogin=await request('POST','/api/login',{body:{email:db.prepare('SELECT email FROM users WHERE id=10').get().email,password:'demo1234'}});ok(workerLogin);worker={id:10,cookie:workerLogin.cookie};
@@ -109,6 +111,19 @@ const fetch=global.fetch;global.fetch=function(input,...args){local(typeof input
     const queried=ok(await request('POST',url+'/review',{cookie:participant.cookie,body:{action:'query',confirm:true,fingerprint:before.review_fingerprint,query_note:'Please confirm the recorded end time for this visit.'}}));assert.equal(queried.review_state,'queried');assert.equal(queried.can_pay,false);assert.notEqual(queried.review_fingerprint,before.review_fingerprint);
     ok(await request('POST',url+'/review',{cookie:participant.cookie,body:{action:'approve',confirm:true,fingerprint:before.review_fingerprint}}),409);
     const approved=ok(await request('POST',url+'/review',{cookie:participant.cookie,body:{action:'approve',confirm:true,fingerprint:queried.review_fingerprint}}));assert.equal(approved.review_state,'approved');assert.equal(approved.can_pay,true);assert.equal(approved.total,310.62);assert.equal(db.prepare('SELECT approved_by FROM bookings WHERE id=?').get(bookingId).approved_by,participant.id);
+  });
+  await test('Retired bank configuration cannot expose receiving details through any real payer route or PDF',async()=>{
+    for(const url of ['/api/payments/invoices/'+invoiceNo,'/api/payments/public/'+token,'/api/me/invoices']){
+      const data=ok(await request('GET',url,{cookie:participant.cookie}));assert.deepEqual(data.bank,url==='/api/me/invoices'?[]:null);assert.doesNotMatch(JSON.stringify(data),/76543210|100000017|retired-bank@example\.test|654321|123456/);
+    }
+    const pdf=await request('GET','/api/me/invoices/'+invoiceNo+'.pdf',{cookie:participant.cookie});ok(pdf);const contents=pdf.bytes.toString('latin1');assert.doesNotMatch(contents,/76543210|100000017|retired-bank@example\.test|654321|123456|BSB:/);assert.ok(contents.includes('/pay/'+token));
+    const mail=JSON.stringify(JSON.parse(db.prepare('SELECT payload FROM delivery_outbox WHERE event_key=?').get('invoice:'+invoiceNo).payload).slice(0,7));assert.doesNotMatch(mail,/76543210|100000017|retired-bank@example\.test|654321|123456|bank transfer/i);
+  });
+  await test('Real admin authentication protects the retired assignment route and history remains unchanged',async()=>{
+    const before=db.prepare('SELECT * FROM payment_accounts').all();const path='/api/admin/payments/zai/accounts',body={participant_id:participant.id,provider_user_id:'new-user',wallet_account_id:'new-wallet',virtual_account_id:'new-account'};
+    ok(await request('POST',path,{body}),403);ok(await request('POST',path,{cookie:participant.cookie,body}),403);
+    const result=ok(await request('POST',path,{cookie:admin.cookie,body}),410);assert.equal(result.payment_policy,'invoice-link-only');assert.match(result.error,/payment link/);assert.deepEqual(db.prepare('SELECT * FROM payment_accounts').all(),before);
+    const dashboard=ok(await request('GET','/api/admin/payments/dashboard',{cookie:admin.cookie}));assert.deepEqual(Object.keys(dashboard.providers),['stripe']);assert.equal(dashboard.accounts,undefined);assert.equal(dashboard.payment_policy,'invoice-link-only');
   });
   await test('Repeated authenticated checkout uses one priced provider request and returning never marks paid',async()=>{
     const url='/api/payments/invoices/'+invoiceNo+'/checkout';

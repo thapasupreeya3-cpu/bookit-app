@@ -49,7 +49,7 @@ function fixture(options = {}) {
     appUrl:'https://care.example.test', invoiceFor:getInvoice,production:options.production===true,
     invoiceFlow:{archived:getInvoice,cancelLinks:()=>{},wake:()=>{},drain:async()=>{if(options.cleanupOutage)return {failed:1};db.exec("UPDATE checkout_cleanup SET state='closed'");return {closed:true};}},
     actFor:(req,user,scope)=>!user||user.revoked?null:user.role==='participant'?{id:user.id}:user.grants?.includes(scope)?{id:user.participantId}:null,
-    bankDetails:()=>({bsb:'654321',account_number:'76543210',account_name:'Configured fallback'}),
+    bankDetails:()=>{throw Error('Retired bank details must not be requested');},
     stripeEnabled:()=>options.stripeEnabled!==false,paytoEnabled:()=>true,stripeEnvironment:()=>options.stripeEnvironment||'test',
     stripeRequest:async(path,params,extra)=>{
       stripeRequests.push({path,params,extra});
@@ -154,17 +154,19 @@ await test('Wrong currency or checkout amount cannot credit an invoice',()=>{
 await test('A live Stripe event cannot credit the configured test environment',()=>{
   const f=fixture({stripeEnvironment:'test'});f.seed();f.attempt();assert.throws(()=>f.api.recordStripePayment(f.stripe('checkout.session.completed',{}, {livemode:true})),/environment/);assert.equal(f.getInvoice('INV-1').paid,0);assert.equal(f.db.prepare('SELECT count(*) n FROM payment_transfers').get().n,0);
 });
-await test('Signed bank callback amount is ignored in favour of verified provider cents',async()=>{
-  const f=fixture();f.seed();f.account();assert.equal((await f.bankWebhook()).statusCode,200);await f.api.tick();assert.equal(f.getInvoice('INV-1').paid,310.62);assert.equal(f.db.prepare('SELECT amount_cents FROM payment_transfers').get().amount_cents,31062);assert.equal(f.providerReads.length,1);
+await test('A signed legacy deposit is provider-verified and retained for office reconciliation only',async()=>{
+  const f=fixture();f.seed();f.account();assert.equal((await f.bankWebhook()).statusCode,200);await f.api.tick();assert.equal(f.getInvoice('INV-1').paid,0);assert.equal(f.db.prepare('SELECT amount_cents FROM payment_transfers').get().amount_cents,31062);assert.equal(f.providerReads.length,1);
+  const receipt=f.api.dashboard({}, {id:99,admin:true}).transfers[0];assert.equal(receipt.balance,310.62);assert.equal(receipt.status,'needs-matching');assert.equal(f.w.paymentOfficeTasks().length,1);assert.equal(f.sent.filter(x=>x[8].payment_receipt).length,0);
 });
 await test('Unsigned and non-deposit bank callbacks never credit the invoice',async()=>{
   const f=fixture({receipt:()=>({received:false,providerTransactionId:TX,providerState:'pending',reason:'not_a_confirmed_bank_deposit'})});f.seed();f.account();const res={};await f.api.zaiWebhook({headers:{}},res,Buffer.from(JSON.stringify({transactions:{id:TX}})));assert.equal(res.statusCode,400);await f.bankWebhook();await f.api.tick();assert.equal(f.getInvoice('INV-1').paid,0);assert.equal(f.db.prepare('SELECT count(*) n FROM payment_transfers').get().n,0);
 });
-await test('Bank callback replay creates one receipt, allocation and payer email',async()=>{
-  const f=fixture();f.seed();f.account();await f.bankWebhook();await f.api.tick();await f.bankWebhook();await f.api.tick();assert.equal(f.db.prepare('SELECT count(*) n FROM payment_transfers').get().n,1);assert.equal(f.db.prepare('SELECT count(*) n FROM payment_allocations').get().n,1);assert.equal(f.sent.filter(x=>x[8].payment_receipt).length,1);
+await test('Legacy callback replay cannot duplicate money or overwrite its office allocation',async()=>{
+  const f=fixture();f.seed();f.account();await f.bankWebhook();await f.api.tick();await f.bankWebhook();await f.api.tick();assert.equal(f.db.prepare('SELECT count(*) n FROM payment_transfers').get().n,1);assert.equal(f.db.prepare('SELECT count(*) n FROM payment_allocations').get().n,0);
+  const receipt=f.db.prepare('SELECT * FROM payment_transfers').get();f.api.allocate(receipt,'INV-1',31062,99,'legacy-confirmation');await f.bankWebhook();await f.api.tick();assert.equal(f.db.prepare('SELECT count(*) n FROM payment_transfers').get().n,1);assert.equal(f.db.prepare('SELECT count(*) n FROM payment_allocations').get().n,1);assert.equal(f.sent.filter(x=>x[8].payment_receipt).length,1);assert.equal(f.getInvoice('INV-1').paid,310.62);
 });
 await test('Persisted sandbox jobs cannot be fetched after switching to live mode',async()=>{
-  const f=fixture();f.seed();f.account(1,'live');await f.bankWebhook();f.environment('live');await f.api.tick();assert.equal(f.providerReads.length,0);assert.equal(f.getInvoice('INV-1').paid,0);
+  const f=fixture();f.seed();f.account();await f.bankWebhook();f.environment('live');await f.api.tick();assert.equal(f.providerReads.length,0);assert.equal(f.getInvoice('INV-1').paid,0);assert.equal(f.db.prepare('SELECT state FROM payment_provider_jobs').get().state,'retry');
 });
 await test('An owner mismatch leaves the confirmed provider transaction unallocated',async()=>{
   const f=fixture();f.seed();f.account();f.db.exec("UPDATE payment_accounts SET provider_user_id='other-user'");await f.bankWebhook();await f.api.tick();assert.equal(f.getInvoice('INV-1').paid,0);assert.equal(f.db.prepare('SELECT state FROM payment_provider_jobs').get().state,'retry');
@@ -197,8 +199,10 @@ await test('A verified receipt with a later reference can recover automatic invo
 await test('Manual allocation cannot cross participants or exceed the unapplied receipt',async()=>{
   const f=fixture();f.seed();f.seed('INV-2',310.62,2);const receipt=f.api.receivedTransfer({provider:'zai',environment:'sandbox',providerTransactionId:'manual-1',participantId:1,walletAccountId:WALLET,amountCents:10000,reference:''});assert.throws(()=>f.api.allocate(receipt,'INV-2',10000,99));assert.throws(()=>f.api.allocate(receipt,'INV-1',10001,99));assert.equal(f.getInvoice('INV-1').paid,0);assert.equal(f.getInvoice('INV-2').paid,0);
 });
-await test('Bank account activation is required before mapping or advertising new details',async()=>{
-  const f=fixture();f.seed();f.mockZai.verifyAccountMapping=async()=>({active:false,status:'pending_activation',bsb:'123456',accountNumber:'100000017',accountName:'Fixture'});const result=await f.call('POST','/api/admin/payments/zai/accounts',{id:99,admin:true},{participant_id:1,provider_user_id:'fixture-payer',wallet_account_id:WALLET,virtual_account_id:VA});assert.equal(result.statusCode,409);assert.equal(f.db.prepare('SELECT count(*) n FROM payment_accounts').get().n,0);
+await test('Retired account assignment requires admin authentication and never calls the provider',async()=>{
+  const f=fixture();f.seed();let providerCalls=0;f.mockZai.verifyAccountMapping=async()=>{providerCalls++;throw Error('Retired provider write');};const path='/api/admin/payments/zai/accounts',body={participant_id:1,provider_user_id:'fixture-payer',wallet_account_id:WALLET,virtual_account_id:VA};
+  assert.equal((await f.call('POST',path,null,body)).statusCode,403);assert.equal((await f.call('POST',path,{id:1,role:'participant'},body)).statusCode,403);
+  const result=await f.call('POST',path,{id:99,admin:true},body);assert.equal(result.statusCode,410);assert.equal(result.data.payment_policy,'invoice-link-only');assert.match(result.data.error,/payment link/);assert.equal(providerCalls,0);assert.equal(f.db.prepare('SELECT count(*) n FROM payment_accounts').get().n,0);
 });
 await test('Early intent confirmation is retried once its stored checkout mapping arrives',async()=>{
   const f=fixture();f.seed();const event=f.stripe('payment_intent.succeeded');assert.throws(()=>f.api.recordStripePayment(event),/stored payment request/);assert.equal(f.getInvoice('INV-1').paid,0);f.attempt();await f.api.tick();assert.equal(f.getInvoice('INV-1').paid,310.62);assert.equal(f.db.prepare('SELECT count(*) n FROM invoice_payment_evidence').get().n,1);assert.equal(f.db.prepare('SELECT state FROM payment_provider_jobs WHERE event_key=?').get('stripe:'+event.id).state,'complete');
@@ -240,8 +244,8 @@ await test('Refund arriving before checkout mapping stays visible and later link
   const f=fixture();f.seed();const refund={id:'evt_early_refund',type:'refund.created',livemode:false,data:{object:{id:'re_early',payment_intent:'pi_fixture',amount:5000,currency:'aud',status:'pending'}}};f.api.recordStripePayment(refund);assert.ok(f.w.paymentOfficeTasks().find(t=>t.id===refund.id).label.includes('invoice needs matching'));
   f.attempt();f.api.recordStripePayment(f.stripe());const review=f.w.paymentOfficeTasks().find(t=>t.id===refund.id);assert.equal(review.invoice_no,'INV-1');assert.ok(review.label.includes('INV-1'));assert.equal(f.getInvoice('INV-1').paid,310.62);
 });
-await test('Changing receiving account identity cannot leave stale mapping metadata beside new bank details',async()=>{
-  const f=fixture();f.seed();f.account();const other='30000000-0000-4000-8000-000000000002';const result=await f.call('POST','/api/admin/payments/zai/accounts',{id:99,admin:true},{participant_id:1,provider_user_id:'fixture-payer',wallet_account_id:WALLET,virtual_account_id:other});assert.equal(result.statusCode,409);assert.equal(f.db.prepare('SELECT virtual_account_id FROM payment_accounts').get().virtual_account_id,VA);
+await test('Retired assignment cannot change any existing receiving-account history',async()=>{
+  const f=fixture();f.seed();f.account();const before=f.db.prepare('SELECT * FROM payment_accounts').get();const other='30000000-0000-4000-8000-000000000002';const result=await f.call('POST','/api/admin/payments/zai/accounts',{id:99,admin:true},{participant_id:1,provider_user_id:'fixture-payer',wallet_account_id:WALLET,virtual_account_id:other});assert.equal(result.statusCode,410);assert.deepEqual(f.db.prepare('SELECT * FROM payment_accounts').get(),before);
 });
 await test('Switching payment method closes the old checkout before offering the replacement',async()=>{
   const f=fixture();f.seed();const first=await f.call('POST','/api/payments/invoices/INV-1/checkout',{id:1,role:'participant'},{method:'card'});assert.equal(first.statusCode,200);
@@ -251,8 +255,18 @@ await test('A provider closure outage prevents a second payable checkout',async(
   const f=fixture({cleanupOutage:true});f.seed();assert.equal((await f.call('POST','/api/payments/invoices/INV-1/checkout',{id:1,role:'participant'},{method:'card'})).statusCode,200);
   const second=await f.call('POST','/api/payments/invoices/INV-1/checkout',{id:1,role:'participant'},{method:'payto'});assert.equal(second.statusCode,202);assert.equal(second.data.url,undefined);assert.equal(f.stripeRequests.length,1);assert.equal(f.db.prepare('SELECT state FROM checkout_cleanup').get().state,'queued');
 });
-await test('Production invoices never advertise a mapped sandbox receiving bank account',async()=>{
-  const f=fixture({production:true});f.seed();f.account();const result=await f.call('GET','/api/payments/invoices/INV-1');assert.equal(result.statusCode,200);assert.equal(result.data.bank.automatically_tracked,false);assert.equal(result.data.bank.bsb,'654321');assert.notEqual(result.data.bank.account_number,'100000017');
+await test('Every payer invoice API and PDF bank adapter suppress stored accounts and fallback bank details',async()=>{
+  for(const environment of ['sandbox','live'])for(const stripeEnabled of [true,false]){
+    const f=fixture({production:true,environment,stripeEnabled});f.seed();f.account();f.db.exec("UPDATE payment_accounts SET payid='old-payid@example.test'");
+    for(const funding of ['self','private','plan']){
+      f.records.get('INV-1').funding=funding;const token=f.api.invoiceUrl('INV-1').split('/').pop();
+      assert.equal(f.api.bankForInvoice(f.getInvoice('INV-1')),null);
+      for(const path of ['/api/payments/invoices/INV-1','/api/payments/public/'+token]){
+        const result=await f.call('GET',path);assert.equal(result.statusCode,200);assert.equal(result.data.bank,null);assert.equal(result.data.payment_policy,'invoice-link-only');
+        assert.doesNotMatch(JSON.stringify(result.data),/123456|100000017|old-payid@example\.test|automatically_tracked/);
+      }
+    }
+  }
 });
 await test('Old unpaid invoices and unallocated money remain visible beyond 250 newer closed records',()=>{
   const f=fixture();f.seed('INV-OLD-DUE',50);f.db.prepare('UPDATE invoice_snapshots SET created_at=? WHERE invoice_no=?').run('2000-01-01T00:00:00Z','INV-OLD-DUE');
@@ -273,6 +287,36 @@ await test('Every unresolved provider event stays visible beyond 100 newer excep
   const f=fixture();f.seed();f.db.prepare("INSERT INTO finance_provider_events(event_id,event_type,invoice_no,amount_cents,currency,status,created_at) VALUES('evt_old_open','charge.dispute.created','INV-1',31062,'aud','needs-review','2000-01-01T00:00:00Z')").run();
   for(let i=0;i<120;i++)f.db.prepare("INSERT INTO finance_provider_events(event_id,event_type,invoice_no,amount_cents,currency,status,created_at) VALUES(?,'refund.failed','INV-1',100,'aud','needs-review',?)").run('evt_new_open_'+i,f.now());
   const tasks=f.w.paymentOfficeTasks(),dashboard=f.api.dashboard({}, {id:99,admin:true});assert.equal(tasks.filter(t=>t.status==='needs-review').length,121);assert.equal(dashboard.exceptions.filter(t=>t.status==='needs-review').length,121);assert.ok(tasks.some(t=>t.id==='evt_old_open'));assert.ok(dashboard.exceptions.some(t=>t.id==='evt_old_open'));
+});
+await test('Unavailable Stripe and failed payment emails never offer bank-transfer fallback',async()=>{
+  const offline=fixture({stripeEnabled:false});offline.seed();offline.account();
+  const token=offline.api.invoiceUrl('INV-1').split('/').pop();
+  for(const path of ['/api/payments/invoices/INV-1/checkout','/api/payments/public/'+token+'/checkout']){
+    const result=await offline.call('POST',path);assert.equal(result.statusCode,409);assert.match(result.data.error,/invoice link/);assert.doesNotMatch(result.data.error,/bank details|transfer|PayID/i);
+  }
+  assert.equal(offline.stripeRequests.length,0);assert.equal(offline.providerReads.length,0);
+  const connected=fixture();connected.seed();connected.attempt();connected.api.recordStripePayment(connected.stripe('checkout.session.async_payment_failed'));
+  const mail=connected.sent.find(x=>x[8].event_key.startsWith('payment-failed:'));assert.ok(mail);assert.match(mail[3],/invoice link/);assert.doesNotMatch(mail[3],/bank details|transfer|PayID/i);assert.equal(mail[5],connected.api.invoiceUrl('INV-1'));
+  assert.equal((await connected.call('POST','/api/payments/invoices/INV-1/checkout',{id:1,role:'participant'},{method:'bank_transfer'})).statusCode,400);
+});
+await test('Stale Zai configuration alone cannot accept callbacks, queue jobs or fetch deposits',async()=>{
+  const f=fixture();f.seed();assert.equal((await f.bankWebhook()).statusCode,410);
+  const probe={};await f.api.zaiWebhook({headers:{}},probe,Buffer.from(JSON.stringify({message:'Zai callback test'})));assert.equal(probe.statusCode,410);
+  await f.api.tick();assert.equal(f.providerReads.length,0);assert.equal(f.db.prepare('SELECT count(*) n FROM payment_provider_jobs').get().n,0);assert.equal(f.db.prepare('SELECT count(*) n FROM payment_transfers').get().n,0);
+});
+await test('An already queued legacy confirmation is preserved without inventing an account assignment',async()=>{
+  const f=fixture();f.seed();f.db.prepare("INSERT INTO payment_provider_jobs(event_key,provider,payload,next_at,created_at) VALUES(?,'zai',?,?,?)").run('pre-retirement-job',JSON.stringify({environment:'sandbox',transactionId:TX}),f.now(),f.now());
+  await f.api.tick();assert.equal(f.providerReads.length,1);assert.equal(f.db.prepare('SELECT state FROM payment_provider_jobs').get().state,'complete');const receipt=f.db.prepare('SELECT * FROM payment_transfers').get();assert.equal(receipt.participant_id,null);assert.equal(receipt.amount_cents,31062);assert.equal(receipt.status,'needs-matching');assert.equal(f.getInvoice('INV-1').paid,0);assert.equal(f.db.prepare('SELECT count(*) n FROM payment_accounts').get().n,0);
+  assert.equal((await f.bankWebhook('10000000-0000-4000-8000-000000000002')).statusCode,410);await f.api.tick();assert.equal(f.providerReads.length,1);
+});
+await test('Disabling old provider credentials preserves pending confirmations as visible exceptions',async()=>{
+  const f=fixture();f.seed();f.account();await f.bankWebhook();f.mockZai.getStatus=()=>({enabled:false,configured:false,environment:'sandbox',missing:['ZAI_CLIENT_SECRET']});await f.api.tick();assert.equal(f.providerReads.length,0);const job=f.db.prepare('SELECT * FROM payment_provider_jobs').get();assert.equal(job.state,'retry');assert.match(job.error,/Historical bank payment/);assert.ok(f.api.dashboard({}, {id:99,admin:true}).exceptions.some(e=>e.id===job.event_key));assert.equal(f.db.prepare('SELECT count(*) n FROM payment_accounts').get().n,1);
+});
+await test('Dashboard exposes only Stripe setup while retaining historical receipts and allocations exactly',async()=>{
+  const f=fixture();f.seed();f.account();const receipt=f.api.receivedTransfer({provider:'zai',environment:'sandbox',providerTransactionId:'retained-history',participantId:1,walletAccountId:WALLET,amountCents:10000,reference:'INV-1'});f.api.allocate(receipt,'INV-1',5000,99,'historic-allocation');
+  const before={accounts:f.db.prepare('SELECT * FROM payment_accounts').all(),transfers:f.db.prepare('SELECT * FROM payment_transfers').all(),allocations:f.db.prepare('SELECT * FROM payment_allocations').all(),evidence:f.db.prepare('SELECT * FROM invoice_payment_evidence').all()};
+  await f.api.tick();const data=f.api.dashboard({}, {id:99,admin:true});assert.deepEqual(Object.keys(data.providers),['stripe']);assert.equal(data.accounts,undefined);assert.equal(data.payment_policy,'invoice-link-only');assert.equal(data.transfers[0].allocated,50);assert.equal(data.transfers[0].balance,50);assert.equal(data.invoices[0].paid,50);assert.equal(data.invoices[0].bank,null);
+  assert.deepEqual({accounts:f.db.prepare('SELECT * FROM payment_accounts').all(),transfers:f.db.prepare('SELECT * FROM payment_transfers').all(),allocations:f.db.prepare('SELECT * FROM payment_allocations').all(),evidence:f.db.prepare('SELECT * FROM invoice_payment_evidence').all()},before);
 });
 
 // Flush scheduled wake callbacks while fixture databases remain open.

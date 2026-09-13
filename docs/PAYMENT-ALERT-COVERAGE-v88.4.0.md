@@ -1,14 +1,14 @@
-# Payment and alert coverage — v88.4.0
+# Payment and alert coverage — v88.4.0, updated for v88.4.3
 
 Reviewed 13 September 2026 against the current release source and the original 41-case alert inventory. This closes out the inventory with an explicit disposition for every case; it does not claim all 41 are fully automated.
 
-**Coverage:** 15 implemented, 12 retained, 13 partial, 1 missing.
+**Coverage after v88.4.3:** 14 implemented, 13 retained, 13 partial, 1 missing. The ordinary-transfer case A21 is now retained only for historical reconciliation.
 
 “Implemented” means a source workflow added or completed in this release. “Retained” means an existing source control is preserved. “Partial” names the remaining gap. These statuses do not certify a deployed browser, delivery to a real inbox, production payment accounts or bank settlement.
 
 `NO` is the invoice number, `B` a booking ID, `PID` a participant ID and `TOKEN` an invoice-specific bearer token. Invoice review requires a signed-in authorised participant/helper; a public payment token permits payment after review, not approval of support. Helper invoice links can include `&for=PID`.
 
-The compact Next actions badge covers current actionable groups. Calendar and List share the review/payment notice. Payment tracking distinguishes a recorded receipt from an unverified deposit into the business bank. The payer can use a configured card/PayTo checkout or the supplied receiving details; automatic saved-payment mandates and wages are separate unfinished integrations.
+The compact Next actions badge covers current actionable groups. Calendar and List share the review/payment notice. Payment tracking distinguishes a recorded receipt from an unverified deposit into the business bank. The payer must use the invoice link with configured Stripe card or optional PayTo; automatic saved-payment mandates and wages are separate unfinished integrations.
 
 | Case | Alert/event | Current coverage | Current destination | Behaviour and remaining limit | Source |
 |---|---|---|---|---|---|
@@ -32,7 +32,7 @@ The compact Next actions badge covers current actionable groups. Calendar and Li
 | A18 | Saved-payment authorisation | Missing | No automatic-payment mandate setup screen | Reusable saved-method mandates and unattended off-session collection are not implemented. Card/PayTo checkout is initiated by the payer; a stored invoice or prior approval is not ongoing payment consent. | payments |
 | A19 | Successful payment receipt | Implemented | Receipt email → `/pay/TOKEN`; invoice payment history | A confirmed allocated receipt queues one receipt notice per ledger entry and updates the balance. Repeated events reuse ledger identifiers. This is a queued receipt email, not proof of inbox delivery. | payments, finance |
 | A20 | Refund or provider dispute | Partial | `#/journey?panel=finance`; `#/payment-tracking` | Refund/dispute provider events create named office tasks and clickable dashboard actions. Provider deadlines are not imported; refunds, reversals and dispute responses still require office/provider work. | payments, finance |
-| A21 | Unmatched or excessive bank receipt | Implemented | `#/payment-tracking` → Match payment | Configured Zai notifications fetch and verify receipt details, match safe references and retain unmatched/excess amounts. Needs-matching and part-matched receipts expose scoped, idempotent partial allocation. No ordinary-business-bank feed is connected. | payments, Zai, UI |
+| A21 | Historical unmatched or excessive receipt | Retained | `#/payment-tracking?tab=receipts` → Match payment | New ordinary bank transfers and receiving-account assignments are retired in v88.4.3. Historical receipts and eligible late deposits remain for office reconciliation, with scoped, idempotent partial allocation. They are not automatically applied to new invoices. | payments, legacy provider evidence, UI |
 | A22 | NDIA claim needs submission or is rejected | Partial | `#/admin/money` → NDIA claim file | Claim CSV preparation and local tracking remain. External NDIA submission, acceptance, rejection ingestion and a corresponding automated rejected-claim workflow are not connected. | server, UI |
 | A23 | Payroll draft needs work | Partial | `#/journey?panel=payroll` | Draft, exception, review and independent approval controls remain, with office tasks. Gross pay, super, allowances and calculation evidence still need review; no payroll provider calculates or pays wages here. | finance, payroll |
 | A24 | Older work missed by payroll schedule | Implemented | `#/journey?panel=payroll` | Scheduled drafts now recover eligible unbatched work from the configured cutover to yesterday in bounded 90-day periods. Source-key deduplication prevents repeat inclusion; no automatic wage transfer is introduced. | finance, recovery tests |
@@ -58,11 +58,11 @@ The compact Next actions badge covers current actionable groups. Calendar and Li
 
 - **UI:** `public/assets/payment-automation.js`, `public/assets/next-actions.js`, `public/assets/process-workflows.js`, `public/index.html`.
 - **calendar / tasks / routes:** `public/assets/booking-calendar.js`, `lib/process-store.js`, `lib/process-routes.js`.
-- **payments / Zai:** `lib/payment-automation.js`, `lib/zai-payments.js`.
+- **payments / historical provider evidence:** `lib/payment-automation.js`, `lib/zai-payments.js`.
 - **billing / lifecycle / finance:** `lib/automatic-invoicing.js`, `lib/invoice-lifecycle.js`, `lib/process-finance.js`.
 - **payroll / verification / assurance:** `lib/payroll-notifications.js`, `lib/verification-automation.js`, `lib/launch-assurance.js`.
 - **server:** `server.js`, including existing booking, approval, claim and notification routes.
 
-Focused verification performed for this review: `tests/payment-ui-tests.js` passed **24/24**, including the real backend transfer states, public versus authenticated permissions, payment preparation, stale responses and named exception actions. `tests/payroll-recovery-tests.js` passed **3/3** against an in-memory SQLite database, including old work, existing batch entries, before-cutover work, today’s work and repeated runs. These are source/interaction checks; they are not live bank or browser-layout confirmation. The release’s other verification results are recorded separately.
+Historical verification performed for the original v88.4.0 review: `tests/payment-ui-tests.js` passed **24/24**, including the real backend transfer states, public versus authenticated permissions, payment preparation, stale responses and named exception actions. `tests/payroll-recovery-tests.js` passed **3/3** against an in-memory SQLite database, including old work, existing batch entries, before-cutover work, today’s work and repeated runs. These are source/interaction checks; they are not live bank or browser-layout confirmation. The release’s other verification results are recorded separately.
 
-The remaining implementation gaps are explicit: unattended saved-payment consent/collection; connected payroll calculation, wage transfer and payslips; NDIA submission/outcome ingestion; business-bank payout/fee reconciliation; provider bounce/delivery ingestion; and the specific ageing/completeness cases marked Partial above. Provider onboarding, verified receiving-account assignments and deployed webhook/email checks are prerequisites for real external automation.
+The remaining implementation gaps are explicit: unattended saved-payment consent/collection; connected payroll calculation, wage transfer and payslips; NDIA submission/outcome ingestion; business-bank payout/fee reconciliation; provider bounce/delivery ingestion; and the specific ageing/completeness cases marked Partial above. Live Stripe activation and deployed webhook/email checks are prerequisites for real external invoice-payment automation. No new receiving-account setup is offered.

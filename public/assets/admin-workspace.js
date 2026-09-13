@@ -45,7 +45,7 @@
  ['reports-workflow','Reports','Workflow times','#/journey?panel=metrics','See waiting times and progress through the service.'],
  ['evidence','Reports','Evidence history','#/admin/reports?section=evidence','Read the record of checks and their reviewers.'],
  ['charge-report','Reports','Completed charges','#/admin/reports?section=charges','Review completed shift amounts and estimates.'],
- ['payment-settings','Settings','Payment connections','#/payment-tracking?tab=setup','Connect payment providers and receiving accounts.'],
+ ['payment-settings','Settings','Payment connections','#/payment-tracking?tab=setup','Set up secure invoice payments by card and PayTo.'],
  ['automation-settings','Settings','Payroll, tax & documents','#/journey?panel=settings','Configure payroll cutover, invoice tax and document processing.'],
  ['pay-rates','Settings','Pay rates','#/admin/settings?section=pay','Review award comparisons, worker tiers and rate settings.'],
  ['ai','Settings','AI assistance','#/admin/ai','Configure optional assistance and review suggestions.'],

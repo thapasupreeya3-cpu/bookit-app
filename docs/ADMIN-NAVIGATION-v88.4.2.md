@@ -1,6 +1,6 @@
 # The Care Web — Admin navigation
 
-Version 88.4.2 organises office work into seven sections. Each tool has a focused page and the same Admin navigation. This change reorganises screens and record lists; it does not change permissions, financial rules or automatic processing.
+Version 88.4.2 organises office work into seven sections. Payment descriptions below reflect the v88.4.3 invoice-link-only update. Each tool has a focused page and the same Admin navigation. This change reorganises screens and record lists; it does not change permissions, financial rules or automatic processing.
 
 ## Find a tool or a record
 
@@ -50,7 +50,7 @@ Record search is separate: use the search inside Invoices, Received payments, Em
 | Tool | Use it for | Route |
 |---|---|---|
 | Invoices | View balances, payment status and invoice actions. | `#/payment-tracking?tab=invoices` |
-| Received payments | Match bank receipts to the correct invoices. | `#/payment-tracking?tab=receipts` |
+| Received payments | View confirmed payments and reconcile historical receipts. | `#/payment-tracking?tab=receipts` |
 | Payment exceptions | Resolve payment failures and unmatched events. | `#/payment-tracking?tab=exceptions` |
 | NDIA claims | Download claim files and record confirmed claim payments. | `#/admin/money?section=claims` |
 | Unissued charges | Review completed shifts waiting for processing. | `#/admin/money?section=unissued` |
@@ -86,7 +86,7 @@ Record search is separate: use the search inside Invoices, Received payments, Em
 
 | Tool | Use it for | Route |
 |---|---|---|
-| Payment connections | Connect payment providers and receiving accounts. | `#/payment-tracking?tab=setup` |
+| Payment connections | Check Stripe card and optional PayTo invoice payments. | `#/payment-tracking?tab=setup` |
 | Payroll, tax & documents | Configure payroll cutover, invoice tax and document processing. | `#/journey?panel=settings` |
 | Pay rates | Review award comparisons, worker tiers and rate settings. | `#/admin/settings?section=pay` |
 | AI assistance | Configure optional assistance and review suggestions. | `#/admin/ai` |
@@ -99,7 +99,7 @@ Record search is separate: use the search inside Invoices, Received payments, Em
 
 - **Find or pay an invoice:** Money → Invoices → invoice number. Use the status filter and invoice search to narrow the list.
 - **Withdraw an invoice:** Money → Invoice history & withdrawal, or **Invoice actions** on the invoice row. Existing reasons, payment reconciliation, withdrawal notices and held-shift rules remain.
-- **Match a bank receipt:** Money → Received payments → Match payment. The existing payer, reference, amount and balance checks remain.
+- **Reconcile a historical receipt:** Money → Received payments → Match payment. The existing payer, reference, amount and balance checks remain.
 - **Handle a failed payment:** Money → Payment exceptions. Review the named issue and retry pending jobs when appropriate.
 - **Prepare worker pay:** Money → Worker pay → Prepare a batch. Open **Pay batches** to review an existing batch. Exported and office-recorded payment statuses keep their existing meanings.
 - **Record a manual receipt or examine evidence:** Money → Finance evidence, then Needs review, Invoice delivery, Not yet invoiced, Record receipt or Receipt history.

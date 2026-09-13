@@ -41,7 +41,7 @@ remain deliberate stops. Invoice mail retries automatically with visible status.
 Email transport must be configured; queued does not mean sent or paid.
 The complete source register is docs/block-register/index.html, with CSV/JSON and
 all conditional branches. docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
-See docs/CHANGELOG-v88.4.2.md and docs/USER-GUIDE.html.
+See docs/CHANGELOG-v88.4.3.md and docs/USER-GUIDE.html.
 
 ADMIN WORKSPACE
 One shared navigation: Today, People, Bookings, Money, Records, Reports, Settings.
@@ -63,10 +63,12 @@ See docs/LOCATION-PRIVACY-v88.4.1.md and the updated USER-GUIDE.html.
 PAYMENT TRACKING
 Invoices link to a protected payment page. Provider confirmations update balances
 with duplicate protection, partial payments, receipts and overdue reminders.
-Payment tracking shows bank receipts, unallocated money and named follow-ups.
-Optional Zai receiving accounts match confirmed AUD deposits by account and
-invoice reference. Stripe checkout supports cards and optionally enabled PayTo.
-Configure providers once using docs/PAYMENT-SETUP-v88.4.0.md. These integrations
+New customer payments must use the invoice link. Stripe checkout supports cards
+and optionally enabled PayTo. Zai setup and ordinary bank-transfer instructions
+are removed. Existing payment evidence and unallocated historical receipts remain
+available to the office. Queued invoice PDFs and demands are refreshed before
+sending; previously delivered copies cannot be recalled.
+Configure Stripe using docs/PAYMENT-SETUP-v88.4.0.md. These integrations
 do not confirm onward business-bank settlement or transfer wages. Worker pay
 notices clearly identify external payment results recorded by the office.
 
@@ -132,7 +134,7 @@ The earlier scoped register permissions remain in force.
 
 CONFIGURATION BEFORE USE
 - Open Admin > Launch & operations for all 44 finding/acceptance records.
-- Check approval-to-invoice and email delivery in staging; NSW holidays are automatic. Confirm actual business tax/agreement and payroll settings. No A09 or holiday-review gate applies to routine invoice issue.
+- Check approval-to-invoice and email delivery on your existing prelaunch website; NSW holidays are automatic. Confirm actual business tax/agreement and payroll settings. No A09 or holiday-review gate applies to routine invoice issue.
 - Every payroll line needs reviewed wages, super, allowances and a calculation reference; a different
   approver signs the batch. Booking allocation exports are estimates.
 - Review migrated incident awareness and separate notification/five-day/final-report obligations.
@@ -160,17 +162,16 @@ INSTALL / UPDATE
       npm ci --ignore-scripts
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
-6. Stage the update first. Additive migrations introduce session assurance, incident obligations,
-   finance review and operational evidence tables. Existing records are retained.
-   Enrolled accounts must sign in again; review migrated incident awareness/deadlines.
-   Existing records are retained. This upgrade does not reinterpret unknown funding.
+6. Update the existing prelaunch website. No second website is required.
+   This release retains the current schema and historical payment evidence.
+   This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
    explicit SCHEMA_VERSION environment override if your host uses one.
-7. In staging, test participant and helper setup, concurrent plan saves, worker
+7. On your existing prelaunch website, check participant and helper setup, concurrent plan saves, worker
    recruitment, series acceptance, leave/cover, notes and travel, approvals,
    invoice reconciliation, payroll batches, calendar changes and recovery.
    Check mobile, keyboard and screen-reader use. Verify configured integrations
-   with authorised provider test accounts before production use.
+   with authorised provider events and the payment checks in the setup guide.
 
 RECOVERY
 Keep a pre-update backup. An older binary has broader register access; rolling

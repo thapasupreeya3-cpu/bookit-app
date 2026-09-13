@@ -10471,8 +10471,6 @@ document.addEventListener('click', async e => {
     try{ await API.call('/admin/claims/' + uc.dataset.claimUnclaim + '/unclaim', {method:'POST', body:{reason: a.reason}}); toast('Claim withdrawn locally. The shift is held until you release it.'); renderAdminPage(); }catch(err){ toast(err.message); }
     return;
   }
-  const ip = e.target.closest('[data-inv-paid]');
-  if(ip){ if(ip.disabled)return;ip.disabled=true;try{ const r=await API.call('/admin/invoices/' + encodeURIComponent(ip.dataset.invPaid) + '/paid', {method:'POST', body:{how:'bank transfer'}}); toast(r.message||'Payment already recorded.'); renderAdminPage(); }catch(err){ toast(err.message); }finally{ip.disabled=false;} return; }
   const rp = e.target.closest('[data-ref-paid]');
   if(rp){ try{ await API.call('/admin/referrals/' + rp.dataset.refPaid + '/paid', {method:'POST', body:{}}); toast('Marked paid.'); renderAdminPage(); }catch(err){ toast(err.message); } return; }
   const ug = e.target.closest('[data-ungroup]');

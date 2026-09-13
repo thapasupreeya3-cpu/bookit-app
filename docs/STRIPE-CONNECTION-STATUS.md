@@ -1,7 +1,7 @@
-# Stripe connection check — 13 September 2026
+# Stripe connection evidence — historical snapshot
 
-The connected account is **The Care Web sandbox**, in test mode. A read-only request to list webhook endpoints returned an empty list. No account configuration or payment was changed.
+The earlier read-only check on 13 September 2026 saw a connected account named **The Care Web sandbox**, in test mode, with no webhook endpoints listed. No account configuration or payment was changed by that check. This describes that connector account at that time; it is not a current statement about the business's live Stripe activation or deployed server settings.
 
-The source package includes the protected invoice checkout and signed-confirmation handlers. The connected sandbox currently has no registered callback to the website, so it cannot yet report payment events to that deployed integration. Deployment must provide the matching protected key and signing secret and register the actual website callback described in `PAYMENT-SETUP-v88.4.0.md`. No live Stripe account was available in the connector account list.
+The owner subsequently reported that Stripe is active. The website still needs its matching live server key, webhook signing secret and registered callback. Check **Admin → Settings → Payment connections** and use [Payment setup and operation](PAYMENT-SETUP-v88.4.0.md) for the existing website. The source and a settings-present label cannot alone prove successful live collection or settlement.
 
-The sandbox connection does not supply an ordinary AUD transfer receiving account or a bank transaction feed. The optional receiving-account adapter included in the payment release needs its own configured provider account and assignments. Until then, ordinary bank transfers require recorded payment evidence and reconciliation. The source does not initiate bank payouts or wages.
+From v88.4.3, customer invoices require the invoice link with Stripe card or optional PayTo. New ordinary-transfer receiving accounts are not offered. Existing receipt history remains for reconciliation. The source does not initiate bank payouts or wages.

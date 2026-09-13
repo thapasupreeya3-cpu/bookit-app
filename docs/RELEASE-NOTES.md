@@ -1,4 +1,10 @@
-# Current release: v88.4.1
+# Current release: v88.4.3
+
+Invoice-link payments through Stripe card and optional PayTo. New Zai account setup and ordinary bank-transfer instructions are removed. Historical payment evidence remains, and queued invoice mail is updated before delivery. See [CHANGELOG-v88.4.3.md](CHANGELOG-v88.4.3.md), [PAYMENT-SETUP-v88.4.0.md](PAYMENT-SETUP-v88.4.0.md) and [TEST-RESULTS.md](TEST-RESULTS.md).
+
+Includes the v88.4.2 admin workspace and preceding payment/private location updates. Earlier notes below describe their original releases; they are not current setup instructions.
+
+# Historical release: v88.4.1
 
 Private participant addresses, per-visit meeting locations and worker service areas. See [CHANGELOG-v88.4.1.md](CHANGELOG-v88.4.1.md), [LOCATION-PRIVACY-v88.4.1.md](LOCATION-PRIVACY-v88.4.1.md) and [TEST-RESULTS.md](TEST-RESULTS.md). Includes the v88.4.0 payment update.
 

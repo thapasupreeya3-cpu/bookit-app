@@ -1,4 +1,18 @@
-# Validation — v88.4.1
+# Validation — v88.4.3
+
+Verified on 13 September 2026 with Node **22.23.2**.
+
+- The full `npm test` suite passed. Evidence: `validation/v88.4.3-full-test-output.txt`.
+- Invoice-link policy coverage includes **13 immediate-invoice, 43 payment automation, 26 payment interface, 11 real HTTP, 18 admin payment workspace and 13 mail-migration checks**. These are totals for the affected suites, including retained cases, not a count of newly added tests.
+- Real HTTP tests use stale bank/provider configuration and a stored legacy receiving account. Private/public invoice APIs and PDFs expose no receiving details; the removed assignment endpoint enforces admin access and returns 410. Existing evidence and allocations remain exact; verified late legacy deposits require reconciliation.
+- Mail tests prove original payer/snapshot preservation, revised PDF content, a stable transport revision across retries, and withdrawal/access/cancellation suppression during preparation. An earlier ambiguous send may have reached the recipient; the correction is labelled Updated payment instructions. Generic SMTP acknowledgement loss still cannot prove exactly-once delivery.
+- Upgrade acceptance passed **5/5** across first and repeated boot from the trusted v88.3.4 baseline. Synthetic users, uploads and immutable invoices survived; approved backlog issued once. Evidence: `validation/v88.4.3-upgrade-verification.json`.
+- Generated inventories identify **401 routes, 107 tables**, schema **88401**. The source census contains **2,983 explicit entries and 25,658 branches across 82 files**, with zero parse errors. These are source controls, not active user blockers.
+- The guide and preview have valid inline scripts and internal guide links. Live browser rendering remains unverified; the prior preview attempt was blocked.
+
+No live email, real charge, external receiving-account closure, worker wage transfer or onward settlement was performed. Repository publication and deployment are separate; the existing Lightsail website must install the release. Previously sent/downloaded invoice copies cannot be recalled. Current setup instructions are in `PAYMENT-SETUP-v88.4.0.md`; the earlier validation below is historical.
+
+# Historical validation — v88.4.1
 
 Verified on 13 September 2026 with Node **22.23.2**.
 
@@ -27,7 +41,7 @@ Verified on 13 September 2026 using the declared Node **22.23.2** runtime.
 - The refreshed block census covers 78 source/configuration files, with 2,909 explicit controls, 24,841 branches and zero parse errors. These are source controls, not a claim that each is an active user block.
 - The updated guide has no duplicate IDs or unresolved internal anchors. The 41-case alert coverage records 15 implemented, 12 retained, 13 partial and one missing capability; it does not claim full automation of the remaining external integrations.
 
-## Limits
+## Historical v88.4.0 limits
 
 No production database, real email recipient or actual money movement was used. The browser navigation attempt returned `ERR_BLOCKED_BY_CLIENT`, so rendered browser layout, mobile/assistive-technology behaviour and live deployment remain unverified. Provider credentials, receiving-account onboarding, real signed callbacks, inbox delivery and onward settlement require the deployment acceptance described in `PAYMENT-SETUP-v88.4.0.md`.
 
