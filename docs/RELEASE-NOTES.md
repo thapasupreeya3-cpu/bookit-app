@@ -1,3 +1,7 @@
+# Current release: v88.4.0
+
+See [CHANGELOG-v88.4.0.md](CHANGELOG-v88.4.0.md), [PAYMENT-SETUP-v88.4.0.md](PAYMENT-SETUP-v88.4.0.md) and [TEST-RESULTS.md](TEST-RESULTS.md) for this payment update. Earlier release notes below are historical.
+
 # The Care Web v88.3.0 — changes and finding register
 
 Source baseline: v88.2.12. Prepared 12 September 2026. This release contains source corrections and operational controls; it does not certify the live site ready to launch.

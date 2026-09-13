@@ -65,6 +65,24 @@ function fixture(provider=async p=>({id:p.split('/')[4],status:'expired'})){
  await test('Partial-payment hooks remove stale full-value links and queue their closure',async()=>{
   const x=fixture();x.inv.paid=20;x.inv.balance=80;x.w.onInvoicePayment('INV-TEST');assert.equal(x.db.prepare('SELECT pay_url FROM bookings WHERE id=1').get().pay_url,'');assert.equal(x.flow.attachCheckout('INV-TEST',{id:'cs_new',url:'https://checkout.example.test/new'}),false);await x.flow.drain();assert.equal(x.db.prepare('SELECT count(*) n FROM checkout_cleanup').get().n,2);
  });
+ await test('A new remaining-balance checkout survives historical payment evidence and cleanup restart',async()=>{
+  const x=fixture();x.inv.paid=20;x.inv.balance=80;x.db.prepare('INSERT INTO invoice_payment_evidence VALUES(?,?,?,?)').run('INV-TEST','partial-bank-receipt',20,'recorded');
+  await x.flow.drain();assert.equal(x.db.prepare("SELECT state FROM checkout_cleanup WHERE session_id='cs_fixture'").get().state,'closed');
+  x.db.prepare("UPDATE bookings SET stripe_session='cs_remainder',pay_url='https://checkout.example.test/remainder' WHERE id=1").run();
+  let current=true;x.w.paymentLinkNeedsRetirement=(no,session)=>{assert.equal(no,'INV-TEST');assert.equal(session,'cs_remainder');return !current;};
+  const restarted=Lifecycle(x.c,x.w);await restarted.drain();await restarted.drain();
+  assert.equal(x.db.prepare('SELECT pay_url FROM bookings WHERE id=1').get().pay_url,'https://checkout.example.test/remainder');assert.equal(x.db.prepare("SELECT count(*) n FROM checkout_cleanup WHERE session_id='cs_remainder'").get().n,0);assert.equal(x.calls.length,1);
+  // A subsequent balance/fingerprint change invalidates this exact attempt.
+  current=false;await restarted.drain();assert.equal(x.db.prepare('SELECT pay_url FROM bookings WHERE id=1').get().pay_url,'');assert.equal(x.db.prepare("SELECT state FROM checkout_cleanup WHERE session_id='cs_remainder'").get().state,'closed');assert.equal(x.calls.length,2);
+ });
+ await test('Retiring one stale session does not clear another valid session on the same legacy invoice',async()=>{
+  const x=fixture();x.db.prepare('INSERT INTO invoice_payment_evidence VALUES(?,?,?,?)').run('INV-TEST','partial-bank-receipt',20,'recorded');x.db.exec("INSERT INTO bookings VALUES(2,'INV-TEST','claimed',NULL,NULL,NULL,'https://checkout.example.test/remainder','cs_remainder',0,'')");
+  x.w.paymentLinkNeedsRetirement=(_no,session)=>session==='cs_fixture';await x.flow.drain();
+  assert.equal(x.db.prepare('SELECT pay_url FROM bookings WHERE id=1').get().pay_url,'');assert.equal(x.db.prepare('SELECT pay_url FROM bookings WHERE id=2').get().pay_url,'https://checkout.example.test/remainder');assert.equal(x.db.prepare('SELECT count(*) n FROM checkout_cleanup').get().n,1);
+ });
+ await test('A fully paid invoice still retires its link even if an attempt hook reports current',async()=>{
+  const x=fixture();x.db.exec("UPDATE bookings SET claim_status='paid' WHERE id=1");x.w.paymentLinkNeedsRetirement=()=>false;await x.flow.drain();assert.equal(x.db.prepare('SELECT pay_url FROM bookings WHERE id=1').get().pay_url,'');assert.equal(x.db.prepare('SELECT state FROM checkout_cleanup').get().state,'closed');
+ });
  await test('Late Stripe payment and refund events retain the withdrawn invoice reference for reconciliation',()=>{
   const x=fixture();x.db.exec('CREATE TABLE payroll_lines(id INTEGER PRIMARY KEY);');Object.assign(x.w,{now:x.c.now,parse:JSON.parse,hash:()=>''});require('../lib/process-finance')(x.c,x.w,{add(){},fail(){},tx:fn=>fn(),clean:(v,n)=>String(v||'').slice(0,n)});
   x.flow.withdraw('INV-TEST',{name:'Admin'},'A complete synthetic withdrawal reason.');

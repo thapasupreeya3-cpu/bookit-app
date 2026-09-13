@@ -46,6 +46,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const AUTO_REPLY = (process.env.AUTO_REPLY || 'on') !== 'off';
 const SESSION_DAYS = 30;
 let WORKFLOW = null;
+let PAYMENT_FLOW = null;
 let LAUNCH = null;
 let INVOICE_FLOW = null;
 let HOLIDAYS=null, AUTO_PRICING=null, AUTO_BILLING=null;
@@ -1809,7 +1810,7 @@ function invoiceFor(invNo) {
 }
 function makeInvoicePdf(inv) {
   const pages = [];
-  let ops = [];
+  let ops = [], pageLinks = [];
   const T = (x, y, size, font, text, color) => { ops.push(color || '0.09 0.19 0.23 rg'); ops.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${pdfEsc(text)}) Tj ET`); };
   const TEAL = '0.055 0.42 0.384 rg', SOFT = '0.35 0.44 0.48 rg';
   const rule = y => ops.push('0.9 0.87 0.83 RG 0.7 w', `40 ${y} m 555 ${y} l S`);
@@ -1831,7 +1832,7 @@ function makeInvoicePdf(inv) {
     T(cols.when, y, 8.5, 'FB', 'Time / qty'); T(cols.rate, y, 8.5, 'FB', 'Rate'); T(cols.amt, y, 8.5, 'FB', 'Amount');
     rule(y - 5);
   };
-  const flush = () => { pages.push(ops.join('\n')); ops = []; };
+  const flush = () => { pages.push({content:ops.join('\n'),links:pageLinks}); ops=[];pageLinks=[]; };
   let pageNo = 1;
   header(pageNo);
   T(40, 725, 9, 'FB', 'Bill to');
@@ -1862,9 +1863,21 @@ function makeInvoicePdf(inv) {
   if (inv.balance > 0) {
     if (inv.self) { T(40, y, 9, 'F', 'Pay by bank transfer to:'); y -= 12; }
     else { T(40, y, 9, 'F', 'Please pay from plan funds by bank transfer to:'); y -= 12; }
-    for (const b of bankLines()) { T(52, y, 9, 'F', b); y -= 12; }
+    const receiving=PAYMENT_FLOW?.bankForInvoice?.(inv);
+    const instructions=receiving?.automatically_tracked?[
+      `Account name: ${receiving.account_name||COMPANY_NAME}`,
+      `BSB: ${receiving.bsb}`,`Account number: ${receiving.account_number}`
+    ]:bankLines();
+    for(const b of instructions){T(52,y,9,'F',b);y-=12;}
     T(40, y, 9, 'F', `Payment reference: ${inv.invoice_no}`); y -= 12;
-    if (inv.pay_url) { T(40, y, 9, 'F', 'Or pay by card from the link in your Care Web account (Statements & invoices).'); y -= 12; }
+    const viewUrl=inv.view_url||PAYMENT_FLOW?.invoiceUrl(inv.invoice_no);
+    if(viewUrl){
+      T(40,y,9,'FB','View & pay invoice online',TEAL);
+      pageLinks.push({url:viewUrl,y});y-=12;
+      // A compact label is clickable in the PDF; the full URL remains in the
+      // invoice email and signed-in statement, without overflowing the page.
+      T(40,y,8,'F','Secure payment page; review the shift in your Care Web account.',SOFT);y-=12;
+    } else if(inv.pay_url){T(40,y,9,'F','Payment options are in your Care Web account (Statements & invoices).');y-=12;}
     if (inv.self) { T(40, y, 9, 'F', 'Self-managed: claim this invoice back through the myplace participant portal.', SOFT); y -= 12; }
   }
   T(40, y - 4, 8.5, 'F', inv.funding === 'private' ? (inv.tax_note || 'Private supports') : 'Prices follow the NDIS Pricing Arrangements and Price Limits 2026-27. No GST applies.', SOFT);
@@ -1876,8 +1889,10 @@ function makeInvoicePdf(inv) {
   objects.push(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`);
   objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
   objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>');
-  pages.forEach((content, i) => {
-    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F 3 0 R /FB 4 0 R >> >> /Contents ${6 + i * 2} 0 R >>`);
+  pages.forEach((page, i) => {
+    const content=page.content;
+    const annotations=page.links.length?' /Annots ['+page.links.map(link=>`<< /Type /Annot /Subtype /Link /Rect [40 ${link.y-3} 285 ${link.y+11}] /Border [0 0 0] /A << /S /URI /URI (${pdfEsc(link.url)}) >> >>`).join(' ')+']':'';
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F 3 0 R /FB 4 0 R >> >> /Contents ${6 + i * 2} 0 R${annotations} >>`);
     objects.push(`<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`);
   });
   let pdf = '%PDF-1.4\n';
@@ -2147,6 +2162,9 @@ function stripeRequest(pathName, params, options={}) {
     for (const [k, v] of Object.entries(params)) add(k, v);
     const body = form.toString();
     const u = new URL(STRIPE_API_URL + pathName);
+    const provider=u.protocol==='https:'&&u.hostname==='api.stripe.com'&&!u.port;
+    const localTest=process.env.NODE_ENV!=='production'&&u.protocol==='http:'&&['127.0.0.1','localhost','[::1]'].includes(u.hostname);
+    if((!provider&&!localTest)||u.username||u.password)return reject(new Error('Stripe requests require the official HTTPS API, or a local test provider outside production.'));
     const mod = u.protocol === 'http:' ? http : https;
     const req2 = mod.request({
       hostname: u.hostname, port: u.port || (u.protocol === 'http:' ? 80 : 443), path: u.pathname,
@@ -2198,7 +2216,7 @@ function handleStripeWebhook(req, res, raw) {
   }
   let event = {};
   try { event = JSON.parse(raw); } catch { return json(res, 400, { error: 'Bad payload.' }); }
-  if (['checkout.session.completed','checkout.session.async_payment_succeeded','charge.refunded','refund.created','refund.updated','refund.failed','charge.dispute.created','charge.dispute.updated','charge.dispute.closed'].includes(event.type))WORKFLOW.recordStripePayment(event);
+  if (['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','checkout.session.expired','payment_intent.succeeded','payment_intent.payment_failed','payment_intent.canceled','charge.refunded','refund.created','refund.updated','refund.failed','charge.dispute.created','charge.dispute.updated','charge.dispute.closed'].includes(event.type)){try{WORKFLOW.recordStripePayment(event);}catch(e){return json(res,503,{error:'Payment confirmation saved for retry.'});}}
   json(res, 200, { received: true });
 }
 
@@ -4016,11 +4034,18 @@ route('GET', /^\/api\/admin\/invoices$/, (req, res, m, user) => {
 });
 route('POST', /^\/api\/admin\/invoices\/(\d+)\/category$/, (req, res, m, user, body) => {
   if (!requireAdmin(user, res)) return;
-  const b = db.prepare(`SELECT id FROM bookings WHERE id = ? AND ${billable('bookings')}`).get(Number(m[1]));
+  const b = db.prepare(`SELECT id,invoice_no,claim_status FROM bookings WHERE id = ? AND ${billable('bookings')}`).get(Number(m[1]));
   if (!b) return json(res, 404, { error: 'No such billable shift.' });
-  const inv = applyInvoice(b.id, clean(body.category, 30));
-  if (!inv) return json(res, 400, { error: 'Unknown rate category.' });
-  json(res, 200, { ok: true, invoice: inv });
+  if(b.invoice_no || ['claimed','paid'].includes(b.claim_status))return json(res,409,{error:'This charge has been issued. Withdraw the unpaid invoice, correct the held shift and release it to create a new invoice number.'});
+  let inv;
+  db.exec('BEGIN IMMEDIATE');
+  try{
+    inv=applyInvoice(b.id,clean(body.category,30));
+    if(!inv){db.exec('ROLLBACK');return json(res,400,{error:'Unknown rate category.'});}
+    db.prepare("UPDATE bookings SET approval_state='pending',approval_from=?,approved_at=NULL,approved_by=NULL,approval_source=NULL WHERE id=? AND status='completed'").run(now(),b.id);
+    db.exec('COMMIT');
+  }catch(e){db.exec('ROLLBACK');throw e;}
+  json(res,200,{ok:true,invoice:inv});
 });
 route('GET', /^\/api\/admin\/invoices\.csv$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
@@ -4044,7 +4069,7 @@ function claimRows(where, ...params) {
       b.active_extra_hours, b.active_extra_total, b.active_extra_item, b.active_extra_rate, b.active_extra_category, b.kind, b.ratio, b.sleepover,
       b.km, b.km_total, b.km_from, b.km_to, b.claim_hold, b.hold_reason,
       b.claim_status, b.claim_ref, b.invoice_no, b.support_item, b.claimed_at, b.paid_at, b.pay_url,
-      b.status, b.approval_state, b.automatic_invoice_lines, b.short_notice, b.notice_hours, b.cancel_code, b.cancel_reason,
+      b.status, b.approval_state, b.approval_source, b.completed_at, b.automatic_invoice_lines, b.short_notice, b.notice_hours, b.cancel_code, b.cancel_reason,
       up.id AS pid, up.name AS participant_name, up.email AS participant_email, up.plan AS funding, up.ndis_number, up.pm_email,
       uw.name AS worker_name
     FROM bookings b JOIN users up ON up.id = b.participant_id JOIN users uw ON uw.id = b.worker_id
@@ -4066,7 +4091,7 @@ function effectiveItem(r) {
 }
 function lineFlags(r) {
   const flags = LAUNCH?LAUNCH.billingFlags(r):[];
-  if(r.approval_state!=='approved')flags.push('Awaiting timesheet approval.');
+  if(r.approval_state!=='approved' && !AUTO_BILLING?.immediateEligible(r))flags.push(r.approval_state==='queried'?'Timesheet question needs an answer.':'Awaiting timesheet approval.');
   /* a line the office has held (after withdrawing an invoice, or on purpose)
      waits for a decision — remove it, fix it, or release it — and no run,
      manual or nightly, will pick it up until then */
@@ -4074,9 +4099,50 @@ function lineFlags(r) {
   if (!['ndia', 'plan', 'self', 'private'].includes(r.funding)) flags.push('no funding type on the participant profile');
   if (r.funding === 'ndia' && !/^\d{9}$/.test(r.ndis_number || '')) flags.push('NDIS number missing');
   if (r.funding === 'plan' && !r.pm_email) flags.push('plan manager email missing');
+  if (['self','private'].includes(r.funding) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.participant_email||'')) flags.push('payer email missing or invalid');
   if (r.funding !== 'private' && !effectiveItem(r)) flags.push('support item number needed');
   else if (r.funding !== 'private' && ITEM_CONFIRM[r.service] && !r.support_item) flags.push('confirm the prefilled support item');
   return flags;
+}
+
+/* One explicit review action for the immutable invoice the person saw.
+   The payment module validates its displayed fingerprint before calling this.
+   A bearer payment link, a receipt and deemed approval cannot invoke it. */
+async function reviewIssuedInvoice(inv,user,req,body){
+  const fail=(message,status=409)=>{const error=Error(message);error.status=status;throw error;};
+  const pers=actFor(req,user,'bookings');
+  if(!pers||pers.id!==inv?.participant?.id)fail('You do not have permission to review this participant’s shift.',403);
+  const action=body.action,question=clean(body.query_note||body.reason,NOTE_MAX);
+  if(!['approve','query'].includes(action))fail('Choose approve or report an issue.',400);
+  if(action==='query'&&question.length<10)fail('Describe the issue in a sentence so it can be answered.',400);
+  const rows=db.prepare('SELECT * FROM bookings WHERE invoice_no=? ORDER BY id').all(inv.invoice_no);
+  if(!rows.length||rows.some(b=>b.participant_id!==pers.id||b.status!=='completed'||b.voided))fail('The invoice changed or is no longer available. Reload before reviewing.');
+  const changed=action==='approve'?rows.filter(b=>b.approval_state!=='approved'||b.approval_source==='deemed'):rows;
+  db.exec('BEGIN IMMEDIATE');
+  try{
+    for(const b of changed){
+      if(action==='approve'){
+        db.prepare("UPDATE bookings SET approval_state='approved',approved_at=?,approved_by=?,approval_source=? WHERE id=?").run(now(),user.id,pers.self?'participant':'coordinator',b.id);
+        LAUNCH?.retainApprovalReview(b);
+      }else{
+        db.prepare("UPDATE bookings SET approval_state='queried',query_at=?,query_note=?,query_by=? WHERE id=?").run(now(),question,user.id,b.id);
+        db.prepare("INSERT INTO shift_notes(booking_id,worker_id,participant_id,body,scope_flag,scope_detail,addendum,kind,author_id,created) VALUES(?,?,?,?,0,'',0,'question',?,?)").run(b.id,b.worker_id,b.participant_id,question,user.id,now());
+      }
+      logDelegate(pers,action==='approve'?'Approved invoice shift details':'Reported an invoice issue',inv.invoice_no+(action==='query'?': '+question.slice(0,120):''),b.id);
+    }
+    db.exec('COMMIT');
+  }catch(e){db.exec('ROLLBACK');throw e;}
+  if(action==='approve')PAYMENT_FLOW?.resumeInvoice(inv.invoice_no,user);
+  else await PAYMENT_FLOW?.pauseInvoice(inv.invoice_no,question,{user_id:user.id,booking_id:rows[0].id});
+  for(const b of changed){
+    const worker=db.prepare('SELECT id,name,email FROM users WHERE id=?').get(b.worker_id);
+    if(!worker)continue;
+    notify(worker.id,'timesheets',worker.email,action==='approve'?'Timesheet approved — The Care Web':'Question about your timesheet — The Care Web',
+      action==='approve'?'Shift details approved':'Please answer the shift question',
+      action==='approve'?`<p>The participant has approved the shift details for ${prettyDate(b.date)}. Check Earnings for the separate payroll status.</p>`:`<p>A question was raised about the shift on ${prettyDate(b.date)}:</p><blockquote>${escHtml(question)}</blockquote><p>Add your answer to the shift note. Collection is paused while the invoice is reviewed.</p>`,
+      action==='approve'?'See earnings':'Answer question',`${baseUrl(req)}/#/${action==='approve'?'earnings':'bookings'}`).catch(()=>{});
+  }
+  return {ok:true,invoice_no:inv.invoice_no,approval_state:action==='approve'?'approved':'queried',collection_status:action==='query'?'paused':'ready',duplicate:!changed.length};
 }
 
 route('GET', /^\/api\/admin\/claims$/, (req, res, m, user) => {
@@ -4112,24 +4178,24 @@ route('POST', /^\/api\/admin\/claims\/(\d+)\/item$/, (req, res, m, user, body) =
   if (!requireAdmin(user, res)) return;
   const item = clean(body.support_item, 20);
   if (item && !/^\d{2}_\d{3}_\d{4}_\d_\d$/.test(item)) return json(res, 400, { error: 'Support item numbers look like 01_011_0107_1_1.' });
-  const r = db.prepare(`SELECT id FROM bookings WHERE id = ? AND ${billable('bookings')}`).get(Number(m[1]));
+  const r = db.prepare(`SELECT id,invoice_no,claim_status FROM bookings WHERE id = ? AND ${billable('bookings')}`).get(Number(m[1]));
   if (!r) return json(res, 404, { error: 'No such billable shift.' });
-  db.prepare('UPDATE bookings SET support_item = ? WHERE id = ?').run(item, r.id);
+  if(r.invoice_no || ['claimed','paid'].includes(r.claim_status))return json(res,409,{error:'This charge has been issued. Withdraw the unpaid invoice, correct the held shift and release it to create a new invoice number.'});
+  db.prepare("UPDATE bookings SET support_item=?,approval_state=CASE WHEN status='completed' THEN 'pending' ELSE approval_state END,approval_from=CASE WHEN status='completed' THEN ? ELSE approval_from END,approved_at=NULL,approved_by=NULL,approval_source=NULL WHERE id=?").run(item,now(),r.id);
   json(res, 200, { ok: true });
 });
 
-/* The run: every completed, APPROVED (or deemed) shift with no claim yet.
-   Agency-managed lines are stamped claimed for the PACE file the office
-   uploads; self- and plan-managed lines are grouped into one invoice per
-   participant, stamped, emailed with the PDF (and a card link for the
-   self-managed), and shown to the participant in their account. Approval queues the invoice immediately; the durable catch-up job also
-   resumes approved, unissued visits after a restart. */
+/* Each newly submitted self/private shift is issued immediately; its review
+   remains separate from collection authority. Plan-managed and agency-managed
+   work retains its approval-first route. Historical pending visits are excluded
+   by durable submission markers, while approved legacy work still catches up.
+   One shift receives one immutable invoice, including after a restart. */
 let claimsRun=Promise.resolve();
 function runClaims(lanes,actor,bookingIds=null){
   const next=claimsRun.then(()=>runClaimsUnlocked(lanes,actor,bookingIds));claimsRun=next.catch(()=>{});return next;
 }
 async function runClaimsUnlocked(lanes, actor, bookingIds) {
-  const rows = claimRows("AND (b.claim_status IS NULL OR b.claim_status = '') AND b.approval_state = 'approved'").filter(r=>!bookingIds||bookingIds.includes(r.id));
+  const rows = claimRows("AND (b.claim_status IS NULL OR b.claim_status = '')").filter(r=>(!bookingIds||bookingIds.includes(r.id)) && (r.approval_state==='approved'||AUTO_BILLING?.immediateEligible(r)));
   const needs = [], ndiaClaimed = [], invoiceGroups = new Map();
   for (const r of rows) {
     if (!lanes.includes(r.funding)) continue;
@@ -4141,7 +4207,7 @@ async function runClaimsUnlocked(lanes, actor, bookingIds) {
         .run(`BK${r.id}`, item, now(), r.id);
       ndiaClaimed.push(r.id);
     } else {
-      const key = `${r.pid}:${r.funding}`;
+      const key = `${r.pid}:${r.funding}:${r.id}`; // Each submitted shift retains its own invoice, including catch-up runs.
       if (!invoiceGroups.has(key)) invoiceGroups.set(key, []);
       invoiceGroups.get(key).push({ ...r, item });
     }
@@ -4160,30 +4226,31 @@ async function runClaimsUnlocked(lanes, actor, bookingIds) {
       for (const r of group) db.prepare("UPDATE bookings SET claim_status='claimed',claim_ref=?,support_item=?,invoice_no=?,claimed_at=? WHERE id=? AND COALESCE(claim_status,'')=''").run(`BK${r.id}`,r.item,invNo,now(),r.id);
       const frozen=invoiceFor(invNo);
       WORKFLOW?.storeInvoice(frozen);
-      const pdf=makeInvoicePdf(frozen);
-      sendMail(dest,`Invoice ${invNo} — The Care Web`, `Invoice ${invNo}`,
-        `<p>Your invoice for $${frozen.total.toFixed(2)} is attached. ${escHtml(frozen.tax_note||'')} Payment reference: ${invNo}. Open your statement to see payment options.</p>`,
-        'Open statement',`${APP_URL}/#/statements`,MAIL_FROM,[{filename:invNo+'.pdf',mime:'application/pdf',buffer:pdf}],{event_key:'invoice:'+invNo,kind:'invoice',transactional:true});
+      // Provision only a durable payment page here. Opening checkout and charging
+      // require their own authorised action; they never happen while issuing.
+      PAYMENT_FLOW?.invoiceCreated(frozen);
+      const paymentUrl=PAYMENT_FLOW?.invoiceUrl(invNo)||`${APP_URL}/#/invoice?invoice=${encodeURIComponent(invNo)}`;
+      const reviewUrl=`${APP_URL}/#/invoice?invoice=${encodeURIComponent(invNo)}`;
+      const reviewNeeded=group.some(r=>r.approval_state!=='approved'||r.approval_source==='deemed');
+      const pdf=makeInvoicePdf({...frozen,view_url:paymentUrl});
+      const reviewText=self&&reviewNeeded?`<p><a href="${escHtml(reviewUrl)}">Review this completed shift</a>, then choose <b>Review &amp; pay</b>, <b>Approve and pay later</b>, or <b>Report an issue</b>. Payment is due by ${escHtml(frozen.due_date)}. Reporting an issue pauses collection for this invoice.</p>`:'';
+      sendMail(dest,`Invoice ${invNo} — The Care Web`, reviewNeeded&&self?'Your invoice is ready to review':`Invoice ${invNo}`,
+        `<p>Your invoice for <b>$${frozen.total.toFixed(2)}</b> is attached. ${escHtml(frozen.tax_note||'')} Payment reference: ${invNo}.</p>${reviewText}`,
+        self&&reviewNeeded?'Review & pay':'View & pay invoice',self&&reviewNeeded?reviewUrl:paymentUrl,MAIL_FROM,[{filename:invNo+'.pdf',mime:'application/pdf',buffer:pdf}],{event_key:'invoice:'+invNo,kind:'invoice',transactional:true});
+      if(reviewNeeded){
+        const participant=db.prepare('SELECT id,name,email FROM users WHERE id=?').get(first.pid);
+        const reviewers=WORKFLOW?.approvalRecipients(first.pid,[participant,...coordsFor(first.pid,'bookings')].filter(Boolean))||[participant].filter(Boolean);
+        for(const reviewer of reviewers){
+          if(String(reviewer.email).toLowerCase()===String(dest).toLowerCase())continue;
+          notify(reviewer.id,'timesheets',reviewer.email,'Completed shift ready to review — The Care Web','Review completed shift',
+            `<p>A completed shift for ${escHtml(first.participant_name)} has an invoice ready for review. Open the shift details to approve them or report an issue.</p>`,
+            'Review completed shift',reviewUrl+(reviewer.id!==first.pid?'&for='+first.pid:''),undefined,[],{event_key:`invoice-review:${invNo}:${reviewer.id}`,requires_approval:true,booking_id:first.id}).catch(()=>{});
+        }
+      }
       db.exec('COMMIT');
     } catch(e) {db.exec('ROLLBACK');throw e;}
-    let payUrl = null;
+    const payUrl=PAYMENT_FLOW?.invoiceUrl(invNo)||null;
     const total = round2(group.reduce((a, r) => a + (r.total || 0) + (r.active_extra_total || 0) + (r.status === 'cancelled' ? 0 : (r.km_total || 0)), 0));
-    if (self && STRIPE_KEY && total > 0) {
-      try {
-        const session = await stripeRequest('/v1/checkout/sessions', {
-          mode: 'payment',
-          'line_items[0][quantity]': 1,
-          'line_items[0][price_data][currency]': 'aud',
-          'line_items[0][price_data][unit_amount]': Math.round(total * 100),
-          'line_items[0][price_data][product_data][name]': `The Care Web invoice ${invNo} — supports`,
-          'metadata[invoice_no]': invNo,
-          customer_email: dest,
-          success_url: `${APP_URL || 'https://thecareweb.com.au'}/#/pay-success`,
-          cancel_url: `${APP_URL || 'https://thecareweb.com.au'}/#/statements`
-        },{idempotencyKey:'invoice-checkout:'+invNo});
-        payUrl = INVOICE_FLOW.attachCheckout(invNo,session)?(session.url||''):null;
-      } catch (e) { console.error(`[stripe] session failed for ${invNo}: ${e.message}`); }
-    }
     const inv=invoiceFor(invNo);
     const emailed=false; // Transport acceptance is recorded by the delivery job, never by issuing an invoice.
     invoices.push({ invoice_no: invNo, participant: first.participant_name, to: dest, lines: group.length, total, emailed, delivery_status: 'queued', pay_url: payUrl, due: inv?.due_date||null, by: actor });
@@ -6824,7 +6891,7 @@ route('DELETE', /^\/api\/bookings\/(\d+)\/note-draft$/, (req,res,m,user,body)=>{
   json(res,200,{ok:true});
 });
 
-route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
+route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const b = db.prepare('SELECT * FROM bookings WHERE id = ?').get(Number(m[1]));
   if (!b) return json(res, 404, { error: 'Booking not found.' });
@@ -6910,6 +6977,11 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
       cancel_code: code, cancel_label: code ? CANCEL_CODES[code] : '', invoice: inv, provider_unable: providerUnable });
   }
 
+  if(user.role==='worker' && b.worker_id===user.id && status==='completed' && b.status==='completed'){
+    AUTO_BILLING?.wake(b.id);
+    return json(res,200,{ok:true,duplicate:true,approval_state:b.approval_state,invoice_no:b.invoice_no||null,billing_status:b.invoice_no?'issued':'queued'});
+  }
+
   /* worker marks an accepted shift as completed (on/after the shift date) → invoice line is born.
      The shift note is written here rather than "some time later", and the shift can't be
      completed without one — which means it can't be invoiced or claimed without one either.
@@ -6970,6 +7042,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
         .run(b.id, user.id, b.participant_id, note, scope, scopeDetail, now()).lastInsertRowid);
       db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Booking was completed.' WHERE booking_id = ? AND status = 'open'").run(now(), b.id);
       db.prepare('DELETE FROM shift_note_drafts WHERE booking_id=?').run(b.id);
+      if(b.kind!=='intro')AUTO_BILLING?.markSubmitted(b.id);
       db.exec('COMMIT');
     } catch (e) {
       try { db.exec('ROLLBACK'); } catch {}
@@ -6984,11 +7057,22 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     try { if (noteId) aiTriageNote(noteId); } catch {}
     const deadline = new Date(Date.now() + APPROVAL_DEEM_DAYS * 864e5);
     const kmBlock = kmLine ? `<p><b>${kmLine.km} km</b> ${escHtml(kmLine.from)} &rarr; ${escHtml(kmLine.to)} at $${kmLine.rate.toFixed(2)}/km = <b>$${kmLine.total.toFixed(2)}</b>.</p>` : '';
-    if (pu2 && inv) notify(pu2.id, 'timesheets', pu2.email, 'Timesheet to approve — The Care Web',
-      `One timesheet to look at, ${firstName(pu2.name)}`,
-      `<p><b>${escHtml(user.name)}</b> has marked your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b> as completed.</p><p><b>${inv.category==='mixed'?'Itemised date/time rates for '+b.hours+' hours':inv.qty === 1 && inv.category === 'sleepover' ? '1 night (flat)' : `${b.hours} hours × $${inv.unit_price.toFixed(2)}`}</b> (${inv.label} — the NDIA's published national maximum price, 2026–27) = <b>$${inv.total.toFixed(2)}</b>.</p>${inv.lines?.length>1?'<ul>'+inv.lines.map(l=>'<li>'+escHtml(l.date+' '+l.when+' · '+l.description)+': '+l.qty+' '+l.unit+' × $'+l.rate.toFixed(2)+' = $'+l.amount.toFixed(2)+'</li>').join('')+'</ul>':''}${kmBlock}<p><b>${firstName(user.name)} has written a shift note</b> about how it went — you can read it on your bookings page.</p><p><b>You have until ${prettyDate(ymd(deadline))} to approve it or ask a question.</b> After that it is approved automatically so ${firstName(user.name)} is paid on time. Approving is not the same as saying the shift was perfect — you can raise a concern at any point, before or after.</p>`,
-      'Approve the timesheet', `${baseUrl(req)}/#/bookings`).catch(() => {});
-    return json(res, 200, { ok: true, invoice: inv, km: kmLine, approval_state: 'pending', approve_by: ymd(deadline) });
+    // Finish invoice creation using the durable queue. A failed attempt keeps
+    // the submitted shift and retries automatically; it never asks the worker
+    // to submit again or silently bills a pre-cutover pending shift.
+    if(b.kind!=='intro'){
+      AUTO_BILLING?.wake(b.id);
+      try{await AUTO_BILLING?.drain();}catch(e){console.error('[completion-invoice]',e.message);}
+    }
+    const issued=db.prepare('SELECT invoice_no,claim_status FROM bookings WHERE id=?').get(b.id);
+    if(pu2&&inv&&!issued?.invoice_no){
+      const reviewers=WORKFLOW?.approvalRecipients(b.participant_id,[pu2,...coordsFor(b.participant_id,'bookings')])||[pu2];
+      for(const reviewer of reviewers)notify(reviewer.id,'timesheets',reviewer.email,'Completed shift ready to review — The Care Web','Review completed shift',
+        `<p><b>${escHtml(user.name)}</b> has submitted the completed shift on <b>${prettyDate(b.date)}</b>. The recorded support charge is <b>$${inv.total.toFixed(2)}</b>.</p>${kmBlock}<p>Open the shift details and note to approve them or report an issue. Review by ${prettyDate(ymd(deadline))}. Worker pay is managed on its payroll cycle.</p>`,
+        'Review completed shift',`${baseUrl(req)}/#/bookings`+(reviewer.id!==b.participant_id?'?for='+b.participant_id:''),undefined,[],{event_key:`shift-review:${b.id}:${reviewer.id}:${b.completed_at||'submitted'}`,requires_approval:true,booking_id:b.id}).catch(()=>{});
+    }
+    return json(res,200,{ok:true,invoice:inv,invoice_no:issued?.invoice_no||null,billing_status:issued?.invoice_no?'issued':(b.kind==='intro'?'not-claimable':'queued'),km:kmLine,approval_state:'pending',approve_by:ymd(deadline)});
+
   }
 
   /* --- 7b. approve, or ask a question.
@@ -6997,7 +7081,11 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
      an addendum, which is the same append-only rule the whole evidence
      trail runs on. --- */
   if (isParticipantSide && ['approved', 'queried'].includes(status) && b.status === 'completed') {
-    if (b.approval_state === 'approved') {if(status==='approved'){if(!b.claim_status)AUTO_BILLING?.wake(b.id);return json(res,200,{ok:true,approval_state:'approved',billing_status:b.claim_status?'issued':'queued',duplicate:true});}return json(res,400,{error:'This timesheet has already been approved. Contact the office to correct an issued charge.'});}
+    if(b.approval_state==='approved' && status==='approved' && b.approval_source!=='deemed'){
+      if(!b.claim_status)AUTO_BILLING?.wake(b.id);
+      if(b.invoice_no)PAYMENT_FLOW?.resumeInvoice(b.invoice_no,user);
+      return json(res,200,{ok:true,approval_state:'approved',invoice_no:b.invoice_no||null,billing_status:b.invoice_no?'issued':'queued',duplicate:true});
+    }
     if (status === 'approved') {
       db.prepare("UPDATE bookings SET approval_state = 'approved', approved_at = ?, approved_by = ?, approval_source = ? WHERE id = ?")
         .run(now(), user.id, pers.self ? 'participant' : 'coordinator', b.id);
@@ -7009,12 +7097,18 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
         'See my earnings', `${baseUrl(req)}/#/earnings`).catch(() => {});
       LAUNCH?.retainApprovalReview(b);
       AUTO_BILLING?.wake(b.id);
-      return json(res, 200, { ok: true, approval_state: 'approved',billing_status:'queued' });
+      if(b.invoice_no)PAYMENT_FLOW?.resumeInvoice(b.invoice_no,user);
+      return json(res,200,{ok:true,approval_state:'approved',invoice_no:b.invoice_no||null,billing_status:b.invoice_no?'issued':'queued'});
     }
     const q = clean(body.query_note, NOTE_MAX);
     if (q.length < 10) return json(res, 400, { error: 'Tell us what doesn\'t look right, in a sentence or two, so it can be sorted quickly.' });
     db.prepare("UPDATE bookings SET approval_state = 'queried', query_at = ?, query_note = ?, query_by = ? WHERE id = ?")
       .run(now(), q, user.id, b.id);
+    if(b.invoice_no){
+      // The hold is persisted before contacting a provider; cancellation may be
+      // unable to recall an in-flight transfer, which remains reconcilable.
+      try{await PAYMENT_FLOW?.pauseInvoice(b.invoice_no,q,{user_id:user.id,booking_id:b.id});}catch(e){console.error('[invoice-query]',e.message);INVOICE_FLOW.cancelLinks(b.invoice_no);INVOICE_FLOW.wake();}
+    }
     /* the bookings column still holds the open question because that is what
        the clock reads; the shift note holds the copy that survives the next
        one — asking twice used to overwrite the first question entirely */
@@ -7029,7 +7123,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, (req, res, m, user, body) => {
     if (ADMIN_EMAILS.length) sendMail(ADMIN_EMAILS[0], 'Timesheet queried — The Care Web', 'A timesheet has been queried',
       `<p><b>${escHtml(pers.name)}</b> queried booking #${b.id} (${escHtml(b.service)}, ${prettyDate(b.date)}, ${escHtml(wu4 ? wu4.name : '')}).</p><blockquote>${escHtml(q)}</blockquote>`,
       'Open the invoice board', `${baseUrl(req)}/#/admin`).catch(() => {});
-    return json(res, 200, { ok: true, approval_state: 'queried' });
+    return json(res,200,{ok:true,approval_state:'queried',invoice_no:b.invoice_no||null,collection_status:b.invoice_no?'paused':'not-started'});
   }
 
   json(res, 403, { error: 'That change isn\'t allowed.' });
@@ -7302,7 +7396,7 @@ route('POST', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user, body, ip) =
         `<p><b>${escHtml(user.name)}</b> has answered your question about the <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>.</p>
          <blockquote style="border-left:3px solid #203566;padding-left:14px;margin:16px 0;color:#2B3A38;">${escHtml(note)}</blockquote>
          <p>The original note is unchanged — this is added underneath it, so both are on the record.</p>
-         <p><b>You have until ${prettyDate(deadline)} to approve the timesheet or ask something else.</b> The clock stopped while your question was open and has started again from today, so you have the full ${APPROVAL_DEEM_DAYS} days to read this.</p>`,
+         <p><b>You have until ${prettyDate(deadline)} to review the answer or ask something else.</b> ${b.invoice_no?'Collection remains paused until you explicitly approve the invoice.':'You have the full '+APPROVAL_DEEM_DAYS+' days to read this.'}</p>`,
         'Read it and approve', `${baseUrl(req)}/#/bookings`).catch(() => {});
     }
     logAccess(b.participant_id, null, 'Approval clock restarted',
@@ -19178,11 +19272,22 @@ WORKFLOW=require('./lib/process-store')(processContext);
 require('./lib/process-routes')(processContext,WORKFLOW);
 INVOICE_FLOW=require('./lib/invoice-lifecycle')({db,now,invoiceFor,recordErasure,sendMail,escHtml,appUrl:APP_URL,stripeRequest,stripeEnabled:()=>!!STRIPE_KEY},WORKFLOW);
 everyJob('checkout-cleanup',15000,()=>INVOICE_FLOW.drain(),{label:'Close retired card links',why:'Closes card checkout links after invoice withdrawal or recorded payment, with durable retries.'});
+PAYMENT_FLOW=require('./lib/payment-automation')({...processContext,now,appUrl:APP_URL,sign,sendMail,production:process.env.NODE_ENV==='production',
+  invoiceFlow:INVOICE_FLOW,stripeRequest,stripeEnabled:()=>!!(STRIPE_KEY&&STRIPE_WEBHOOK_SECRET&&(process.env.NODE_ENV!=='production'||STRIPE_KEY.startsWith('sk_live_'))),
+  stripeEnvironment:()=>STRIPE_KEY.startsWith('sk_live_')?'live':'test',
+  paytoEnabled:()=>/^(1|true|on|yes)$/i.test(process.env.STRIPE_PAYTO_ENABLED||''),
+  reviewInvoice:(inv,user,req,body)=>reviewIssuedInvoice(inv,user,req,body),
+  bankDetails:()=>{const raw=String(BANK_DETAILS||''),bsb=/BSB[:\s]*([\d-]{6,7})/i.exec(raw),acc=/Acc(?:ount|t)(?: number| no\.?)?[:\s]*(\d[\d ]{4,14}\d)/i.exec(raw);return {bsb:bsb?.[1]||'',account_number:acc?.[1]?.replace(/\s/g,'')||'',account_name:COMPANY_NAME,details:bankLines()};}
+},WORKFLOW);
+WORKFLOW.payrollNotices=require('./lib/payroll-notifications')({...processContext,now,appUrl:APP_URL,sendMail},WORKFLOW);
+everyJob('payment-confirmations',15000,()=>PAYMENT_FLOW.tick(),{label:'Payment confirmations and receipts',why:'Matches confirmed incoming payments, retries checkout and receipt delivery, and updates invoice balances.'});
+everyJob('payroll-notifications',60000,()=>WORKFLOW.payrollNotices.tick(),{label:'Worker pay updates',why:'Queues truthful payroll status updates from recorded pay-batch transitions.'});
+
 const VERIFICATION=require('./lib/admin-verification')({...processContext,requireAdmin,routes,docOut,pdocOut,pdocMethods:PDOC_METHODS,participantFile,planReviewState},WORKFLOW);
 everyJob('verification-automation',60000,()=>VERIFICATION.tick(),{label:'Verification assistance',why:'Assigns files to available reviewers and follows up approved checklists; never verifies evidence automatically.'});
 everyJob('deliveries',15000,()=>WORKFLOW.drain(),{label:'Message delivery',why:'Retries queued messages and records transport failures.'});
 everyJob('journey-tasks',60000,()=>WORKFLOW.syncAll(),{label:'Next actions',why:'Refreshes individual and office tasks from current records.'});
-everyJob('payroll-drafts',86400000,()=>WORKFLOW.scheduledPayroll(),{label:'Pay preparation',why:'Prepares unbatched lines from the last fourteen days for office review; never pays automatically.'});
+everyJob('payroll-drafts',86400000,()=>WORKFLOW.scheduledPayroll(),{label:'Pay preparation',why:'Recovers eligible unbatched work since the configured payroll cutover in bounded periods for office review; never pays automatically.'});
 everyJob('journey-cleanup',86400000,()=>WORKFLOW.cleanup(),{label:'Workflow maintenance',why:'Prunes old delivery metadata and refreshes task status.'});
 
 LAUNCH=require('./lib/launch-assurance')({...processContext,appUrl:APP_URL,requireAdmin,now,invoiceRates:INVOICE_RATES,holidays:HOLIDAYS,scopeWarning,jobs:JOB_META,storage:{database:path.dirname(DB_PATH),documents:DOCS_DIR,photos:PHOTOS_DIR},backupDir:process.env.BACKUP_DIR||path.join(path.dirname(DB_PATH),'backups')},WORKFLOW);
@@ -19262,7 +19367,7 @@ const server = http.createServer((req, res) => {
      (curl, tests, old clients) are unaffected — this is a tripwire for
      CSRF, layered on the SameSite cookie, not a wall. Stripe's webhook is
      exempt: it is HMAC-verified and legitimately cross-origin. ----- */
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && pathname.startsWith('/api/') && pathname !== '/api/stripe/webhook') {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && pathname.startsWith('/api/') && !['/api/stripe/webhook','/api/zai/webhook'].includes(pathname)) {
     const origin = String(req.headers.origin || '');
     if (origin) {
       try {
@@ -19281,7 +19386,7 @@ const server = http.createServer((req, res) => {
   }
 
   /* ----- private preview gate ----- */
-  if (SITE_PASSWORD && pathname !== '/api/stripe/webhook') { /* Stripe's servers can't type passwords — the webhook is HMAC-verified instead */
+  if (SITE_PASSWORD && !['/api/stripe/webhook','/api/zai/webhook'].includes(pathname)) { /* Stripe's servers can't type passwords — the webhook is HMAC-verified instead */
     if (pathname === '/robots.txt') {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       return res.end('User-agent: *\nDisallow: /\n');
@@ -19460,6 +19565,7 @@ const server = http.createServer((req, res) => {
        emailed link) is folded into the hash as before */
     const clean = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
     if (PUBLIC_PAGES[clean] && clean !== '/') return serveShell(req, res, clean);
+    if (/^\/pay\/[a-f0-9]{64}$/.test(pathname)) return PAYMENT_FLOW.servePayPage(req,res,pathname.split('/')[2]);
     if (pathname !== '/' && pathname !== '/index.html' && !path.extname(pathname)) {
       const destination = '/#' + pathname + (url.search || '');
       res.writeHead(302, { 'Location': destination, 'Cache-Control': 'no-store' });
@@ -19469,6 +19575,7 @@ const server = http.createServer((req, res) => {
   }
 
   let raw = '';
+  let rawChunks = [], rawBytes = 0;
   let overflow = false;
   /* Anything that carries a base64 file needs room; everything else is capped
      hard at 100 KB. A route added without being listed here fails at whatever
@@ -19483,17 +19590,21 @@ const server = http.createServer((req, res) => {
     : 100_000;
   req.on('data', chunk => {
     if (overflow) return; /* keep draining so the response can get through, but stop buffering */
-    raw += chunk;
-    if (raw.length > bodyCap) {
+    rawBytes += chunk.length;
+    if (rawBytes > bodyCap) {
       overflow = true;
-      raw = '';
+      rawChunks = [];
       json(res, 413, { error: bodyCap >= 12_000_000 ? 'That file is too big to upload. Photos are shrunk automatically before sending — refresh the page and try again. PDFs and Word files need to be under 8 MB.' : bodyCap > 100_000 ? 'This register has grown past what can be saved in one go (1.5 MB). The save was refused. Keep your unsaved entries on this page and ask the office to split or archive the register.' : 'That request is too large (the limit here is 100 KB).', limit: bodyCap });
-    }
+    } else rawChunks.push(chunk);
   });
   req.on('end', () => {
     if (overflow) return;
+    // Decode once so a UTF-8 character split between packets cannot alter signed JSON.
+    raw = Buffer.concat(rawChunks,rawBytes).toString('utf8');
+    rawChunks = [];
     /* Stripe webhook needs the raw body for signature verification */
     if (pathname === '/api/stripe/webhook' && req.method === 'POST') return handleStripeWebhook(req, res, raw);
+    if (pathname === '/api/zai/webhook' && req.method === 'POST') return PAYMENT_FLOW.zaiWebhook(req,res,raw).catch(()=>json(res,503,{error:'Bank notification could not be processed.'}));
     let body = {};
     if (raw) { try { body = JSON.parse(raw); } catch { return json(res, 400, { error: 'Invalid JSON.' }); } }
     const user = readSession(req.headers.cookie);

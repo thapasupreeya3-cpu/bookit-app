@@ -1,4 +1,25 @@
-# The Care Web v88.3.2 — blocks and automation register
+# The Care Web v88.4.0 — blocks and automation register
+
+The searchable source register has been regenerated for this release. See [PAYMENT-SETUP-v88.4.0.md](PAYMENT-SETUP-v88.4.0.md) for current payment operation and [PAYMENT-ALERT-COVERAGE-v88.4.0.md](PAYMENT-ALERT-COVERAGE-v88.4.0.md) for the 41 alert cases.
+
+| Payment condition | Behaviour |
+| --- | --- |
+| New completed self-managed/private shift | Invoice and email queue immediately; no extra office billing or holiday sign-off. |
+| Participant has not explicitly reviewed the shift | The invoice exists; online collection opens after the participant or authorised bookings helper approves. A payment-link recipient cannot approve care. |
+| Participant queries a shift | Collection and reminders pause for that invoice until explicit review; a worker reply does not approve it. |
+| Online provider is unconfigured | Shift and invoice persist; approved invoices can show configured ordinary bank details. Optional provider setup is done once. |
+| Checkout temporarily fails | The durable request retries; the approved shift remains saved. |
+| Previous checkout is still payable | Its cancellation retries before a second checkout can collect money. A payment already processing waits for its actual outcome. |
+| Provider request outcome remains uncertain past its safe retry window | Office sees a named payment-confirmation task. The site does not blindly create a second charge. |
+| Bank deposit has a known receiving account and unique invoice reference | Automatically allocates up to the invoice balance. |
+| Missing/ambiguous reference or excess money | Receipt stays visible; office matches the unallocated amount. It is never matched by amount alone. |
+| Payment belongs to a different participant or provider environment | Allocation is refused; a sandbox receipt cannot settle a production invoice. |
+| Refund/dispute or unsupported financial event | Visible reconciliation task; no automatic refund or unverified ledger reversal. |
+| Payroll export | Does not transfer wages. Existing component review and separate approval remain; external results are labelled as office records. |
+
+These are payment-state and access checks, not recurring finance/holiday setup approvals. Ordinary approval, invoicing, payment confirmation, receipt delivery and reminder recovery are automatic after provider activation. Worker unfinished-visit and ageing-dispute escalation, a connected payroll feed and onward settlement confirmation retain the limitations documented in the alert coverage.
+
+## Earlier automation changes retained
 
 This release removes the finance-approval and reviewed-holiday-calendar barriers introduced in v88.3.0–88.3.1. A normal approved shift now proceeds to invoice preparation and queued email without an office billing run. The automatic NSW calendar also supplies business-day deadlines and standby holiday classification.
 

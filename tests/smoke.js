@@ -345,7 +345,7 @@ async function main() {
     }
     const unapproved = Number(db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, rate_category, unit_price, worker_share, total, support_item, created) VALUES (13,10,'personal-care','2026-08-30','18:00',3,'completed',?,'pending','sunday',133.50,80,400.50,'01_014_0107_1_1',?)").run(now2, now2).lastInsertRowid);
     const before = await req('GET', '/api/me/invoices', { cookie: pc });
-    t('before the run: no invoice, and the page says one comes overnight', before.status === 200 && before.json.invoices.length === 0, before.status);
+    t('before processing: the directly inserted fixture shifts have no invoice yet', before.status === 200 && before.json.invoices.length === 0, before.status);
     const review = await req('POST','/api/admin/assurance/review',{headers:J2,cookie:ac2,body:{finding_id:'A09',owner_id:db.prepare("SELECT id FROM users WHERE email='smoke.test@example.com'").get().id,decision:'approved',review_due:'2035-01-01',evidence:'Synthetic fixture only: the regression prices and agreements are approved for this disposable test.',confirm:true}});
     t('billing requires a recorded synthetic rules review',review.status===200,JSON.stringify(review.json));
     const calendar=await req('POST','/api/admin/assurance/configuration',{headers:J2,cookie:ac2,body:{kind:'billing',version:'synthetic-rules-1',calendar:JSON.stringify({from:'2020-01-01',to:'2035-01-01',jurisdiction:'NSW',dates:[]}),evidence:'Synthetic test calendar only, no real holiday or rate assertion.',confirm:true}});
@@ -354,17 +354,19 @@ async function main() {
     t('the claims run invoices the approved self-managed shifts', run.status === 200 && run.json.invoices.length >= 1, run.status + ' ' + JSON.stringify(run.json).slice(0, 120));
     t('… and leaves the unapproved shift alone', !db.prepare('SELECT invoice_no FROM bookings WHERE id = ?').get(unapproved).invoice_no);
     const mine = await req('GET', '/api/me/invoices', { cookie: pc });
-    const inv = mine.json.invoices.find(i => i.status !== 'paid');
-    t('the participant sees the invoice: total, due date, balance', mine.status === 200 && inv && inv.total > 1000 && inv.balance === inv.total && /^\d\d\/\d\d\/\d{4}$/.test(inv.due_date) && mine.json.owing === inv.balance, JSON.stringify(mine.json).slice(0, 160));
+    const issuedShifts = invIds.map(id => db.prepare('SELECT invoice_no,total FROM bookings WHERE id=?').get(id));
+    const inv = mine.json.invoices.find(i => i.invoice_no === issuedShifts[0].invoice_no);
+    const outstandingCents = mine.json.invoices.reduce((sum, i) => sum + Math.round(i.balance * 100), 0);
+    t('the participant sees one invoice per approved shift with its own total, due date and balance', mine.status === 200 && new Set(issuedShifts.map(i => i.invoice_no)).size === invIds.length && issuedShifts.every(shift => mine.json.invoices.some(i => i.invoice_no === shift.invoice_no && i.lines === 1 && i.total === shift.total && i.balance === i.total && /^\d\d\/\d\d\/\d{4}$/.test(i.due_date))) && Math.round(mine.json.owing * 100) === outstandingCents, JSON.stringify(mine.json).slice(0, 160));
     const pdf = await req('GET', `/api/me/invoices/${inv.invoice_no}.pdf`, { cookie: pc });
     const pdfText = pdf.buf.toString('latin1');
-    t('the PDF is a real tax invoice: address, item names, times, due date, balance, bank lines', pdf.status === 200 && pdfText.startsWith('%PDF') && pdfText.includes('16 Crystal Crescent') && pdfText.includes('Access Community Social and Rec Activ') && pdfText.includes('11:00\\226') || pdfText.includes('11:00') , pdf.status);
+    t('the PDF is a real tax invoice: address, item names, times, due date, balance, bank lines', pdf.status === 200 && pdfText.startsWith('%PDF') && pdfText.includes('16 Crystal Crescent') && pdfText.includes('Access Community Social and Rec Activ') && (pdfText.includes('11:00\\226') || pdfText.includes('11:00')), pdf.status);
     t('… naming the NDIS item and the balance due', pdfText.includes('04_104_0125_6_1') && pdfText.includes('Balance due') && pdfText.includes('Payment reference'));
     t('a worker cannot fetch it', (await req('GET', `/api/me/invoices/${inv.invoice_no}.pdf`, { cookie: wc })).status === 403);
     t('another participant cannot fetch it', (await req('GET', `/api/me/invoices/${inv.invoice_no}.pdf`, { cookie: ic })).status === 403);
     const mp = await req('POST', `/api/admin/invoices/${inv.invoice_no}/paid`, { headers: J2, cookie: ac2, body: { how: 'Synthetic bank transfer reconciled to the invoice.', reference:'smoke-payment-001', amount:inv.balance, confirm:true } });
     const after = await req('GET', '/api/me/invoices', { cookie: pc });
-    t('the office marks the bank transfer received and the participant sees Paid', mp.status === 200 && after.json.invoices.find(i => i.invoice_no === inv.invoice_no).status === 'paid' && after.json.owing === 0, mp.status);
+    t('the recorded bank transfer pays its invoice and leaves the other shifts outstanding', mp.status === 200 && after.json.invoices.find(i => i.invoice_no === inv.invoice_no).status === 'paid' && Math.round(after.json.owing * 100) === outstandingCents - Math.round(inv.balance * 100) && issuedShifts.slice(1).every(shift => after.json.invoices.some(i => i.invoice_no === shift.invoice_no && i.status !== 'paid' && i.balance === shift.total)), mp.status);
     /* many lines → more than one page */
     for (let i = 1; i <= 34; i++) db.prepare("INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, status, completed_at, approval_state, approved_at, rate_category, unit_price, worker_share, total, support_item, invoice_no, claim_status, claimed_at, created) VALUES (13,10,'personal-care',?,'06:00',5,'completed',?,'approved',?,'weekday-day',73.58,60,367.90,'01_011_0107_1_1','INV-TEST-MULTI','claimed',?,?)").run(`2026-07-${String(i).padStart(2,'0')}`, now2, now2, now2, now2);
     const big = await req('GET', '/api/me/invoices/INV-TEST-MULTI.pdf', { cookie: pc });

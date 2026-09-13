@@ -84,7 +84,7 @@ window.CareBookingCalendar = (() => {
   }
   async function render(){
     const wrap=get('bookingsList');if(!wrap)return;setup();state=null;
-    const note=get('bookingsInvoiceNote');if(note)note.innerHTML='';
+    if(window.CarePayments)CarePayments.renderBookingNotice();
     if(!(API.online&&API.me)){wrap.innerHTML='<p>Sign in to see your calendar and booking requests.</p><button type="button" class="btn btn-primary btn-sm" data-open-login>Sign in</button>';return;}
     if(API.me.role==='coordinator'&&!API.actingFor){wrap.innerHTML='<p>Choose a person from <a href="#/clients">My clients</a> to see their calendar.</p>';return;}
     const prev=lastView?.key===key()?lastView:null;

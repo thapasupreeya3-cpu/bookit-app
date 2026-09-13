@@ -27,6 +27,7 @@ window.CareNextActions = (() => {
     if(href==='#/account/documents')return {group:'documents',title:'Complete your document checklist',hint:'Review the missing, requested or expiring items on your file.',verb:'Open checklist',href};
     if(key.includes('verify-email'))return {group:'email',title:role==='coordinator'?'Confirm their email address':'Confirm your email address',hint:role==='coordinator'?'Ask the person to use the verification link in their email.':'Use the verification link in your email. You can request another copy.',verb:role==='coordinator'?'Open client file':'Resend email',href:role==='coordinator'?'#/clients':href,email:role!=='coordinator'};
     if(href==='#/account/profile')return {group:'profile',title:'Complete your profile',hint:'Update the details needed for your account.',verb:'Open profile',href};
+    if(href.startsWith('#/invoice?'))return {group:href,title:task.label||'Review invoice',hint:task.detail||'',verb:task.kind==='review'?'Review shift':'View invoice',href};
     const verb={booking:'Review request',shift:'Write shift note',review:worker?'Answer question':'Review timesheet',followup:'Share feedback',renewal:'Renew document',document:'Open document',setup:href.startsWith('#/form/')?'Review form':'Open details'}[task.kind] || 'Open task';
     return {group:href,title:task.label || 'Review this task',hint:task.detail || '',verb,href,optional:task.kind==='followup'};
   }

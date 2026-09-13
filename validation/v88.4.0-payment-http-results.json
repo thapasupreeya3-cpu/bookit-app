@@ -1,0 +1,43 @@
+{
+  "runtime": "v22.23.2",
+  "scope": "Real HTTP routes with disposable records, no real payment or email, loopback-only provider stub",
+  "results": [
+    {
+      "name": "Real completion immediately issues one pending-review invoice and queues its PDF email",
+      "result": "PASS"
+    },
+    {
+      "name": "A real bearer link is redacted, cannot review, and cannot collect before approval",
+      "result": "PASS"
+    },
+    {
+      "name": "Actual participant and helper routes enforce ownership, separate scopes and revoke access",
+      "result": "PASS"
+    },
+    {
+      "name": "A query changes the review fingerprint, rejects stale approval and resumes after explicit review",
+      "result": "PASS"
+    },
+    {
+      "name": "Repeated authenticated checkout uses one priced provider request and returning never marks paid",
+      "result": "PASS"
+    },
+    {
+      "name": "Unsigned or incorrectly signed raw webhooks cannot alter the payment ledger",
+      "result": "PASS"
+    },
+    {
+      "name": "Signed checkout and intent confirmations update the invoice once and queue one receipt",
+      "result": "PASS"
+    },
+    {
+      "name": "Signed UTF-8 webhook bytes survive a multibyte character split across HTTP chunks",
+      "result": "PASS"
+    },
+    {
+      "name": "Payment status and invoice email remain singular after completion is retried",
+      "result": "PASS"
+    }
+  ],
+  "serverLog": "Seeded 12 demo workers (…@demo.bookit.life / demo1234) and d***@demo.bookit.life / demo1234\nBlank forms: 1 filed from forms/ — participants can download them now. 10 skipped, not in the participant catalogue: p-advocate (a screen now; the PDF is not offered), p-agreement (The Care Web generates this one; a PDF on the shelf would only confuse), p-consent-privacy (The Care Web generates this one; a PDF on the shelf would only confuse), p-emergency, p-exit (a screen now; the PDF is not offered), p-intake, p-mealtime (a screen now; the PDF is not offered), p-medication (a screen now; the PDF is not offered), p-money (a screen now; the PDF is not offered), p-risk (a screen now; the PDF is not offered).\nSeeded 8 training modules.\nMarked 12 demo workers as trained (84 records).\nPolicies: 99 built-in document(s) published as pages.\nThe Care Web server running → http://localhost:33057/\nDatabase: /tmp/careweb-payment-http-Yf96lK/test.db · auto-reply bot: off\nTimezone: Australia/Sydney · secret: from /tmp/careweb-payment-http-Yf96lK/secret · demo seed: ON · admin MFA: not required\nEmail: OFF — set RESEND_API_KEY (or SMTP_USER + SMTP_PASS) to enable; emails are logged to console instead\n[claims] automatic shift submission: 1 invoice(s), 0 agency line(s) stamped, 0 held back\n"
+}

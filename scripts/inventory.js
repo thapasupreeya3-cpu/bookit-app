@@ -54,7 +54,7 @@ const routeDoc = head + `# ${routes.length} routes registered through route(). M
   + `# Everything under /api/admin/ requires an admin session and everything else a signed-in session,\n`
   + `# enforced in the dispatcher before the handler runs, except the ${publicApi.length} public routes marked *.\n\n`
   + routes.map(r => `${publicApi.includes(`${r.method} ${r.path}`) ? '*' : ' '} ${r.method.padEnd(6)} ${r.path}`).join('\n') + '\n'
-  + `\n# Handled before the route table: GET /api/version, GET /api/health/live, GET /api/health/ready, POST /api/stripe/webhook,\n# GET /photos/{id} (publication/relationship policy), GET /verify-email, GET /cover, POST /cover, GET /service-agreement, GET /privacy-consent, GET /templates, GET /sitemap.xml, GET /robots.txt.\n`;
+  + `\n# Handled before the route table: GET /api/version, GET /api/health/live, GET /api/health/ready, POST /api/stripe/webhook, POST /api/zai/webhook, GET/HEAD /pay/{token},\n# GET /photos/{id} (publication/relationship policy), GET /verify-email, GET /cover, POST /cover, GET /service-agreement, GET /privacy-consent, GET /templates, GET /sitemap.xml, GET /robots.txt.\n`;
 const tableDoc = head + `# ${tables.length} tables, read back with PRAGMA table_info from a database the server created and migrated at boot.\n# Column, then declared type; PK marks the primary key. Order is the order in the file.\n\n`
   + tables.map(t => `${t.name} (${t.cols.length} columns)\n  ${t.cols.join(', ')}\n`).join('\n');
 

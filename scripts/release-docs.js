@@ -25,12 +25,15 @@ Do not replace the existing repository with a partial update ZIP.
 Base source release: v${meta.base_version}
 Base package reference: ${meta.base_archive}
 Base SHA-256: ${meta.base_archive_sha256}
-Remote GitHub HEAD and the deployed site were not accessed or changed.
+Source baseline commit: ${meta.base_commit}
+The deployed site has not been changed or verified by this source release.
 
 AUTOMATIC BILLING AND COMPLETE BLOCK REGISTER
 NSW holiday detection and saved fallback calendars run automatically.
-Participant approval queues an invoice and PDF email immediately; recovery runs
-in the background, including existing approved unissued visits after restart.
+New self-managed/private worker submissions queue a separate invoice and PDF
+email immediately. Explicit participant review opens payment in the same journey.
+Plan-managed/NDIA work retains approval-first routing. Recovery runs in the
+background, including existing approved unissued visits after restart.
 No blanket finance-review, holiday-review or private-ready approval is required.
 Time/date rate boundaries are itemised before approval. Issued snapshots and
 previously approved amounts are preserved. Explicit holds and disputed timesheets
@@ -38,7 +41,17 @@ remain deliberate stops. Invoice mail retries automatically with visible status.
 Email transport must be configured; queued does not mean sent or paid.
 The complete source register is docs/block-register/index.html, with CSV/JSON and
 all conditional branches. docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
-See docs/CHANGELOG-v88.3.4.md and docs/USER-GUIDE.html.
+See docs/CHANGELOG-v88.4.0.md and docs/USER-GUIDE.html.
+
+PAYMENT TRACKING
+Invoices link to a protected payment page. Provider confirmations update balances
+with duplicate protection, partial payments, receipts and overdue reminders.
+Payment tracking shows bank receipts, unallocated money and named follow-ups.
+Optional Zai receiving accounts match confirmed AUD deposits by account and
+invoice reference. Stripe checkout supports cards and optionally enabled PayTo.
+Configure providers once using docs/PAYMENT-SETUP-v88.4.0.md. These integrations
+do not confirm onward business-bank settlement or transfer wages. Worker pay
+notices clearly identify external payment results recorded by the office.
 
 INVOICE WITHDRAWAL
 Withdraw invoice confirms and submits correctly. Each invoice has one Record
@@ -163,7 +176,8 @@ const readme=`The Care Web v${pkg.version} — complete source package.
 Extract ${meta.output_archive}; use the contents of bookit-app-main at the
 repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
 This release implements launch-audit source corrections and updates the full user guide.
-Current billing-rule review and independently reviewed payroll components are required.
+NSW holidays and ordinary invoicing are automatic. Independently reviewed payroll
+components remain required; preparing/exporting payroll does not transfer wages.
 PDF/HTML previews and earlier verification automations are retained.
 Configure private billing,
 email, payroll cutover and any optional document assistance before use.
@@ -172,7 +186,8 @@ Install/check: npm ci --ignore-scripts && npm run check
 Refresh generated documents: npm run release:docs
 
 See docs/RELEASE-NOTES.md, docs/IMPLEMENTATION-MATRIX.md and docs/TEST-RESULTS.md.
-The package has not been pushed to GitHub or deployed to the live site.
+The package is a reviewable source update. Live deployment/provider activation
+remains separate. See docs/PAYMENT-SETUP-v88.4.0.md.
 `;
 let stale=0;for(const [name,content]of Object.entries({'STARTHERE.txt':handover,'readme.txt':readme})){
  if(process.argv.includes('--verify')){if(read(name)!==content){console.error(name+' is stale: run npm run release:docs');stale++;}}

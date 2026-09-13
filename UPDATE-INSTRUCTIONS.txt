@@ -1,138 +1,35 @@
-THE CARE WEB v88.3.4 — INVOICE FLOW UPDATE
+THE CARE WEB v88.4.0 PAYMENT AUTOMATION UPDATE
 
-Apply over v88.3.0, v88.3.1, v88.3.2 or v88.3.3. 103 changed or added project files.
+Apply over v88.3.4, verified source commit 943ad08ec492129ff5bba3169a906812ebafdff9.
+This ZIP contains changed files only. Merge its contents into the existing
+repository root, replacing matching files, then redeploy. Do not replace the
+whole repository with this partial ZIP.
 
-1. Extract the ZIP.
-2. Merge its contents into your EXISTING repository ROOT, replacing matching files
-   and preserving all other folder contents. Do not replace an entire folder with
-   a partial update folder. Do not upload the ZIP itself.
-3. Redeploy and refresh. Keep your database, uploads, configuration and backups.
+Preserve the live database, uploaded documents/photos and protected settings.
+Keep a normal pre-update backup and compare any newer/custom repository changes.
+Use Node 22.23.2 (see .nvmrc), npm ci --ignore-scripts, then npm run check.
+The server applies additive migrations at startup. /api/version should show
+88.4.0 and schema 88400. Update a host SCHEMA_VERSION override if present.
 
-Version 88.3.4; schema 88304; 386 routes; 94 tables. No deletions.
-Unchanged media, fonts, viewer assets, dependencies and runtime data are excluded.
+New self-managed/private shifts invoice immediately after worker submission.
+The participant reviews and can approve/pay in the same invoice page.
+Plan-managed and NDIA routing retain required approval and the correct payer.
+Legacy unapproved pending work is not unexpectedly invoiced by installation.
+Existing approved unissued work continues through automatic recovery.
 
-The previous task-layout update is included; no separate installation is needed.
+PAYMENT ACTIVATION
+Read docs/PAYMENT-SETUP-v88.4.0.md. Configure server Stripe keys and its signed
+webhook once; optionally enable account-supported PayTo. Ordinary bank transfer
+matching requires Zai onboarding, credentials, signed webhook and verified
+receiving-account assignments. An existing standard BSB/account transfer is
+not automatically tracked merely by adding a Stripe payment link.
 
-Open Admin → Growth & money. Invoices show separate payment and delivery states,
-with one Record payment action. NDIA claims have their own section.
-Withdraw invoice records the reason, cancels unsent invoice emails and queues a
-withdrawal notice to the original payer. Withdrawn shifts remain held until you
-choose to release or remove them. Reissue uses a new invoice number.
-Queued messages and card-link closure remain visible until confirmed.
+Office: Money > Payment tracking. Participant: Next actions, Bookings or
+Statements > invoice. Worker: Next actions > Pay status.
+Read docs/USER-GUIDE.html, docs/PAYMENT-ALERT-COVERAGE-v88.4.0.md and
+validation/v88.4.0-upgrade-verification.json.
 
-Preview: docs/invoice-flow-preview.html. Guide: docs/USER-GUIDE.html.
-Changelog: docs/CHANGELOG-v88.3.4.md. Source register: docs/block-register/.
-Two additive tables retain withdrawn invoices and card-checkout cleanup jobs.
-
-The full automated release checks passed, including 50 invoice/billing checks.
-Two upgrade boots from v88.3.0 and v88.3.3 preserved synthetic records/uploads.
-Native browser appearance, real email delivery and live card-provider outcomes
-remain unverified. No live site, messages or payments were changed here.
-Messages already with a provider cannot be recalled; completed card payments
-need reconciliation. Withdrawal does not perform an automatic refund or withdraw
-an NDIA claim already uploaded to the external provider portal.
-
-CHANGED PROJECT FILES
-RELEASE-FILES.json
-STARTHERE.txt
-docs/BLOCKS-AND-AUTOMATION.md
-docs/CHANGELOG-v88.3.1.md
-docs/CHANGELOG-v88.3.2.md
-docs/CHANGELOG-v88.3.3.md
-docs/CHANGELOG-v88.3.4.md
-docs/LAUNCH-ACCEPTANCE.md
-docs/TEST-RESULTS.md
-docs/USER-GUIDE.html
-docs/api-route-inventory.txt
-docs/block-register/branches.csv
-docs/block-register/branches.json
-docs/block-register/index.html
-docs/block-register/register.csv
-docs/block-register/register.json
-docs/database-table-inventory.txt
-docs/invoice-flow-preview.html
-docs/launch-actions.json
-docs/release-metadata.json
-docs/task-clarity-preview.html
-lib/automatic-invoicing.js
-lib/automatic-pricing.js
-lib/billing-setup.js
-lib/certificate-monitor.js
-lib/incident-policy.js
-lib/invoice-lifecycle.js
-lib/launch-assurance.js
-lib/process-finance.js
-lib/process-routes.js
-lib/process-store.js
-lib/public-holidays-nsw.json
-lib/public-holidays.js
-lib/task-queue.js
-lib/version.js
-package-lock.json
-package.json
-public/assets/billing-setup.css
-public/assets/billing-setup.js
-public/assets/launch-assurance.css
-public/assets/launch-assurance.js
-public/assets/next-actions.css
-public/assets/next-actions.js
-public/assets/process-workflows.js
-public/index.html
-readme.txt
-scripts/audit-blocks.js
-scripts/release-docs.js
-server.js
-tests/automatic-billing-unit.js
-tests/billing-flow-tests.js
-tests/graphics-tests.js
-tests/invoice-lifecycle-tests.js
-tests/launch-regression.js
-tests/process-regression.js
-tests/smoke.js
-tests/task-clarity-tests.js
-validation/v88.3.1-billing-output.txt
-validation/v88.3.1-billing-results.json
-validation/v88.3.1-browser-check.txt
-validation/v88.3.1-full-test-output.txt
-validation/v88.3.1-guide-validation.json
-validation/v88.3.1-inventory-check.txt
-validation/v88.3.1-lint-output.txt
-validation/v88.3.1-release-docs-check.txt
-validation/v88.3.1-upgrade-output.txt
-validation/v88.3.1-upgrade-results.json
-validation/v88.3.2-automatic-unit-output.txt
-validation/v88.3.2-billing-output.txt
-validation/v88.3.2-block-scan.txt
-validation/v88.3.2-browser-check.txt
-validation/v88.3.2-full-test-output.txt
-validation/v88.3.2-guide-validation.json
-validation/v88.3.2-inventory-output.txt
-validation/v88.3.2-lint-output.txt
-validation/v88.3.2-report-validation.json
-validation/v88.3.2-upgrade-output.txt
-validation/v88.3.2-upgrade-results.json
-validation/v88.3.3-block-scan.txt
-validation/v88.3.3-browser-check.txt
-validation/v88.3.3-check.txt
-validation/v88.3.3-full-tests.txt
-validation/v88.3.3-guide-validation.json
-validation/v88.3.3-lint.txt
-validation/v88.3.3-preview-validation.json
-validation/v88.3.3-release-docs.txt
-validation/v88.3.3-report-validation.json
-validation/v88.3.3-task-results.json
-validation/v88.3.3-task-tests.txt
-validation/v88.3.4-billing-results.json
-validation/v88.3.4-billing-tests.txt
-validation/v88.3.4-block-scan.txt
-validation/v88.3.4-browser-check.txt
-validation/v88.3.4-check.txt
-validation/v88.3.4-full-tests.txt
-validation/v88.3.4-guide-validation.json
-validation/v88.3.4-invoice-results.json
-validation/v88.3.4-invoice-tests.txt
-validation/v88.3.4-lint.txt
-validation/v88.3.4-release-docs.txt
-validation/v88.3.4-report-validation.json
-validation/v88.3.4-upgrade-88.3.0-results.json
-validation/v88.3.4-upgrade-88.3.3-results.json
+This is source code, not confirmation of deployment or provider activation.
+Live payments, email, browser layout, business-bank settlement and payroll
+provider transfers were not verified. Exports and office payment records are
+labelled accurately; they do not mean the site sent wages.

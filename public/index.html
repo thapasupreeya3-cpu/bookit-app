@@ -1823,7 +1823,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <li data-nav-audience="admin" hidden><a class="nav-link" href="#/admin/verification">Verification</a></li>
         <li data-nav-audience="coordinator" hidden><a class="nav-link" href="#/clients">My clients</a></li>
         <li data-nav-audience="participant" hidden><a class="nav-link" href="#/support-plan" id="navPlan">Support plan</a></li>
-        <li id="navJourney" data-nav-audience="worker participant coordinator admin" hidden><a class="nav-link" href="#/journey">Next actions</a></li>
+        <li id="navJourney" data-nav-audience="worker participant coordinator admin" hidden><a class="nav-link" href="#/journey" id="actionNavLink">Next actions <span class="booking-request-badge" id="actionNavBadge" aria-hidden="true" hidden></span></a></li>
 
         <li class="dropdown" id="ddAbout" data-nav-audience="guest">
           <button class="nav-link" aria-expanded="false" aria-haspopup="true" id="ddAboutBtn" type="button">About <span class="caret">▾</span></button>
@@ -1859,7 +1859,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <div class="acct-menu" id="acctMenu" role="menu" aria-label="Account" hidden></div>
       </div>
       <button class="burger" id="burger" aria-label="Open main menu" aria-controls="mainNav" aria-expanded="false" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span class="booking-request-badge" id="bookingMobileBadge" aria-hidden="true" hidden></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span class="booking-request-badge" id="actionMobileBadge" aria-hidden="true" hidden></span>
       </button>
     </div>
   </div>
@@ -3938,6 +3938,8 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 </section>
 
+<section class="page" id="page-invoice" data-title="Review & pay invoice — The Care Web"><section class="block"><div class="container"><div id="paymentInvoice"><p role="status">Loading invoice…</p></div></div></section></section>
+<section class="page" id="page-payment-tracking" data-title="Payment tracking — The Care Web"><section class="block"><div class="container"><div id="paymentTracking"><p role="status">Loading payment tracking…</p></div></div></section></section>
 <!-- ================= STATEMENTS ================= -->
 <section class="page" id="page-statements" data-title="Invoices & statements — The Care Web">
   <div class="page-hero">
@@ -7099,6 +7101,8 @@ const ROUTES = {
   '/my-jobs': 'page-my-jobs',
   '/my-applications': 'page-my-applications',
   '/statements': 'page-statements',
+  '/invoice': 'page-invoice',
+  '/payment-tracking': 'page-payment-tracking',
   '/security': 'page-security',
   '/earnings': 'page-earnings',
   '/ladder': 'page-ladder',
@@ -7172,6 +7176,7 @@ function route(){
   }
   let path = location.hash.replace(/^#/, '');
   if(/^\/form\/[a-z0-9-]+/.test(path)) path = '/form' + (path.includes('?') ? path.slice(path.indexOf('?')) : '');
+  const invoicePath=/^\/invoice\/([A-Z0-9-]+)(?:\?.*)?$/.exec(path);if(invoicePath){location.hash='#/invoice?invoice='+encodeURIComponent(invoicePath[1])+(path.includes('?')?'&'+path.split('?')[1]:'');return;}
   const qi = path.indexOf('?');
   if(qi !== -1) path = path.slice(0, qi);
   if(path === '/login' && API.me){ location.hash = API.me.role === 'coordinator' ? '#/clients' : '#/journey'; return; }
@@ -7225,6 +7230,8 @@ function route(){
   if(id === 'page-my-jobs' && window.renderMyJobs) renderMyJobs();
   if(id === 'page-my-applications' && window.renderMyApplications) renderMyApplications();
   if(id === 'page-statements' && window.renderStatementsPage) renderStatementsPage();
+  if(id === 'page-invoice') window.CarePayments?.renderInvoice();
+  if(id === 'page-payment-tracking') window.CarePayments?.renderOffice();
   if(id === 'page-security' && window.renderSecurityPage) renderSecurityPage();
   if(id === 'page-earnings' && window.renderEarningsPage) renderEarningsPage();
   if(id === 'page-training' && window.renderTrainingPage) renderTrainingPage();
@@ -7284,9 +7291,10 @@ window.invoicesBlock = async function(){
   const open = d.invoices.filter(i => !['paid','withdrawn'].includes(i.status));
   const row = i => `<tr><td style="white-space:nowrap;"><b>${esc(i.invoice_no)}</b></td><td>${esc(i.date)}</td><td>${esc(i.due_date)}</td><td>${i.lines}</td><td>${money(i.total)}</td>
     <td>${i.status === 'withdrawn' ? `<span class="invoice-withdrawn">Withdrawn — do not pay</span>` : i.status === 'paid' ? `<span style="color:#1F7A4D;font-weight:600;">Paid${i.paid_at ? ' ' + esc(i.paid_at) : ''}</span>` : i.paid>0 ? `<b>Part paid — ${money(i.balance)} remaining</b>` : i.status === 'overdue' ? `<span style="color:#9E2F1C;font-weight:600;">Overdue — ${money(i.balance)}</span>` : `<b>${money(i.balance)} due</b>`}</td>
-    <td style="white-space:nowrap;"><a class="btn btn-secondary btn-sm" href="/api/me/invoices/${encodeURIComponent(i.invoice_no)}.pdf${forQ}" target="_blank" rel="noopener">PDF</a> ${i.pay_url ? `<a class="btn btn-primary btn-sm" href="${esc(i.pay_url)}" target="_blank" rel="noopener">Pay by card</a>` : ''}</td></tr>`;
-  const banner = open.length ? `<div class="info-card" style="border-left:5px solid #9E2F1C;margin-bottom:14px;"><p style="margin:0 0 6px;"><b>You have ${open.length === 1 ? 'an invoice' : open.length + ' invoices'} to pay — ${money(d.owing)}.</b> ${open.some(i => i.status === 'overdue') ? 'One is past its due date. ' : ''}${open[0].funding === 'plan' ? 'It has gone to your plan manager, who pays it from your plan funds; nothing for you to do unless they ask.' : 'Pay by card with the button, or by bank transfer using the details on the invoice — the reference is the invoice number.'}</p>${open[0].funding !== 'plan' && d.bank && d.bank.length ? `<p class="muted-sm" style="margin:0;">Bank transfer: ${d.bank.map(esc).join(' · ')}</p>` : ''}</div>` : '';
-  if(!d.invoices.length) return `<div class="info-card" style="margin-bottom:14px;"><p style="margin:0;"><b>No invoices yet.</b> Once a shift is approved it is invoiced automatically${API.me.plan === 'ndia' ? ' — for an agency-managed plan the office claims it from the NDIA directly, and nothing comes to you' : ', and it will appear here with the PDF and, for self-managed plans, a Pay by card button'}.</p></div>`;
+    <td style="white-space:nowrap;"><a class="btn btn-secondary btn-sm" href="/api/me/invoices/${encodeURIComponent(i.invoice_no)}.pdf${forQ}" target="_blank" rel="noopener">PDF</a> <a class="btn btn-primary btn-sm" href="#/invoice?invoice=${encodeURIComponent(i.invoice_no)}">${i.funding==='plan'?'View invoice':'View &amp; pay invoice'}</a></td></tr>`;
+  const managed=open.filter(i=>i.funding==='plan'),direct=open.filter(i=>i.funding!=='plan');
+  const banner = open.length ? `<div class="info-card" style="border-left:5px solid ${direct.length?'#9E2F1C':'#28578E'};margin-bottom:14px;"><p style="margin:0 0 6px;"><b>${direct.length?open.length+' invoice'+(open.length===1?'':'s')+' outstanding — '+money(d.owing):'Sent to your plan manager — '+money(d.owing)+' awaiting their payment'}.</b> ${managed.length?managed.length+' invoice'+(managed.length===1?' has':'s have')+' gone to your plan manager. You do not need to pay those invoices personally. ':''}${direct.length?'Open each invoice to review the shift, check the remaining balance and choose how to pay. ':''}${open.some(i=>i.status==='overdue')?'An invoice is past its due date.':''}</p></div>` : '';
+  if(!d.invoices.length) return `<div class="info-card" style="margin-bottom:14px;"><p style="margin:0;"><b>No invoices yet.</b> A submitted shift is invoiced automatically${API.me.plan === 'ndia' ? ' — for an agency-managed plan the office claims it from the NDIA directly, and nothing comes to you' : ', and it appears here with a secure review and payment page'}.</p></div>`;
   return `${banner}<h2 style="margin:0 0 8px;">Invoices</h2><div class="table-wrap" style="margin-bottom:18px;"><table class="rt"><thead><tr><th>Invoice</th><th>Date</th><th>Due</th><th>Lines</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>${d.invoices.map(row).join('')}</tbody></table></div>`;
 };
 window.invoiceBanner = async function(){
@@ -7294,7 +7302,8 @@ window.invoiceBanner = async function(){
   let d; try{ d = await API.call('/me/invoices' + (API.actingFor ? '?for=' + API.actingFor.id : '')); }catch(e){ return ''; }
   const open = d.invoices.filter(i => !['paid','withdrawn'].includes(i.status));
   if(!open.length) return '';
-  return `<div class="info-card" style="border-left:5px solid #9E2F1C;margin-bottom:14px;"><p style="margin:0;"><b>${open.length === 1 ? 'An invoice' : open.length + ' invoices'} to pay — $${Number(d.owing).toFixed(2)}${open.some(i => i.status === 'overdue') ? ', one past its due date' : ''}.</b> ${open[0].funding === 'plan' ? 'Sent to your plan manager.' : ''} <a href="#/statements">See the invoice${open.length === 1 ? '' : 's'}, the PDF and how to pay</a>.</p></div>`;
+  const allManaged=open.every(i=>i.funding==='plan');
+  return `<div class="info-card" style="border-left:5px solid ${allManaged?'#28578E':'#9E2F1C'};margin-bottom:14px;"><p style="margin:0;"><b>${allManaged?'Sent to your plan manager':open.length+' invoice'+(open.length===1?'':'s')+' outstanding'} — $${Number(d.owing).toFixed(2)}.</b> ${allManaged?'You do not need to pay these invoices personally.':''} <a href="#/statements">View invoices and payment status</a>.</p></div>`;
 };
 
 /* ---------- removing records: one dialog, a typed reason, the right action ---------- */
@@ -7639,6 +7648,7 @@ window.API = {
        once, so pressing I agree takes the 2 to a 1 without a refresh */
     if((opts.method || 'GET') !== 'GET' && typeof loadBlockers === 'function') setTimeout(loadBlockers, 0);
     if((opts.method || 'GET') !== 'GET') window.CareBookingCalendar?.changed(path);
+    if((opts.method || 'GET') !== 'GET') window.CarePayments?.changed(path);
     return data;
   }
 };
@@ -7652,6 +7662,7 @@ function syncPrimaryNavigation(){
   $('#btnMessages').hidden = role === 'guest';
 }
 function updateAuthUI(){
+  window.CarePayments?.sync();
   window.CareBookingCalendar?.sync();
   if(window.CareFlow){CareFlow.nav();if(location.hash.startsWith('#/journey'))CareFlow.render();}
   const authed = !!(API.online && API.me);
@@ -8261,10 +8272,11 @@ async function renderBookingsPage(){
   const generation=++BOOKINGS_RENDER_SEQUENCE,who=API.me?.id,subject=API.actingFor?.id,hash=location.hash;
   const current=()=>generation===BOOKINGS_RENDER_SEQUENCE&&who===API.me?.id&&subject===API.actingFor?.id&&hash===location.hash;
   window.CareBookingCalendar?.setup();
+  if(window.CarePayments) CarePayments.renderBookingNotice();
   if(window.CareBookingCalendar?.handles())return CareBookingCalendar.render();
   const wrap = $('#bookingsList');
   if(!wrap) return;
-  const invNote = $('#bookingsInvoiceNote'); if(invNote){ invoiceBanner().then(html => { if(current())invNote.innerHTML = html; }).catch(()=>{}); }
+  const invNote = $('#bookingsInvoiceNote'); if(invNote&&!window.CarePayments){ invoiceBanner().then(html => { if(current())invNote.innerHTML = html; }).catch(()=>{}); }
   if(!API.online){
     wrap.innerHTML = '<div class="info-card"><p><b>Bookings run on the live The Care Web server.</b> This preview is demo-only — on the deployed site this page shows real requests, confirmations and history.</p></div>';
     return;
@@ -8502,7 +8514,7 @@ async function renderBookingsPage(){
      what is waiting and names the deadline of the one running out first. */
   let apprBanner = '';
   if(vrole() === 'participant'){
-    const waiting = d.bookings.filter(b => b.status === 'completed' && b.approval_state === 'pending');
+    const waiting = d.bookings.filter(b => b.status === 'completed' && b.approval_state === 'pending' && !b.invoice_no && !window.CarePayments);
     if(waiting.length){
       const soonest = waiting.slice().sort((a, b) => (a.approve_deadline || '') < (b.approve_deadline || '') ? -1 : 1)[0];
       apprBanner = `<div class="info-card" id="apprBanner" style="margin-bottom:18px;border-left:6px solid #F1BE48;">
@@ -10246,6 +10258,7 @@ async function renderAdminPage(){
   </tr>`;
   const claimTable = (rows, showActions) => `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Date</th><th>Participant</th><th>Funding</th><th>Shift</th><th>Support item</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(r => claimRow(r, showActions)).join('')}</tbody></table></div>`;
   const claims = cl.error?`<p role="alert">Claims could not be loaded: ${esc(cl.error)}. <button class="adm-btn-sm" type="button" data-claims-retry>Try again</button></p>`:`
+    <p><a class="btn btn-primary btn-sm" href="#/payment-tracking">Payment tracking & bank transfers</a></p>
     ${CareBilling.render(cl.billing_setup,cl.unclaimed,cl.billing_automation,cl.email_enabled)}
     <div class="adm-tiles">
       <div class="adm-tile"><b>$${Number(cl.totals.ready||0).toFixed(2)}</b><span>Ready to process (${cl.ready_count||0})</span></div>
@@ -13175,7 +13188,7 @@ async function renderStatementsPage(){
     <tr class="st-detail" data-st-detail="${r.id}" hidden><td colspan="9"></td></tr>`;
   const invHtml = await invoicesBlock();
   wrap.innerHTML = `${invHtml}
-    <p class="muted-sm" style="margin:0 0 10px;"><b>Statement</b> — every shift, its note and what it cost, for a period you choose; the CSV is the same list for a spreadsheet. What you actually pay is on the <b>invoices</b> above, one per run, with the PDF.</p>
+    <p class="muted-sm" style="margin:0 0 10px;"><b>Statement</b> — every shift, its note and what it cost, for a period you choose; the CSV is the same list for a spreadsheet. What you actually pay is on the <b>invoices</b> above, with the PDF and current payment balance.</p>
     ${d.acting_for ? `<p class="muted-sm" style="margin:0 0 10px;">Statement for <b>${esc(d.acting_for.name)}</b>.</p>` : ''}
     <div class="st-presets" role="group" aria-label="Statement period">
       ${presets.map(([v, t]) => `<button type="button" class="st-preset" data-st-preset="${v}" aria-pressed="${ST.preset === v ? 'true' : 'false'}">${t}</button>`).join('')}
@@ -13248,6 +13261,7 @@ function automaticChargeDetails(b){
 }
 function apprPanelHtml(b){
   if(b.status !== 'completed') return '';
+  if(b.invoice_no && vrole()==='participant' && b.approval_state!=='approved') return `<div class="appr-panel"><p><b>${b.approval_state==='queried'?'Question open — payment paused':'Review this completed shift'}</b></p><p>The invoice shows the dates, hours and charges. Payment is available after your review.</p><a class="btn btn-primary btn-sm" href="#/invoice?invoice=${encodeURIComponent(b.invoice_no)}">${b.approval_state==='queried'?'View invoice & question':'Review invoice & payment'}</a></div>`;
   if(b.approval_state==='approved')return `<p class="muted-sm">Approved ✓ · ${b.invoice_no?'Invoice '+esc(b.invoice_no):b.claim_status?'Claim prepared':'Invoice processing automatically'}</p>`+automaticChargeDetails(b);
   const first = esc((b.other_name || '').split(' ')[0]);
   if(vrole() === 'participant' && b.approval_state === 'pending'){
@@ -15490,10 +15504,12 @@ document.addEventListener('click', async e => {
 </script>
 
 
+<link rel="stylesheet" href="/assets/payment-automation.css?v=88.4.0">
 <script src="/assets/next-actions.js?v=88.3.3"></script>
 <script src="/assets/process-workflows.js?v=88.3.4"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
-<script src="/assets/booking-calendar.js?v=88.2.11"></script>
+<script src="/assets/booking-calendar.js?v=88.4.0"></script>
+<script src="/assets/payment-automation.js?v=88.4.0"></script>
 <script src="/assets/launch-assurance.js?v=88.3.4"></script>
 <script src="/assets/billing-setup.js?v=88.3.4"></script>
 <script src="/assets/admin-verification.js?v=88.2.5"></script>
