@@ -23,7 +23,7 @@ The existing `invoice_due_days` setting remains unchanged. Its fallback is 14 da
 ## Where people work
 
 - **Participant/reviewer:** the Actions prompt, Bookings in Calendar or List, or Statements → invoice. The invoice page is `#/invoice?invoice=INVOICE-NUMBER`.
-- **Office:** **Payment tracking**, at `#/payment-tracking`, with invoice balances, email state, received payments, unallocated amounts, provider readiness and specific exceptions. The Money overview links to it.
+- **Office:** **Admin → Money → Invoices**, at `#/payment-tracking?tab=invoices`, shows balances and invoice actions. **Received payments** and **Payment exceptions** have their own Money pages. Configure providers under **Admin → Settings → Payment connections**, at `#/payment-tracking?tab=setup`. Connection settings alone do not confirm live readiness or bank settlement.
 - **Worker:** **Pay status**, at `#/journey?panel=payroll`, for the existing payroll batch and office-recorded expected date/status.
 
 The compact Actions count includes actionable review/payment work. Text labels accompany colours. A person awaiting an office answer is shown as waiting, rather than being asked to approve the same disputed charge again.
@@ -82,7 +82,7 @@ Zai receiving accounts support customers who transfer using their own bank’s B
 
 1. Complete the provider’s approved onboarding and settlement arrangement. Obtain the real Zai user ID, AUD wallet account ID and active virtual account ID for the intended participant billing account.
 2. Register the application’s **`/api/zai/webhook`** endpoint for transaction notifications using its configured signing secret. Transaction notifications require a timely `Webhooks-signature` validated against the original request bytes. The exact one-field setup probe `{"message":"Zai callback test"}` may also be acknowledged without a signature; it creates no payment, account assignment or accounting event.
-3. In **Payment tracking → Receiving account assignments**, select the correct participant and enter those three provider identifiers. Choose **Verify & save receiving account**.
+3. In **Admin → Settings → Payment connections → Receiving account assignments**, select the correct participant and enter those three provider identifiers. Choose **Verify & save receiving account**.
 4. The server fetches the provider records to confirm the user, wallet, virtual account, active state and AUD currency. It saves the provider-confirmed BSB/account details. It does not trust bank numbers typed into the form or guess the participant from an email/name.
 5. Give the payer the invoice payment page’s current receiving details and invoice number. PDFs generated after the verified assignment include those details. An earlier PDF cannot update itself; the payment page carries the current verified instructions.
 6. On a signed notification, the site re-fetches the transaction from Zai. Only a successful incoming AUD wallet deposit of the supported type is accepted as received. Pending and outgoing transactions cannot mark an invoice paid.

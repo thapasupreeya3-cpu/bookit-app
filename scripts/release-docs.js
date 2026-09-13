@@ -41,7 +41,15 @@ remain deliberate stops. Invoice mail retries automatically with visible status.
 Email transport must be configured; queued does not mean sent or paid.
 The complete source register is docs/block-register/index.html, with CSV/JSON and
 all conditional branches. docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
-See docs/CHANGELOG-v88.4.1.md and docs/USER-GUIDE.html.
+See docs/CHANGELOG-v88.4.2.md and docs/USER-GUIDE.html.
+
+ADMIN WORKSPACE
+One shared navigation: Today, People, Bookings, Money, Records, Reports, Settings.
+Search admin tools by task; each destination loads only its own required data.
+Invoices, receipts, claims, payroll and payment connections have separate pages.
+Long records have scoped search and pagination. Existing permissions, financial
+actions and evidence requirements remain enforced. Account settings stay separate.
+See docs/ADMIN-NAVIGATION-v88.4.2.md.
 
 ADDRESSES AND VISIT LOCATIONS
 Participants can save private address and arrival details in Settings. Bookings

@@ -1,11 +1,11 @@
 {
-  "version": "88.4.1",
+  "version": "88.4.2",
   "base_version": "88.3.4",
   "base_archive": "bookit-app-v88.3.4-source-baseline.zip",
   "base_archive_sha256": "d3f133177fdcdfe48c6984ba463209fea04b7cd438c06e3b21f2c398ba69dbb6",
   "base_commit": "943ad08ec492129ff5bba3169a906812ebafdff9",
   "package_type": "full source archive",
-  "output_archive": "The-Care-Web-v88.4.1-address-and-payments-update-only.zip",
-  "scope": "Private participant addresses, per-visit location snapshots, worker service areas and location alerts; cumulative payment automation from v88.4.0.",
+  "output_archive": "The-Care-Web-v88.4.2-admin-usability-update-only.zip",
+  "scope": "Focused admin navigation and pages, search, pagination, precise task links and selective loading; cumulative payment and private address updates.",
   "unchanged_assets": "Existing media, branding, fonts and PDF.js vendor bytes are preserved."
 }

@@ -1780,13 +1780,15 @@ html.high-contrast .care-stage-block{display:none!important;}
 @media(max-width:900px){#page-admin .set-layout.no-sub .set-body{display:block;margin-top:18px;}.review-dialog{padding:16px;}}
 </style>
 <script src="/assets/bookit-review-improvements.js"></script>
-<link rel="stylesheet" href="/assets/process-workflows.css?v=88.3.3">
-<link rel="stylesheet" href="/assets/admin-verification.css?v=88.2.5">
+<link rel="stylesheet" href="/assets/admin-workspace.css?v=88.4.2">
+<script src="/assets/admin-workspace.js?v=88.4.2"></script>
+<link rel="stylesheet" href="/assets/process-workflows.css?v=88.4.2">
+<link rel="stylesheet" href="/assets/admin-verification.css?v=88.4.2">
 <link rel="stylesheet" href="/assets/site-usability.css?v=88.2.7">
 <link rel="stylesheet" href="/assets/worker-credentials.css?v=88.2.10">
 <link rel="stylesheet" href="/assets/booking-calendar.css?v=88.3.0">
 <link rel="stylesheet" href="/assets/next-actions.css?v=88.3.3">
-<link rel="stylesheet" href="/assets/launch-assurance.css?v=88.3.3">
+<link rel="stylesheet" href="/assets/launch-assurance.css?v=88.4.2">
 <link rel="stylesheet" href="/assets/billing-setup.css?v=88.3.4">
 </head>
 <body>
@@ -4739,7 +4741,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="container">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/">Home</a> / Admin</nav>
       <h1>Admin dashboard</h1>
-      <p class="lead">Worker approvals, people, bookings and messages — the whole platform at a glance. Only admin accounts can see this page.</p>
+      <p class="lead">Your office workspace. Choose a task below or search for the tool you need.</p>
     </div>
   </div>
   <section class="block">
@@ -4749,7 +4751,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 
 <!-- PAGES-INSERT -->
 
-<section class="page" id="page-journey" data-title="Your next actions — The Care Web"><div class="flow-shell"><div class="flow-head"><div><h1 id="flowTitle">Your next actions</h1><p id="flowPerson"></p></div><a href="#/account">Settings</a></div><nav class="flow-tabs" id="flowTabs" aria-label="My workflow"></nav><div id="flowContent"></div></div></section>
+<section class="page" id="page-journey" data-title="Your next actions — The Care Web"><div class="flow-shell"><div class="flow-head"><div><h1 id="flowTitle">Your next actions</h1><p id="flowPerson"></p></div><a href="#/account">Account settings</a></div><nav class="flow-tabs" id="flowTabs" aria-label="My workflow"></nav><div id="flowContent"></div></div></section>
 </main>
 
 <!-- ============ FOOTER ============ -->
@@ -7222,9 +7224,6 @@ function route(){
   if(id === 'page-services-overnight' && window.paintOvernightPrice) paintOvernightPrice();
   if(id === 'page-refer' || id === 'page-pricing'){ if(window.paintExtras) paintExtras(); }
   if(id === 'page-admin' && window.renderAdminPage) renderAdminPage();
-  if(id === 'page-admin' && window.renderTrainingMatrix) setTimeout(renderTrainingMatrix, 600);
-  if(id === 'page-admin' && window.renderDocRequestsCard) setTimeout(renderDocRequestsCard, 700);
-  if(id === 'page-admin' && window.renderBlankForms) setTimeout(renderBlankForms, 750);
   if(id === 'page-worker') renderWorkerPage(Number(workerMatch[1]));
   if(id === 'page-job' && window.renderJobPage) renderJobPage(Number(jobMatch[1]));
   if(id === 'page-jobs' && window.renderJobsBoard) renderJobsBoard();
@@ -7451,7 +7450,7 @@ window.renderPipelineCard = async function(){
       <p class="muted-sm" style="margin:0 0 10px;">${x.total} ${unit} · <b style="color:#1F7A4D;">${x.active} active</b> · ${x.waiting_office ? `<b style="color:#C8462E;">${x.waiting_office} waiting on the office</b>` : 'none waiting on the office'} · ${x.stuck ? `<b style="color:#C8462E;">${x.stuck} stuck 14+ days</b>` : 'nobody stuck 14+ days'}</p>
       <div class="pipe">${x.stages.map(s => `<details class="pipe-row${s.count ? '' : ' empty'}${s.who === 'office' && s.count ? ' office' : ''}">
         <summary><span class="pipe-label">${esc(s.label)}</span><span class="pipe-bar"><i style="width:${Math.round(100 * s.count / max)}%"></i></span><span class="pipe-n">${s.count}</span><span class="pipe-who">${s.count && s.who ? (s.who === 'office' ? 'the office' : 'them') : ''}</span>${s.stuck ? `<span class="cmp-n" title="14 days or more">${s.stuck}</span>` : ''}</summary>
-        ${s.people.length ? `<ul class="pipe-people">${s.people.map(p => `<li><a href="#/admin/compliance" data-cmp-go="${unit === 'participants' ? 'participants' : 'workers'}" data-cmp-name="${esc(p.name)}">${esc(p.name)}</a> <span class="muted-sm">${p.days} day${p.days === 1 ? '' : 's'} since joining${p.detail ? ` · ${esc(p.detail)}` : ''}</span></li>`).join('')}${s.count > s.people.length ? `<li class="muted-sm">and ${s.count - s.people.length} more</li>` : ''}</ul>` : ''}
+        ${s.people.length ? `<ul class="pipe-people">${s.people.map(p => `<li><a href="#/admin/verification?role=${unit === 'participants' ? 'participant' : 'worker'}&amp;${p.id ? 'person='+encodeURIComponent(p.id) : 'q='+encodeURIComponent(p.name)}">${esc(p.name)}</a> <span class="muted-sm">${p.days} day${p.days === 1 ? '' : 's'} since joining${p.detail ? ` · ${esc(p.detail)}` : ''}</span></li>`).join('')}${s.count > s.people.length ? `<li class="muted-sm">and ${s.count - s.people.length} more</li>` : ''}</ul>` : ''}
       </details>`).join('')}</div>`;
   };
   host.innerHTML = `<p class="muted-sm" style="margin:0 0 6px;">Read from the same gates the app enforces, so a person's stage here is exactly what they see on their own home page. A bar marked <b>the office</b> is work waiting on you; <b>them</b> is waiting on the person, who has been told. Open a bar for the names, longest-waiting first.</p>`
@@ -9623,13 +9622,10 @@ function aiQueueHtml(q){
       : `Live, region ${esc(q.region || 'unset')}${q.onshore ? '' : ' — not onshore, so anything carrying participant data will refuse to run'}.`;
   const inp = 'font:inherit;padding:7px 9px;border-radius:9px;border:1.5px solid #E2E0DA;';
   const btn = (m, label, note) => `<button type="button" class="btn ${q.mode === m ? 'btn-primary' : 'btn-secondary'} btn-sm" data-ai-mode="${m}" title="${esc(note)}">${label}</button>`;
-  return '<div class="info-card">'
+  const introduction='<div class="info-card">'
     + `<p style="margin:0 0 4px;"><b>Mode:</b> ${esc(modeNote)}</p>`
-    + '<p class="muted-sm" style="margin:0 0 12px;">A suggestion is never applied. It sits here until a person reads the source beside it and accepts, changes or rejects it — and a change or a rejection has to carry a reason, because that is the only feedback anyone gets about where the model is wrong.</p>'
-    /* --- the switches. Off is the shipped default and the button is here
-       rather than in a config file because turning this on is a decision
-       somebody should make deliberately and be able to undo in one click. --- */
-    + `<div style="padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:14px;">
+    + '<p class="muted-sm" style="margin:0 0 12px;">A suggestion is never applied. It sits here until a person reads the source beside it and accepts, changes or rejects it — and a change or a rejection has to carry a reason, because that is the only feedback anyone gets about where the model is wrong.</p>';
+  const configuration=`<div style="padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:14px;">
         <b style="font-size:.9rem;">Turn it on</b>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 10px;">
           ${btn('off', 'Off', 'Nothing runs and nothing is sent anywhere.')}
@@ -9656,13 +9652,11 @@ function aiQueueHtml(q){
           </div>
           <p class="muted-sm" style="margin:8px 0 0;">The region has to start with <code>au</code> or anything carrying participant data refuses to run. The API key is an environment variable (<code>AI_API_KEY</code>), never stored here. ${q.key_set ? 'A key is set.' : 'No key is set.'}</p>
         </details>
-      </div>`
-    /* --- consent, per participant. Shift-note triage will not run without
-       it, so this is where a pilot actually begins. --- */
-    + `<details style="margin-bottom:14px;">
-        <summary style="cursor:pointer;font-size:.9rem;"><b>Consent — ${(q.people || []).filter(x => x.consent).length} of ${(q.people || []).length} participants</b></summary>
+      </div>`;
+  const consents=`<div data-admin-ai-consents style="margin-bottom:14px;">
+        <p style="font-size:.9rem;"><b>Consent — ${(q.people || []).filter(x => x.consent).length} of ${(q.people || []).length} participants</b></p>
         <p class="muted-sm" style="margin:8px 0 6px;">Shift-note triage refuses outright for anyone without consent recorded here, and the refusal is logged. This is a specific consent to AI processing — not the general privacy consent, which was signed before any of this existed.</p>
-        ${(q.people || []).map(x => `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);">
+        ${(q.people || []).map(x => `<div data-admin-ai-person style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);">
           <span style="min-width:170px;font-size:.9rem;">${esc(x.name)}</span>
           <span class="sec-chip ${x.consent ? 'on' : 'off'}">${x.consent ? 'Consented' : 'Not consented'}</span>
           ${x.consent
@@ -9671,8 +9665,8 @@ function aiQueueHtml(q){
                <button type="button" class="adm-btn-sm" data-ai-consent-on="${x.id}">Record consent</button>`}
           ${x.how ? `<span class="muted-sm" style="font-size:.78rem;">${esc(x.how)}</span>` : ''}
         </div>`).join('') || '<p class="adm-empty">No participants yet.</p>'}
-      </details>`
-    + (q.use_cases || []).map(u => {
+      </div>`;
+  const statistics=(q.use_cases || []).map(u => {
         const st = u.stats || {};
         return `<div style="padding:9px 0;border-bottom:1px solid var(--line);">
           <b style="font-size:.92rem;">${esc(u.label)}</b> — ${u.on ? 'on' : 'off'}
@@ -9682,19 +9676,21 @@ function aiQueueHtml(q){
             st.accept_rate === null || st.accept_rate === undefined ? '' : ` · ${st.accept_rate}% accepted unchanged`}${
             st.refused ? ` · ${st.refused} refused for want of consent` : ''}${st.errors ? ` · ${st.errors} errors` : ''}</span>
         </div>`;
-      }).join('')
-    + (!(q.open || []).length
+      }).join('');
+  const suggestions=(!(q.open || []).length
         ? '<p class="adm-empty" style="margin-top:12px;">Nothing waiting.</p>'
-        : (q.open || []).slice(0, 40).map(r => {
+        : (q.open || []).map(r => {
             let o = {}; try{ o = JSON.parse(r.output_json || '{}'); }catch(e){}
-            return `<div style="margin-top:12px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:#fff;">
+            return `<div data-admin-ai-suggestion style="margin-top:12px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:#fff;">
               <b style="font-size:.88rem;">${r.flagged ? '⚑ ' : ''}${esc(r.use_case)} #${r.id}</b>
               <span class="muted-sm"> · ${esc(String(r.created).replace('T',' ').slice(0,16))} · ${esc(r.model || '')} ${esc(r.prompt_version || '')}</span>
               <div class="muted-sm" style="margin-top:5px;font-family:ui-monospace,Menlo,monospace;font-size:.78rem;word-break:break-word;">${esc(JSON.stringify(o))}</div>
               <div class="muted-sm" style="margin-top:5px;">Source: ${esc(r.input_ref || '')}${r.confidence != null ? ` · model's own confidence ${Math.round(r.confidence * 100)}%` : ''}</div>
             </div>`;
-          }).join(''))
-    + '</div>';
+          }).join(''));
+  const p=new URLSearchParams(location.hash.split('?')[1]||''),section=['settings','consent','suggestions'].includes(p.get('section'))?p.get('section'):'suggestions';
+  const nav='<nav class="ca-section-links" aria-label="AI assistance sections">'+[['suggestions','Suggestions'],['settings','AI settings'],['consent','Participant consent']].map(([key,label])=>`<a href="#/admin/ai?section=${key}"${key===section?' aria-current="page"':''}>${label}</a>`).join('')+'</nav>';
+  return nav+introduction+({settings:configuration,consent:consents,suggestions:statistics+'<div data-admin-ai-suggestions>'+suggestions+'</div>'})[section]+'</div>';
 }
 
 /* v86.5 — which compliance tab is open; survives a re-render of the page */
@@ -9716,7 +9712,7 @@ function cmpFilter(key, q){
 }
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-cmp-tab]'); if(t){ cmpShowTab(t.dataset.cmpTab); return; }
-  const g = e.target.closest('[data-cmp-go]'); if(g){ CMP_TAB = g.dataset.cmpGo; }
+  const g = e.target.closest('[data-cmp-go]'); if(g){ e.preventDefault();CMP_TAB=g.dataset.cmpGo;const key=({registers:'incidents',log:'evidence',pipeline:'pipeline',participants:'participant-records',workers:'additional-checks'})[CMP_TAB];if(key)location.hash=CareAdmin.entry(key).href; }
 });
 document.addEventListener('input', e => { const f = e.target.closest('[data-cmp-filter]'); if(f) cmpFilter(f.dataset.cmpFilter, f.value); });
 let ADMIN_RENDER_SEQUENCE=0;
@@ -9733,66 +9729,46 @@ async function renderAdminPage(){
   }
   if(window.CareLaunch?.handles())return CareLaunch.render(wrap);
   if(window.CareVerify?.handles())return CareVerify.render(wrap);
-  let d;
-  try{ d = await API.call('/admin/overview'); }
-  catch(err){ wrap.innerHTML = '<div class="info-card"><p>' + esc(err.message) + '</p></div>'; return; }
-  let inv;
-  try{ inv = await API.call('/admin/invoices'); }
-  catch(e){ inv = { invoices: [], totals: { billed: 0, worker_share: 0 }, categories: [] }; }
-  let kpi = null, refs = null;
-  try{ kpi = await API.call('/admin/kpis'); }catch(e){}
-  try{ refs = await API.call('/admin/referrals'); }catch(e){}
-  let sn;
-  try{ sn = await API.call('/admin/shift-notes'); }
-  catch(e){ sn = { notes: [], people: [], flagged_open: 0 }; }
-  let cl;
-  try{ cl = await API.call('/admin/claims'); }
-  catch(e){ cl = { error:e.message, unclaimed: [], claimed: [], paid: [], totals: { unclaimed: 0, ready:0, held:0, claimed: 0, paid: 0 } }; }
-  let creds = { workers: [] }, incs = { incidents: [] }, comps = { complaints: [] }, revs = { reviews: [] }, sil = { houses: [], workers: [], participants: [] };
-  try{ creds = await API.call('/admin/credentials'); }catch(e){}
-  let cmp = null, clog = { entries: [] };
-  try{ cmp = await API.call('/admin/compliance/0137'); }catch(e){}
-  try{ clog = await API.call('/admin/compliance/log'); }catch(e){}
-  try{ incs = await API.call('/admin/incidents'); }catch(e){}
-  try{ comps = await API.call('/admin/complaints'); }catch(e){}
-  try{ revs = await API.call('/admin/reviews'); }catch(e){}
-  try{ sil = await API.call('/admin/sil'); }catch(e){}
-  let cvr = null;
-  try{ cvr = await API.call('/admin/cover'); }catch(e){}
-  let lad = null;
-  try{ lad = await API.call('/admin/ladder'); }catch(e){}
-  let plans = null;
-  try{ plans = await API.call('/admin/support-plans'); }catch(e){}
-  let frm = null;
-  try{ frm = await API.call('/admin/forms'); }catch(e){}
-  let pack = null;
-  try{ pack = await API.call('/admin/audit-pack'); }catch(e){}
-  let scr = null;
-  try{ scr = await API.call('/admin/screening'); }catch(e){}
-  let stest = null, aiq = null;
-  try{ stest = await API.call('/admin/self-test'); }catch(e){}
-  try{ aiq = await API.call('/admin/ai'); }catch(e){}
-  let pdx = null;
-  try{ pdx = await API.call('/admin/participant-documents'); }catch(e){}
+  const pageKey=CareAdmin.resolve(), pageHash=location.hash, accountId=API.me.id;
+  if(pageKey==='payments'){location.replace('#/payment-tracking?tab=invoices');return;}
+  if(pageKey==='tasks'){location.replace('#/journey?panel=tasks');return;}
+  const params=new URLSearchParams(location.hash.split('?')[1]||'');
+  const dependencies={
+    home:['overview'],people:['overview'],bookings:['overview'],contacts:['overview'],website:['overview'],
+    'add-person':[],referrals:['referrals'],reviews:['reviews'],pipeline:[],cover:['cover'],rosters:['sil'],groups:[],
+    performance:['kpis'],evidence:['log'],'charge-report':['invoices'],
+    claims:['claims'],unissued:['claims'],'invoice-history':['claims'],fees:[],
+    'pay-rates':['ladder'],'self-test':['self-test'],ai:['ai'],
+    incidents:['incidents'],complaints:['complaints'],scope:['overview'],notes:['shift-notes'],
+    forms:['forms'],policies:[],'participant-documents':[],audit:['audit-pack'],
+    'additional-checks':['credentials','compliance','screening'],
+    'participant-records':['participant-documents','support-plans']
+  };
+  const paths={overview:'/admin/overview',invoices:'/admin/invoices',kpis:'/admin/kpis',referrals:'/admin/referrals',
+    'shift-notes':'/admin/shift-notes',claims:'/admin/claims',credentials:'/admin/credentials',compliance:'/admin/compliance/0137',
+    log:'/admin/compliance/log',incidents:'/admin/incidents',complaints:'/admin/complaints',reviews:'/admin/reviews',sil:'/admin/sil',
+    cover:'/admin/cover',ladder:'/admin/ladder','support-plans':'/admin/support-plans',forms:'/admin/forms','audit-pack':'/admin/audit-pack',
+    screening:'/admin/screening','self-test':'/admin/self-test',ai:'/admin/ai','participant-documents':'/admin/participant-documents'};
+  wrap.innerHTML='<p role="status">Loading '+esc(CareAdmin.entry(pageKey).label)+'…</p>';CareAdmin.decorate(wrap,pageKey);
+  if(pageKey==='additional-checks')dependencies[pageKey]=({documents:['credentials'],screening:['screening'],training:[]})[params.get('tab')]||['compliance'];
+  if(pageKey==='participant-records')dependencies[pageKey]=params.get('tab')==='plans'?['support-plans']:['participant-documents'];
+  const required=dependencies[pageKey]||[], results=await Promise.allSettled(required.map(key=>API.call(paths[key])));
+  if(renderSequence!==ADMIN_RENDER_SEQUENCE||location.hash!==pageHash||!API.me?.admin||API.me.id!==accountId)return;
+  const errors=results.flatMap((r,i)=>r.status==='rejected'?[{key:required[i],message:r.reason?.message||'Request failed'}]:[]);
+  if(errors.length){wrap.innerHTML='<div class="ca-load-error" role="alert"><h2>Could not load '+esc(CareAdmin.entry(pageKey).label)+'</h2><p>'+errors.map(x=>esc(x.message)).join('<br>')+'</p><button type="button" class="btn btn-primary btn-sm" data-admin-retry>Try again</button></div>';CareAdmin.decorate(wrap,pageKey);return;}
+  const data=Object.fromEntries(results.map((r,i)=>[required[i],r.value]));
+  const d=data.overview||{counts:{},users:[],bookings:[],pending:[],contacts:[],high_intensity:[],scope_register:[],launch:{}};
+  const inv=data.invoices||{invoices:[],totals:{billed:0,worker_share:0},categories:[]};
+  const kpi=data.kpis||null,refs=data.referrals||null,sn=data['shift-notes']||{notes:[],people:[],flagged_open:0};
+  const cl=data.claims||{unclaimed:[],claimed:[],paid:[],invoices:[],withdrawn:[],totals:{unclaimed:0,ready:0,held:0,claimed:0,paid:0}};
+  const creds=data.credentials||{workers:[]},incs=data.incidents||{incidents:[]},comps=data.complaints||{complaints:[]},revs=data.reviews||{reviews:[]};
+  const sil=data.sil||{houses:[],workers:[],participants:[]},cmp=data.compliance||null,clog=data.log||{entries:[]};
+  const cvr=data.cover||null,lad=data.ladder||null,plans=data['support-plans']||null,frm=data.forms||null,pack=data['audit-pack']||null;
+  const scr=data.screening||null,stest=data['self-test']||null,aiq=data.ai||null,pdx=data['participant-documents']||null;
   const credById = {};
   creds.workers.forEach(w => credById[w.id] = w);
   const c = d.counts;
-  const tiles = `<div class="adm-tiles">
-    <div class="adm-tile"><b>${c.participants}</b><span>Participants</span></div>
-    <div class="adm-tile"><b>${c.workers}</b><span>Workers</span></div>
-    <div class="adm-tile"><b style="${c.pending ? 'color:#C8462E;' : ''}">${c.pending}</b><span>Awaiting approval</span></div>
-    <div class="adm-tile"><b>${c.bookings}</b><span>Bookings</span></div>
-    <div class="adm-tile"><b>${c.completed || 0}</b><span>Completed shifts</span></div>
-    <div class="adm-tile"><b>$${(c.billed || 0).toFixed(2)}</b><span>Billed at NDIS limits</span></div>
-    <div class="adm-tile"><b>${c.messages}</b><span>Messages</span></div>
-    <div class="adm-tile"><b>${c.contacts}</b><span>Contact forms</span></div>
-    <div class="adm-tile"><b style="${c.urgent_incidents ? 'color:#C8462E;' : ''}">${c.urgent_incidents || 0}</b><span>Reportable — not yet notified</span></div>
-    <div class="adm-tile"><b style="${c.open_complaints ? 'color:#8a6d00;' : ''}">${c.open_complaints || 0}</b><span>Open complaints</span></div>
-    <div class="adm-tile"><b style="${c.hi_open ? 'color:#C8462E;' : ''}">${c.hi_open || 0}</b><span>High-intensity — call not yet made</span></div>
-    <div class="adm-tile"><b style="${c.notes_flagged ? 'color:#C8462E;' : ''}">${c.notes_flagged || 0}</b><span>Out-of-scope flags to follow up</span></div>
-    <div class="adm-tile"><b>${c.notes_total || 0}</b><span>Shift notes on file</span></div>
-    <div class="adm-tile"><b style="${cmp && cmp.blocked ? 'color:#C8462E;' : ''}">${cmp ? cmp.blocked : '—'}</b><span>0137 — off the platform</span></div>
-  </div>`;
+  const tiles='<div class="adm-tiles">'+[['Participants',c.participants,'people'],['Workers',c.workers,'verification'],['Awaiting worker approval',c.pending,'verification'],['Bookings',c.bookings,'bookings'],['Reportable incidents awaiting notice',c.urgent_incidents,'incidents'],['Open complaints',c.open_complaints,'complaints']].map(([label,count,key])=>`<a class="adm-tile" href="${CareAdmin.entry(key).href}"><b>${Number(count||0)}</b><span>${label}</span></a>`).join('')+'</div>';
   /* High-intensity enquiries: participants who declared a Module 1 support at signup or from
      their account page. Nothing here blocks them — the whole point is that somebody rings before
      a worker is ever standing in their bathroom being asked to do something we aren't registered
@@ -9917,7 +9893,7 @@ async function renderAdminPage(){
   };
   const invoicing = inv.invoices.length ? `
     <p style="margin:0 0 12px;"><a class="btn btn-primary" href="/api/admin/invoices.csv" download>⬇ Download invoice CSV</a>
-    <span style="font-size:.85rem;color:#4A5570;margin-left:10px;">Rates auto-picked from each shift's day &amp; time — switch any line to <b>Public holiday</b> yourself (that one can't be auto-detected).</span></p>
+    <span style="font-size:.85rem;color:#4A5570;margin-left:10px;">Rates are selected automatically from the visit time and holiday calendar. Review a charge only when its recorded details need correction.</span></p>
     <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Shift</th><th>Participant</th><th>Worker</th><th>Service</th><th>Hours</th><th>Rate</th><th>Total</th></tr></thead><tbody>
     ${inv.invoices.map(r => `<tr>
       <td>${fmtAU(r.date)} ${esc(r.start)}</td><td>${esc(r.participant_name)}</td><td>${esc(r.worker_name)}</td><td>${esc(svcName(r.service))}</td><td>${r.hours}</td>
@@ -9986,6 +9962,19 @@ async function renderAdminPage(){
      construction and provable on any given day, rather than true because
      somebody remembered. */
   const yn = (ok, yes, no) => ok ? `<span class="c37-ok">✓ ${yes}</span>` : `<span class="c37-no">✗ ${no}</span>`;
+  const LOG_KIND = { 'document-verified': 'Document verified', 'screening-status': 'Screening clearance',
+      'banning-check': 'Banning orders register', 'platform-block': 'Platform block', 'platform-access': 'Platform access' };
+  const LOG_RESULT = { granted: 'granted', withdrawn: 'withdrawn by an admin', 'auto-withdrawn': 'withdrawn automatically',
+      restored: 'restored automatically', blocked: 'blocked', lifted: 'lifted', verified: 'verified',
+      clear: 'no order in force', banned: 'ORDER IN FORCE', unchecked: 'cleared back to unchecked' };
+  const logRows = (clog.entries || []).map(r => `<tr>
+      <td style="white-space:nowrap;">${fmtStamp(r.checked_at)}</td>
+      <td>${esc(r.worker_name || '—')}</td>
+      <td>${esc(LOG_KIND[r.kind] || r.kind)}
+        ${r.result ? `<br><span style="font-size:.78rem;color:${r.result === 'banned' || r.result === 'auto-withdrawn' ? '#C8462E' : '#4A5570'};">${esc(LOG_RESULT[r.result] || SCREEN_LABEL[r.result] || r.result)}</span>` : ''}</td>
+      <td>${esc(r.detail || '')}${r.source ? `<br><span style="font-size:.78rem;color:#4A5570;">${esc(r.source)}${r.ref ? ' · ' + esc(r.ref) : ''}</span>` : ''}</td>
+      <td style="white-space:nowrap;">${esc(r.checked_by || 'System')}</td>
+    </tr>`).join('');
   let compliance;
   if(!cmp){
     compliance = '<p class="adm-empty">The 0137 board couldn\'t be loaded.</p>';
@@ -10055,19 +10044,6 @@ async function renderAdminPage(){
       </tr>`;
     }).join('');
     const demoN = cmp.workers.filter(w => w.demo).length;
-    const LOG_KIND = { 'document-verified': 'Document verified', 'screening-status': 'Screening clearance',
-      'banning-check': 'Banning orders register', 'platform-block': 'Platform block', 'platform-access': 'Platform access' };
-    const LOG_RESULT = { granted: 'granted', withdrawn: 'withdrawn by an admin', 'auto-withdrawn': 'withdrawn automatically',
-      restored: 'restored automatically', blocked: 'blocked', lifted: 'lifted', verified: 'verified',
-      clear: 'no order in force', banned: 'ORDER IN FORCE', unchecked: 'cleared back to unchecked' };
-    const logRows = (clog.entries || []).slice(0, 60).map(r => `<tr>
-      <td style="white-space:nowrap;">${fmtStamp(r.checked_at)}</td>
-      <td>${esc(r.worker_name || '—')}</td>
-      <td>${esc(LOG_KIND[r.kind] || r.kind)}
-        ${r.result ? `<br><span style="font-size:.78rem;color:${r.result === 'banned' || r.result === 'auto-withdrawn' ? '#C8462E' : '#4A5570'};">${esc(LOG_RESULT[r.result] || SCREEN_LABEL[r.result] || r.result)}</span>` : ''}</td>
-      <td>${esc(r.detail || '')}${r.source ? `<br><span style="font-size:.78rem;color:#4A5570;">${esc(r.source)}${r.ref ? ' · ' + esc(r.ref) : ''}</span>` : ''}</td>
-      <td style="white-space:nowrap;">${esc(r.checked_by || 'System')}</td>
-    </tr>`).join('');
     compliance = `
       <details class="info-card" style="margin-bottom:14px;"><summary style="cursor:pointer;font-weight:700;">About the 0137 conditions, the counts and the re-check settings</summary>
         <p style="margin:10px 0 8px;"><b>Registration group 0137 — NDIS Digital Platform Service</b> carries two conditions of registration. The Care Web enforces both in code, so a worker who stops meeting them comes off the platform the same day rather than at the next audit.</p>
@@ -10098,18 +10074,12 @@ async function renderAdminPage(){
           <th>Worker</th><th>Screening clearance (a)</th><th>Banning orders (b)</th><th>Evidence</th><th>Displayed</th>
         </tr></thead><tbody>${c37Rows}</tbody></table></div>`
         : '<p class="adm-empty">No real workers yet — every worker who joins appears here against both conditions.</p>'}
-      <!--EVIDENCE-LOG-->
-      <h3 class="adm-sub">Evidence log ${clog.entries && clog.entries.length ? `(latest ${Math.min(60, clog.entries.length)} of ${clog.entries.length})` : ''}</h3>
-      <p class="muted-sm" style="margin:0 0 10px;">Every check, who did it, what they checked it against and what they found — written once and never edited. This is the answer to "show me how you satisfy your conditions".</p>
-      ${logRows ? `<div class="adm-table-wrap"><table class="adm-table c37-log"><thead><tr><th>When</th><th>Worker</th><th>What</th><th>Detail</th><th>By</th></tr></thead><tbody>${logRows}</tbody></table></div>`
-        : '<p class="adm-empty">Nothing logged yet — verifying a document or recording a check writes the first entry.</p>'}`;
+      `;
   }
-  /* v86.5.1: the evidence log is its own tab; the verification table leads */
-  const complianceParts = String(compliance).split('<!--EVIDENCE-LOG-->');
-  /* the table first; the folded "about" card after it */
-  const introParts = complianceParts[0].split('<!--INTRO-END-->');
-  const complianceVerify = introParts.length === 2 ? introParts[1] + introParts[0] : complianceParts[0];
-  const complianceLog = complianceParts[1] || '<p class="adm-empty">Nothing logged yet.</p>';
+  const introParts=String(compliance).split('<!--INTRO-END-->');
+  const complianceVerify=introParts.length===2?introParts[1]+introParts[0]:String(compliance);
+  const complianceLog='<p><a class="adm-btn-sm" href="/api/admin/compliance/log.csv" download>Download full evidence history (CSV)</a></p><p class="muted-sm">Each check records who reviewed it, the source and the result. Search covers the records returned here.</p>'
+    +(logRows?`<div class="adm-table-wrap"><table class="adm-table c37-log"><thead><tr><th>When</th><th>Worker</th><th>What</th><th>Detail</th><th>By</th></tr></thead><tbody>${logRows}</tbody></table></div>`:'<p class="adm-empty">No evidence records were returned.</p>');
   const credentials = `
     <p style="margin:0 0 10px;"><button class="adm-btn-sm" id="admSweep" type="button">▶ Run the automatic check now</button>
     <span style="font-size:.85rem;color:#4A5570;margin-left:8px;">Runs by itself twice a day: warns workers and you at 30 and 7 days before expiry, chases the banning-order re-check before it falls due, and withdraws — then restores — anyone whose 0137 position changes. "Verify" asks how you satisfied yourself and records it; the screening database has no public connection, so that step is a human one either way.</span></p>
@@ -10206,7 +10176,7 @@ async function renderAdminPage(){
     <td>${i.commission_notified_at ? '<span style="color:#1F7A4D;">notified ✓</span>'
       : i.reportable ? (i.hours_left < 0 ? '<span style="color:#C8462E;font-weight:800;">OVERDUE</span>' : `<span style="color:${i.hours_left <= 6 ? '#C8462E' : '#8a6d00'};font-weight:700;">${i.hours_left}h left</span>`)
       : '—'}</td>
-    <td>${esc(i.status)}${i.awareness_review_required?'<br>Awareness time needs review':''}<br>${(i.obligations||[]).filter(o=>!o.filed_at).map(o=>esc(o.key)+': '+esc(fmtStamp(o.due))).join('<br>')}</td>
+    <td>${esc(i.status)}${i.status!=='closed'?`<label class="ca-field"><span>Action owner</span><input data-incident-owner="${i.id}" value="${esc(i.action_owner||'')}" maxlength="100"></label><button class="adm-btn-sm" type="button" data-save-owner="${i.id}">Save owner</button>`:''}${i.awareness_review_required?'<br>Awareness time needs review':''}<br>${(i.obligations||[]).filter(o=>!o.filed_at).map(o=>esc(o.key)+': '+esc(fmtStamp(o.due))).join('<br>')}</td>
     <td>${i.reportable && !i.commission_notified_at ? `<button class="adm-btn-sm" data-inc-act="notified" data-nid="${i.id}" type="button">Commission notified</button> ` : ''}
         ${i.status !== 'closed' ? `<a class="adm-btn-sm" href="#/admin/assurance?incident=${i.id}">Review reporting steps</a> <button class="adm-btn-sm" data-inc-act="close" data-nid="${i.id}" type="button">Close</button>` : ''}</td>
   </tr>`;
@@ -10234,7 +10204,7 @@ async function renderAdminPage(){
     </div>
     ${comps.complaints.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>#</th><th>From</th><th>Complaint</th><th>Status</th><th></th></tr></thead><tbody>${comps.complaints.map(compRow).join('')}</tbody></table></div>` : '<p class="adm-empty">No complaints on the register.</p>'}`;
   const bookings = d.bookings.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>When</th><th>Participant</th><th>Worker</th><th>Service</th><th>Status</th><th></th></tr></thead><tbody>
-    ${d.bookings.map(b => `<tr><td>${admDate(b.date)} ${esc(b.start)} · ${b.hours}h</td><td>${esc(b.participant_name)}</td><td>${esc(b.worker_name)}</td><td>${esc(svcName(b.service))}</td><td>${esc(b.status)}${b.voided ? ' (void)' : ''}${b.invoice_no ? ` · <span style="font-size:.78rem;">${esc(b.invoice_no)}</span>` : b.claim_status ? ` · ${esc(b.claim_status)}` : ''}</td><td>${!b.claim_status && !b.voided ? `<button class="adm-btn-sm" data-remove-booking="${b.id}" data-delivered="${b.status === 'completed' ? 1 : 0}" type="button" style="color:#9E2F1C;">Remove…</button>` : ''}</td></tr>`).join('')}
+    ${d.bookings.map(b => `<tr><td>${admDate(b.date)} ${esc(b.start)} · ${b.hours}h</td><td>${esc(b.participant_name)}</td><td>${esc(b.worker_name)}</td><td>${esc(svcName(b.service))}</td><td>${esc(b.status)}${b.voided ? ' (void)' : ''}${b.invoice_no ? ` · <span style="font-size:.78rem;">${esc(b.invoice_no)}</span>` : b.claim_status ? ` · ${esc(b.claim_status)}` : ''}</td><td><a class="adm-btn-sm" href="#/journey?panel=shift&amp;booking=${b.id}">Open visit</a> ${!b.claim_status && !b.voided ? `<button class="adm-btn-sm" data-remove-booking="${b.id}" data-delivered="${b.status === 'completed' ? 1 : 0}" type="button" style="color:#9E2F1C;">Remove…</button>` : ''}</td></tr>`).join('')}
   </tbody></table></div>` : '<p class="adm-empty">No bookings yet.</p>';
   const contacts = d.contacts.length ? d.contacts.map(x => `
     <div class="info-card" style="margin-bottom:12px;">
@@ -10263,27 +10233,6 @@ async function renderAdminPage(){
       : CareBilling.claimActions(r)}</td>
   </tr>`;
   const claimTable = (rows, showActions) => `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Date</th><th>Participant</th><th>Funding</th><th>Shift</th><th>Support item</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(r => claimRow(r, showActions)).join('')}</tbody></table></div>`;
-  const claims = cl.error?`<p role="alert">Claims could not be loaded: ${esc(cl.error)}. <button class="adm-btn-sm" type="button" data-claims-retry>Try again</button></p>`:`
-    <p><a class="btn btn-primary btn-sm" href="#/payment-tracking">Payment tracking & bank transfers</a></p>
-    ${CareBilling.render(cl.billing_setup,cl.unclaimed,cl.billing_automation,cl.email_enabled)}
-    <div class="adm-tiles">
-      <div class="adm-tile"><b>$${Number(cl.totals.ready||0).toFixed(2)}</b><span>Ready to process (${cl.ready_count||0})</span></div>
-      <div class="adm-tile"><b>$${Number(cl.totals.held||0).toFixed(2)}</b><span>Waiting / needs attention (${cl.held_count||0})</span></div>
-      <div class="adm-tile"><b>$${cl.totals.claimed.toFixed(2)}</b><span>Invoiced / claimed — awaiting payment</span></div>
-      <div class="adm-tile"><b style="color:#1F7A4D;">$${Number(cl.totals.received??cl.totals.paid).toFixed(2)}</b><span>Payments recorded</span></div>
-    </div>
-    ${cl.unclaimed.length ? `
-      <h3 style="margin:14px 0 8px;">Uninvoiced completed shifts (${cl.unclaimed.length})</h3>
-      ${claimTable(cl.unclaimed, true)}
-      <p style="margin:12px 0 4px;">
-        <button class="adm-btn-sm" id="admRunClaims" type="button" ${cl.ready_count?'':'disabled'}>Run claims &amp; invoices (${cl.ready_count||0} ready)</button>
-        <span style="font-size:.85rem;color:#4A5570;margin-left:10px;">Ready NDIA shifts join the claim file. Ready plan-managed and self-managed shifts get a PDF invoice with email queued for delivery. Waiting shifts stay here. <a href="#/journey?panel=deliveries">Check email delivery</a>.</span>
-      </p>`
-      : '<p class="adm-empty">Nothing waiting to be claimed — all completed shifts are processed. 🎉</p>'}
-    ${CareBilling.invoiceList(cl.invoices||[],cl.withdrawn||[])}
-    ${cl.claimed.some(r=>!r.invoice_no)?`<h3 style="margin:20px 0 8px;">NDIA claims — awaiting payment (${cl.claimed.filter(r=>!r.invoice_no).length})</h3><p><a class="adm-btn-sm" href="/api/admin/claims/pace.csv" download>Download NDIA claim file (PACE CSV)</a></p><p class="muted-sm">Upload this claim file in the provider portal. Record payment when the claim is paid.</p>${claimTable(cl.claimed.filter(r=>!r.invoice_no),false)}`:''}
-    ${cl.paid.length ? `<p style="margin:14px 0 0;color:#4A5570;font-size:.9rem;">${cl.paid.length} shift${cl.paid.length > 1 ? 's' : ''} fully paid · $${cl.totals.paid.toFixed(2)} all-time.</p>` : ''}
-    <p style="margin:16px 0 0;"><a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/payroll.csv" download>⬇ Historical worker-share register</a> <a class="adm-btn-sm" href="#/journey?panel=payroll">Review payment batches</a></p>`;
   const DAYN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const nextMon = (() => {
     const dt = new Date();
@@ -10343,12 +10292,12 @@ async function renderAdminPage(){
     <div class="info-card" style="margin-bottom:6px;">
       <p style="margin:0 0 8px;"><b>Preview lock:</b> ${ln.gate
         ? '<span style="color:#1F7A4D;font-weight:700;">ON</span> — the site is private behind SITE_PASSWORD'
-        : '<span style="color:#C8462E;font-weight:700;">OFF — the site is PUBLIC</span>'}
+        : '<span style="color:#255d84;font-weight:700;">Public website</span> — preview lock is off'}
         &nbsp;·&nbsp; <b>Demo data:</b> ${ln.demo_accounts ? `${ln.demo_accounts} demo account${ln.demo_accounts > 1 ? 's' : ''} still in the database` : '<span style="color:#1F7A4D;font-weight:700;">clean ✓</span>'}</p>
       <ol style="margin:0 0 10px 20px;font-size:.92rem;line-height:1.7;">
         <li>${ln.demo_accounts ? '<button class="adm-btn-sm" id="admLaunchSweep" type="button">Remove all demo data</button> — deletes the 12 demo workers, the demo participant, and every demo conversation & booking. Permanent.' : 'Demo data removed ✓'}</li>
-        <li>On the server: <code>sudo nano /etc/bookit.env</code> → delete the <code>SITE_PASSWORD</code> line, add <code>SEED_DEMO=off</code>, save, then <code>sudo systemctl restart bookit</code>.</li>
-        <li>That's launch — thecareweb.com.au is live and indexable. 🎉</li>
+        <li>To change website access, update the hosting settings: <code>SITE_PASSWORD</code> controls the preview lock; <code>SEED_DEMO=off</code> prevents new demo accounts. Restart or redeploy after changing them.</li>
+        <li><a href="#/admin/assurance?tab=checks">Review launch checks</a> for outstanding evidence and integration checks.</li>
       </ol>
       <p class="muted-sm" style="margin:0;">Do step 1 only when you're ready — demo data can't be restored (a fresh database would re-seed it, but your real accounts live in this one).</p>
     </div>`;
@@ -10361,33 +10310,14 @@ async function renderAdminPage(){
           <td><button class="adm-btn-sm" data-rev-toggle="${r.id}" type="button">${r.published ? 'Hide' : 'Show'}</button>${r.published ? '' : ' <span class="adm-hidden">(hidden)</span>'}</td>
         </tr>`).join('')}</tbody></table></div>`
     : '<p class="adm-empty">No reviews yet — participants are asked to rate each shift once it\'s completed.</p>';
-  /* --- Build 26: the admin page, laid out like Settings ------------------
-     Twenty-four sections in one scroll meant the thing you needed was always
-     somewhere below the fold, and the two you needed *daily* sat between a
-     launch checklist and a list of every user. So the same pattern the
-     settings page already uses: a list on the left, one group open beside it,
-     each group its own address at #/admin/<slug>. On a phone it is one thing
-     at a time with a back link, exactly as settings behaves.
-
-     Grouped by when you would actually open them, not by which table they
-     read. "Today" is the shift-work — the queues that go stale in hours.
-     "Compliance" is the material an auditor asks for. The rest is reference.
-
-     Sections are built exactly as before; only the arrangement changed. Each
-     one still carries its own count in the heading, and any group holding
-     something urgent shows that on the nav row too, so nothing hides behind a
-     tab you did not click. --- */
+  /* Focused Admin destinations share the navigation in CareAdmin. */
   const H = (label, badge) => `<h2 class="adm-section">${label}${badge || ''}</h2>`;
   const red = t => t ? `<span style="color:#C8462E;">(${t})</span>` : '';
-  const G = [];
-  const g = (slug, label, blurb, urgent, html) => G.push({ slug, label, blurb, urgent, html });
 
   const money = n => n == null ? '—' : '$' + Number(n).toFixed(2);
   const pctS = n => n == null ? '—' : Number(n).toFixed(0) + '%';
   const kpiBox = (label, value, how) => `<div class="card" style="padding:12px 14px;"><small class="muted-sm">${label}</small><div style="font-size:1.5rem;font-weight:700;">${value}</div><small class="muted-sm">${esc(how)}</small></div>`;
-  const growthHtml = `
-    <h2>Growth &amp; money</h2>
-    ${kpi ? `<p class="muted-sm">Last ${kpi.window.days} days (${esc(fmtAU(kpi.window.from))} – ${esc(fmtAU(kpi.window.to))}). Demo accounts excluded.</p>
+  const performanceHtml = `${kpi ? `<p class="muted-sm">Last ${kpi.window.days} days (${esc(fmtAU(kpi.window.from))} – ${esc(fmtAU(kpi.window.to))}). Demo accounts excluded.</p>
     <div class="grid-3" style="gap:10px;">
       ${kpiBox('Fill rate', pctS(kpi.fill_rate.value), kpi.fill_rate.how)}
       ${kpiBox('Worker utilisation', pctS(kpi.utilisation.value), kpi.utilisation.how)}
@@ -10401,147 +10331,96 @@ async function renderAdminPage(){
       ${kpiBox('Time to verify', kpi.time_to_verify.days == null ? '—' : kpi.time_to_verify.days + ' days', kpi.time_to_verify.how)}
       ${kpi.meet_and_greets ? kpiBox('Meet-and-greets', `${kpi.meet_and_greets.count} held · ${kpi.meet_and_greets.led_to_a_booking} led to a booking`, kpi.meet_and_greets.how) : ''}
     </div>
-    ${kpi.margin_per_hour.by_category.length ? `<details style="margin-top:10px;"><summary>Margin by rate category</summary><table class="rt"><thead><tr><th>Category</th><th>Units</th><th>Revenue</th><th>Worker share</th><th>Margin/unit</th></tr></thead><tbody>${kpi.margin_per_hour.by_category.map(c => `<tr><td>${esc(c.category || '—')}</td><td>${c.units}</td><td>${money(c.revenue)}</td><td>${money(c.worker_share)}</td><td>${money(c.margin_per_unit)}</td></tr>`).join('')}</tbody></table></details>` : ''}` : '<p class="muted-sm">KPIs unavailable.</p>'}
-
-    <h3 style="margin-top:22px;">Worker referrals</h3>
-    ${refs ? `<p class="muted-sm">$${Number(refs.bonus).toFixed(2)} after ${refs.qualify_hours} completed hours. Settings: referral_bonus, referral_qualify_hours.</p>
-    ${refs.referrals.length ? `<table class="rt"><thead><tr><th>Referred by</th><th>New worker</th><th>Joined</th><th>Status</th><th></th></tr></thead><tbody>${refs.referrals.map(r => `<tr><td>${esc(r.referrer_name)}</td><td>${esc(r.referee_name)}</td><td>${esc(fmtAU(r.created.slice(0,10)))}</td><td>${r.review_required ? 'Review required — qualifying hours changed' : r.paid_at ? 'Paid ' + esc(fmtAU(r.paid_at.slice(0,10))) : r.qualified_at ? `<b style="color:#1F7A4D;">Payable $${Number(r.amount).toFixed(2)}</b>` : 'Not yet qualified'}</td><td>${r.qualified_at && !r.paid_at && !r.review_required ? `<button class="adm-btn-sm" type="button" data-ref-paid="${r.id}">Mark paid</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="muted-sm">No referrals yet.</p>'}` : ''}
-
-    <h3 style="margin-top:22px;">Open an account for someone on the phone</h3>
-    <p class="muted-sm">Concierge onboarding. They set their own password from the email; the plan, agreement and consent stay theirs to do. Consent is recorded in words.</p>
+    ${kpi.margin_per_hour.by_category.length ? `<details style="margin-top:10px;"><summary>Margin by rate category</summary><table class="rt"><thead><tr><th>Category</th><th>Units</th><th>Revenue</th><th>Worker share</th><th>Margin/unit</th></tr></thead><tbody>${kpi.margin_per_hour.by_category.map(c => `<tr><td>${esc(c.category || '—')}</td><td>${c.units}</td><td>${money(c.revenue)}</td><td>${money(c.worker_share)}</td><td>${money(c.margin_per_unit)}</td></tr>`).join('')}</tbody></table></details>` : ''}` : '<p class="muted-sm">KPIs unavailable.</p>'}`;
+  const referralsHtml = `${refs ? `<p class="muted-sm">$${Number(refs.bonus).toFixed(2)} after ${refs.qualify_hours} completed hours. Settings: referral_bonus, referral_qualify_hours.</p>
+    ${refs.referrals.length ? `<table class="rt"><thead><tr><th>Referred by</th><th>New worker</th><th>Joined</th><th>Status</th><th></th></tr></thead><tbody>${refs.referrals.map(r => `<tr><td>${esc(r.referrer_name)}</td><td>${esc(r.referee_name)}</td><td>${esc(fmtAU(r.created.slice(0,10)))}</td><td>${r.review_required ? 'Review required — qualifying hours changed' : r.paid_at ? 'Paid ' + esc(fmtAU(r.paid_at.slice(0,10))) : r.qualified_at ? `<b style="color:#1F7A4D;">Payable $${Number(r.amount).toFixed(2)}</b>` : 'Not yet qualified'}</td><td>${r.qualified_at && !r.paid_at && !r.review_required ? `<button class="adm-btn-sm" type="button" data-ref-paid="${r.id}">Record referral payment</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="muted-sm">No referrals yet.</p>'}` : ''}`;
+  const conciergeHtml = `<p class="muted-sm">Concierge onboarding. They set their own password from the email; the plan, agreement and consent stay theirs to do. Consent is recorded in words.</p>
     <form id="admConcierge" style="display:grid;gap:8px;grid-template-columns:1fr 1fr;max-width:640px;">
-      <input name="name" placeholder="Full name" required style="${inpStyle}"><input name="email" type="email" placeholder="Email" required style="${inpStyle}">
-      <input name="phone" placeholder="Phone" style="${inpStyle}"><input name="suburb" placeholder="Suburb" style="${inpStyle}">
-      <select name="plan" style="${inpStyle}"><option value="">Funding: not sure yet</option><option value="private">Private funding</option><option value="ndia">Agency-managed</option><option value="plan">Plan-managed</option><option value="self">Self-managed</option></select>
-      <input name="consent" placeholder="Consent, in words: who agreed, on the phone, on what date" required style="${inpStyle}">
+      <label class="ca-field"><span>Full name</span><input name="name" placeholder="Full name" required style="${inpStyle}"></label><label class="ca-field"><span>Email</span><input name="email" type="email" placeholder="Email" required style="${inpStyle}"></label>
+      <label class="ca-field"><span>Phone</span><input name="phone" placeholder="Phone" style="${inpStyle}"></label><label class="ca-field"><span>Suburb</span><input name="suburb" placeholder="Suburb" style="${inpStyle}"></label>
+      <label class="ca-field"><span>Funding arrangement</span><select name="plan" style="${inpStyle}"><option value="">Funding: not sure yet</option><option value="private">Private funding</option><option value="ndia">Agency-managed</option><option value="plan">Plan-managed</option><option value="self">Self-managed</option></select></label>
+      <label class="ca-field"><span>Consent record</span><input name="consent" placeholder="Consent, in words: who agreed, on the phone, on what date" required style="${inpStyle}"></label>
       <button class="adm-btn-sm" type="submit" style="grid-column:1/-1;justify-self:start;">Open the account and email the password link</button>
-    </form>
-
-    <h3 style="margin-top:22px;">One-off claimable lines</h3>
-    <p class="muted-sm">An establishment fee for a new participant whose set-up was real work (conditions in the Pricing Arrangements — you tick that they are met), or non-face-to-face time for writing a support plan or a report — not for phone calls, which are part of the service. Each becomes a completed, approved line the invoice and claim machinery carries as normal, and the participant sees it like any other charge.</p>
+    </form>`;
+  const feesHtml = `<p class="muted-sm">An establishment fee for a new participant whose set-up was real work (conditions in the Pricing Arrangements — you tick that they are met), or non-face-to-face time for writing a support plan or a report — not for phone calls, which are part of the service. Each becomes a completed, approved line the invoice and claim machinery carries as normal, and the participant sees it like any other charge.</p>
     <form id="admFee" style="display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));max-width:760px;align-items:center;">
-      <input name="pid" type="number" min="1" placeholder="Participant #" required style="${inpStyle}">
-      <select name="kind" style="${inpStyle}"><option value="establishment">Establishment fee</option><option value="nf2f">Non-face-to-face time</option></select>
-      <select name="service" style="${inpStyle}"><option value="personal-care">Personal care</option><option value="community">Community</option><option value="daily-tasks">Daily tasks</option><option value="household">Household</option><option value="employment">Employment</option><option value="transport">Transport</option></select>
-      <input name="hours" type="number" min="0.25" max="8" step="0.25" placeholder="Hours (NF2F)" style="${inpStyle}">
-      <input name="what" placeholder="What the work was / note" style="${inpStyle};grid-column:span 2;">
+      <label class="ca-field"><span>Participant number</span><input name="pid" type="number" min="1" placeholder="Participant #" required style="${inpStyle}"></label>
+      <label class="ca-field"><span>Charge type</span><select name="kind" style="${inpStyle}"><option value="establishment">Establishment fee</option><option value="nf2f">Non-face-to-face time</option></select></label>
+      <label class="ca-field"><span>Service</span><select name="service" style="${inpStyle}"><option value="personal-care">Personal care</option><option value="community">Community</option><option value="daily-tasks">Daily tasks</option><option value="household">Household</option><option value="employment">Employment</option><option value="transport">Transport</option></select></label>
+      <label class="ca-field"><span>Hours for non-face-to-face work</span><input name="hours" type="number" min="0.25" max="8" step="0.25" placeholder="Hours (NF2F)" style="${inpStyle}"></label>
+      <label class="ca-field"><span>Description of work</span><input name="what" placeholder="What the work was / note" style="${inpStyle};grid-column:span 2;"></label>
       <label class="muted-sm" style="grid-column:1/-1;"><input type="checkbox" name="conditions_met"> Establishment fee only: I have read the current Pricing Arrangements; this participant is new to us, is starting a substantial ongoing program (the Arrangements name 20 hours a month for at least three months), the fee is in their signed service agreement, it has not been claimed for them before, and the set-up was real, documented work (behaviour support plan, restrictive practices, complex handover) — not a routine sign-up.</label>
-      <button class="adm-btn-sm" type="submit" style="justify-self:start;">Raise the line</button>
-    </form>
-
-    <h3 style="margin-top:22px;">Group shifts (1:2, 1:3)</h3>
-    <p class="muted-sm">Two or three shifts with the same worker at the same time: each participant is charged the hourly price divided by the ratio, the worker is paid once. Claims the 0136 group items — needs that registration, and the setting group_supports=on.</p>
+      <button class="adm-btn-sm" type="submit" style="justify-self:start;">Add charge</button>
+    </form>`;
+  const groupsHtml = `<p class="muted-sm">Two or three shifts with the same worker at the same time: each participant is charged the hourly price divided by the ratio, the worker is paid once. Claims the 0136 group items — needs that registration, and the setting group_supports=on.</p>
     <form id="admGroup" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <input name="ids" placeholder="Booking numbers, e.g. 412, 413" required style="${inpStyle};min-width:220px;">
+      <label class="ca-field"><span>Booking numbers to link</span><input name="ids" placeholder="Booking numbers, e.g. 412, 413" required style="${inpStyle};min-width:220px;"></label>
       <button class="adm-btn-sm" type="submit">Link as a group</button>
-      <input name="ungroup" type="number" placeholder="Booking # to ungroup" style="${inpStyle}">
+      <label class="ca-field"><span>Booking number to separate</span><input name="ungroup" type="number" placeholder="Booking # to ungroup" style="${inpStyle}"></label>
       <button class="adm-btn-sm" type="button" data-ungroup>Ungroup</button>
     </form>`;
-  g('growth', 'Growth & money', 'KPIs, referrals, concierge, fee lines, groups', refs && refs.referrals ? refs.referrals.filter(r => r.qualified_at && !r.paid_at && !r.review_required).length : 0, growthHtml);
-  g('overview', 'Overview', 'Is everything running, and the numbers', stest ? stest.counts.fail : 0,
-    tiles + H('Is everything actually running? ', stest && stest.counts.fail ? red(stest.counts.fail + ' failing')
-      : stest && stest.counts.warn ? `<span style="color:#B4761A;">(${stest.counts.warn} to look at)</span>` : '') + selfTestHtml(stest));
-
-  g('today', 'Today', 'The queues that go stale in hours',
-    (cvr ? cvr.open.length : 0) + (c.pending || 0) + hiOpenN + snFlagged.length,
-    '<div id="reviewTodayActions"></div>' + H('Cover — when a worker can\'t make it ', cvr && cvr.open.length ? red(cvr.open.length + ' open') : '')
-    + (cvr ? officeQueueHtml(cvr.office) + coverBoardHtml(cvr) : '<p class="adm-empty">The cover board couldn\'t be loaded.</p>')
-    + H('Workers awaiting approval ', c.pending ? `(${c.pending})` : '') + pending
-    + H('High-intensity enquiries ', hiOpenN ? red(hiOpenN + ' to call') : '') + highIntensity
-    + H('Shift notes ', snFlagged.length ? red(snFlagged.length + ' flagged') : '') + shiftNotes
-    + H('Contact-form messages') + contacts);
-
-  /* v86.5: three tabs, each with a search box that narrows every board on
-     it to one person — the screen is "verify this worker" or "verify this
-     participant", not a scroll through everything. */
-  const workerNames = cmp ? cmp.workers.filter(w => !w.demo).map(w => w.name) : [];
-  const partNames = pdx && pdx.participants ? pdx.participants.map(p => p.name) : [];
-  const cmpSearch = (key, names, ph) => `<div class="cmp-search"><input type="search" data-cmp-filter="${key}" list="cmpNames-${key}" placeholder="${ph}" autocomplete="off"><datalist id="cmpNames-${key}">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist><span class="muted-sm" data-cmp-count="${key}"></span></div>`;
-  const wUrgent = (cmp ? cmp.blocked : 0) + (scr ? scr.waiting : 0);
-  const pUrgent = (pMissingN || 0) + (plans && plans.counts.critical ? plans.counts.critical : 0);
-  const rUrgent = (c.urgent_incidents || 0) + srOpen.length;
-  const tab = (key, label, n) => `<button type="button" class="cmp-tab${key === CMP_TAB ? ' on' : ''}" data-cmp-tab="${key}" role="tab" aria-selected="${key === CMP_TAB}">${label}${n ? ` <span class="cmp-n">${n}</span>` : ''}</button>`;
-  const cmpPane = (key, inner) => `<div class="cmp-pane" data-cmp-pane="${key}"${key === CMP_TAB ? '' : ' hidden'}>${inner}</div>`;
-  g('assurance','Launch & operations','Review launch evidence, delivery, support arrangements and billing',0,'<p><a href="#/admin/assurance">Open launch and operations workspace</a></p>');
-  g('verification','Verification','Review worker and participant files',wUrgent+pUrgent,'<p><a href="#/admin/verification">Open the verification workspace</a></p>');
-  g('compliance', 'Compliance', 'Verify a worker, verify a participant, the registers',
-    wUrgent + rUrgent,
-    `<div class="cmp-tabs" role="tablist">${tab('pipeline', 'Pipeline', 0)}${tab('workers', 'Support workers', wUrgent)}${tab('participants', 'Participants', pUrgent)}${tab('registers', 'Incidents, complaints & scope', rUrgent)}${tab('log', 'Evidence log', 0)}</div>`
-    + cmpPane('pipeline', H('Pipeline — where everyone is on the way to their first shift') + '<div class="info-card" id="admPipeline"><p class="adm-empty">Loading…</p></div>')
-    + cmpPane('workers', '<p class="info-card"><a class="btn btn-primary" href="#/admin/verification?role=worker">Open worker verification workspace</a></p>' + cmpSearch('workers', workerNames, 'Type a worker\'s name to verify them')
-      + H('Credentials and documents — verify, reject, re-file') + credentials
-      + H('The 0137 conditions — screening, banning registers, evidence, displayed ', cmp && cmp.blocked ? red(`${cmp.blocked} worker${cmp.blocked === 1 ? '' : 's'} off the platform`) : '') + complianceVerify
-      + `<details class="adm-fold" style="margin-top:18px;"${scr && scr.waiting ? ' open' : ''}><summary>${H('Worker screening — the NWSD queue ', scr && scr.waiting ? red(scr.waiting + ' to look at') : '')}</summary>${screeningHtml(scr)}</details>`
-      + '<div class="info-card" id="admTrainingCard" style="margin-top:18px;" hidden></div>')
-    + cmpPane('participants', '<p class="info-card"><a class="btn btn-primary" href="#/admin/verification?role=participant">Open participant verification workspace</a></p>' + cmpSearch('participants', partNames, 'Type a participant\'s name to verify their file')
-      + H('Participant files ', pMissingN === null ? '' : pMissingN ? red(pMissingN + ' not on file')
-          : '<span style="color:#1F7A4D;">(complete)</span>') + participantFiles
-      + H('Support plans ', plans && plans.counts.critical ? red(plans.counts.critical + ' critical') : '')
-      + (plans ? planBoardHtml(plans) : '<p class="adm-empty">The support-plan board couldn\'t be loaded.</p>'))
-    + cmpPane('registers', H('Incident register ', c.urgent_incidents ? red(c.urgent_incidents + ' awaiting Commission notice!') : '') + incidents
-      + H('Complaints register') + complaints
-      + H('Out-of-scope register ', srOpen.length ? red(srOpen.length + ' open')
-          : (srRows.length ? `<span style="color:#1F7A4D;">(${srRows.length} closed)</span>` : '')) + scopeRegister)
-    + cmpPane('log', cmpSearch('log', workerNames, 'Type a worker\'s name to see their entries')
-      + '<p class="muted-sm" style="margin:0 0 10px;">Every check, who did it, what they checked it against and what they found — written once and never edited. This is the answer to "show me how you satisfy your conditions".</p>'
-      + complianceLog));
-
-  /* v86.11.3 — one tab per section, the way the Compliance board is laid out */
-  const frGaps = frm ? frm.counts.gaps + frm.counts.missing + frm.forms.filter(f => (f.scope === 'company' || f.scope === 'register') && f.track !== 'live' && f.track !== 'na' && !(f.record && f.record.held)).length : 0;
-  const docTab = (key, label, n) => `<button type="button" class="cmp-tab${key === DOC_TAB ? ' on' : ''}" data-doc-tab="${key}" role="tab" aria-selected="${key === DOC_TAB}">${label}${n ? ` <span class="cmp-n">${n}</span>` : ''}</button>`;
-  const docPane = (key, inner) => `<div class="cmp-pane" data-doc-pane="${key}"${key === DOC_TAB ? '' : ' hidden'}>${inner}</div>`;
-  g('documents', 'Documents', 'Files, forms, plans and the audit pack',
-    (pMissingN || 0) + (plans && plans.counts.critical ? plans.counts.critical : 0),
-    `<div class="cmp-tabs" role="tablist">${docTab('register', 'Forms register', frGaps)}${docTab('pages', 'Policies and procedures — published as pages', 0)}${docTab('screens', 'Participant documents — on screen', 0)}${docTab('audit', 'Audit pack', 0)}</div>`
-    + docPane('pages', H('Policies and procedures — published as pages') + '<div class="info-card" id="admPolicyPages"><p class="adm-empty">Loading…</p></div>')
-    + docPane('screens', H('Participant documents — written by The Care Web, or on screen') + '<div class="info-card" id="admBlankForms"><p class="adm-empty">Loading…</p></div>')
-    + docPane('register', `<p class="muted-sm" style="margin:0 0 14px;">Participant files and support plans have moved to <a href="#/admin/verification?role=participant">Verification › Participants</a>, beside the worker checks.</p>`
-      + H('Forms register — where every document lives')
-      + (frm ? formsBoardHtml(frm) : '<p class="adm-empty">The forms register couldn\'t be loaded.</p>')
-      + '<div class="info-card" id="admDocReqCard" style="margin-top:18px;" hidden></div>')
-    + docPane('audit', H('Audit pack — one download, everything in it') + auditPackHtml(pack)));
-
-  g('money', 'Money', 'Claims, invoicing and the pay ladder', 0,
-    H('Claims &amp; payments') + claims
-    + H('Invoicing — completed shifts ', inv.invoices.length ? `(${inv.invoices.length})` : '') + invoicing
-    + H('Pay — the ladder and the award floor')
-    + (lad ? ladderBoardHtml(lad) : '<p class="adm-empty">The pay ladder couldn\'t be loaded.</p>'));
-
-  g('bookings', 'Bookings & rosters', 'Recent shifts and the SIL roster', 0,
-    H('Recent bookings') + bookings + H('SIL rosters') + silSection);
-
-  g('people', 'People', 'Everyone on the platform, and reviews', 0,
-    H('Everyone (latest 100)') + users
-    + H('Reviews ', revs.reviews.length ? `(${revs.reviews.length})` : '') + reviewsBlock);
-
-  g('ai', 'AI suggestions', 'What a model proposed, waiting on a person',
-    aiq && aiq.open ? aiq.open.length : 0,
-    H('AI suggestions ', aiq && aiq.open && aiq.open.length ? `(${aiq.open.length} waiting)` : '') + aiQueueHtml(aiq));
-
-  g('launch', 'Launch', 'Demo data, the password gate, going live', 0,
-    H('Launch ', ln.demo_accounts || ln.gate ? '' : '— LIVE 🎉') + launchCard);
-
-  const sub = (location.hash.split('/')[2] || '').replace(/[^a-z-]/g, '');
-  const cur = G.find(x => x.slug === sub) || null;
-  const pane = cur || G.find(x=>x.slug==='today') || G[0];
-  const rows = G.map(x => `<a class="sr-row${x.slug === pane.slug ? ' on' : ''}" href="#/admin/${x.slug}"${
-      cur && x.slug === cur.slug ? ' aria-current="page"' : ''}><span class="sr-txt"><b>${x.label}${
-      x.urgent ? ` <span style="color:#C8462E;">·&nbsp;${x.urgent}</span>` : ''}</b><small>${x.blurb}</small></span><span class="sr-go" aria-hidden="true">›</span></a>`).join('');
-
-  if(renderSequence!==ADMIN_RENDER_SEQUENCE)return;
-  wrap.innerHTML = `
-  <div class="set-layout ${cur ? 'has-sub' : 'no-sub'}">
-    <nav class="set-nav" aria-label="Admin sections">
-      <p class="sn-head">Admin</p>
-      ${rows}
-    </nav>
-    <div class="set-body">
-      <a class="set-back" href="#/admin">‹ All sections</a>
-      ${pane.html}
-    </div>
-  </div>`;
-  if(window.BookItReview) BookItReview.todayActions();
+  const links=(items,current)=>'<nav class="ca-section-links" aria-label="Page sections">'+items.map(([key,label,url])=>`<a href="${url}"${key===current?' aria-current="page"':''}>${label}</a>`).join('')+'</nav>';
+  const homeKeys=['tasks','payments','verification','cover','payroll','contacts'];
+  const homeHtml=`<div class="ca-home-grid">${homeKeys.map(key=>{const x=CareAdmin.entry(key);return `<a href="${x.href}"><strong>${x.label} →</strong><span>${x.description}</span></a>`;}).join('')}</div>`+H('At a glance')+tiles;
+  const invoiceNo=params.get('invoice');
+  const invoiceRows=invoiceNo?(cl.invoices||[]).filter(x=>x.invoice_no===invoiceNo):(cl.invoices||[]);
+  const withdrawnRows=invoiceNo?(cl.withdrawn||[]).filter(x=>x.invoice_no===invoiceNo):(cl.withdrawn||[]);
+  const historyHtml=(invoiceNo?`<p>Invoice <b>${esc(invoiceNo)}</b> · <a href="#/admin/money?section=history">Show all invoice history</a></p>`:'')
+    + (CareBilling.invoiceList(invoiceRows,withdrawnRows)||(!invoiceNo?'<p class="adm-empty">No invoices have been issued yet.</p>':''))
+    + (invoiceNo&&!invoiceRows.length&&!withdrawnRows.length?'<p class="adm-empty">This invoice was not found in the returned history. Check the reference in <a href="#/payment-tracking?tab=invoices">Invoices</a>.</p>':'');
+  const readyHtml=CareBilling.render(cl.billing_setup,cl.unclaimed,cl.billing_automation,cl.email_enabled)
+    +(cl.unclaimed.length?claimTable(cl.unclaimed,true):'<p class="adm-empty">No completed shifts are waiting for processing.</p>')
+    +`<p><button class="adm-btn-sm" id="admRunClaims" type="button" ${cl.ready_count?'':'disabled'}>Run claims &amp; invoices (${cl.ready_count||0} ready)</button></p><p class="muted-sm">Automatic processing runs in the background. Use this button to process currently ready charges. <a href="#/journey?panel=deliveries">Check email delivery</a>.</p>`;
+  const ndiaWaiting=cl.claimed.filter(r=>!r.invoice_no),ndiaPaid=cl.paid.filter(r=>!r.invoice_no);
+  const claimsHtml=`<p><a class="adm-btn-sm" href="/api/admin/claims/pace.csv" download>Download NDIA claim file (PACE CSV)</a></p><p>Upload the claim file in the provider portal. Record payment after the claim has been paid.</p>`
+    +H('Awaiting payment',ndiaWaiting.length?' ('+ndiaWaiting.length+')':'')+(ndiaWaiting.length?claimTable(ndiaWaiting,false):'<p class="adm-empty">No NDIA claims are awaiting payment.</p>')
+    +`<details class="adm-fold"><summary>Paid NDIA claims (${ndiaPaid.length})</summary>${ndiaPaid.length?claimTable(ndiaPaid,false):'<p>No paid claims in the returned records.</p>'}</details><p><a href="#/admin/money?section=unissued">Review unissued charges →</a></p>`;
+  const workerChecksTab=['documents','screening','conditions','training'].includes(params.get('tab'))?params.get('tab'):'conditions';
+  const workerChecks=links([['conditions','Conditions','#/admin/compliance?section=workers&tab=conditions'],['screening','Screening','#/admin/compliance?section=workers&tab=screening'],['documents','Document controls','#/admin/compliance?section=workers&tab=documents'],['training','Training matrix','#/admin/compliance?section=workers&tab=training']],workerChecksTab)
+    +'<p><a href="#/admin/verification?role=worker">Open worker verification →</a></p>'
+    +({conditions:complianceVerify,screening:screeningHtml(scr),documents:credentials,training:'<div class="info-card" id="admTrainingCard" hidden></div>'})[workerChecksTab];
+  const participantTab=params.get('tab')==='plans'?'plans':'files';
+  const participantRecords=links([['files','Files','#/admin/compliance?section=participants&tab=files'],['plans','Support plans','#/admin/compliance?section=participants&tab=plans']],participantTab)
+    +'<p><a href="#/admin/verification?role=participant">Open participant verification →</a></p>'+(participantTab==='plans'?(plans?planBoardHtml(plans):''):participantFiles);
+  const pages={
+    home:homeHtml,people:'<p class="muted-sm">Latest 100 accounts. Search applies to these loaded accounts. For document review, search the full <a href="#/admin/verification">Verification queue</a>.</p>'+users,
+    bookings:'<p class="muted-sm">Recent bookings returned by the office overview. Search applies to this list.</p>'+bookings,
+    contacts:'<div data-admin-cards="contacts">'+contacts+'</div>',
+    'add-person':conciergeHtml,referrals:referralsHtml,reviews:reviewsBlock,
+    pipeline:'<div class="info-card" id="admPipeline"><p role="status">Loading onboarding progress…</p></div>',
+    cover:cvr?officeQueueHtml(cvr.office)+coverBoardHtml(cvr):'',rosters:silSection,groups:groupsHtml,
+    performance:performanceHtml,evidence:complianceLog,'charge-report':'<p><a class="adm-btn-sm" href="/api/admin/payroll.csv" download>Download historical worker-share register</a></p>'+invoicing,
+    claims:claimsHtml,unissued:readyHtml,'invoice-history':historyHtml,fees:feesHtml,
+    'pay-rates':lad?ladderBoardHtml(lad):'', 'self-test':selfTestHtml(stest),ai:aiQueueHtml(aiq),website:launchCard,
+    incidents:incidents,complaints:complaints,scope:links([['register','Scope referrals','#/admin/records?section=scope'],['enquiries','High-intensity enquiries','#/admin/records?section=scope&tab=enquiries']],params.get('tab')==='enquiries'?'enquiries':'register')+(params.get('tab')==='enquiries'?highIntensity:scopeRegister),
+    notes:shiftNotes,
+    forms:(frm?formsBoardHtml(frm):'')+'<div class="info-card" id="admDocReqCard" hidden></div>',
+    policies:'<div class="info-card" id="admPolicyPages"><p role="status">Loading policies…</p></div>',
+    'participant-documents':'<div class="info-card" id="admBlankForms"><p role="status">Loading documents…</p></div>',
+    audit:auditPackHtml(pack),'additional-checks':workerChecks,'participant-records':'<div data-admin-person-cards>'+participantRecords+'</div>'
+  };
+  if(renderSequence!==ADMIN_RENDER_SEQUENCE||location.hash!==pageHash||!API.me?.admin||API.me.id!==accountId)return;
+  wrap.innerHTML=(pageKey==='invoice-history'&&invoiceNo?pages[pageKey].replaceAll('<details class="invoice-history">','<details class="invoice-history" open>'):pages[pageKey])||'<p>Choose a tool from the Admin menu.</p>';
+  CareAdmin.decorate(wrap,pageKey);
+  // Keep row nodes in place so paging never discards an unsaved value or an action handler.
+  wrap.querySelectorAll('.ca-content table').forEach((table,i)=>{
+    if(table.closest('table')!==table)return;
+    if(table.tBodies?.[0]?.rows.length)CareAdmin.paginate(table.closest('.adm-table-wrap')||table,{key:pageKey+'-'+(params.get('tab')||'')+'-'+(invoiceNo||'')+'-'+i,label:'records',scope:pageKey==='people'?'Latest 100 accounts':'Loaded records'});
+  });
+  const cards=wrap.querySelector('[data-admin-cards]');if(cards)CareAdmin.paginate(cards,{key:pageKey,selector:':scope > .info-card',label:'messages'});
+  // These panels fetch their own details once their destination is mounted.
+  if(pageKey==='ai'){const consents=wrap.querySelector('[data-admin-ai-consents]'),suggestions=wrap.querySelector('[data-admin-ai-suggestions]');if(consents)CareAdmin.paginate(consents,{key:'ai-consent',selector:'[data-admin-ai-person]',label:'participants'});if(suggestions)CareAdmin.paginate(suggestions,{key:'ai-suggestions',selector:'[data-admin-ai-suggestion]',label:'suggestions'});}
+  if(pageKey==='invoice-history'){const history=wrap.querySelector('.invoice-history:has(.invoice-history-row)');if(history)CareAdmin.paginate(history,{key:'withdrawals-'+(invoiceNo||''),selector:'.invoice-history-row',label:'withdrawn invoices'});}
+  if(pageKey==='participant-records'){const people=wrap.querySelector('[data-admin-person-cards]');if(people?.querySelector('.adm-pf-card'))CareAdmin.paginate(people,{key:'participant-files',selector:'.adm-pf-card',label:'participants'});}
+  if(pageKey==='additional-checks'&&workerChecksTab==='screening'){const screens=wrap.querySelectorAll('.scr-row');if(screens.length){const group=screens[0].parentElement;CareAdmin.paginate(group,{key:'screening',selector:'.scr-row',label:'workers'});}}
+  if(pageKey==='pipeline')renderPipelineCard();
+  if(pageKey==='policies')renderPolicyPagesCard();
+  if(pageKey==='participant-documents')renderBlankForms();
+  if(pageKey==='forms')renderDocRequestsCard();
+  if(pageKey==='additional-checks'&&workerChecksTab==='training')renderTrainingMatrix();
 }
+document.addEventListener('click',e=>{if(e.target.closest('[data-admin-retry]'))renderAdminPage();});
+
 document.addEventListener('submit', async e => {
   const f = e.target;
   if(f.id === 'referralForm'){
@@ -11531,8 +11410,8 @@ function ladderBoardHtml(d){
       <p class="muted-sm" style="margin:2px 0 14px;">A worker must be under the line this many days before notice is even written, then this many days of notice before anything changes. Employee-like worker protections apply to platform care work — these two numbers are the evidence that a pay reduction was handled properly.</p>
 
       <div style="display:flex;gap:11px;flex-wrap:wrap;align-items:center;">
-        <button class="btn btn-primary btn-sm" id="ladSave" type="button">Save the ladder</button>
-        <button class="btn btn-secondary btn-sm" id="ladReview" type="button">Run the review now</button>
+        <button class="btn btn-primary btn-sm" id="ladSave" type="button">Save rate settings</button>
+        <button class="btn btn-secondary btn-sm" id="ladReview" type="button">Review worker tiers now</button>
         <span class="muted-sm" id="ladMsg"></span>
       </div>
       <p class="muted-sm" style="margin:10px 0 0;">Changes apply to shifts completed from now on. Shifts already completed keep the tier and percentage they were paid at — they are never repriced.</p>
@@ -11548,11 +11427,12 @@ function ladderBoardHtml(d){
     </tr>`).join('')}</tbody></table></div>`
     : '<p class="adm-empty">Nothing has changed yet. Every promotion, reduction, classification change and pause is written here and never edited.</p>';
 
-  return rungs
-    + '<h3 class="adm-sub">Does every rate clear the award?</h3>' + awardTable
-    + '<h3 class="adm-sub">Who is on what</h3>' + workers
-    + '<h3 class="adm-sub">The numbers</h3>' + settings
-    + '<h3 class="adm-sub">Every change, in order</h3>' + log;
+  if(location.hash.startsWith('#/admin')){
+    const p=new URLSearchParams(location.hash.split('?')[1]||''), current=['comparison','workers','settings','history'].includes(p.get('tab'))?p.get('tab'):'comparison';
+    return '<nav class="ca-section-links" aria-label="Pay rate sections">'+[['comparison','Rate comparison'],['workers','Worker tiers'],['settings','Rate settings'],['history','Change history']].map(([key,label])=>`<a href="#/admin/settings?section=pay&tab=${key}"${key===current?' aria-current="page"':''}>${label}</a>`).join('')+'</nav>'
+      +({comparison:rungs+'<h3 class="adm-sub">Award comparison</h3>'+awardTable,workers,settings,history:log})[current];
+  }
+  return rungs + '<h3 class="adm-sub">Award comparison</h3>' + awardTable + '<h3 class="adm-sub">Worker tiers</h3>' + workers + '<h3 class="adm-sub">Rate settings</h3>' + settings + '<h3 class="adm-sub">Change history</h3>' + log;
 }
 
 /* --------------------------------------------------------- the admin board */
@@ -15515,17 +15395,17 @@ document.addEventListener('click', async e => {
 </script>
 
 
-<link rel="stylesheet" href="/assets/payment-automation.css?v=88.4.0">
-<script src="/assets/next-actions.js?v=88.3.3"></script>
-<script src="/assets/process-workflows.js?v=88.3.4"></script>
+<link rel="stylesheet" href="/assets/payment-automation.css?v=88.4.2">
+<script src="/assets/next-actions.js?v=88.4.2"></script>
+<script src="/assets/process-workflows.js?v=88.4.2"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
 <script src="/assets/booking-calendar.js?v=88.4.0"></script>
-<script src="/assets/payment-automation.js?v=88.4.0"></script>
+<script src="/assets/payment-automation.js?v=88.4.2"></script>
 <link rel="stylesheet" href="/assets/service-locations.css?v=88.4.1">
 <script src="/assets/service-locations.js?v=88.4.1"></script>
-<script src="/assets/launch-assurance.js?v=88.3.4"></script>
+<script src="/assets/launch-assurance.js?v=88.4.2"></script>
 <script src="/assets/billing-setup.js?v=88.3.4"></script>
-<script src="/assets/admin-verification.js?v=88.2.5"></script>
+<script src="/assets/admin-verification.js?v=88.4.2"></script>
 <script>
 document.addEventListener('click',async event=>{
  const go=event.target.closest('[data-sp-section-go]');if(go){document.querySelectorAll('[data-sp-section]').forEach(x=>x.hidden=go.dataset.spSectionGo!=='all'&&x.dataset.spSection!==go.dataset.spSectionGo);document.querySelector('.sp-sec:not([hidden]) input,.sp-sec:not([hidden]) textarea')?.focus();}

@@ -1,12 +1,12 @@
 {
   "name": "bookit-site-v65",
-  "version": "88.4.1",
+  "version": "88.4.2",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "lint": "node scripts/lint.js",
-    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process && npm run test:verification && npm run test:settings && npm run test:navigation && npm run test:credentials && npm run test:next-actions && npm run test:calendar && npm run test:launch && npm run test:billing && npm run test:tasks && npm run test:payments && npm run test:locations",
+    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process && npm run test:verification && npm run test:settings && npm run test:navigation && npm run test:credentials && npm run test:next-actions && npm run test:calendar && npm run test:launch && npm run test:billing && npm run test:tasks && npm run test:payments && npm run test:locations && npm run test:admin",
     "inventory": "node scripts/inventory.js",
     "check": "npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && node scripts/verify-release.js && npm test",
     "backup": "node --no-warnings scripts/backup.js",
@@ -26,7 +26,8 @@
     "test:billing": "node --no-warnings tests/automatic-billing-unit.js && node --no-warnings tests/billing-flow-tests.js && node --no-warnings tests/invoice-lifecycle-tests.js",
     "test:tasks": "node --no-warnings tests/task-clarity-tests.js",
     "test:payments": "node --no-warnings tests/immediate-invoice-tests.js && node --no-warnings tests/payment-automation-tests.js && node --no-warnings tests/payment-ui-tests.js && node --no-warnings tests/payroll-notifications-tests.js && node --no-warnings tests/zai-payments-tests.js && node --no-warnings tests/payment-http-tests.js && node --no-warnings tests/payroll-recovery-tests.js",
-    "test:locations": "node --no-warnings tests/service-locations-tests.js && node --no-warnings tests/service-location-context-tests.js && node --no-warnings tests/service-locations-ui-tests.js && node --no-warnings tests/service-location-http-tests.js"
+    "test:locations": "node --no-warnings tests/service-locations-tests.js && node --no-warnings tests/service-location-context-tests.js && node --no-warnings tests/service-locations-ui-tests.js && node --no-warnings tests/service-location-http-tests.js",
+    "test:admin": "node --no-warnings tests/admin-workspace-tests.js && node --no-warnings tests/admin-payment-workspace-tests.js && node --no-warnings tests/admin-workflow-ui-tests.js && node --no-warnings tests/admin-specialist-ui-tests.js && node --no-warnings tests/admin-task-links-tests.js"
   },
   "license": "UNLICENSED",
   "engines": {

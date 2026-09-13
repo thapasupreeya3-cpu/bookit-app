@@ -4,6 +4,26 @@ window.CareNextActions = (() => {
   const e = value => esc(String(value ?? ''));
   const safe = href => /^#\/(?!\/)/.test(String(href || '')) ? href : '#/contact';
   const suffix = task => String(task.task_key || '').replace(/^\d+:/,'');
+  // Older stored tasks name a broad office page. Resolve only those generic
+  // destinations, using record identifiers rather than names or label text.
+  function officeDestination(task, destination) {
+    const href=String(destination||task.destination||''),generic=/^#\/admin\/compliance\/?$/.test(href);
+    const positive=value=>/^\d+$/.test(String(value??''))&&Number.isSafeInteger(Number(value))&&Number(value)>0?Number(value):null;
+    if(generic&&task.kind==='incident'){
+      const id=positive(task.incident_id)||positive(task.entity_id)||positive(/(?:^|:)incident:(\d+)(?::|$)/.exec(String(task.task_key||''))?.[1])||positive(/^(?:incident:)?(\d+)$/.exec(String(task.ref||''))?.[1]);
+      return id?'#/admin/assurance?incident='+id:'#/admin/records?section=incidents';
+    }
+    if(generic&&['document','renewal','setup'].includes(task.kind)){
+      const role=task.person_role==='participant'?'participant':task.person_role==='worker'?'worker':null;
+      if(role){const id=positive(task.user_id);return '#/admin/verification?role='+role+(id?'&person='+id:'');}
+    }
+    if(href==='#/admin/operations'&&['job','operations'].includes(task.kind))return '#/admin/assurance?tab=operations';
+    if(task.kind==='invoice'&&/(?:^|:)receipt:\d+(?::|$)/.test(String(task.task_key||''))&&href.startsWith('#/journey?')){
+      const params=new URLSearchParams(href.split('?')[1]);
+      if(params.get('panel')==='finance'&&!params.has('section')){params.set('section','history');return '#/journey?'+params.toString();}
+    }
+    return href;
+  }
   const dateOnly = value => /^\d{4}-\d{2}-\d{2}/.exec(String(value || ''))?.[0] || '';
   const dateLabel = value => dateOnly(value) ? fmtAU(dateOnly(value)) : '';
   const dayNumber = value => Date.parse(dateOnly(value)+'T00:00:00Z') / 864e5;
@@ -98,8 +118,8 @@ window.CareNextActions = (() => {
     const names={office:'Office actions',people:'Waiting on people',website:'Website checks'};
     const descriptions={office:'These tasks need an office action. Urgent items appear first.',people:'These tasks belong to participants or workers. The office acts on a request for help.',website:'Website maintenance is separate from care tasks. Healthy automatic checks clear their alerts.'};
     const link=(v,offset=0,search=options.search||'')=>'#/journey?panel=tasks&view='+v+'&offset='+offset+'&search='+encodeURIComponent(search);
-    const fallback=t=>({bucket:'office',tone:'action',status:'Action required',icon:'→',subject:t.person,action:'Review documents',next:t.detail||'Review the outstanding items on this person’s file.',destination:'#/admin/verification?role='+(t.person_role==='participant'?'participant':'worker')+'&person='+Number(t.user_id)});
-    const rows=p.rows.map(t=>({...t,ui:t.ui||fallback(t)}));
+    const fallback=t=>({bucket:'office',tone:'action',status:'Action required',icon:'→',subject:t.person,action:t.kind==='incident'?'Review incident':['document','renewal','setup'].includes(t.kind)?'Review documents':'Review task',next:t.detail||'Open the task and complete the outstanding step.',destination:'#/admin/verification?role='+(t.person_role==='participant'?'participant':'worker')+'&person='+Number(t.user_id)});
+    const rows=p.rows.map(t=>{const ui=t.ui||fallback(t),destination=officeDestination(t,t.ui?.destination||t.destination||ui.destination);return {...t,ui:{...ui,destination}};});
     return `<div class="na-office"><nav class="na-queue-tabs" aria-label="Task responsibility">${Object.entries(names).map(([key,name])=>`<a href="${e(link(key))}"${key===view?' aria-current="page"':''}>${name}<span class="na-queue-count">${Number(counts[key])||0}</span></a>`).join('')}</nav>
     <div class="na-office-bar"><div><h2>${e(names[view])}</h2><p class="na-office-meta">${e(descriptions[view])}</p><p class="na-office-meta">${p.total?`${p.offset+1}–${p.offset+rows.length} of ${p.total} ${view==='people'?'follow-ups':'tasks'}`:'No '+(view==='people'?'follow-ups':'tasks')+(options.search?' match this search': ' in this view')}</p></div>${options.searchForm||''}</div>
     <p class="na-legend"><span class="na-state" data-tone="urgent">! Urgent / overdue</span><span class="na-state" data-tone="action">→ Action required</span><span class="na-state" data-tone="waiting">◷ Waiting</span></p>

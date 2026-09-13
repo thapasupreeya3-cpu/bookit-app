@@ -139,7 +139,7 @@ window.BookItReview = (() => {
   }
   async function todayActions(){
     const wrap=document.getElementById('reviewTodayActions');if(!wrap)return;
-    try{const r=await API.call('/admin/today-actions');wrap.innerHTML=`<h3>Incident follow-ups</h3>${r.incidents.length?r.incidents.map(i=>`<section class="review-panel"><p><b>Incident #${i.id}</b> · ${text(i.participant)} · ${text(i.category)}</p><p><strong>${text(i.action)}</strong>${i.due?' · due '+text(new Date(i.due).toLocaleString('en-AU')):' · review in the register'}</p><label>Action owner <input data-incident-owner="${i.id}" value="${text(i.owner)}" maxlength="100"></label> <button class="btn btn-secondary btn-sm" type="button" data-save-owner="${i.id}">Save owner</button><p><a href="#/admin/compliance" data-review-incident>Open incident register</a></p></section>`).join(''):'<p>No open incidents in the register.</p>'}<p class="muted-sm">${text(r.note)}</p>`;}catch(e){wrap.textContent='Incident follow-ups could not load: '+e.message;}
+    try{const r=await API.call('/admin/today-actions');wrap.innerHTML=`<h3>Incident follow-ups</h3>${r.incidents.length?r.incidents.map(i=>`<section class="review-panel"><p><b>Incident #${i.id}</b> · ${text(i.participant)} · ${text(i.category)}</p><p><strong>${text(i.action)}</strong>${i.due?' · due '+text(new Date(i.due).toLocaleString('en-AU')):' · review in the register'}</p><label>Action owner <input data-incident-owner="${i.id}" value="${text(i.owner)}" maxlength="100"></label> <button class="btn btn-secondary btn-sm" type="button" data-save-owner="${i.id}">Save owner</button><p><a href="#/admin/records?section=incidents" data-review-incident>Open incident register</a></p></section>`).join(''):'<p>No open incidents in the register.</p>'}<p class="muted-sm">${text(r.note)}</p>`;}catch(e){wrap.textContent='Incident follow-ups could not load: '+e.message;}
   }
   function messageCursor(cid){return threads.get(cid)?.older_cursor;}
   function latestMessage(cid){const rows=threads.get(cid)?.rows;return rows?.size?Math.max(...rows.keys()):null;}
@@ -174,7 +174,7 @@ window.BookItReview = (() => {
     const retry=e.target.closest('[data-draft-save]');if(retry){retry.disabled=true;try{await saveDraft(retry.closest('[data-note-form]'),true);}catch(err){toast(err.message);}finally{retry.disabled=false;}return;}
     if(e.target.closest('#reviewClearVisit')){filter=null;sessionStorage.removeItem('careweb-match-preferences');await loadWorkersLive();document.getElementById('reviewVisitStatus').textContent='Showing all workers; no particular visit checked.';}
     if(e.target.closest('#reviewOlderMessages')){const c=LIVE.convos.find(c=>c.id===LIVE.activeCid);if(c)await renderThreadOnline(c,true);}
-    if(e.target.closest('[data-review-incident]'))CMP_TAB='registers';
+    if(e.target.closest('[data-review-incident]')){e.preventDefault();location.hash='#/admin/records?section=incidents';}
     const owner=e.target.closest('[data-save-owner]');if(owner){try{const id=owner.dataset.saveOwner;await API.call('/admin/incidents/'+id,{method:'POST',body:{action:'owner',owner:document.querySelector(`[data-incident-owner="${id}"]`).value}});toast('Action owner saved.');}catch(err){toast(err.message);}}
   });
   document.addEventListener('change',e=>{if(e.target.id==='filterService'&&filter){if(e.target.value)filter.set('service',e.target.value);else filter.delete('service');loadWorkersLive();}});
