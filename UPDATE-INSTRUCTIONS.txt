@@ -1,6 +1,6 @@
-THE CARE WEB v88.4.4 — CUMULATIVE CHANGED-FILES UPDATE
+THE CARE WEB v88.4.5 — CUMULATIVE CHANGED-FILES UPDATE
 
-Apply over v88.3.4 or v88.4.0–v88.4.3. This includes the earlier payment,
+Apply over v88.3.4 or v88.4.0–v88.4.4. This includes the earlier payment,
 private address and admin usability updates.
 
 EXISTING LIGHTSAIL WEBSITE
@@ -11,7 +11,7 @@ Then check:
   sudo systemctl is-active bookit
 Refresh the browser with Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows).
 The update must complete successfully. Confirm /api/version shows APP_VERSION
-88.4.4 and SCHEMA_VERSION 88402. No second website is required.
+88.4.5 and SCHEMA_VERSION 88403. No second website is required.
 
 ZIP ALTERNATIVE
 1. Preserve a backup of source, database, uploads, photos and environment.
@@ -19,6 +19,13 @@ ZIP ALTERNATIVE
    matching source files. This is a partial ZIP; do not delete absent files.
 3. Preserve runtime data, secrets, live settings and provider keys.
 4. Use Node 22 (>=22.12 <23), install dependencies if required and redeploy.
+
+BOOKING EMAILS
+Open Admin > Settings > Email setup to see the sending address and send a test
+to your own account. Today > Email delivery shows its actual sending result.
+Email provider credentials must be configured on this existing website.
+Queued means waiting; Accepted means the provider took it, not inbox delivery.
+See docs/EMAIL-SETUP-v88.4.5.md. No second website is required.
 
 LAUNCH CHECKS AND OVERNIGHT SUPPORT
 Admin > Settings > Launch checks opens the simplified launch workspace.
@@ -45,6 +52,6 @@ does not confirm onward bank settlement or transfer wages.
 
 User guide: docs/USER-GUIDE.html
 Payment setup: docs/PAYMENT-SETUP-v88.4.0.md
-Changes: docs/CHANGELOG-v88.4.4.md
+Changes: docs/CHANGELOG-v88.4.5.md
 Checks and limitations: docs/TEST-RESULTS.md
 Full installed-tree hashes: RELEASE-FILES.json

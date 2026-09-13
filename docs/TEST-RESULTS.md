@@ -1,3 +1,14 @@
+# v88.4.5 validation
+
+- 46 new focused scenarios cover booking notification recipients and stale-state checks (17), actual HTTP booking lifecycle (8), HTTP email diagnostics with a local mock provider (10), and email interface/account settings (11).
+- The complete automated suite exercises the existing payment, location, overnight, admin and safety workflows alongside these changes. Test results are recorded in the accompanying package verification report.
+- Upgrade acceptance passed 5/5 from the trusted v88.3.4 baseline, preserving users, existing booking fields, invoice snapshots, withdrawals, document records and uploaded bytes over two boots.
+- Generated inventories identify 403 routes and 107 tables, schema 88403. Four additive outbox label columns retain safe message metadata after body purging; existing queued payloads are backfilled.
+- The cumulative ZIP is checked by exact byte overlay from v88.3.4, v88.4.0–v88.4.4, including both v88.4.3 source variants.
+- The updated guide has 73 unique IDs and 97 valid internal links.
+- All email tests use synthetic records and local mock transports with external traffic blocked. No real emails, payments or live deployment were performed. Provider configuration and inbox delivery on the existing website remain unverified; a public version check timed out.
+- Rendered browser layout remains unverified. The previous Chrome preview attempt was blocked; this release does not claim a fresh browser pass.
+
 # v88.4.4 validation
 
 - Full `npm run check` passed on Node 22.23.2: syntax, generated route/table inventories, release documentation, source hashes and the complete automated test suite.

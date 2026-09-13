@@ -45,6 +45,7 @@
  ['reports-workflow','Reports','Workflow times','#/journey?panel=metrics','See waiting times and progress through the service.'],
  ['evidence','Reports','Evidence history','#/admin/reports?section=evidence','Read the record of checks and their reviewers.'],
  ['charge-report','Reports','Completed charges','#/admin/reports?section=charges','Review completed shift amounts and estimates.'],
+ ['email-settings','Settings','Email setup','#/journey?panel=deliveries&section=connection','See the sending address, email connection and a test to your own inbox.'],
  ['payment-settings','Settings','Payment connections','#/payment-tracking?tab=setup','Set up secure invoice payments by card and PayTo.'],
  ['automation-settings','Settings','Payroll, tax & documents','#/journey?panel=settings','Configure payroll cutover, invoice tax and document processing.'],
  ['pay-rates','Settings','Pay rates','#/admin/settings?section=pay','Review award comparisons, worker tiers and rate settings.'],
@@ -60,6 +61,7 @@
  function resolve(hash=location.hash){
   const [path,query='']=hash.replace(/^#/,'').split('?'),p=new URLSearchParams(query),s=p.get('section');
   if(path==='/payment-tracking')return ({receipts:'receipts',exceptions:'payment-exceptions',setup:'payment-settings'})[p.get('tab')]||'payments';
+  if(path==='/journey'&&p.get('panel')==='deliveries'&&s==='connection')return 'email-settings';
   if(path==='/journey')return ({tasks:'tasks',recruitment:'recruitment',payroll:'payroll',deliveries:'deliveries',transitions:'transitions',finance:'finance-review',metrics:'reports-workflow',settings:'automation-settings',shift:'bookings',series:'bookings'})[p.get('panel')]||'tasks';
   if(path==='/admin/verification')return 'verification';
   if(path==='/admin/assurance')return p.has('incident')?'incidents':({operations:'operations',checks:'launch-checks',handoffs:'support-arrangements',billing:'billing-review',configuration:'assurance-settings'})[p.get('tab')]||'operations';

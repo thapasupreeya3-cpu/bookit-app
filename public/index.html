@@ -1781,7 +1781,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 </style>
 <script src="/assets/bookit-review-improvements.js?v=88.4.4"></script>
 <link rel="stylesheet" href="/assets/admin-workspace.css?v=88.4.2">
-<script src="/assets/admin-workspace.js?v=88.4.3"></script>
+<script src="/assets/admin-workspace.js?v=88.4.5"></script>
 <link rel="stylesheet" href="/assets/process-workflows.css?v=88.4.2">
 <link rel="stylesheet" href="/assets/admin-verification.css?v=88.4.2">
 <link rel="stylesheet" href="/assets/site-usability.css?v=88.2.7">
@@ -14082,6 +14082,8 @@ async function renderAccountContent(wrap, isCurrent){
   const notCard = nots ? `
   <div class="info-card" style="margin-bottom:18px;" id="cardNotifs">
     <h3 style="margin:0 0 6px;">Emails</h3>
+    <div class="flow-email-test"><p><b>Your emails are sent to:</b> ${esc(me.email || 'No email address recorded')}</p><p class="muted-sm">These preferences belong to your signed-in account.${API.actingFor?' They do not change the participant’s email address.':''}</p><button type="button" class="btn btn-secondary btn-sm" data-flow-action="test-email">Send me a test email</button> <button type="button" class="btn btn-secondary btn-sm" data-flow-action="check-email-test" hidden>Check test status</button><p role="status" data-email-test-status></p></div>
+    ${me.admin?'<p><a href="#/journey?panel=deliveries&amp;section=connection">Website email setup</a> · <a href="#/journey?panel=deliveries">Outgoing email history</a></p>':''}
     <p class="muted-sm" style="margin:0 0 10px;">Switch off what you don't want — the greyed ones always send (password resets, lapsed checks: they exist to protect you).</p>
     ${nots.kinds.map(k => `
       <label style="display:flex;gap:10px;align-items:flex-start;margin:7px 0;cursor:${k.optional ? 'pointer' : 'not-allowed'};${k.optional ? '' : 'opacity:.55;'}">
@@ -15402,7 +15404,7 @@ document.addEventListener('click', async e => {
 
 <link rel="stylesheet" href="/assets/payment-automation.css?v=88.4.3">
 <script src="/assets/next-actions.js?v=88.4.2"></script>
-<script src="/assets/process-workflows.js?v=88.4.4"></script>
+<script src="/assets/process-workflows.js?v=88.4.5"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
 <script src="/assets/booking-calendar.js?v=88.4.0"></script>
 <script src="/assets/payment-automation.js?v=88.4.3"></script>
