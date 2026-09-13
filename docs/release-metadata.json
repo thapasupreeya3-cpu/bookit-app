@@ -1,11 +1,11 @@
 {
-  "version": "88.3.2",
-  "base_version": "88.3.0",
-  "base_archive": "The-Care-Web-v88.3.0-launch-fixes-only.zip",
-  "base_archive_sha256": "1b1d354a91830ef72ebe62ccfb61c38ef09461487815adcfd53ad216085aed09",
+  "version": "88.3.4",
+  "base_version": "88.3.3",
+  "base_archive": "The-Care-Web-v88.3.3-task-clarity-update-only.zip",
+  "base_archive_sha256": "032f61da32349cf716fd85ca0c297bbfafe062900d085f8c475a59f6666f9032",
   "base_commit": null,
   "package_type": "full source archive",
-  "output_archive": "The-Care-Web-v88.3.2-source.zip",
+  "output_archive": "The-Care-Web-v88.3.4-invoice-flow-update-only.zip",
   "scope": "Automatic NSW holidays and itemised pricing; immediate approved-shift invoicing with durable invoice/email retries; complete block register and updated user guide.",
   "unchanged_assets": "Existing media, branding, fonts and PDF.js vendor bytes are preserved."
 }

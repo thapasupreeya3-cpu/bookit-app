@@ -16,3 +16,5 @@
 .billing-form-status:empty{display:none}
 .billing-setup :focus-visible{outline:3px solid #658fd0;outline-offset:2px}
 [data-theme=dark] .billing-held{color:#ffb69b}[data-theme=dark] .billing-ok{color:#8fe0b1}
+
+.invoice-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.invoice-actions .adm-btn-sm{white-space:normal;min-height:36px;text-align:center}.invoice-state{display:inline-block;padding:3px 8px;border-radius:6px;border:1px solid;font-size:.8rem;font-weight:650}.invoice-due,.invoice-partial{background:#e9f2ff;color:#174575;border-color:#5f8dbc}.invoice-paid{background:#e8f6ed;color:#205736;border-color:#518966}.invoice-withdrawn{font-weight:650;color:var(--ink-soft,#4A5570)}.invoice-history{margin-top:20px}.invoice-history>summary{font-weight:650;cursor:pointer;padding:10px 0}.invoice-history-row{padding:12px 0;border-top:1px solid var(--line,#ddd)}.invoice-history-row p{margin:6px 0;overflow-wrap:anywhere}.invoice-table td{vertical-align:top}.invoice-table{min-width:680px}.invoice-table .muted-sm{font-size:.8rem}@media(pointer:coarse){.invoice-actions .adm-btn-sm{min-height:44px}}

@@ -1,8 +1,13 @@
 {
-  "release": "88.3.2",
-  "base_release": "88.3.0",
+  "release": "88.3.4",
+  "base_releases": [
+    "88.3.0",
+    "88.3.1",
+    "88.3.2",
+    "88.3.3"
+  ],
   "format": "full-source",
-  "note": "Installed source tree after the update; runtime data excluded.",
+  "note": "Installed source tree after changed-files update. Runtime data excluded.",
   "files": {
     ".env.example": {
       "sha256": "370eda7ea5edf49085cd0ce509cf73232f2e9f364e228827054b591cecd54121"
@@ -17,7 +22,7 @@
       "sha256": "08062faf0d7a2d22f5d7933c50e975dd1527034275597be7c1b3b9fd2b9d079a"
     },
     "STARTHERE.txt": {
-      "sha256": "c8ead5e87c5557f33a797911c3047f42fe87b3c0069d23a63c709cb6c0252d3d"
+      "sha256": "55c03062f427dad596bd970971bc7f53c6605ccd9de9393ace740da10f4d23e2"
     },
     "blank-forms/p-advocate \u2014 Advocate, nominee or decision-maker form.pdf": {
       "sha256": "a8c898cc4a2b56f8c44d388846a900873e8a3331f6d1027e7e85766400281ac7"
@@ -359,7 +364,7 @@
       "sha256": "3e37c411de257f1e17082a9ec28258bbf3cc36dedea1aab8da1fff1ee4b703c3"
     },
     "docs/BLOCKS-AND-AUTOMATION.md": {
-      "sha256": "443fd55256e7d7c08cdc39b54de413bdc0c9b830707fd92a753b0acea30a8ca5"
+      "sha256": "f37632cb87c9ab10e7d18edc32285f090f2a3d05f69e05ceb1907232cbeafb46"
     },
     "docs/CHANGELOG-v88.2.10.md": {
       "sha256": "ef90f19fe11541c9d67ed440acd3d6ed7ab9358583442995669b12c219532c4a"
@@ -403,6 +408,12 @@
     "docs/CHANGELOG-v88.3.2.md": {
       "sha256": "ebb0d5075da5aeda144c409fe2652cf19b583f8b7b595d6063a57d0ba72eca2e"
     },
+    "docs/CHANGELOG-v88.3.3.md": {
+      "sha256": "611e7a86edacf13eb96f68b35cacd36a349fe9b7c6b005602c19b380dd53bad7"
+    },
+    "docs/CHANGELOG-v88.3.4.md": {
+      "sha256": "22ba95ca277d1251889fb0851b1d7ee879da5bb8a05845ef3af90c296b119c68"
+    },
     "docs/DATA-AND-PROCESSOR-INVENTORY.md": {
       "sha256": "0eed4be99d447a1d05fc19e98cb1ce5bfaea48aa0faa08ac7128e3c94110bb87"
     },
@@ -434,7 +445,7 @@
       "sha256": "d7760a7ea67454c6c7e28201c164ba7f9ed02b2104cf0b7aeafae7aec8123eba"
     },
     "docs/USER-GUIDE.html": {
-      "sha256": "8043032b9c232e418f368d47e2d2f442e3591428a938c3dc9aaf7c05192ac877"
+      "sha256": "529cda9d3ac5c34ca0cd4acee543e16ce71f24bc83af08b4d93da7de5196d12c"
     },
     "docs/WORKFLOW-OPERATIONS.md": {
       "sha256": "6d56747006ab86cd85ac36ddb810c4c24bfb2500901108b3bc2ec19866cd5ef3"
@@ -443,22 +454,22 @@
       "sha256": "a37c011ff63151d3276dab34d64a592a420da13afa065869328b2cdcbc5c3d1c"
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "769c474500ffa8b7c0362be1b0822f0e53778e79f0d6c2053579e43d0963c661"
+      "sha256": "e5dd67156a4d61215b3df13f6b946602b0a7a0b144577c5672b5328da1876432"
     },
     "docs/block-register/branches.csv": {
-      "sha256": "843fc696dd647370986b1be6f7386268da31f9da48bc1e5ace1afd73fab173e2"
+      "sha256": "3dac61d004ee57a925ceda37433cb5cd50c2244b6588145ab3e74e319eff64c9"
     },
     "docs/block-register/branches.json": {
-      "sha256": "0dfc0f1e9480663abba29f67e1a4c142335588478a8190df9167dc67078bea40"
+      "sha256": "157865a540b3b6b3f1109b851c3f6507b9b69e39f300ab93adb44675abc3818a"
     },
     "docs/block-register/index.html": {
-      "sha256": "5da5b4cfd3174ccda43eea9d1909afef6b0a52bd35e2249dca6632436e09867c"
+      "sha256": "92e965f17a0d824252fb7898064701887a9161f67675249a44b209a94737a549"
     },
     "docs/block-register/register.csv": {
-      "sha256": "0b0e778380a769b53401c5c876b8777dab7c62d246889907b75a8c97cd94e44e"
+      "sha256": "1851f3f2c135c218ae6edd84e3b4975e46a3f592a4f7c8e32cda21aa01ea9283"
     },
     "docs/block-register/register.json": {
-      "sha256": "3e08ec7449b813716cb23ba51a0b6e1eba579b41cd40489f8e18cc9f9a5cee86"
+      "sha256": "161bd2fbd3786e649b305252e1053e72619844b18ed838865115e2d2f1279191"
     },
     "docs/booking-calendar-preview.html": {
       "sha256": "d9e3e7522136a8a0b0ed733683da262c175e7b15bee5b1b8259b294e95b46a90"
@@ -467,7 +478,7 @@
       "sha256": "9c4d07074b47490dc87b79b79e9fb38a30170437d238402922eb10607b945b44"
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "675096b2a83113f93856138343a59f583a9036a7a80314e2ac2eee6df043cd91"
+      "sha256": "8fd9891587c1086ef2ec89b713441633833692ca6fe12a530468ecc23ca154cc"
     },
     "docs/dependency-provenance.json": {
       "sha256": "b5fe529aada0548ffb813d89455cfea3385f13f96616d2d0b47d99809234cee3"
@@ -529,6 +540,9 @@
     "docs/history/v88.2.1/release-metadata.json": {
       "sha256": "733b72b5a3da6ade4334c0ca30321e734e95366fc4e47811f6a29cb1bfada3f2"
     },
+    "docs/invoice-flow-preview.html": {
+      "sha256": "ea9c0d3c75c3f5bfe35dac9a43c86a0a288b9489d8805335d4fb95b429b035e8"
+    },
     "docs/launch-actions.json": {
       "sha256": "836db532b454fc980ca0f61d68c0d123c7bdd9a2d6e395cc280976ec7c8aae47"
     },
@@ -545,7 +559,10 @@
       "sha256": "c2540544bb51584837c24648f470e6bb2bdd1703df0cb0c0e1417c0d0e46b00c"
     },
     "docs/release-metadata.json": {
-      "sha256": "06909c89c669d2fa123c2dc46ed74191420f3a344e733c920edae286564760ba"
+      "sha256": "4155cccc06db3f593481b56feae0f586db9533f9be0501728cb8af2c84e78a0f"
+    },
+    "docs/task-clarity-preview.html": {
+      "sha256": "44cdbe9cd9805da7c210ad1bf6bcc54bc58301f6a9853276e8d3051e6f86b815"
     },
     "docs/validation/check-output.txt": {
       "sha256": "b052405632d23028f8f03e86564e63aa4615e0ff4b9e4c2314605a2e3bce8671"
@@ -616,6 +633,9 @@
     "lib/bookit-hardening.js": {
       "sha256": "b5e13767e7c9691084b67587addcec371344d96d84bb2be67fac511d4195a994"
     },
+    "lib/certificate-monitor.js": {
+      "sha256": "755ab7c7656128b4d458287a567d3f66c87db0d34fdb65aa8f40dd984c22beb8"
+    },
     "lib/confirmation-proof.js": {
       "sha256": "41552fb4455c973059e6e8d03c3265a379a6711133b043c3ee0f46690dfa944d"
     },
@@ -625,8 +645,11 @@
     "lib/incident-policy.js": {
       "sha256": "3234e08497e6c806ea1c6b1bcaf42688373796dd5779bd8bc6b62311ab301de7"
     },
+    "lib/invoice-lifecycle.js": {
+      "sha256": "d26178665d45251517f05eb3b33b847bf90540916c13666dcc9cbeb0a7c0e8bd"
+    },
     "lib/launch-assurance.js": {
-      "sha256": "b5f956ff8eb172ad1a14b2cfec4a877fa4002124f7556805f4a9220030c3aa4c"
+      "sha256": "ffca2e2d04050ca85afd11b0cd3b36e3ee4ded1d11cc107e8b88aab5a36f56e6"
     },
     "lib/message-pagination.js": {
       "sha256": "5262ad0331c46edc7dc4e0f3321d2e3ae6bb1c297c372a1a20cf11647c23b930"
@@ -644,13 +667,13 @@
       "sha256": "a8484be58bdecc75b6b5e19ecb93cdae6681d304df2cb7e2711be50e8957bbbf"
     },
     "lib/process-finance.js": {
-      "sha256": "0db67e43e1d8edf3e41a8d1a2c1f42bfc828122d7e4ff345110b7478e108ccc0"
+      "sha256": "63934afaa487186620427085727b23e69585cec9659d10767f461a06096f21de"
     },
     "lib/process-routes.js": {
-      "sha256": "843b3b9eb7557dd1bdfeb6d9476739544cff820117f90aa300d54cae7f2003f3"
+      "sha256": "6acbe9a6959201169904845cbb8751e2ed5aa27dd290d7cd3319833e7dfd9e1b"
     },
     "lib/process-store.js": {
-      "sha256": "aa14f7f7a814d6b74fef44b7f9c1ac3b44881bff2565d151bac1f9a1d06b6e87"
+      "sha256": "e8aac9ee3001641fe28acc231e1918a9e6af9dddf923d497c0b26b5753b9d5e3"
     },
     "lib/public-holidays-nsw.json": {
       "sha256": "47c55277bfd6c5cfb1f193b14744bdf69d95fee78c1a73fdbc14ef01a1213bb8"
@@ -664,6 +687,9 @@
     "lib/register-access.js": {
       "sha256": "4a3e0d4eb30f2b5b8f7e4a27772926cd27a5d7901ee5e2d5fee14c4194d7d8bf"
     },
+    "lib/task-queue.js": {
+      "sha256": "25babb1f9d6e3240e6d15f9c5f87c46b7974a090790f0897b8de562d5d46fc88"
+    },
     "lib/travel.js": {
       "sha256": "411eba27dcf4a52c26f56397529237b3b2b21220b92db2ef4aadc38bb72ec135"
     },
@@ -671,7 +697,7 @@
       "sha256": "613e4a8a0cb0de565c21bec64b58a79a3f26509cab783d947cf5fbe6dcc66882"
     },
     "lib/version.js": {
-      "sha256": "3785591c86de6ad32d04bd89fdac821c6c6df585ef3eb94c8d9e0143f949f5f2"
+      "sha256": "16965c06d8b7ecf07d1aa5641279f9e6492cc07728b3662daa48c475024cb9b6"
     },
     "lib/worker-availability.js": {
       "sha256": "e3b6369c30583ba580edb9982ee2d90ecd76c36b771a464f12a08a389ba6562b"
@@ -686,10 +712,10 @@
       "sha256": "65bafd60044e3d30d98ab6d0a21ccca993933578452ba69452431b233d84914e"
     },
     "package-lock.json": {
-      "sha256": "bf33d70579370124a535575d5fabc20753cf59c1a77d3a7685296fc90e992853"
+      "sha256": "8015484ea9f7e90dc9ee0e33ecd6069c8f90089e6654786a746577ffd3f4b668"
     },
     "package.json": {
-      "sha256": "539ad98ab391658f759f9f44b0b39216e8d790fe21fb4af03bd8f937c4d681ae"
+      "sha256": "30e2584154c38cb326679ed5a5eabb3d107c8d2e3371525d14244ee344c8ff75"
     },
     "prefill-walkthrough.js": {
       "sha256": "8cdc0cba5675f33b4ccefc4cdebf896c8933b68ac2fedea86ea13a5f3115235b"
@@ -701,10 +727,10 @@
       "sha256": "d3f2b78c38f101a7887653db879ea56355383a93d382a01897e5126b501828be"
     },
     "public/assets/billing-setup.css": {
-      "sha256": "51e4c3835a38dd17d79c58cbb1a256941b4bfe2c6da9e8e9e81b1868cfe51699"
+      "sha256": "2dff58f80c7f6ecead1ecb785e4b91351d4915f4829dd01b2c17077107d6a37e"
     },
     "public/assets/billing-setup.js": {
-      "sha256": "369f123323e57be518caa3c6204b01b5d4d6cf1427fb792ae3c2d34612a6c5ee"
+      "sha256": "ce73d1a0412773ab4d1ddd6416b7e1ffb505b843de31996d4eb7b0918233af47"
     },
     "public/assets/booking-calendar.css": {
       "sha256": "2caf5c5abf2f13d913cfa9f20e42bf7da477658fafebcab957ae24185bec3be9"
@@ -914,16 +940,16 @@
       "sha256": "ad60c66b26562add545450c8979fb23d755916d8fed90b0855d7bb45a5d944c5"
     },
     "public/assets/launch-assurance.css": {
-      "sha256": "15b89b2ce3cd72b0200e1ebc9dc9a4af4cfb4d8c5a4aad53ee18d9144f2b4ad7"
+      "sha256": "17204b5263115d1239004463ad04909d5329c6a15d503f68a4f3ec3161892f79"
     },
     "public/assets/launch-assurance.js": {
-      "sha256": "697a621b4251510c2692f1ca6ef08aa065f24b29528721eea6f2ad5f803c8818"
+      "sha256": "2641eb694f6281dc25d2fec9d70e223da033d4965dc83e1c87996d98bec1cedb"
     },
     "public/assets/next-actions.css": {
-      "sha256": "de4864a412eed5dbce20c5c337a3c6009399278aeebccf37e4caf2840d6c9a4d"
+      "sha256": "0527cb625d3544962777bb4a63448374a0456733159523c0bc09f3d77e137c4c"
     },
     "public/assets/next-actions.js": {
-      "sha256": "7cdeda63f713a50de949b78e856a1a76cb22ebb23f24f88f4d328415ae01068d"
+      "sha256": "cfa5ddf332eab3ec9e1bff6c8498a98a889d3fd9c1d7ad1fc4423795cc744b24"
     },
     "public/assets/photos/_spare-kitchen.jpg": {
       "sha256": "dc2359807a0e47daa3ccba83cd877e6e7057098b85553d22ab22393d0280c69a"
@@ -1073,7 +1099,7 @@
       "sha256": "60bb8ac24217e532aa72ac34007451af0123d94d3626c45833140c27ee48a3a2"
     },
     "public/assets/process-workflows.js": {
-      "sha256": "bd59233f2401f67d58307e098d3b29927791a879fbd89ead0b0e3517ae51b2b4"
+      "sha256": "1f25b226eba17ac5fdfd7fd9c2e577b674675b0a76903e4b62a9515412e83537"
     },
     "public/assets/scenes/community-real.jpg": {
       "sha256": "9b8f3378789499ca95eada4c3799d10767a616d3984f2392f7dc7e3006f48db1"
@@ -1181,7 +1207,7 @@
       "sha256": "ad025e807e4906ebfc0f448e5bebcd1a44c5e2e9b9cf6759f9b728661062a382"
     },
     "public/index.html": {
-      "sha256": "964fa2ecd6d10df0688f1216fd021d94bb649f2bd31211f863eec255f8ecaea9"
+      "sha256": "b0b30db3cbc6723ed4bff47bbbe05bbb967a4b516a42cadea3a5d34672ecf1b4"
     },
     "public/vendor/care-cast.js": {
       "sha256": "6461468f0755d4797be60b29095744fdd701de092ae8f7f5fc1ee60149aa9a37"
@@ -1310,7 +1336,7 @@
       "sha256": "06552c54e4071fbc7305117aafe6765d92c5d2a2a83507d4f05b9bf4f3d4d463"
     },
     "readme.txt": {
-      "sha256": "5ca0df53c3650207aa530e6a729b77498ab867462a5c5aef5a81b64952087707"
+      "sha256": "8594c4652d2600d518d1b64cef7e74dbf3f388f9c3066cc03ab52817b232d598"
     },
     "scripts/NDIS_plan__sample_for_walkthrough.pdf": {
       "sha256": "8ef1ce7de6bc4247997252664267635ee011b51362f57699bbcb0e688dd55e82"
@@ -1337,7 +1363,7 @@
       "sha256": "ea54bcd8fb61e1acff0f7b1290e45fd0a8e67b11df6b47fa88948341a2214e19"
     },
     "scripts/release-docs.js": {
-      "sha256": "8700db7a916faaf00363de85cb0e0ab1a2839672d8911c43ec42b32acd798ed0"
+      "sha256": "0539caee3193edfbd403ed93eb1be34f039b596af269d7ee67f188e42d49ed4c"
     },
     "scripts/reset-test-agreements.js": {
       "sha256": "1b9b724eb295c8b652d80b07471a53487794ffef80da699dc8122d1ffcdf663f"
@@ -1355,7 +1381,7 @@
       "sha256": "8952d95bced1c7bc3acd23875a4a4180ff537540d21c8f86fb85e78ce16dcfd1"
     },
     "server.js": {
-      "sha256": "803b0df63620675bf1b29e23da19bb19e5d08c0a37987b40b05cc72a03a08058"
+      "sha256": "fc941bfb8efaa52ffc859f2c068f495d2394ffbc17a3b35612f0bbc2eaabbb59"
     },
     "tests/account-settings-tests.js": {
       "sha256": "45489d9aaa691f1a49234683ebf4a8efb25235c34f427ea0c6aa28a3261a5858"
@@ -1370,10 +1396,10 @@
       "sha256": "912da0513f4464984679c19aefcee2d40d19835216d178922681a29989a3baf2"
     },
     "tests/automatic-billing-unit.js": {
-      "sha256": "234e63b2e009b56cf1eb1d70d15bf24b044a30ded747dce5dea87a469616d0c0"
+      "sha256": "1aa68b285ba18d40047d21a444f28d9055d930cf7d93efd5cd9f7529bfb564f3"
     },
     "tests/billing-flow-tests.js": {
-      "sha256": "4896dda515f27c4637f685783fb7f7300264f3d862e8abe342f05603f22cbe9f"
+      "sha256": "fa26a9d58286a4baa7d34d64c9373d0f7b3a5c59291cda63924b23e264e23ebf"
     },
     "tests/booking-calendar-tests.js": {
       "sha256": "08b5dcacecb3979a6def7e912c3c36bd03ceff43b4ea37854a0de544c32f49a4"
@@ -1388,7 +1414,10 @@
       "sha256": "b0fa79ff1b02bbf56efe14182e0f2ce6c9bee05f163862f1ddc8cb8ad8a80dbb"
     },
     "tests/graphics-tests.js": {
-      "sha256": "4b4ca837c8091c6b08cd5d2699294c596b699ef1b342ad6f73320b5cab6c1f95"
+      "sha256": "326df6ebdc4d28fed5245ab97b0452ee01120e92c841e9331f3b539db70890d4"
+    },
+    "tests/invoice-lifecycle-tests.js": {
+      "sha256": "ed50a8ebf8c266a34e8f67eb9fcdca35a38254a9dedc75e4a4ba3bfbb5492f5b"
     },
     "tests/launch-regression.js": {
       "sha256": "9fc19746143f79363563fc29a1c5e7a8172e344a94692515e4f50e319e610310"
@@ -1406,7 +1435,7 @@
       "sha256": "0b6d8caba88c71fc1a45b695667f5b3d0a98c0745d7c769db655d426601e10b0"
     },
     "tests/process-regression.js": {
-      "sha256": "be976624d04757d4f6dc527c20f138ff11e928543c246139ab327e29be3b295a"
+      "sha256": "4a168448154c19768c468187d4435c4bbc979726531d36c0c50c1275a266ae15"
     },
     "tests/review-regression.js": {
       "sha256": "254495febc62893665be808cb243ba98b7a4dfb74cd491e2e82007974728d243"
@@ -1415,7 +1444,10 @@
       "sha256": "062bf7abda19c5391b8cc9343c2d845949e6a3cb091770f610bdda9c640d3401"
     },
     "tests/smoke.js": {
-      "sha256": "676885df4eb22a6ccb19331af3bd90d12213e3151a988aa1b5482422cfca95a1"
+      "sha256": "f4ca43fc4f8f9d26da26b78f9895bba946e681957a4aee7936d7ed0947795ee4"
+    },
+    "tests/task-clarity-tests.js": {
+      "sha256": "1cb532747790bc88a85e54559bcb84999f5140759dd548daf1cf78cdf5208fe9"
     },
     "tests/verification-automation-scenarios.js": {
       "sha256": "fbed0af07e657d2353b9d03bcad5a700b34a337b2a73e803d38284b1207663e0"
@@ -1779,6 +1811,81 @@
     },
     "validation/v88.3.2-upgrade-results.json": {
       "sha256": "dcc39d8bfda901f436123ba817646532e5f00bcdabb7fd6a0ec50e2e239499d3"
+    },
+    "validation/v88.3.3-block-scan.txt": {
+      "sha256": "6d1dca06cbb9a06d26b3078068faf09e0026ea8b733ce915d81f718e28c1df39"
+    },
+    "validation/v88.3.3-browser-check.txt": {
+      "sha256": "65b6ba785d97703f071d0a9b5766b3db302ed619d47eb13d35242a8556995c4a"
+    },
+    "validation/v88.3.3-check.txt": {
+      "sha256": "0aff29a6b6a89335e72af76ec6ca68a956dc676fabb2b92f218b23b2039975e4"
+    },
+    "validation/v88.3.3-full-tests.txt": {
+      "sha256": "de874d0a97a41967337efebdadab6ca234c8d8f8b8e1a2c493a6a211a3fe8f71"
+    },
+    "validation/v88.3.3-guide-validation.json": {
+      "sha256": "17e65341441cf196e678669a9b7b83bc4e62e19f3c382b3d35d6702d3f09dbf6"
+    },
+    "validation/v88.3.3-lint.txt": {
+      "sha256": "0c546dc826cedcdab4793e5b272f316b04869d028ebaf808b1e4ee8ddd0b5f82"
+    },
+    "validation/v88.3.3-preview-validation.json": {
+      "sha256": "ef26b9343618e7729abf7d154d3984631dd1fdfad45ef5273c7ea1bc4357fa7f"
+    },
+    "validation/v88.3.3-release-docs.txt": {
+      "sha256": "cfe670f6e12ac9d937cdde7b71190e15bb214e1b9142883b9570813ebd94ab25"
+    },
+    "validation/v88.3.3-report-validation.json": {
+      "sha256": "34ef1d0263077276c52807c3ab69390fbb4fa825a01e4952bc051b930dee2b67"
+    },
+    "validation/v88.3.3-task-results.json": {
+      "sha256": "d7c1ec2730c95db53deca653a072ca161e592c2087bc6cb0bbb420ff5f1d5f99"
+    },
+    "validation/v88.3.3-task-tests.txt": {
+      "sha256": "99e0d633920029565b4f770a3f93360ba3bf861f074974521aa4e9c5d057cedf"
+    },
+    "validation/v88.3.4-billing-results.json": {
+      "sha256": "53ea39da3061764877aa772d3d12f3ebf1a35c16dbf0a96b777459fa88a8db1a"
+    },
+    "validation/v88.3.4-billing-tests.txt": {
+      "sha256": "33b41ea087a22e54d6bd98b791d1c1c21552f7350eef289566359a79ead243ca"
+    },
+    "validation/v88.3.4-block-scan.txt": {
+      "sha256": "0e043d05d4132e56eaa46359ac1791639638af58f6b4571442b7697bb09d4ef9"
+    },
+    "validation/v88.3.4-browser-check.txt": {
+      "sha256": "bafe94735a080b09cf7a9c3ac10ed407be0130922e76d0e3876a241e40ba8c45"
+    },
+    "validation/v88.3.4-check.txt": {
+      "sha256": "06d03c729d9f482b800f73796bef2da5b15dcaccc53c299648bd1087efc6df1f"
+    },
+    "validation/v88.3.4-full-tests.txt": {
+      "sha256": "d76fa6db746ad25a5e0e10b57ff9a0f6edd762e3ca44c52c19903ba3cae03860"
+    },
+    "validation/v88.3.4-guide-validation.json": {
+      "sha256": "131b6119dab0e616e4583e13f50946519accea3263d8df4bdd2e360baaef0ac5"
+    },
+    "validation/v88.3.4-invoice-results.json": {
+      "sha256": "dd0d80b8083d40f0137a5bfa56cae04f097e056bc4f1d5b046c9948ffafeff3b"
+    },
+    "validation/v88.3.4-invoice-tests.txt": {
+      "sha256": "625d6d922db84922a0738886cbb8fa7c557e3564bd50fed1f74a6b3607c6d36f"
+    },
+    "validation/v88.3.4-lint.txt": {
+      "sha256": "ae3e9727b2ceba1142fcefd91b394512731e0d4d1b318155e5821f2be6fa40ec"
+    },
+    "validation/v88.3.4-release-docs.txt": {
+      "sha256": "b058a6e5bb04fe48b818ca18ed2328b3201b37e712b05d8484dc2da0ed97e8b2"
+    },
+    "validation/v88.3.4-report-validation.json": {
+      "sha256": "fa7e9d0be8a568a06cfa6569d20990b4bbd478b314660bdbbc83f2742304369b"
+    },
+    "validation/v88.3.4-upgrade-88.3.0-results.json": {
+      "sha256": "92a670561025610aae817d837e194750648b1c83f74abc00ef72d88cddd4aaf6"
+    },
+    "validation/v88.3.4-upgrade-88.3.3-results.json": {
+      "sha256": "7332c801da92bd4c53bcd8f6dee051dff8bd0d4b4820f8d4095482fb0e624ca6"
     },
     "word-originals/Advocate or Support Person Request Form.docx": {
       "sha256": "b08a58697fd2b2ca5b6096ce69e04fd37605db685f4002299167c79cd9526210"

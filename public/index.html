@@ -1780,14 +1780,14 @@ html.high-contrast .care-stage-block{display:none!important;}
 @media(max-width:900px){#page-admin .set-layout.no-sub .set-body{display:block;margin-top:18px;}.review-dialog{padding:16px;}}
 </style>
 <script src="/assets/bookit-review-improvements.js"></script>
-<link rel="stylesheet" href="/assets/process-workflows.css">
+<link rel="stylesheet" href="/assets/process-workflows.css?v=88.3.3">
 <link rel="stylesheet" href="/assets/admin-verification.css?v=88.2.5">
 <link rel="stylesheet" href="/assets/site-usability.css?v=88.2.7">
 <link rel="stylesheet" href="/assets/worker-credentials.css?v=88.2.10">
 <link rel="stylesheet" href="/assets/booking-calendar.css?v=88.3.0">
-<link rel="stylesheet" href="/assets/next-actions.css?v=88.2.9">
-<link rel="stylesheet" href="/assets/launch-assurance.css?v=88.3.2">
-<link rel="stylesheet" href="/assets/billing-setup.css?v=88.3.2">
+<link rel="stylesheet" href="/assets/next-actions.css?v=88.3.3">
+<link rel="stylesheet" href="/assets/launch-assurance.css?v=88.3.3">
+<link rel="stylesheet" href="/assets/billing-setup.css?v=88.3.4">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
@@ -7281,29 +7281,30 @@ window.invoicesBlock = async function(){
   let d; try{ d = await API.call('/me/invoices' + (API.actingFor ? '?for=' + API.actingFor.id : '')); }catch(e){ return ''; }
   const forQ = API.actingFor ? '?for=' + API.actingFor.id : '';
   const money = n => '$' + Number(n).toFixed(2);
-  const open = d.invoices.filter(i => i.status !== 'paid');
+  const open = d.invoices.filter(i => !['paid','withdrawn'].includes(i.status));
   const row = i => `<tr><td style="white-space:nowrap;"><b>${esc(i.invoice_no)}</b></td><td>${esc(i.date)}</td><td>${esc(i.due_date)}</td><td>${i.lines}</td><td>${money(i.total)}</td>
-    <td>${i.status === 'paid' ? `<span style="color:#1F7A4D;font-weight:600;">Paid${i.paid_at ? ' ' + esc(i.paid_at) : ''}</span>` : i.status === 'overdue' ? `<span style="color:#9E2F1C;font-weight:600;">Overdue — ${money(i.balance)}</span>` : `<b>${money(i.balance)} due</b>`}</td>
+    <td>${i.status === 'withdrawn' ? `<span class="invoice-withdrawn">Withdrawn — do not pay</span>` : i.status === 'paid' ? `<span style="color:#1F7A4D;font-weight:600;">Paid${i.paid_at ? ' ' + esc(i.paid_at) : ''}</span>` : i.paid>0 ? `<b>Part paid — ${money(i.balance)} remaining</b>` : i.status === 'overdue' ? `<span style="color:#9E2F1C;font-weight:600;">Overdue — ${money(i.balance)}</span>` : `<b>${money(i.balance)} due</b>`}</td>
     <td style="white-space:nowrap;"><a class="btn btn-secondary btn-sm" href="/api/me/invoices/${encodeURIComponent(i.invoice_no)}.pdf${forQ}" target="_blank" rel="noopener">PDF</a> ${i.pay_url ? `<a class="btn btn-primary btn-sm" href="${esc(i.pay_url)}" target="_blank" rel="noopener">Pay by card</a>` : ''}</td></tr>`;
   const banner = open.length ? `<div class="info-card" style="border-left:5px solid #9E2F1C;margin-bottom:14px;"><p style="margin:0 0 6px;"><b>You have ${open.length === 1 ? 'an invoice' : open.length + ' invoices'} to pay — ${money(d.owing)}.</b> ${open.some(i => i.status === 'overdue') ? 'One is past its due date. ' : ''}${open[0].funding === 'plan' ? 'It has gone to your plan manager, who pays it from your plan funds; nothing for you to do unless they ask.' : 'Pay by card with the button, or by bank transfer using the details on the invoice — the reference is the invoice number.'}</p>${open[0].funding !== 'plan' && d.bank && d.bank.length ? `<p class="muted-sm" style="margin:0;">Bank transfer: ${d.bank.map(esc).join(' · ')}</p>` : ''}</div>` : '';
-  if(!d.invoices.length) return `<div class="info-card" style="margin-bottom:14px;"><p style="margin:0;"><b>No invoices yet.</b> Once a shift is approved it is invoiced overnight${API.me.plan === 'ndia' ? ' — for an agency-managed plan the office claims it from the NDIA directly, and nothing comes to you' : ', and it will appear here with the PDF and, for self-managed plans, a Pay by card button'}.</p></div>`;
+  if(!d.invoices.length) return `<div class="info-card" style="margin-bottom:14px;"><p style="margin:0;"><b>No invoices yet.</b> Once a shift is approved it is invoiced automatically${API.me.plan === 'ndia' ? ' — for an agency-managed plan the office claims it from the NDIA directly, and nothing comes to you' : ', and it will appear here with the PDF and, for self-managed plans, a Pay by card button'}.</p></div>`;
   return `${banner}<h2 style="margin:0 0 8px;">Invoices</h2><div class="table-wrap" style="margin-bottom:18px;"><table class="rt"><thead><tr><th>Invoice</th><th>Date</th><th>Due</th><th>Lines</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>${d.invoices.map(row).join('')}</tbody></table></div>`;
 };
 window.invoiceBanner = async function(){
   if(!API.me || API.me.role === 'worker' || API.me.admin) return '';
   let d; try{ d = await API.call('/me/invoices' + (API.actingFor ? '?for=' + API.actingFor.id : '')); }catch(e){ return ''; }
-  const open = d.invoices.filter(i => i.status !== 'paid');
+  const open = d.invoices.filter(i => !['paid','withdrawn'].includes(i.status));
   if(!open.length) return '';
   return `<div class="info-card" style="border-left:5px solid #9E2F1C;margin-bottom:14px;"><p style="margin:0;"><b>${open.length === 1 ? 'An invoice' : open.length + ' invoices'} to pay — $${Number(d.owing).toFixed(2)}${open.some(i => i.status === 'overdue') ? ', one past its due date' : ''}.</b> ${open[0].funding === 'plan' ? 'Sent to your plan manager.' : ''} <a href="#/statements">See the invoice${open.length === 1 ? '' : 's'}, the PDF and how to pay</a>.</p></div>`;
 };
 
 /* ---------- removing records: one dialog, a typed reason, the right action ---------- */
 window.askRemoval = function(opts){
+  const previousFocus=document.activeElement;
   return new Promise(resolve => {
-    const old = $('#rmDialog'); if(old) old.remove();
+    const old = $('#rmDialog'); if(old){if(old.cancelRemoval)old.cancelRemoval();else old.remove();}
     const d = document.createElement('div'); d.id = 'rmDialog';
     d.innerHTML = `<div role="dialog" aria-modal="true" aria-labelledby="rmTitle" style="position:fixed;inset:0;background:rgba(20,30,34,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;">
-      <form style="background:#fff;border-radius:16px;max-width:560px;width:100%;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+      <form style="background:var(--card,#fff);color:var(--ink,#1B2440);border-radius:16px;max-width:560px;width:100%;max-height:90dvh;overflow:auto;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
         <h2 id="rmTitle" style="margin:0 0 8px;font-size:1.25rem;">${esc(opts.title)}</h2>
         <p style="margin:0 0 12px;">${opts.text}</p>
         ${opts.choices ? `<div style="margin:0 0 12px;">${opts.choices.map((c, i) => `<label style="display:block;margin:6px 0;"><input type="radio" name="rmChoice" value="${esc(c.value)}" ${i === 0 ? 'checked' : ''}> <b>${esc(c.label)}</b> — ${esc(c.help)}</label>`).join('')}</div>` : ''}
@@ -7311,11 +7312,13 @@ window.askRemoval = function(opts){
         <label for="rmReason" style="display:block;font-weight:600;margin-bottom:4px;">Why? (required — at least 20 characters; it is kept with the record)</label>
         <textarea id="rmReason" rows="3" required minlength="20" style="width:100%;font:inherit;padding:8px 10px;border:1.5px solid #E2E0DA;border-radius:10px;" placeholder="e.g. Trial shift used to test the site on 30 August, not a real support."></textarea>
         <p id="rmErr" style="color:#9E2F1C;margin:8px 0 0;min-height:1.2em;font-size:.9rem;"></p>
-        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;"><button type="button" class="btn btn-secondary" data-rm-cancel>Keep it</button><button type="submit" class="btn btn-primary" style="background:#9E2F1C;border-color:#9E2F1C;">${esc(opts.button || 'Remove')}</button></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;"><button type="button" class="btn btn-secondary" data-rm-cancel>Cancel</button><button type="submit" class="btn btn-primary" style="background:#9E2F1C;border-color:#9E2F1C;">${esc(opts.button || 'Remove')}</button></div>
       </form></div>`;
     document.body.appendChild(d);
     const form = d.querySelector('form'); const ta = d.querySelector('#rmReason'); ta.focus();
-    const close = v => { d.remove(); previousFocus?.focus?.(); resolve(v); };
+    let settled=false;
+    const close = v => { if(settled)return;settled=true;d.remove();resolve(v);try{previousFocus?.focus?.();}catch{} };
+    d.cancelRemoval=()=>close(null);
     /* the tick belongs to one choice only: show it when that choice is picked */
     if(opts.tickOnly){ form.querySelectorAll('[name=rmChoice]').forEach(r => r.addEventListener('change', () => { const w = d.querySelector('#rmTickWrap'); if(w) w.style.display = form.querySelector('[name=rmChoice]:checked').value === opts.tickOnly ? 'block' : 'none'; })); }
     d.querySelector('[data-rm-cancel]').onclick = () => close(null);
@@ -10239,7 +10242,7 @@ async function renderAdminPage(){
     <td>${showActions
       ? `${CareBilling.rowStatus(r)}
          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${r.claim_hold ? `<button class="adm-btn-sm" data-claim-release="${r.id}" type="button" title="Let the next run invoice it after all">Release</button>` : ''}<button class="adm-btn-sm" data-remove-booking="${r.id}" data-delivered="${r.status === 'completed' ? 1 : 0}" type="button" title="Void or erase this shift, with a reason" style="color:#9E2F1C;">Remove…</button></div>`
-      : (r.claim_status === 'paid' ? `<span class="adm-live">paid</span>` : `${r.invoice_no ? `<button class="adm-btn-sm" data-inv-paid="${esc(r.invoice_no)}" type="button" title="Bank transfer received for the whole invoice">Invoice paid</button> <button class="adm-btn-sm" data-inv-withdraw="${esc(r.invoice_no)}" type="button" title="Take the whole invoice back; its lines return to unclaimed" style="color:#9E2F1C;">Withdraw invoice…</button> ` : ''}${r.claim_status === 'claimed' && !r.invoice_no ? `<button class="adm-btn-sm" data-claim-unclaim="${r.id}" type="button" title="Take this line off the agency claim" style="color:#9E2F1C;">Unclaim…</button> ` : ''}${!r.claim_status ? `<button class="adm-btn-sm" data-remove-booking="${r.id}" data-delivered="${r.status === 'completed' ? 1 : 0}" type="button" title="Void or erase this shift, with a reason" style="color:#9E2F1C;">Remove…</button> ` : ''}<button class="adm-btn-sm" data-claim-paid="${r.id}" type="button">Mark paid</button>${r.pay_url ? ` <a href="${esc(r.pay_url)}" target="_blank" rel="noopener" title="Card payment link sent with the invoice" style="font-size:.78rem;">💳 card link</a>` : ''}`)}</td>
+      : CareBilling.claimActions(r)}</td>
   </tr>`;
   const claimTable = (rows, showActions) => `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Date</th><th>Participant</th><th>Funding</th><th>Shift</th><th>Support item</th><th>Amount</th><th></th></tr></thead><tbody>${rows.map(r => claimRow(r, showActions)).join('')}</tbody></table></div>`;
   const claims = cl.error?`<p role="alert">Claims could not be loaded: ${esc(cl.error)}. <button class="adm-btn-sm" type="button" data-claims-retry>Try again</button></p>`:`
@@ -10247,8 +10250,8 @@ async function renderAdminPage(){
     <div class="adm-tiles">
       <div class="adm-tile"><b>$${Number(cl.totals.ready||0).toFixed(2)}</b><span>Ready to process (${cl.ready_count||0})</span></div>
       <div class="adm-tile"><b>$${Number(cl.totals.held||0).toFixed(2)}</b><span>Waiting / needs attention (${cl.held_count||0})</span></div>
-      <div class="adm-tile"><b>$${cl.totals.claimed.toFixed(2)}</b><span>Claimed — awaiting payment</span></div>
-      <div class="adm-tile"><b style="color:#1F7A4D;">$${cl.totals.paid.toFixed(2)}</b><span>Paid</span></div>
+      <div class="adm-tile"><b>$${cl.totals.claimed.toFixed(2)}</b><span>Invoiced / claimed — awaiting payment</span></div>
+      <div class="adm-tile"><b style="color:#1F7A4D;">$${Number(cl.totals.received??cl.totals.paid).toFixed(2)}</b><span>Payments recorded</span></div>
     </div>
     ${cl.unclaimed.length ? `
       <h3 style="margin:14px 0 8px;">Uninvoiced completed shifts (${cl.unclaimed.length})</h3>
@@ -10258,11 +10261,8 @@ async function renderAdminPage(){
         <span style="font-size:.85rem;color:#4A5570;margin-left:10px;">Ready NDIA shifts join the claim file. Ready plan-managed and self-managed shifts get a PDF invoice with email queued for delivery. Waiting shifts stay here. <a href="#/journey?panel=deliveries">Check email delivery</a>.</span>
       </p>`
       : '<p class="adm-empty">Nothing waiting to be claimed — all completed shifts are processed. 🎉</p>'}
-    ${cl.claimed.length ? `
-      <h3 style="margin:20px 0 8px;">Claimed — awaiting payment (${cl.claimed.length})</h3>
-      <p style="margin:0 0 10px;"><a class="btn btn-secondary" href="/api/admin/claims/pace.csv" download>⬇ NDIA claim file (PACE CSV)</a>
-      <span style="font-size:.85rem;color:#4A5570;margin-left:8px;">Upload it in the myplace provider portal → Bulk payment request. Mark lines paid as the money lands.</span></p>
-      ${claimTable(cl.claimed, false)}` : ''}
+    ${CareBilling.invoiceList(cl.invoices||[],cl.withdrawn||[])}
+    ${cl.claimed.some(r=>!r.invoice_no)?`<h3 style="margin:20px 0 8px;">NDIA claims — awaiting payment (${cl.claimed.filter(r=>!r.invoice_no).length})</h3><p><a class="adm-btn-sm" href="/api/admin/claims/pace.csv" download>Download NDIA claim file (PACE CSV)</a></p><p class="muted-sm">Upload this claim file in the provider portal. Record payment when the claim is paid.</p>${claimTable(cl.claimed.filter(r=>!r.invoice_no),false)}`:''}
     ${cl.paid.length ? `<p style="margin:14px 0 0;color:#4A5570;font-size:.9rem;">${cl.paid.length} shift${cl.paid.length > 1 ? 's' : ''} fully paid · $${cl.totals.paid.toFixed(2)} all-time.</p>` : ''}
     <p style="margin:16px 0 0;"><a class="adm-btn-sm" style="text-decoration:none;display:inline-block;" href="/api/admin/payroll.csv" download>⬇ Historical worker-share register</a> <a class="adm-btn-sm" href="#/journey?panel=payroll">Review payment batches</a></p>`;
   const DAYN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -10554,23 +10554,27 @@ document.addEventListener('submit', async e => {
 document.addEventListener('click', async e => {
   const iw = e.target.closest('[data-inv-withdraw]');
   if(iw){
-    const no = iw.dataset.invWithdraw;
-    const a = await askRemoval({ title: `Withdraw invoice ${no}`, text: 'The invoice is taken back: the participant (or plan manager) is emailed that it should not be paid, the card link stops working, and every line on it is <b>held</b> in the invoicing table below — no run, by button or overnight, will invoice a held line. From there you remove it (void or erase), fix it, or press Release to let it be invoiced again. A paid invoice cannot be withdrawn — mark it unpaid first if that was a mistake.', button: 'Withdraw the invoice' });
-    if(!a) return;
-    try{ const r = await API.call('/admin/invoices/' + encodeURIComponent(no) + '/withdraw', {method:'POST', body:{reason: a.reason}}); toast(`Invoice withdrawn — ${r.lines} line${r.lines === 1 ? '' : 's'} now held: remove, fix or release ${r.lines === 1 ? 'it' : 'them'} below.`); renderAdminPage(); }catch(err){ toast(err.message); }
+    if(iw.disabled)return;iw.disabled=true;iw.setAttribute('aria-busy','true');
+    try{
+      const no=iw.dataset.invWithdraw;
+      const a=await askRemoval({title:`Withdraw invoice ${no}`,text:'The original invoice stays in the history marked <b>Withdrawn — do not pay</b>. Its queued email is cancelled and a withdrawal notice is queued to the original payer. The shifts are held until you release or remove them. Any card link is closed in the background; its status remains visible.',button:'Withdraw invoice'});
+      if(!a)return;
+      const r=await API.call('/admin/invoices/'+encodeURIComponent(no)+'/withdraw',{method:'POST',body:{reason:a.reason}});
+      toast(`Invoice withdrawn. ${r.lines} shift${r.lines===1?' is':'s are'} held. ${r.notice==='missing recipient'?'No payer email is available; check the withdrawal history.':'Withdrawal notice queued or already sent.'}`);await renderAdminPage();
+    }catch(err){toast(err.message);}finally{iw.disabled=false;iw.removeAttribute('aria-busy');}
     return;
   }
   const rl = e.target.closest('[data-claim-release]');
-  if(rl){ try{ await API.call('/admin/claims/' + rl.dataset.claimRelease + '/release', {method:'POST', body:{}}); toast('Released — the next run will invoice it.'); renderAdminPage(); }catch(err){ toast(err.message); } return; }
+  if(rl){ try{ await API.call('/admin/claims/' + rl.dataset.claimRelease + '/release', {method:'POST', body:{}}); toast('Released — automatic invoicing has been queued.'); renderAdminPage(); }catch(err){ toast(err.message); } return; }
   const uc = e.target.closest('[data-claim-unclaim]');
   if(uc){
-    const a = await askRemoval({ title: `Take shift #${uc.dataset.claimUnclaim} off the claim`, text: 'The line returns to <b>unclaimed</b>. If you have already uploaded a PACE file containing it, withdraw it there as well.', button: 'Unclaim' });
+    const a = await askRemoval({ title: `Take shift #${uc.dataset.claimUnclaim} off the claim`, text: 'This shift is held locally so it is not claimed again automatically. If you have already uploaded a PACE file containing it, withdraw that claim in the provider portal as well.', button: 'Unclaim' });
     if(!a) return;
-    try{ await API.call('/admin/claims/' + uc.dataset.claimUnclaim + '/unclaim', {method:'POST', body:{reason: a.reason}}); toast('Back to unclaimed.'); renderAdminPage(); }catch(err){ toast(err.message); }
+    try{ await API.call('/admin/claims/' + uc.dataset.claimUnclaim + '/unclaim', {method:'POST', body:{reason: a.reason}}); toast('Claim withdrawn locally. The shift is held until you release it.'); renderAdminPage(); }catch(err){ toast(err.message); }
     return;
   }
   const ip = e.target.closest('[data-inv-paid]');
-  if(ip){ try{ await API.call('/admin/invoices/' + encodeURIComponent(ip.dataset.invPaid) + '/paid', {method:'POST', body:{how:'bank transfer'}}); toast('Invoice marked paid.'); renderAdminPage(); }catch(err){ toast(err.message); } return; }
+  if(ip){ if(ip.disabled)return;ip.disabled=true;try{ const r=await API.call('/admin/invoices/' + encodeURIComponent(ip.dataset.invPaid) + '/paid', {method:'POST', body:{how:'bank transfer'}}); toast(r.message||'Payment already recorded.'); renderAdminPage(); }catch(err){ toast(err.message); }finally{ip.disabled=false;} return; }
   const rp = e.target.closest('[data-ref-paid]');
   if(rp){ try{ await API.call('/admin/referrals/' + rp.dataset.refPaid + '/paid', {method:'POST', body:{}}); toast('Marked paid.'); renderAdminPage(); }catch(err){ toast(err.message); } return; }
   const ug = e.target.closest('[data-ungroup]');
@@ -15486,12 +15490,12 @@ document.addEventListener('click', async e => {
 </script>
 
 
-<script src="/assets/next-actions.js?v=88.2.9"></script>
-<script src="/assets/process-workflows.js?v=88.2.9"></script>
+<script src="/assets/next-actions.js?v=88.3.3"></script>
+<script src="/assets/process-workflows.js?v=88.3.4"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
 <script src="/assets/booking-calendar.js?v=88.2.11"></script>
-<script src="/assets/launch-assurance.js?v=88.3.2"></script>
-<script src="/assets/billing-setup.js?v=88.3.2"></script>
+<script src="/assets/launch-assurance.js?v=88.3.4"></script>
+<script src="/assets/billing-setup.js?v=88.3.4"></script>
 <script src="/assets/admin-verification.js?v=88.2.5"></script>
 <script>
 document.addEventListener('click',async event=>{
