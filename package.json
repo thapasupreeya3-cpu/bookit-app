@@ -1,12 +1,12 @@
 {
   "name": "bookit-site-v65",
-  "version": "88.4.5",
+  "version": "88.4.6",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "lint": "node scripts/lint.js",
-    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process && npm run test:verification && npm run test:settings && npm run test:navigation && npm run test:credentials && npm run test:next-actions && npm run test:calendar && npm run test:launch && npm run test:billing && npm run test:tasks && npm run test:payments && npm run test:locations && npm run test:admin && npm run test:launch-clarity && npm run test:overnight && npm run test:email",
+    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process && npm run test:verification && npm run test:settings && npm run test:navigation && npm run test:credentials && npm run test:next-actions && npm run test:calendar && npm run test:launch && npm run test:billing && npm run test:tasks && npm run test:payments && npm run test:locations && npm run test:admin && npm run test:launch-clarity && npm run test:overnight && npm run test:email && npm run test:queries && npm run test:account-email",
     "inventory": "node scripts/inventory.js",
     "check": "npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && node scripts/verify-release.js && npm test",
     "backup": "node --no-warnings scripts/backup.js",
@@ -30,7 +30,9 @@
     "test:admin": "node --no-warnings tests/admin-workspace-tests.js && node --no-warnings tests/admin-payment-workspace-tests.js && node --no-warnings tests/admin-workflow-ui-tests.js && node --no-warnings tests/admin-specialist-ui-tests.js && node --no-warnings tests/admin-task-links-tests.js",
     "test:launch-clarity": "node --no-warnings tests/launch-clarity-tests.js",
     "test:overnight": "node --no-warnings tests/sleepover-pricing-tests.js && node --no-warnings tests/booking-pricing-ui-tests.js && node --no-warnings tests/sleepover-support-ui-tests.js && node --no-warnings tests/overnight-flow-tests.js",
-    "test:email": "node --no-warnings tests/booking-notification-tests.js && node --no-warnings tests/booking-notification-http-tests.js && node --no-warnings tests/email-diagnostics-tests.js"
+    "test:email": "node --no-warnings tests/booking-notification-tests.js && node --no-warnings tests/booking-notification-http-tests.js && node --no-warnings tests/email-diagnostics-tests.js",
+    "test:queries": "node --no-warnings tests/invoice-query-tests.js && node --no-warnings tests/invoice-query-ui-tests.js",
+    "test:account-email": "node --no-warnings tests/account-email-tests.js && node --no-warnings tests/account-email-ui-tests.js"
   },
   "license": "UNLICENSED",
   "engines": {

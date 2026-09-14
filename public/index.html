@@ -4659,6 +4659,8 @@ html.high-contrast .care-stage-block{display:none!important;}
   </section>
 </section>
 
+<section class="page" id="page-email-change" data-title="Confirm email change — The Care Web"><section class="block"><div class="container ae-confirm-page"><div class="info-card" id="emailChangeConfirm"><h1>Confirm your new email</h1><p>Loading verification…</p></div></div></section></section>
+
 <section class="page" id="page-verified" data-title="Email confirmed — The Care Web">
   <section class="block">
     <div class="container center" style="max-width:640px;padding-top:70px;">
@@ -7120,6 +7122,7 @@ const ROUTES = {
   '/invite': 'page-invite',
   '/easy-read': 'page-easy-read',
   '/reset': 'page-reset',
+  '/email-change': 'page-email-change',
   '/verified': 'page-verified',
   '/verify-failed': 'page-verify-failed',
   '/pay-success': 'page-pay-success',
@@ -7238,6 +7241,7 @@ function route(){
   if(id === 'page-earnings' && window.renderEarningsPage) renderEarningsPage();
   if(id === 'page-training' && window.renderTrainingPage) renderTrainingPage();
   if(id === 'page-account' && window.renderAccountPage) renderAccountPage();
+  if(id === 'page-email-change') window.CareAccountEmail?.renderConfirmation();
   closeMobileNav();
   closeModals();
   stopSpeech();
@@ -9039,6 +9043,12 @@ function noteEntryHtml(n){
       <p>${esc(n.body).replace(/\n/g, '<br>')}</p>
     </div>`;
   }
+  if(n.kind === 'office-reply'){
+    return `<div class="note-entry">
+      <div class="note-meta">Office reply · ${esc(n.author_label || n.author_name || 'Office')} · ${fmtAU(n.created)}</div>
+      <p>${esc(n.body).replace(/\n/g, '<br>')}</p>
+    </div>`;
+  }
   return `<div class="note-entry${n.scope_flag ? ' note-flag' : ''}">
     <div class="note-meta">${n.addendum ? 'Added later' : 'Shift note'} · ${esc(n.worker_name)} · ${fmtAU(n.created)}</div>
     <p>${esc(n.body).replace(/\n/g, '<br>')}</p>
@@ -10221,7 +10231,7 @@ async function renderAdminPage(){
   const users = `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>#</th><th>Role</th><th>Name</th><th>Email</th><th>Status</th><th></th></tr></thead><tbody>
     ${d.users.map(u => `<tr><td>${u.id}</td><td>${esc(u.role)}</td><td>${esc(u.name)}</td><td>${esc(u.email)}</td>
       <td>${u.role === 'worker' ? (u.visible ? '<span class="adm-live">live</span>' : '<span class="adm-hidden">hidden</span>') : ''} ${u.verified ? '' : '· unverified email'}</td>
-      <td>${u.role === 'worker' && !u.email.endsWith('@demo.bookit.life') ? (u.visible
+      <td>${u.role === 'participant' && !u.is_admin && !u.closed_at ? `<a class="adm-btn-sm" href="#/admin/verification?role=participant&amp;person=${u.id}">Profile &amp; email</a> ` : ''}${u.role === 'worker' && !u.email.endsWith('@demo.bookit.life') ? (u.visible
         ? `<button class="adm-btn-sm" data-adm-act="hide" data-uid="${u.id}" type="button">Hide</button>`
         : `<button class="adm-btn-sm" data-adm-act="approve" data-uid="${u.id}" type="button">Approve</button>`) : ''}
         ${!u.is_admin && !u.email.endsWith('@demo.bookit.life') && u.id !== (API.me || {}).id ? ` <button class="adm-btn-sm" data-remove-user="${u.id}" data-name="${esc(u.name)}" type="button" style="color:#9E2F1C;" title="Close this account, with a reason">Close…</button>` : ''}</td></tr>`).join('')}
@@ -14182,7 +14192,7 @@ async function renderAccountContent(wrap, isCurrent){
       <button type="button" class="btn btn-primary btn-sm" id="detGo">Save</button>
     </div>
     <p id="detErr" class="muted-sm" style="color:#9E2F1C;margin:8px 0 0;" hidden></p>
-    <p class="muted-sm" style="margin:10px 0 0;">Signed in as <b>${esc(me.email)}</b>. Your email is your sign-in identity and where safety notices go, so changing it is a verified step — <a href="#/contact">contact us</a> and we'll do it properly.</p>
+    <p class="muted-sm" style="margin:10px 0 0;">Your sign-in and account email is shown in the Email address card below.</p>
   </div>`;
 
   const a11yCard = `
@@ -14260,7 +14270,7 @@ async function renderAccountContent(wrap, isCurrent){
        takes its turn behind a tab — the page stops running. Tabs only exist
        for the groups this role actually has. */
     const apPanes = [
-      ['details', 'Your details', detailsCard + (me.role === 'participant' ? '<p class="sl-profile-link"><a href="#/account/address">Address &amp; arrival details →</a></p>' : '') + (!me.admin && me.role !== 'coordinator' ? '<div id="miniSharedContacts"></div>' : '')],
+      ['details', 'Your details', detailsCard + '<div id="profileEmailAddress"></div>' + (API.actingFor && me.role === 'coordinator' ? '<div id="participantContactEmail"></div>' : '') + (me.role === 'participant' ? '<p class="sl-profile-link"><a href="#/account/address">Address &amp; arrival details →</a></p>' : '') + (!me.admin && me.role !== 'coordinator' ? '<div id="miniSharedContacts"></div>' : '')],
       aboutCards ? ['supports', 'Supports & plan', aboutCards] : null,
       workerCards ? ['public', 'Public profile', workerCards] : null,
       ['privacy', 'Privacy & data', privacyCards],
@@ -14294,6 +14304,9 @@ async function renderAccountContent(wrap, isCurrent){
         apShow(n.dataset.pane, true);
       });
     });
+    await window.CareAccountEmail?.mount(document.getElementById('profileEmailAddress'));
+    if(!isCurrent()) return;
+    await window.CareAccountEmail?.mountParticipantContact(document.getElementById('participantContactEmail'));
     if(!me.admin && me.role !== 'coordinator') await CareFlow.renderContacts(document.getElementById('miniSharedContacts'));
     return;
   }
@@ -15136,6 +15149,7 @@ document.addEventListener('click', async e => {
   if(location.hash.startsWith('#/ladder')) renderLadderPage();
   if(location.hash.startsWith('#/training')) renderTrainingPage();
   if(location.hash.startsWith('#/account')) renderAccountPage();
+  if(location.hash.split('?')[0]==='#/email-change')window.CareAccountEmail?.renderConfirmation();
 })();
 
 /* ═══════════ 2026 overhaul FX ═══════════
@@ -15402,12 +15416,12 @@ document.addEventListener('click', async e => {
 </script>
 
 
-<link rel="stylesheet" href="/assets/payment-automation.css?v=88.4.3">
+<link rel="stylesheet" href="/assets/payment-automation.css?v=88.4.6">
 <script src="/assets/next-actions.js?v=88.4.2"></script>
-<script src="/assets/process-workflows.js?v=88.4.5"></script>
+<script src="/assets/process-workflows.js?v=88.4.6"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
 <script src="/assets/booking-calendar.js?v=88.4.0"></script>
-<script src="/assets/payment-automation.js?v=88.4.3"></script>
+<script src="/assets/payment-automation.js?v=88.4.6"></script>
 <link rel="stylesheet" href="/assets/service-locations.css?v=88.4.1">
 <script src="/assets/service-locations.js?v=88.4.4"></script>
 <script src="/assets/launch-assurance.js?v=88.4.4"></script>
@@ -15416,7 +15430,9 @@ document.addEventListener('click', async e => {
 <script src="/assets/booking-pricing.js?v=88.4.4"></script>
 <link rel="stylesheet" href="/assets/sleepover-support.css?v=88.4.4">
 <script src="/assets/sleepover-support.js?v=88.4.4"></script>
-<script src="/assets/admin-verification.js?v=88.4.2"></script>
+<link rel="stylesheet" href="/assets/account-email.css?v=88.4.6">
+<script src="/assets/account-email.js?v=88.4.6"></script>
+<script src="/assets/admin-verification.js?v=88.4.6"></script>
 <script>
 document.addEventListener('click',async event=>{
  const go=event.target.closest('[data-sp-section-go]');if(go){document.querySelectorAll('[data-sp-section]').forEach(x=>x.hidden=go.dataset.spSectionGo!=='all'&&x.dataset.spSection!==go.dataset.spSectionGo);document.querySelector('.sp-sec:not([hidden]) input,.sp-sec:not([hidden]) textarea')?.focus();}
@@ -15425,6 +15441,7 @@ document.addEventListener('click',async event=>{
  if(event.target.id==='spUseIntake'){try{const d=await API.call('/journey/intake');const vals=Object.fromEntries(['ec_name','ec_phone','ec_relationship'].map(k=>[k,d.data[k]||'']));if(await CareFlow.dialog('Use these confirmed details?',Object.entries(vals).map(([k,v])=>`<p>${esc(k.replaceAll('_',' '))}: ${esc(v)}</p>`).join(''),'Use details')){Object.assign(SP_VALS,vals);spTouched();spPaint();}}catch(err){toast(err.message);}}
 });
 CareFlow.nav();if(location.hash.startsWith('#/journey'))CareFlow.render();
+if(location.hash.split('?')[0]==='#/email-change')CareAccountEmail.renderConfirmation();
 </script>
 </body>
 </html>

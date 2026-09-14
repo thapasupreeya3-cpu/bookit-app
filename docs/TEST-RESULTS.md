@@ -1,3 +1,13 @@
+# v88.4.6 validation
+
+- New focused checks cover invoice query HTTP behaviour and attribution (18), invoice query interface interactions (17), account email HTTP/security/export behaviour (21), and email interface interactions (19), plus two profile mount checks in the existing settings suite.
+- Current-base upgrade acceptance passed 5/5 from local commit ed8277277a6077031ae048deee945a8211edaf49 (v88.4.5) to v88.4.6. Two boots preserve existing users, sessions, queried/part-paid invoices, payment evidence, document records and uploaded bytes. The new account_email_changes table starts empty. Database integrity and foreign keys pass.
+- Generated inventories identify 414 routes and 108 tables, schema 88404. The email-change table is additive; no existing email is changed on upgrade.
+- This ZIP contains only files changed since v88.4.5. Exact byte comparison confirms its overlay reproduces the complete target source. Unchanged media and old block-register files are excluded.
+- The guide has 75 unique IDs and 99 valid internal links.
+- The complete automated suite and source verification results are recorded in the accompanying package-verification JSON. UI checks exercise rendered markup and event handling in local harnesses; they are not a visual browser sign-off.
+- Synthetic local tests block external communications. No real email, payment, wage transfer or live deployment was performed. Actual inbox delivery and deployed browser appearance remain unverified; the earlier Chrome preview was blocked.
+
 # v88.4.5 validation
 
 - 46 new focused scenarios cover booking notification recipients and stale-state checks (17), actual HTTP booking lifecycle (8), HTTP email diagnostics with a local mock provider (10), and email interface/account settings (11).

@@ -22,13 +22,14 @@ This is the complete installed source tree for v${pkg.version}.
 A changed-files update ZIP contains only the differences from its stated base;
 follow its UPDATE-INSTRUCTIONS.txt and merge into your existing source tree.
 Do not replace the existing repository with a partial update ZIP.
-Base source release: v${meta.base_version}
+Required update base: v${meta.update_base_version}
+Original recovery source release (historical reference): v${meta.base_version}
 Base package reference: ${meta.base_archive}
 Base SHA-256: ${meta.base_archive_sha256}
 Source baseline commit: ${meta.base_commit}
 The deployed site has not been changed or verified by this source release.
 
-AUTOMATIC BILLING AND COMPLETE BLOCK REGISTER
+AUTOMATIC BILLING AND BLOCK AUDIT HISTORY
 NSW holiday detection and saved fallback calendars run automatically.
 New self-managed/private worker submissions queue a separate invoice and PDF
 email immediately. Explicit participant review opens payment in the same journey.
@@ -39,9 +40,19 @@ Time/date rate boundaries are itemised before approval. Issued snapshots and
 previously approved amounts are preserved. Explicit holds and disputed timesheets
 remain deliberate stops. Invoice mail retries automatically with visible status.
 Email transport must be configured; queued does not mean sent or paid.
-The complete source register is docs/block-register/index.html, with CSV/JSON and
-all conditional branches. docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
-See docs/CHANGELOG-v88.4.5.md and docs/USER-GUIDE.html.
+The previous audit snapshot is docs/block-register/index.html, with CSV/JSON and
+conditional branches. It has not been regenerated for this small update.
+docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
+See docs/CHANGELOG-v88.4.6.md and docs/USER-GUIDE.html.
+
+PROFILE EMAIL AND INVOICE QUERIES
+My profile > Your details > Email address shows the current sign-in address.
+Change email verifies the new inbox before switching; old sessions and reset
+links stop working after confirmation. Admin > People > Verification >
+Participants shows the same contact card with an assisted change workflow.
+Money > Invoices > Review query opens the office response history and actions.
+Payment stays paused until an authorised participant reviewer explicitly approves.
+This release is a current-only delta over v88.4.5; see UPDATE-INSTRUCTIONS.txt.
 
 BOOKING EMAILS
 Admin > Settings > Email setup shows the configured sender and a test to your
@@ -205,10 +216,10 @@ docs/TEST-RESULTS.md — executed commands and results
 RELEASE-FILES.json — complete payload file hashes (excluding itself)
 docs/history/ — historical receipts, not current deployment instructions
 `;
-const readme=`The Care Web v${pkg.version} — complete source package.
+const readme=`The Care Web v${pkg.version} — current-update-only ZIP.
 
-Extract ${meta.output_archive}; merge its files at the repository root. Read STARTHERE.txt before updating. Preserve live runtime data.
-This release implements launch-audit source corrections and updates the full user guide.
+Apply over v${meta.update_base_version}. Extract ${meta.output_archive}; merge its files at the repository root. Read UPDATE-INSTRUCTIONS.txt before updating. Preserve live runtime data.
+This release adds visible profile email changes and office invoice-query handling. The full user guide is updated.
 NSW holidays and ordinary invoicing are automatic. Independently reviewed payroll
 components remain required; preparing/exporting payroll does not transfer wages.
 PDF/HTML previews and earlier verification automations are retained.

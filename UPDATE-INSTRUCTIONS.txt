@@ -1,57 +1,36 @@
-THE CARE WEB v88.4.5 — CUMULATIVE CHANGED-FILES UPDATE
+THE CARE WEB v88.4.6 — CURRENT UPDATE ONLY
 
-Apply over v88.3.4 or v88.4.0–v88.4.4. This includes the earlier payment,
-private address and admin usability updates.
+REQUIRED BASE: v88.4.5
+This ZIP contains only files changed since v88.4.5. It does not bundle earlier
+payment, address, navigation, launch, overnight or booking-email updates.
+Check your existing website at /api/version: APP_VERSION must be 88.4.5 before
+applying this update. If it is older, install the already-supplied v88.4.5 first.
 
-EXISTING LIGHTSAIL WEBSITE
-After this release is published to your repository, open AWS Lightsail >
-bookit > Connect using SSH and run:
-  sudo bookit-update
-Then check:
-  sudo systemctl is-active bookit
-Refresh the browser with Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows).
-The update must complete successfully. Confirm /api/version shows APP_VERSION
-88.4.5 and SCHEMA_VERSION 88403. No second website is required.
+INSTALL ON YOUR EXISTING WEBSITE
+1. Keep a backup of the existing source, database, uploads and protected settings.
+2. Extract and MERGE this ZIP into your existing v88.4.5 repository, replacing
+   matching files. Do not replace the repository with this partial ZIP.
+3. Keep live database, uploads, photos, secrets and hosting settings in place.
+4. Redeploy the updated source using your existing deployment process and Node
+   22 (>=22.12 <23). This download has not been pushed to your remote repository;
+   bookit-update alone cannot install it until your repository contains it.
+5. Refresh the browser with Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows).
+6. Confirm /api/version shows APP_VERSION 88.4.6 and SCHEMA_VERSION 88404.
+   The added email-change history table is created automatically at startup.
 
-ZIP ALTERNATIVE
-1. Preserve a backup of source, database, uploads, photos and environment.
-2. Extract and MERGE this ZIP into your existing repository root, replacing
-   matching source files. This is a partial ZIP; do not delete absent files.
-3. Preserve runtime data, secrets, live settings and provider keys.
-4. Use Node 22 (>=22.12 <23), install dependencies if required and redeploy.
+WHERE TO FIND THE CHANGES
+Participant: My profile > Your details > Email address > Change email.
+Office: Admin > People > Verification > Participants > open the person >
+Participant email address > Change email.
+Invoice: Admin > Money > Invoices > Review query.
 
-BOOKING EMAILS
-Open Admin > Settings > Email setup to see the sending address and send a test
-to your own account. Today > Email delivery shows its actual sending result.
-Email provider credentials must be configured on this existing website.
-Queued means waiting; Accepted means the provider took it, not inbox delivery.
-See docs/EMAIL-SETUP-v88.4.5.md. No second website is required.
+The old email remains active until the new inbox is confirmed. Existing issued
+invoice payer details stay unchanged. A query response leaves payment paused
+until the participant or authorised reviewer explicitly approves.
 
-LAUNCH CHECKS AND OVERNIGHT SUPPORT
-Admin > Settings > Launch checks opens the simplified launch workspace.
-When booking personal care or daily tasks, select Inactive overnight for a
-sleepover; leave it unchecked for hourly support. Review the price below
-the location before sending. Extra active support is recorded at completion.
-Existing issued invoices and recorded reviews are preserved.
-
-PAYMENT CHANGE
-New customer payments use the invoice link with Stripe card or enabled PayTo.
-Zai receiving-account setup and ordinary bank-transfer instructions are removed.
-Stale Zai/BANK_DETAILS settings cannot restore them. No new Zai setup is needed.
-Payment connections: Admin > Settings > Payment connections.
-Tracking: Admin > Money > Payment tracking.
-Historical receipts and allocations remain. No payment evidence is erased.
-Queued invoice emails/PDFs are refreshed before delivery. Previously sent or
-saved copies cannot be recalled; existing external receiving accounts are not
-closed by this source update.
-
-Stripe confirmations update invoice balances and receipts. PayTo is a payment
-for the selected invoice, not permission to debit future shifts automatically.
-NDIA claims and external payroll retain their existing routes. This source
-does not confirm onward bank settlement or transfer wages.
-
-User guide: docs/USER-GUIDE.html
-Payment setup: docs/PAYMENT-SETUP-v88.4.0.md
-Changes: docs/CHANGELOG-v88.4.5.md
-Checks and limitations: docs/TEST-RESULTS.md
-Full installed-tree hashes: RELEASE-FILES.json
+USER GUIDE: docs/USER-GUIDE.html
+CHANGES: docs/CHANGELOG-v88.4.6.md
+CHECKS: docs/TEST-RESULTS.md
+SOURCE HASHES: RELEASE-FILES.json (describes the full installed source tree).
+No second website is required. Real inbox delivery and deployed browser layout
+have not been verified by this source update.

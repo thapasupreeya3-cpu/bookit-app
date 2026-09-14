@@ -2392,10 +2392,15 @@ function baseUrl(req) {
 }
 
 /* signed, expiring email tokens (verify / reset) */
+function accountEmailTokenVersion(uid) {
+  // Preserve existing links until this account has actually changed address.
+  const id = db.prepare("SELECT MAX(id) id FROM account_email_changes WHERE user_id=? AND state='confirmed'").get(Number(uid))?.id;
+  return id ? ':email-change:' + id : '';
+}
 function makeEmailToken(kind, uid, ttlMs, extra = '') {
   const exp = Date.now() + ttlMs;
   const base = `${kind}.${uid}.${exp}`;
-  return `${base}.${sign(`${base}.${extra}`)}`;
+  return `${base}.${sign(`${base}.${extra}${accountEmailTokenVersion(uid)}`)}`;
 }
 function readEmailToken(kind, token, extraFor) {
   const parts = String(token || '').split('.');
@@ -2404,7 +2409,7 @@ function readEmailToken(kind, token, extraFor) {
   if (!/^\d+$/.test(uid) || !/^\d+$/.test(exp)) return null;
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(uid));
   if (!u) return null;
-  const extra = extraFor ? extraFor(u) : '';
+  const extra = (extraFor ? extraFor(u) : '') + accountEmailTokenVersion(uid);
   const expected = sign(`${k}.${uid}.${exp}.${extra}`);
   if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   if (Number(exp) < Date.now()) return null;
@@ -2786,7 +2791,9 @@ function coordsFor(participantId, scope) {
 function coordClients(coordId) {
   return db.prepare(`SELECT l.*, u.name, u.suburb, u.email
     FROM account_links l JOIN users u ON u.id = l.participant_id
-    WHERE l.coordinator_id = ? AND l.status = 'active' ORDER BY u.name`).all(Number(coordId))
+    WHERE l.coordinator_id = ? AND l.status = 'active' AND u.closed_at IS NULL
+      AND EXISTS (SELECT 1 FROM users actor WHERE actor.id=l.coordinator_id AND actor.closed_at IS NULL)
+    ORDER BY u.name`).all(Number(coordId))
     .map(r => Object.assign(r, { scopes: safeJson(r.scopes, []) }));
 }
 
@@ -7317,6 +7324,8 @@ route('GET', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user) => {
     if (n.kind === 'question') {
       by = (user.role === 'worker' && n.author_role === 'coordinator')
         ? 'their support coordinator' : (n.author_name || 'the participant');
+    } else if (n.kind === 'office-reply') {
+      by = n.author_name || 'Office';
     }
     return { ...n, author_label: by };
   });
@@ -11909,7 +11918,7 @@ route('GET', /^\/api\/admin\/participants\/(\d+)\/notes\.csv$/, (req, res, m, us
     'Shift note', 'Out-of-scope request flagged', 'What was asked for', 'Written at', 'Reviewed at', 'Reviewed by', 'What we did about it'].map(q).join(',')];
   for (const r of rows) {
     lines.push([r.booking_id, dmy(r.date), r.start, r.hours, SERVICE_LABELS[r.service] || r.service, REG_GROUPS[r.service] || '',
-      r.worker_name, r.kind === 'question' ? `Question (asked by ${r.author_name || 'the participant'})` : r.addendum ? 'Addendum' : 'Shift note', r.body, r.scope_flag ? 'Yes' : 'No', r.scope_detail,
+      r.worker_name, r.kind === 'question' ? `Question (asked by ${r.author_name || 'the participant'})` : r.kind === 'office-reply' ? `Office reply (by ${r.author_name || 'Office'})` : r.addendum ? 'Addendum' : 'Shift note', r.body, r.scope_flag ? 'Yes' : 'No', r.scope_detail,
       r.created, r.reviewed_at || '', r.reviewed_by || '', r.review_note || ''].map(q).join(','));
   }
   res.writeHead(200, {
@@ -13947,7 +13956,7 @@ route('GET', /^\/api\/coordinator\/clients$/, (req, res, m, user) => {
       FROM bookings WHERE participant_id = ?`).get(c.participant_id) || {};
     return {
       id: c.participant_id, link_id: c.id,
-      name: c.name, suburb: c.suburb, org: c.org,
+      name: c.name, suburb: c.suburb, email: c.email, org: c.org,
       relationship: c.relationship, scopes: c.scopes,
       accepted_at: c.accepted_at,
       next_shift: next || null,
@@ -16047,7 +16056,7 @@ route('POST', /^\/api\/me\/notifications$/, setNotifications);
 /* Credentials, not information. A scrypt hash is no use to the person it
    belongs to and is a gift to whoever eventually reads the file; a TOTP seed
    handed back in plain text turns a second factor into a first one. */
-const EXPORT_HIDE = /^(pass|password|secret|totp_secret|code_hash|recovery_hash|sig|signature|token|api_key|stripe_session)$/i;
+const EXPORT_HIDE = /^(pass|password|secret|totp_secret|code_hash|recovery_hash|sig|signature|token|token_hash|security_hash|initiator_hash|api_key|stripe_session)$/i;
 
 /* A person column either means "this row is about you" or "you did this to
    somebody else's row". A complaint does not stop being somebody else's
@@ -16088,7 +16097,7 @@ const EXPORT_OPERATIONAL = new Set([
   'job_applications', 'plan_acks', 'reviews', 'sil_houses', 'sil_slots',
   'allied_providers', 'account_links', 'tier_log', 'notification_prefs',
   'audit_snapshots', 'compliance_log', 'worker_docs', 'worker_profiles',
-  'module_completions', 'modules', 'sessions', 'mfa', 'mfa_recovery', 'settings'
+  'module_completions', 'modules', 'sessions', 'mfa', 'mfa_recovery', 'settings', 'account_email_changes'
 ]);
 
 /* The guard. A table added next year that carries a participant and a body of
@@ -16164,6 +16173,9 @@ function exportForPerson(u) {
       let blanked = 0;
       for (const k of Object.keys(r)) {
         if (EXPORT_HIDE.test(k)) continue;
+        // Queued security mail contains single-use links proving inbox access.
+        // Export safe delivery metadata, never its transport payload or binding.
+        if (table === 'delivery_outbox' && ['payload', 'access_stamp'].includes(k)) continue;
         if (aboutSomeoneElse && EXPORT_FREETEXT.test(k) && String(r[k] ?? '').trim()) { clean_[k] = '[withheld]'; blanked++; continue; }
         clean_[k] = r[k];
       }
@@ -16235,6 +16247,7 @@ function exportForPerson(u) {
       'It is a machine-readable file rather than a tidy report, because a tidy report is a summary and a summary is a decision somebody else made about what mattered.',
       '"about" is your account record. "tables" is everything else, one entry per part of the system that mentions you.',
       'Your password is not in here. Neither is your two-factor key. Those are credentials, not information about you, and putting them in a file you might email would make you less safe rather than more informed.',
+      'Email delivery records include their status and recipient, but exclude queued message payloads containing private verification links.',
       '"withheld" lists anything held back and why, so you can see the shape of what is missing rather than having to wonder.',
       'If something in here is wrong, you can ask us to correct it — that is Australian Privacy Principle 13, and the address is hello@thecareweb.com.au.',
       'The Care Web is operated by DMHC Pty Ltd, ABN 19 658 578 575, NDIS registration 4-LO5XNY0.'
@@ -19310,6 +19323,10 @@ PAYMENT_FLOW=require('./lib/payment-automation')({...processContext,now,appUrl:A
   paytoEnabled:()=>/^(1|true|on|yes)$/i.test(process.env.STRIPE_PAYTO_ENABLED||''),
   reviewInvoice:(inv,user,req,body)=>reviewIssuedInvoice(inv,user,req,body),
 },WORKFLOW);
+WORKFLOW.invoiceQueries=require('./lib/invoice-queries')({...processContext,now,appUrl:APP_URL,invoiceFlow:INVOICE_FLOW,paymentFlow:PAYMENT_FLOW,approvalDays:APPROVAL_DEEM_DAYS},WORKFLOW);
+WORKFLOW.deliveryHooks.invoiceQuery=WORKFLOW.invoiceQueries.suppress;
+WORKFLOW.accountEmail=require('./lib/account-email')({...processContext,now,verifyPassword,stampLegacyCutoff,requireAdmin,reservedEmails:ADMIN_EMAILS,emailPattern:EMAIL_RE,clearCookie:CLEAR_COOKIE,limited},WORKFLOW);
+WORKFLOW.deliveryHooks.accountEmail=WORKFLOW.accountEmail.suppress;
 WORKFLOW.deliveryHooks.prepare=require('./lib/invoice-link-mail')({
   invoiceFor:no=>WORKFLOW.invoiceSnapshot(no),makeInvoicePdf,paymentPageURL:no=>PAYMENT_FLOW.invoiceUrl(no)
 });
