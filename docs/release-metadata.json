@@ -1,12 +1,12 @@
 {
-  "version": "88.4.8",
-  "base_version": "88.3.4",
+  "version": "88.4.9",
+  "base_version": "88.4.8",
   "base_archive": "bookit-app-v88.3.4-source-baseline.zip",
   "base_archive_sha256": "d3f133177fdcdfe48c6984ba463209fea04b7cd438c06e3b21f2c398ba69dbb6",
   "base_commit": "943ad08ec492129ff5bba3169a906812ebafdff9",
   "package_type": "current-update-only archive",
   "output_archive": "The-Care-Web-v88.4.8-money-navigation-update-only.zip",
-  "scope": "Current-only update over v88.4.7: consolidate the Money menu and keep person, tab and page navigation at the relevant workspace.",
+  "scope": "A participant who asks for a worker whose required training is hard-locked (or who is on leave, uncleared or withdrawn) is told the worker is not taking new bookings \u2014 the worker's training standing is no longer shown to participants. The full reason still goes to the worker and the office. Smoke test added. The walkthrough scripts gain clear-test-history.js (bookings, invoices and pay batches wipe for test data) and prefill-walkthrough.js sends the support-plan revision. Release manifest re-synced (.env.example had drifted).",
   "unchanged_assets": "Existing media, branding, fonts and PDF.js vendor bytes are preserved.",
   "update_base_version": "88.4.7",
   "update_base_commit": "8900b47"

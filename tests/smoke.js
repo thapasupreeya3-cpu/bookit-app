@@ -652,6 +652,19 @@ async function main() {
     const nightRow = claims.text.split(/\r?\n/).find(l => l.includes(`BK${sid}A`));
     t('… and the sleepover\'s extra active hours as their own row', !!nightRow && nightRow.includes('01_013_0107_1_1'), nightRow || 'no row');
   }
+  /* v88.4.9: a participant asking for a worker whose training is hard-locked is told the worker
+     isn't taking bookings — never how many days overdue the worker's training is */
+  {
+    const before = { modules: db.prepare('SELECT key, created FROM modules').all(), worker: db.prepare('SELECT created FROM users WHERE id = 10').get() };
+    const old = new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10) + 'T00:00:00.000Z';
+    db.prepare('UPDATE modules SET created = ?').run(old); db.prepare('UPDATE users SET created = ? WHERE id = 10').run(old);
+    db.prepare('DELETE FROM module_completions WHERE worker_id = 10').run();
+    const far = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+    const r = await req('POST', '/api/bookings', { headers: J, cookie: pc, body: { worker_id: 10, service: 'daily-tasks', date: far, start: '09:00', hours: 2, intro: true, out_of_area_ok: true } });
+    t('a hard training lock refuses the participant\'s request without exposing the worker\'s training', r.status === 400 && r.json && r.json.code === 'unavailable' && !/overdue|training/i.test(r.json.error || ''), `${r.status} ${r.json && r.json.error}`);
+    for (const m of before.modules) db.prepare('UPDATE modules SET created = ? WHERE key = ?').run(m.created, m.key);
+    db.prepare('UPDATE users SET created = ? WHERE id = 10').run(before.worker.created);
+  }
   db.close();
 
   t('the server logged no errors during the run', !/Error|TypeError|UNSAFE/.test(serverLog), serverLog.split('\n').filter(l => /Error/.test(l))[0]);

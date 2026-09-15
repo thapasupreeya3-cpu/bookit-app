@@ -1,5 +1,5 @@
 {
-  "release": "88.4.8",
+  "release": "88.4.9",
   "base_releases": [
     "88.4.7"
   ],
@@ -8,8 +8,7 @@
   "note": "Complete installed source after the current-update-only v88.4.7 delta. Unchanged files, runtime data and secrets are excluded from the ZIP. Previous block register remains an audit snapshot.",
   "files": {
     ".env.example": {
-      "sha256": "5a2262981bd35731e46240d519e66bce94ee43063d7899869279406e466b0a41",
-      "bytes": 5260
+      "sha256": "f197d112b47170f0a6cabb3f763c8cda6df4c58c59ed572de6d192760aeabb4d"
     },
     ".github/workflows/check.yml": {
       "sha256": "ad2eb9fee2ec567bfac95be8023b9cdaa7908aceb7b8ad44bb18ed33438fe965",
@@ -24,8 +23,7 @@
       "bytes": 8
     },
     "STARTHERE.txt": {
-      "sha256": "7015e19e9e6ea434310e476da13a180660cd03f12a9f0ba29cf8824973434d1e",
-      "bytes": 14050
+      "sha256": "affe1d412fe6dd24f547d49076633cb36f82b5b9a862057109571d805c98037a"
     },
     "UPDATE-INSTRUCTIONS.txt": {
       "sha256": "741f14b2672869ac1dfcdf0a54a162431f02a9c39ed1a3b935a9f5c24cb9bbf6",
@@ -704,8 +702,7 @@
       "bytes": 234470
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "ab81189ecf2be290bfed96a304fd665f7559cf9276e3a003ef0cdacb9a6d0a14",
-      "bytes": 15749
+      "sha256": "2968f234487b5ac85f9c22ef53a29d76bcca9d98e9d826526b52e54cbb2df092"
     },
     "docs/block-register/branches.csv": {
       "sha256": "8cb2079fbbbf18a98841b6a8b575f39846e6a32f4fe86cafc2b87b23718f178a",
@@ -736,8 +733,7 @@
       "bytes": 60611
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "d7274de44e7aa946872b832cb6570b076dda6f786c4543a2e86077c5582e87ef",
-      "bytes": 29352
+      "sha256": "a9ce6a5d1840a3e1b44f335f13de50a18b7abd1cf9175b4631ffd8cf096e8b23"
     },
     "docs/dependency-provenance.json": {
       "sha256": "b5fe529aada0548ffb813d89455cfea3385f13f96616d2d0b47d99809234cee3",
@@ -844,8 +840,7 @@
       "bytes": 26519
     },
     "docs/release-metadata.json": {
-      "sha256": "6e5519c2e3e954b370910c124d7ea7d2d72a89e0f92ca491b90c85cdbc039d31",
-      "bytes": 703
+      "sha256": "ceb626070ba2d9b2aa711adeeb03dfae9c18db98304f58c28196070a47d74787"
     },
     "docs/task-clarity-preview.html": {
       "sha256": "44cdbe9cd9805da7c210ad1bf6bcc54bc58301f6a9853276e8d3051e6f86b815",
@@ -1096,12 +1091,10 @@
       "bytes": 418
     },
     "package-lock.json": {
-      "sha256": "ca516af10cbb3cd8a371348ef4b871d9743fec2fe27363320417862e1516e973",
-      "bytes": 284
+      "sha256": "9b68d54250e9b56b6a8a734fc7878d50181d998840b8b39f89584dbc7fa10f18"
     },
     "package.json": {
-      "sha256": "e3265e13b51268a215de3f226fdce396bfff53bd6d71589b7191460b5a0e0753",
-      "bytes": 4678
+      "sha256": "4d69771a8db4d9b6e210efaf0fd9e6de7d789f57da8863ec38335e329f166b0d"
     },
     "prefill-walkthrough.js": {
       "sha256": "8cdc0cba5675f33b4ccefc4cdebf896c8933b68ac2fedea86ea13a5f3115235b",
@@ -1988,8 +1981,7 @@
       "bytes": 338836
     },
     "readme.txt": {
-      "sha256": "d4d6abf6f56d6c4d27a7c7ade3febc2f0d57cd01f01f475689dc1a39169883a2",
-      "bytes": 1044
+      "sha256": "5134722c2a21c9d24bc51a3a868cd6bbe5a9d0e338527872e7882135205c5b6b"
     },
     "scripts/NDIS_plan__sample_for_walkthrough.pdf": {
       "sha256": "8ef1ce7de6bc4247997252664267635ee011b51362f57699bbcb0e688dd55e82",
@@ -2016,8 +2008,7 @@
       "bytes": 1270
     },
     "scripts/prefill-walkthrough.js": {
-      "sha256": "b0f50dcdcca749b56ffa16024c7a1f2ea1d9841c77d86d1ca2d82027f06a630d",
-      "bytes": 16452
+      "sha256": "9051f75ac357f9f06e30d2dd07a9e19ce569e92030cb10f5c269078954dd2f0f"
     },
     "scripts/prefill-worker-training.js": {
       "sha256": "ea54bcd8fb61e1acff0f7b1290e45fd0a8e67b11df6b47fa88948341a2214e19",
@@ -2048,8 +2039,7 @@
       "bytes": 940
     },
     "server.js": {
-      "sha256": "ae65eed952e045e907cd1b9a4168a068fa98c2bd4c79d4ed797e5fbfc4ad0d3d",
-      "bytes": 1400055
+      "sha256": "453dd36f23fd38ebfcd7ea6dcb3ddc1be0b9f8fde9b82ae9439138a717fe8b40"
     },
     "tests/account-email-tests.js": {
       "sha256": "7d0d8c391041b76aab142fa8d85914f1760618e5f0e2c50349a8ef0a9b71ed0b",
@@ -2272,8 +2262,7 @@
       "bytes": 10601
     },
     "tests/smoke.js": {
-      "sha256": "942095cd0dd1b3c7e25517e52f51a26348c607a365cb92ca48d870a27ad09ba1",
-      "bytes": 91026
+      "sha256": "bb39db1ab8a99404d42c18c22a2aca58c4762245ee0feb5502b99c3006779a4b"
     },
     "tests/task-clarity-tests.js": {
       "sha256": "1cb532747790bc88a85e54559bcb84999f5140759dd548daf1cf78cdf5208fe9",
@@ -2958,6 +2947,9 @@
     "word-originals/Service Agreement_.docx": {
       "sha256": "8fb07e28ba0a8ec56757511ebe9cd1fb25de00d657ec5311309af0fa60483b01",
       "bytes": 372116
+    },
+    "scripts/clear-test-history.js": {
+      "sha256": "5e224933cf3e721c2a77c522f57018996bef4cf006bb60784a67643d9d27b238"
     }
   }
 }

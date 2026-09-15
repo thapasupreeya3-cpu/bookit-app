@@ -6729,6 +6729,19 @@ function seriesDates(firstDate, freq, until, count) {
   return out;
 }
 
+/* v88.4.9 — a participant asking for a booking sees the outcome, not the
+   worker's file. A worker's training standing, clearance state or leave is
+   the worker's and the office's business; to the participant every one of
+   those is simply "not taking new bookings". The full reason still goes to
+   the worker (accept, cover) and the office (assign), who are entitled to it. */
+function participantFacing(fit) {
+  if (!fit || fit.ok) return fit;
+  if (['training', 'platform', 'leave', 'withdrawn', 'blocked_pair'].includes(fit.code)) {
+    return { ok: false, code: fit.code === 'blocked_pair' ? 'blocked_pair' : 'unavailable',
+      error: fit.code === 'blocked_pair' ? fit.error : "That worker isn\u2019t taking new bookings at the moment. Choose another worker, or ask the office to suggest one." };
+  }
+  return fit;
+}
 route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const pers = actFor(req, user, 'bookings');
@@ -6830,7 +6843,7 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   const assignmentDates = dates.map(date => ({participant_id:pers.id,worker_id:workerId,service,date,start,hours,sleepover,kind:intro?'intro':'shift',service_place:SERVICE_LOCATIONS.placeForBooking({service_location:serviceLocation})}));
   const assignmentProof=assignmentOptions(req,user,body,assignmentDates);
   const assignmentFits=new Map();
-  for (const proposed of assignmentDates) { const fit=assignmentCheck(workerId,proposed,assignmentProof); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,fit); assignmentFits.set(proposed.date,fit); }
+  for (const proposed of assignmentDates) { const fit=assignmentCheck(workerId,proposed,assignmentProof); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,participantFacing(fit)); assignmentFits.set(proposed.date,fit); }
   db.exec('BEGIN IMMEDIATE');
   try {
     if (repeat) {
