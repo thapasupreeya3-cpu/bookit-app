@@ -1,5 +1,5 @@
 {
-  "release": "88.4.9",
+  "release": "88.4.10",
   "base_releases": [
     "88.4.7"
   ],
@@ -23,7 +23,7 @@
       "bytes": 8
     },
     "STARTHERE.txt": {
-      "sha256": "affe1d412fe6dd24f547d49076633cb36f82b5b9a862057109571d805c98037a"
+      "sha256": "d1b77ee42778d680a0d5a0c8bd831caf14d857c6a55d12862730307bd09b1a62"
     },
     "UPDATE-INSTRUCTIONS.txt": {
       "sha256": "741f14b2672869ac1dfcdf0a54a162431f02a9c39ed1a3b935a9f5c24cb9bbf6",
@@ -702,7 +702,7 @@
       "bytes": 234470
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "2968f234487b5ac85f9c22ef53a29d76bcca9d98e9d826526b52e54cbb2df092"
+      "sha256": "06a13bc35c153474fe1b802716ec9fa9e7ab7d2348ae8c29badac5c7efdeec2b"
     },
     "docs/block-register/branches.csv": {
       "sha256": "8cb2079fbbbf18a98841b6a8b575f39846e6a32f4fe86cafc2b87b23718f178a",
@@ -733,7 +733,7 @@
       "bytes": 60611
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "a9ce6a5d1840a3e1b44f335f13de50a18b7abd1cf9175b4631ffd8cf096e8b23"
+      "sha256": "8e5b1cbd1b3f3641be82de777143ee975100c1601036287797eaabef10d92655"
     },
     "docs/dependency-provenance.json": {
       "sha256": "b5fe529aada0548ffb813d89455cfea3385f13f96616d2d0b47d99809234cee3",
@@ -840,7 +840,7 @@
       "bytes": 26519
     },
     "docs/release-metadata.json": {
-      "sha256": "ceb626070ba2d9b2aa711adeeb03dfae9c18db98304f58c28196070a47d74787"
+      "sha256": "244649ff08a94a89cc17c1dadb938649df69f712daf3dcd69af0628d6692b2ad"
     },
     "docs/task-clarity-preview.html": {
       "sha256": "44cdbe9cd9805da7c210ad1bf6bcc54bc58301f6a9853276e8d3051e6f86b815",
@@ -1091,10 +1091,10 @@
       "bytes": 418
     },
     "package-lock.json": {
-      "sha256": "9b68d54250e9b56b6a8a734fc7878d50181d998840b8b39f89584dbc7fa10f18"
+      "sha256": "2a6d6b2a6160a55ed709673ec7284f019c52e0e4825e54b8236029ee4c3ff108"
     },
     "package.json": {
-      "sha256": "4d69771a8db4d9b6e210efaf0fd9e6de7d789f57da8863ec38335e329f166b0d"
+      "sha256": "59f7410afcaf5f705c8d5ee73566cf95ff691cc8cdd5857536e757b08d18c4e2"
     },
     "prefill-walkthrough.js": {
       "sha256": "8cdc0cba5675f33b4ccefc4cdebf896c8933b68ac2fedea86ea13a5f3115235b",
@@ -1809,8 +1809,7 @@
       "bytes": 2383
     },
     "public/index.html": {
-      "sha256": "8018619d462c817a1e99c2eeb048f5c36faf51c479c9139987398a794269d798",
-      "bytes": 1094956
+      "sha256": "6a30fd02e2413d796c7bd836ed7ec079d2d760912756d2e262e9366a4e4c9192"
     },
     "public/vendor/care-cast.js": {
       "sha256": "6461468f0755d4797be60b29095744fdd701de092ae8f7f5fc1ee60149aa9a37",
@@ -1981,7 +1980,7 @@
       "bytes": 338836
     },
     "readme.txt": {
-      "sha256": "5134722c2a21c9d24bc51a3a868cd6bbe5a9d0e338527872e7882135205c5b6b"
+      "sha256": "6f0e7f4cc7861403e82014ee94c1672589b2b407f9ac0cbea628811650e5d1e2"
     },
     "scripts/NDIS_plan__sample_for_walkthrough.pdf": {
       "sha256": "8ef1ce7de6bc4247997252664267635ee011b51362f57699bbcb0e688dd55e82",
@@ -2039,7 +2038,7 @@
       "bytes": 940
     },
     "server.js": {
-      "sha256": "453dd36f23fd38ebfcd7ea6dcb3ddc1be0b9f8fde9b82ae9439138a717fe8b40"
+      "sha256": "7b93833d2ba249bc05c13f3b00909c67639430a542b2c21e65a8b8ed6d058a6f"
     },
     "tests/account-email-tests.js": {
       "sha256": "7d0d8c391041b76aab142fa8d85914f1760618e5f0e2c50349a8ef0a9b71ed0b",
@@ -2262,7 +2261,7 @@
       "bytes": 10601
     },
     "tests/smoke.js": {
-      "sha256": "bb39db1ab8a99404d42c18c22a2aca58c4762245ee0feb5502b99c3006779a4b"
+      "sha256": "6b9cf054ebddcd405b9877b08b6f3341cc73155a41a0ab3ad59aa2d08c54ac65"
     },
     "tests/task-clarity-tests.js": {
       "sha256": "1cb532747790bc88a85e54559bcb84999f5140759dd548daf1cf78cdf5208fe9",

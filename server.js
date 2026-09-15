@@ -6130,8 +6130,21 @@ route('GET', /^\/api\/workers\/(\d+)$/, (req, res, m, user) => {
      public-safe categories (checks, training, qualifications — never identity
      documents, visas or resumes), unexpired, and verified by a human. */
   w.docs = w.checks;
+  /* v88.4.10 — a profile can be reached by a saved link or from a person's team
+     long after the worker stopped being bookable. Say so up front, so the
+     page shows a plain notice instead of a form that ends in a refusal. The
+     reason stays private; the participant only needs the outcome. */
+  const bk = bookableNow(w.id);
+  w.bookable = bk.ok; w.bookable_note = bk.ok ? '' : bk.note;
   json(res, 200, { worker: forVisitor(w, user) });
 });
+function bookableNow(workerId) {
+  const p = db.prepare('SELECT visible, closed_at, email FROM worker_profiles p JOIN users u ON u.id = p.user_id WHERE p.user_id = ?').get(workerId);
+  const note = 'Not taking new bookings at the moment. Choose another worker, or ask the office to suggest one.';
+  if (!p || !p.visible || p.closed_at || !platformEligible(workerId, p.email)) return { ok: false, note };
+  if (moduleState(workerId).lock === 'hard') return { ok: false, note };
+  return { ok: true, note: '' };
+}
 
 route('GET', /^\/api\/rates$/, (req, res) => {
   const shares = tierShares(), bands = tierBands();
@@ -14143,7 +14156,8 @@ route('GET', /^\/api\/my-workers$/, (req, res, m, user) => {
     const wp = db.prepare('SELECT * FROM worker_profiles WHERE user_id = ?').get(r.worker_id);
     const pub = wp ? publicWorker({ ...wp, id: r.worker_id, name: r.name }) : { id: r.worker_id, name: r.name };
     const shifts = db.prepare("SELECT COUNT(*) AS n, MAX(date) AS last FROM bookings WHERE participant_id = ? AND worker_id = ? AND status = 'completed'").get(pers.id, r.worker_id) || {};
-    return { ...pub, relation: r.relation, note: r.note, added: r.added,
+    const bk = bookableNow(r.worker_id);
+    return { ...pub, relation: r.relation, note: r.note, added: r.added, bookable: bk.ok, bookable_note: bk.note,
       shifts: Number(shifts.n || 0), last_shift: shifts.last || '',
       acked: relationOf(pers.id, r.worker_id) === 'blocked' ? null : planAck(pers.id, r.worker_id) };
   });

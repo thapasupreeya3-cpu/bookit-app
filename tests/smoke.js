@@ -662,6 +662,10 @@ async function main() {
     const far = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
     const r = await req('POST', '/api/bookings', { headers: J, cookie: pc, body: { worker_id: 10, service: 'daily-tasks', date: far, start: '09:00', hours: 2, intro: true, out_of_area_ok: true } });
     t('a hard training lock refuses the participant\'s request without exposing the worker\'s training', r.status === 400 && r.json && r.json.code === 'unavailable' && !/overdue|training/i.test(r.json.error || ''), `${r.status} ${r.json && r.json.error}`);
+    const prof = await req('GET', '/api/workers/10', { cookie: pc });
+    t('… the worker\'s profile says they are not taking bookings, without the reason', prof.status === 200 && prof.json.worker.bookable === false && /not taking new bookings/i.test(prof.json.worker.bookable_note) && !/overdue|training/i.test(prof.json.worker.bookable_note), `${prof.status} ${JSON.stringify(prof.json.worker && prof.json.worker.bookable_note)}`);
+    const team = await req('GET', '/api/my-workers', { cookie: pc });
+    t('… and the team list carries the same flag', team.status === 200 && team.json.workers.every(w => w.id !== 10 || w.bookable === false), team.status + ' ' + JSON.stringify((team.json.workers || []).map(w => [w.id, w.bookable])));
     for (const m of before.modules) db.prepare('UPDATE modules SET created = ? WHERE key = ?').run(m.created, m.key);
     db.prepare('UPDATE users SET created = ? WHERE id = 10').run(before.worker.created);
   }

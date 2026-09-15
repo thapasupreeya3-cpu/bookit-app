@@ -6214,7 +6214,7 @@ async function renderWorkerPage(id){
           <button class="btn btn-primary" id="wpEdit" type="button">Edit my profile</button>
         </div>` : `
         <div class="wp-actions">
-          <button class="btn btn-coral" id="wpBook" type="button">Request a booking</button>
+          ${w.bookable === false ? `<div class="wp-trustbox" style="margin:0 0 8px;" role="status">${esc(w.bookable_note || 'Not taking new bookings at the moment.')}</div>` : `<button class="btn btn-coral" id="wpBook" type="button">Request a booking</button>`}
           <button class="btn btn-primary" id="wpMessage" type="button">Message ${first}</button>
           <div class="wp-mini">
             <button class="btn btn-secondary btn-star" id="wpSave" aria-pressed="${savedIds().includes(w.id)}" type="button">${savedIds().includes(w.id) ? '★ Saved' : '☆ Save'}</button>
@@ -6255,7 +6255,7 @@ async function renderWorkerPage(id){
   if(own){
     $('#wpEdit').addEventListener('click', () => { if(window.goEditProfile) goEditProfile(); });
   } else {
-    $('#wpBook').addEventListener('click', () => {
+    if ($('#wpBook')) $('#wpBook').addEventListener('click', () => {
       if(window.API && API.online){
         if(!API.me){ openModal('#loginModal'); toast('Log in or create a profile to request bookings.'); return; }
         if(vrole() !== 'participant'){ toast('Only participants can request bookings.'); return; }
