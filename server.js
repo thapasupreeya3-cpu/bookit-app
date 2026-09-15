@@ -6973,6 +6973,7 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
         recordAssignmentAck(user.id,fit,body,req);
         noteOutOfArea(b.id, fit, 'worker',user);
         db.prepare("UPDATE bookings SET status='accepted',accepted_at=? WHERE id=?").run(now(),b.id);
+        processContext.bookingUpdates.recordAccepted([b.id]);
         db.exec('COMMIT');
       } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
     } else db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status,b.id);
@@ -12573,6 +12574,7 @@ function coverAccept(offerId, req, acceptingWorkerId, proof={}) {
       noteOutOfArea(b.id,fit,'worker',actor);
       db.prepare("UPDATE cover SET status='filled',filled_worker_id=?,filled_at=?,closed_at=? WHERE id=?").run(wid,now(),now(),cv.id);
       db.prepare("UPDATE bookings SET worker_id=?,cover_state='covered',status='accepted',accepted_at=?,office_ok=0,swap_count=swap_count+1,original_worker_id=COALESCE(original_worker_id,worker_id) WHERE id=?").run(wid,now(),b.id);
+      processContext.bookingUpdates.recordAccepted([b.id]);
       worker=db.prepare('SELECT id,name,email FROM users WHERE id=?').get(wid);
       result={ok:true,booking_id:b.id};
     }
@@ -13207,6 +13209,7 @@ route('POST', /^\/api\/admin\/bookings\/(\d+)\/office-assign$/, (req, res, m, us
   db.exec('BEGIN IMMEDIATE');
   try {noteOutOfArea(b.id,fit,'office',user);recordAssignmentAck(workerId,fit,proof,req,'office-recorded');
   db.prepare("UPDATE bookings SET worker_id = ?, cover_state = 'covered', status = 'accepted', accepted_at = ?, swap_count = swap_count + 1, office_ok = 1, original_worker_id = COALESCE(original_worker_id, worker_id) WHERE id = ?").run(workerId, now(), b.id);
+  processContext.bookingUpdates.recordAccepted([b.id]);
   logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'office-assigned',
     detail: `Booking #${b.id} (${b.date} ${b.start}) was in office review (shift had started); ${w.name} recorded onto it by the office. Exceptional assignment evidence: ${consent}. Plan evidence recorded as office-reported, not a worker click.`,
     source: 'safety hold', checked_by: user.name });
@@ -19344,9 +19347,6 @@ const processContext={db,json,route,bookingPriceView,actFor,sessionUser,firstBoo
  outOfAreaReply,workerPay,suggestCategory,openCover,services:SERVICES,sign,setting,setSetting,payable,billable,
  reviewReferrals,scopeWarning,scopeState:b=>LAUNCH?.scopeState(b),csvCell:BOOKIT_HARDENING.safeSpreadsheetCell,publicAPI:PUBLIC_API,shortNotice,planQuestions:PLAN_QUESTIONS,AI,aiFetch,invoiceFor};
 WORKFLOW=require('./lib/process-store')(processContext);
-BOOKING_NOTICES=require('./lib/booking-notifications')({...processContext,prettyDate,serviceLabels:SERVICE_LABELS,blockedPair});
-WORKFLOW.deliveryHooks.booking=BOOKING_NOTICES.suppress;
-processContext.bookingNotices=BOOKING_NOTICES;
 SERVICE_LOCATIONS=require('./lib/service-locations')({...processContext,now,sendMail,blockedPair,appUrl:APP_URL,
   reviewLocationChange:async(req,user,body,b,location)=>{
     const place=SERVICE_LOCATIONS.placeForBooking({service_location:location});
@@ -19363,6 +19363,10 @@ SERVICE_LOCATIONS=require('./lib/service-locations')({...processContext,now,send
   },
   afterLocationChange:(b,location,user,review)=>{if(review?.preserve_travel)db.prepare('UPDATE bookings SET out_of_area=? WHERE id=?').run(b.out_of_area||'',b.id);else noteOutOfArea(b.id,review?.fit,user.admin?'office':'participant',user);}
 },WORKFLOW);
+processContext.bookingUpdates=require('./lib/booking-updates')({...processContext,now});
+BOOKING_NOTICES=require('./lib/booking-notifications')({...processContext,prettyDate,serviceLabels:SERVICE_LABELS,blockedPair});
+WORKFLOW.deliveryHooks.booking=BOOKING_NOTICES.suppress;
+processContext.bookingNotices=BOOKING_NOTICES;
 WORKFLOW.locationTasks=uid=>{
   const u=db.prepare('SELECT id,role FROM users WHERE id=?').get(uid),tasks=[];
   const add=(key,label,destination,detail,due=null)=>tasks.push({task_key:uid+':location:'+key,user_id:uid,kind:'booking',label,owner_kind:'person',destination,detail,scope:u.role==='participant'?'bookings':'',due_at:due});

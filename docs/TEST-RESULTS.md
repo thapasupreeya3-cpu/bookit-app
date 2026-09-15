@@ -1,3 +1,38 @@
+# v88.4.14 validation
+
+- Full `npm test` passed on Node **22.23.2**. Existing booking, email, payment,
+  worker readiness, profile, navigation and workflow suites remain passing.
+- **41 new scenarios**: 15 notification persistence/access cases, 20 interface
+  cases including keyboard focus, and six additions to the real booking HTTP
+  suite. The full booking email HTTP suite now passes **14/14**.
+- Actual HTTP tests cover ordinary and repeating acceptance, replacement cover,
+  office-recorded worker agreement, helper revocation, rollback if recording
+  fails, and persistence of confirmations/read receipts after server restart.
+- Reading never acknowledges; explicit dismissal belongs to each viewer.
+  Changed/cancelled visits and revoked access do not expose stale confirmations.
+  The UI tests cover Calendar/List routing, background refresh, network retry,
+  identity changes, injection prevention and focus preservation without scroll.
+- Notification text contrast passes: normal 10.98:1, primary button 7.19:1,
+  dark 11.04:1 and stale 10.02:1. These are measured colour checks, not a browser
+  or assistive-technology certification.
+- JavaScript syntax: **146 scripts, zero failures**, including four inline
+  application scripts. Generated inventories: **416 routes, 110 tables**,
+  schema **88405**. Release documentation verification passed.
+- Homepage structure confirms removal of the opening park clip and sample
+  worker/confirmation cards, with all six service clips and search retained.
+- The notification migration is additive and repeatable. Existing synthetic
+  records and read receipts survive reinitialization/restart. No separate full
+  database-upgrade rehearsal from v88.4.13 was performed.
+- The current-only ZIP is checked by exact byte overlay on the supplied v88.4.12
+  source plus the delivered v88.4.13 update. The report records complete source
+  hashes and checks guide anchors. No unchanged media/vendor files are included.
+- Browser navigation to the local homepage returned **ERR_BLOCKED_BY_CLIENT**.
+  Rendered layout and live inbox delivery remain unverified. The source was
+  not deployed; no real email, payment, wage transfer or price change occurred.
+- Pricing documentation describes current code and the supplied 2025–26 rules.
+  This release does not certify September 2026 rate limits, change claim-item
+  mappings, or implement the remaining overnight funding/agreement check.
+
 # v88.4.13 validation
 
 - Full `npm test` passed on Node **22.23.2**, including the existing booking,

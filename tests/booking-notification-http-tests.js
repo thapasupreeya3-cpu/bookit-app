@@ -59,9 +59,24 @@ const fetch=global.fetch;global.fetch=function(input,...args){local(typeof input
     ok(await req('PATCH','/api/bookings/'+one,worker,{status:'accepted',plan_ack:true,plan_id:planId,plan_version:1}));
     assert.deepEqual(noticeRows(one,'accepted').map(r=>r.user_id),[owner.id,helper.id]);
   });
+  await test('A real accepted booking appears immediately in each participant-side in-site inbox',async()=>{
+    const own=ok(await req('GET','/api/me/booking-updates',owner));assert.equal(own.count,1);assert.equal(own.updates[0].booking_id,one);assert.equal(own.updates[0].destination,'#/journey?panel=shift&booking='+one);assertPrivateAbsent(own);
+    assert.equal(ok(await req('GET','/api/me/booking-updates',owner)).count,1);
+    assert.equal(ok(await req('GET','/api/me/booking-updates',helper,undefined,owner.id)).count,1);
+    const ids=own.updates.map(row=>row.id);assert.equal(ok(await req('POST','/api/me/booking-updates/read',owner,{ids})).read,1);
+    assert.equal(ok(await req('GET','/api/me/booking-updates',owner)).count,0);assert.equal(ok(await req('GET','/api/me/booking-updates',helper,undefined,owner.id)).count,1);
+    assert.equal(ok(await req('POST','/api/me/booking-updates/read',owner,{ids})).read,0);assert.equal(ok(await req('GET','/api/me/booking-updates',worker)).count,0);
+  });
+  await test('Live helper revocation denies both confirmation access and acknowledgment',async()=>{
+    const updates=ok(await req('GET','/api/me/booking-updates',helper,undefined,owner.id)).updates;
+    db.prepare("UPDATE account_links SET status='revoked' WHERE participant_id=? AND coordinator_id=?").run(owner.id,helper.id);
+    ok(await req('GET','/api/me/booking-updates',helper,undefined,owner.id),403);ok(await req('POST','/api/me/booking-updates/read',helper,{ids:updates.map(row=>row.id)},owner.id),403);
+    db.prepare("UPDATE account_links SET status='active' WHERE participant_id=? AND coordinator_id=?").run(owner.id,helper.id);
+  });
   await test('Moving an occurrence queues clear changed details and a fresh worker request',async()=>{
     ok(await req('PATCH','/api/bookings/'+one+'/occurrence',owner,{date:'2030-09-14',start:'11:00'}));
     const rows=noticeRows(one,'changed');assert.equal(rows.length,3);assert.equal(JSON.parse(rows.find(r=>r.user_id===worker.id).payload)[8].event_kind,'booking-request');assert.ok(rows.every(r=>r.urgent===1));
+    assert.equal(ok(await req('GET','/api/me/booking-updates',helper,undefined,owner.id)).count,0);
   });
   await test('Real participant cancellation creates both participant and worker notices',async()=>{
     ok(await req('PATCH','/api/bookings/'+one,owner,{status:'cancelled',reason:'Synthetic changed plans'}));assert.deepEqual(noticeRows(one,'cancelled').map(r=>r.user_id),[owner.id,helper.id,worker.id]);
@@ -72,12 +87,44 @@ const fetch=global.fetch;global.fetch=function(input,...args){local(typeof input
   await test('A repeating request and batch acceptance each send one grouped email per appropriate recipient',async()=>{
     series=ok(await req('POST','/api/bookings',owner,{...proposed('2030-09-20'),repeat:'weekly',repeat_count:2}));assert.equal(noticeRows(series.id,'requested').length,3);
     const review=ok(await req('GET','/api/journey/series/'+series.series_id,worker));ok(await req('POST','/api/journey/series/'+series.series_id+'/accept',worker,{ids:series.ids,revisions:Object.fromEntries(review.visits.map(v=>[v.id,v.revision])),plan_ack:true,plan_id:planId,plan_version:1}));assert.deepEqual(noticeRows(series.id,'accepted').map(r=>r.user_id),[owner.id,helper.id]);
+    assert.deepEqual(ok(await req('GET','/api/me/booking-updates',owner)).updates.map(row=>row.booking_id).sort((a,b)=>a-b),series.ids.slice().sort((a,b)=>a-b));
   });
   await test('Changing a repeating booking sends an urgent update to each side',async()=>{
     ok(await req('PATCH','/api/series/'+series.series_id,owner,{start:'12:00'}));const rows=noticeRows(series.id,'changed');assert.equal(rows.length,3);assert.ok(rows.every(r=>r.urgent===1));
   });
   await test('Ending the series queues cancellation summaries for both sides',async()=>{
     const preview=ok(await req('GET','/api/journey/series/'+series.series_id+'/end-preview',owner));ok(await req('POST','/api/series/'+series.series_id+'/end',owner,{confirm:true,token:preview.token,expires:preview.expires}));const rows=noticeRows(series.id,'ended');assert.equal(rows.length,3);assert.ok(rows.every(r=>JSON.parse(r.payload)[8].booking_ids.length===2));
+  });
+  await test('A failed acceptance-event save rolls back the real booking mutation',async()=>{
+    const id=ok(await req('POST','/api/bookings',owner,proposed('2030-10-01'))).id;
+    db.exec(`CREATE TRIGGER synthetic_booking_update_failure BEFORE INSERT ON booking_acceptance_updates WHEN NEW.booking_id=${id} BEGIN SELECT RAISE(ABORT,'Synthetic acceptance persistence failure'); END;`);
+    try{ok(await req('PATCH','/api/bookings/'+id,worker,{status:'accepted',plan_ack:true,plan_id:planId,plan_version:1}),500);assert.equal(db.prepare('SELECT status FROM bookings WHERE id=?').get(id).status,'requested');assert.equal(noticeRows(id,'accepted').length,0);}
+    finally{db.exec('DROP TRIGGER synthetic_booking_update_failure');}
+    ok(await req('PATCH','/api/bookings/'+id,worker,{status:'accepted',plan_ack:true,plan_id:planId,plan_version:1}));assert.ok(ok(await req('GET','/api/me/booking-updates',owner)).updates.some(row=>row.booking_id===id));
+  });
+  await test('A replacement worker accepting cover creates the new participant confirmation',async()=>{
+    const id=ok(await req('POST','/api/bookings',owner,proposed('2030-10-03'))).id;
+    db.prepare("UPDATE bookings SET worker_id=2,status='accepted',accepted_at=?,cover_state='finding' WHERE id=?").run(stamp,id);
+    const coverId=ins('cover',{booking_id:id,from_worker_id:2,reason:'Synthetic replacement acceptance',opened_at:stamp,tier:'pool',status:'open'});
+    ins('cover_offers',{cover_id:coverId,tier:'pool',worker_id:worker.id,rank:1,sent_at:stamp,expires_at:new Date(Date.now()+3600000).toISOString()});
+    ok(await req('POST','/api/cover/'+coverId+'/review',worker,{}));ok(await req('POST','/api/cover/'+coverId+'/claim',worker,{plan_ack:true,plan_id:planId,plan_version:1}));
+    const update=ok(await req('GET','/api/me/booking-updates',owner)).updates.find(row=>row.booking_id===id);assert.ok(update);assert.equal(update.worker_name,db.prepare('SELECT name FROM users WHERE id=?').get(worker.id).name);
+  });
+  await test('An office assignment with recorded worker agreement also creates a confirmation',async()=>{
+    const office=await login(1),id=ok(await req('POST','/api/bookings',owner,proposed('2030-10-05'))).id;
+    db.prepare("UPDATE bookings SET worker_id=2,cover_state='office' WHERE id=?").run(id);
+    ok(await req('POST','/api/admin/bookings/'+id+'/office-assign',office,{worker_id:worker.id,worker_agreed:true,consent_note:'Synthetic office spoke to worker and recorded their explicit agreement.',plan_read_confirmed:true,plan_id:planId,plan_version:1}));
+    assert.ok(ok(await req('GET','/api/me/booking-updates',owner)).updates.some(row=>row.booking_id===id));
+  });
+  await test('Restarting on the upgraded database preserves confirmations and viewer acknowledgments',async()=>{
+    const before=ok(await req('GET','/api/me/booking-updates',owner)),id=before.updates[0].id;
+    ok(await req('POST','/api/me/booking-updates/read',owner,{ids:[id]}));
+    const expected=ok(await req('GET','/api/me/booking-updates',owner)),stored=db.prepare('SELECT count(*) n FROM booking_acceptance_updates').get().n;
+    const stopped=new Promise(resolve=>child.once('exit',resolve));child.kill();await stopped;
+    child=spawn(process.execPath,['--no-warnings','--require',guard,'server.js'],{cwd:ROOT,env,stdio:['ignore','pipe','pipe']});child.stdout.on('data',chunk=>log+=chunk);child.stderr.on('data',chunk=>log+=chunk);
+    let started=false;for(let n=0;n<100;n++){if(child.exitCode!==null)throw Error(log);try{if((await fetch(base+'/api/version')).ok){started=true;break;}}catch{}await new Promise(resolve=>setTimeout(resolve,100));}assert.ok(started,'Upgraded server restarted');
+    assert.deepEqual(ok(await req('GET','/api/me/booking-updates',owner)),expected);assert.equal(db.prepare('SELECT count(*) n FROM booking_acceptance_updates').get().n,stored);
+    assert.equal(db.prepare('SELECT count(*) n FROM booking_acceptance_reads WHERE update_id=? AND viewer_id=?').get(id,owner.id).n,1);
   });
 }
 main().catch(error => { console.error(error); results.push({ name: 'HTTP fixture', result: 'FAIL', error: error.stack }); }).finally(async () => {

@@ -1932,6 +1932,7 @@ html.high-contrast .care-stage-block{display:none!important;}
   <button type="button" class="vb-close" id="btnDismissVerify" aria-label="Hide this reminder for now">✕</button>
 </div>
 <div id="actBar" class="act-bar" hidden></div>
+<div id="bookingUpdates" hidden></div>
 
 <section class="page" id="page-login" data-title="Sign in — The Care Web">
   <div class="page-hero"><div class="container"><h1>Sign in</h1></div></div>
@@ -1948,7 +1949,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="container hero-grid">
       <div>
         <span class="kicker">NDIS registered provider · Available across Australia, with our largest worker pools in Sydney, Melbourne and Brisbane</span>
-        <h1>Support workers who fit <span class="u rotator" id="heroRotate" aria-hidden="true" data-words="your life|your work week|your mornings|your day out|your routine|your home|your community"><span class="rot-word">your life</span></span><span class="sr-only">your life</span>, not the other way around.</h1>
+        <h1>Support workers who fit <span class="u rotator" id="heroRotate" aria-hidden="true" data-words="your work week|your mornings|your day out|your routine|your home|your community"><span class="rot-word">your work week</span></span><span class="sr-only">your work week</span>, not the other way around.</h1>
         <p class="lead">Find, book and manage your own team of verified support workers — for work, home, daily living and getting out into your community. You choose who, when and how. We handle the rest.</p>
         <p class="lead" style="font-size:1rem;margin-top:-6px;"><b>Agency-managed? You can book here.</b> The Care Web is run by a registered NDIS provider, so NDIA-managed, plan-managed and self-managed participants are all welcome — and if your worker can't make a shift, we find cover or tell you by 7am.</p>
         <div class="hero-ctas">
@@ -1968,14 +1969,7 @@ html.high-contrast .care-stage-block{display:none!important;}
       </div>
       <div class="hero-art" aria-hidden="true">
         <div class="hero-reel" id="heroReel" aria-hidden="true"><video class="reel-v" muted playsinline preload="auto"></video><video class="reel-v" muted playsinline preload="auto"></video></div>
-        <div class="float-card fc1">
-          <div class="avatar" style="background:#203566;">SM</div>
-          <div><b>Sarah M. · Verified ✓</b><small>Community access · Parramatta<br>★ 4.9 (112 shifts)</small></div>
-        </div>
-        <div class="float-card fc2">
-          <div class="avatar" style="background:#C8462E;">✓</div>
-          <div><b>Shift confirmed 🎉</b><small>Tue 9:00am – 1:00pm · Household tasks</small></div>
-        </div>
+
       </div>
     </div>
   </div>
@@ -7666,6 +7660,7 @@ window.API = {
     if((opts.method || 'GET') !== 'GET' && typeof loadBlockers === 'function') setTimeout(loadBlockers, 0);
     if((opts.method || 'GET') !== 'GET') window.CareBookingCalendar?.changed(path);
     if((opts.method || 'GET') !== 'GET') window.CarePayments?.changed(path);
+    if((opts.method || 'GET') !== 'GET') window.CareBookingUpdates?.changed(path);
     return data;
   }
 };
@@ -7680,6 +7675,7 @@ function syncPrimaryNavigation(){
 }
 function updateAuthUI(){
   window.CarePayments?.sync();
+  window.CareBookingUpdates?.sync();
   window.CareBookingCalendar?.sync();
   if(window.CareFlow){CareFlow.nav();if(location.hash.startsWith('#/journey'))CareFlow.render();}
   const authed = !!(API.online && API.me);
@@ -15260,7 +15256,6 @@ document.addEventListener('click', async e => {
      word, and the new word starts the next clip, so the two can never drift
      apart the way a free-running interval does. -------------------------- */
   var REEL = [
-    {name:'hero-park',     word:'your life'},
     {name:'employment',    word:'your work week'},
     {name:'personal-care', word:'your mornings'},
     {name:'transport',     word:'your day out'},
@@ -15454,6 +15449,8 @@ document.addEventListener('click', async e => {
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
 <script src="/assets/booking-calendar.js?v=88.4.0"></script>
 <script src="/assets/payment-automation.js?v=88.4.6"></script>
+<link rel="stylesheet" href="/assets/booking-updates.css?v=88.4.14">
+<script src="/assets/booking-updates.js?v=88.4.14"></script>
 <link rel="stylesheet" href="/assets/service-locations.css?v=88.4.7">
 <script src="/assets/service-locations.js?v=88.4.7"></script>
 <script src="/assets/launch-assurance.js?v=88.4.4"></script>

@@ -136,6 +136,13 @@ The header shows three or four primary tasks for the signed-in role.
 The worker account menu has eight actions, including Refer a friend.
 Bookings opens a month/week calendar for workers and participants. The List
 switch keeps existing booking controls. Select a day, then Open booking.
+New worker acceptances show a green Booking accepted notice to participants and
+authorised helpers, with a direct visit link and persisted per-person dismissal.
+It refreshes normally within 15 seconds on a visible, connected page. Existing
+confirmation emails remain queued separately. No historical mass announcement.
+The opening park clip and fictional worker/confirmation cards are removed;
+the six service clips remain. Evening prices and claim mappings are unchanged;
+see the guide for the 8 pm example and the funding/classification limitations.
 A small red request count appears beside Bookings and on the mobile menu for
 workers with future unanswered requests. It updates while the site is open.
 Calendar queries use the visible date range and carry overnight visits across
