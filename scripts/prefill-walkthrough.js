@@ -203,6 +203,8 @@ const bad = m => console.log('  \u2717 ' + m);
   }
   if (unknown.length) skip(`Questions this script has no answer for (given a safe default): ${unknown.join(', ')}`);
   if (dryRun) { skip('Dry run \u2014 the plan would be confirmed with these answers:'); console.log(JSON.stringify(body, null, 2)); process.exit(0); }
+  /* v88.4.9: a plan save must carry the current revision (two-tab overwrite protection, v88.2.0) */
+  const cur = await api('GET', '/api/me/support-plan'); body.revision = (cur.data && Number.isInteger(cur.data.revision)) ? cur.data.revision : 0;
   const plan = await api('POST', '/api/me/support-plan', body);
   if (plan.status !== 200) { bad(`Support plan refused: ${plan.data.error || plan.status}${plan.data.missing ? ' \u2014 missing: ' + plan.data.missing.join(', ') : ''}`); process.exit(1); }
   ok(`Support plan confirmed \u2014 version ${plan.data.plan.version}, continuity tier "${(plan.data.continuity || {}).label}", next review ${plan.data.plan.review_due}.`);
