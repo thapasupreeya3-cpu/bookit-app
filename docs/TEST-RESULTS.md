@@ -1,3 +1,12 @@
+# v88.4.8 validation
+
+- Eight new Money-menu checks verify five main destinations, complete tool coverage, contextual tabs, preserved active invoice links, search aliases, escaped labels and unchanged access gating. The existing admin workspace suite now contains 57 checks; existing payment workspace checks cover 18 scenarios.
+- Seventeen new navigation-position checks exercise delayed render completion, selected person targets, related tabs and pagination, Back/Forward, viewport height preservation, stale routes/accounts, user interaction during loading and local document tabs. Exact counts and outcomes are recorded in the accompanying package verification report.
+- Release verification includes the complete functional suite, JavaScript/inline-script syntax, route and table inventories, release metadata, source hashes, guide links and exact ZIP overlay on v88.4.7 commit 8900b47.
+- Schema 88404, 414 routes and 108 tables are unchanged. There is no new database migration in this release and no separate migration rehearsal was performed.
+- A fresh browser attempt to open the local site returned ERR_BLOCKED_BY_CLIENT. Interaction harnesses do not establish visual browser rendering; deployed layout remains unverified.
+- No website deployment, real email delivery or financial transaction was performed. The ZIP contains only the current update, with runtime data, unchanged assets and prior audit appendices excluded.
+
 # v88.4.7 validation
 
 - 59 new focused checks cover referral signup/progress HTTP behaviour (15), referral interface interactions (12), person-grouped task API behaviour (12), person-tab interface interactions (15), and five address/profile mount and legacy-link checks added to the existing settings suite.

@@ -24,7 +24,7 @@
  ['transitions','Bookings','Support changes','#/journey?panel=transitions','Review changes, handovers and affected bookings.'],
  ['support-arrangements','Bookings','Support arrangements','#/admin/assurance?tab=handoffs','Record arrangements for excluded activities.'],
  ['payments','Money','Invoices','#/payment-tracking?tab=invoices','View balances, payment status and invoice actions.'],
- ['receipts','Money','Received payments','#/payment-tracking?tab=receipts','Match bank receipts to the correct invoices.'],
+ ['receipts','Money','Received payments','#/payment-tracking?tab=receipts','Review received payments and their invoice allocations.'],
  ['payment-exceptions','Money','Payment exceptions','#/payment-tracking?tab=exceptions','Resolve payment failures and unmatched events.'],
  ['claims','Money','NDIA claims','#/admin/money?section=claims','Download claim files and record confirmed claim payments.'],
  ['unissued','Money','Unissued charges','#/admin/money?section=unissued','Review completed shifts waiting for processing.'],
@@ -56,8 +56,25 @@
  ['self-test','Settings','System checks','#/admin/settings?section=checks','Run the existing diagnostic report.']
  ];
  const catalog=rows.map(([key,group,label,href,description])=>({key,group,label,href,description}));
+ // Keep the complete tool catalogue for search and old links. The Money menu
+ // groups related work, while each subsection still loads only its own screen.
+ const moneySections=[
+  {key:'invoices',label:'Invoices & payments',items:['payments','receipts','invoice-history']},
+  {key:'charges',label:'Charges',items:['unissued','fees']},
+  {key:'attention',label:'Needs attention',items:['payment-exceptions','billing-review','finance-review']},
+  {key:'claims',label:'NDIA claims',items:['claims']},
+  {key:'payroll',label:'Worker pay',items:['payroll']}
+ ];
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const entry=key=>catalog.find(x=>x.key===key)||catalog[0];
+ const moneySection=key=>moneySections.find(x=>x.items.includes(key));
+ function menuEntries(group){
+  return group==='Money'?moneySections.map(section=>({...entry(section.items[0]),label:section.label,section:section.key})):catalog.filter(x=>x.group===group);
+ }
+ function moneyNavigation(item){
+  const section=moneySection(item.key);if(!section||section.items.length<2)return '';
+  return `<nav class="ca-money-sections" aria-label="${esc(section.label)} sections"><span class="ca-money-section-label">${esc(section.label)}</span><div>${section.items.map(key=>{const x=entry(key),href=key===item.key&&resolve()===key?location.hash:x.href;return `<a href="${esc(href)}"${key===item.key?' aria-current="page"':''}>${esc(x.label)}</a>`;}).join('')}</div></nav>`;
+ }
  function resolve(hash=location.hash){
   const [path,query='']=hash.replace(/^#/,'').split('?'),p=new URLSearchParams(query),s=p.get('section');
   if(path==='/payment-tracking')return ({receipts:'receipts',exceptions:'payment-exceptions',setup:'payment-settings'})[p.get('tab')]||'payments';
@@ -77,14 +94,14 @@
   if(sub==='today')return s==='contacts'?'contacts':'tasks';
   return ({growth:'performance',overview:'home',ai:'ai',launch:'website'})[sub]||'home';
  }
- function find(query){const words=String(query||'').toLowerCase().trim().split(/\s+/).filter(Boolean);return catalog.filter(x=>words.every(w=>(x.group+' '+x.label+' '+x.description).toLowerCase().includes(w)));}
+ function find(query){const words=String(query||'').toLowerCase().trim().split(/\s+/).filter(Boolean);return catalog.filter(x=>words.every(w=>(x.group+' '+x.label+' '+x.description+' '+(moneySection(x.key)?.label||'')).toLowerCase().includes(w)));}
  let serial=0;const listState=new Map();let owner='';
  function decorate(root,key){
   if(!root||!window.API?.me?.admin)return;
   key=key==='incident-detail'?'incidents':key==='booking-detail'?'bookings':key||resolve();
-  const item=entry(key),existing=root.querySelector(':scope > .ca-workspace');if(existing)return;
+  const item=entry(key),section=moneySection(key),existing=root.querySelector(':scope > .ca-workspace');if(existing)return;
   const id='ca-'+(++serial),frame=document.createElement('div');frame.className='ca-workspace';
-  frame.innerHTML=`<aside class="ca-sidebar"><details class="ca-menu" open><summary>Admin menu · ${esc(item.group)}</summary><nav aria-label="Admin sections">${groups.map(group=>`<details class="ca-group"${group===item.group?' open':''}><summary>${esc(group)}</summary><div>${catalog.filter(x=>x.group===group).map(x=>`<a href="${esc(x.href)}"${x.key===item.key?' aria-current="page"':''}>${esc(x.label)}</a>`).join('')}</div></details>`).join('')}</nav></details></aside><div class="ca-main"><div class="ca-tool-search"><label for="${id}-search">Find an admin tool</label><input id="${id}-search" type="search" placeholder="Try invoices, worker pay or documents" autocomplete="off" aria-controls="${id}-results"><div id="${id}-results" class="ca-search-results" hidden></div><span class="sr-only" id="${id}-count" role="status"></span></div><p class="ca-breadcrumb"><a href="#/admin">Admin</a><span aria-hidden="true"> / </span>${esc(item.group)}<span aria-hidden="true"> / </span><b>${esc(item.label)}</b></p><div class="ca-content"></div></div>`;
+  frame.innerHTML=`<aside class="ca-sidebar"><details class="ca-menu" open><summary>Admin menu · ${esc(item.group)}</summary><nav aria-label="Admin sections">${groups.map(group=>`<details class="ca-group"${group===item.group?' open':''}><summary>${esc(group)}</summary><div>${menuEntries(group).map(x=>`<a href="${esc(x.href)}"${(x.section?x.section===section?.key:x.key===item.key)?' aria-current="page"':''}>${esc(x.label)}</a>`).join('')}</div></details>`).join('')}</nav></details></aside><div class="ca-main"><div class="ca-tool-search"><label for="${id}-search">Find an admin tool</label><input id="${id}-search" type="search" placeholder="Try invoices, worker pay or documents" autocomplete="off" aria-controls="${id}-results"><div id="${id}-results" class="ca-search-results" hidden></div><span class="sr-only" id="${id}-count" role="status"></span></div><p class="ca-breadcrumb"><a href="#/admin">Admin</a><span aria-hidden="true"> / </span>${esc(item.group)}<span aria-hidden="true"> / </span>${section&&section.items.length>1?`${esc(section.label)}<span aria-hidden="true"> / </span>`:''}<b>${esc(item.label)}</b></p>${moneyNavigation(item)}<div class="ca-content"></div></div>`;
   const content=frame.querySelector('.ca-content');while(root.firstChild)content.appendChild(root.firstChild);root.appendChild(frame);
   if(!content.querySelector('h1')){const header=document.createElement('header');header.className='ca-page-heading';header.innerHTML=`<h1>${esc(item.label)}</h1><p>${esc(item.description)}</p>`;content.prepend(header);}
   const input=frame.querySelector('input[type=search]'),results=frame.querySelector('.ca-search-results'),count=frame.querySelector('[role=status]');
@@ -104,5 +121,5 @@
   const paint=()=>{const words=state.q.toLowerCase().trim().split(/\s+/).filter(Boolean),matched=rows.filter(row=>words.every(w=>row.textContent.toLowerCase().includes(w)));const pages=Math.max(1,Math.ceil(matched.length/pageSize));state.page=Math.min(Math.max(1,state.page),pages);const visible=new Set(matched.slice((state.page-1)*pageSize,state.page*pageSize));rows.forEach(row=>{row.hidden=!visible.has(row);});status.textContent=`${scope}: ${matched.length} of ${rows.length} · Page ${state.page} of ${pages}`;prev.disabled=state.page<=1;next.disabled=state.page>=pages;empty.hidden=matched.length>0;};
   input.addEventListener('input',()=>{state.q=input.value;state.page=1;paint();});prev.addEventListener('click',()=>{state.page--;paint();});next.addEventListener('click',()=>{state.page++;paint();});paint();return {paint,state};
  }
- window.CareAdmin={catalog,groups,entry,resolve,find,decorate,paginate};
+ window.CareAdmin={catalog,groups,entry,resolve,find,decorate,paginate,moneySections,menuEntries};
 })();

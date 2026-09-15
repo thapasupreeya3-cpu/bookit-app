@@ -67,6 +67,50 @@ const destinations=[
  await test('Old responses cannot overwrite a changed route or a different administrator',async()=>{for(const change of [h=>h.ctx.location.hash='#/admin/bookings',h=>h.ctx.API.me.id=99,h=>h.ctx.API.me.admin=false]){let release;const h=harness({handler:()=>new Promise(r=>release=r)}),pending=h.render();change(h);h.root.textContent='New session or page';release(responses.get('/admin/overview'));await pending;assert.equal(h.root.textContent,'New session or page');}});
  await test('Evidence history displays returned records without loading worker checks',async()=>{const h=harness({hash:'#/admin/reports?section=evidence',handler:async()=>({entries:[{kind:'screening-status',checked_at:'2026-09-13T10:00:00Z',worker_name:'Evidence Worker',detail:'REFERENCE-UNIQUE',checked_by:'Office Reviewer',result:'cleared'}]})});await h.render();assert.match(h.root.textContent,/REFERENCE-UNIQUE/);assert.match(h.root.textContent,/Office Reviewer/);assert.deepEqual(h.calls.map(x=>x.url),['/admin/compliance/log']);});
  await test('Shared navigation and search resolve canonical tools with no duplicate destinations',()=>{const h=harness();const keys=Array.from(h.ctx.CareAdmin.catalog,x=>x.key);assert.equal(new Set(keys).size,keys.length);for(const x of h.ctx.CareAdmin.catalog)assert.equal(h.ctx.CareAdmin.resolve(x.href),x.key,x.label);h.root.innerHTML='<button id="original">Existing action</button>';h.ctx.CareAdmin.decorate(h.root,'payments');const input=h.root.querySelector('.ca-tool-search input');input.value='worker pay';input.dispatch('input');assert.match(h.root.querySelector('.ca-search-results').textContent,/Worker pay/);input.dispatch('keydown',{key:'Escape'});assert.equal(h.root.querySelector('.ca-search-results').hidden,true);});
+ await test('Money sidebar shows five destinations while keeping every original financial tool reachable',()=>{
+  const h=harness({hash:'#/payment-tracking?tab=invoices'});h.ctx.CareAdmin.decorate(h.root);
+  const money=h.root.querySelectorAll('.ca-group').find(x=>x.querySelector('summary').textContent==='Money'),labels=money.querySelectorAll('a').map(x=>x.textContent);
+  assert.deepEqual(labels,['Invoices & payments','Charges','Needs attention','NDIA claims','Worker pay']);
+  const keys=Array.from(h.ctx.CareAdmin.moneySections).flatMap(x=>Array.from(x.items));
+  assert.equal(new Set(keys).size,10);assert.deepEqual(keys.sort(),Array.from(h.ctx.CareAdmin.catalog).filter(x=>x.group==='Money').map(x=>x.key).sort());
+ });
+ await test('Every Money deep link selects the correct parent and only its related subsection links',()=>{
+  for(const section of [['Invoices & payments',['payments','receipts','invoice-history']],['Charges',['unissued','fees']],['Needs attention',['payment-exceptions','billing-review','finance-review']],['NDIA claims',['claims']],['Worker pay',['payroll']]]){
+   for(const key of section[1]){const h=harness();h.ctx.location.hash=h.ctx.CareAdmin.entry(key).href;h.ctx.CareAdmin.decorate(h.root);
+    const active=h.root.querySelectorAll('.ca-sidebar a[aria-current=page]');assert.equal(active.length,1);assert.equal(active[0].textContent,section[0]);
+    const nav=h.root.querySelector('.ca-money-sections');if(section[1].length===1){assert.equal(nav,null);continue;}
+    assert.deepEqual(nav.querySelectorAll('a').map(x=>h.ctx.CareAdmin.resolve(x.getAttribute('href'))),section[1]);
+    assert.equal(nav.querySelector('a[aria-current=page]').textContent,h.ctx.CareAdmin.entry(key).label);
+    assert.match(h.root.querySelector('.ca-breadcrumb').textContent,new RegExp(section[0].replace('&','&')));
+   }
+  }
+ });
+ await test('Money subsection links preserve the selected invoice and ignore unrelated URL parameters',()=>{
+  const h=harness({hash:'#/admin/money?section=history&invoice=INV-UNIQUE&from=office'});h.ctx.CareAdmin.decorate(h.root);
+  const nav=h.root.querySelector('.ca-money-sections');assert.equal(nav.querySelector('a[aria-current=page]').getAttribute('href'),h.ctx.location.hash);
+  assert.equal(nav.querySelector('a[href="#/payment-tracking?tab=receipts"]').getAttribute('href'),'#/payment-tracking?tab=receipts');
+  assert.equal(nav.querySelectorAll('a').filter(x=>x.getAttribute('href').includes('INV-UNIQUE')).length,1);
+ });
+ await test('All former Money labels remain searchable directly without expanding the menu',()=>{
+  const h=harness({hash:'#/payment-tracking?tab=invoices'});h.ctx.CareAdmin.decorate(h.root);const input=h.root.querySelector('.ca-tool-search input');
+  for(const key of ['payments','receipts','invoice-history','unissued','fees','payment-exceptions','billing-review','finance-review','claims','payroll']){
+   const item=h.ctx.CareAdmin.entry(key);input.value=item.label;input.dispatch('input');const result=h.root.querySelectorAll('.ca-search-results a').find(x=>x.getAttribute('href')===item.href);assert.ok(result,item.label);
+  }
+ });
+ await test('Searching a new Money destination finds the tools consolidated inside it',()=>{
+  const h=harness();for(const section of h.ctx.CareAdmin.moneySections){const found=Array.from(h.ctx.CareAdmin.find(section.label),x=>x.key);for(const key of section.items)assert.ok(found.includes(key),section.label+' includes '+key);}
+ });
+ await test('Payment connections stays in Settings and has no Money subsection navigation',()=>{
+  const h=harness({hash:'#/payment-tracking?tab=setup'});h.ctx.CareAdmin.decorate(h.root);
+  const active=h.root.querySelector('.ca-sidebar a[aria-current=page]');assert.equal(active.textContent,'Payment connections');assert.equal(active.closest('.ca-group').querySelector('summary').textContent,'Settings');assert.equal(h.root.querySelector('.ca-money-sections'),null);
+ });
+ await test('Changing Money navigation does not fetch, clone or submit any financial record',()=>{
+  const h=harness({hash:'#/admin/assurance?tab=billing'}),form=new Node('form'),input=new Node('input'),button=new Node('button');let submissions=0;input.value='Unsaved correction evidence';form.addEventListener('submit',()=>submissions++);form.appendChild(input);form.appendChild(button);h.root.appendChild(form);
+  h.ctx.CareAdmin.decorate(h.root);h.ctx.CareAdmin.decorate(h.root);assert.equal(h.root.querySelector('.ca-content form'),form);assert.equal(h.root.querySelector('.ca-content input').value,'Unsaved correction evidence');assert.equal(submissions,0);assert.equal(h.calls.length,0);assert.equal(h.root.querySelectorAll('.ca-money-sections').length,1);
+ });
+ await test('Non-admin Money decoration cannot reveal office navigation',()=>{
+  const h=harness({hash:'#/payment-tracking?tab=invoices',admin:false});h.root.textContent='No office access';h.ctx.CareAdmin.decorate(h.root);assert.equal(h.root.textContent,'No office access');assert.equal(h.root.querySelector('.ca-sidebar'),null);assert.equal(h.root.querySelector('.ca-money-sections'),null);
+ });
  await test('Decorating moves existing nodes with their values and handlers, and is idempotent',()=>{const h=harness();const form=new Node('form'),input=new Node('input'),button=new Node('button');input.value='Unsaved note';let clicked=0;button.addEventListener('click',()=>clicked++);form.appendChild(input);form.appendChild(button);h.root.appendChild(form);h.ctx.CareAdmin.decorate(h.root,'people');h.ctx.CareAdmin.decorate(h.root,'people');assert.equal(h.root.querySelector('form'),form);assert.equal(form.querySelector('input'),input);assert.equal(input.value,'Unsaved note');button.dispatch('click');assert.equal(clicked,1);assert.equal(h.root.querySelectorAll('.ca-workspace').length,1);});
  await test('Pagination and search preserve row identity, form edits and handlers',()=>{const h=harness(),table=new Node('table'),body=new Node('tbody');h.root.appendChild(table);table.appendChild(body);const rows=[];let hits=0;for(let n=1;n<=43;n++){const row=new Node('tr'),cell=new Node('td'),input=new Node('input'),button=new Node('button');cell.textContent='Person '+n;input.value='Edit '+n;button.addEventListener('click',()=>hits++);cell.appendChild(input);cell.appendChild(button);row.appendChild(cell);body.appendChild(row);rows.push({row,input,button});}h.ctx.CareAdmin.paginate(table,{key:'demo',pageSize:20});assert.equal(rows.filter(x=>!x.row.hidden).length,20);rows[25].input.value='Keep this value';h.root.querySelector('[data-ca-next]').dispatch('click');assert.equal(rows[25].row.hidden,false);assert.equal(rows[25].input.value,'Keep this value');rows[25].button.dispatch('click');assert.equal(hits,1);const search=h.root.querySelector('.ca-list-controls input');search.value='Person 26';search.dispatch('input');assert.equal(rows.filter(x=>!x.row.hidden).length,1);assert.equal(body.rows[25],rows[25].row);assert.equal(rows[25].input.value,'Keep this value');search.value='No match';search.dispatch('input');assert.equal(h.root.querySelector('.ca-empty').hidden,false);});
  await test('Invoice actions retain only the exact requested invoice including withdrawal controls',async()=>{const data=structuredClone(responses.get('/admin/claims'));data.invoices=[{invoice_no:'INV-1',participant:{name:'Alice'},lines:[],delivery_status:'queued',funding:'self',date:'2026-09-13',total:100,paid:0,balance:100},{invoice_no:'INV-10',participant:{name:'Other'},lines:[],delivery_status:'queued',funding:'self',date:'2026-09-13',total:100,paid:0,balance:100}];data.withdrawn=[];const h=harness({hash:'#/admin/money?section=history&invoice=INV-1',handler:async()=>data});await h.render();const content=h.root.querySelector('.ca-content').textContent;assert.match(content,/INV-1/);assert.ok(!content.includes('INV-10'));assert.match(content,/Withdraw invoice/);});

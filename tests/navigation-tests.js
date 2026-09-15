@@ -60,7 +60,7 @@ await test('Next actions has no duplicated details, documents, funding or notifi
 await test('Late Next actions fetch cannot redirect after leaving the page',async()=>{
  const {ctx}=baseContext();ctx.location.hash='#/journey?panel=uploads';ctx.API.me=roles.worker;let finish;ctx.API.call=()=>new Promise(r=>finish=r);ctx.document.addEventListener=()=>{};ctx.setInterval=()=>{};ctx.fmtAU=x=>x;vm.runInContext(fs.readFileSync(path.join(ROOT,'public/assets/next-actions.js'),'utf8'),ctx);vm.runInContext(fs.readFileSync(path.join(ROOT,'public/assets/process-workflows.js'),'utf8'),ctx);const pending=ctx.CareFlow.render();ctx.location.hash='#/bookings';finish({role:'worker',subject:{name:'Worker'}});await pending;assert.equal(ctx.location.hash,'#/bookings');
 });
-await test('Every Settings/admin navigation resets viewport; pending callbacks cannot scroll another page',()=>{
+await test('Missing-navigation-module fallback opens pages at top; stale section callbacks cannot scroll another page',()=>{
  const {ctx,get}=baseContext();ctx.history.scrollRestoration='auto';const scrolls=[];ctx.scrollTo=opts=>scrolls.push(opts);ctx.matchMedia=()=>({matches:true});
  for(const name of new Set([...fn('route').matchAll(/\b((?:render|paint|apply)[A-Z]\w*)\(/g)].map(m=>m[1])))ctx[name]=()=>{};
  ctx.showPath=()=>{};ctx.CareFlow={render(){}};vm.runInContext(/const ROUTES = \{[\s\S]*?\n\};/.exec(html)[0]+'\n'+fn('route')+'\nlet ROUTE_LAST=null;',ctx);

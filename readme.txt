@@ -1,7 +1,7 @@
-The Care Web v88.4.7 — current-update-only ZIP.
+The Care Web v88.4.8 — current-update-only ZIP.
 
-Apply over v88.4.6. Extract The-Care-Web-v88.4.7-profile-tasks-referrals-update-only.zip; merge its files at the repository root. Read UPDATE-INSTRUCTIONS.txt before updating. Preserve live runtime data.
-This release moves home address into profile details, groups tasks by person and fixes referral signup tracking. The full user guide is updated.
+Apply over v88.4.7. Extract The-Care-Web-v88.4.8-money-navigation-update-only.zip; merge its files at the repository root. Read UPDATE-INSTRUCTIONS.txt before updating. Preserve live runtime data.
+This release consolidates the Money menu and keeps person, tab and page navigation at the relevant workspace. The full user guide is updated.
 NSW holidays and ordinary invoicing are automatic. Independently reviewed payroll
 components remain required; preparing/exporting payroll does not transfer wages.
 PDF/HTML previews and earlier verification automations are retained.

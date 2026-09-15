@@ -1780,8 +1780,9 @@ html.high-contrast .care-stage-block{display:none!important;}
 @media(max-width:900px){#page-admin .set-layout.no-sub .set-body{display:block;margin-top:18px;}.review-dialog{padding:16px;}}
 </style>
 <script src="/assets/bookit-review-improvements.js?v=88.4.4"></script>
-<link rel="stylesheet" href="/assets/admin-workspace.css?v=88.4.2">
-<script src="/assets/admin-workspace.js?v=88.4.5"></script>
+<link rel="stylesheet" href="/assets/admin-workspace.css?v=88.4.8">
+<script src="/assets/admin-workspace.js?v=88.4.8"></script>
+<script src="/assets/navigation-position.js?v=88.4.8"></script>
 <link rel="stylesheet" href="/assets/process-workflows.css?v=88.4.2">
 <link rel="stylesheet" href="/assets/admin-verification.css?v=88.4.2">
 <link rel="stylesheet" href="/assets/site-usability.css?v=88.2.7">
@@ -7197,6 +7198,7 @@ function route(){
   if(!ROUTES[path] && !workerMatch && !jobMatch && !acctMatch && !admMatch) path = '/not-found';
   const id = workerMatch ? 'page-worker' : jobMatch ? 'page-job' : acctMatch ? 'page-account'
     : admMatch ? 'page-admin' : ROUTES[path];
+  const navigation=window.CareNavigation?.begin({path,id});let navigationRender;
   const page = document.getElementById(id);
   $$('.page').forEach(p => { if(p !== page) p.classList.remove('active'); });
   const wasActive = page.classList.contains('active');
@@ -7216,7 +7218,7 @@ function route(){
     window.CareReferrals?.capture();
   }
   if(id === 'page-refer') window.CareReferrals?.render();
-  if(id === 'page-journey' && window.CareFlow) CareFlow.render();
+  if(id === 'page-journey' && window.CareFlow) navigationRender=CareFlow.render();
   if(id === 'page-messages') renderMessagesPage();
   if(id === 'page-bookings' && window.renderBookingsPage) renderBookingsPage();
   if(id === 'page-support-plan' && window.renderSupportPlanPage) renderSupportPlanPage();
@@ -7231,7 +7233,7 @@ function route(){
   if(id === 'page-support-workers' && window.paintWorkerPay) paintWorkerPay();
   if(id === 'page-services-overnight' && window.paintOvernightPrice) paintOvernightPrice();
   if(id === 'page-refer' || id === 'page-pricing'){ if(window.paintExtras) paintExtras(); }
-  if(id === 'page-admin' && window.renderAdminPage) renderAdminPage();
+  if(id === 'page-admin' && window.renderAdminPage) navigationRender=renderAdminPage();
   if(id === 'page-worker') renderWorkerPage(Number(workerMatch[1]));
   if(id === 'page-job' && window.renderJobPage) renderJobPage(Number(jobMatch[1]));
   if(id === 'page-jobs' && window.renderJobsBoard) renderJobsBoard();
@@ -7240,7 +7242,7 @@ function route(){
   if(id === 'page-my-applications' && window.renderMyApplications) renderMyApplications();
   if(id === 'page-statements' && window.renderStatementsPage) renderStatementsPage();
   if(id === 'page-invoice') window.CarePayments?.renderInvoice();
-  if(id === 'page-payment-tracking') window.CarePayments?.renderOffice();
+  if(id === 'page-payment-tracking') navigationRender=window.CarePayments?.renderOffice();
   if(id === 'page-security' && window.renderSecurityPage) renderSecurityPage();
   if(id === 'page-earnings' && window.renderEarningsPage) renderEarningsPage();
   if(id === 'page-training' && window.renderTrainingPage) renderTrainingPage();
@@ -7249,11 +7251,10 @@ function route(){
   closeMobileNav();
   closeModals();
   stopSpeech();
-  // A navigation starts at the top; background refreshes do not call the router.
-  if('scrollRestoration' in history) history.scrollRestoration = 'manual';
-  window.scrollTo({top:0, left:0, behavior:'instant'});
+  // Office selections finish beside their rendered record; public pages keep normal page navigation.
+  if(navigation)window.CareNavigation.complete(navigation,navigationRender);
+  else {if('scrollRestoration' in history)history.scrollRestoration='manual';window.scrollTo({top:0,left:0,behavior:'instant'});$('#main').focus({preventScroll:true});}
   ROUTE_LAST = path;
-  $('#main').focus({preventScroll:true});
   if(id === 'page-login' && !API.me) openModal('#loginModal');
 }
 
@@ -15435,7 +15436,7 @@ document.addEventListener('click', async e => {
 
 <link rel="stylesheet" href="/assets/payment-automation.css?v=88.4.6">
 <script src="/assets/next-actions.js?v=88.4.7"></script>
-<script src="/assets/process-workflows.js?v=88.4.7"></script>
+<script src="/assets/process-workflows.js?v=88.4.8"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
 <script src="/assets/booking-calendar.js?v=88.4.0"></script>
 <script src="/assets/payment-automation.js?v=88.4.6"></script>
@@ -15451,7 +15452,7 @@ document.addEventListener('click', async e => {
 <script src="/assets/account-email.js?v=88.4.6"></script>
 <link rel="stylesheet" href="/assets/referral-progress.css?v=88.4.7">
 <script src="/assets/referral-progress.js?v=88.4.7"></script>
-<script src="/assets/admin-verification.js?v=88.4.6"></script>
+<script src="/assets/admin-verification.js?v=88.4.8"></script>
 <script>
 document.addEventListener('click',async event=>{
  const go=event.target.closest('[data-sp-section-go]');if(go){document.querySelectorAll('[data-sp-section]').forEach(x=>x.hidden=go.dataset.spSectionGo!=='all'&&x.dataset.spSection!==go.dataset.spSectionGo);document.querySelector('.sp-sec:not([hidden]) input,.sp-sec:not([hidden]) textarea')?.focus();}

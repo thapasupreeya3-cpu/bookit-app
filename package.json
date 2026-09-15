@@ -1,12 +1,12 @@
 {
   "name": "bookit-site-v65",
-  "version": "88.4.7",
+  "version": "88.4.8",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "lint": "node scripts/lint.js",
-    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process && npm run test:verification && npm run test:settings && npm run test:navigation && npm run test:credentials && npm run test:next-actions && npm run test:calendar && npm run test:launch && npm run test:billing && npm run test:tasks && npm run test:payments && npm run test:locations && npm run test:admin && npm run test:launch-clarity && npm run test:overnight && npm run test:email && npm run test:queries && npm run test:account-email && npm run test:referral-progress && npm run test:people-tabs",
+    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process && npm run test:verification && npm run test:settings && npm run test:navigation && npm run test:credentials && npm run test:next-actions && npm run test:calendar && npm run test:launch && npm run test:billing && npm run test:tasks && npm run test:payments && npm run test:locations && npm run test:admin && npm run test:launch-clarity && npm run test:overnight && npm run test:email && npm run test:queries && npm run test:account-email && npm run test:referral-progress && npm run test:people-tabs && npm run test:navigation-position",
     "inventory": "node scripts/inventory.js",
     "check": "npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && node scripts/verify-release.js && npm test",
     "backup": "node --no-warnings scripts/backup.js",
@@ -34,7 +34,8 @@
     "test:queries": "node --no-warnings tests/invoice-query-tests.js && node --no-warnings tests/invoice-query-ui-tests.js",
     "test:account-email": "node --no-warnings tests/account-email-tests.js && node --no-warnings tests/account-email-ui-tests.js",
     "test:referral-progress": "node --no-warnings tests/referral-progress-tests.js && node --no-warnings tests/referral-progress-ui-tests.js",
-    "test:people-tabs": "node --no-warnings tests/next-actions-people-api-tests.js && node --no-warnings tests/next-actions-people-ui-tests.js"
+    "test:people-tabs": "node --no-warnings tests/next-actions-people-api-tests.js && node --no-warnings tests/next-actions-people-ui-tests.js",
+    "test:navigation-position": "node --no-warnings tests/navigation-position-tests.js"
   },
   "license": "UNLICENSED",
   "engines": {

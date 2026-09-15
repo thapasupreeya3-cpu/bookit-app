@@ -43,16 +43,16 @@ Email transport must be configured; queued does not mean sent or paid.
 The previous audit snapshot is docs/block-register/index.html, with CSV/JSON and
 conditional branches. It has not been regenerated for this small update.
 docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
-See docs/CHANGELOG-v88.4.7.md and docs/USER-GUIDE.html.
+See docs/CHANGELOG-v88.4.8.md and docs/USER-GUIDE.html.
 
 PROFILE EMAIL AND INVOICE QUERIES
 My profile > Your details > Email address shows the current sign-in address.
 Change email verifies the new inbox before switching; old sessions and reset
 links stop working after confirmation. Admin > People > Verification >
 Participants shows the same contact card with an assisted change workflow.
-Money > Invoices > Review query opens the office response history and actions.
+Money > Invoices & payments > Invoices > Review query opens the office response history and actions.
 Payment stays paused until an authorised participant reviewer explicitly approves.
-This release is a current-only delta over v88.4.6; see UPDATE-INSTRUCTIONS.txt.
+This release is a current-only delta over v88.4.7; see UPDATE-INSTRUCTIONS.txt.
 
 BOOKING EMAILS
 Admin > Settings > Email setup shows the configured sender and a test to your
@@ -73,7 +73,9 @@ arrangements preserve recorded work and require charge correction before issue.
 ADMIN WORKSPACE
 One shared navigation: Today, People, Bookings, Money, Records, Reports, Settings.
 Search admin tools by task; each destination loads only its own required data.
-Invoices, receipts, claims, payroll and payment connections have separate pages.
+Money has five main destinations: Invoices & payments, Charges, Needs attention,
+NDIA claims and Worker pay. Related tools sit inside short local navigation.
+Payment connections remains under Settings.
 Long records have scoped search and pagination. Existing permissions, financial
 actions and evidence requirements remain enforced. Account settings stay separate.
 See docs/ADMIN-NAVIGATION-v88.4.2.md.
@@ -151,7 +153,8 @@ Personal Settings are linked rather than duplicated.
 A synthetic interactive preview is in docs/next-actions-preview.html.
 Emergency contacts are in Profile; digest, quiet hours and calendar in Notifications.
 Coordinators retain scoped tools for their selected participant.
-Navigation starts at the top; delayed background callbacks cannot scroll other pages.
+Admin person selections reveal the selected record. Related tabs and pages keep
+your workspace position; delayed callbacks cannot move a different page.
 Review docs/SITE-USABILITY-REVIEW.md for page coverage and browser limits.
 Worker Settings retains its independent loading state and failure retry.
 Open Settings to manage availability, credentials, earnings, training and security.
@@ -228,7 +231,7 @@ docs/history/ — historical receipts, not current deployment instructions
 const readme=`The Care Web v${pkg.version} — current-update-only ZIP.
 
 Apply over v${meta.update_base_version}. Extract ${meta.output_archive}; merge its files at the repository root. Read UPDATE-INSTRUCTIONS.txt before updating. Preserve live runtime data.
-This release moves home address into profile details, groups tasks by person and fixes referral signup tracking. The full user guide is updated.
+This release consolidates the Money menu and keeps person, tab and page navigation at the relevant workspace. The full user guide is updated.
 NSW holidays and ordinary invoicing are automatic. Independently reviewed payroll
 components remain required; preparing/exporting payroll does not transfer wages.
 PDF/HTML previews and earlier verification automations are retained.
