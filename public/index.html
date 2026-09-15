@@ -7795,7 +7795,7 @@ function renderAcctMenu(){
     `<span class="acct-badge red" data-blk-badge="support_plan" ${blockerCount('support_plan') ? '' : 'hidden'}>${blockerCount('support_plan') || ''}</span>`);
   items += item('#/account', '', 'gear', 'Settings',
     `<span class="acct-badge red" data-blk-badge="settings" ${blockerCount('settings') ? '' : 'hidden'}>${blockerCount('settings') || ''}</span>`);
-  if(!m.admin) items += item('#/refer-a-worker', '', 'user', 'Refer a friend');
+  if(!m.admin && m.role === 'worker') items += item('#/refer-a-worker', '', 'user', 'Refer a friend');
   if(!m.admin && m.role !== 'coordinator') items += item('#/bookings', 'cardIncident', 'flag', 'Report an incident');
   $('#acctMenu').innerHTML = `
     <div class="acct-head">
@@ -11058,10 +11058,9 @@ function careWebHtml(d){
           ${esc(w.suburb ? ' · ' + esc(w.suburb) : '')}
         </small>
         <small style="margin-top:3px;">
-          ${w.screening === 'expired'
-            ? '<span class="cw-tag warn">screening lapsed — can\'t be offered shifts</span>'
-            : (!w.visible ? '<span class="cw-tag warn">profile paused</span>'
-              : (w.auto_offer ? '<span class="cw-tag ok">will be asked automatically</span>' : '<span class="cw-tag warn">ask me first</span>'))}
+          ${(w.screening === 'expired' || !w.visible)
+         ? '<span class="cw-note bad">not available for shifts at the moment</span>'
+         : (w.auto_offer ? '<span class="cw-note ok">will be asked automatically</span>' : '<span class="cw-note">ask me first</span>')}
         </small>
       </span>
       <select class="cw-role" data-cw-role="${w.id}" aria-label="How ${esc(w.name)} fits in">
