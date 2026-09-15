@@ -15,7 +15,7 @@ module.exports=async function scenarios(h) {
   });
   await test('Automatic assignment respects availability, role, capacity and manual ownership',async()=>{
     const second=await register('worker','reviewer.two@example.test');db.prepare('UPDATE users SET is_admin=1 WHERE id=?').run(second.id);
-    const workers=[];for(let i=0;i<5;i++)workers.push(await register('worker','assignment.'+i+'@example.test'));
+    const workers=[];for(let i=0;i<5;i++){const person=await register('worker','assignment.'+i+'@example.test');workers.push(person);ins('worker_docs',{worker_id:person.id,doc_type:'cpr',file_name:'review-image.png',file_mime:'image/png',file_path:imagePath,uploaded_at:stamp,review_state:'submitted'});} 
     const before=(await detail(w.id)).case.owner_id,c=await config();
     ok(await req('GET','/api/admin/verification?role=worker',a));
     const load=db.prepare("SELECT count(*) n FROM verification_queue WHERE owner_id=1 AND state IN ('review','ready','blocked')").get().n;
@@ -29,7 +29,7 @@ module.exports=async function scenarios(h) {
   });
   await test('Recruitment remains office work and cannot be included in a person follow-up',async()=>{
     subject=await register('worker','combined.request@example.test');const d=await detail(subject.id);
-    assert.equal(d.state,'review');assert.ok(d.tasks.some(x=>x.key==='recruit-interview'&&x.yours===false));
+    assert.equal(d.state,'waiting');assert.equal(d.office_action_count,0);assert.ok(d.tasks.some(x=>x.key==='recruit-interview'&&x.yours===false&&x.actionable===false));
     assert.ok(!d.automation.candidates.some(x=>/recruit|screening-status|register-/.test(x.key)));
     ok(await act(subject.id,'request-checklist',{keys:['task:recruit-interview'],note:'Please complete this synthetic request.',interval_days:3,max_reminders:2,confirm:true}),400);
   });
@@ -52,6 +52,7 @@ module.exports=async function scenarios(h) {
   await test('Claiming a file is attributed, rejects another owner and overdue files are filterable',async()=>{
     ok(await act(subject.id,'claim',{}));const d=await detail(subject.id);assert.equal(d.case.owner_id,1);assert.ok(d.history.some(x=>x.action==='Review claimed'));
     const c=await register('worker','claimed.by.other@example.test');const other=db.prepare("SELECT id FROM users WHERE email='reviewer.two@example.test'").get().id;
+    ins('worker_docs',{worker_id:c.id,doc_type:'cpr',file_name:'review-image.png',file_mime:'image/png',file_path:imagePath,uploaded_at:stamp,review_state:'submitted'});
     ok(await act(c.id,'assign',{owner_id:other,due_date:'2025-01-01'}));ok(await act(c.id,'claim',{}),409);
     const q=ok(await req('GET','/api/admin/verification?status=overdue',a));assert.ok(q.rows.some(x=>x.id===c.id));assert.ok(q.counts.overdue>0);
   });

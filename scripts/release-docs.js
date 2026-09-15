@@ -23,7 +23,7 @@ A changed-files update ZIP contains only the differences from its stated base;
 follow its UPDATE-INSTRUCTIONS.txt and merge into your existing source tree.
 Do not replace the existing repository with a partial update ZIP.
 Required update base: v${meta.update_base_version}
-Original recovery source release (historical reference): v${meta.base_version}
+Supplied source baseline: v${meta.base_version}
 Base package reference: ${meta.base_archive}
 Base SHA-256: ${meta.base_archive_sha256}
 Source baseline commit: ${meta.base_commit}
@@ -43,7 +43,7 @@ Email transport must be configured; queued does not mean sent or paid.
 The previous audit snapshot is docs/block-register/index.html, with CSV/JSON and
 conditional branches. It has not been regenerated for this small update.
 docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
-See docs/CHANGELOG-v88.4.8.md and docs/USER-GUIDE.html.
+See docs/CHANGELOG-v${pkg.version}.md and docs/USER-GUIDE.html.
 
 PROFILE EMAIL AND INVOICE QUERIES
 My profile > Your details > Email address shows the current sign-in address.
@@ -52,7 +52,7 @@ links stop working after confirmation. Admin > People > Verification >
 Participants shows the same contact card with an assisted change workflow.
 Money > Invoices & payments > Invoices > Review query opens the office response history and actions.
 Payment stays paused until an authorised participant reviewer explicitly approves.
-This release is a current-only delta over v88.4.7; see UPDATE-INSTRUCTIONS.txt.
+This release is a current-only delta over v${meta.update_base_version}; see UPDATE-INSTRUCTIONS.txt.
 
 BOOKING EMAILS
 Admin > Settings > Email setup shows the configured sender and a test to your
@@ -117,6 +117,11 @@ Only completed ordinary shifts count; exclusions are shown alongside progress.
 Eligibility is separate from payroll processing and recorded payment.
 
 CLEAR TASKS
+A blank new worker application creates no office actions. Missing uploads remain
+with the worker. Evidence opens document review once; recruitment, screening,
+register and activation tasks appear when actionable. Future checks remain in
+the verification checklist. Safety restrictions and explicit requests for help
+still reach the office. Pending requirements never count as verified or approved.
 Office actions, Waiting on people and Website checks have separate views.
 Select a named worker or participant tab to see their tasks together. Categories
 keep documents, training and other actions compact within that person’s panel.
@@ -231,7 +236,7 @@ docs/history/ — historical receipts, not current deployment instructions
 const readme=`The Care Web v${pkg.version} — current-update-only ZIP.
 
 Apply over v${meta.update_base_version}. Extract ${meta.output_archive}; merge its files at the repository root. Read UPDATE-INSTRUCTIONS.txt before updating. Preserve live runtime data.
-This release consolidates the Money menu and keeps person, tab and page navigation at the relevant workspace. The full user guide is updated.
+This release counts office worker tasks only when there is evidence or a reason to act. Blank applications show Waiting on worker. The full user guide is updated.
 NSW holidays and ordinary invoicing are automatic. Independently reviewed payroll
 components remain required; preparing/exporting payroll does not transfer wages.
 PDF/HTML previews and earlier verification automations are retained.

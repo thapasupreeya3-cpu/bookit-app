@@ -1,3 +1,26 @@
+# v88.4.13 validation
+
+- Full `npm test` passed on Node **22.23.2**, including the existing booking,
+  payment, profile, navigation and workflow suites.
+- **15 new API lifecycle scenarios** cover blank applications, stale eight-task
+  reconciliation, actual document review/removal, recruitment stages, screening
+  and identity readiness, automatically withdrawn workers, safety restrictions,
+  escalated help requests, activation and reviewer capacity.
+- **Five new verification UI scenarios** run inside the verification suite,
+  which now passes **51/51**. Process workflows pass **43/43**; their recruitment
+  fixture now supplies evidence before expecting an office review task.
+- JavaScript syntax: **142 scripts, zero failures**, including inline application
+  scripts. Generated inventory: **414 routes and 108 tables**, schema **88404**.
+- Readiness cache invalidation for interviews and bookings is installed at boot.
+  The API tests seed stale task/queue records to verify reconciliation. No separate
+  full database upgrade rehearsal was performed for this update.
+- The guide has **78 unique IDs and 103 resolved internal links**. Exact archive
+  overlay and full source hashes are checked against the supplied v88.4.12 ZIP;
+  the accompanying report identifies the base/archive SHA-256 and changed files.
+- Local API and UI interaction checks use synthetic records. They do not establish
+  rendered browser appearance. No deployment, real email or financial transaction
+  was performed; live browser appearance remains unverified.
+
 # v88.4.8 validation
 
 - Eight new Money-menu checks verify five main destinations, complete tool coverage, contextual tabs, preserved active invoice links, search aliases, escaped labels and unchanged access gating. The existing admin workspace suite now contains 57 checks; existing payment workspace checks cover 18 scenarios.

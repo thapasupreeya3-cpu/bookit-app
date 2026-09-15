@@ -4879,6 +4879,18 @@ function platformStatus(workerId) {
   };
 }
 
+// A new applicant without identity evidence has future register requirements,
+// not an office warning. Existing workers and checks with evidence stay visible.
+function uncheckedRegisterReviews() {
+  return db.prepare(`SELECT u.id,u.name,u.email,${BAN_REGISTERS.map(r=>'p.'+r.rc).join(',')}
+    FROM users u JOIN worker_profiles p ON p.user_id=u.id
+    WHERE u.role='worker' AND COALESCE(u.closed_at,'')='' AND COALESCE(u.is_admin,0)=0
+      AND (${BAN_REGISTERS.map(r=>"COALESCE(p."+r.rc+",'unchecked')='unchecked'").join(' OR ')})`).all().filter(w=>{
+    if(isDemoWorker(w.email))return false;
+    const tasks=WORKFLOW?.workerBlockers(w.id)||[];
+    return BAN_REGISTERS.some(r=>(w[r.rc]||'unchecked')==='unchecked'&&tasks.some(t=>t.key==='register-'+r.key&&t.actionable!==false));
+  });
+}
 /* The same question, asked cheaply at a gate. Demo workers are exempt from
    enforcement throughout the codebase — they carry no real clearance and are
    never real people — but they are *shown* honestly on the compliance board
@@ -16656,10 +16668,9 @@ function complianceClockSweep(req) {
      The existing chase only fires for a worker already recorded clear. Anyone
      never checked at all is silently blocked and never mentioned — which makes
      the person most likely to be forgotten the one nobody is reminded about. */
-  const never = db.prepare(`SELECT u.id, u.name FROM users u JOIN worker_profiles p ON p.user_id = u.id
-    WHERE u.role = 'worker' AND p.banning_result = 'unchecked'`).all();
+  const never = uncheckedRegisterReviews();
   if (never.length) {
-    say('banning-never', `${never.length} worker${never.length === 1 ? '' : 's'} have never been checked against the banning registers: ${never.slice(0, 8).map(x => x.name).join(', ')}`, { count: never.length });
+    say('banning-never', `${never.length} worker${never.length === 1 ? '' : 's'} ready for outstanding register checks: ${never.slice(0, 8).map(x => x.name).join(', ')}`, { count: never.length });
   }
 
   /* ---- 6. shifts that ended and were never completed -------------------
@@ -17478,11 +17489,10 @@ function selfTest() {
     staleScreen ? 'The clock sweep warns, then withdraws after the grace period. Re-confirm against the screening unit.' : '');
 
   /* this one never joined users at all, so it counted every profile row */
-  const neverBanned = db.prepare(`SELECT COUNT(*) n FROM worker_profiles p JOIN users u ON u.id = p.user_id
-    WHERE u.role = 'worker' AND ${DEMO_SQL} AND p.banning_result = 'unchecked'`).get().n;
+  const neverBanned = uncheckedRegisterReviews().length;
   add('0137 conditions', 'Banning registers checked', neverBanned ? 'warn' : 'ok',
-    (neverBanned ? `${neverBanned} worker${neverBanned === 1 ? ' has' : 's have'} never been checked against any banning register.`
-                 : 'Every worker carries a result on all three registers.') + demoNote, '');
+    (neverBanned ? `${neverBanned} worker${neverBanned === 1 ? ' is' : 's are'} ready for an outstanding register check.`
+                 : 'No outstanding register checks are ready for office action. New applicants awaiting identity evidence remain in Waiting on worker.') + demoNote, '');
 
   /* ---- the AI gates ---------------------------------------------------- */
   const mode = AI.mode();

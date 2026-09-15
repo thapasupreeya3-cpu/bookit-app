@@ -78,6 +78,7 @@ async function main(){const s=http.createServer();await new Promise(r=>s.listen(
    context.CareVerify.setPreview(await detail(p.id),q);assert.ok(context.CareVerify.view.plan().includes('current support plan version'));
    if(process.env.VERIFICATION_FIXTURE_PATH)fs.writeFileSync(process.env.VERIFICATION_FIXTURE_PATH,JSON.stringify({worker:d,participant:await detail(p.id),workerQueue:q,participantQueue:ok(await req('GET','/api/admin/verification?role=participant&q=process.participant',a))},null,2));
  });
+ await require('./verification-readiness-ui-tests')({db,req,ok,test,register,ins,detail,act,a,p,w,stamp,imagePath,ROOT});
  await require('./verification-automation-scenarios')({db,req,ok,test,register,ins,detail,act,a,p,w,stamp,imagePath,ROOT});
  await require('./verification-document-scenarios')({db,req,ok,test,register,ins,detail,act,a,p,w,stamp,imagePath,ROOT});
  await require('./pdf-preview-scenarios')({db,req,ok,test,register,ins,detail,act,a,p,w,stamp,imagePath,ROOT});

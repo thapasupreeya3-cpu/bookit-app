@@ -1,32 +1,35 @@
-THE CARE WEB v88.4.8 — CURRENT UPDATE ONLY
+THE CARE WEB v88.4.13 — CURRENT UPDATE ONLY
 
-REQUIRED BASE: v88.4.7
-This ZIP contains only files changed since v88.4.7. Check /api/version on your
-existing website: APP_VERSION must be 88.4.7 before applying this update.
-If it is older, apply the already-supplied updates through v88.4.7 first.
+REQUIRED BASE: the supplied v88.4.12 repository, bookit-app-main (7).zip
+This ZIP contains only new or changed files for the worker task readiness fix.
+It is not a replacement for the complete repository.
 
 INSTALL ON YOUR EXISTING WEBSITE
-1. Keep a backup of the existing source, database, uploads and protected settings.
-2. Extract and MERGE this ZIP into your v88.4.7 repository, replacing matching
-   files. Do not replace the repository with this partial ZIP.
-3. Preserve live database, uploads, photos, secrets and hosting settings.
-4. Redeploy using your existing process and Node 22 (>=22.12 <23).
-   This download has not been pushed to your remote repository. bookit-update
-   alone cannot install it until your repository contains these changed files.
-5. Refresh with Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows).
-6. Confirm /api/version shows APP_VERSION 88.4.8 and SCHEMA_VERSION 88404.
-   There is no schema change in this update.
+1. Retain a backup of your existing source, database, uploads and settings.
+2. Extract and MERGE this update into your v88.4.12 repository, replacing
+   matching files. Keep all other files and folder contents.
+3. Redeploy through your existing process using Node 22 (>=22.12 <23).
+   The download must be merged into your repository before your server's
+   normal update command can install it.
+4. Refresh with Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows).
+5. Confirm /api/version shows APP_VERSION 88.4.13 and SCHEMA_VERSION 88404.
+   The schema identifier is unchanged. Queue invalidation triggers are
+   installed automatically; no database reset or manual migration is needed.
 
-WHERE TO FIND THE CHANGES
-Money: Invoices & payments; Charges; Needs attention; NDIA claims; Worker pay.
-Choose a related section within the selected destination.
-Payment connections remains in Settings.
-Verification: choose a person to see their record panel without returning to
- the website header. Related tabs and pages keep the workspace in view.
+WHAT TO CHECK
+Admin > Today > Next actions: a blank new worker has no office action count.
+Their missing uploads and profile details remain under Waiting on people.
+Admin > People > Verification: select the worker. The file shows Waiting on
+worker and No office action needed. Future checks are under Later office checks.
+When evidence is received, the relevant office reviews become available.
+The normal refresh reconciles premature tasks from the older release and
+retains their history. Genuine safety restrictions and follow-ups still show.
+Existing approval, eligibility and booking requirements remain enforced.
 
 USER GUIDE: docs/USER-GUIDE.html
-NAVIGATION MAP: docs/MONEY-NAVIGATION-v88.4.8.md
-CHANGES: docs/CHANGELOG-v88.4.8.md
+CHANGES: docs/CHANGELOG-v88.4.13.md
 CHECKS: docs/TEST-RESULTS.md
 SOURCE HASHES: RELEASE-FILES.json describes the full installed source tree.
-No second website is required. Live browser appearance remains unverified.
+
+This source update has not deployed your website. A second website is not
+required. Live browser appearance remains unverified.
