@@ -1787,7 +1787,7 @@ html.high-contrast .care-stage-block{display:none!important;}
 <link rel="stylesheet" href="/assets/site-usability.css?v=88.2.7">
 <link rel="stylesheet" href="/assets/worker-credentials.css?v=88.2.10">
 <link rel="stylesheet" href="/assets/booking-calendar.css?v=88.3.0">
-<link rel="stylesheet" href="/assets/next-actions.css?v=88.3.3">
+<link rel="stylesheet" href="/assets/next-actions.css?v=88.4.7">
 <link rel="stylesheet" href="/assets/launch-assurance.css?v=88.4.4">
 <link rel="stylesheet" href="/assets/billing-setup.css?v=88.3.4">
 </head>
@@ -2592,15 +2592,16 @@ html.high-contrast .care-stage-block{display:none!important;}
   <div class="container" style="max-width:860px;">
     <p class="eyebrow">For support workers</p>
     <h1>Know a good support worker? Refer them.</h1>
-    <p class="lede">The best workers are found by workers. Give someone you would want on your own roster your referral code; once they have completed <b id="refHours">50</b> hours with The Care Web, you are paid a <b id="refBonus">$150</b> bonus on your next pay run. No cap on how many.</p>
+    <p class="lede">The best workers are found by workers. Give someone you would want on your own roster your referral code; once they have completed <b id="refHours">50</b> hours with The Care Web, you qualify for a <b id="refBonus">$150</b> bonus eligible for payroll. No cap on how many.</p>
+    <div id="referralProgress"></div>
     <div class="grid-2" style="margin-top:22px;">
       <div class="card">
         <h2 style="margin-top:0;">How it works</h2>
         <ol>
-          <li>Sign in and open <a href="#/earnings">My earnings</a>. Your code (it looks like <code>W12-3F9A1C</code>) and a link are at the top.</li>
-          <li>Send the link, or tell them the code. They type it when they <a href="#/get-started?type=worker">apply</a>.</li>
+          <li>Sign in as a worker. Your personal code and link appear above and under <a href="#/earnings">My earnings</a>.</li>
+          <li>Send the link to fill in their referral code, or tell them the code to enter when they <a href="#/get-started?type=worker">apply</a>.</li>
           <li>They go through the same checks as everyone — screening, first aid, CPR, the interview, the induction — and start taking shifts.</li>
-          <li>When their completed hours reach the mark, you are emailed, it shows as payable on My earnings, and it is on your next pay.</li>
+          <li>Their successful signup records the referral. Qualifying completed hours update the progress above; at the threshold the bonus becomes eligible for payroll. Payment is shown only after the office records it.</li>
         </ol>
       </div>
       <div class="card">
@@ -2608,7 +2609,7 @@ html.high-contrast .care-stage-block{display:none!important;}
         <ul>
           <li>Workers only. <b>Participants are never offered anything for a referral</b> — the NDIS Code of Conduct treats inducements to participants as a problem, and so do we.</li>
           <li>The code has to be entered at sign-up; it cannot be added afterwards.</li>
-          <li>Hours are completed shifts, not sleepovers or meet-and-greets.</li>
+          <li>Only completed ordinary shifts count. Sleepovers, meet-and-greets, voided records and fee-only entries do not count.</li>
           <li>You are not responsible for the person you refer; they stand on their own checks.</li>
         </ul>
         <p style="margin-top:14px;"><a class="btn btn-primary" href="#/earnings">Get my code</a> <a class="btn btn-secondary" href="#/get-started?type=worker">I'm the one applying</a></p>
@@ -3538,6 +3539,7 @@ html.high-contrast .care-stage-block{display:none!important;}
               <label class="choice-pill"><input type="radio" name="wCheck" value="no"><span>Not yet — help me</span></label>
             </div>
           </div>
+          <div class="field full"><label for="wReferral">Referral code <span class="hint">(optional)</span></label><input id="wReferral" name="ref" maxlength="80" autocomplete="off" spellcheck="false" aria-describedby="wReferralNote"><p class="muted-sm" id="wReferralNote">Optional. Paste a worker’s code, or open their referral link before applying.</p></div>
           <div class="field full"><label for="wAbout">Tell us a little about you <span class="hint">(experience, interests — 2–3 sentences is perfect)</span></label><textarea id="wAbout" rows="4"></textarea></div>
           <label class="field full" style="flex-direction:row;gap:10px;align-items:flex-start;font-weight:400;">
             <input type="checkbox" id="wTerms" required style="width:18px;height:18px;margin-top:3px;flex:none;">
@@ -6339,10 +6341,10 @@ $('#workerForm').addEventListener('submit', async e => {
       const services = $$('input[name="wSvc"]:checked').map(c => c.value);
       const pw = $('#wPassword').value;
       if(pw.length < 8){ toast('Password needs at least 8 characters.'); return; }
-      const d = await API.call('/register', {method:'POST', body:{role:'worker', name:$('#wName').value, email:$('#wEmail').value, password:pw, phone:$('#wPhone').value, suburb:$('#wPostcode').value, services, bio:$('#wAbout').value, terms_accepted: $('#wTerms').checked, terms_version: TERMS_VERSION}});
-      API.me = d.user; updateAuthUI(); loadWorkersLive();
+      const d = await API.call('/register', {method:'POST', body:{role:'worker', name:$('#wName').value, email:$('#wEmail').value, password:pw, phone:$('#wPhone').value, suburb:$('#wPostcode').value, services, bio:$('#wAbout').value, ref:window.CareReferrals?.value()||$('#wReferral').value.trim(), terms_accepted: $('#wTerms').checked, terms_version: TERMS_VERSION}});
+      API.me = d.user; window.CareReferrals?.completed(); updateAuthUI(); loadWorkersLive();
       gsSuccess(`Application received, ${d.user.name.split(' ')[0]}! 🙌`, 'Your worker account is created and we\'ve emailed you a link to confirm your address. Open Next actions for your personal checklist: identity, work rights, screening, first aid, CPR, training and office recruitment reviews. Your profile stays hidden until the required reviews are complete — we\'ll email you the moment you\'re live.');
-      $('#gsDemoNote').textContent = 'Log back in any time with your email and password.';
+      $('#gsDemoNote').textContent = 'Log back in any time with your email and password.' + (d.referral?.recorded ? ' Your referral code was recorded successfully.' : '');
     }catch(err){ toast(err.message); }
     return;
   }
@@ -7211,7 +7213,9 @@ function route(){
     const qi = location.hash.indexOf('?');
     const t = new URLSearchParams(qi === -1 ? '' : location.hash.slice(qi + 1)).get('type');
     showPath(t === 'worker' || t === 'participant' ? t : null);
+    window.CareReferrals?.capture();
   }
+  if(id === 'page-refer') window.CareReferrals?.render();
   if(id === 'page-journey' && window.CareFlow) CareFlow.render();
   if(id === 'page-messages') renderMessagesPage();
   if(id === 'page-bookings' && window.renderBookingsPage) renderBookingsPage();
@@ -7705,6 +7709,7 @@ function updateAuthUI(){
   }
   const note = $('#workersNote');
   if(note && API.online) note.textContent = 'Live worker profiles from The Care Web database — workers appear here after their required checks, profile photo and office approval are complete.';
+  if(location.hash.split('?')[0]==='#/refer-a-worker')window.CareReferrals?.render();
 }
 
 /* ---------- account chip + menu ---------- */
@@ -10349,8 +10354,8 @@ async function renderAdminPage(){
       ${kpi.meet_and_greets ? kpiBox('Meet-and-greets', `${kpi.meet_and_greets.count} held · ${kpi.meet_and_greets.led_to_a_booking} led to a booking`, kpi.meet_and_greets.how) : ''}
     </div>
     ${kpi.margin_per_hour.by_category.length ? `<details style="margin-top:10px;"><summary>Margin by rate category</summary><table class="rt"><thead><tr><th>Category</th><th>Units</th><th>Revenue</th><th>Worker share</th><th>Margin/unit</th></tr></thead><tbody>${kpi.margin_per_hour.by_category.map(c => `<tr><td>${esc(c.category || '—')}</td><td>${c.units}</td><td>${money(c.revenue)}</td><td>${money(c.worker_share)}</td><td>${money(c.margin_per_unit)}</td></tr>`).join('')}</tbody></table></details>` : ''}` : '<p class="muted-sm">KPIs unavailable.</p>'}`;
-  const referralsHtml = `${refs ? `<p class="muted-sm">$${Number(refs.bonus).toFixed(2)} after ${refs.qualify_hours} completed hours. Settings: referral_bonus, referral_qualify_hours.</p>
-    ${refs.referrals.length ? `<table class="rt"><thead><tr><th>Referred by</th><th>New worker</th><th>Joined</th><th>Status</th><th></th></tr></thead><tbody>${refs.referrals.map(r => `<tr><td>${esc(r.referrer_name)}</td><td>${esc(r.referee_name)}</td><td>${esc(fmtAU(r.created.slice(0,10)))}</td><td>${r.review_required ? 'Review required — qualifying hours changed' : r.paid_at ? 'Paid ' + esc(fmtAU(r.paid_at.slice(0,10))) : r.qualified_at ? `<b style="color:#1F7A4D;">Payable $${Number(r.amount).toFixed(2)}</b>` : 'Not yet qualified'}</td><td>${r.qualified_at && !r.paid_at && !r.review_required ? `<button class="adm-btn-sm" type="button" data-ref-paid="${r.id}">Record referral payment</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="muted-sm">No referrals yet.</p>'}` : ''}`;
+  const referralsHtml = `${refs ? `<p class="muted-sm">${esc(refs.rules || 'Completed ordinary shifts count. Sleepovers, meet-and-greets and voided records do not count.')} Bonus: $${Number(refs.bonus).toFixed(2)} after ${Number(refs.qualify_hours)} qualifying hours. Eligibility does not confirm payment.</p>
+    ${refs.referrals.length ? `<table class="rt"><thead><tr><th>Referred by</th><th>New worker</th><th>Signup recorded</th><th>Qualifying hours</th><th>Status</th><th></th></tr></thead><tbody>${refs.referrals.map(r => `<tr><td>${esc(r.referrer_name)}</td><td>${esc(r.referee_name)}</td><td>${esc(fmtAU(r.created.slice(0,10)))}<br><small>Code ${esc(r.code)}</small></td><td><b>${Number(r.hours || 0).toFixed(1)} / ${Number(refs.qualify_hours)} hours</b><br><small>${Math.max(0,Number(refs.qualify_hours)-Number(r.hours || 0)).toFixed(1)} remaining</small></td><td>${r.review_required ? 'Review required — qualifying hours changed' : r.paid_at ? 'Payment recorded ' + esc(fmtAU(r.paid_at.slice(0,10))) : r.qualified_at ? `<b style="color:#1F7A4D;">Eligible for payroll: $${Number(r.amount).toFixed(2)}</b>` : 'Building qualifying hours'}</td><td>${r.qualified_at && !r.paid_at && !r.review_required ? `<button class="adm-btn-sm" type="button" data-ref-paid="${r.id}">Record referral payment</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="muted-sm">No worker signups have been attributed to a referral code yet.</p>'}` : ''}`;
   const conciergeHtml = `<p class="muted-sm">Concierge onboarding. They set their own password from the email; the plan, agreement and consent stay theirs to do. Consent is recorded in words.</p>
     <form id="admConcierge" style="display:grid;gap:8px;grid-template-columns:1fr 1fr;max-width:640px;">
       <label class="ca-field"><span>Full name</span><input name="name" placeholder="Full name" required style="${inpStyle}"></label><label class="ca-field"><span>Email</span><input name="email" type="email" placeholder="Email" required style="${inpStyle}"></label>
@@ -13828,7 +13833,7 @@ async function renderEarningsPage(){
     </tr>`;
   const next = tier.next;
   let refHtml = '';
-  try{ const R = await API.call('/me/referrals'); refHtml = `<div class="info-card" style="margin-bottom:16px;"><p style="margin:0 0 6px;"><b>Know a good support worker?</b> Give them your code <b style="font-family:monospace;">${esc(R.code)}</b> or this link, and once they have completed ${R.qualify_hours} hours with The Care Web you are paid <b>$${Number(R.bonus).toFixed(2)}</b> on your next pay run.</p><p style="margin:0;font-size:.9rem;"><input readonly value="${esc(R.link)}" style="width:100%;max-width:520px;font:inherit;font-size:.85rem;padding:6px 8px;border:1.5px solid #E2E0DA;border-radius:8px;" onclick="this.select()"></p>${R.referrals.length ? `<p class="muted-sm" style="margin:8px 0 0;">${R.referrals.map(x => `${esc(x.who)}: ${x.review_required ? 'review required — qualifying hours changed' : x.paid_at ? 'paid' : x.qualified_at ? 'payable — on your next pay' : `${Number(x.hours).toFixed(1)} of ${R.qualify_hours} hours`}`).join(' · ')}</p>` : ''}</div>`; }catch(e){}
+  try{ const R = await API.call('/me/referrals',{noFor:true}); refHtml = window.CareReferrals?.summary(R)||''; }catch(e){}
   wrap.innerHTML = `${refHtml}
     <div class="st-presets" role="group" aria-label="Pay period">
       ${(d.periods || []).slice(0, 4).map((p, i) => `
@@ -14041,8 +14046,15 @@ const HIDDEN_WORDS = {
 let ACCOUNT_RENDER_SEQUENCE = 0;
 async function renderAccountPage(){
   const wrap = $('#acctWrapPage'); if(!wrap) return;
+  if(location.hash.split('?')[0] === '#/account/address'){
+    const params = new URLSearchParams(location.hash.split('?')[1] || '');
+    params.set('focus', 'home-address');
+    location.hash = '#/account/profile?' + params.toString();
+    return;
+  }
   const sequence = ++ACCOUNT_RENDER_SEQUENCE, accountId = API.me?.id,
-    hash = location.hash, actingFor = API.actingFor?.id || null;
+    hash = location.hash;
+  let actingFor = API.actingFor?.id || null;
   const isCurrent = () => sequence === ACCOUNT_RENDER_SEQUENCE &&
     accountId === API.me?.id && hash === location.hash &&
     actingFor === (API.actingFor?.id || null) && wrap === $('#acctWrapPage');
@@ -14050,7 +14062,14 @@ async function renderAccountPage(){
   wrap.setAttribute('aria-busy', 'true');
   try{
     await Promise.race([
-      renderAccountContent(wrap, isCurrent),
+      (async () => {
+        if(hash.split('?')[0] === '#/account/profile' && API.me?.role === 'coordinator'){
+          const selected = await window.CareLocations?.selectLinkedParticipant();
+          if(selected === false || sequence !== ACCOUNT_RENDER_SEQUENCE || accountId !== API.me?.id || hash !== location.hash || wrap !== $('#acctWrapPage')) return;
+          actingFor = API.actingFor?.id || null;
+        }
+        await renderAccountContent(wrap, isCurrent);
+      })(),
       new Promise((resolve,reject) => { timer = setTimeout(() => reject(new Error('Settings timed out')), 15000); })
     ]);
   }catch(e){
@@ -14270,7 +14289,7 @@ async function renderAccountContent(wrap, isCurrent){
        takes its turn behind a tab — the page stops running. Tabs only exist
        for the groups this role actually has. */
     const apPanes = [
-      ['details', 'Your details', detailsCard + '<div id="profileEmailAddress"></div>' + (API.actingFor && me.role === 'coordinator' ? '<div id="participantContactEmail"></div>' : '') + (me.role === 'participant' ? '<p class="sl-profile-link"><a href="#/account/address">Address &amp; arrival details →</a></p>' : '') + (!me.admin && me.role !== 'coordinator' ? '<div id="miniSharedContacts"></div>' : '')],
+      ['details', 'Your details', detailsCard + '<div id="profileEmailAddress"></div>' + (API.actingFor && me.role === 'coordinator' ? '<div id="participantContactEmail"></div>' : '') + (me.role === 'participant' || me.role === 'coordinator' ? '<div id="profileHomeAddress"></div>' : '') + (!me.admin && me.role !== 'coordinator' ? '<div id="miniSharedContacts"></div>' : '')],
       aboutCards ? ['supports', 'Supports & plan', aboutCards] : null,
       workerCards ? ['public', 'Public profile', workerCards] : null,
       ['privacy', 'Privacy & data', privacyCards],
@@ -14307,6 +14326,9 @@ async function renderAccountContent(wrap, isCurrent){
     await window.CareAccountEmail?.mount(document.getElementById('profileEmailAddress'));
     if(!isCurrent()) return;
     await window.CareAccountEmail?.mountParticipantContact(document.getElementById('participantContactEmail'));
+    if(!isCurrent()) return;
+    await window.CareLocations?.mountSettings(document.getElementById('profileHomeAddress'), {focus: new URLSearchParams(location.hash.split('?')[1] || '').get('focus') === 'home-address'});
+    if(!isCurrent()) return;
     if(!me.admin && me.role !== 'coordinator') await CareFlow.renderContacts(document.getElementById('miniSharedContacts'));
     return;
   }
@@ -14319,10 +14341,6 @@ async function renderAccountContent(wrap, isCurrent){
     S.push(['documents', 'My documents', 'Your file', '<div id="miniPdocs"><p class="muted-sm">Loading…</p></div>']);
     S.push(['access', 'People with access', 'Family or a coordinator helping', '<div id="miniAccess"><p class="muted-sm">Loading…</p></div>']);
     S.push(['jobs', 'My job posts', 'Post what you need', '<div id="miniJobs"><p class="muted-sm">Loading…</p></div>']);
-  }
-
-  if(me.role === 'participant' && !me.admin || me.role === 'coordinator'){
-    S.push(['address', 'Address & arrival details', 'Support location, parking and access', '<div id="serviceAddressSettings"><p class="muted-sm">Loading your address…</p></div>']);
   }
 
   if(me.role === 'coordinator'){
@@ -14368,7 +14386,6 @@ async function renderAccountContent(wrap, isCurrent){
 
   /* Build 22: the pane IS the page — no redirects, the real thing renders
      right here (pickWrap points each renderer at the mini container). */
-  if(rowOn === 'address') await window.CareLocations?.mountSettings(document.getElementById('serviceAddressSettings'));
   if(rowOn === 'availability') await BookItReview.renderAvailability();
   if(rowOn === 'billing' || rowOn === 'statements') await renderStatementsPage();
   else if(rowOn === 'documents') await renderPdocsMini();
@@ -15417,13 +15434,13 @@ document.addEventListener('click', async e => {
 
 
 <link rel="stylesheet" href="/assets/payment-automation.css?v=88.4.6">
-<script src="/assets/next-actions.js?v=88.4.2"></script>
-<script src="/assets/process-workflows.js?v=88.4.6"></script>
+<script src="/assets/next-actions.js?v=88.4.7"></script>
+<script src="/assets/process-workflows.js?v=88.4.7"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
 <script src="/assets/booking-calendar.js?v=88.4.0"></script>
 <script src="/assets/payment-automation.js?v=88.4.6"></script>
-<link rel="stylesheet" href="/assets/service-locations.css?v=88.4.1">
-<script src="/assets/service-locations.js?v=88.4.4"></script>
+<link rel="stylesheet" href="/assets/service-locations.css?v=88.4.7">
+<script src="/assets/service-locations.js?v=88.4.7"></script>
 <script src="/assets/launch-assurance.js?v=88.4.4"></script>
 <script src="/assets/billing-setup.js?v=88.3.4"></script>
 <link rel="stylesheet" href="/assets/booking-pricing.css?v=88.4.4">
@@ -15432,6 +15449,8 @@ document.addEventListener('click', async e => {
 <script src="/assets/sleepover-support.js?v=88.4.4"></script>
 <link rel="stylesheet" href="/assets/account-email.css?v=88.4.6">
 <script src="/assets/account-email.js?v=88.4.6"></script>
+<link rel="stylesheet" href="/assets/referral-progress.css?v=88.4.7">
+<script src="/assets/referral-progress.js?v=88.4.7"></script>
 <script src="/assets/admin-verification.js?v=88.4.6"></script>
 <script>
 document.addEventListener('click',async event=>{

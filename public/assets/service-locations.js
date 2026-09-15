@@ -1,12 +1,12 @@
 'use strict';
-/* Address forms stay separate from public profiles. Each visit uses its own saved snapshot. */
+/* Home addresses are edited in private profile details. Each visit uses its own saved snapshot. */
 window.CareLocations=(()=>{
   const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fields=['unit','street','suburb','state','postcode','arrival_notes'];
   const stateOptions=['','NSW','VIC','QLD','ACT','NT','SA','TAS','WA'];
   const choices=[['saved','Saved address'],['other','Another address'],['community','Community meeting point'],['unconfirmed','Confirm later']];
   const subject=()=>`${window.API?.me?.id||''}:${window.API?.actingFor?.id||''}`;
-  const scoped=()=>window.API?.actingFor?.id?'?for='+Number(API.actingFor.id):'';
+  const profileHref=()=> '#/account/profile?focus=home-address' + (window.API?.actingFor?.id?'&for='+Number(API.actingFor.id):'');
   const chooserStates=new WeakMap(),mounted=new WeakMap();
   let generation=0;
   function input(name,label,value='',extra=''){return `<label>${escape(label)}<input name="${name}" value="${escape(value)}" ${extra}></label>`;}
@@ -18,27 +18,30 @@ window.CareLocations=(()=>{
   function workerAreas(worker){const areas=Array.isArray(worker.service_areas)?worker.service_areas.map(x=>String(x).trim()).filter(Boolean):[];return `<section class="sl-worker-areas" aria-label="Location and travel"><h3>Areas I cover</h3>${areas.length?'<p>'+areas.map(x=>`<span class="sl-area">${escape(x)}</span>`).join(' ')+'</p>':'<p>Ask this worker which areas they can cover.</p>'}<p class="muted-sm">Ask about visits outside these areas. Any travel estimate uses stated areas; it is not the worker’s current location or arrival time.</p></section>`;}
   async function selectLinkedParticipant(){
     const id=Number(new URLSearchParams(location.hash.split('?')[1]||'').get('for'));
-    if(API.me?.role!=='coordinator'||!id||id===Number(API.actingFor?.id))return;
-    const who=API.me.id,hash=location.hash;
+    if(API.me?.role!=='coordinator'||!id||id===Number(API.actingFor?.id))return true;
+    const who=API.me.id,hash=location.hash,identity=subject();
     const result=await API.call('/coordinator/clients',{noFor:true});
-    if(API.me?.id!==who||location.hash!==hash)return;
+    if(API.me?.id!==who||location.hash!==hash||identity!==subject())return false;
     const client=result.clients?.find(x=>Number(x.id)===id);
     if(!client)throw Error('Access to this person is no longer available.');
     API.actingFor={...client,id:Number(client.id)};
+    window.actBarSync?.();
+    return true;
   }
-  async function mountSettings(host){
+  async function mountSettings(host,options={}){
     if(!host)return;
-    const initial=++generation;let requestSubject=subject(),requestHash=location.hash;host.innerHTML='<p>Loading address &amp; arrival details…</p>';
+    const initial=++generation;let requestSubject=subject(),requestHash=location.hash;host.innerHTML='<p>Loading home address…</p>';
     try{
-      await selectLinkedParticipant();
+      if(await selectLinkedParticipant()===false)return;
       if(initial!==generation||!host.isConnected)return;
-      if(API.me?.role==='coordinator'&&!API.actingFor){host.innerHTML='<h2>Address &amp; arrival details</h2><p><a href="#/clients">Choose a person from My clients</a> to manage their support address.</p>';return;}
+      if(API.me?.role==='coordinator'&&!API.actingFor){host.innerHTML='<article class="info-card sl-settings"><h3>Participant home address</h3><p><a href="#/clients">Choose a person from My clients</a> to manage their home address and arrival details.</p></article>';return;}
       const identity=subject(),hash=location.hash;requestSubject=identity;requestHash=hash;
       const current=()=>initial===generation&&host.isConnected&&identity===subject()&&hash===location.hash;
       const data=await API.call('/me/service-address');if(!current())return;
-      host.innerHTML=`<article class="info-card sl-settings"><h2>Address &amp; arrival details</h2>${API.actingFor?`<p>For <b>${escape(API.actingFor.name)}</b></p>`:''}<p>Save where support usually starts. You can choose a different place for each booking.</p><p class="sl-privacy">Your street address and arrival instructions are private. Your assigned worker sees them after accepting the booking.</p><form data-sl-address-form>${addressFields(data.address)}<div class="sl-actions"><button class="btn btn-primary" type="submit">Save address</button><button class="btn btn-secondary" type="button" data-sl-reload hidden>Review latest saved address</button></div><p data-sl-status role="status" aria-live="polite">${data.complete?'Address saved.':'Add your support location when you are ready. You can still browse and book.'}</p></form><p class="muted-sm">Changing this address applies to new bookings. Existing visits keep their agreed location. Open a booking to change that visit.</p></article>`;
+      host.innerHTML=`<article class="info-card sl-settings"><h3 tabindex="-1" data-sl-heading>${API.actingFor?'Participant home address':'Home address'}</h3>${API.actingFor?`<p>For <b>${escape(API.actingFor.name)}</b></p>`:''}<p>Save your home address and arrival details here. You can choose a different place for each booking.</p><p class="sl-privacy">Your street address and arrival instructions are private. Your assigned worker sees them after accepting the booking.</p><form data-sl-address-form>${addressFields(data.address)}<div class="sl-actions"><button class="btn btn-primary" type="submit">Save address</button><button class="btn btn-secondary" type="button" data-sl-reload hidden>Review latest saved address</button></div><p data-sl-status role="status" aria-live="polite">${data.complete?'Address saved.':'Add your home address when you are ready. You can still browse and book.'}</p></form><p class="muted-sm">Changing this address applies to new bookings. Existing visits keep their agreed location. Open a booking to change that visit.</p></article>`;
       let revision=data.revision,busy=false;
-      host.querySelector('[data-sl-reload]').onclick=()=>mountSettings(host);
+      host.querySelector('[data-sl-reload]').onclick=()=>mountSettings(host,options);
+      if(options.focus){const heading=host.querySelector('[data-sl-heading]');heading?.focus({preventScroll:true});heading?.scrollIntoView?.({block:'start'});}
       host.querySelector('form').onsubmit=async event=>{
         event.preventDefault();if(busy||!current())return;
         busy=true;const button=host.querySelector('button[type="submit"]');button.disabled=true;status(host,'Saving address…');
@@ -53,9 +56,9 @@ window.CareLocations=(()=>{
         }catch(error){if(current()){status(host,error.status===409?'A newer address has been saved. Your edits are still here; review the latest address before trying again.':error.message,true);if(error.status===409)host.querySelector('[data-sl-reload]').hidden=false;}}
         finally{busy=false;if(current())button.disabled=false;}
       };
-    }catch(error){if(initial===generation&&host.isConnected&&requestSubject===subject()&&requestHash===location.hash){host.innerHTML=`<article class="info-card"><h2>Address &amp; arrival details</h2><p class="sl-error" role="alert">${escape(error.message)}</p>${error.status===403?'<p>Managing this address needs permission to manage bookings. Contact the participant or office.</p>':'<button type="button" class="btn btn-secondary" data-sl-retry>Try again</button>'}</article>`;host.querySelector('[data-sl-retry]')?.addEventListener('click',()=>mountSettings(host));}}
+    }catch(error){if(initial===generation&&host.isConnected&&requestSubject===subject()&&requestHash===location.hash){host.innerHTML=`<article class="info-card"><h3>Home address</h3><p class="sl-error" role="alert">${escape(error.message)}</p>${error.status===403?'<p>Managing this address needs permission to manage bookings. Contact the participant or office.</p>':'<button type="button" class="btn btn-secondary" data-sl-retry>Try again</button>'}</article>`;host.querySelector('[data-sl-retry]')?.addEventListener('click',()=>mountSettings(host,options));}}
   }
-  function chooserMarkup(state){const mode=state.mode;return `<label class="sl-choose">Where will support start?<select data-sl-mode>${choices.map(([value,label])=>`<option value="${value}" ${mode===value?'selected':''}>${state.editing&&value==='other'?'Current or another address':label}</option>`).join('')}</select></label><div data-sl-fields>${mode==='saved'?`<div class="sl-saved"><p>${state.loading?'Loading saved address… If you send now, your latest saved address will be used.':state.saved?.complete?escape(addressText(state.saved.address)):'No complete saved address yet.'}</p>${!state.loading&&!state.saved?.complete?`<p><a href="#/account/address${scoped()}" data-close-modal>Add your support location</a>, enter another place, or confirm it later.</p>`:''}${state.saved?.address?.arrival_notes?`<p class="sl-arrival">${escape(state.saved.address.arrival_notes)}</p>`:''}</div>`:mode==='unconfirmed'?'<p class="sl-notice">Location to be confirmed. Agree a meeting place before the visit; you can update this booking later.</p>':addressFields(state.draft,mode==='community')}</div><p class="muted-sm">This location is saved for this booking${state.editing?' only':' and its repeating dates, if any'}. Exact details are shared with the assigned worker after acceptance.</p>`;}
+  function chooserMarkup(state){const mode=state.mode;return `<label class="sl-choose">Where will support start?<select data-sl-mode>${choices.map(([value,label])=>`<option value="${value}" ${mode===value?'selected':''}>${state.editing&&value==='other'?'Current or another address':label}</option>`).join('')}</select></label><div data-sl-fields>${mode==='saved'?`<div class="sl-saved"><p>${state.loading?'Loading saved address… If you send now, your latest saved address will be used.':state.saved?.complete?escape(addressText(state.saved.address)):'No complete saved address yet.'}</p>${!state.loading&&!state.saved?.complete?`<p><a href="${escape(profileHref())}" data-close-modal>Add your support location</a>, enter another place, or confirm it later.</p>`:''}${state.saved?.address?.arrival_notes?`<p class="sl-arrival">${escape(state.saved.address.arrival_notes)}</p>`:''}</div>`:mode==='unconfirmed'?'<p class="sl-notice">Location to be confirmed. Agree a meeting place before the visit; you can update this booking later.</p>':addressFields(state.draft,mode==='community')}</div><p class="muted-sm">This location is saved for this booking${state.editing?' only':' and its repeating dates, if any'}. Exact details are shared with the assigned worker after acceptance.</p>`;}
   function paintChooser(host,state){
     host.innerHTML=chooserMarkup(state);
     const select=host.querySelector('[data-sl-mode]');
@@ -111,5 +114,5 @@ window.CareLocations=(()=>{
     }catch(error){if(current()){host.innerHTML=`<p class="sl-error" role="alert">${escape(error.message)}</p><button type="button" class="btn btn-secondary btn-sm" data-sl-retry>Reload support location</button>`;host.querySelector('[data-sl-retry]').onclick=()=>mountBooking(host,id);}}
   }
   function mountList(root){root?.querySelectorAll('[data-service-location-details]').forEach(detail=>{detail.addEventListener('toggle',()=>{if(detail.open){const host=detail.querySelector('[data-service-location-booking]');if(host&&!mounted.has(host))mountBooking(host,Number(detail.dataset.serviceLocationDetails));}});});}
-  return {mountSettings,mountChooser,chooserValue,mountBooking,mountList,workerAreas,addressFields,addressText,bookingView,chooserMarkup};
+  return {profileHref,selectLinkedParticipant,mountSettings,mountChooser,chooserValue,mountBooking,mountList,workerAreas,addressFields,addressText,bookingView,chooserMarkup};
 })();

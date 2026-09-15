@@ -3517,24 +3517,38 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
   const services = Array.isArray(body.services) ? body.services.filter(s => SERVICES.includes(s)).slice(0, 6) : [];
   const hiFlags = role === 'participant' ? hiFrom(body) : [];
   const termsV = CURRENT_TERMS_VERSION; /* server truth, never client input */
-  const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, ndis_number, pm_email, svc_interest, hi_flags, hi_at, terms_version, terms_at, is_admin, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(role, name, email, hashPassword(password), suburb, clean(body.phone, 40), (['self','plan','ndia','private'].includes(body.plan)?body.plan:''), ndisNum, pmEmail,
-         JSON.stringify(services), JSON.stringify(hiFlags), hiFlags.length ? now() : '', termsV, now(), 0, now());
-  const uid = Number(r.lastInsertRowid);
-  /* a worker who came in on another worker's referral code */
-  if (role === 'worker') {
-    const referrer = referrerFromCode(body.ref);
-    if (referrer && referrer !== uid && db.prepare("SELECT id FROM users WHERE id = ? AND role = 'worker'").get(referrer)) {
-      try { db.prepare('INSERT INTO referrals (referrer_id, referee_id, code, created) VALUES (?,?,?,?)').run(referrer, uid, String(body.ref).toUpperCase(), now()); } catch (e) { console.warn('[referral] not recorded:', e.message); }
+  // A supplied code is checked before creating an account, so a typo cannot
+  // silently lose the referral. Blank codes remain optional. Worker visibility
+  // and self-pausing concern bookings, not whether an existing worker can refer.
+  const refCode = role === 'worker' ? String(body.ref || '').trim().toUpperCase() : '';
+  const referrer = refCode ? referrerFromCode(refCode) : null;
+  if (refCode && (!referrer || !db.prepare("SELECT u.id FROM users u JOIN worker_profiles p ON p.user_id=u.id WHERE u.id=? AND u.role='worker' AND COALESCE(u.closed_at,'')=''").get(referrer)))
+    return json(res, 400, { error: 'That referral code is not recognised. Check the code with your friend, or clear it to apply without a referral.', field: 'ref' });
+  if (referrer && user && Number(user.id) === referrer)
+    return json(res, 400, { error: 'You cannot refer yourself. Share your link with a new worker instead.', field: 'ref' });
+  const pass = hashPassword(password);
+  let uid;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const r = db.prepare('INSERT INTO users (role, name, email, pass, suburb, phone, plan, ndis_number, pm_email, svc_interest, hi_flags, hi_at, terms_version, terms_at, is_admin, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(role, name, email, pass, suburb, clean(body.phone, 40), (['self','plan','ndia','private'].includes(body.plan)?body.plan:''), ndisNum, pmEmail,
+           JSON.stringify(services), JSON.stringify(hiFlags), hiFlags.length ? now() : '', termsV, now(), 0, now());
+    uid = Number(r.lastInsertRowid);
+    if (role === 'worker') {
+      db.prepare('INSERT INTO worker_profiles (user_id, bio, services, visible) VALUES (?,?,?,0)')
+        .run(uid, clean(body.bio, 600), JSON.stringify(services));
+      if (referrer) db.prepare('INSERT INTO referrals (referrer_id, referee_id, code, created) VALUES (?,?,?,?)').run(referrer, uid, refCode, now());
     }
+    if (role === 'participant') db.prepare('UPDATE users SET health_consent_version = ?, health_consent_at = ? WHERE id = ?').run(CURRENT_TERMS_VERSION, now(), uid);
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    console.warn('[registration] account and referral were not saved.');
+    return json(res, 503, { error: 'Your account could not be saved. Nothing was registered. Please try again; your referral code can be used again.' });
   }
-  if (role === 'participant')
-    db.prepare('UPDATE users SET health_consent_version = ?, health_consent_at = ? WHERE id = ?').run(CURRENT_TERMS_VERSION, now(), uid);
   if (hiFlags.length) { recordScope(uid, hiFlags, 'signup'); hiAlert(req, { id: uid, name, email, suburb }, hiFlags, 'at signup'); }
   if (role === 'worker') {
-    /* vetting: new workers start hidden (visible = 0) until an admin approves them */
-    db.prepare('INSERT INTO worker_profiles (user_id, bio, services, visible) VALUES (?,?,?,0)')
-      .run(uid, clean(body.bio, 600), JSON.stringify(services));
+    /* New workers were created hidden in the account transaction above. */
     if (MAIL_FROM) sendMail(MAIL_FROM, 'New worker application — The Care Web',
       'A new support worker has applied',
       `<p><b>${escHtml(name)}</b> (${escHtml(suburb) || 'no suburb given'}) has registered as a worker and is waiting for approval.</p><p><b>Email:</b> ${escHtml(email)}<br><b>Services:</b> ${services.map(s => SERVICE_LABELS[s] || s).join(', ') || '—'}</p><p>Their profile stays hidden from Find Workers until you approve it.</p>`,
@@ -3553,7 +3567,7 @@ route('POST', /^\/api\/register$/, (req, res, m, user, body, ip) => {
      call. Registering is not accepting: accepting is where the scopes are
      shown, the participant is emailed and the record is written, and none of
      that may happen because somebody filled in a password form. */
-  json(res, 200, invite ? { user: me, invite_token: invite.invite_token } : { user: me },
+  json(res, 200, invite ? { user: me, invite_token: invite.invite_token } : { user: me, ...(referrer ? { referral: { recorded: true, code: refCode } } : {}) },
     setSessionHeaders(uid, req, ip));
 });
 
@@ -17718,25 +17732,35 @@ function reviewReferrals() {
       db.prepare('UPDATE referrals SET qualified_at = ?, hours_at_qualify = ?, amount = ? WHERE id = ?').run(now(), h, REFERRAL_BONUS(), r.id);
       q++;
       const u = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(r.referrer_id);
-      if (u) notify(u.id, 'earnings', u.email, 'Your referral bonus is on its way — The Care Web', `Good news, ${firstName(u.name)}`,
-        `<p>The worker you referred has completed ${REFERRAL_QUALIFY_HOURS()} hours with The Care Web, so your <b>$${REFERRAL_BONUS().toFixed(2)}</b> referral bonus is now payable. It will be on your next pay run.</p>`);
+      if (u) notify(u.id, 'earnings', u.email, 'Your referral bonus is eligible — The Care Web', `Good news, ${firstName(u.name)}`,
+        `<p>The worker you referred has reached ${REFERRAL_QUALIFY_HOURS()} qualifying completed hours with The Care Web. Your <b>$${REFERRAL_BONUS().toFixed(2)}</b> referral bonus is now eligible for payroll.</p><p>The office records payment after it has been processed. Check Refer a friend for the current hours and payment status.</p>`,
+        'View referral progress', `${APP_URL}/#/refer-a-worker`);
     }
   }
   return q;
 }
+function referralProgress(r) {
+  const hours = referralHours(r.referee_id), target = REFERRAL_QUALIFY_HOURS();
+  return { hours, remaining_hours: Math.max(0, round2(target - hours)), progress_percent: target > 0 ? Math.min(100, round2(hours / target * 100)) : 100,
+    state: r.review_required ? 'review-required' : r.paid_at ? 'paid' : r.qualified_at ? 'eligible' : 'in-progress' };
+}
+function referralRules() {
+  return { rules: BOOKIT_REFERRALS.DESCRIPTION + ' Participant approval and customer payment are not required for these hours. A qualifying bonus becomes eligible for payroll; payment is recorded separately.',
+    qualification: { status: 'completed', approval_required: false, payment_required: false, excludes: ['sleepovers', 'meet-and-greets', 'voided records', 'fee-only lines', 'cancelled and uncompleted shifts'] } };
+}
 route('GET', /^\/api\/me\/referrals$/, (req, res, m, user) => {
-  if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
+  if (!user || user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
   reviewReferrals();
   const rows = db.prepare(`SELECT r.*, u.name AS referee_name FROM referrals r JOIN users u ON u.id = r.referee_id WHERE r.referrer_id = ? ORDER BY r.id DESC`).all(user.id)
     .map(r => ({ id: r.id, who: shortName(r.referee_name), created: r.created, qualified_at: r.qualified_at, paid_at: r.paid_at, amount: r.amount, review_required:!!r.review_required, review_note:r.review_note,
-      hours: referralHours(r.referee_id) }));
-  json(res, 200, { code: referralCode(user.id), link: `${baseUrl(req)}/#/get-started?type=worker&ref=${referralCode(user.id)}`, qualify_hours: REFERRAL_QUALIFY_HOURS(), bonus: REFERRAL_BONUS(), referrals: rows });
+      ...referralProgress(r) }));
+  json(res, 200, { code: referralCode(user.id), link: `${baseUrl(req)}/#/get-started?type=worker&ref=${referralCode(user.id)}`, qualify_hours: REFERRAL_QUALIFY_HOURS(), bonus: REFERRAL_BONUS(), ...referralRules(), referrals: rows });
 });
 route('GET', /^\/api\/admin\/referrals$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
   reviewReferrals();
   const rows = db.prepare(`SELECT r.*, a.name AS referrer_name, b.name AS referee_name FROM referrals r JOIN users a ON a.id = r.referrer_id JOIN users b ON b.id = r.referee_id ORDER BY r.qualified_at IS NULL, r.paid_at IS NOT NULL, r.id DESC`).all();
-  json(res, 200, { referrals: rows, qualify_hours: REFERRAL_QUALIFY_HOURS(), bonus: REFERRAL_BONUS() });
+  json(res, 200, { referrals: rows.map(r => ({ ...r, ...referralProgress(r) })), qualify_hours: REFERRAL_QUALIFY_HOURS(), bonus: REFERRAL_BONUS(), ...referralRules() });
 });
 route('POST', /^\/api\/admin\/referrals\/(\d+)\/paid$/, (req, res, m, user) => {
   if (!requireAdmin(user, res)) return;
@@ -19306,7 +19330,7 @@ WORKFLOW.locationTasks=uid=>{
   const u=db.prepare('SELECT id,role FROM users WHERE id=?').get(uid),tasks=[];
   const add=(key,label,destination,detail,due=null)=>tasks.push({task_key:uid+':location:'+key,user_id:uid,kind:'booking',label,owner_kind:'person',destination,detail,scope:u.role==='participant'?'bookings':'',due_at:due});
   if(u?.role==='participant'){
-    if(!SERVICE_LOCATIONS.profile(uid).complete)add('address','Add your support address','#/account/address','Save your usual meeting place and arrival details when ready.');
+    if(!SERVICE_LOCATIONS.profile(uid).complete)add('address','Add your home address','#/account/profile?focus=home-address','Save your home address and arrival details under Profile → Your details.');
     for(const b of db.prepare("SELECT * FROM bookings WHERE participant_id=? AND status IN ('requested','accepted') AND COALESCE(voided,0)=0 AND date>=?").all(uid,ymd()))if(!SERVICE_LOCATIONS.getPrivate(b.id)?.complete)add(b.id,'Confirm meeting place for '+b.date+' '+b.start,'#/journey?panel=shift&booking='+b.id,'Add the agreed meeting place before the visit.',bookingStart(b).toISOString());
   }else if(u?.role==='worker'){
     for(const b of db.prepare("SELECT * FROM bookings WHERE worker_id=? AND status='accepted' AND COALESCE(voided,0)=0").all(uid))if(SERVICE_LOCATIONS.summary(b,u,{url:'/'})?.needs_acknowledgement)add(b.id,'Review changed visit location','#/journey?panel=shift&booking='+b.id,'Check the latest meeting place and arrival details for '+b.date+' '+b.start+'.',bookingStart(b).toISOString());

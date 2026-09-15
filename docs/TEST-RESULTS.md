@@ -1,3 +1,12 @@
+# v88.4.7 validation
+
+- 59 new focused checks cover referral signup/progress HTTP behaviour (15), referral interface interactions (12), person-grouped task API behaviour (12), person-tab interface interactions (15), and five address/profile mount and legacy-link checks added to the existing settings suite.
+- Existing address, access, booking, payment, invoice query and account email tests are included in the release suite. One old address-link assertion was updated to the intended profile destination after the first run exposed it; the corrected suite and remaining release gates were then run.
+- Generated inventories identify 414 routes and 108 tables, schema 88404. There is no schema change in this release.
+- Exact byte comparison checks that the current-only ZIP applied over local commit 7effea2 (v88.4.6) reproduces the complete target source. Unchanged media and earlier block-register files are excluded.
+- The package verification JSON records release-suite outcomes, source hashes, archive contents and guide-link validation. A new database migration/upgrade rehearsal was not needed or performed for this schema-unchanged update.
+- UI checks exercise markup and event handling in local harnesses. They are not a rendered browser sign-off. No live deployment, real email delivery, payment or wage transfer was performed.
+
 # v88.4.6 validation
 
 - New focused checks cover invoice query HTTP behaviour and attribution (18), invoice query interface interactions (17), account email HTTP/security/export behaviour (21), and email interface interactions (19), plus two profile mount checks in the existing settings suite.

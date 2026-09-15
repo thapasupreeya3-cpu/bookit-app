@@ -147,7 +147,7 @@ const fetch=global.fetch;global.fetch=function(input,...args){local(typeof input
   await test('An empty optional address can be saved without introducing a booking or invoice setup blocker',async()=>{
     const empty=Object.fromEntries(Object.keys(home).map(key=>[key,'']));const saved=await saveAddress(empty);assert.equal(saved.complete,false);
     const blockers=ok(await request('GET','/api/me/blockers',{cookie:owner.cookie}));assert.ok(!blockers.items.some(item=>/address|location/.test(item.key)));
-    assert.ok(ok(await request('GET','/api/journey',{cookie:owner.cookie})).tasks.some(row=>row.task_key===owner.id+':location:address'&&row.destination==='#/account/address'));
+    assert.ok(ok(await request('GET','/api/journey',{cookie:owner.cookie})).tasks.some(row=>row.task_key===owner.id+':location:address'&&row.destination==='#/account/profile?focus=home-address'));
     assert.equal(ok(await location(customBooking)).location.street,destination.street);await saveAddress(home);
   });
   await test('Account erasure and closure remove private address snapshots while retaining required delivered booking records',async()=>{

@@ -7,7 +7,7 @@ const routes=/# (\d+) routes/.exec(read('docs/api-route-inventory.txt'))?.[1];
 const tables=/# (\d+) tables/.exec(read('docs/database-table-inventory.txt'))?.[1];
 const schema=/SCHEMA_VERSION\s*:\s*Number\(process.env.SCHEMA_VERSION\s*\|\|\s*(\d+)/.exec(read('lib/version.js'))?.[1];
 const lock=JSON.parse(read('package-lock.json'));
-if(!routes||!tables||!schema||meta.version!==pkg.version||lock.version!==pkg.version||lock.packages[''].version!==pkg.version||meta.package_type!=='full source archive'||!/^[a-f0-9]{64}$/.test(meta.base_archive_sha256))throw Error('Release identity or generated inventories disagree.');
+if(!routes||!tables||!schema||meta.version!==pkg.version||lock.version!==pkg.version||lock.packages[''].version!==pkg.version||meta.package_type!=='current-update-only archive'||!/^[a-f0-9]{64}$/.test(meta.base_archive_sha256))throw Error('Release identity or generated inventories disagree.');
 const handover=`THE CARE WEB — START HERE
 =========================
 Current release: v${pkg.version}
@@ -43,7 +43,7 @@ Email transport must be configured; queued does not mean sent or paid.
 The previous audit snapshot is docs/block-register/index.html, with CSV/JSON and
 conditional branches. It has not been regenerated for this small update.
 docs/BLOCKS-AND-AUTOMATION.md explains remaining decisions.
-See docs/CHANGELOG-v88.4.6.md and docs/USER-GUIDE.html.
+See docs/CHANGELOG-v88.4.7.md and docs/USER-GUIDE.html.
 
 PROFILE EMAIL AND INVOICE QUERIES
 My profile > Your details > Email address shows the current sign-in address.
@@ -52,7 +52,7 @@ links stop working after confirmation. Admin > People > Verification >
 Participants shows the same contact card with an assisted change workflow.
 Money > Invoices > Review query opens the office response history and actions.
 Payment stays paused until an authorised participant reviewer explicitly approves.
-This release is a current-only delta over v88.4.5; see UPDATE-INSTRUCTIONS.txt.
+This release is a current-only delta over v88.4.6; see UPDATE-INSTRUCTIONS.txt.
 
 BOOKING EMAILS
 Admin > Settings > Email setup shows the configured sender and a test to your
@@ -79,7 +79,7 @@ actions and evidence requirements remain enforced. Account settings stay separat
 See docs/ADMIN-NAVIGATION-v88.4.2.md.
 
 ADDRESSES AND VISIT LOCATIONS
-Participants can save private address and arrival details in Settings. Bookings
+Participants can save private home address and arrival details in Profile > Your details. Bookings
 keep independent location snapshots, with saved/other/community/confirm-later
 choices. Assigned workers see the area before acceptance and exact meeting
 details after acceptance. Explicit changes queue generic notices and a worker
@@ -107,8 +107,17 @@ Reissue uses a fresh invoice number. Retired card links close with durable retri
 Partial payments show the remaining balance; paid invoices require payment review
 before withdrawal. NDIA claims appear separately from participant invoices.
 
+REFERRAL TRACKING
+A worker referral link fills the optional application code. Successful signup
+records the referrer and new worker together. Refer a friend and My earnings
+show qualifying hours; Admin > People > Worker referrals shows the office view.
+Only completed ordinary shifts count; exclusions are shown alongside progress.
+Eligibility is separate from payroll processing and recorded payment.
+
 CLEAR TASKS
 Office actions, Waiting on people and Website checks have separate views.
+Select a named worker or participant tab to see their tasks together. Categories
+keep documents, training and other actions compact within that person’s panel.
 Every row shows responsibility, status and next step; buttons name the action.
 Red: urgent/overdue. Amber: action required. Blue: waiting. Labels accompany colour.
 Website HTTPS certificates are checked automatically from APP_URL. Healthy checks
@@ -219,7 +228,7 @@ docs/history/ — historical receipts, not current deployment instructions
 const readme=`The Care Web v${pkg.version} — current-update-only ZIP.
 
 Apply over v${meta.update_base_version}. Extract ${meta.output_archive}; merge its files at the repository root. Read UPDATE-INSTRUCTIONS.txt before updating. Preserve live runtime data.
-This release adds visible profile email changes and office invoice-query handling. The full user guide is updated.
+This release moves home address into profile details, groups tasks by person and fixes referral signup tracking. The full user guide is updated.
 NSW holidays and ordinary invoicing are automatic. Independently reviewed payroll
 components remain required; preparing/exporting payroll does not transfer wages.
 PDF/HTML previews and earlier verification automations are retained.
