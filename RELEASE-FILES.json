@@ -1,5 +1,5 @@
 {
-  "release": "88.4.11",
+  "release": "88.4.12",
   "base_releases": [
     "88.4.7"
   ],
@@ -23,7 +23,7 @@
       "bytes": 8
     },
     "STARTHERE.txt": {
-      "sha256": "a76a598c546fd891e9058ed816a82b6b69ef68baf1f0c9ecd7f72ac31afa7435"
+      "sha256": "3442996417c53c2b225ec401138289e43d3a431fa70f5e053dab5d43972fd8a7"
     },
     "UPDATE-INSTRUCTIONS.txt": {
       "sha256": "741f14b2672869ac1dfcdf0a54a162431f02a9c39ed1a3b935a9f5c24cb9bbf6",
@@ -702,7 +702,7 @@
       "bytes": 234470
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "08064938c5649ad6b616aa4631ef8ddb4930784f54b7e44875dcdaef3dd7c2d4"
+      "sha256": "d54cfafa49b40f8f403e5d023903fa375367475e0a7fbc02e08e7f76e98e606a"
     },
     "docs/block-register/branches.csv": {
       "sha256": "8cb2079fbbbf18a98841b6a8b575f39846e6a32f4fe86cafc2b87b23718f178a",
@@ -733,7 +733,7 @@
       "bytes": 60611
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "502057d64bf5750041e8f3a05f7420782774844084ed8e45ce1fca47caf192d0"
+      "sha256": "e0ec4e26bd9ec112dbfc14ffa77ebd6a15aebced916b08008698e3f4f318aca4"
     },
     "docs/dependency-provenance.json": {
       "sha256": "b5fe529aada0548ffb813d89455cfea3385f13f96616d2d0b47d99809234cee3",
@@ -840,7 +840,7 @@
       "bytes": 26519
     },
     "docs/release-metadata.json": {
-      "sha256": "eeff7f55a8ac26ef7c312cf1c3e23b42368f3afda2e9ccb96b8244cc648ae20f"
+      "sha256": "91f7f7b30116634328bf7c01ce7f6db144911bef4b48831708429ae42f30fdcd"
     },
     "docs/task-clarity-preview.html": {
       "sha256": "44cdbe9cd9805da7c210ad1bf6bcc54bc58301f6a9853276e8d3051e6f86b815",
@@ -1091,10 +1091,10 @@
       "bytes": 418
     },
     "package-lock.json": {
-      "sha256": "aa0ea2cf73b72c5668717016a915e9267d725aecf3663fc1c691ca8d4bb6a127"
+      "sha256": "06ddcfdb7b7e81eab8d7c5f9aacae5bfa517dcf5ce022aaed6f3d8755e346751"
     },
     "package.json": {
-      "sha256": "f588e3312375cd11cefabfdff5378e585b3471350860f05e6b8ddc0981dc6bbb"
+      "sha256": "10e6fcb20f3306f7ca37d4c0cb93fd88826197f6db6c9790c2f56b0a263c2bef"
     },
     "prefill-walkthrough.js": {
       "sha256": "8cdc0cba5675f33b4ccefc4cdebf896c8933b68ac2fedea86ea13a5f3115235b",
@@ -1809,7 +1809,7 @@
       "bytes": 2383
     },
     "public/index.html": {
-      "sha256": "2bd98f457c9e1c3427238aec0df11c5bee2f781c43035f3be4dce5c09068646a"
+      "sha256": "aa9428ed2ee57558b55bc4643c8e89e195a04a580f508f379d8bcb9d2fcf0acc"
     },
     "public/vendor/care-cast.js": {
       "sha256": "6461468f0755d4797be60b29095744fdd701de092ae8f7f5fc1ee60149aa9a37",
@@ -1980,7 +1980,7 @@
       "bytes": 338836
     },
     "readme.txt": {
-      "sha256": "691a4f98fcfbd1e579df76becde9b79efa4e75ca406f7ccaa4ba7b2c631b00c0"
+      "sha256": "2df2ba40a226b7afff971dbb9a3d6f8592bdd74c36e5345fb177bff1c68282fd"
     },
     "scripts/NDIS_plan__sample_for_walkthrough.pdf": {
       "sha256": "8ef1ce7de6bc4247997252664267635ee011b51362f57699bbcb0e688dd55e82",

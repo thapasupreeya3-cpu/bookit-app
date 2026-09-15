@@ -1592,6 +1592,12 @@ html.high-contrast .svc-photo{box-shadow:none;border:2px solid #000;transform:no
 .foot-brand .logo img.cw-brand-wordmark{height:32px;}
 @media(max-width:900px){.logo img.cw-brand-symbol{height:48px;}.logo img.cw-brand-wordmark{height:28px;}}
 @media(max-width:560px){.logo img.cw-brand-symbol{height:40px;}.logo img.cw-brand-wordmark{height:24px;}.logo.cw-brand{gap:7px;}}
+
+/* v88.4.12 — the participant's Bookings page: calendar (or list) beside the care web */
+.bk-layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start}
+.bk-aside:empty{display:none}
+.bk-layout:has(.bk-aside:empty){grid-template-columns:minmax(0,1fr)}
+@media(max-width:980px){.bk-layout{grid-template-columns:minmax(0,1fr)}}
 </style>
 <style>/* Exact v57 live-care graphics integration scaffolding. */
 #page-home .hero > .container{position:relative;z-index:3;}
@@ -4561,7 +4567,7 @@ html.high-contrast .care-stage-block{display:none!important;}
     <div class="container">
       <div id="bookingViewControls" class="bc-view-controls"></div><span id="bookingAlertAnnounce" class="sr-only" role="status" aria-live="polite"></span>
       <div id="bookingsInvoiceNote"></div>
-      <div id="bookingsList" class="bk-list"></div>
+      <div class="bk-layout"><div id="bookingsList" class="bk-list"></div><aside id="bookingsAside" class="bk-aside" aria-label="My care web"></aside></div>
     </div>
   </section>
 </section>
@@ -8287,11 +8293,20 @@ document.addEventListener('click', e => {
   if(e.target.closest('[data-close-modal]')) closeModals();
 });
 let BOOKINGS_RENDER_SEQUENCE=0;
+/* v88.4.12 — the care web sits beside the calendar and the list, for participants only */
+async function renderBookingsAside(){
+  const aside = $('#bookingsAside'); if(!aside) return;
+  if(!(API.online && API.me) || vrole() !== 'participant' || API.me?.admin){ aside.innerHTML = ''; return; }
+  const who = API.me?.id, subject = API.actingFor?.id;
+  try{ const html = careWebHtml(await API.call('/me/care-web')); if(who === API.me?.id && subject === API.actingFor?.id) aside.innerHTML = html; }
+  catch(e){ aside.innerHTML = ''; }
+}
 async function renderBookingsPage(){
   const generation=++BOOKINGS_RENDER_SEQUENCE,who=API.me?.id,subject=API.actingFor?.id,hash=location.hash;
   const current=()=>generation===BOOKINGS_RENDER_SEQUENCE&&who===API.me?.id&&subject===API.actingFor?.id&&hash===location.hash;
   window.CareBookingCalendar?.setup();
   if(window.CarePayments) CarePayments.renderBookingNotice();
+  renderBookingsAside();
   if(window.CareBookingCalendar?.handles())return CareBookingCalendar.render();
   const wrap = $('#bookingsList');
   if(!wrap) return;
@@ -8520,7 +8535,7 @@ async function renderBookingsPage(){
   const wdBanner = vrole() === 'worker' && !wActive ? `<div class="info-card" style="margin-bottom:18px;border-left:6px solid #C8462E;">
     <p style="margin:0;"><b>Your profile isn't active on The Care Web right now</b>, so accepting and completing shifts is paused, and we're looking for cover for anything upcoming. <a href="#/contact">Contact the office</a> — they can help you get back on.</p>
   </div>` : '';
-  const reviewAccountCards = `<details class="review-panel" id="bookingAccountDetails"><summary>Setup, account details and support information</summary><p class="muted-sm">Routine details are also in <a href="#/account">Settings</a>. ${vrole()==='worker'?'<a href="#/account/availability">Set your service areas, hours and leave</a>.':''}</p>${billingCard + planCard + pdocCard + hiCard + seriesCard + cover.mid + workerCards + incidentCard}</details>`;
+  const reviewAccountCards = '';  /* v88.4.12: setup, billing, documents and the support plan live under Settings and the support plan page */
   const reviewSummary = window.BookItReview ? BookItReview.bookingSummary(d) : '';
   if(!d.bookings.length){
     wrap.innerHTML = reviewSummary + cover.top + wdBanner + reviewAccountCards + '<div class="info-card"><p><b>No bookings yet.</b> ' + (vrole() === 'participant'

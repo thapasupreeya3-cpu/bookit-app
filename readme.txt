@@ -1,4 +1,4 @@
-The Care Web v88.4.11 — current-update-only ZIP.
+The Care Web v88.4.12 — current-update-only ZIP.
 
 Apply over v88.4.7. Extract The-Care-Web-v88.4.8-money-navigation-update-only.zip; merge its files at the repository root. Read UPDATE-INSTRUCTIONS.txt before updating. Preserve live runtime data.
 This release consolidates the Money menu and keeps person, tab and page navigation at the relevant workspace. The full user guide is updated.
