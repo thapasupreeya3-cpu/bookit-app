@@ -4894,9 +4894,10 @@ html.high-contrast .care-stage-block{display:none!important;}
           <span><b>Ask for a 15-minute meet-and-greet first</b> — a video call or a quick hello, no charge, no paperwork beyond a confirmed email and how your supports are funded. It is a conversation, not a shift: no support is given and nobody is paid or charged. If it runs past 30 minutes, book a shift so the worker is paid. Meet them, then decide.</span>
         </label>
       </div>
-      <div class="field full">
-        <label for="bkRepeat">How often do you need this support?</label>
-        <select id="bkRepeat">
+      <div class="field full bk-repeat-panel">
+        <label for="bkRepeat">Repeat this booking</label>
+        <p class="bk-repeat-intro" id="bkRepeatHint">Make this part of your care routine, or book just this shift.</p>
+        <select id="bkRepeat" aria-describedby="bkRepeatHint">
           <option value="">One-off — just this shift</option>
           <option value="weekly">Every week, same day and time</option>
           <option value="fortnightly">Every fortnight, same day and time</option>
@@ -4904,13 +4905,13 @@ html.high-contrast .care-stage-block{display:none!important;}
         <div id="bkRepeatEndWrap" hidden style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
           <label style="font-size:.85rem;">Ends
             <select id="bkRepeatMode" style="display:block;font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;">
-              <option value="ongoing">Ongoing</option>
+              <option value="ongoing">Ongoing — until cancelled</option>
               <option value="date">On a specific date</option>
             </select></label>
           <label style="font-size:.85rem;" id="bkRepeatUntilWrap" hidden>Last shift on or before
             <input id="bkRepeatUntil" type="date" max="9998-12-31" disabled style="display:block;font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;"></label>
         </div>
-        <p class="muted-sm" id="bkRepeatNote" hidden style="margin:8px 0 0;">Choose ongoing support or an end date. Review the first 8 weeks below and skip dates you do not need. Later dates are requested automatically as they approach, using the applicable prices. Each request needs your worker’s acceptance. You can change or end the routine from Bookings → Care routine.</p>
+        <p class="muted-sm" id="bkRepeatNote" hidden style="margin:8px 0 0;">Ongoing repeats indefinitely until you cancel it, with no limit on the number of shifts. Or choose a specific end date. Upcoming dates are requested automatically as they approach; each needs your worker’s acceptance. Review the dates and prices below. Manage or cancel recurring bookings from your booking calendar.</p>
       </div>
       <div class="field full" id="bookingServiceLocation"></div>
       <section class="field full" id="bkRateLine" role="status" aria-live="polite" aria-atomic="true" aria-label="Booking price"></section>
@@ -5952,22 +5953,31 @@ function applyFindFilters(){
   $$('#filterInterests .fint-chip').forEach(b => b.setAttribute('aria-pressed', ints.has(b.dataset.int) ? 'true' : 'false'));
   renderWorkerGrid();
 }
-function renderWorkerGrid(){
-  const f = findFilterState();
+function filterWorkerList(workers, f){
   const q = f.q.toLowerCase();
-  let list = WORKERS.filter(w =>
-    (!f.service || w.services.includes(f.service)) &&
+  let list = workers.filter(w =>
+    (!f.service || (w.services || []).includes(f.service)) &&
     (f.day === '' || !!(w.days || [])[Number(f.day)]) &&
     (!f.lang || langOf(w).map(langKey).includes(f.lang)) &&
     (!f.gender || w.gender === f.gender) &&
     (!f.rating || (w.shifts > 0 && w.rating >= Number(f.rating))) &&
     (!f.ints.length || f.ints.some(t => (w.interests || []).includes(t))) &&
-    (!q || w.name.toLowerCase().includes(q) || w.suburb.toLowerCase().includes(q) || (w.service_areas || []).some(area => String(area).toLowerCase().includes(q)))
+    (!q || String(w.name || '').toLowerCase().includes(q) || String(w.suburb || '').toLowerCase().includes(q) || (w.service_areas || []).some(area => String(area).toLowerCase().includes(q)))
   );
   list = list.slice().sort(
     f.sort === 'rating' ? (a, b) => (b.shifts ? b.rating : 0) - (a.shifts ? a.rating : 0)
     : f.sort === 'new' ? (a, b) => b.id - a.id
     : (a, b) => b.shifts - a.shifts);
+  return list;
+}
+window.CareWorkerFilters = {
+  filter: filterWorkerList,
+  languages: workers => [...new Set(workers.flatMap(langOf).map(langKey))].sort(),
+  interests: workers => [...new Set(workers.flatMap(w => w.interests || []))].sort()
+};
+function renderWorkerGrid(){
+  const f = findFilterState();
+  const list = filterWorkerList(WORKERS, f);
   const active = f.service || f.day !== '' && f.day || f.lang || f.gender || f.rating || f.q || f.ints.length;
   const clr = $('#filterClear'); if(clr) clr.hidden = !active;
   $('#workerGrid').innerHTML = list.length
@@ -7689,6 +7699,7 @@ function updateAuthUI(){
   window.CareBookingUpdates?.sync();
   window.CareBookingCalendar?.sync();
   window.CareRoutine?.sync();
+  window.CareBookingCarerPicker?.sync();
   window.CareBookingPricing?.sync?.();
   if(window.CareFlow){CareFlow.nav();if(location.hash.startsWith('#/journey'))CareFlow.render();}
   const authed = !!(API.online && API.me);
@@ -8249,8 +8260,8 @@ function syncRepeatUI(){
   $('#bkRepeatUntil').required = needsDate;
   $('#bkRepeatUntil').disabled = !needsDate;
   $('#bkRepeatUntil').min = $('#bkDate').value;
-  if(!bookingSending) $('#bkSubmit').textContent = on ? 'Send recurring requests' : 'Send booking request';
-  $('#bkTitle').textContent = on ? 'Plan a regular shift' : 'Request a booking';
+  if(!bookingSending) $('#bkSubmit').textContent = on ? 'Send recurring booking request' : 'Send booking request';
+  $('#bkTitle').textContent = on ? 'Request a recurring booking' : 'Request a booking';
 }
 $('#bkRepeat').addEventListener('change', syncRepeatUI);
 $('#bkRepeatMode').addEventListener('change', syncRepeatUI);
@@ -15515,7 +15526,9 @@ document.addEventListener('click', async e => {
 <script src="/assets/next-actions.js?v=88.4.7"></script>
 <script src="/assets/process-workflows.js?v=88.4.8"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
-<script src="/assets/booking-calendar.js?v=88.4.16"></script>
+<link rel="stylesheet" href="/assets/booking-carer-picker.css?v=88.4.18">
+<script src="/assets/booking-carer-picker.js?v=88.4.18"></script>
+<script src="/assets/booking-calendar.js?v=88.4.18"></script>
 <script src="/assets/payment-automation.js?v=88.4.6"></script>
 <link rel="stylesheet" href="/assets/booking-updates.css?v=88.4.14">
 <script src="/assets/booking-updates.js?v=88.4.14"></script>
@@ -15524,9 +15537,9 @@ document.addEventListener('click', async e => {
 <script src="/assets/launch-assurance.js?v=88.4.4"></script>
 <script src="/assets/billing-setup.js?v=88.3.4"></script>
 <link rel="stylesheet" href="/assets/booking-pricing.css?v=88.4.17">
-<script src="/assets/booking-pricing.js?v=88.4.17"></script>
-<link rel="stylesheet" href="/assets/care-routine.css?v=88.4.17">
-<script src="/assets/care-routine.js?v=88.4.17"></script>
+<script src="/assets/booking-pricing.js?v=88.4.18"></script>
+<link rel="stylesheet" href="/assets/care-routine.css?v=88.4.18">
+<script src="/assets/care-routine.js?v=88.4.18"></script>
 <link rel="stylesheet" href="/assets/sleepover-support.css?v=88.4.4">
 <script src="/assets/sleepover-support.js?v=88.4.4"></script>
 <link rel="stylesheet" href="/assets/account-email.css?v=88.4.6">

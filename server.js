@@ -6118,6 +6118,74 @@ route('GET', /^\/api\/workers$/, (req, res, m, user) => {
   }
   json(res,200,{workers:matches,interval_checked:!!proposed,location_checked:!!(q.get('place')||pers?.suburb)});
 });
+
+/* Choosing a carer from the booking calendar uses booking authority. The
+   person's recent connections stay private even when a helper can browse the
+   public directory. Only a real service-area match belongs in the area group. */
+route('GET', /^\/api\/bookings\/carers$/, (req,res,m,user)=>{
+  if(!user)return json(res,401,{error:'Please sign in.'});
+  const pers=actFor(req,user,'bookings');
+  if(!pers)return json(res,403,{error:'Booking permission is required to choose a carer for this person.'});
+  const participant=db.prepare('SELECT id,name,suburb,closed_at FROM users WHERE id=?').get(pers.id);
+  if(!participant||participant.closed_at)return json(res,403,{error:'This participant account is unavailable.'});
+  const q=new URL(req.url,'http://localhost').searchParams,date=q.get('date');
+  if(!BOOKIT_TIME.validDate(date)||date<ymd())return json(res,400,{error:'Choose today or a future date.'});
+  const service=q.get('service')||'';
+  if(service&&!SERVICES.includes(service))return json(res,400,{error:'Choose a supported service.'});
+  const explicitPlace=String(q.get('place')||'').trim();
+  if(explicitPlace&&(explicitPlace.length<2||explicitPlace.length>160||/[\x00-\x1f\x7f*<>]/.test(explicitPlace)))return json(res,400,{error:'Enter a suburb with its state, or a postcode.'});
+  const saved=SERVICE_LOCATIONS.profile(pers.id).address;
+  const place=explicitPlace||SERVICE_LOCATIONS.placeForBooking({service_location:saved})||String(participant.suburb||'').trim();
+  const wantsInterval=q.has('start')||q.has('hours');
+  let proposed=null;
+  if(wantsInterval){
+    if(!q.has('start')||!q.has('hours'))return json(res,400,{error:'Choose both a start time and visit length.'});
+    proposed={date,start:q.get('start'),hours:Number(q.get('hours')),service,kind:'shift'};
+    if(!(proposed.hours>=2&&proposed.hours<=10))return json(res,400,{error:'Bookings are between 2 and 10 hours.'});
+    if(!incomingInterval(res,date,proposed.start,proposed.hours))return;
+    if(bookingStart(proposed)<=new Date())return json(res,400,{error:'Choose a future visit.'});
+  }
+  const connections=new Map();
+  const addConnection=(id,at)=>{const previous=connections.get(id);if(!previous||at>previous)connections.set(id,at||'');};
+  for(const row of db.prepare("SELECT worker_id,added FROM participant_workers WHERE participant_id=? AND relation IN ('saved','team')").all(pers.id))addConnection(row.worker_id,row.added);
+  for(const row of db.prepare('SELECT worker_id,added_at FROM care_web WHERE participant_id=?').all(pers.id))addConnection(row.worker_id,row.added_at);
+  const visits=new Map(db.prepare(`SELECT worker_id,MIN(created) AS first_requested,
+    MAX(CASE WHEN date<=? THEN date||'T'||start END) AS last_shift
+    FROM bookings WHERE participant_id=? AND status IN ('requested','accepted','completed') AND COALESCE(voided,0)=0
+    GROUP BY worker_id`).all(ymd(),pers.id).map(row=>[row.worker_id,row]));
+  const dayIndex=(new Date(date+'T12:00:00').getDay()+6)%7;
+  const matches=[];
+  const rows=db.prepare(`SELECT p.*,u.name,u.suburb,u.email FROM worker_profiles p JOIN users u ON u.id=p.user_id
+    WHERE u.role='worker' AND p.visible=1 AND COALESCE(p.self_paused,0)=0 AND COALESCE(u.closed_at,'')=''`).all();
+  for(const row of rows){
+    const id=row.user_id;
+    if(isDemoWorker(String(row.email).toLowerCase())||blockedPair(pers.id,id)||!bookableNow(id).ok)continue;
+    if(service&&!safeJson(row.services,[]).includes(service))continue;
+    const recent=connections.has(id)||visits.has(id);
+    const areas=safeJson(row.service_areas,[]),effectiveAreas=areas.length?areas:[row.suburb];
+    const areaMatch=!!place&&effectiveAreas.some(area=>BOOKIT_AVAILABILITY.areaMatches(area,place));
+    if(!recent&&!areaMatch)continue;
+    let fit=null;
+    if(proposed){
+      fit=BOOKIT_AVAILABILITY.availability(row,proposed,place||undefined);
+      if(!fit.ok||bookingClash(id,date,proposed.start,proposed.hours,{statuses:['accepted','completed','requested'],participantId:pers.id,bufferMinutes:row.travel_buffer_minutes||0}))continue;
+    }else{
+      const leave=safeJson(row.leave_dates,[]),windows=safeJson(row.availability_windows,null),days=safeJson(row.days,[]);
+      if(leave.some(period=>period.from<=date&&date<=period.to))continue;
+      if(windows?!windows[dayIndex]?.length:!days[dayIndex])continue;
+    }
+    const worker=withReviewAgg(publicWorker(row)),history=visits.get(id);
+    Object.assign(worker,{group:recent?'recent':'area',connected_at:connections.get(id)||history?.first_requested||null,last_shift:history?.last_shift||null,bookable:true});
+    if(fit)worker.visit_match={basis:fit.basis,location_checked:!!place,travel_buffer_minutes:row.travel_buffer_minutes||0};
+    matches.push(worker);
+  }
+  matches.sort((a,b)=>{
+    if(a.group!==b.group)return a.group==='recent'?-1:1;
+    if(a.group==='recent')return String(b.connected_at||'').localeCompare(String(a.connected_at||''))||String(b.last_shift||'').localeCompare(String(a.last_shift||''))||a.name.localeCompare(b.name)||a.id-b.id;
+    return Number(b.rating||0)-Number(a.rating||0)||Number(b.shifts||0)-Number(a.shifts||0)||a.name.localeCompare(b.name)||a.id-b.id;
+  });
+  json(res,200,{subject:{id:participant.id,name:participant.name},workers:matches,location:{label:place},today:ymd(),interval_checked:!!proposed,location_checked:!!place});
+});
 /* The first two-hour daytime slot in the next fortnight that the worker's
    own weekday pattern allows and the diary does not already hold. An
    estimate for a card, not a promise; the booking form still asks. */

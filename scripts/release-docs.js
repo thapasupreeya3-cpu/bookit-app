@@ -7,7 +7,7 @@ const routes=/# (\d+) routes/.exec(read('docs/api-route-inventory.txt'))?.[1];
 const tables=/# (\d+) tables/.exec(read('docs/database-table-inventory.txt'))?.[1];
 const schema=/SCHEMA_VERSION\s*:\s*Number\(process.env.SCHEMA_VERSION\s*\|\|\s*(\d+)/.exec(read('lib/version.js'))?.[1];
 const lock=JSON.parse(read('package-lock.json'));
-if(!routes||!tables||!schema||meta.version!==pkg.version||lock.version!==pkg.version||lock.packages[''].version!==pkg.version||meta.package_type!=='current-update-only archive'||!/^[a-f0-9]{64}$/.test(meta.base_archive_sha256))throw Error('Release identity or generated inventories disagree.');
+if(!routes||!tables||!schema||meta.version!==pkg.version||lock.version!==pkg.version||lock.packages[''].version!==pkg.version||!['current-update-only archive','full-source archive'].includes(meta.package_type)||!/^[a-f0-9]{64}$/.test(meta.base_archive_sha256))throw Error('Release identity or generated inventories disagree.');
 const handover=`THE CARE WEB — START HERE
 =========================
 Current release: v${pkg.version}
@@ -52,18 +52,20 @@ links stop working after confirmation. Admin > People > Verification >
 Participants shows the same contact card with an assisted change workflow.
 Money > Invoices & payments > Invoices > Review query opens the office response history and actions.
 Payment stays paused until an authorised participant reviewer explicitly approves.
-This release is a current-only delta over v${meta.update_base_version}; see UPDATE-INSTRUCTIONS.txt.
+This release updates v${meta.update_base_version}; see UPDATE-INSTRUCTIONS.txt.
 
-CARE ROUTINE
-Bookings > Care routine plans weekly or fortnightly shifts. Choose Ongoing or
-an end date. There is no 26-visit duration limit for new routines. The system
-requests the next eight weeks, then extends the schedule automatically as dates
-approach. The preview total covers only the displayed dates, not the whole
-routine. Later visits use their applicable dated prices and need worker
-acceptance. A continuation issue is shown when a date cannot be requested.
-Existing finite routines remain finite. Ending a routine stops automatic
-extension and uses the existing cancellation review for future saved visits.
-Retries cannot duplicate an unchanged request; previews never send bookings.
+CALENDAR BOOKINGS AND RECURRING SUPPORT
+Open Bookings > Calendar and click a current or future date. The carer popup
+starts with your newest connections, then carers serving your area. Previous
+and Next cycle through real profiles. All Find workers filters and a specific
+visit check are available. Authorised helpers need booking permission.
+Choose a carer, then use Repeat this booking in the normal booking form.
+Choose one-off, weekly or fortnightly. Recurring bookings can be ongoing until
+cancelled, or finish on a selected date. Ongoing has no total shift limit.
+Upcoming requests are prepared ahead, and later dates are added automatically.
+Each request needs worker acceptance. Preview prices cover displayed dates only.
+Manage recurring bookings from the link under the calendar. No separate
+Add regular shift tab is needed. Existing finite routines remain finite.
 
 BOOKING EMAILS
 Admin > Settings > Email setup shows the configured sender and a test to your
@@ -255,10 +257,10 @@ docs/TEST-RESULTS.md — executed commands and results
 RELEASE-FILES.json — complete payload file hashes (excluding itself)
 docs/history/ — historical receipts, not current deployment instructions
 `;
-const readme=`The Care Web v${pkg.version} — current-update-only ZIP.
+const readme=`The Care Web v${pkg.version} — ${meta.package_type}.
 
 Apply over v${meta.update_base_version}. Extract ${meta.output_archive}; merge its files at the repository root. Read UPDATE-INSTRUCTIONS.txt before updating. Preserve live runtime data.
-This release adds Care routine inside Bookings, date-by-date recurring preview, skipped dates and duplicate-request recovery. The full user guide is updated.
+This release adds the calendar carer popup and clear recurring options inside every booking. Ongoing repeats until cancelled. The user guide is updated.
 NSW holidays and ordinary invoicing are automatic. Independently reviewed payroll
 components remain required; preparing/exporting payroll does not transfer wages.
 PDF/HTML previews and earlier verification automations are retained.

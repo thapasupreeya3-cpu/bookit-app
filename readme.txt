@@ -1,7 +1,7 @@
-The Care Web v88.4.17 — current-update-only ZIP.
+The Care Web v88.4.18 — current-update-only archive.
 
-Apply over v88.4.16. Extract The-Care-Web-v88.4.17-ongoing-routines-update-only.zip; merge its files at the repository root. Read UPDATE-INSTRUCTIONS.txt before updating. Preserve live runtime data.
-This release adds Care routine inside Bookings, date-by-date recurring preview, skipped dates and duplicate-request recovery. The full user guide is updated.
+Apply over v88.4.17. Extract The-Care-Web-v88.4.18-calendar-update-only.zip; merge its files at the repository root. Read UPDATE-INSTRUCTIONS.txt before updating. Preserve live runtime data.
+This release adds the calendar carer popup and clear recurring options inside every booking. Ongoing repeats until cancelled. The user guide is updated.
 NSW holidays and ordinary invoicing are automatic. Independently reviewed payroll
 components remain required; preparing/exporting payroll does not transfer wages.
 PDF/HTML previews and earlier verification automations are retained.

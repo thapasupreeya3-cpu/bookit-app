@@ -1,3 +1,41 @@
+# v88.4.18 validation — calendar bookings
+
+Checked locally on Node 24.19.0 using synthetic accounts and disposable SQLite
+records. The project's deployment runtime remains Node 22.23.2; it was not
+available in this session. No live website was changed.
+
+- Calendar interaction: 19/19.
+- Carer popup: 14/14; authenticated carer endpoint: 9/9.
+- Care routine UI: 28/28; booking submission/recovery: 13/13.
+- Pricing UI: 42/42; care routine HTTP flow: 17/17.
+- Ongoing HTTP flow: 12/12; independent ongoing review: 17/17.
+- The new five-year cold-restart case creates future occurrences beyond 260
+  without manually extending the rule, duplicating visits or altering old quotes.
+- Syntax: 160 scripts, including 4 inline scripts; zero compilation failures.
+- Generated route/database inventories and release documents verified:
+  419 routes, 113 tables; schema unchanged at 88408.
+
+All npm test groups passed across the broad run and follow-up runs. The first
+broad run stopped at the pre-existing document verification group after a local
+server connection failure (37/51); that group then passed twice in isolation
+(51/51 each). Its original server stderr was unavailable, so the transient cause
+is unconfirmed. All remaining test groups completed with no failures.
+
+Browser preview of the local test server was blocked by the browser environment
+(net::ERR_BLOCKED_BY_CLIENT). Rendered layout was therefore not visually verified.
+Native dialog interaction is covered by the component harness, not a browser.
+The source ZIP has not been deployed or tested against live user data.
+
+The tests cover participant/helper permissions, newest-connection order, exact
+service-area matching, all shared directory filters, time checks, past dates,
+keyboard/calendar handoff, stale requests, escaped content, one-off defaults,
+ongoing/end-date selection, cancellation and restart continuation.
+
+---
+
+The following is the retained validation record from the supplied v88.4.17;
+it is historical evidence, not a claim about the new runtime or release.
+
 # v88.4.17 validation
 
 Validation was performed against synthetic accounts and disposable databases, with external services blocked in the new HTTP and upgrade fixtures. No live bookings, emails, invoices or payments were created.

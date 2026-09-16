@@ -113,6 +113,28 @@ const fetch=global.fetch;global.fetch=function(input,...args){local(typeof input
   await test('The final rolling window stops exactly on the specific end date',async()=>{
     await advance('2032-01-01');await retry(dateEnded);assert.equal(visits(dateEnded).at(-1).date,'2032-02-10');await advance('2032-02-11');assert.equal((await retry(dateEnded)).created,0);assert.equal((await series(dateEnded)).auto_extend,false);
   });
+  await test('An ongoing rule still extends automatically five years later after a cold restart',async()=>{
+    const original=visits(skipped),originalIds=new Set(original.map(b=>b.id));
+    const closedCounts=[visits(ongoing).length,visits(dateEnded).length];
+    await advance('2035-04-01');
+    await new Promise(resolve=>{child.once('exit',resolve);child.kill();});
+    child=spawn(process.execPath,['--no-warnings','--require',guard,'server.js'],{cwd:ROOT,env,stdio:['ignore','pipe','pipe']});
+    child.stdout.on('data',chunk=>log+=chunk);child.stderr.on('data',chunk=>log+=chunk);
+    for(let n=0;n<160;n++){
+      if(child.exitCode!==null)throw Error(log);
+      if(visits(skipped).length>original.length)break;
+      await new Promise(resolve=>setTimeout(resolve,50));
+    }
+    const added=visits(skipped).filter(b=>!originalIds.has(b.id));
+    assert.equal(added.length,8,'Startup must extend the saved rule without a participant retry');
+    assert.ok(added.every(b=>b.date>='2035-04-01'&&b.date<'2035-05-27'&&b.series_index>260));
+    assert.ok(added.every(b=>b.status==='requested'&&!b.invoice_no));
+    for(const b of original)assert.equal(row(b.id).booking_quote,b.booking_quote);
+    assert.deepEqual([visits(ongoing).length,visits(dateEnded).length],closedCounts,'Ended routines must remain ended');
+    await advance('2035-04-01');
+    const sr=await series(skipped);assert.equal(sr.repeat_end_mode,'ongoing');assert.equal(sr.until_date,'');assert.equal(sr.continues_automatically,true);
+    const before=visits(skipped).length;assert.equal((await retry(skipped)).created,0);assert.equal(visits(skipped).length,before);
+  });
 }
 main().catch(error=>{console.error(error);results.push({name:'HTTP fixture',result:'FAIL',error:error.stack});}).finally(async()=>{
   if(db)db.close();if(child&&child.exitCode===null){const exited=new Promise(resolve=>child.once('exit',resolve));child.kill();await exited;}

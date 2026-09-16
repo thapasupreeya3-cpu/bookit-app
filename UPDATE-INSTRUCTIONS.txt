@@ -1,36 +1,29 @@
-THE CARE WEB v88.4.17 — ONGOING CARE ROUTINES
+THE CARE WEB v88.4.18 — CALENDAR UPDATE ONLY
 
-CURRENT UPDATE ONLY. Apply over the complete repaired v88.4.16.
-The base was verified against all 759 expected files in GitHub commit
-dfcd3e4c949766cd882e271c09711991d89808d1 before this update was prepared.
+Apply this update over the v88.4.17 source from bookit-app-main (8).zip.
+If you already applied the full v88.4.18 calendar ZIP, the feature code is the
+same; these files can be merged safely into that source too.
 
-1. Extract The-Care-Web-v88.4.17-ongoing-routines-update-only.zip.
-2. Merge the extracted contents into the root of thapasupreeya3-cpu/bookit-app,
-   preserving paths and replacing matching files. Commit the changes.
-   Upload all supplied files, including both new lib/care-routine-*.js files.
-   This is a partial update, so keep other existing repository files.
-3. Confirm the new GitHub Actions check succeeds.
-4. On your EXISTING Lightsail bookit instance, open Connect using SSH and run:
-      sudo bookit-update
-5. Refresh the website. /api/version should report 88.4.17.
-   The default schema identifier is 88408.
-6. Open Bookings > Care routine > Add regular shift.
-   Choose Every week or Every fortnight, then Ongoing or On a specific date.
-   Review the first dates and prices before sending the request.
+1. Extract The-Care-Web-v88.4.18-calendar-update-only.zip.
+2. Open the extracted folder. Drag ALL of its contents into the repository ROOT
+   (the same level as server.js and package.json). Keep folder paths intact.
+   Choose to replace matching files. This ZIP contains only changed files;
+   keep all other repository files and merge folders rather than deleting them.
+   For GitHub Upload files, open the repository root first, drag the extracted
+   contents, then commit. Do not upload the ZIP itself or its enclosing folder.
+3. Let the repository checks run, then deploy through your existing process.
+   On the existing Lightsail setup, use sudo bookit-update after the commit.
+4. Refresh the website. /api/version should report 88.4.18.
 
-Future requests are added automatically as they enter the next eight weeks.
-There is no limit on the routine's total number of visits. An end-date routine
-stops at the selected date; an ongoing routine continues until you end it.
-Each request still needs the worker's acceptance. Totals shown in the preview
-cover the displayed dates only. Later visits get their applicable dated prices.
-If a future date cannot be requested, check the selected routine and Next actions.
+WHAT CHANGES
+Bookings > Calendar: click a current or future date to browse your newest
+connected carers first, followed by local carers, with all Find workers filters.
+Choose a carer, then use Repeat this booking in the normal booking form.
+Recurring support can be weekly or fortnightly, ongoing until cancelled or
+ending on a chosen date. Ongoing has no total shift limit. Later requests are
+added automatically; each needs worker acceptance.
+Manage or cancel repeating bookings from the link below the calendar.
 
-No new hosting settings or service credentials are required for this feature.
-The migration adds two routine tables and three series fields automatically.
-Existing finite routines keep their original end dates. Historical booking
-prices, invoices and uploaded files are preserved. Keep your normal backup and
-the live database, uploads and protected hosting configuration in place.
-
-User instructions: docs/USER-GUIDE.html
-Changes: docs/CHANGELOG-v88.4.17.md
-Validation and remaining limits: docs/TEST-RESULTS.md
+This source package does not deploy the live website. No new credentials or
+hosting settings are required. Existing prices, billing rules, records and
+uploads are preserved. Retain your usual backup before deploying.
