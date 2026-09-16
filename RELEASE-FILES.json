@@ -1,11 +1,12 @@
 {
-  "release": "88.4.18",
+  "release": "88.4.19",
   "base_releases": [
-    "88.4.17"
+    "88.4.17",
+    "88.4.18"
   ],
   "base_commit": "b160e9ccbb4309a34c1ab8e52eacc474a64f51aa",
   "format": "full-source",
-  "note": "Complete installed source manifest after merging the v88.4.18 calendar update-only ZIP over supplied v88.4.17. The ZIP contains only changed/new files. No live deployment performed.",
+  "note": "Complete installed source manifest after merging the compact calendar update-only ZIP over supplied v88.4.17 or the earlier calendar update. No live deployment performed.",
   "files": {
     ".env.example": {
       "sha256": "f197d112b47170f0a6cabb3f763c8cda6df4c58c59ed572de6d192760aeabb4d",
@@ -24,12 +25,12 @@
       "bytes": 8
     },
     "STARTHERE.txt": {
-      "sha256": "52fa099b14e10b3681b0187f7d28fae3c7ecd8bb211030884e778454e451290d",
+      "sha256": "6df4222c6c00c52eef90292d96cd6db83bfcb65dbdeb24ab946d615e77c61a4d",
       "bytes": 16141
     },
     "UPDATE-INSTRUCTIONS.txt": {
-      "sha256": "465b5adc4b20f0cea44511967085c77288f086b803690d9dac53a4264497b6d8",
-      "bytes": 1740
+      "sha256": "a6e4b10d146ab648af50270fa79765a15e99ff70465e8fab6ad1397f5fba00d1",
+      "bytes": 1988
     },
     "assets/admin-verification.css": {
       "sha256": "cd0eff8ce0e6c3e2b2f0ae4dca2276fa2aa677e577db37ee983c581bad6591da",
@@ -619,6 +620,10 @@
       "sha256": "e0722fa14a4c4a86d8d61adc87f3beb1b6e53ab6df6f024e4f6444f4ee8aa919",
       "bytes": 1208
     },
+    "docs/CHANGELOG-v88.4.19.md": {
+      "sha256": "a3005a356579dd1e3423e45044d3198b248184cbfcda3ed06ec2a14fb94dcff2",
+      "bytes": 956
+    },
     "docs/CHANGELOG-v88.4.2.md": {
       "sha256": "99f2d014349b61493a2585e7cb5c66386d7a848deca25a981bd833f5d768a05e",
       "bytes": 3311
@@ -708,12 +713,12 @@
       "bytes": 1084
     },
     "docs/TEST-RESULTS.md": {
-      "sha256": "ba76554fef82b8119180c240abfea4b20bfec56c20ab3d7c7bbfefe75427e259",
-      "bytes": 5128
+      "sha256": "008acdf57903563429a7ba3f7df98488e7664217ca4631142a2f4ab44787bae1",
+      "bytes": 6093
     },
     "docs/USER-GUIDE.html": {
-      "sha256": "ba4fa7af479311aa706e194822346585d75cc6c5a6a065d06e067fa8e76082c0",
-      "bytes": 562251
+      "sha256": "72f754192f5e50fc0114fe038a64ebc28240ef05d3194f20e6058bc37fcd876d",
+      "bytes": 562383
     },
     "docs/WORKFLOW-OPERATIONS.md": {
       "sha256": "6d56747006ab86cd85ac36ddb810c4c24bfb2500901108b3bc2ec19866cd5ef3",
@@ -728,7 +733,7 @@
       "bytes": 234470
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "2be429f3ca0ee9116211f2c90c184f13a09d859020439894924c603ef9e30098",
+      "sha256": "9ef78d0086045c738b71e274b89cd087f95854febe40dfa926170c886a065bc4",
       "bytes": 15915
     },
     "docs/block-register/branches.csv": {
@@ -760,7 +765,7 @@
       "bytes": 60611
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "660ac79aa20e38a486054c3e0b29bf829bab6e368b823f41040416b8ade4f3e5",
+      "sha256": "14b52125265548d34677f9a98338afc0f5abf7d28b814ed5cacd10232398a959",
       "bytes": 30310
     },
     "docs/dependency-provenance.json": {
@@ -868,8 +873,8 @@
       "bytes": 26519
     },
     "docs/release-metadata.json": {
-      "sha256": "7528f51a7a4c373c63b10dbd269a3dc30a54adeb54bd9fd2aaf9540cb99f86d6",
-      "bytes": 643
+      "sha256": "d3e1ecbda13528eebeebbeda56cf3dd1d1cb064a929ca0c4c94bad0b0ac97fe4",
+      "bytes": 634
     },
     "docs/task-clarity-preview.html": {
       "sha256": "44cdbe9cd9805da7c210ad1bf6bcc54bc58301f6a9853276e8d3051e6f86b815",
@@ -1136,11 +1141,11 @@
       "bytes": 418
     },
     "package-lock.json": {
-      "sha256": "c7d3f6792fe1b8cc4645d6c4fc613d59a068241e1075120a01830c5cf7fc68d9",
+      "sha256": "3df4276d38da2543f05ba628ba42e85ac9062ac185a33b6b74f16a4ff424f53a",
       "bytes": 286
     },
     "package.json": {
-      "sha256": "35d012ef1bdeffc2545c1956b2f96af37d6ec1b22a8f3ab8e80f342660696e90",
+      "sha256": "14a81644f262d995b76aeef70fd3bb2679032e6d96eb011cf7587f7aa4c6dc99",
       "bytes": 5722
     },
     "prefill-walkthrough.js": {
@@ -1188,12 +1193,12 @@
       "bytes": 15144
     },
     "public/assets/booking-carer-picker.css": {
-      "sha256": "2c39c8d51dcc9bafba3bdbd52649d6a2406e8e377df8625c349949931d61a3c9",
-      "bytes": 4911
+      "sha256": "247a6ede3514f3f80964582dcc1c6f893a1cdc2ff730ad425517cc14ebe131ec",
+      "bytes": 6197
     },
     "public/assets/booking-carer-picker.js": {
-      "sha256": "937a699ce597a7c5d799cb367abe29c69432549a3b196e2d6aedbc38c21eef9d",
-      "bytes": 18613
+      "sha256": "4df833322565c353ab3ce79ee6181935ee32fdf238dc8a386d2d81e4d56d6ed9",
+      "bytes": 19049
     },
     "public/assets/booking-pricing.css": {
       "sha256": "a819f6b079035dda2c15a04eb5cb541d65e68d585e250263119d7a61e8a543b0",
@@ -1880,7 +1885,7 @@
       "bytes": 2383
     },
     "public/index.html": {
-      "sha256": "20dc5e9b92418c6ca5009ff07391780c098a550b485d4c0dfa5ea3f9f516ca8c",
+      "sha256": "5232831cf92a9ec0c92247382e39e3f57f092b8a9594e579dce68c07bd972a6a",
       "bytes": 1102155
     },
     "public/vendor/care-cast.js": {
@@ -2052,7 +2057,7 @@
       "bytes": 338836
     },
     "readme.txt": {
-      "sha256": "4bfa4dcd21f63da0d795261b48108b888a9af5a4295a516bbf7653349bacd59f",
+      "sha256": "d2cc558d15469eda1e2bb927bd8b894dc4febb248080aa059b97a0835de94ca6",
       "bytes": 1054
     },
     "scripts/NDIS_plan__sample_for_walkthrough.pdf": {

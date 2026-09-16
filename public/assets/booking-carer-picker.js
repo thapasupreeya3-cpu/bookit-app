@@ -27,13 +27,15 @@ window.CareBookingCarerPicker = (() => {
     return `<label>${label}<select id="cp${name}" data-cp-filter="${name}">${options(source,s.filters[name])}</select></label>`;
   }
   function shell(s) {
-    return `<div class="cp-shell"><header class="cp-header"><div><p class="cp-eyebrow">Plan your support</p><h2 id="cpTitle">Choose a carer</h2><p id="cpDateLabel">${e(dateLabel(s.date))}</p></div><button type="button" class="cp-close" data-cp="close" aria-label="Close carer chooser" autofocus>×</button></header>
-      <p class="cp-intro" id="cpIntro">Your newest connections come first, followed by carers who serve your area. Choose a carer, then review your booking. You can make it recurring there.</p>
-      <form id="cpVisitForm" class="cp-visit" aria-label="Check a specific visit"><div class="cp-visit-fields"><label>Date<input id="cpDate" type="date" required value="${e(s.date)}"></label><label>Start time<input id="cpStart" type="time" required value="${e(s.start)}"></label><label>Hours<input id="cpHours" type="number" min="2" max="10" step="0.25" required value="${e(s.hours)}"></label><label>Visit suburb, state or postcode<input id="cpPlace" maxlength="100" placeholder="e.g. Ryde NSW" value="${e(s.place)}"></label></div><div class="cp-visit-actions"><button type="submit" class="btn btn-secondary btn-sm">Check this visit</button><button type="button" data-cp="clear-visit">Clear time check</button><span id="cpVisitStatus" role="status">Availability is checked when you request a booking.</span></div></form>
-      <div class="cp-search"><label>Service<select id="cpservice" data-cp-filter="service">${options('filterService',s.filters.service)}</select></label><label>Search<input id="cpSearch" data-cp-filter="q" type="search" placeholder="Suburb, postcode or name…" autocomplete="off"></label></div>
-      <details class="cp-filters"><summary>All filters <span id="cpFilterCount"></span></summary><div class="cp-filter-grid">${filterSelect('day','Day','filterDay',s)}<label>Language<select id="cplang" data-cp-filter="lang"></select></label>${filterSelect('gender','Gender','filterGender',s)}${filterSelect('rating','Rating','filterRating',s)}${filterSelect('sort','Sort other carers','filterSort',s)}</div><fieldset class="cp-interests"><legend>Shared interests</legend><div id="cpInterests"></div></fieldset><button type="button" data-cp="clear-filters">Clear all filters</button></details>
+    return `<div class="cp-shell"><header class="cp-header"><div><h2 id="cpTitle">Choose a carer</h2><p id="cpDateLabel">${e(dateLabel(s.date))}</p></div><button type="button" class="cp-close" data-cp="close" aria-label="Close carer chooser" autofocus>×</button></header>
+      <p class="cp-intro" id="cpIntro">Your recent carers first, then carers in your area.</p>
+      <div class="cp-search"><label>Service<select id="cpservice" data-cp-filter="service">${options('filterService',s.filters.service)}</select></label><label>Search<input id="cpSearch" data-cp-filter="q" type="search" placeholder="Name, suburb or postcode…" autocomplete="off"></label></div>
+      <details class="cp-filters" id="cpExtraDetails"><summary><span>Filters &amp; visit details <span id="cpFilterCount"></span></span><span id="cpVisitSummary">${e(s.start)} · ${e(s.hours)} hours</span></summary>
+        <form id="cpVisitForm" class="cp-visit" aria-label="Check a specific visit"><div class="cp-visit-fields"><label>Date<input id="cpDate" type="date" required value="${e(s.date)}"></label><label>Start time<input id="cpStart" type="time" required value="${e(s.start)}"></label><label>Hours<input id="cpHours" type="number" min="2" max="10" step="0.25" required value="${e(s.hours)}"></label><label>Visit suburb, state or postcode<input id="cpPlace" maxlength="100" placeholder="e.g. Ryde NSW" value="${e(s.place)}"></label></div><div class="cp-visit-actions"><button type="submit" class="btn btn-secondary btn-sm">Check this visit</button><button type="button" data-cp="clear-visit">Clear time check</button><span id="cpVisitStatus" role="status">Availability is checked when you request a booking.</span></div></form>
+        <div class="cp-filter-grid">${filterSelect('day','Day','filterDay',s)}<label>Language<select id="cplang" data-cp-filter="lang"></select></label>${filterSelect('gender','Gender','filterGender',s)}${filterSelect('rating','Rating','filterRating',s)}${filterSelect('sort','Sort other carers','filterSort',s)}</div><fieldset class="cp-interests"><legend>Shared interests</legend><div id="cpInterests"></div></fieldset><button type="button" data-cp="clear-filters">Clear all filters</button>
+      </details>
       <p class="cp-location" id="cpLocation"></p><div id="cpResults" class="cp-results" aria-busy="true"></div><p class="cp-announcement sr-only" id="cpAnnounce" role="status" aria-live="polite" aria-atomic="true"></p>
-      <footer class="cp-footer">The suburb above helps find carers. Confirm your full service address in the booking form. Carers’ service areas are self-declared, and every booking still needs the carer’s acceptance.</footer></div>`;
+      <footer class="cp-footer">Confirm the address and one-off or recurring support in the booking form. Your carer then accepts the request.</footer></div>`;
   }
   function renderOptions(s) {
     const langs = window.CareWorkerFilters.languages(s.base);
@@ -60,11 +62,14 @@ window.CareBookingCarerPicker = (() => {
     if(!w){host.innerHTML='<div class="cp-message"><h3>No carers match these choices</h3><p>Try another time, suburb or filter. You can also browse the full Find workers page.</p><button type="button" data-cp="clear-filters" class="btn btn-secondary btn-sm">Clear filters</button> <a href="#/find-workers" data-cp="browse">Find workers</a></div>';get('cpAnnounce').textContent='No carers match these choices.';return;}
     const recent=w.group==='recent',heading=recent?'Your recent carers':'Carers in your area';
     const stars=Number(w.shifts)>0&&Number.isFinite(Number(w.rating))?'★ '+Number(w.rating).toFixed(1)+' · '+Number(w.shifts)+' shifts':'New to The Care Web';
-    host.innerHTML=`<div class="cp-result-top"><strong>${heading}</strong><span>${s.index+1} of ${count} carers</span></div><article class="cp-card" aria-labelledby="cpCarerName"><div class="cp-person">${imageMarkup(w)}<div><h3 id="cpCarerName">${e(w.name)}</h3><p>${e(w.suburb||'Service area on profile')}</p><p>${e(w.exp||'')}<span>${w.exp?' · ':''}${e(stars)}</span></p></div></div>${recent?'<p class="cp-relationship">'+(w.connected_at?'Recently connected with you':w.last_shift?'Previously booked with you':'In your care network')+'</p>':''}<p class="cp-bio">${e(w.bio||'Choose this carer to review your support and booking details.')}</p><div class="cp-tags">${w.services.map(service=>'<span>'+e(serviceName(service))+'</span>').join('')}${(w.interests||[]).slice(0,4).map(tag=>'<span class="cp-interest-tag">'+e(tag)+'</span>').join('')}</div><p class="cp-languages">Languages: ${e(w.langs||'English')}</p>${s.checked?'<p class="cp-match">Matches the time checked above. Availability is checked again before you send.</p>':''}<button type="button" class="btn btn-primary cp-choose" data-cp="choose" ${s.directoryDirty?'disabled':''}>Book with ${e(String(w.name||'this carer').split(' ')[0])}</button></article><nav class="cp-cycle" aria-label="Browse carers"><button type="button" data-cp="previous" ${count<2?'disabled':''} aria-label="Previous carer">← Previous carer</button><button type="button" data-cp="next" ${count<2?'disabled':''} aria-label="Next carer">Next carer →</button></nav>`;
+    const bio=String(w.bio||'Choose this carer to review your support and booking details.');
+    host.innerHTML=`<div class="cp-result-top"><strong>${heading}</strong><span>${s.index+1} of ${count}</span></div><article class="cp-card" aria-labelledby="cpCarerName"><div class="cp-person">${imageMarkup(w)}<div><h3 id="cpCarerName">${e(w.name)}</h3><p>${e(w.suburb||'Service area on profile')}</p><p>${e(w.exp||'')}<span>${w.exp?' · ':''}${e(stars)}</span></p></div></div><p class="cp-bio-preview">${e(bio)}</p>
+      <details class="cp-carer-details"><summary>Carer details</summary><div class="cp-carer-detail-body"><p class="cp-bio">${e(bio)}</p><div class="cp-tags">${w.services.map(service=>'<span>'+e(serviceName(service))+'</span>').join('')}${(w.interests||[]).map(tag=>'<span class="cp-interest-tag">'+e(tag)+'</span>').join('')}</div><p class="cp-languages">Languages: ${e(w.langs||'English')}</p></div></details>${s.checked?'<p class="cp-match">Matches the time checked above. Availability is checked again before you send.</p>':''}
+      <div class="cp-actions" role="group" aria-label="Choose or browse carers"><button type="button" class="cp-arrow" data-cp="previous" ${count<2?'disabled':''} aria-label="Previous carer" title="Previous carer">←</button><button type="button" class="btn btn-primary cp-choose" data-cp="choose" ${s.directoryDirty?'disabled':''}>Book with ${e(String(w.name||'this carer').split(' ')[0])}</button><button type="button" class="cp-arrow" data-cp="next" ${count<2?'disabled':''} aria-label="Next carer" title="Next carer">→</button></div></article>`;
     get('cpAnnounce').textContent=`${heading}. ${s.index+1} of ${count} carers: ${w.name}.`;
   }
   function paintLocation(s) {
-    get('cpLocation').textContent=s.locationLabel?'Showing your connections first, then declared service-area matches for '+s.locationLabel+'.':'Add a suburb, state or postcode to find local carers alongside your recent carers.';
+    get('cpLocation').textContent=s.locationLabel?'Local area: '+s.locationLabel:'Add your suburb under Filters & visit details to find local carers.';
   }
   async function read(path) {
     let timer;
@@ -74,10 +79,14 @@ window.CareBookingCarerPicker = (() => {
   function visitValues(s) {
     return {date:get('cpDate').value,start:get('cpStart').value,hours:Number(get('cpHours').value),place:get('cpPlace').value.trim(),service:s.filters.service};
   }
+  function visitSummary(s) {
+    const node=get('cpVisitSummary');
+    if(node){const visit=visitValues(s);node.textContent=(visit.start||'Set time')+' · '+(visit.hours>0?visit.hours+' hours':'Set hours');}
+  }
   async function load(s,check=false) {
     if(!current(s))return;
     const serial=++s.serial;
-    const visit=visitValues(s);s.date=visit.date;s.start=visit.start;s.hours=visit.hours;s.place=visit.place;
+    const visit=visitValues(s);s.date=visit.date;s.start=visit.start;s.hours=visit.hours;s.place=visit.place;visitSummary(s);
     const query=new URLSearchParams({date:s.date});
     if(check){query.set('start',visit.start);query.set('hours',String(visit.hours));}
     if(visit.place)query.set('place',visit.place);
@@ -109,7 +118,11 @@ window.CareBookingCarerPicker = (() => {
     if(!current(s)||s.loading||s.error||s.directoryDirty)return;
     const w=s.list?.[s.index];if(!w||typeof openBookingModal!=='function')return;
     const values=visitValues(s),p=s.pattern;
-    if(!validDate(values.date)||!get('cpVisitForm').reportValidity())return;
+    const form=get('cpVisitForm');
+    if(!validDate(values.date)||(form.checkValidity&&!form.checkValidity())){
+      get('cpExtraDetails').open=true;form.reportValidity();return;
+    }
+    if(!form.reportValidity())return;
     close(false);openBookingModal(w);
     assign('bkDate',values.date);assign('bkRepeat',p?(p.freq==='fortnightly'?'fortnightly':'weekly'):'');assign('bkRepeatMode','ongoing');assign('bkRepeatUntil','');
     assign('bkStart',values.start||p?.start||'09:00');
@@ -132,11 +145,13 @@ window.CareBookingCarerPicker = (() => {
     renderOptions(s);renderResults(s,true);
   }
   function invalidate(s) {
+    visitSummary(s);
     s.serial++;s.checked=false;s.loading=false;s.error='';s.workers=s.base;
     get('cpVisitStatus').textContent='Visit details changed. Check this visit again to filter by availability.';
     renderResults(s,true);
   }
   function bind(s) {
+    get('cpVisitForm').addEventListener('invalid',()=>{if(current(s))get('cpExtraDetails').open=true;},true);
     s.dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
     s.dialog.addEventListener('click',event=>{
       const chip=event.target.closest('[data-cp-interest]');

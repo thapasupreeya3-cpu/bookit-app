@@ -1,3 +1,23 @@
+# v88.4.19 validation — compact calendar popup
+
+- Existing carer popup checks: 14/14 passed.
+- Existing booking calendar checks: 19/19 passed.
+- Syntax: 160 scripts compiled; zero failures.
+- Independent accessibility review completed; optional visit fields reveal
+  themselves before validation and expanded profile content uses the dialog's
+  normal scroll area, without a keyboard-inaccessible nested scroll panel.
+- No new tests were added for this presentation refinement; existing behavioral
+  checks were reused. No backend or pricing changes were made.
+- Browser rendering remains unverified because this session's browser cannot
+  open the local preview. No live deployment was performed.
+- Package verification checks that the cumulative ZIP overlays both the original
+  source and the earlier calendar update, with all release hashes matching.
+
+The earlier release evidence below is retained and was not rerun in full for
+this layout refinement.
+
+---
+
 # v88.4.18 validation — calendar bookings
 
 Checked locally on Node 24.19.0 using synthetic accounts and disposable SQLite

@@ -1,10 +1,10 @@
-THE CARE WEB v88.4.18 — CALENDAR UPDATE ONLY
+THE CARE WEB v88.4.19 — CALENDAR UPDATE ONLY
 
 Apply this update over the v88.4.17 source from bookit-app-main (8).zip.
-If you already applied the full v88.4.18 calendar ZIP, the feature code is the
-same; these files can be merged safely into that source too.
+This cumulative update also applies over the earlier v88.4.18 calendar update.
+You only need this ZIP; the earlier ZIP does not need to be applied first.
 
-1. Extract The-Care-Web-v88.4.18-calendar-update-only.zip.
+1. Extract The-Care-Web-v88.4.19-calendar-update-only.zip.
 2. Open the extracted folder. Drag ALL of its contents into the repository ROOT
    (the same level as server.js and package.json). Keep folder paths intact.
    Choose to replace matching files. This ZIP contains only changed files;
@@ -13,9 +13,13 @@ same; these files can be merged safely into that source too.
    contents, then commit. Do not upload the ZIP itself or its enclosing folder.
 3. Let the repository checks run, then deploy through your existing process.
    On the existing Lightsail setup, use sudo bookit-update after the commit.
-4. Refresh the website. /api/version should report 88.4.18.
+4. Refresh the website. /api/version should report 88.4.19.
 
 WHAT CHANGES
+The calendar popup is narrower with less spacing. Carer selection is visible
+first; Filters & visit details and Carer details expand when needed. Previous,
+Book and Next sit together. All existing filters and booking options remain.
+
 Bookings > Calendar: click a current or future date to browse your newest
 connected carers first, followed by local carers, with all Find workers filters.
 Choose a carer, then use Repeat this booking in the normal booking form.
