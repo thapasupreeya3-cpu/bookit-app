@@ -41,6 +41,19 @@ const results=[];async function test(name,fn){try{await fn();results.push({name,
   const h=harness();h.target('#na-person-panel',1200);h.target('.na-category-tabs',1450);await h.open('#/journey?panel=tasks&person=worker%3A19');h.scroll(400);await h.open('#/journey?panel=tasks&person=participant%3A18');assert.equal(h.ctx.scrollY,1128);
   h.scroll(2000);await h.open('#/journey?panel=tasks&person=participant%3A18&category=training&task_page=2');assert.equal(h.ctx.scrollY,1378);
  });
+ await test('Worker Next actions opens the visit and shift-note workspace below the fixed header',async()=>{
+  const h=harness();h.ctx.API.me.admin=false;h.target('#flowShiftWork',460);await h.open('#/journey');h.scroll(1700);await h.open('#/journey?panel=shift&booking=42');assert.equal(h.ctx.scrollY,388);assert.equal(h.focuses.at(-1).id,'#flowShiftWork');assert.equal(h.focuses.at(-1).options.preventScroll,true);
+ });
+ await test('Opening a different shift from deep reference details reveals its work on small screens',async()=>{
+  const h=harness();h.ctx.API.me.admin=false;h.ctx.innerHeight=640;h.target('#flowShiftWork',370);await h.open('#/journey?panel=shift&booking=42');h.scroll(3000);await h.open('#/journey?panel=shift&booking=43');assert.equal(h.ctx.scrollY,298);assert.equal(h.focuses.at(-1).id,'#flowShiftWork');
+ });
+ await test('Shift navigation waits for note drafts and respects input while they load',async()=>{
+  const h=harness();h.ctx.API.me.admin=false;h.target('#flowShiftWork',460);await h.open('#/journey');let finish;h.ctx.CareFlow.render=()=>new Promise(r=>finish=r);h.ctx.location.hash='#/journey?panel=shift&booking=42';h.ctx.route();await h.flush();assert.equal(h.ctx.scrollY,0);finish();await h.flush();assert.equal(h.ctx.scrollY,388);
+  h.ctx.location.hash='#/journey?panel=shift&booking=43';h.ctx.route();const focusCount=h.focuses.length;h.event('touchstart');h.scroll(900);finish();await h.flush();assert.equal(h.ctx.scrollY,900);assert.equal(h.focuses.length,focusCount);
+ });
+ await test('Completing a long shift note brings the saved visit back into view without a hash change',async()=>{
+  const h=harness();h.ctx.API.me.admin=false;h.target('#flowShiftWork',460);await h.open('#/journey?panel=shift&booking=42');h.scroll(1700);const done=h.ctx.CareNavigation.update(()=>{h.node('page-journey').height=2400;},{target:'#flowShiftWork',focus:'#flowShiftWork'});await h.flush();await done;assert.equal(h.ctx.scrollY,388);assert.equal(h.focuses.at(-1).id,'#flowShiftWork');assert.equal(h.ctx.location.hash,'#/journey?panel=shift&booking=42');
+ });
  await test('Cross-route Money sections open at the local tab bar',async()=>{
   const h=harness();h.target('.page.active .ca-money-sections',450);await h.open('#/payment-tracking?tab=invoices');h.scroll(1800);await h.open('#/admin/money?section=history');assert.equal(h.ctx.scrollY,378);assert.equal(h.focuses.at(-1).id,'.page.active .ca-money-sections');
  });

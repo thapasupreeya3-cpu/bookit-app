@@ -1,4 +1,4 @@
-/* Keep office navigation beside the work being opened. No record or payment changes. */
+/* Keep navigation beside the work being opened. No record or payment changes. */
 (function(){
  'use strict';
  const get=id=>document.getElementById(id),query=selector=>document.querySelector(selector);
@@ -20,6 +20,7 @@
  function selector(n){
   const d=n.to,p=n.from,changed=key=>p?.q.get(key)!==d.q.get(key),same=p?.path===d.path;
   if(d.path==='/admin/verification')return d.q.get('person')&&(!same||changed('person'))?'#vfDetail':same&&['role','q','owner','status','offset','examples'].some(changed)?'#vfQueue':same?null:'.vf-workspace';
+  if(d.path==='/journey'&&d.q.get('panel')==='shift')return '#flowShiftWork';
   if(d.path==='/journey'&&(d.q.get('panel')||'tasks')==='tasks'){
    if(d.q.get('person')&&(!same||changed('person')))return '#na-person-panel';
    if(same&&['category','task_page'].some(changed))return '.na-category-tabs';

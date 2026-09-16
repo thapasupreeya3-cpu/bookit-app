@@ -1,33 +1,41 @@
-THE CARE WEB v88.4.19 — CALENDAR UPDATE ONLY
+THE CARE WEB v88.4.20 — BOOKING EMAIL UPDATE ONLY
 
-Apply this update over the v88.4.17 source from bookit-app-main (8).zip.
-This cumulative update also applies over the earlier v88.4.18 calendar update.
-You only need this ZIP; the earlier ZIP does not need to be applied first.
+Apply over v88.4.17 from bookit-app-main (8).zip, or either previous calendar
+update (v88.4.18 or v88.4.19). This cumulative ZIP includes those calendar fixes.
+You only need this ZIP; the earlier updates do not need to be applied first.
 
-1. Extract The-Care-Web-v88.4.19-calendar-update-only.zip.
-2. Open the extracted folder. Drag ALL of its contents into the repository ROOT
-   (the same level as server.js and package.json). Keep folder paths intact.
-   Choose to replace matching files. This ZIP contains only changed files;
-   keep all other repository files and merge folders rather than deleting them.
-   For GitHub Upload files, open the repository root first, drag the extracted
-   contents, then commit. Do not upload the ZIP itself or its enclosing folder.
-3. Let the repository checks run, then deploy through your existing process.
+1. Extract The-Care-Web-v88.4.20-booking-email-update-only.zip.
+2. Drag ALL extracted contents into the repository ROOT, at the same level as
+   server.js and package.json. Keep folder paths intact and replace matching
+   files. Merge folders and keep the other repository files.
+   For GitHub Upload files, open the repository root, drag the extracted contents
+   and commit. Do not upload the ZIP itself or an enclosing folder.
+3. Let repository checks run, then deploy through your existing process.
    On the existing Lightsail setup, use sudo bookit-update after the commit.
-4. Refresh the website. /api/version should report 88.4.19.
+4. Refresh the website. /api/version should report 88.4.20.
+5. Check Admin > Settings > Email setup and use the test to your own account.
+   Admin > Today > Email delivery shows queued, retrying and provider-accepted
+   messages. Confirm final arrival in your inbox; provider acceptance alone
+   does not establish inbox delivery.
 
 WHAT CHANGES
-The calendar popup is narrower with less spacing. Carer selection is visible
-first; Filters & visit details and Carer details expand when needed. Previous,
-Book and Next sit together. All existing filters and booking options remain.
+Booking acceptance, completion, review, questions, reminders and payment notices
+have more reliable queuing, retries and duplicate protection. Completion sends
+a worker receipt and reviewer notice separately from the applicable invoice.
+Previously failed timesheet/payroll messages with retained bodies can resume
+retrying if current permissions and state still permit them. Historical events
+that never queued a message are not retrospectively emailed.
 
-Bookings > Calendar: click a current or future date to browse your newest
-connected carers first, followed by local carers, with all Find workers filters.
-Choose a carer, then use Repeat this booking in the normal booking form.
-Recurring support can be weekly or fortnightly, ongoing until cancelled or
-ending on a chosen date. Ongoing has no total shift limit. Later requests are
-added automatically; each needs worker acceptance.
-Manage or cancel repeating bookings from the link below the calendar.
+Next actions opens the shift-note editor immediately below the visit summary.
+Reference information follows the editor. Completion returns to the saved note;
+requested answers appear above note history. The user guide explains the new
+layout, notification recipients, preferences and missing-email checks.
 
-This source package does not deploy the live website. No new credentials or
-hosting settings are required. Existing prices, billing rules, records and
-uploads are preserved. Retain your usual backup before deploying.
+The compact calendar popup and ongoing weekly/fortnightly bookings remain.
+Ongoing repeats until cancelled, without a total shift limit. Future requests
+are generated ahead, and each still requires worker acceptance.
+
+This source package does not deploy the live website or send customer emails.
+Existing records, uploads, prices and financial approval rules are preserved.
+No new provider is required; the existing email connection must be configured
+and working. Retain your usual backup before deploying.

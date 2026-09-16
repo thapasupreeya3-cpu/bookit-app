@@ -108,13 +108,73 @@ const fetch=global.fetch;global.fetch=function(input,...args){local(typeof input
     const coverId=ins('cover',{booking_id:id,from_worker_id:2,reason:'Synthetic replacement acceptance',opened_at:stamp,tier:'pool',status:'open'});
     ins('cover_offers',{cover_id:coverId,tier:'pool',worker_id:worker.id,rank:1,sent_at:stamp,expires_at:new Date(Date.now()+3600000).toISOString()});
     ok(await req('POST','/api/cover/'+coverId+'/review',worker,{}));ok(await req('POST','/api/cover/'+coverId+'/claim',worker,{plan_ack:true,plan_id:planId,plan_version:1}));
-    const update=ok(await req('GET','/api/me/booking-updates',owner)).updates.find(row=>row.booking_id===id);assert.ok(update);assert.equal(update.worker_name,db.prepare('SELECT name FROM users WHERE id=?').get(worker.id).name);
+    const update=ok(await req('GET','/api/me/booking-updates',owner)).updates.find(row=>row.booking_id===id);assert.ok(update);assert.equal(update.worker_name,db.prepare('SELECT name FROM users WHERE id=?').get(worker.id).name);assert.deepEqual(noticeRows(id,'accepted').map(r=>r.user_id),[owner.id,helper.id,worker.id]);
   });
   await test('An office assignment with recorded worker agreement also creates a confirmation',async()=>{
     const office=await login(1),id=ok(await req('POST','/api/bookings',owner,proposed('2030-10-05'))).id;
     db.prepare("UPDATE bookings SET worker_id=2,cover_state='office' WHERE id=?").run(id);
     ok(await req('POST','/api/admin/bookings/'+id+'/office-assign',office,{worker_id:worker.id,worker_agreed:true,consent_note:'Synthetic office spoke to worker and recorded their explicit agreement.',plan_read_confirmed:true,plan_id:planId,plan_version:1}));
-    assert.ok(ok(await req('GET','/api/me/booking-updates',owner)).updates.some(row=>row.booking_id===id));
+    assert.ok(ok(await req('GET','/api/me/booking-updates',owner)).updates.some(row=>row.booking_id===id));assert.deepEqual(noticeRows(id,'accepted').map(r=>r.user_id),[owner.id,helper.id,worker.id]);
+  });
+  const shiftRows=(id,event)=>db.prepare('SELECT * FROM delivery_outbox WHERE booking_id=? ORDER BY id').all(id).filter(r=>r.event_kind==='shift-'+event);
+  const makeFinishedBooking=(funding='private',extra={})=>{
+    db.prepare('UPDATE users SET plan=? WHERE id=?').run(funding,owner.id);
+    return ins('bookings',{participant_id:owner.id,worker_id:worker.id,service:'personal-care',date:'2026-09-01',start:'10:00',hours:2,status:'accepted',accepted_at:stamp,created:stamp,...extra});
+  };
+  const completion={status:'completed',note:'PRIVATE synthetic shift note: the agreed personal support was delivered and the participant outcome was recorded.'};
+  let completedId;
+  await test('Real self/private completion sends separate urgent completion and worker receipts alongside invoice',async()=>{
+    completedId=makeFinishedBooking();const done=ok(await req('PATCH','/api/bookings/'+completedId,worker,completion));assert.ok(done.invoice_no);assert.equal(done.approval_state,'pending');
+    assert.deepEqual(shiftRows(completedId,'review').map(r=>r.user_id),[owner.id,helper.id]);assert.deepEqual(shiftRows(completedId,'submitted').map(r=>r.user_id),[worker.id]);
+    assert.equal(db.prepare('SELECT count(*) n FROM delivery_outbox WHERE event_key=?').get('invoice:'+done.invoice_no).n,1);
+    for(const mail of [...shiftRows(completedId,'review'),...shiftRows(completedId,'submitted')]){assert.equal(mail.urgent,1);assert.doesNotMatch(mail.payload,/PRIVATE synthetic shift note/);assert.match(JSON.parse(mail.payload)[5],new RegExp('panel=shift&booking='+completedId));}
+    ok(await req('PATCH','/api/bookings/'+completedId,worker,completion));assert.equal(shiftRows(completedId,'review').length,2);assert.equal(shiftRows(completedId,'submitted').length,1);
+  });
+  await test('Plan-managed and NDIA completion each notify reviewers without requiring an invoice',async()=>{
+    for(const funding of ['plan','ndia']){const id=makeFinishedBooking(funding);const done=ok(await req('PATCH','/api/bookings/'+id,worker,completion));assert.equal(done.invoice_no,null);assert.deepEqual(shiftRows(id,'review').map(r=>r.user_id),[owner.id,helper.id]);assert.equal(shiftRows(id,'submitted').length,1);}
+  });
+  await test('A failed completion-email persistence rolls back status, shift note and billing submission together',async()=>{
+    const id=makeFinishedBooking();db.exec(`CREATE TRIGGER synthetic_completion_mail_failure BEFORE INSERT ON delivery_outbox WHEN NEW.event_key LIKE 'shift-submitted:${id}:%' BEGIN SELECT RAISE(ABORT,'Synthetic mail persistence failure'); END;`);
+    try{ok(await req('PATCH','/api/bookings/'+id,worker,completion),500);assert.equal(db.prepare('SELECT status FROM bookings WHERE id=?').get(id).status,'accepted');assert.equal(db.prepare('SELECT count(*) n FROM shift_notes WHERE booking_id=?').get(id).n,0);assert.equal(db.prepare('SELECT count(*) n FROM immediate_invoice_submissions WHERE booking_id=?').get(id).n,0);assert.equal(shiftRows(id,'review').length,0);}
+    finally{db.exec('DROP TRIGGER synthetic_completion_mail_failure');}
+    ok(await req('PATCH','/api/bookings/'+id,worker,completion));assert.equal(shiftRows(id,'submitted').length,1);
+  });
+  await test('Real question, worker answer, approval and note addendum have private targeted notifications',async()=>{
+    const question='PRIVATE QUERY please clarify the support timing and personal care record.';
+    ok(await req('PATCH','/api/bookings/'+completedId,owner,{status:'queried',query_note:question}));assert.equal(shiftRows(completedId,'queried').length,1);assert.doesNotMatch(shiftRows(completedId,'queried')[0].payload,/PRIVATE QUERY/);const retried=ok(await req('PATCH','/api/bookings/'+completedId,owner,{status:'queried',query_note:question}));assert.equal(retried.duplicate,true);assert.equal(shiftRows(completedId,'queried').length,1);assert.equal(db.prepare("SELECT count(*) n FROM shift_notes WHERE booking_id=? AND kind='question'").get(completedId).n,1);
+    ok(await req('POST','/api/bookings/'+completedId+'/notes',worker,{note:'PRIVATE ANSWER the original record is accurate and the support timing has been clarified.'}));assert.deepEqual(shiftRows(completedId,'answered').map(r=>r.user_id),[owner.id,helper.id]);assert.ok(shiftRows(completedId,'answered').every(r=>!r.payload.includes('PRIVATE ANSWER')&&r.urgent===1));
+    ok(await req('PATCH','/api/bookings/'+completedId,owner,{status:'approved'}));assert.equal(shiftRows(completedId,'approved').length,1);ok(await req('PATCH','/api/bookings/'+completedId,owner,{status:'approved'}));assert.equal(shiftRows(completedId,'approved').length,1);
+    ok(await req('POST','/api/bookings/'+completedId+'/notes',worker,{note:'A further factual clarification has been added to the original support record for review.'}));assert.equal(shiftRows(completedId,'note-added').length,2);
+  });
+  await test('Failed approval or question notification persistence leaves the prior review state unchanged',async()=>{
+    const id=makeFinishedBooking('plan');ok(await req('PATCH','/api/bookings/'+id,worker,completion));
+    for(const [event,status] of [['approved','approved'],['queried','queried']]){
+      db.exec(`CREATE TRIGGER synthetic_review_mail_failure BEFORE INSERT ON delivery_outbox WHEN NEW.event_key LIKE 'shift-${event}:${id}:%' BEGIN SELECT RAISE(ABORT,'Synthetic review persistence failure'); END;`);
+      try{ok(await req('PATCH','/api/bookings/'+id,owner,{status,query_note:'Please clarify this synthetic support record and recorded time.'}),500);assert.equal(db.prepare('SELECT approval_state FROM bookings WHERE id=?').get(id).approval_state,'pending');assert.equal(db.prepare("SELECT count(*) n FROM shift_notes WHERE booking_id=? AND kind='question'").get(id).n,0);}
+      finally{db.exec('DROP TRIGGER synthetic_review_mail_failure');}
+    }
+    ok(await req('PATCH','/api/bookings/'+id,owner,{status:'queried',query_note:'Please clarify this synthetic support record and recorded time.'}));
+    db.exec(`CREATE TRIGGER synthetic_answer_mail_failure BEFORE INSERT ON delivery_outbox WHEN NEW.event_key LIKE 'shift-answered:${id}:%' BEGIN SELECT RAISE(ABORT,'Synthetic answer persistence failure'); END;`);
+    try{ok(await req('POST','/api/bookings/'+id+'/notes',worker,{note:'The requested details have been clarified in this synthetic answer to the question.'}),500);assert.equal(db.prepare('SELECT approval_state FROM bookings WHERE id=?').get(id).approval_state,'queried');assert.equal(db.prepare('SELECT count(*) n FROM shift_notes WHERE booking_id=? AND addendum=1').get(id).n,0);}
+    finally{db.exec('DROP TRIGGER synthetic_answer_mail_failure');}
+  });
+  await test('Issued invoice review also persists worker notifications and deduplicates identical open questions',async()=>{
+    const id=makeFinishedBooking(),done=ok(await req('PATCH','/api/bookings/'+id,worker,completion)),url='/api/payments/invoices/'+done.invoice_no;
+    const review=async(action,query_note)=>{const shown=ok(await req('GET',url,owner));return req('POST',url+'/review',owner,{action,query_note,confirm:true,fingerprint:shown.review_fingerprint});};
+    const question='Please confirm the recorded support timing before this invoice is approved.';
+    ok(await review('query',question));assert.equal(shiftRows(id,'queried').length,1);ok(await review('query',question));assert.equal(shiftRows(id,'queried').length,1);assert.equal(db.prepare("SELECT count(*) n FROM shift_notes WHERE booking_id=? AND kind='question'").get(id).n,1);
+    db.exec(`CREATE TRIGGER synthetic_invoice_review_mail_failure BEFORE INSERT ON delivery_outbox WHEN NEW.event_key LIKE 'shift-approved:${id}:%' BEGIN SELECT RAISE(ABORT,'Synthetic invoice approval notice failure'); END;`);
+    try{ok(await review('approve'),409);assert.equal(db.prepare('SELECT approval_state FROM bookings WHERE id=?').get(id).approval_state,'queried');}
+    finally{db.exec('DROP TRIGGER synthetic_invoice_review_mail_failure');}
+    ok(await review('approve'));assert.equal(shiftRows(id,'approved').length,1);
+  });
+  await test('Real reminder and automatic approval queue urgent, deduplicated lifecycle notices',async()=>{
+    const office=await login(1),id=makeFinishedBooking('plan',{status:'completed',completed_at:new Date(Date.now()-4*864e5).toISOString(),approval_state:'pending',approval_from:new Date(Date.now()-4*864e5).toISOString()});
+    ok(await req('POST','/api/admin/approvals/sweep',office,{}));assert.equal(shiftRows(id,'reminder').length,2);assert.ok(shiftRows(id,'reminder').every(r=>r.urgent===1));ok(await req('POST','/api/admin/approvals/sweep',office,{}));assert.equal(shiftRows(id,'reminder').length,2);
+    db.prepare('UPDATE bookings SET approval_from=? WHERE id=?').run(new Date(Date.now()-8*864e5).toISOString(),id);ok(await req('POST','/api/admin/approvals/sweep',office,{}));assert.deepEqual(shiftRows(id,'deemed').map(r=>r.user_id),[owner.id,helper.id,worker.id]);
+  });
+  await test('Meet-and-greet completion sends receipts without an invoice or payment prompt',async()=>{
+    const id=makeFinishedBooking('private',{kind:'intro',hours:0.25});const done=ok(await req('PATCH','/api/bookings/'+id,worker,{status:'completed'}));assert.equal(done.invoice_no,null);assert.equal(shiftRows(id,'completed').length,2);assert.equal(shiftRows(id,'submitted').length,1);assert.equal(shiftRows(id,'review').length,0);
   });
   await test('Restarting on the upgraded database preserves confirmations and viewer acknowledgments',async()=>{
     const before=ok(await req('GET','/api/me/booking-updates',owner)),id=before.updates[0].id;

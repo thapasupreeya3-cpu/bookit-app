@@ -2401,7 +2401,7 @@ function sendMailDirect(to, subject, heading, bodyHtml, ctaText, ctaUrl, replyTo
   if (!EMAIL_ON) { console.info('[mail disabled] transactional email suppressed; token and recipient were not logged'); return Promise.resolve('skipped-off'); }
   const transport = RESEND_KEY ? resendSend : smtpSend;
   return transport(dest, subject, html, text, replyTo, attachments, metadata).then(
-    ok => { console.log(`[email] sent '${subject}' → ${dest}`); return ok; },
+    ok => { console.log(`[email] accepted by provider '${subject}' → ${dest}`); return ok; },
     err => { console.error(`[email] FAILED '${subject}' → ${dest}: ${err.message}`); throw err; }
   );
 }
@@ -2825,7 +2825,7 @@ function coordClients(coordId) {
    more honest than an unsubscribe link that quietly does nothing. --- */
 const MAIL_KINDS = {
   bookings:   { label: 'Booking requests, confirmations and cancellations', optional: true },
-  timesheets: { label: 'Timesheet approvals and reminders', optional: true },
+  timesheets: { label: 'Shift completion, timesheet reviews and reminders', optional: true },
   messages:   { label: 'Someone sent you a message', optional: true },
   cover:      { label: 'Cover offers and standby shifts', optional: true },
   jobs:       { label: 'New jobs near you, and applications to your job', optional: true },
@@ -4162,7 +4162,7 @@ async function reviewIssuedInvoice(inv,user,req,body){
   if(action==='query'&&question.length<10)fail('Describe the issue in a sentence so it can be answered.',400);
   const rows=db.prepare('SELECT * FROM bookings WHERE invoice_no=? ORDER BY id').all(inv.invoice_no);
   if(!rows.length||rows.some(b=>b.participant_id!==pers.id||b.status!=='completed'||b.voided))fail('The invoice changed or is no longer available. Reload before reviewing.');
-  const changed=action==='approve'?rows.filter(b=>b.approval_state!=='approved'||b.approval_source==='deemed'):rows;
+  const changed=action==='approve'?rows.filter(b=>b.approval_state!=='approved'||b.approval_source==='deemed'):rows.filter(b=>b.approval_state!=='queried'||b.query_note!==question||b.query_by!==user.id);
   db.exec('BEGIN IMMEDIATE');
   try{
     for(const b of changed){
@@ -4174,19 +4174,12 @@ async function reviewIssuedInvoice(inv,user,req,body){
         db.prepare("INSERT INTO shift_notes(booking_id,worker_id,participant_id,body,scope_flag,scope_detail,addendum,kind,author_id,created) VALUES(?,?,?,?,0,'',0,'question',?,?)").run(b.id,b.worker_id,b.participant_id,question,user.id,now());
       }
       logDelegate(pers,action==='approve'?'Approved invoice shift details':'Reported an invoice issue',inv.invoice_no+(action==='query'?': '+question.slice(0,120):''),b.id);
+      BOOKING_NOTICES.queueShift(req,action==='approve'?'approved':'queried',b.id).catch(e=>console.error('[shift-notice]',e.message));
     }
     db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}
   if(action==='approve')PAYMENT_FLOW?.resumeInvoice(inv.invoice_no,user);
   else await PAYMENT_FLOW?.pauseInvoice(inv.invoice_no,question,{user_id:user.id,booking_id:rows[0].id});
-  for(const b of changed){
-    const worker=db.prepare('SELECT id,name,email FROM users WHERE id=?').get(b.worker_id);
-    if(!worker)continue;
-    notify(worker.id,'timesheets',worker.email,action==='approve'?'Timesheet approved — The Care Web':'Question about your timesheet — The Care Web',
-      action==='approve'?'Shift details approved':'Please answer the shift question',
-      action==='approve'?`<p>The participant has approved the shift details for ${prettyDate(b.date)}. Check Earnings for the separate payroll status.</p>`:`<p>A question was raised about the shift on ${prettyDate(b.date)}:</p><blockquote>${escHtml(question)}</blockquote><p>Add your answer to the shift note. Collection is paused while the invoice is reviewed.</p>`,
-      action==='approve'?'See earnings':'Answer question',`${baseUrl(req)}/#/${action==='approve'?'earnings':'bookings'}`).catch(()=>{});
-  }
   return {ok:true,invoice_no:inv.invoice_no,approval_state:action==='approve'?'approved':'queried',collection_status:action==='query'?'paused':'ready',duplicate:!changed.length};
 }
 
@@ -4282,16 +4275,7 @@ async function runClaimsUnlocked(lanes, actor, bookingIds) {
       sendMail(dest,`Invoice ${invNo} — The Care Web`, reviewNeeded&&self?'Your invoice is ready to review':`Invoice ${invNo}`,
         `<p>Your invoice for <b>$${frozen.total.toFixed(2)}</b> is attached. ${escHtml(frozen.tax_note||'')} Invoice: ${invNo}. Please pay using the secure invoice link below.</p>${reviewText}`,
         self&&reviewNeeded?'Review & pay':'View & pay invoice',self&&reviewNeeded?reviewUrl:paymentUrl,MAIL_FROM,[{filename:invNo+'.pdf',mime:'application/pdf',buffer:pdf}],{event_key:'invoice:'+invNo,kind:'invoice',transactional:true});
-      if(reviewNeeded){
-        const participant=db.prepare('SELECT id,name,email FROM users WHERE id=?').get(first.pid);
-        const reviewers=WORKFLOW?.approvalRecipients(first.pid,[participant,...coordsFor(first.pid,'bookings')].filter(Boolean))||[participant].filter(Boolean);
-        for(const reviewer of reviewers){
-          if(String(reviewer.email).toLowerCase()===String(dest).toLowerCase())continue;
-          notify(reviewer.id,'timesheets',reviewer.email,'Completed shift ready to review — The Care Web','Review completed shift',
-            `<p>A completed shift for ${escHtml(first.participant_name)} has an invoice ready for review. Open the shift details to approve them or report an issue.</p>`,
-            'Review completed shift',reviewUrl+(reviewer.id!==first.pid?'&for='+first.pid:''),undefined,[],{event_key:`invoice-review:${invNo}:${reviewer.id}`,requires_approval:true,booking_id:first.id}).catch(()=>{});
-        }
-      }
+      if(reviewNeeded)for(const r of group)BOOKING_NOTICES.queueShift({headers:{}},'review',r.id).catch(e=>console.error('[shift-notice]',e.message));
       db.exec('COMMIT');
     } catch(e) {db.exec('ROLLBACK');throw e;}
     const payUrl=PAYMENT_FLOW?.invoiceUrl(invNo)||null;
@@ -7105,10 +7089,17 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
         noteOutOfArea(b.id, fit, 'worker',user);
         db.prepare("UPDATE bookings SET status='accepted',accepted_at=? WHERE id=?").run(now(),b.id);
         processContext.bookingUpdates.recordAccepted([b.id]);
+        BOOKING_NOTICES.queue(req,'accepted',[b.id]).catch(e=>console.error('[booking-notice]',e.message));
         db.exec('COMMIT');
       } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
-    } else db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status,b.id);
-    BOOKING_NOTICES.queue(req,status,[b.id],{event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
+    } else {
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        db.prepare('UPDATE bookings SET status = ? WHERE id = ?').run(status,b.id);
+        BOOKING_NOTICES.queue(req,'declined',[b.id],{event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
+        db.exec('COMMIT');
+      } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
+    }
     return json(res, 200, { ok: true });
   }
 
@@ -7131,6 +7122,9 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
     const code = providerUnable ? '' : cancelCode(body.reason_code);
     const cancelledBy = providerUnable ? 'provider' : (pers.self ? 'participant' : `coordinator:${user.name}`);
     const cancelReason = providerUnable ? 'The Care Web could not staff the shift' : clean(body.reason, 300);
+    let inv = null;
+    db.exec('BEGIN IMMEDIATE');
+    try {
     db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = ?,
         cancel_code = ?, short_notice = ?, notice_hours = ?, cover_state = ? WHERE id = ?`)
       .run(now(), cancelledBy, cancelReason, code, charge ? 1 : 0, sn.hours, providerUnable ? 'stood-down' : (b.cover_state || ''), b.id);
@@ -7142,11 +7136,12 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
       db.prepare(`UPDATE bookings SET rate_category = NULL, unit_price = NULL, worker_share = NULL, total = NULL,
         claim_status = '', claim_ref = NULL, invoice_no = NULL, support_item = NULL, claimed_at = NULL, paid_at = NULL WHERE id = ?`).run(b.id);
     }
-    let inv = null;
     if (charge) inv = applyInvoice(b.id, suggestCategory(b), true);
     logDelegate(pers, providerUnable ? 'Stood down an unstaffed shift' : 'Cancelled a shift',
       `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}${charge ? ' (short notice — charged)' : providerUnable ? ' (provider could not staff)' : ''}`, b.id);
     BOOKING_NOTICES.queue(req,'cancelled',[b.id],{event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
+      db.exec('COMMIT');
+    } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
     return json(res, 200, { ok: true, short_notice: charge, notice_hours: sn.hours, window_hours: sn.window,
       cancel_code: code, cancel_label: code ? CANCEL_CODES[code] : '', invoice: inv, provider_unable: providerUnable });
   }
@@ -7222,6 +7217,8 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
       db.prepare("UPDATE cover SET status = 'stood-down', closed_at = ?, outcome_note = 'Booking was completed.' WHERE booking_id = ? AND status = 'open'").run(now(), b.id);
       db.prepare('DELETE FROM shift_note_drafts WHERE booking_id=?').run(b.id);
       if(b.kind!=='intro')AUTO_BILLING?.markSubmitted(b.id);
+      BOOKING_NOTICES.queueShift(req,'submitted',b.id).catch(e=>console.error('[shift-notice]',e.message));
+      BOOKING_NOTICES.queueShift(req,b.kind==='intro'?'completed':'review',b.id).catch(e=>console.error('[shift-notice]',e.message));
       db.exec('COMMIT');
     } catch (e) {
       try { db.exec('ROLLBACK'); } catch {}
@@ -7235,7 +7232,6 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
        second read of the notes nobody ticked. */
     try { if (noteId) aiTriageNote(noteId); } catch {}
     const deadline = new Date(Date.now() + APPROVAL_DEEM_DAYS * 864e5);
-    const kmBlock = kmLine ? `<p><b>${kmLine.km} km</b> ${escHtml(kmLine.from)} &rarr; ${escHtml(kmLine.to)} at $${kmLine.rate.toFixed(2)}/km = <b>$${kmLine.total.toFixed(2)}</b>.</p>` : '';
     // Finish invoice creation using the durable queue. A failed attempt keeps
     // the submitted shift and retries automatically; it never asks the worker
     // to submit again or silently bills a pre-cutover pending shift.
@@ -7244,12 +7240,6 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
       try{await AUTO_BILLING?.drain();}catch(e){console.error('[completion-invoice]',e.message);}
     }
     const issued=db.prepare('SELECT invoice_no,claim_status FROM bookings WHERE id=?').get(b.id);
-    if(pu2&&inv&&!issued?.invoice_no){
-      const reviewers=WORKFLOW?.approvalRecipients(b.participant_id,[pu2,...coordsFor(b.participant_id,'bookings')])||[pu2];
-      for(const reviewer of reviewers)notify(reviewer.id,'timesheets',reviewer.email,'Completed shift ready to review — The Care Web','Review completed shift',
-        `<p><b>${escHtml(user.name)}</b> has submitted the completed shift on <b>${prettyDate(b.date)}</b>. ${activeCalculation?.legacy_review?'The completed work is saved; the office is confirming the overnight arrangement before issuing a charge.':`The recorded support charge is <b>$${round2(inv.total+(activeLine?.total||0)).toFixed(2)}</b>.`}</p>${kmBlock}<p>Open the shift details and note to approve them or report an issue. Review by ${prettyDate(ymd(deadline))}. Worker pay is managed on its payroll cycle.</p>`,
-        'Review completed shift',`${baseUrl(req)}/#/bookings`+(reviewer.id!==b.participant_id?'?for='+b.participant_id:''),undefined,[],{event_key:`shift-review:${b.id}:${reviewer.id}:${b.completed_at||'submitted'}`,requires_approval:true,booking_id:b.id}).catch(()=>{});
-    }
     return json(res,200,{ok:true,invoice:inv,invoice_no:issued?.invoice_no||null,billing_status:activeCalculation?.legacy_review?'needs-charge-review':issued?.invoice_no?'issued':(b.kind==='intro'?'not-claimable':'queued'),billing_notice:activeCalculation?.legacy_review?'Shift completed and work saved. The office needs to confirm the overnight charge.':null,support_total:round2((inv?.total||0)+(activeLine?.total||0)),km:kmLine,approval_state:'pending',approve_by:ymd(deadline)});
 
   }
@@ -7266,42 +7256,46 @@ route('PATCH', /^\/api\/bookings\/(\d+)$/, async (req, res, m, user, body) => {
       return json(res,200,{ok:true,approval_state:'approved',invoice_no:b.invoice_no||null,billing_status:b.invoice_no?'issued':'queued',duplicate:true});
     }
     if (status === 'approved') {
+      db.exec('BEGIN IMMEDIATE');
+      try {
       db.prepare("UPDATE bookings SET approval_state = 'approved', approved_at = ?, approved_by = ?, approval_source = ? WHERE id = ?")
         .run(now(), user.id, pers.self ? 'participant' : 'coordinator', b.id);
       logDelegate(pers, 'Approved a timesheet', `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}`, b.id);
-      const wu3 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
-      if (wu3) notify(wu3.id, 'timesheets', wu3.email, 'Timesheet approved — The Care Web',
-        `Approved, ${firstName(wu3.name)}`,
-        `<p><b>${escHtml(pers.name)}</b> has approved your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>.</p><p>It goes into the next pay run.</p>`,
-        'See my earnings', `${baseUrl(req)}/#/earnings`).catch(() => {});
+      BOOKING_NOTICES.queueShift(req,'approved',b.id).catch(e=>console.error('[shift-notice]',e.message));
       LAUNCH?.retainApprovalReview(b);
+        db.exec('COMMIT');
+      } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
       AUTO_BILLING?.wake(b.id);
       if(b.invoice_no)PAYMENT_FLOW?.resumeInvoice(b.invoice_no,user);
       return json(res,200,{ok:true,approval_state:'approved',invoice_no:b.invoice_no||null,billing_status:b.invoice_no?'issued':'queued'});
     }
     const q = clean(body.query_note, NOTE_MAX);
     if (q.length < 10) return json(res, 400, { error: 'Tell us what doesn\'t look right, in a sentence or two, so it can be sorted quickly.' });
+    if(b.approval_state==='queried'&&b.query_note===q&&b.query_by===user.id){
+      if(b.invoice_no)await PAYMENT_FLOW?.pauseInvoice(b.invoice_no,q,{user_id:user.id,booking_id:b.id});
+      return json(res,200,{ok:true,duplicate:true,approval_state:'queried',invoice_no:b.invoice_no||null,collection_status:b.invoice_no?'paused':'not-started'});
+    }
+    db.exec('BEGIN IMMEDIATE');
+    try {
     db.prepare("UPDATE bookings SET approval_state = 'queried', query_at = ?, query_note = ?, query_by = ? WHERE id = ?")
       .run(now(), q, user.id, b.id);
-    if(b.invoice_no){
-      // The hold is persisted before contacting a provider; cancellation may be
-      // unable to recall an in-flight transfer, which remains reconcilable.
-      try{await PAYMENT_FLOW?.pauseInvoice(b.invoice_no,q,{user_id:user.id,booking_id:b.id});}catch(e){console.error('[invoice-query]',e.message);INVOICE_FLOW.cancelLinks(b.invoice_no);INVOICE_FLOW.wake();}
-    }
     /* the bookings column still holds the open question because that is what
        the clock reads; the shift note holds the copy that survives the next
        one — asking twice used to overwrite the first question entirely */
     db.prepare(`INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, kind, author_id, created)
       VALUES (?,?,?,?,0,'',0,'question',?,?)`).run(b.id, b.worker_id, b.participant_id, q, user.id, now());
     logDelegate(pers, 'Queried a timesheet', `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)}: ${q.slice(0, 120)}`, b.id);
-    const wu4 = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.worker_id);
-    if (wu4) notify(wu4.id, 'timesheets', wu4.email, 'A question about your timesheet — The Care Web',
-      `A question about ${prettyDate(b.date)}`,
-      `<p><b>${escHtml(pers.name)}</b> has asked about your <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>:</p><blockquote style="border-left:3px solid #203566;padding-left:14px;margin:16px 0;color:#2B3A38;">${escHtml(q)}</blockquote><p>Answer it by adding to the shift note. Your original note stays exactly as you wrote it — your answer is added underneath, so both are on the record.</p>`,
-      'Answer on my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
+    BOOKING_NOTICES.queueShift(req,'queried',b.id).catch(e=>console.error('[shift-notice]',e.message));
     if (ADMIN_EMAILS.length) sendMail(ADMIN_EMAILS[0], 'Timesheet queried — The Care Web', 'A timesheet has been queried',
-      `<p><b>${escHtml(pers.name)}</b> queried booking #${b.id} (${escHtml(b.service)}, ${prettyDate(b.date)}, ${escHtml(wu4 ? wu4.name : '')}).</p><blockquote>${escHtml(q)}</blockquote>`,
-      'Open the invoice board', `${baseUrl(req)}/#/admin`).catch(() => {});
+      `<p><b>${escHtml(pers.name)}</b> queried booking #${b.id} (${escHtml(b.service)}, ${prettyDate(b.date)}).</p><p>A participant raised a question. Sign in to read the details.</p>`,
+      'Open the invoice board', `${baseUrl(req)}/#/admin?work=payments`,undefined,undefined,{event_key:`shift-query-office:${b.id}:${db.prepare('SELECT query_at FROM bookings WHERE id=?').get(b.id).query_at}`,kind:'timesheets',transactional:true,booking_id:b.id,event_kind:'shift-query-office'}).catch(() => {});
+      db.exec('COMMIT');
+    } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
+    if(b.invoice_no){
+      // The hold is persisted before contacting a provider; cancellation may be
+      // unable to recall an in-flight transfer, which remains reconcilable.
+      try{await PAYMENT_FLOW?.pauseInvoice(b.invoice_no,q,{user_id:user.id,booking_id:b.id});}catch(e){console.error('[invoice-query]',e.message);INVOICE_FLOW.cancelLinks(b.invoice_no);INVOICE_FLOW.wake();}
+    }
     return json(res,200,{ok:true,approval_state:'queried',invoice_no:b.invoice_no||null,collection_status:b.invoice_no?'paused':'not-started'});
   }
 
@@ -7370,6 +7364,7 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
       if (changedAssignment) noteOutOfArea(b.id, fits.get(b.id), 'participant',user); /* v88.1.3 (audit F08) */
       changed.push(b.id);
     }
+  BOOKING_NOTICES.queue(req,'changed',changed,{previousRows:movable,event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
     db.exec('COMMIT');
   } catch (e) {
     try { db.exec('ROLLBACK'); } catch {}
@@ -7381,7 +7376,6 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
     generationWarning='Your changes were saved. Future dates need another check; open the routine to retry.';
     try{CARE_ROUTINES.recordFailure(sr.id);}catch(recordError){console.error('[care-routine-issue]',recordError.message);}
   }
-  BOOKING_NOTICES.queue(req,'changed',changed,{previousRows:movable,event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
   logDelegate(pers, 'Changed a repeating booking', `${Object.keys(patch).join(', ')} on ${changed.length} shifts`, sr.id);
   json(res, 200, { ok: true, changed: changed.length, locked: locked.length, lock_hours: SERIES_LOCK_HOURS, ...(generationWarning?{generation_warning:generationWarning}:{}) });
 });
@@ -7416,10 +7410,10 @@ route('PATCH', /^\/api\/bookings\/(\d+)\/occurrence$/, (req, res, m, user, body)
   try {
     db.prepare("UPDATE bookings SET date = ?, start = ?, hours = ?, detached = 1, status = 'requested', accepted_at = NULL, office_ok = 0 WHERE id = ?").run(date,start,hours,b.id);
     noteOutOfArea(b.id,fit,'participant',user);
+  BOOKING_NOTICES.queue(req,'changed',[b.id],{previousRows:[b],event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
     db.exec('COMMIT');
   } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
   logDelegate(pers, 'Moved one shift', `${SERVICE_LABELS[b.service] || b.service} from ${dmy(b.date)} to ${dmy(date)}`, b.id);
-  BOOKING_NOTICES.queue(req,'changed',[b.id],{previousRows:[b],event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
   json(res, 200, { ok: true, detached: true });
 });
 
@@ -7463,12 +7457,12 @@ route('POST', /^\/api\/series\/(\d+)\/end$/, (req, res, m, user, body) => {
     if (charge) { applyInvoice(b.id, suggestCategory(b), true); charged++; }
   }
   db.prepare('UPDATE booking_series SET ended_at = ?, ended_by = ? WHERE id = ?').run(now(), user.name, sr.id);
+  BOOKING_NOTICES.queue(req,'ended',future,{event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
   db.exec('COMMIT');
   } catch (e) {
     try { db.exec('ROLLBACK'); } catch {}
     throw e;
   }
-  BOOKING_NOTICES.queue(req,'ended',future,{event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
   logDelegate(pers, 'Ended a repeating booking', `${future.length} future shifts cancelled`, sr.id);
   json(res, 200, { ok: true, cancelled: future.length, charged });
 });
@@ -7583,14 +7577,11 @@ route('POST', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user, body, ip) =
   const scopeDetail = clean(body.scope_detail, NOTE_MAX);
   const scopeBad = scopeProblem(scope, scopeDetail);
   if (scopeBad) return json(res, 400, { error: scopeBad });
-  const r = db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,1,?)')
+  let r, restarted = null;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+  r = db.prepare('INSERT INTO shift_notes (booking_id, worker_id, participant_id, body, scope_flag, scope_detail, addendum, created) VALUES (?,?,?,?,?,?,1,?)')
     .run(b.id, user.id, b.participant_id, note, scope, scopeDetail, now());
-  try { aiTriageNote(Number(r.lastInsertRowid)); } catch {}
-  if (scope) {
-    const pu = db.prepare('SELECT name FROM users WHERE id = ?').get(b.participant_id);
-    scopeAlert(req, b, user.name, pu ? pu.name : `participant #${b.participant_id}`, scopeDetail);
-  }
-
   /* 7d. answering a query restarts the approval clock.
      A query stops the clock — it has to, or asking a question would be a trap
      in which the shift gets approved while you wait for the answer. But then
@@ -7602,26 +7593,24 @@ route('POST', /^\/api\/bookings\/(\d+)\/notes$/, (req, res, m, user, body, ip) =
      window earns its own reminder.
      Only an answer to a query does this. An unprompted addendum on a pending
      timesheet must not, or a worker could reset somebody's window at will. */
-  let restarted = null;
   if (b.approval_state === 'queried') {
     const from = now();
     db.prepare("UPDATE bookings SET approval_state = 'pending', approval_from = ?, nudged_at = NULL WHERE id = ?").run(from, b.id);
     const deadline = ymd(new Date(Date.parse(from) + APPROVAL_DEEM_DAYS * 864e5));
     restarted = { approval_state: 'pending', approve_by: deadline };
-    const pq = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(b.participant_id);
-    const recips = pq ? [pq, ...coordsFor(b.participant_id, 'bookings')] : coordsFor(b.participant_id, 'bookings');
-    for (const p of recips) {
-      notify(p.id, 'timesheets', p.email, 'Your question has been answered — The Care Web',
-        `An answer about ${prettyDate(b.date)}`,
-        `<p><b>${escHtml(user.name)}</b> has answered your question about the <b>${SERVICE_LABELS[b.service] || escHtml(b.service)}</b> shift on <b>${prettyDate(b.date)}</b>.</p>
-         <blockquote style="border-left:3px solid #203566;padding-left:14px;margin:16px 0;color:#2B3A38;">${escHtml(note)}</blockquote>
-         <p>The original note is unchanged — this is added underneath it, so both are on the record.</p>
-         <p><b>You have until ${prettyDate(deadline)} to review the answer or ask something else.</b> ${b.invoice_no?'Collection remains paused until you explicitly approve the invoice.':'You have the full '+APPROVAL_DEEM_DAYS+' days to read this.'}</p>`,
-        'Read it and approve', `${baseUrl(req)}/#/bookings`).catch(() => {});
-    }
+    BOOKING_NOTICES.queueShift(req,'answered',b.id,{note_id:Number(r.lastInsertRowid)}).catch(e=>console.error('[shift-notice]',e.message));
     logAccess(b.participant_id, null, 'Approval clock restarted',
       `${SERVICE_LABELS[b.service] || b.service} on ${dmy(b.date)} — the worker answered the query, so the ${APPROVAL_DEEM_DAYS}-day window began again`, b.id);
   }
+  if(!restarted)BOOKING_NOTICES.queueShift(req,'note-added',b.id,{note_id:Number(r.lastInsertRowid)}).catch(e=>console.error('[shift-notice]',e.message));
+    db.exec('COMMIT');
+  } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
+  try { aiTriageNote(Number(r.lastInsertRowid)); } catch {}
+  if (scope) {
+    const pu = db.prepare('SELECT name FROM users WHERE id = ?').get(b.participant_id);
+    scopeAlert(req, b, user.name, pu ? pu.name : `participant #${b.participant_id}`, scopeDetail);
+  }
+
   json(res, 200, Object.assign({ ok: true, id: Number(r.lastInsertRowid) }, restarted || {}));
 });
 
@@ -12755,9 +12744,9 @@ function coverAccept(offerId, req, acceptingWorkerId, proof={}) {
     db.prepare("UPDATE cover_offers SET response='accepted',responded_at=? WHERE id=?").run(now(),o.id);
     closeSiblings(cv.id,o.id);
     booking=db.prepare('SELECT * FROM bookings WHERE id=?').get(b.id);
+    notifyCovered(req,booking,worker,allied);
     db.exec('COMMIT');
   }catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
-  try{notifyCovered(req,booking,worker,allied);}catch(e){console.warn('[cover] notification failed',e.message);}
   return result;
 }
 
@@ -12766,25 +12755,7 @@ function closeSiblings(coverId, keepOfferId) {
     .run(now(), coverId, keepOfferId);
 }
 function notifyCovered(req, b, w, allied) {
-  const pt = db.prepare('SELECT name, email FROM users WHERE id = ?').get(b.participant_id);
-  const svc = SERVICE_LABELS[b.service] || b.service;
-  if (pt) sendMail(pt.email, `Cover confirmed for ${prettyDate(b.date)} — The Care Web`,
-    `Sorted, ${firstName(pt.name)} 🎉`,
-    allied
-      ? `<p>Your <b>${escHtml(svc)}</b> shift on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b> will be delivered by a worker from <b>${escHtml(allied.name)}</b>, one of our partner providers.</p>
-         <p>We stay responsible for this support — same agreement, same standards, same complaints line. They'll confirm the worker's name with you before the day, and you can tell us any time if you'd rather wait for one of our own team instead.</p>`
-      : `<p><b>${escHtml(w ? w.name : 'A worker')}</b> is covering your <b>${escHtml(svc)}</b> shift on <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>.</p>
-         <p>Same time, same booking, same price. You can message them from your bookings page before the day.</p>
-         <p>If they were a good fit, add them to your care web — next time somebody can't make it, they'll be asked first.</p>`,
-    'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
-  if (w) {
-    const wu = db.prepare('SELECT email, name FROM users WHERE id = ?').get(b.worker_id);
-    if (wu) sendMail(wu.email, `Confirmed — you're covering ${prettyDate(b.date)} — The Care Web`,
-      `You're locked in, ${firstName(wu.name)}`,
-      `<p>Thanks for stepping in. <b>${escHtml(svc)}</b> with <b>${escHtml(pt ? pt.name : '')}</b>, <b>${prettyDate(b.date)}</b> at <b>${escHtml(b.start)}</b>, ${b.hours} hours.</p>
-       <p>It's in your bookings now and pays exactly like any other shift — covering someone doesn't pay less.</p>`,
-      'Open my bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
-  }
+  BOOKING_NOTICES.queue(req,allied?'covered':'accepted',[b.id],{includeWorker:!allied,alliedName:allied?.name||''}).catch(e=>console.error('[booking-notice]',e.message));
 }
 
 /* The clock. Expires stale offers, advances tiers, escalates to a human only
@@ -13387,8 +13358,8 @@ route('POST', /^\/api\/admin\/bookings\/(\d+)\/office-assign$/, (req, res, m, us
   logCompliance({ worker_id: workerId, worker_name: w.name, kind: 'platform-access', result: 'office-assigned',
     detail: `Booking #${b.id} (${b.date} ${b.start}) was in office review (shift had started); ${w.name} recorded onto it by the office. Exceptional assignment evidence: ${consent}. Plan evidence recorded as office-reported, not a worker click.`,
     source: 'safety hold', checked_by: user.name });
-  db.exec('COMMIT');}catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
   notifyCovered(req, db.prepare('SELECT * FROM bookings WHERE id = ?').get(b.id), w, null);
+  db.exec('COMMIT');}catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}
   json(res, 200, { ok: true, worker: w.name });
 });
 
@@ -13488,6 +13459,7 @@ route('POST', /^\/api\/admin\/series\/(\d+)\/approve$/, (req, res, m, user, body
     }
     db.prepare('UPDATE booking_series SET worker_id = ?, review_required = 0, participant_approved_at = ?, participant_approved_by = ? WHERE id = ?')
       .run(w.id, now(), who, sr.id);
+  if(ids.length)BOOKING_NOTICES.queue(req,'changed',ids,{previousRows:fit.occurrences.filter(b=>ids.includes(b.id)),event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
     db.exec('COMMIT');
   } catch (e) {
     try { db.exec('ROLLBACK'); } catch {}
@@ -13496,13 +13468,6 @@ route('POST', /^\/api\/admin\/series\/(\d+)\/approve$/, (req, res, m, user, body
   logCompliance({ worker_id: w.id, worker_name: w.name, kind: 'platform-access', result: 'series-reassigned',
     detail: `Series #${sr.id}: ${moved} upcoming shift(s) offered to ${w.name} as REQUESTED — they accept each one through their bookings. Participant-side agreement recorded from: ${who}. Detached one-offs untouched; one-off-covered occurrences kept their cover worker.`,
     source: 'series review', checked_by: user.name });
-  const pt = db.prepare('SELECT name, email FROM users WHERE id = ?').get(sr.participant_id);
-  if (pt) sendMail(pt.email, 'Your recurring booking has a new regular worker — The Care Web', 'Your recurring booking has moved',
-    `<p>Hi ${firstName(pt.name)},</p><p>As agreed, your recurring booking is moving to <b>${escHtml(w.name)}</b>. They'll confirm each upcoming shift from their side — you'll see each one tick over to confirmed on your bookings page, and we chase anything they don't answer. Nothing else about the arrangement has changed.</p>`,
-    'See your bookings', `${baseUrl(req)}/#/bookings`).catch(() => {});
-  sendMail(w.email, 'A recurring series has been offered to you — The Care Web', 'A regular arrangement, if you\'ll take it',
-    `<p>Hi ${firstName(w.name)},</p><p>With the participant's agreement, the office has moved a recurring arrangement to you — <b>${moved} upcoming shift${moved === 1 ? '' : 's'}</b>, now sitting as requests in your bookings. Accept each one you can take; tell the office straight away about any you can't.</p>`,
-    'See your shifts', `${baseUrl(req)}/#/bookings`).catch(() => {});
   json(res, 200, { ok: true, moved, worker: w.name });
 });
 
@@ -16659,8 +16624,6 @@ route('POST', /^\/api\/me\/password$/, (req, res, m, user, body, ip) => {
    up with timesheets that sit pending forever and the product looks broken —
    but nothing is emailed to a demo address. */
 function approvalSweep(req) {
-  const base = req ? baseUrl(req) : APP_URL || 'https://thecareweb.com.au';
-  const real = e => e && !String(e).endsWith('@demo.bookit.life');
   const out = [];
   const rows = db.prepare(`SELECT b.*, p.name AS p_name, p.email AS p_email, p.id AS p_id,
       w.name AS w_name, w.email AS w_email, w.id AS w_id
@@ -16675,49 +16638,30 @@ function approvalSweep(req) {
 
     /* ---- deemed ---- */
     if (days >= APPROVAL_DEEM_DAYS) {
+      db.exec('BEGIN IMMEDIATE');
+      try {
       db.prepare("UPDATE bookings SET approval_state = 'approved', approved_at = ?, approved_by = 0, approval_source = 'deemed' WHERE id = ?")
         .run(now(), b.id);
       logAccess(b.participant_id, null, 'Timesheet approved automatically',
         `${label} on ${dmy(b.date)} — ${APPROVAL_DEEM_DAYS} days passed with no approval and no question, so it was approved under the published rule`, b.id);
-      if (real(b.w_email)) notify(b.w_id, 'timesheets', b.w_email, 'Timesheet approved — The Care Web',
-        `Approved, ${firstName(b.w_name)}`,
-        `<p>Your <b>${escHtml(label)}</b> shift on <b>${prettyDate(b.date)}</b> has been approved automatically.</p>
-         <p>${escHtml(b.p_name)} had ${APPROVAL_DEEM_DAYS} days to look at it and did not raise anything, so it goes into the next pay run rather than waiting.</p>`,
-        'See my earnings', `${base}/#/earnings`).catch(() => {});
-      if (real(b.p_email)) notify(b.p_id, 'timesheets', b.p_email, 'Timesheet approved automatically — The Care Web',
-        `About the shift on ${prettyDate(b.date)}`,
-        `<p>The <b>${escHtml(label)}</b> shift with <b>${escHtml(b.w_name)}</b> on <b>${prettyDate(b.date)}</b> has been approved automatically, ${APPROVAL_DEEM_DAYS} days after it was completed.</p>
-         <p>We are telling you because it happened without you doing anything, and you should never find that out from a statement.</p>
-         <p><b>This does not close anything off.</b> Approving was never the same as agreeing the shift was perfect — if something about it wasn't right, ring us on 0488 114 368 or reply to this email and we will sort it out, today or in three weeks.</p>`,
-        'See the shift and its note', `${base}/#/bookings`).catch(() => {});
-      LAUNCH?.retainApprovalReview(b);AUTO_BILLING?.wake(b.id);
+      BOOKING_NOTICES.queueShift(req,'deemed',b.id).catch(e=>console.error('[shift-notice]',e.message));
+      LAUNCH?.retainApprovalReview(b);
+      db.exec('COMMIT');
+      } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
+      AUTO_BILLING?.wake(b.id);
       out.push({ booking: b.id, action: 'deemed', days });
       continue;
     }
 
     /* ---- nudged ---- */
     if (days >= APPROVAL_NUDGE_DAYS && !b.nudged_at) {
+      db.exec('BEGIN IMMEDIATE');
+      try {
       db.prepare('UPDATE bookings SET nudged_at = ? WHERE id = ?').run(now(), b.id);
-      const left = Math.max(0, APPROVAL_DEEM_DAYS - days);
-      const deadline = ymd(new Date(approvalFrom(b) + APPROVAL_DEEM_DAYS * 864e5));
-      const body = `<p><b>${escHtml(b.w_name)}</b>'s <b>${escHtml(label)}</b> shift on <b>${prettyDate(b.date)}</b> is waiting to be approved.</p>
-         <p>It takes one tap, and there is a shift note to read first if you'd like.</p>
-         <p><b>${left === 0 ? 'It will be approved automatically today' : left === 1 ? 'One day left' : `${left} days left`}</b> — after ${prettyDate(deadline)} it is approved automatically so ${firstName(b.w_name)} is paid on time. If something doesn't look right, use <b>Ask a question</b> instead and the clock stops until it's answered.</p>`;
-      const people = [];
-      if (real(b.p_email)) people.push({ id: b.p_id, name: b.p_name, email: b.p_email, who: 'participant' });
-      for (const c of coordsFor(b.participant_id, 'bookings')) {
-        if (real(c.email)) people.push({ id: c.id, name: c.name, email: c.email, who: 'coordinator' });
-      }
-      const recipients=WORKFLOW?WORKFLOW.approvalRecipients(b.participant_id,people):people;
-      for (const p of recipients) {
-        notify(p.id, 'timesheets', p.email, 'A timesheet is waiting for you — The Care Web',
-          `Hi ${firstName(p.name)}`,
-          p.who === 'coordinator'
-            ? `<p>This is about <b>${escHtml(b.p_name)}</b>'s account, which you hold bookings access on.</p>` + body
-            : body,
-          'Review the timesheet', `${base}/#/journey?panel=shift&booking=${b.id}&for=${b.participant_id}`,undefined,undefined,{requires_approval:true,booking_id:b.id,participant_id:b.participant_id}).catch(() => {});
-      }
-      out.push({ booking: b.id, action: 'nudged', days, told: people.length });
+      BOOKING_NOTICES.queueShift(req,'reminder',b.id).catch(e=>console.error('[shift-notice]',e.message));
+      db.exec('COMMIT');
+      } catch(e) {try{db.exec('ROLLBACK');}catch{}throw e;}
+      out.push({ booking: b.id, action: 'nudged', days, told: BOOKING_NOTICES.shiftRecipients(b,true).length });
     }
   }
   return out;
@@ -19547,7 +19491,7 @@ SERVICE_LOCATIONS=require('./lib/service-locations')({...processContext,now,send
   afterLocationChange:(b,location,user,review)=>{if(review?.preserve_travel)db.prepare('UPDATE bookings SET out_of_area=? WHERE id=?').run(b.out_of_area||'',b.id);else noteOutOfArea(b.id,review?.fit,user.admin?'office':'participant',user);}
 },WORKFLOW);
 processContext.bookingUpdates=require('./lib/booking-updates')({...processContext,now});
-BOOKING_NOTICES=require('./lib/booking-notifications')({...processContext,prettyDate,serviceLabels:SERVICE_LABELS,blockedPair});
+BOOKING_NOTICES=require('./lib/booking-notifications')({...processContext,prettyDate,serviceLabels:SERVICE_LABELS,blockedPair,approvalDays:APPROVAL_DEEM_DAYS,approvalRecipients:(pid,people)=>WORKFLOW.approvalRecipients(pid,people)});
 WORKFLOW.deliveryHooks.booking=BOOKING_NOTICES.suppress;
 processContext.bookingNotices=BOOKING_NOTICES;
 WORKFLOW.locationTasks=uid=>{

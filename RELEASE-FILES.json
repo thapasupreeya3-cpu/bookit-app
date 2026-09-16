@@ -1,12 +1,13 @@
 {
-  "release": "88.4.19",
+  "release": "88.4.20",
   "base_releases": [
     "88.4.17",
-    "88.4.18"
+    "88.4.18",
+    "88.4.19"
   ],
   "base_commit": "b160e9ccbb4309a34c1ab8e52eacc474a64f51aa",
   "format": "full-source",
-  "note": "Complete installed source manifest after merging the compact calendar update-only ZIP over supplied v88.4.17 or the earlier calendar update. No live deployment performed.",
+  "note": "Complete installed source manifest after merging the cumulative booking email update-only ZIP over supplied v88.4.17 or either earlier calendar update. No live deployment performed.",
   "files": {
     ".env.example": {
       "sha256": "f197d112b47170f0a6cabb3f763c8cda6df4c58c59ed572de6d192760aeabb4d",
@@ -25,12 +26,12 @@
       "bytes": 8
     },
     "STARTHERE.txt": {
-      "sha256": "6df4222c6c00c52eef90292d96cd6db83bfcb65dbdeb24ab946d615e77c61a4d",
-      "bytes": 16141
+      "sha256": "85fb0d03f074d91aa83a536b6a5d6be168fb144cadc42b0e929309968d79138d",
+      "bytes": 16543
     },
     "UPDATE-INSTRUCTIONS.txt": {
-      "sha256": "a6e4b10d146ab648af50270fa79765a15e99ff70465e8fab6ad1397f5fba00d1",
-      "bytes": 1988
+      "sha256": "3743ca6c67ce67ca66155c0e809ac00baf4b6a2e1fb28092f80e9a0bb5d2b6c3",
+      "bytes": 2486
     },
     "assets/admin-verification.css": {
       "sha256": "cd0eff8ce0e6c3e2b2f0ae4dca2276fa2aa677e577db37ee983c581bad6591da",
@@ -524,6 +525,10 @@
       "sha256": "1e04a6df84306543dee94cc450968e0b321cadf85ad7ea3ba812039f96a0b0ff",
       "bytes": 27003
     },
+    "docs/BOOKING-EMAIL-FLOW-v88.4.20.md": {
+      "sha256": "a6901723afa32b507fda249b3e54cd78f36b3b8a765a3371985d492c09786bbf",
+      "bytes": 5925
+    },
     "docs/CHANGELOG-v88.2.10.md": {
       "sha256": "ef90f19fe11541c9d67ed440acd3d6ed7ab9358583442995669b12c219532c4a",
       "bytes": 3590
@@ -628,6 +633,10 @@
       "sha256": "99f2d014349b61493a2585e7cb5c66386d7a848deca25a981bd833f5d768a05e",
       "bytes": 3311
     },
+    "docs/CHANGELOG-v88.4.20.md": {
+      "sha256": "21fff2a40c8894272862145fb85c3c15e01f04fe07272535fc44b246e1f9f4a0",
+      "bytes": 1891
+    },
     "docs/CHANGELOG-v88.4.3.md": {
       "sha256": "9ecbe2c2ab70daa95e85cd76b8af67e1717a0581ce99978b159a51f450a5a339",
       "bytes": 3054
@@ -697,8 +706,8 @@
       "bytes": 55787
     },
     "docs/RELEASE-NOTES.md": {
-      "sha256": "a80075cdf958a9be1ae0635ed707084d726f8e1d937acc73c032a899ea17b677",
-      "bytes": 14631
+      "sha256": "05817e4f2a3d0d431ceb3c914fd2f774dd431222ed79945a5769d82220ab9f6d",
+      "bytes": 15257
     },
     "docs/RESEARCH-PILOTS.md": {
       "sha256": "50b17a660ab2f6db75437a8850114a5318bc9d3b7c536cefed23861b0e6e42cf",
@@ -713,12 +722,12 @@
       "bytes": 1084
     },
     "docs/TEST-RESULTS.md": {
-      "sha256": "008acdf57903563429a7ba3f7df98488e7664217ca4631142a2f4ab44787bae1",
-      "bytes": 6093
+      "sha256": "8e79e5bb007914378892984242e88217423aaa11aada4bd03093202014d602c3",
+      "bytes": 9200
     },
     "docs/USER-GUIDE.html": {
-      "sha256": "72f754192f5e50fc0114fe038a64ebc28240ef05d3194f20e6058bc37fcd876d",
-      "bytes": 562383
+      "sha256": "a71fe60ad2569c8eaaf4b3f832f5b72f4bed8d612dc778b6131f6966d26d13a3",
+      "bytes": 568320
     },
     "docs/WORKFLOW-OPERATIONS.md": {
       "sha256": "6d56747006ab86cd85ac36ddb810c4c24bfb2500901108b3bc2ec19866cd5ef3",
@@ -733,7 +742,7 @@
       "bytes": 234470
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "9ef78d0086045c738b71e274b89cd087f95854febe40dfa926170c886a065bc4",
+      "sha256": "5bc6c42c36409d64e8e530e78eaabf0f48958c9aaaa8f6b0ad1ab6ec9a6db47b",
       "bytes": 15915
     },
     "docs/block-register/branches.csv": {
@@ -765,7 +774,7 @@
       "bytes": 60611
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "14b52125265548d34677f9a98338afc0f5abf7d28b814ed5cacd10232398a959",
+      "sha256": "9a2c011bb16d22adff27be483f62c699683a580ec4c424e70f705755db6d6728",
       "bytes": 30310
     },
     "docs/dependency-provenance.json": {
@@ -873,8 +882,8 @@
       "bytes": 26519
     },
     "docs/release-metadata.json": {
-      "sha256": "d3e1ecbda13528eebeebbeda56cf3dd1d1cb064a929ca0c4c94bad0b0ac97fe4",
-      "bytes": 634
+      "sha256": "3dae5b7f5e1c7ac84dbe825dfa9af0ff6ab117b31bfe6b4b3c5dac9ca89ee60e",
+      "bytes": 680
     },
     "docs/task-clarity-preview.html": {
       "sha256": "44cdbe9cd9805da7c210ad1bf6bcc54bc58301f6a9853276e8d3051e6f86b815",
@@ -977,8 +986,8 @@
       "bytes": 4643
     },
     "lib/booking-notifications.js": {
-      "sha256": "4e34e91de8f412d6050965247b1c130faef379d37525a26126860b476d657371",
-      "bytes": 8020
+      "sha256": "49e11abaacdf16519cf24ebc5caa3e2fb66cc0d551f203c7296913b693146a6c",
+      "bytes": 16422
     },
     "lib/booking-pricing-policy.js": {
       "sha256": "9acea7d700891d83351b9786d49b286b1e8ed820d82ed7a2c0f5d7619a607afa",
@@ -1025,8 +1034,8 @@
       "bytes": 9341
     },
     "lib/invoice-link-mail.js": {
-      "sha256": "c2f1a1e6e498f7a590f2bc44e0a9450735c3b3346deadd2be642c0358c1efd7a",
-      "bytes": 3774
+      "sha256": "e5c75bb00c0743e9dad35661a1ee8b1745defc87b67557b4d83a865a8675b5f2",
+      "bytes": 4384
     },
     "lib/invoice-queries.js": {
       "sha256": "ca5fe2a12258e8e6ee8e0a72f3c3497f7e8e974a6b8de90dceb1b5ee7c3571e1",
@@ -1049,12 +1058,12 @@
       "bytes": 1213
     },
     "lib/payment-automation.js": {
-      "sha256": "ba6b3768896d3f30373c5ce88336e0cca44e5200f453880575cb23f85b975f5d",
-      "bytes": 51512
+      "sha256": "cead7616c01c9b841f80814307dde8a4348a5c88236ec097461aadac461396e3",
+      "bytes": 53987
     },
     "lib/payroll-notifications.js": {
-      "sha256": "458c4c81b153f9e38e13f4f6c82fd0178d61c6b06f34c8fde8d3e46ddfb6b81f",
-      "bytes": 9873
+      "sha256": "1735f1a7e06f34d12623ce0d9e4632a5ca23964193e520c7461cc893f0188155",
+      "bytes": 9892
     },
     "lib/plan-access.js": {
       "sha256": "55e9bc8ee3feaa1072d8fe2ae34153dfbc951ef46bd9fe42c13b978ddb287352",
@@ -1077,8 +1086,8 @@
       "bytes": 31289
     },
     "lib/process-store.js": {
-      "sha256": "dffbc77343288728ab16f9073539611f52f0a2991671296fbe37ec4068d33b18",
-      "bytes": 36703
+      "sha256": "8522c757abf36135dcfea3468258ef5f7bd3602aa5227dee2895d925dbc96936",
+      "bytes": 39178
     },
     "lib/public-holidays-nsw.json": {
       "sha256": "47c55277bfd6c5cfb1f193b14744bdf69d95fee78c1a73fdbc14ef01a1213bb8",
@@ -1141,12 +1150,12 @@
       "bytes": 418
     },
     "package-lock.json": {
-      "sha256": "3df4276d38da2543f05ba628ba42e85ac9062ac185a33b6b74f16a4ff424f53a",
+      "sha256": "eac2d59d34114eede9506f853740af6cd1ce85e29981f5131672735571ec2749",
       "bytes": 286
     },
     "package.json": {
-      "sha256": "14a81644f262d995b76aeef70fd3bb2679032e6d96eb011cf7587f7aa4c6dc99",
-      "bytes": 5722
+      "sha256": "2804371d8f9c5023e519cbf98696781c6c70911adbebccca16d54593751b3403",
+      "bytes": 5884
     },
     "prefill-walkthrough.js": {
       "sha256": "8cdc0cba5675f33b4ccefc4cdebf896c8933b68ac2fedea86ea13a5f3115235b",
@@ -1501,8 +1510,8 @@
       "bytes": 26077
     },
     "public/assets/navigation-position.js": {
-      "sha256": "6fe12844d9e2b8c6a8a5606ad9ded7452db3fcd0ee4fa36e49166ee48a226a82",
-      "bytes": 6422
+      "sha256": "6f4395e3b0f1915172a169fda6074b1e7385c25102bb6328bb78bcd4a899fda2",
+      "bytes": 6493
     },
     "public/assets/next-actions.css": {
       "sha256": "495abf8f3629ebcfeee591500f1b4aea772ad6ba87467029bec9be2b9077f3bf",
@@ -1717,8 +1726,8 @@
       "bytes": 5458
     },
     "public/assets/process-workflows.js": {
-      "sha256": "b62046d79cf5dae77c1474b7d927553ff1a3df578ada5ef13ed0358b2e887182",
-      "bytes": 73883
+      "sha256": "7d00bca1c9740044e4f347d365fd71a6b2d9c56c8eafa2cdb2d70e78832b8cce",
+      "bytes": 74507
     },
     "public/assets/referral-progress.css": {
       "sha256": "f21dcfd3ac60afc6fa0fc5c33bcc8d692b326a0563a4fe629521bbd37f41a8db",
@@ -1885,8 +1894,8 @@
       "bytes": 2383
     },
     "public/index.html": {
-      "sha256": "5232831cf92a9ec0c92247382e39e3f57f092b8a9594e579dce68c07bd972a6a",
-      "bytes": 1102155
+      "sha256": "6507b7d491330c98ae388ee53e7a12243c493e0b248f0f33338db02d141a9d62",
+      "bytes": 1102157
     },
     "public/vendor/care-cast.js": {
       "sha256": "6461468f0755d4797be60b29095744fdd701de092ae8f7f5fc1ee60149aa9a37",
@@ -2057,8 +2066,8 @@
       "bytes": 338836
     },
     "readme.txt": {
-      "sha256": "d2cc558d15469eda1e2bb927bd8b894dc4febb248080aa059b97a0835de94ca6",
-      "bytes": 1054
+      "sha256": "4ff12eaa4d6d179b6d90919f79cee63d7b064f7b450c7b2190937062d9b9e171",
+      "bytes": 1059
     },
     "scripts/NDIS_plan__sample_for_walkthrough.pdf": {
       "sha256": "8ef1ce7de6bc4247997252664267635ee011b51362f57699bbcb0e688dd55e82",
@@ -2097,8 +2106,8 @@
       "bytes": 10456
     },
     "scripts/release-docs.js": {
-      "sha256": "29ac9304b0d3b7bf2de55d2970448025637ff571a4a2e89bcdf11e7565180a24",
-      "bytes": 18664
+      "sha256": "668b5adc63b1748cf0146a37e72f456fe241d76485959b24fef8a18f8c76d3e6",
+      "bytes": 19066
     },
     "scripts/reset-test-agreements.js": {
       "sha256": "1b9b724eb295c8b652d80b07471a53487794ffef80da699dc8122d1ffcdf663f",
@@ -2121,8 +2130,8 @@
       "bytes": 940
     },
     "server.js": {
-      "sha256": "e066de8f3a437ab5836460563984c326983729b10af0ed55b8599441757c4d81",
-      "bytes": 1422417
+      "sha256": "4e61252b9bce1248d7038b579dd68deeee7cde27aed118c259ab57703b60e7bc",
+      "bytes": 1414053
     },
     "tests/account-email-tests.js": {
       "sha256": "7d0d8c391041b76aab142fa8d85914f1760618e5f0e2c50349a8ef0a9b71ed0b",
@@ -2189,20 +2198,20 @@
       "bytes": 17397
     },
     "tests/booking-notification-http-tests.js": {
-      "sha256": "326a4ddad6aae649e20995a0f61723fb567dc31a484a51a1e66554bc279251c1",
-      "bytes": 16584
+      "sha256": "4821312087664e5a3b50d882234b60fcd86f73e488ed676effd49ba4709bf76f",
+      "bytes": 26133
     },
     "tests/booking-notification-tests.js": {
-      "sha256": "54a74fd2d91d0c738b5fd1fa67a2e8d6e044af146c518cee77269a3365b8e875",
-      "bytes": 11002
+      "sha256": "73a145e52ce271da1b6da3b55bbd16496ae67ac6fe38ee074f86aef19b22d579",
+      "bytes": 18772
     },
     "tests/booking-pricing-ui-tests.js": {
       "sha256": "aedbd52ac44c2691fc6c1563e222aa2904b82c16907f1ede1c4cbdd52c77c5c5",
       "bytes": 32836
     },
     "tests/booking-updates-tests.js": {
-      "sha256": "97508dec319eac9b8063143e4e5298d1a1ae14575541b1b42f89de861c3ce0e7",
-      "bytes": 11132
+      "sha256": "d05e24c47c459fa5c179a76214be49681a2144956e38dd0b74f055a2b8d9e1a3",
+      "bytes": 11236
     },
     "tests/booking-updates-ui-tests.js": {
       "sha256": "edab0f371e827639134ec102cc4f276d95286c116b8cbcc11e619d90c9977765",
@@ -2228,9 +2237,17 @@
       "sha256": "ce1965a4d3405d612d61be903c4587baf9237359266129de6dd29781f62e0c49",
       "bytes": 15679
     },
+    "tests/delivery-outbox-tests.js": {
+      "sha256": "da40a008ab19de3be06ab12a6b21da0b275c43d57c8d8e2c616d1feb1f68b96e",
+      "bytes": 11562
+    },
     "tests/email-diagnostics-tests.js": {
       "sha256": "d0d39aaa3cc16544effe4093eff7d1a69eef0498ccfabb6ea175d22ac381d9a6",
       "bytes": 16493
+    },
+    "tests/email-transport-tests.js": {
+      "sha256": "eb64a3d03bb71c9518a57357a7abcdaf6bf8d5968f5522ca171523c2752d0fbc",
+      "bytes": 7755
     },
     "tests/evening-pricing-flow-tests.js": {
       "sha256": "704c7a0c829a8288a5a98b929ebb01068d5e5b1b0e02708c04e710532b54d991",
@@ -2249,16 +2266,16 @@
       "bytes": 5607
     },
     "tests/immediate-invoice-tests.js": {
-      "sha256": "83707edd7a8c8aab8cdd00981696e886d31d360d3ec1ec5cfa2fbfff5e183206",
-      "bytes": 16470
+      "sha256": "9038decddbf04506de93b19e5ee830e158e6531f92f8f6fa459b811416371718",
+      "bytes": 16495
     },
     "tests/invoice-lifecycle-tests.js": {
       "sha256": "1577259d291c7f19d16fcd0515fa603595eae33af43f3d7c9a35099fffe849d0",
       "bytes": 15704
     },
     "tests/invoice-link-mail-tests.js": {
-      "sha256": "f7076c4cc039dc41dcaad616a1a9440eb873a701fafe286f1887ca1eef832764",
-      "bytes": 11895
+      "sha256": "c847e9ae545da2a54b1185b842d6b78f53328fe354554c151c0197c870a0a055",
+      "bytes": 12520
     },
     "tests/invoice-query-tests.js": {
       "sha256": "bf7c79fb05748618738b6b643f8746b606f6685bdefe6828777ea0cb4f1c0566",
@@ -2277,8 +2294,8 @@
       "bytes": 23227
     },
     "tests/navigation-position-tests.js": {
-      "sha256": "392d87b89f4174bf56571ef796adf4eac966795367209b7a6fb7ce7536ba9517",
-      "bytes": 12350
+      "sha256": "967ea0feb7058fd54dbd1bd7ca537f24ff32752670ba0f27696fac84b1081b96",
+      "bytes": 14437
     },
     "tests/navigation-tests.js": {
       "sha256": "0e57174ead90449804ae6962753b42e96bea4fa1e9ab418c73f7ed7c2d335ded",
@@ -2309,8 +2326,8 @@
       "bytes": 24874
     },
     "tests/payment-automation-tests.js": {
-      "sha256": "186f95371c66459a1decfa73bda12c77326da708386fcdd31373d11ac64707e7",
-      "bytes": 42499
+      "sha256": "3091811b7ec4622fd3d6f64fc0371fb2bd8e509e6ccdb21ede5543ad113c4708",
+      "bytes": 46316
     },
     "tests/payment-http-tests.js": {
       "sha256": "30d311d574f677a8e79f6af71c071d2f766cf894d5f53164e61af506873601c2",
@@ -2325,8 +2342,8 @@
       "bytes": 13039
     },
     "tests/payroll-notifications-tests.js": {
-      "sha256": "93a1fbf5b81f65617eab4c90016091585c61a9c64fe19b24608e7e2e5458a3c3",
-      "bytes": 8773
+      "sha256": "8390c134e61cc9b767e6c9f32bef3c6ff6be1ee820c490746a071f8a7ac5d1d9",
+      "bytes": 8803
     },
     "tests/payroll-recovery-tests.js": {
       "sha256": "930ba9cc3ea78e8b6b465a152f6a55fcb733b7e8dbf9ea2e0f9fc2717b92fe2f",
@@ -2379,6 +2396,10 @@
     "tests/service-locations-ui-tests.js": {
       "sha256": "7cc6647ae01d52b829e80a9dc4e93dfc7cd985132e97b762bd60f883a8be42c9",
       "bytes": 16800
+    },
+    "tests/shift-workspace-ui-tests.js": {
+      "sha256": "745c57dd58ab19b060e1ce0acd267024736de7e13dd340cb72ca1d4e3f14d0cc",
+      "bytes": 8461
     },
     "tests/sleepover-pricing-tests.js": {
       "sha256": "59b9149c4abc3a01ec274d680a32733bf0ccbdceae0e33179ffce44c298f6030",

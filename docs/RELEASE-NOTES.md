@@ -1,4 +1,16 @@
-# Current release: v88.4.3
+# Current release: v88.4.20
+
+Booking-to-payment email fixes, durable timesheet/payroll retries and a shift-note
+editor directly below the visit summary. The guide now explains the notification
+flow and the revised Next actions workspace. Includes the compact calendar popup
+and ongoing recurrence updates. See [CHANGELOG-v88.4.20.md](CHANGELOG-v88.4.20.md),
+[BOOKING-EMAIL-FLOW-v88.4.20.md](BOOKING-EMAIL-FLOW-v88.4.20.md) and
+[TEST-RESULTS.md](TEST-RESULTS.md).
+
+Merge the update-only ZIP into the existing repository root. No live deployment,
+customer email transmission or actual payment was performed for this review.
+
+# Historical release: v88.4.3
 
 Invoice-link payments through Stripe card and optional PayTo. New Zai account setup and ordinary bank-transfer instructions are removed. Historical payment evidence remains, and queued invoice mail is updated before delivery. See [CHANGELOG-v88.4.3.md](CHANGELOG-v88.4.3.md), [PAYMENT-SETUP-v88.4.0.md](PAYMENT-SETUP-v88.4.0.md) and [TEST-RESULTS.md](TEST-RESULTS.md).
 

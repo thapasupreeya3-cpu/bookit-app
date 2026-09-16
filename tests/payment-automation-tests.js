@@ -148,6 +148,47 @@ await test('Stale unpaid checkout snapshot cannot undo a later failed payment',a
   const f=fixture();f.seed();f.attempt();f.api.recordStripePayment(f.stripe('checkout.session.async_payment_failed',{}, {created:200}));f.api.recordStripePayment(f.stripe('checkout.session.completed',{payment_status:'unpaid'},{created:100}));
   assert.equal(f.db.prepare('SELECT state FROM payment_attempts').get().state,'failed');
 });
+await test('Related session and intent failure events send one failure notice for the same payment attempt',()=>{
+  const f=fixture();f.seed();f.attempt();
+  const session=f.stripe('checkout.session.async_payment_failed');
+  f.api.recordStripePayment(session);f.api.recordStripePayment(f.stripe('payment_intent.payment_failed'));f.api.recordStripePayment(session);
+  const mail=f.sent.filter(x=>x[8].payment_failure);assert.equal(mail.length,1);assert.equal(mail[0][0],'payer1@example.test');assert.equal(mail[0][8].payment_failure_attempt,'attempt-1');
+  assert.equal(f.w.paymentDeliveryInvalid('INV-1',mail[0][8]),false);assert.equal(f.getInvoice('INV-1').paid,0);assert.equal(f.api.state('INV-1').approved,true);
+});
+await test('Expired and deliberately cancelled checkout links do not email a false payment failure',()=>{
+  for(const type of ['checkout.session.expired','payment_intent.canceled']){
+    const f=fixture();f.seed();f.attempt();f.api.recordStripePayment(f.stripe(type));assert.equal(f.sent.filter(x=>x[8].payment_reminder).length,0);
+  }
+  const f=fixture();f.seed();f.attempt('INV-1','cancelled');f.api.recordStripePayment(f.stripe('payment_intent.payment_failed'));assert.equal(f.sent.length,0);
+});
+await test('Queued failure notices become stale when another payment attempt starts or payment arrives',async()=>{
+  const f=fixture();f.seed();f.attempt();f.api.recordStripePayment(f.stripe('checkout.session.async_payment_failed'));
+  const metadata=f.sent.find(x=>x[8].payment_failure)[8];f.advance(1);f.attempt('INV-1','ready','attempt-2','cs_new','pi_new');
+  assert.equal(f.w.paymentDeliveryInvalid('INV-1',metadata),true);
+  f.api.recordStripePayment(f.stripe('payment_intent.payment_failed'));assert.equal(f.sent.filter(x=>x[8].payment_failure).length,1);
+  f.api.recordStripePayment(f.stripe('checkout.session.completed',{id:'cs_new',payment_intent:'pi_new'}));
+  assert.equal(f.w.paymentDeliveryInvalid('INV-1',metadata),true);assert.equal(f.getInvoice('INV-1').balance,0);
+});
+await test('Queued payment reminders stop while a payment processes or shift approval is reopened',()=>{
+  const f=fixture();f.seed();assert.equal(f.w.paymentDeliveryInvalid('INV-1'),false);f.attempt('INV-1','processing');
+  assert.equal(f.w.paymentDeliveryInvalid('INV-1'),true);f.db.exec("UPDATE payment_attempts SET state='failed';UPDATE bookings SET approval_state='pending'");
+  assert.equal(f.w.paymentDeliveryInvalid('INV-1'),true);
+});
+await test('Pre-update failure notices recover their attempt and stop after a replacement checkout is ready',()=>{
+  for(const type of ['checkout.session.async_payment_failed','payment_intent.payment_failed']){
+    const f=fixture();f.seed();f.attempt();const event=f.stripe(type);f.api.recordStripePayment(event);
+    const legacy={payment_reminder:true,invoice_no:'INV-1',event_key:'payment-failed:'+event.id};
+    const prepared={...legacy,event_key:legacy.event_key+':invoice-link-v1',invoice_link_source_event_key:legacy.event_key};
+    assert.equal(f.w.paymentDeliveryInvalid('INV-1',legacy),false);assert.equal(f.w.paymentDeliveryInvalid('INV-1',prepared),false);
+    f.advance(1);f.attempt('INV-1','ready','attempt-new','cs_new','pi_new');
+    assert.equal(f.w.paymentDeliveryInvalid('INV-1',legacy),true);assert.equal(f.w.paymentDeliveryInvalid('INV-1',prepared),true);
+  }
+});
+await test('Retained old expiry and unverifiable failure emails do not become new payment demands',()=>{
+  const f=fixture();f.seed();f.attempt();const event=f.stripe('checkout.session.expired');f.api.recordStripePayment(event);
+  assert.equal(f.w.paymentDeliveryInvalid('INV-1',{payment_reminder:true,event_key:'payment-failed:'+event.id}),true);
+  assert.equal(f.w.paymentDeliveryInvalid('INV-1',{payment_reminder:true,event_key:'payment-failed:missing-old-event'}),true);
+});
 await test('Wrong currency or checkout amount cannot credit an invoice',()=>{
   const f=fixture();f.seed();f.attempt();f.api.recordStripePayment(f.stripe('checkout.session.completed',{currency:'usd'}));f.api.recordStripePayment(f.stripe('checkout.session.completed',{amount_total:31063}));assert.equal(f.getInvoice('INV-1').paid,0);
 });

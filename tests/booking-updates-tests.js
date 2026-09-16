@@ -46,7 +46,9 @@ async function test(name,fn) {const f=fixture();try{await fn(f);passed++;console
 (async()=>{
   await test('Accepted updates appear independently of a participant email address',async f=>{
     f.db.exec("UPDATE users SET email='' WHERE id=1; UPDATE bookings SET status='accepted',accepted_at='2030-09-01T09:00:00.000Z' WHERE id=11");
-    await f.notices.queue({},'accepted',[11]);assert.equal(f.sent.length,0);
+    await f.notices.queue({},'accepted',[11]);
+    // The participant's missing email must not silence their authorised helper.
+    assert.deepEqual(f.sent.map(args=>args[0]),[3]);
     const r=f.api('GET',1);assert.equal(r.status,200);assert.equal(r.data.count,1);assert.equal(r.data.updates[0].destination,'#/journey?panel=shift&booking=11');
     assert.doesNotMatch(JSON.stringify(r.data),/PRIVATE STREET|PRIVATE CARE NOTE|example.test/);
   });

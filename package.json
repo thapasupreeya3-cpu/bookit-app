@@ -1,6 +1,6 @@
 {
   "name": "bookit-site-v65",
-  "version": "88.4.19",
+  "version": "88.4.20",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -30,12 +30,12 @@
     "test:admin": "node --no-warnings tests/admin-workspace-tests.js && node --no-warnings tests/admin-payment-workspace-tests.js && node --no-warnings tests/admin-workflow-ui-tests.js && node --no-warnings tests/admin-specialist-ui-tests.js && node --no-warnings tests/admin-task-links-tests.js",
     "test:launch-clarity": "node --no-warnings tests/launch-clarity-tests.js",
     "test:overnight": "node --no-warnings tests/sleepover-pricing-tests.js && node --no-warnings tests/booking-pricing-ui-tests.js && node --no-warnings tests/sleepover-support-ui-tests.js && node --no-warnings tests/overnight-flow-tests.js",
-    "test:email": "node --no-warnings tests/booking-notification-tests.js && node --no-warnings tests/booking-notification-http-tests.js && node --no-warnings tests/email-diagnostics-tests.js",
+    "test:email": "node --no-warnings tests/booking-notification-tests.js && node --no-warnings tests/booking-notification-http-tests.js && node --no-warnings tests/email-diagnostics-tests.js && node --no-warnings tests/delivery-outbox-tests.js && node --no-warnings tests/email-transport-tests.js",
     "test:queries": "node --no-warnings tests/invoice-query-tests.js && node --no-warnings tests/invoice-query-ui-tests.js",
     "test:account-email": "node --no-warnings tests/account-email-tests.js && node --no-warnings tests/account-email-ui-tests.js",
     "test:referral-progress": "node --no-warnings tests/referral-progress-tests.js && node --no-warnings tests/referral-progress-ui-tests.js",
     "test:people-tabs": "node --no-warnings tests/next-actions-people-api-tests.js && node --no-warnings tests/next-actions-people-ui-tests.js",
-    "test:navigation-position": "node --no-warnings tests/navigation-position-tests.js",
+    "test:navigation-position": "node --no-warnings tests/navigation-position-tests.js && node --no-warnings tests/shift-workspace-ui-tests.js",
     "test:worker-readiness": "node --no-warnings tests/worker-readiness-scenarios.js",
     "test:booking-updates": "node --no-warnings tests/booking-updates-tests.js && node --no-warnings tests/booking-updates-ui-tests.js",
     "test:evening-pricing": "node --no-warnings tests/evening-pricing-tests.js && node --no-warnings tests/evening-pricing-flow-tests.js",

@@ -100,7 +100,11 @@ function fixture(){
     const x=fixture();await x.queue('invoice:INV-100',{},'participant@example.test');x.db.exec("UPDATE users SET email='changed@example.test' WHERE id=1");await x.store.drain();assert.equal(x.row('invoice:INV-100').status,'cancelled');assert.equal(x.sent.length,0);assert.equal(x.state.pdfCalls,0);x.db.close();
   });
   await test('Failed-payment reminders get the invoice link without stale bank instructions',async()=>{
-    const x=fixture();await x.queue('payment-failed:evt_test',{payment_reminder:true,invoice_no:'INV-100'});await x.store.drain();assert.equal(x.sent.length,1);assert.equal(x.sent[0][5],x.state.link);assert.doesNotMatch(x.sent[0][3],/123-456|123456789/);assert.equal(x.sent[0][7].length,0);assert.equal(x.sent[0][8].event_key,'payment-failed:evt_test:invoice-link-v1');assert.equal(x.state.pdfCalls,0);x.db.close();
+    const x=fixture();await x.queue('payment-failed:evt_test',{payment_reminder:true,invoice_no:'INV-100'});await x.store.drain();assert.equal(x.sent.length,1);assert.equal(x.sent[0][5],x.state.link);assert.doesNotMatch(x.sent[0][3],/123-456|123456789/);assert.match(x.sent[0][1],/Payment needs attention/);assert.equal(x.sent[0][2],'Payment not completed');assert.match(x.sent[0][3],/was not completed/);assert.equal(x.sent[0][7].length,0);assert.equal(x.sent[0][8].event_key,'payment-failed:evt_test:invoice-link-v1');assert.equal(x.state.pdfCalls,0);x.db.close();
+  });
+  await test('Overdue reminders preserve their purpose and point to the current invoice balance',async()=>{
+    const x=fixture();await x.queue('payment-reminder:INV-100:2026-10-02',{payment_reminder:true,invoice_no:'INV-100'});await x.store.drain();
+    assert.equal(x.sent[0][2],'Invoice payment is due');assert.match(x.sent[0][3],/outstanding balance/);assert.match(x.sent[0][3],/current balance and due date/);assert.equal(x.sent[0][5],x.state.link);x.db.close();
   });
   await test('Receipt and unrelated notices retain their original content and attachments',async()=>{
     const x=fixture();await x.queue('payment-receipt:1',{payment_receipt:true,invoice_no:'INV-100'});await x.queue('booking:123');await x.store.drain();assert.equal(x.sent.length,2);for(const args of x.sent){assert.equal(args[4],'Old bank instructions');assert.match(args[7][0].buffer.toString(),/123-456/);assert.equal(args[8].invoice_link_mail_policy,undefined);}assert.equal(x.state.pdfCalls,0);x.db.close();

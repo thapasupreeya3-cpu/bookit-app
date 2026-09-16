@@ -1,3 +1,55 @@
+# v88.4.20 validation — booking emails and shift-note workspace
+
+Validated locally on Node **24.19.0**, using synthetic identities, disposable
+SQLite databases and local provider fixtures. The deployment runtime remains
+Node **22.23.2**; it was not available here. No real customer email, payment or
+live deployment was performed.
+
+All test groups in `npm test` passed across the broad run and targeted follow-up
+runs. The broad run stopped at one obsolete booking-update expectation: it
+expected a missing participant email to silence an authorised helper too. The
+assertion now checks that the helper receives the notice while the participant's
+in-site confirmation remains available. That group and every remaining group
+passed. The final legacy-payment fix was then verified with its three affected
+suites; already-passing unrelated groups were not repeated.
+
+Key final results:
+
+- Booking/shift notification unit checks: **30/30**.
+- Actual booking HTTP transitions: **22/22**, including rollback when notice
+  persistence fails, completion across funding routes, query retries, answers,
+  reminders, automatic approval, cover and restart.
+- Immediate invoice flow: **13/13**.
+- Delivery outbox: **16/16**; production transport functions: **6/6**, including
+  Resend provider rejection/timeout and SMTP acceptance/rejection/timeout.
+- Email diagnostics over real local HTTP: **10/10**. Provider responses are
+  synthetic; success establishes the acceptance path, not inbox delivery.
+- Final payment automation: **49/49**; invoice-link mail: **14/14**; payment HTTP:
+  **11/11**. Includes old queued failure messages after replacement checkout.
+- Payroll notifications: **11/11**; payroll recovery: **3/3**; invoice lifecycle:
+  **17/17**; invoice queries: **18/18**.
+- Shift workspace: **7/7**; navigation position: **21/21**; admin workflow UI:
+  **29/29**. Covers editor order, focus/reveal after navigation and completion,
+  requested answers, drafts and stale asynchronous updates.
+- Booking acceptance updates: **15/15**; acceptance UI: **20/20**.
+- Existing calendar, carer picker, ongoing recurrence, pricing, access, account
+  email, approval, billing and remaining regression groups passed.
+- Syntax: **163 scripts**, including four inline application scripts, compiled
+  without failure. Route/table inventories and generated release documents
+  verified: **419 routes**, **113 tables**, schema **88408**.
+- User guide navigation anchors and the new workflow sections checked.
+- Release verification checks every installed file hash. ZIP overlay verification
+  compares the whole installed tree after applying to v88.4.17, v88.4.18 and
+  v88.4.19, with unchanged source files retained.
+
+Browser rendering remains unverified: the session browser could not open the
+local preview (`net::ERR_BLOCKED_BY_CLIENT`). The UI results above are component
+and navigation harness checks, not rendered browser acceptance. Live provider
+configuration, recipient preferences and inbox delivery must be checked on the
+deployed site; this review cannot establish which caused the reported live issue.
+
+---
+
 # v88.4.19 validation — compact calendar popup
 
 - Existing carer popup checks: 14/14 passed.

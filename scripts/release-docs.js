@@ -67,11 +67,16 @@ Each request needs worker acceptance. Preview prices cover displayed dates only.
 Manage recurring bookings from the link under the calendar. No separate
 Add regular shift tab is needed. Existing finite routines remain finite.
 
-BOOKING EMAILS
+BOOKING EMAILS AND SHIFT NOTES
 Admin > Settings > Email setup shows the configured sender and a test to your
 own account. Today > Email delivery shows message subjects and recipient/status
-evidence. Participant booking receipts, authorised helper updates and recurring
-changes use the durable queue. Provider acceptance is not inbox confirmation.
+evidence. Booking and shift events use the durable queue, with separate worker
+completion receipts, reviewer notices and applicable invoice mail. Timesheet and
+payroll messages continue retrying after temporary failures. Preferences and
+current recipient permissions remain enforced. Provider acceptance is not inbox
+confirmation. Next actions opens Record this shift below the visit summary;
+reference panels follow the editor and requested answers appear above history.
+See docs/BOOKING-EMAIL-FLOW-v88.4.20.md for the complete source review.
 See docs/EMAIL-SETUP-v88.4.5.md for diagnosis on this existing website.
 
 LAUNCH CHECKS AND OVERNIGHT SUPPORT
