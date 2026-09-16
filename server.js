@@ -1182,6 +1182,13 @@ db.exec(`CREATE TABLE IF NOT EXISTS booking_series (
 );
 CREATE INDEX IF NOT EXISTS idx_series_person ON booking_series (participant_id, ended_at);`);
 
+/* Client retry identity belongs to the participant, with bookings and receipt
+   committed together. A retry never repeats notices or changes old quotes. */
+db.exec(`CREATE TABLE IF NOT EXISTS booking_request_receipts (
+  participant_id INTEGER NOT NULL REFERENCES users(id),
+  request_id TEXT NOT NULL, intent_hash TEXT NOT NULL, response_json TEXT NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY(participant_id, request_id));`);
+
 /* migration (review round 4, finding 4): when a worker is withdrawn, their
    recurring series carries a STRUCTURED review state the office board can
    read and act on — required/reason/opened, then who reviewed it, which
@@ -1668,10 +1675,17 @@ const INVOICE_RATES = {
 };
 const REG_GROUPS = { 'employment': '0102', 'personal-care': '0107', 'transport': '0108', 'daily-tasks': '0115/0138', 'household': '0120', 'community': '0125' };
 HOLIDAYS=require('./lib/public-holidays')({db,setting,setSetting,bookingPlace:b=>SERVICE_LOCATIONS?.placeForBooking(b)});
+const BOOKING_PRICING_POLICY=require('./lib/booking-pricing-policy');
+BOOKING_PRICING_POLICY.migrate(db);
 AUTO_PRICING=require('./lib/automatic-pricing')({rates:INVOICE_RATES,holidays:HOLIDAYS,start:bookingStart,end:bookingEnd,ymd,itemFor:(service,category,ratio)=>ratio>1&&GROUP_ITEMS[category]?GROUP_ITEMS[category]:supportItemFor(service,category)});
 SLEEPOVER_PRICING=require('./lib/sleepover-pricing')({rates:INVOICE_RATES,holidays:HOLIDAYS,start:bookingStart,end:bookingEnd,ymd,itemFor:(service,category,ratio)=>ratio>1&&GROUP_ITEMS[category]?GROUP_ITEMS[category]:supportItemFor(service,category)});
 if(!db.prepare('PRAGMA table_info(bookings)').all().some(x=>x.name==='automatic_invoice_lines'))db.exec('ALTER TABLE bookings ADD COLUMN automatic_invoice_lines TEXT');
 function suggestCategory(b) {
+  if(b.booking_id)b={...b,id:b.booking_id};
+  if(BOOKING_PRICING_POLICY.policyFor(b)===BOOKING_PRICING_POLICY.CURRENT){
+    const lines=AUTO_PRICING.lines(b);
+    if(lines?.length&&lines.every(line=>line.category===lines[0].category))return lines[0].category;
+  }
   return AUTO_PRICING.category(b,bookingStart(b),Number(String(b.start).split(':')[0])<6);
 }
 
@@ -1902,7 +1916,15 @@ function makeInvoicePdf(inv) {
    worth" — see THE AWARDS LADDER further down. */
 function applyInvoice(id, category, automatic=false) {
   if(automatic){
-    const visit=db.prepare('SELECT * FROM bookings WHERE id=?').get(id),lines=visit&&AUTO_PRICING.lines(visit);
+    const visit=db.prepare('SELECT * FROM bookings WHERE id=?').get(id);
+    // Background retries and a later release cannot reprice recorded work.
+    if(visit && visit.total!==null && (visit.status==='completed'||visit.completed_at||visit.invoice_no||['claimed','paid'].includes(visit.claim_status))){
+      const saved=safeJson(visit.automatic_invoice_lines,[]);
+      return {category:visit.rate_category,label:INVOICE_RATES[visit.rate_category]?.label||'Recorded support charge',unit_price:visit.unit_price,qty:visit.sleepover?1:visit.hours,total:visit.total,ratio:Math.max(1,Number(visit.ratio)||1),worker_share:visit.worker_share,lines:saved,tier:visit.tier_at_shift};
+    }
+    const calculated=visit&&AUTO_PRICING.lines(visit);
+    const quoted=visit&&BOOKING_PRICING_POLICY.recordedLines(visit,calculated,bookingPricingContext(visit));
+    const lines=quoted?.every(line=>INVOICE_RATES[line.category])?quoted:calculated;
     if(!lines?.length)return null;
     const total=round2(lines.reduce((n,l)=>n+l.amount,0)),ratio=Math.max(1,Number(visit.ratio)||1),cat=lines.every(l=>l.category===lines[0].category)?lines[0].category:'mixed';
     const pay=lines.reduce((n,l)=>n+(workerPay(visit.worker_id,l.category,l.unit==='night'?visit.hours:l.qty)?.amount??round2(INVOICE_RATES[l.category].worker*l.qty))/ratio,0),firstPay=workerPay(visit.worker_id,lines[0].category,visit.hours)||{};
@@ -6654,11 +6676,11 @@ route('GET', /^\/api\/bookings\/calendar$/, (req, res, m, user) => {
   const rangeStart = new Date(fromDay+'T00:00:00'), rangeEnd = new Date(iso(endDay)+'T00:00:00');
   const worker = user.role === 'worker', col = worker ? 'worker_id' : 'participant_id', other = worker ? 'participant_id' : 'worker_id';
   // No legacy 400-row cap: this query is bounded to the visible month/week.
-  const rows = db.prepare(`SELECT b.id,b.date,b.start,b.hours,b.status,b.service,b.sleepover,b.kind,b.series_id,b.cover_state,b.voided,u.name AS other_name FROM bookings b JOIN users u ON u.id=b.${other} WHERE b.${col}=? AND b.date>=? AND b.date<=? AND COALESCE(b.voided,0)=0 ORDER BY b.date,b.start,b.id`).all(worker ? user.id : pers.id, iso(lower), toDay);
+  const rows = db.prepare(`SELECT b.id,b.date,b.start,b.hours,b.status,b.service,b.sleepover,b.kind,b.series_id,b.detached,b.cover_state,b.voided,u.name AS other_name FROM bookings b JOIN users u ON u.id=b.${other} WHERE b.${col}=? AND b.date>=? AND b.date<=? AND COALESCE(b.voided,0)=0 ORDER BY b.date,b.start,b.id`).all(worker ? user.id : pers.id, iso(lower), toDay);
   const pad = n => String(n).padStart(2,'0');
   const bookings = rows.filter(b => bookingStart(b) < rangeEnd && bookingEnd(b) > rangeStart).map(b => {
     const start = bookingStart(b), end = bookingEnd(b);
-    return { id:b.id,date:b.date,start:b.start,hours:b.hours,status:b.status,service:b.service,other_name:b.other_name,sleepover:!!b.sleepover,intro:b.kind==='intro',series_id:b.series_id,cover_state:b.cover_state,
+    return { id:b.id,date:b.date,start:b.start,hours:b.hours,status:b.status,service:b.service,other_name:b.other_name,sleepover:!!b.sleepover,intro:b.kind==='intro',series_id:b.series_id,detached:!!b.detached,cover_state:b.cover_state,
       starts_at:start.toISOString(),ends_at:end.toISOString(),end_date:ymd(end),end_time:pad(end.getHours())+':'+pad(end.getMinutes()),last_date:ymd(new Date(end.getTime()-1)),needs_response:worker && bookingNeedsResponse(b) };
   });
   json(res, 200, {bookings,date,view,from:fromDay,to:toDay,today:ymd(),time_zone:Intl.DateTimeFormat().resolvedOptions().timeZone,as_of:new Date().toISOString(),role:worker?'worker':'participant',subject:{id:worker?user.id:pers.id,name:worker?user.name:pers.name},alerts:workerBookingAlerts(user)});
@@ -6767,7 +6789,7 @@ function participantFacing(fit) {
   }
   return fit;
 }
-route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
+function prepareBookingRequest(req,res,user,body) {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const pers = actFor(req, user, 'bookings');
   if (!pers) return json(res, 403, { error: user && user.role === 'coordinator'
@@ -6834,48 +6856,94 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
   const repeat = ['weekly', 'fortnightly'].includes(clean(body.repeat, 20)) ? clean(body.repeat, 20) : '';
   if(body.repeat_until && !BOOKIT_TIME.validDate(body.repeat_until))return json(res,400,{error:'Choose a real end date for the repeating visits.'});
   const until=body.repeat_until||'';
+  if (repeat && body.repeat_count !== undefined && body.repeat_count !== '' && (!Number.isInteger(Number(body.repeat_count)) || Number(body.repeat_count) < 1 || Number(body.repeat_count) > SERIES_MAX)) return json(res,400,{error:'Choose between 1 and 26 visits.'});
   const count = Math.max(0, Math.min(SERIES_MAX, Number(body.repeat_count) || 0));
   if (repeat && !until && !count) return json(res, 400, { error: 'Tell us when the repeating booking should stop \u2014 either an end date or a number of shifts.' });
 
   if (intro && repeat) return json(res, 400, { error: 'A meet-and-greet happens once.' });
-  const dates = repeat ? seriesDates(date, repeat, until, count) : [date];
-  if (!dates.length) return json(res, 400, { error: 'That end date is before the first shift.' });
+  const allDates = repeat ? seriesDates(date, repeat, until, count) : [date];
+  if (!allDates.length) return json(res, 400, { error: 'That end date is before the first shift.' });
+  if(repeat&&until&&!count&&allDates.length===SERIES_MAX){const next=new Date(`${allDates.at(-1)}T12:00:00`);next.setDate(next.getDate()+(repeat==='fortnightly'?14:7));if(ymd(next)<=until)return json(res,400,{error:'Choose an earlier end date: one repeating request can include up to 26 visits.'});}
 
-  /* One worker, one place at a time. Checked for every date in a series so a
-     participant hears about the clash before anything is written, and is told
-     which dates so they can move the rule rather than guess. */
-  const clashes = dates.filter(d => bookingClash(workerId, d, start, intro ? INTRO_HOURS : hours, { statuses: ['accepted', 'requested'], participantId: pers.id }));
-  if (clashes.length) {
-    const first = bookingClash(workerId, clashes[0], start, hours, { statuses: ['accepted', 'requested'], participantId: pers.id });
-    const dup = first && first.participant_id === pers.id;
-    return json(res, 409, {
-      clash: true, dates: clashes,
-      error: dup
-        ? `You already have a booking with this worker at ${first.start} on ${dmy(first.date)} (${first.status}) that overlaps this one.`
-        : `This worker already has a shift that overlaps ${clashes.length === 1 ? dmy(clashes[0]) : `${clashes.length} of these dates (${clashes.slice(0, 3).map(dmy).join(', ')}${clashes.length > 3 ? '\u2026' : ''})`}. Choose another time, or another worker.`
-    });
-  }
-
-  const requestedQuotes=dates.map(d=>bookingQuote({participant_id:pers.id,service,date:d,start,hours:intro?INTRO_HOURS:hours,sleepover,kind:intro?'intro':'shift',service_location:serviceLocation,service_place:SERVICE_LOCATIONS.placeForBooking({service_location:serviceLocation})}));
-  const badQuote=requestedQuotes.find(q=>q.error);if(badQuote)return json(res,400,badQuote);
-  if(body.quote_keys!==undefined&&(!Array.isArray(body.quote_keys)||body.quote_keys.length!==requestedQuotes.length||body.quote_keys.some((key,i)=>key!==requestedQuotes[i].quote_key)))return json(res,409,{code:'booking_quote_changed',error:'The booking price has changed. Review the refreshed price before sending the request. Nothing has been booked.'});
-  let seriesId = null;
-  const km = Number(body.km) || 0;
-  const ids = [];
-  /* The rule and its occurrences are one thing to the participant, so they
-     are one write: a failure on the ninth shift leaves no rule and no shifts,
-     not a rule with eight. */
-  const assignmentDates = dates.map(date => ({participant_id:pers.id,worker_id:workerId,service,date,start,hours,sleepover,kind:intro?'intro':'shift',service_place:SERVICE_LOCATIONS.placeForBooking({service_location:serviceLocation})}));
+  const rawSkips=body.repeat_skip_dates===undefined?[]:body.repeat_skip_dates;
+  if (!Array.isArray(rawSkips) || rawSkips.length>SERIES_MAX || rawSkips.some(d=>!BOOKIT_TIME.validDate(d)) || new Set(rawSkips).size!==rawSkips.length || rawSkips.some(d=>!allDates.includes(d)) || (!repeat&&rawSkips.length)) return json(res,400,{error:'Skip only distinct dates shown in this repeating booking.'});
+  const dates=allDates.filter(d=>!rawSkips.includes(d));
+  if (!dates.length) return json(res,400,{error:'Keep at least one visit selected.'});
+  const place=SERVICE_LOCATIONS.placeForBooking({service_location:serviceLocation});
+  const assignmentDates=dates.map(date=>({participant_id:pers.id,worker_id:workerId,service,date,start,hours,sleepover,kind:intro?'intro':'shift',service_place:place}));
   const assignmentProof=assignmentOptions(req,user,body,assignmentDates);
+  const entries=allDates.map(d=>{
+    const proposed={participant_id:pers.id,worker_id:workerId,service,date:d,start,hours,sleepover,kind:intro?'intro':'shift',service_location:serviceLocation,service_place:place};
+    const quote=bookingQuote(proposed);
+    const invalid=BOOKIT_TIME.intervalError(proposed);
+    const fit=invalid?{ok:false,code:'invalid_interval',error:invalid}:assignmentCheck(workerId,proposed,assignmentProof);
+    const selected=dates.includes(d);
+    return {date:d,selected,skipped:!selected,quote:quote.error?null:quote,fit,
+      available:!quote.error&&fit.ok===true,needs_confirmation:!!fit.confirm,
+      problem:quote.error||(!fit.ok?participantFacing(fit).error:null)};
+  });
+  return {pers,workerId,service,date,start,hours,intro,sleepover,notes,serviceLocation,repeat,until,count,dates,allDates,entries,assignmentDates};
+}
+
+function bookingPreview(plan) {
+  const selected=plan.entries.filter(e=>e.selected);
+  return {ok:true,repeat:plan.repeat,limit:SERIES_MAX,
+    dates:plan.entries.map(({fit,...entry})=>entry),
+    selected_count:selected.length,skipped_count:plan.allDates.length-selected.length,
+    total:selected.every(e=>e.quote)?round2(selected.reduce((n,e)=>n+e.quote.total,0)):null,
+    quote_keys:selected.map(e=>e.quote?.quote_key||null),
+    ready:selected.every(e=>e.available),needs_confirmation:selected.some(e=>e.needs_confirmation)};
+}
+route('POST', /^\/api\/bookings\/preview$/, (req,res,m,user,body)=>{
+  const plan=prepareBookingRequest(req,res,user,body);if(!plan)return;
+  json(res,200,bookingPreview(plan));
+});
+
+/* A request identity is stable across an unchanged price/travel recheck.
+   Current permissions are checked even when returning a prior receipt. */
+function bookingReceiptIntent(body) {
+  const value={...body};for(const key of ['request_id','quote_keys','out_of_area_ok','out_of_area_token'])delete value[key];
+  if(Array.isArray(value.repeat_skip_dates))value.repeat_skip_dates=[...value.repeat_skip_dates].sort();
+  return CONFIRMATION.digest(value);
+}
+route('POST', /^\/api\/bookings$/, (req,res,m,user,body)=>{
+  const requestId=body.request_id;
+  let intentHash;
+  if(requestId!==undefined){
+    if(typeof requestId!=='string'||! /^[A-Za-z0-9_-]{8,100}$/.test(requestId))return json(res,400,{error:'The booking request identity is invalid. Reopen the booking form.'});
+    if(!user)return json(res,401,{error:'Please log in.'});
+    const actor=actFor(req,user,'bookings');if(!actor)return json(res,403,{error:'Booking permission is required.'});
+    intentHash=bookingReceiptIntent(body);
+    const prior=db.prepare('SELECT intent_hash,response_json FROM booking_request_receipts WHERE participant_id=? AND request_id=?').get(actor.id,requestId);
+    if(prior){if(prior.intent_hash!==intentHash)return json(res,409,{code:'booking_request_changed',error:'This request was already used for different booking details. Review a new request.'});return json(res,200,{...JSON.parse(prior.response_json),duplicate:true});}
+  }
+  const prepared=prepareBookingRequest(req,res,user,body);if(!prepared)return;
+  const {pers,workerId,service,date,start,hours,intro,sleepover,notes,serviceLocation,repeat,until,dates,entries}=prepared;
+  const selected=entries.filter(e=>e.selected);
+  const badQuote=selected.find(e=>!e.quote);if(badQuote)return json(res,400,{error:badQuote.problem});
+  const requestedQuotes=selected.map(e=>e.quote);
+  if(body.quote_keys!==undefined&&(!Array.isArray(body.quote_keys)||body.quote_keys.length!==requestedQuotes.length||body.quote_keys.some((key,i)=>key!==requestedQuotes[i].quote_key)))return json(res,409,{code:'booking_quote_changed',error:'The booking price has changed. Review the refreshed price before sending the request. Nothing has been booked.'});
   const assignmentFits=new Map();
-  for (const proposed of assignmentDates) { const fit=assignmentCheck(workerId,proposed,assignmentProof); if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,400,participantFacing(fit)); assignmentFits.set(proposed.date,fit); }
+  for(const entry of selected){const fit=entry.fit;if(!fit.ok)return fit.confirm?outOfAreaReply(res,fit):json(res,fit.clash?409:400,{error:participantFacing(fit).error,code:participantFacing(fit).code,clash:!!fit.clash,date:entry.date,dates:[entry.date]});assignmentFits.set(entry.date,fit);}
+  let seriesId=null;const ids=[],km=Number(body.km)||0;
+  /* The gate at the point it matters. If this participant has told us they need a support we
+     don't hold, the worker is told before the shift instead of finding out mid-task. It is not
+     a reason to block the booking — everything else on the plan is still ours to deliver — but
+     nobody should be improvising an answer in someone's bathroom. Derived, not stored: put the
+     support on the certificate and this stops appearing on its own. */
+  const warn = ['personal-care', 'daily-tasks'].includes(service) ? scopeWarning(pers.id) : null;
+  const scopeBlock = warn ? `<p style="background:#FFF6E5;border-left:3px solid #8A6D00;padding:10px 14px;margin:16px 0;">
+      <b>Before you accept — one thing about this booking.</b> ${escHtml(pers.name)} has told us they need help with
+      ${warn.labels.map(l => escHtml(l)).join(', ')}. That is a high intensity daily personal activity and DMHC is not
+      registered to deliver it, so it is not part of this shift and you must not do it. If you are asked on the day,
+      say you're not able to and write a shift note — contact the office to confirm the named provider and reviewed arrangement before accepting. A warning alone is not a confirmed handoff.</p>` : '';
   db.exec('BEGIN IMMEDIATE');
   try {
     if (repeat) {
       const sr = db.prepare(`INSERT INTO booking_series (participant_id, worker_id, service, start, hours, notes, freq, dow, first_date, until_date, occurrences, created_by, created)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
         .run(pers.id, workerId, service, start, hours, notes, repeat,
-             new Date(`${date}T00:00:00`).getDay(), date, until, dates.length, user.id, now());
+             new Date(`${dates[0]}T00:00:00`).getDay(), dates[0], until, dates.length, user.id, now());
       seriesId = Number(sr.lastInsertRowid);
     }
     dates.forEach((d, idx) => {
@@ -6889,6 +6957,8 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
       if (km > 0) applyKm(id, km, clean(body.km_from, 80), clean(body.km_to, 80));
       ids.push(id);
     });
+    BOOKING_NOTICES.queue(req,'requested',ids,{workerHtml:scopeBlock,event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
+    if(requestId!==undefined)db.prepare('INSERT INTO booking_request_receipts (participant_id,request_id,intent_hash,response_json,created_at) VALUES (?,?,?,?,?)').run(pers.id,requestId,intentHash,JSON.stringify({id:ids[0],ids,series_id:seriesId,count:ids.length,ok:true,scope_warning:warn}),now());
     db.exec('COMMIT');
   } catch (e) {
     try { db.exec('ROLLBACK'); } catch {}
@@ -6897,21 +6967,8 @@ route('POST', /^\/api\/bookings$/, (req, res, m, user, body) => {
 
   logDelegate(pers, 'Booked a shift', `${SERVICE_LABELS[service] || service} with worker #${workerId} on ${dmy(dates[0])}${repeat ? ` (${repeat}, ${dates.length} shifts)` : ''}`, ids[0]);
 
-  /* The gate at the point it matters. If this participant has told us they need a support we
-     don't hold, the worker is told before the shift instead of finding out mid-task. It is not
-     a reason to block the booking — everything else on the plan is still ours to deliver — but
-     nobody should be improvising an answer in someone's bathroom. Derived, not stored: put the
-     support on the certificate and this stops appearing on its own. */
-  const warn = ['personal-care', 'daily-tasks'].includes(service) ? scopeWarning(pers.id) : null;
-  const scopeBlock = warn ? `<p style="background:#FFF6E5;border-left:3px solid #8A6D00;padding:10px 14px;margin:16px 0;">
-      <b>Before you accept — one thing about this booking.</b> ${escHtml(pers.name)} has told us they need help with
-      ${warn.labels.map(l => escHtml(l)).join(', ')}. That is a high intensity daily personal activity and DMHC is not
-      registered to deliver it, so it is not part of this shift and you must not do it. If you are asked on the day,
-      say you're not able to and write a shift note — contact the office to confirm the named provider and reviewed arrangement before accepting. A warning alone is not a confirmed handoff.</p>` : '';
-  BOOKING_NOTICES.queue(req,'requested',ids,{workerHtml:scopeBlock,event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
-  json(res, 200, { id: ids[0], ids, series_id: seriesId, count: ids.length, ok: true, scope_warning: warn });
+  json(res,200,{id:ids[0],ids,series_id:seriesId,count:ids.length,ok:true,scope_warning:warn});
 });
-
 
 function noteDraftBooking(user,id) {
   if(!user||user.role!=='worker')return null;
@@ -7343,8 +7400,18 @@ route('GET', /^\/api\/series$/, (req, res, m, user) => {
   for (const r of rows) {
     /* detached = 0: a shift that left the rule is its own booking now, and
        counting it here made an ended rule read "1 still to come". */
-    r.remaining = db.prepare("SELECT COUNT(*) n FROM bookings WHERE series_id = ? AND detached = 0 AND date >= ? AND status IN ('requested','accepted')").get(r.id, ymd()).n;
-    r.done = db.prepare("SELECT COUNT(*) n FROM bookings WHERE series_id = ? AND status = 'completed'").get(r.id).n;
+    const visits=db.prepare("SELECT id,date,start,hours,status,detached,sleepover,cover_state FROM bookings WHERE series_id=? AND COALESCE(voided,0)=0 ORDER BY date,start,id").all(r.id);
+    const upcoming=visits.filter(b=>!b.detached&&['requested','accepted'].includes(b.status)&&bookingStart(b)>new Date());
+    r.remaining=upcoming.length;
+    const needingCover=b=>['finding','office','uncovered','failed','referred','allied'].includes(b.cover_state);
+    r.cover=upcoming.filter(needingCover).length;
+    r.requested=upcoming.filter(b=>b.status==='requested'&&!needingCover(b)).length;
+    r.accepted=upcoming.filter(b=>b.status==='accepted'&&!needingCover(b)).length;
+    r.done=visits.filter(b=>b.status==='completed').length;
+    r.next_date=upcoming[0]?.date||null;
+    r.last_date=visits.at(-1)?.date||null;
+    r.sleepover=!!visits.find(b=>!b.detached)?.sleepover;
+    r.upcoming=upcoming.slice(0,SERIES_MAX).map(b=>({...b,sleepover:!!b.sleepover}));
   }
   json(res, 200, { series: rows, lock_hours: SERIES_LOCK_HOURS });
 });
@@ -12899,7 +12966,7 @@ route('POST', /^\/api\/me\/care-web\/(\d+)\/delete$/, (req, res, m, user) => {
 function offerRows(workerId) {
   return db.prepare(`SELECT o.id, o.tier, o.rank, o.sent_at, o.expires_at, o.response,
       c.id AS cover_id, c.reason, c.status AS cover_status,
-      b.id AS booking_id, b.service, b.date, b.start, b.hours, b.sleepover,
+      b.id AS booking_id, b.service, b.date, b.start, b.hours, b.sleepover, b.pricing_policy, b.ratio,
       up.name AS participant_name, up.suburb
     FROM cover_offers o JOIN cover c ON c.id = o.cover_id
     JOIN bookings b ON b.id = c.booking_id
@@ -17665,15 +17732,21 @@ function sleepoverMetadata(b) {
   const bands=SLEEPOVER_PRICING.extraRates(b);
   return {start_at:bookingStart(b).toISOString(),end_at:bookingEnd(b).toISOString(),time_zone:'Australia/Sydney',legacy_review_required:bands.error||'',timing_required_for_extras:!!bands.requires_periods,extra_active_rates:bands.rates||[],rate_bands:bands.bands,included_active_hours:2};
 }
+function bookingPricingContext(b) {
+  const place=(b.id||b.service_location||b.service_place)?SERVICE_LOCATIONS?.placeForBooking(b):String(b.location||b.suburb||'');
+  // Sign the locality used for calendar rules without disclosing an address.
+  return sign('booking-price-context:'+JSON.stringify([b.service,Math.max(1,Number(b.ratio)||1),String(place||'').trim().toLowerCase()]));
+}
 function bookingQuote(b) {
+  b={...b,pricing_policy:BOOKING_PRICING_POLICY.policyFor(b)};
   const basic=BOOKIT_TIME.intervalError(b);if(basic)return {error:basic};
   if(b.sleepover){const valid=SLEEPOVER_PRICING.validate(b);if(valid.error)return valid;}
   const from=bookingStart(b),to=bookingEnd(b),lines=b.kind==='intro'?[]:AUTO_PRICING.lines(b);
   if(!lines)return {error:'The price could not be calculated. Check the date and time.'};
   const clock=d=>`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   const extra=b.sleepover?SLEEPOVER_PRICING.extraRates(b):null;
-  const quote={lines,total:round2(lines.reduce((n,l)=>n+l.amount,0)),support_type:b.kind==='intro'?'intro':b.sleepover?'sleepover':'hourly',label:b.kind==='intro'?'15-minute meet-and-greet — no charge':b.sleepover?'Inactive overnight — sleepover':ymd(from)!==ymd(to)?'Active overnight — hourly support':'Hourly support',date:b.date,start:b.start,duration_hours:Number(b.hours),end_date:ymd(to),end_time:clock(to),included_active_hours:b.sleepover?2:0,extra_active_rates:extra?.rates||[],rate_bands:extra?.bands||[],rate_note:b.sleepover?'One flat night price, including up to two active hours. Additional active support is itemised at the applicable weekday/Saturday, Sunday or public-holiday rate. Choose active overnight when an awake worker is routinely needed.':'Hourly rates follow the dates and times shown. Unplanned extra support and agreed transport are additional.',quoted_at:now()};
-  quote.quote_key=sign('booking-price:'+JSON.stringify([b.service,Number(b.ratio)||1,b.date,b.start,Number(b.hours),!!b.sleepover,quote.lines,quote.extra_active_rates,quote.rate_bands]));
+  const quote={pricing_policy:b.pricing_policy,pricing_context:bookingPricingContext(b),service:b.service,ratio:Math.max(1,Number(b.ratio)||1),lines,total:round2(lines.reduce((n,l)=>n+l.amount,0)),support_type:b.kind==='intro'?'intro':b.sleepover?'sleepover':'hourly',label:b.kind==='intro'?'15-minute meet-and-greet — no charge':b.sleepover?'Inactive overnight — sleepover':'Hourly support — worker awake / working',date:b.date,start:b.start,duration_hours:Number(b.hours),end_date:ymd(to),end_time:clock(to),included_active_hours:b.sleepover?2:0,extra_active_rates:extra?.rates||[],rate_bands:extra?.bands||[],rate_note:b.sleepover?'One flat night price, including up to two active hours. Additional active support is itemised at the applicable weekday/Saturday, Sunday or public-holiday rate. Choose active overnight when an awake worker is routinely needed.':['household','employment'].includes(b.service)?'This service uses its flat hourly rate throughout the booking. Unplanned extra support and agreed transport are additional.':b.pricing_policy===BOOKING_PRICING_POLICY.CURRENT?'A continuous weekday support finishing after 8 pm and by midnight uses the evening rate for the whole weekday period. A weekday support starting before 6 am or continuing past midnight uses the service’s applicable overnight rate. Weekend and public-holiday periods are priced separately. Unplanned extra support and agreed transport are additional.':'This existing booking retains its earlier time-band pricing. Unplanned extra support and agreed transport are additional.',quoted_at:now()};
+  quote.quote_key=sign('booking-price:'+JSON.stringify([quote.pricing_policy,quote.pricing_context,b.service,Number(b.ratio)||1,b.date,b.start,Number(b.hours),!!b.sleepover,quote.lines,quote.extra_active_rates,quote.rate_bands]));
   return quote;
 }
 function bookingPriceView(b) {
@@ -17690,7 +17763,7 @@ function bookingPriceView(b) {
    it rather than waited on. Claiming runs the same gates as an offer. */
 route('GET', /^\/api\/me\/open-shifts$/, (req, res, m, user) => {
   if (user.role !== 'worker') return json(res, 403, { error: 'Workers only.' });
-  const open = db.prepare(`SELECT c.id AS cover_id, b.id AS booking_id, b.service, b.date, b.start, b.hours, b.sleepover, u.suburb
+  const open = db.prepare(`SELECT c.id AS cover_id, b.id AS booking_id, b.service, b.date, b.start, b.hours, b.sleepover, b.pricing_policy, b.ratio, u.suburb
     FROM cover c JOIN bookings b ON b.id = c.booking_id JOIN users u ON u.id = b.participant_id
     WHERE c.status = 'open' AND b.cover_state='finding' AND b.status IN ('requested','accepted') AND b.date >= ? ORDER BY b.date, b.start`).all(ymd());
   const shifts = open.filter(r => r.booking_id && bookingStart(r)>new Date() && workerEligible(user.id, { id: r.booking_id, service: r.service, date: r.date, start: r.start, hours: r.hours }))

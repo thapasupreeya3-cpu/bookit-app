@@ -44,13 +44,15 @@ window.CareBookingCalendar = (() => {
   }
   function setup(){
     const controls=get('bookingViewControls');if(!controls)return;
+    const routine=q().get('view')==='routine';
+    const canPlan=!!API.me&&!API.me.admin&&(API.me.role==='participant'||API.me.role==='coordinator');
     const calendar=handles();
     controls.hidden=!(API.online&&API.me)||!!API.me.admin;
-    controls.innerHTML=`<nav class="bc-view-switch" aria-label="Booking view"><a href="#/bookings?view=calendar${q().get('date')?'&amp;date='+e(q().get('date')):''}" ${calendar?'aria-current="page"':''}>Calendar</a><a href="#/bookings?view=list" ${!calendar?'aria-current="page"':''}>List</a></nav><a id="bookingRequestNotice" class="bc-request-notice" href="#/bookings?view=calendar" hidden></a>`;
+    controls.innerHTML=`<nav class="bc-view-switch" aria-label="Booking view"><a href="#/bookings?view=calendar${q().get('date')?'&amp;date='+e(q().get('date')):''}" ${calendar?'aria-current="page"':''}>Calendar</a><a href="#/bookings?view=list" ${!calendar&&!routine?'aria-current="page"':''}>List</a>${canPlan?`<a href="#/bookings?view=routine" ${routine?'aria-current="page"':''}>Care routine</a>`:''}</nav><a id="bookingRequestNotice" class="bc-request-notice" href="#/bookings?view=calendar" hidden></a>`;
     if(!calendar)state=null;
     paintAlerts(worker()?alertCount:0,alertNext);
   }
-  function handles(){return onPage()&&q().get('view')!=='list'&&!API.me?.admin;}
+  function handles(){return onPage()&&q().get('view')!=='list'&&q().get('view')!=='routine'&&!API.me?.admin;}
   function timeText(b,day) {
     if(b.date<day)return `Continues from ${fmt(b.date,{day:'numeric',month:'short'})} · ends ${b.end_date===day?b.end_time:fmt(b.end_date,{day:'numeric',month:'short'})+' '+b.end_time}`;
     return `${b.start}–${b.end_time}${b.end_date!==b.date?' · ends '+fmt(b.end_date,{day:'numeric',month:'short'}):''}`;

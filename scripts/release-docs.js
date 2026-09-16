@@ -54,6 +54,14 @@ Money > Invoices & payments > Invoices > Review query opens the office response 
 Payment stays paused until an authorised participant reviewer explicitly approves.
 This release is a current-only delta over v${meta.update_base_version}; see UPDATE-INSTRUCTIONS.txt.
 
+CARE ROUTINE
+Bookings > Care routine plans weekly or fortnightly shifts and shows the actual
+upcoming week. Each pattern is finite (up to 26 dates). Review every price and
+availability result; skip unwanted dates before sending. Requested visits need
+worker acceptance. Continue this routine opens a fresh form, never an automatic
+extension. An additive request-receipt table prevents duplicate unchanged
+requests after a lost response; previews never create bookings or emails.
+
 BOOKING EMAILS
 Admin > Settings > Email setup shows the configured sender and a test to your
 own account. Today > Email delivery shows message subjects and recipient/status
@@ -141,8 +149,11 @@ authorised helpers, with a direct visit link and persisted per-person dismissal.
 It refreshes normally within 15 seconds on a visible, connected page. Existing
 confirmation emails remain queued separately. No historical mass announcement.
 The opening park clip and fictional worker/confirmation cards are removed;
-the six service clips remain. Evening prices and claim mappings are unchanged;
-see the guide for the 8 pm example and the funding/classification limitations.
+the six service clips remain. New ordinary weekday support finishing after 8 pm
+and by midnight uses the evening rate for the whole continuous weekday interval.
+Configured dollar rates stay the same. Existing bookings retain their saved
+pricing method and matching quote; completed charges and issued history stay
+recorded. See the guide for examples and remaining funding limitations.
 A small red request count appears beside Bookings and on the mobile menu for
 workers with future unanswered requests. It updates while the site is open.
 Calendar queries use the visible date range and carry overnight visits across
@@ -214,7 +225,7 @@ INSTALL / UPDATE
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
 6. Update the existing prelaunch website. No second website is required.
-   This release retains the current schema and historical payment evidence.
+   This release adds booking request receipts and preserves historical payment evidence.
    This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
    explicit SCHEMA_VERSION environment override if your host uses one.
@@ -243,7 +254,7 @@ docs/history/ — historical receipts, not current deployment instructions
 const readme=`The Care Web v${pkg.version} — current-update-only ZIP.
 
 Apply over v${meta.update_base_version}. Extract ${meta.output_archive}; merge its files at the repository root. Read UPDATE-INSTRUCTIONS.txt before updating. Preserve live runtime data.
-This release counts office worker tasks only when there is evidence or a reason to act. Blank applications show Waiting on worker. The full user guide is updated.
+This release adds Care routine inside Bookings, date-by-date recurring preview, skipped dates and duplicate-request recovery. The full user guide is updated.
 NSW holidays and ordinary invoicing are automatic. Independently reviewed payroll
 components remain required; preparing/exporting payroll does not transfer wages.
 PDF/HTML previews and earlier verification automations are retained.

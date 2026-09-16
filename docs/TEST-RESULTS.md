@@ -1,3 +1,68 @@
+# v88.4.16 validation
+
+- **Full `npm test` passed** on Node22.23.2 (129.71 seconds). All 57 new
+  scenarios passed. Syntax checking compiled 153 scripts with zero failures.
+- **Upgrade verification passed 8/8** from v88.4.15 across two target boots,
+  preserving existing rows, original quote/invoice bytes, detached visits,
+  outbox counts and uploaded document/photo bytes. The receipt table starts
+  empty and is not duplicated on restart.
+- New recurring-booking checks: **17 real HTTP**, **17 routine interface**,
+  **14 new recurring-price interface** and **9 submission/retry** scenarios.
+  The full booking-price UI suite is now **39/39**.
+- HTTP fixtures verify read-only preview, per-date conflicts, skip validation,
+  atomic creation, correct signed quotes, public holidays, daylight saving,
+  sleepovers, current helper access, travel confirmation, duplicate receipts
+  and transactional notification rollback.
+- Interface checks exercise compact patterns, upcoming weeks, overnight totals,
+  cover labels, finite continuation, worker selection, selected-date totals,
+  stale requests, authentication changes, focus and retry behavior.
+- Submission checks execute the actual API client and booking form. Lost
+  responses recover the committed request even after the price preview expires.
+  Changed forms get a fresh review. Account switching during travel confirmation
+  cannot redirect the retry to a different participant.
+- The package-verification JSON records the full npm test result, the upgrade
+  checks, declared Node **22.23.2**, exact source overlay and guide validation.
+- Generated inventories identify **417 routes / 111 tables**, schema **88407**.
+  The new booking_request_receipts table is additive.
+- Local browser navigation returned **ERR_BLOCKED_BY_CLIENT**. UI tests use
+  isolated event/markup harnesses; rendered desktop/mobile appearance remains
+  unverified. No live booking, email, payment or deployment was performed.
+
+# v88.4.15 validation
+
+- Full `npm test` passed on Node **22.23.2**. The former billing test expecting
+  split daytime/evening pricing was updated for the explicitly requested new
+  method; weekend, holiday and support-item checks remain enforced.
+- **33 new scenarios**: 15 pricing/migration cases, 13 real HTTP pricing-flow
+  cases and five new booking-price UI cases. The price UI suite is **25/25**.
+- Exact 19:20–22:20 and 19:00–22:00 weekday examples produce **$243.21** and
+  one evening support line. Exactly 20:00 stays daytime; exactly midnight is
+  evening. Night precedence, weekends, full/part-day holidays, fixed services,
+  ratios and inactive sleepovers retain their intended treatment.
+- Real HTTP tests verify signed quotes, stale keys, new request/acceptance/
+  completion/invoice agreement, saved legacy quotes, records without snapshots,
+  changed services/localities, existing completed and issued amounts, and
+  short-notice cancellation at the earlier agreed charge.
+- Independent comparison of **2,880 legacy calculations** matched the previous
+  implementation across calendar boundaries, spring daylight saving, starts,
+  durations, services and ratios. This is comparison evidence, separate from
+  the count of new regression tests.
+- Migration tests preserve existing quote, charge and invoice bytes, retain
+  policy classifications across repeated initialization and assign the new
+  policy to later inserts. No real database was migrated by this work.
+- JavaScript syntax: **149 scripts, zero failures**, including four inline
+  application scripts. Generated inventories: **416 routes, 110 tables**,
+  schema **88406**. Inventory and release documentation verification passed.
+- The current-only archive is verified by exact byte overlay on the hash-checked
+  v88.4.14 source; the report records the archive and full source hashes.
+  The guide's internal anchors are validated. Unchanged media is excluded.
+- No fresh rendered browser check was performed for this small pricing update;
+  the last local browser preview returned ERR_BLOCKED_BY_CLIENT. Browser layout
+  and live inbox delivery remain unverified. No real invoice, customer payment,
+  wage transfer or external message was created, and the site was not deployed.
+- Numerical rate tables are unchanged. These tests verify software behaviour;
+  they do not certify individual funding eligibility or September 2026 limits.
+
 # v88.4.14 validation
 
 - Full `npm test` passed on Node **22.23.2**. Existing booking, email, payment,

@@ -1,12 +1,12 @@
 {
-  "release": "88.4.14",
+  "release": "88.4.16",
   "base_releases": [
-    "88.4.13"
+    "88.4.15"
   ],
-  "base_archive": "The-Care-Web-v88.4.13-worker-task-readiness-update-only.zip",
-  "base_archive_sha256": "88b024e22a124958341b95c2bcb20704533268b7f8ca39a62c1b974c6c986218",
+  "base_archive": "The-Care-Web-v88.4.15-evening-pricing-update-only.zip",
+  "base_archive_sha256": "cef7a10e9f95c85861e7e2ca0d2d1fd0bee4b31dbde963355f5a8fb26a7621c1",
   "format": "full-source",
-  "note": "Complete installed source after current-only overlay on v88.4.13. Unchanged media, dependencies and historical documentation are omitted from the update ZIP.",
+  "note": "Complete installed source after current-only overlay on v88.4.15. The ZIP excludes unchanged source/media/vendor files. Existing bookings, pricing, invoices and notifications are preserved.",
   "files": {
     ".env.example": {
       "sha256": "f197d112b47170f0a6cabb3f763c8cda6df4c58c59ed572de6d192760aeabb4d",
@@ -25,12 +25,12 @@
       "bytes": 8
     },
     "STARTHERE.txt": {
-      "sha256": "fd645969a68090a2dc676469543bb7caea2ed7b6d1258b5a4e90dc138f2f18cf",
-      "bytes": 14968
+      "sha256": "760b1a540b5f98c8598c136767de351bd026bd1e9ac225b3ade0870dde2d0924",
+      "bytes": 15689
     },
     "UPDATE-INSTRUCTIONS.txt": {
-      "sha256": "c6aaf3350dbbda33f49336bbf89bc711804cff744aea034edfcfb82e9dcf4a83",
-      "bytes": 2658
+      "sha256": "b40f63c6d80c0b61d05123ee5bdf75cc65c110620af230c398139a0443b45103",
+      "bytes": 1508
     },
     "assets/admin-verification.css": {
       "sha256": "cd0eff8ce0e6c3e2b2f0ae4dca2276fa2aa677e577db37ee983c581bad6591da",
@@ -604,6 +604,14 @@
       "sha256": "b1e8a1918ec325e2d3c386546b42df4dd429b6fc9ae7889de6d013b4673bb042",
       "bytes": 3027
     },
+    "docs/CHANGELOG-v88.4.15.md": {
+      "sha256": "9af47af7994b60b0e1fe1c0523d5462fa9424f95d468a0d2bc11a1560b741ae4",
+      "bytes": 2887
+    },
+    "docs/CHANGELOG-v88.4.16.md": {
+      "sha256": "c3fc52eb22a017b171017eaf45708b33a2b7583d5c76c86491cb26f66a7556da",
+      "bytes": 2084
+    },
     "docs/CHANGELOG-v88.4.2.md": {
       "sha256": "99f2d014349b61493a2585e7cb5c66386d7a848deca25a981bd833f5d768a05e",
       "bytes": 3311
@@ -693,12 +701,12 @@
       "bytes": 1084
     },
     "docs/TEST-RESULTS.md": {
-      "sha256": "31469f5e9a9a5fa4b190c26e3a523cc09f2b9541525b6e9d7df7b24e179a71e5",
-      "bytes": 18067
+      "sha256": "794a6838feec7acdc5b011a1b7c375e6745cae3c1c783e582af82f5bc1ba2ef3",
+      "bytes": 22447
     },
     "docs/USER-GUIDE.html": {
-      "sha256": "2ca1da04748ced4ddf71c5aa671a5f14ea91ce2ca3e63c66eba48849ec85b2f8",
-      "bytes": 554850
+      "sha256": "f7e87cf4789b87c4904ea9970826a78f833645075fe5d3c6250fed6c47e0d8df",
+      "bytes": 560719
     },
     "docs/WORKFLOW-OPERATIONS.md": {
       "sha256": "6d56747006ab86cd85ac36ddb810c4c24bfb2500901108b3bc2ec19866cd5ef3",
@@ -713,8 +721,8 @@
       "bytes": 234470
     },
     "docs/api-route-inventory.txt": {
-      "sha256": "b71ebbebb95cb48cc69188d6c7b61a2d342c2301707b5cb682b27e0ff5f65d89",
-      "bytes": 15821
+      "sha256": "6c42701da26cd311d294417eb996a4dd2cdcd27aee39134fe6c588f3727e85ce",
+      "bytes": 15852
     },
     "docs/block-register/branches.csv": {
       "sha256": "8cb2079fbbbf18a98841b6a8b575f39846e6a32f4fe86cafc2b87b23718f178a",
@@ -745,8 +753,8 @@
       "bytes": 60611
     },
     "docs/database-table-inventory.txt": {
-      "sha256": "8fa2a5ee6510888cfee67c5445a950b6435fbdbb4a97cdea203c83aac2aa9a89",
-      "bytes": 29720
+      "sha256": "0720165935ce666a4e335fbb4c83c54089b4626e3607a7455a0724940ab1c2bd",
+      "bytes": 29936
     },
     "docs/dependency-provenance.json": {
       "sha256": "b5fe529aada0548ffb813d89455cfea3385f13f96616d2d0b47d99809234cee3",
@@ -853,8 +861,8 @@
       "bytes": 26519
     },
     "docs/release-metadata.json": {
-      "sha256": "bc0b3749e9fd88d6457adf42323c206be72f132e4daebb28e3cc2eceb5d36557",
-      "bytes": 804
+      "sha256": "bc94fb674542ee330ac432a05289e2647b64cf1b4192868473e6a1c067436441",
+      "bytes": 713
     },
     "docs/task-clarity-preview.html": {
       "sha256": "44cdbe9cd9805da7c210ad1bf6bcc54bc58301f6a9853276e8d3051e6f86b815",
@@ -949,8 +957,8 @@
       "bytes": 5479
     },
     "lib/automatic-pricing.js": {
-      "sha256": "279b4acdcd4ee0b46824d1a699e0eb956454ff3e7e1fb466e31f4eade2310b23",
-      "bytes": 2784
+      "sha256": "f49244176584edb60969c4f4a2683b88f9f72869ea9d612518ec6fe16482d3d2",
+      "bytes": 3724
     },
     "lib/billing-setup.js": {
       "sha256": "d52c1f595fb64350f1ed00c2d4b08c5630aa1697b14999c70590c8193225fbd2",
@@ -959,6 +967,10 @@
     "lib/booking-notifications.js": {
       "sha256": "4e34e91de8f412d6050965247b1c130faef379d37525a26126860b476d657371",
       "bytes": 8020
+    },
+    "lib/booking-pricing-policy.js": {
+      "sha256": "9acea7d700891d83351b9786d49b286b1e8ed820d82ed7a2c0f5d7619a607afa",
+      "bytes": 3314
     },
     "lib/booking-time.js": {
       "sha256": "8b19e4afab3110651a57b506278eb353331125f911231db9d66a542e58c131c5",
@@ -1085,7 +1097,7 @@
       "bytes": 24392
     },
     "lib/version.js": {
-      "sha256": "4eb22b894fb58fbe5ab66d0e3a74b2cfe85751a21821ee271bc39b0f4bf3db14",
+      "sha256": "b644b46ba469c315df821bd121c630c8b9ac4bf8788b1dc102f2c58692640cb6",
       "bytes": 343
     },
     "lib/worker-availability.js": {
@@ -1109,12 +1121,12 @@
       "bytes": 418
     },
     "package-lock.json": {
-      "sha256": "616ac7e9c224173844731043a99399ad4f8492839a33cb0caa9b8224a83f6738",
+      "sha256": "9a42bd7b0bbc8a636ea001d1f8c9d729a58299c0acdb7bb04d312acfe40f4fa6",
       "bytes": 286
     },
     "package.json": {
-      "sha256": "07931a8289b595875483478b16552284479eb09bfbc18dd8724f6fef8c5aa198",
-      "bytes": 4968
+      "sha256": "39447048325c0f6112b3a9c8b855cac9b6ed49e9f71984e2234a71ba5cf816d9",
+      "bytes": 5362
     },
     "prefill-walkthrough.js": {
       "sha256": "8cdc0cba5675f33b4ccefc4cdebf896c8933b68ac2fedea86ea13a5f3115235b",
@@ -1157,16 +1169,16 @@
       "bytes": 6726
     },
     "public/assets/booking-calendar.js": {
-      "sha256": "0f6bab086088ea92cde05ef38783ee5bb446163946288e8ab4d7540b41821d52",
-      "bytes": 14329
+      "sha256": "ac8fec7803b122036803b1a80a69f884b67207e211794e5484c37f8114d3fc74",
+      "bytes": 14620
     },
     "public/assets/booking-pricing.css": {
-      "sha256": "66851806904c511607a970a5fb9c9e4f3269698f8fb259ffa40e29b4d7c2ba67",
-      "bytes": 2732
+      "sha256": "a819f6b079035dda2c15a04eb5cb541d65e68d585e250263119d7a61e8a543b0",
+      "bytes": 4718
     },
     "public/assets/booking-pricing.js": {
-      "sha256": "20102cd4ac0e5393d8827d35c0315bfd3b2f6d0d8bc3ad509445a8a0ff256e15",
-      "bytes": 13941
+      "sha256": "1e8d0171bd448a69a4010390d0f4f580ac1a9b813f362cc6d590b3b5fae0d91a",
+      "bytes": 22718
     },
     "public/assets/booking-updates.css": {
       "sha256": "49be0b0cbc740d313a71eec75f856fd561031fb9ca773965c46237585a2f567f",
@@ -1247,6 +1259,14 @@
     "public/assets/care-cast/wheelchair-pair.png": {
       "sha256": "a3701b23c25908906efde86e79141936aa7c7807bffae04775e5f753b42cd141",
       "bytes": 1080262
+    },
+    "public/assets/care-routine.css": {
+      "sha256": "c012eadc10a4441f4e5df3f212bd2049027e067d5d18015586b783016afbaa1e",
+      "bytes": 5534
+    },
+    "public/assets/care-routine.js": {
+      "sha256": "a2aa5cdbeaec306491fa899d8f0a28c8fde17ee08569e62d9842644fdea14b73",
+      "bytes": 18823
     },
     "public/assets/careweb/app-icon.png": {
       "sha256": "e4c193bfb1c9ffa4f0c4d5ac93bf5326e23458922d8fab1b16a93ad0b07ccc2f",
@@ -1837,8 +1857,8 @@
       "bytes": 2383
     },
     "public/index.html": {
-      "sha256": "4fb1e91ceda289cae25d29c9f0df6dfb3517836424a536368da33d8cb99d10bc",
-      "bytes": 1095579
+      "sha256": "892457c77ae076ef9b121c6c50d9a5b744d29f955cd6e09eaf4852b4effbeea8",
+      "bytes": 1099931
     },
     "public/vendor/care-cast.js": {
       "sha256": "6461468f0755d4797be60b29095744fdd701de092ae8f7f5fc1ee60149aa9a37",
@@ -2009,8 +2029,8 @@
       "bytes": 338836
     },
     "readme.txt": {
-      "sha256": "49181e5683171294e6bd173fe3c4efa96afdc3066a1019330f0c7bae9a253f5e",
-      "bytes": 1072
+      "sha256": "93d1ede91053dfc675e9d8e54426e48d98a8fd4b507fa7077f6166ac8ac993d8",
+      "bytes": 1059
     },
     "scripts/NDIS_plan__sample_for_walkthrough.pdf": {
       "sha256": "8ef1ce7de6bc4247997252664267635ee011b51362f57699bbcb0e688dd55e82",
@@ -2049,8 +2069,8 @@
       "bytes": 10456
     },
     "scripts/release-docs.js": {
-      "sha256": "f9ab34ae9ff8cdfb4e8e95d946c2aafa6d03283efb30be4c9e0e9950c03a9cc2",
-      "bytes": 17464
+      "sha256": "8d7f754dbc0c98983559c3085a5b6e7826ca54c2d3b1d96d7cfb4c1f4bfd02d1",
+      "bytes": 18180
     },
     "scripts/reset-test-agreements.js": {
       "sha256": "1b9b724eb295c8b652d80b07471a53487794ffef80da699dc8122d1ffcdf663f",
@@ -2073,8 +2093,8 @@
       "bytes": 940
     },
     "server.js": {
-      "sha256": "efca78a35540068d840260478e71a6f5e4208689f84e04cada04efe707fb38f6",
-      "bytes": 1402736
+      "sha256": "9cb7b0ba1f61c9dc653de39b920a4f8a73de9d7f58caa17820f0de37e50ed372",
+      "bytes": 1409490
     },
     "tests/account-email-tests.js": {
       "sha256": "7d0d8c391041b76aab142fa8d85914f1760618e5f0e2c50349a8ef0a9b71ed0b",
@@ -2125,8 +2145,8 @@
       "bytes": 9222
     },
     "tests/billing-flow-tests.js": {
-      "sha256": "9f8d271c3d7e217b8fd6b0e1ee5066eb597aa39bb7356e42d845e08f3d062aff",
-      "bytes": 24738
+      "sha256": "9934c24b005805f8290d0d38e302997d0a4bd7ed452284dc8f5b0ccf33332e59",
+      "bytes": 24810
     },
     "tests/booking-calendar-tests.js": {
       "sha256": "08b5dcacecb3979a6def7e912c3c36bd03ceff43b4ea37854a0de544c32f49a4",
@@ -2141,8 +2161,8 @@
       "bytes": 11002
     },
     "tests/booking-pricing-ui-tests.js": {
-      "sha256": "f48ef18bca45b57491011e215ba7b0c4b620f869e673fedb6da2debfbf6f1a5a",
-      "bytes": 14751
+      "sha256": "7cefb048780a37e1d0e87d9489aa2af3c51b97042a98155c2f68a1e3f9204990",
+      "bytes": 31027
     },
     "tests/booking-updates-tests.js": {
       "sha256": "97508dec319eac9b8063143e4e5298d1a1ae14575541b1b42f89de861c3ce0e7",
@@ -2151,6 +2171,18 @@
     "tests/booking-updates-ui-tests.js": {
       "sha256": "edab0f371e827639134ec102cc4f276d95286c116b8cbcc11e619d90c9977765",
       "bytes": 15300
+    },
+    "tests/care-routine-flow-tests.js": {
+      "sha256": "23988533991b6e9fcc2dc0cc595ef5901ce176cd056ab7d78f640c5e50987707",
+      "bytes": 19589
+    },
+    "tests/care-routine-submission-tests.js": {
+      "sha256": "e322c71d2ad52d2e5a79d212fbec5b142e7f9dfd1bd02c4121e12aca3f258b9c",
+      "bytes": 13384
+    },
+    "tests/care-routine-ui-tests.js": {
+      "sha256": "4456f3dee1b60dea8e84b8493af7b9d05634b5bac35a9babd4ec1a3d67e1a211",
+      "bytes": 14372
     },
     "tests/clash-tests.js": {
       "sha256": "e03eafb83c4f9a4036ff710ddb779cc56bef69af27df142490c0175bdf067356",
@@ -2164,13 +2196,21 @@
       "sha256": "d0d39aaa3cc16544effe4093eff7d1a69eef0498ccfabb6ea175d22ac381d9a6",
       "bytes": 16493
     },
+    "tests/evening-pricing-flow-tests.js": {
+      "sha256": "704c7a0c829a8288a5a98b929ebb01068d5e5b1b0e02708c04e710532b54d991",
+      "bytes": 16954
+    },
+    "tests/evening-pricing-tests.js": {
+      "sha256": "9470601d44704271b3aacffde043c9af96fc48e90b77181e86fa58b61a96b284",
+      "bytes": 7880
+    },
     "tests/fixtures/Feedback and Complaints Policy.docx": {
       "sha256": "b0fa79ff1b02bbf56efe14182e0f2ce6c9bee05f163862f1ddc8cb8ad8a80dbb",
       "bytes": 10661
     },
     "tests/graphics-tests.js": {
-      "sha256": "b8b8212974e0abccf64aeb637fa43d1d2051afd028af8628ea1e17c4cdad915e",
-      "bytes": 5621
+      "sha256": "647e21f73722930b0470ba2a6d6a905d0e8b1082650f1e3fec8035b067755f8d",
+      "bytes": 5617
     },
     "tests/immediate-invoice-tests.js": {
       "sha256": "83707edd7a8c8aab8cdd00981696e886d31d360d3ec1ec5cfa2fbfff5e183206",

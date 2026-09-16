@@ -22,3 +22,23 @@
 .bp-booked-quote{padding:12px 14px;margin:12px 0;background:#f3f8fb;border:1px solid #b8ced8;border-radius:10px;color:#183447;font-size:14px;line-height:1.5;min-width:0;overflow-wrap:anywhere}
 .bp-booked-quote h4{color:inherit;font-size:15px;margin:0 0 8px}.bp-booked-quote p{margin:6px 0}.bp-booked-quote .bp-total>strong{font-size:21px}.bp-booked-quote .bp-lines{list-style:none;margin:10px 0;padding:0}.bp-booked-quote .bp-lines>li{display:flex;justify-content:space-between;gap:12px;border-top:1px solid #cbdbe3;padding:8px 0}.bp-booked-quote .bp-lines span{display:block;font-size:13px}.bp-booked-quote .bp-lines>li>strong{white-space:nowrap}.bp-booked-quote .bp-note{font-size:13px}
 .bp-booked-quote details{margin:8px 0 0}.bp-booked-quote summary{cursor:pointer;font-weight:650;padding:5px 0;min-height:32px}.bp-booked-quote summary:focus-visible{outline:3px solid #99551a;outline-offset:3px}
+#bkRateLine .bp-occurrences{list-style:none;padding:0;margin:12px 0}
+#bkRateLine .bp-occurrence{padding:12px 0;border-top:1px solid #cbdbe3}
+#bkRateLine .bp-occurrence-main{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+#bkRateLine .bp-date-choice{display:flex;align-items:flex-start;gap:10px;min-width:0;margin:0;cursor:pointer}
+#bkRateLine .bp-date-choice input{flex:none;appearance:auto;width:20px;height:20px;margin:2px 0 0;accent-color:#235f73}
+#bkRateLine .bp-date-choice span>span{display:block;font-size:13px;font-weight:400}
+#bkRateLine .bp-occurrence-price{text-align:right;flex:none;max-width:44%}
+#bkRateLine .bp-occurrence-price>strong{display:block;white-space:nowrap}
+#bkRateLine .bp-date-status{display:inline-block;font-size:12px;line-height:1.4;font-weight:650;border-radius:5px;padding:3px 6px;background:#e1f0e8;color:#23563b;margin-top:3px}
+#bkRateLine .bp-occurrence[data-state=conflict] .bp-date-status{background:#fff0ee;color:#852d25}
+#bkRateLine .bp-occurrence[data-state=confirm] .bp-date-status{background:#fff2d5;color:#705211}
+#bkRateLine .bp-occurrence[data-state=skipped] .bp-date-status{background:#e8edf0;color:#405769}
+#bkRateLine .bp-occurrence[data-state=skipped] .bp-date-choice{color:#516474}
+#bkRateLine .bp-date-problem{padding-left:30px;color:#852d25;font-size:13px}
+#bkRateLine .bp-date-details{margin:4px 0 0 30px;font-size:13px}
+#bkRateLine .bp-date-details>summary,#bkRateLine .bp-more>summary{padding:5px 0;cursor:pointer;font-weight:650;min-height:26px}
+#bkRateLine .bp-repeat-status{border-left:3px solid #477c84;padding:5px 10px}
+#bkRateLine[data-state=attention] .bp-repeat-status{border-color:#ad771c;background:#fff6e6;color:#705211}
+#bkRateLine input:focus-visible{outline:3px solid #99551a;outline-offset:3px}
+@media(max-width:480px){#bkRateLine .bp-occurrence-main{gap:7px}#bkRateLine .bp-date-choice{gap:7px}#bkRateLine .bp-date-status{font-size:11px}#bkRateLine .bp-occurrence-price{max-width:42%}}

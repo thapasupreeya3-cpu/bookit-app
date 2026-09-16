@@ -1,48 +1,25 @@
-THE CARE WEB v88.4.14 — CURRENT UPDATE ONLY
+THE CARE WEB v88.4.16 — CARE ROUTINE
 
-REQUIRED BASE: v88.4.13 (worker task readiness update installed)
-This ZIP contains only files changed for this update. Merge it into your
-existing repository; it is not a complete replacement repository.
+This is a CURRENT UPDATE ONLY. Apply over v88.4.15.
 
-INSTALL ON YOUR EXISTING WEBSITE
-1. Keep a backup of your source, database, uploads and settings.
-2. Extract and MERGE this ZIP into your v88.4.13 repository, replacing matching
-   files. Keep every other file and folder.
-3. Redeploy using your existing process and Node 22 (>=22.12 <23).
-4. Refresh using Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows).
-5. /api/version should show APP_VERSION 88.4.14 and SCHEMA_VERSION 88405.
-   Two small notification tables and their indexes/triggers are created at
-   startup. No reset, manual data change or separate website is required.
+1. Keep your existing source and routine database/upload backup.
+2. Extract The-Care-Web-v88.4.16-care-routine-update-only.zip and merge its
+   contents into the root of your existing repository, replacing matching files.
+   This is not a complete replacement repository. No enclosing folder is needed.
+3. Preserve your runtime database, uploaded documents/photos and hosting settings.
+   Use the declared Node 22 runtime and your normal deployment process.
+4. Redeploy your EXISTING website. No separate test website is required.
+5. The startup migration adds booking_request_receipts for duplicate recovery.
+   Existing bookings, pricing policies, invoices and documents remain in place.
+   /api/version should report 88.4.16 and schema 88407. If your host explicitly
+   sets SCHEMA_VERSION, update that override to 88407.
+6. As a participant, open Bookings > Care routine > Add regular shift.
+   Review weekly/fortnightly dates, prices, availability and skipped dates, then
+   send only the real requests you intend the worker to receive. Requests need
+   acceptance. Planning the next set requires a fresh review and does not renew
+   automatically. Helpers need that participant's current booking permission.
 
-WHAT CHANGED
-A worker accepting a new booking creates a saved, green Booking accepted
-notice for the participant and currently authorised helpers. View booking
-opens the exact visit from Calendar, List or elsewhere on the site. Each
-viewer dismisses their own notice. The visible site refreshes normally within
-15 seconds. Existing booking emails continue separately. Previously accepted
-historical bookings do not receive a mass announcement after installation.
-
-The opening park scene and fictional Sarah M. / Shift confirmed cards are
-removed. The six service clips and the useful homepage controls remain.
-The guide explains the current 8 pm split quote and distinguishes evening
-support from active overnight care. This update does not change rate tables,
-pricing calculations, claim-item mappings, issued invoices or funding rules.
-The identified overnight entitlement / item-classification review is not
-implemented by this notification update.
-
-CHECK ON YOUR EXISTING WEBSITE
-After installation, keep a participant signed in while an assigned worker
-accepts their requested visit. Check the green notice, View booking link and
-Dismiss action. Calendar and List should both support the notice. A helper
-needs current booking permission for the selected participant. Changing or
-cancelling the visit removes its obsolete confirmation at the next refresh.
-Use Admin > Today > Email delivery for the separately queued email status.
-
-USER GUIDE: docs/USER-GUIDE.html
-CHANGES: docs/CHANGELOG-v88.4.14.md
-CHECKS: docs/TEST-RESULTS.md
-SOURCE HASHES: RELEASE-FILES.json describes the full installed source tree.
-
-This source update has not deployed your website. The local browser preview
-was blocked, so rendered appearance remains unverified. No real emails,
-payments, worker wages or price changes were initiated by this update.
+This archive omits unchanged media, old update ZIPs and vendor files.
+User instructions: docs/USER-GUIDE.html
+Changes: docs/CHANGELOG-v88.4.16.md
+Validation and remaining limits: docs/TEST-RESULTS.md

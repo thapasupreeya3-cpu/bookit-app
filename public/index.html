@@ -4895,11 +4895,11 @@ html.high-contrast .care-stage-block{display:none!important;}
         </label>
       </div>
       <div class="field full">
-        <label for="bkRepeat">Repeats?</label>
+        <label for="bkRepeat">How often do you need this support?</label>
         <select id="bkRepeat">
           <option value="">One-off — just this shift</option>
           <option value="weekly">Every week, same day and time</option>
-          <option value="fortnightly">Every fortnight</option>
+          <option value="fortnightly">Every fortnight, same day and time</option>
         </select>
         <div id="bkRepeatEndWrap" hidden style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
           <label style="font-size:.85rem;">Ends
@@ -4912,11 +4912,12 @@ html.high-contrast .care-stage-block{display:none!important;}
           <label style="font-size:.85rem;" id="bkRepeatUntilWrap" hidden>Last shift on or before
             <input id="bkRepeatUntil" type="date" style="display:block;font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;"></label>
         </div>
-        <p class="muted-sm" id="bkRepeatNote" hidden style="margin:8px 0 0;">One rule, many shifts — you can change the time, the worker or end it whenever you like, and each shift can still be moved on its own.</p>
+        <p class="muted-sm" id="bkRepeatNote" hidden style="margin:8px 0 0;">Plan up to 26 dates at a time. Review prices and availability below, and skip dates you do not need. Requests need your worker’s acceptance. Add another regular shift for a different day or worker. Bookings stop at the last selected date; they do not renew automatically.</p>
       </div>
       <div class="field full" id="bookingServiceLocation"></div>
       <section class="field full" id="bkRateLine" role="status" aria-live="polite" aria-atomic="true" aria-label="Booking price"></section>
       <div class="field full"><label for="bkNotes">Anything your worker should know? <span class="hint">(optional)</span></label><textarea id="bkNotes" rows="3"></textarea></div>
+      <p class="field full" id="bkFormError" role="alert" hidden></p>
       <button type="submit" class="btn btn-primary" id="bkSubmit">Send booking request</button>
     </form>
   </div>
@@ -7629,6 +7630,9 @@ function outOfAreaDialog(tr){
 window.API = {
   online: false, me: null, unread: 0, actingFor: null,
   async call(path, opts = {}){
+    const actorKey = [API.me?.id, API.actingFor?.id || ''].join(':');
+    if(opts.actorKey && opts.actorKey !== actorKey) throw Error('The selected account changed. Open the request again for the correct participant.');
+    if(path === '/bookings' && !opts.actorKey) opts = {...opts, actorKey};
     if(window.CareFlow && /^\/series\/\d+\/end$/.test(path) && opts.method==='POST' && !opts.body?.token){const proof=await CareFlow.prepareSeriesEnd(path.split('/')[2]);if(!proof)throw new Error('Series end cancelled.');opts={...opts,body:{...opts.body,...proof}};}
 
     if(window.CareFlow&&/^\/admin\/invoices\/[A-Z0-9-]+\/paid$/.test(path)&&opts.method==='POST'&&!opts.body?.reference){const proof=await CareFlow.paymentProof(path,opts.body||{});if(!proof)throw Error('Payment recording cancelled.');opts={...opts,body:{...opts.body,...proof}};}
@@ -7655,12 +7659,14 @@ window.API = {
       err.status = res.status; err.data = data;
       throw err;
     }
+    const changesState = (opts.method || 'GET') !== 'GET' && !['/bookings/preview','/pricing/quote'].includes(path);
     /* v86.4: anything that changes the account re-counts the red marks at
        once, so pressing I agree takes the 2 to a 1 without a refresh */
-    if((opts.method || 'GET') !== 'GET' && typeof loadBlockers === 'function') setTimeout(loadBlockers, 0);
-    if((opts.method || 'GET') !== 'GET') window.CareBookingCalendar?.changed(path);
-    if((opts.method || 'GET') !== 'GET') window.CarePayments?.changed(path);
-    if((opts.method || 'GET') !== 'GET') window.CareBookingUpdates?.changed(path);
+    if(changesState && typeof loadBlockers === 'function') setTimeout(loadBlockers, 0);
+    if(changesState) window.CareBookingCalendar?.changed(path);
+    if(changesState) window.CarePayments?.changed(path);
+    if(changesState) window.CareBookingUpdates?.changed(path);
+    if(changesState) window.CareRoutine?.changed(path);
     return data;
   }
 };
@@ -7677,6 +7683,8 @@ function updateAuthUI(){
   window.CarePayments?.sync();
   window.CareBookingUpdates?.sync();
   window.CareBookingCalendar?.sync();
+  window.CareRoutine?.sync();
+  window.CareBookingPricing?.sync?.();
   if(window.CareFlow){CareFlow.nav();if(location.hash.startsWith('#/journey'))CareFlow.render();}
   const authed = !!(API.online && API.me);
   $('#btnLogin').hidden = authed;
@@ -8176,6 +8184,7 @@ document.addEventListener('click', e => {
 const STATUS_LABEL = { requested:'Requested', accepted:'Accepted ✓', declined:'Declined', cancelled:'Cancelled', completed:'Completed ✓' };
 const RATE_LABEL = { 'weekday-day':'Weekday daytime', 'weekday-evening':'Weekday evening', 'weekday-night':'Weekday night', 'saturday':'Saturday', 'sunday':'Sunday', 'public-holiday':'Public holiday', 'household':'Household tasks (cleaning)', 'employment':'Employment support (flat)', 'sleepover':'Night-time sleepover (flat per night)' };
 let bookingWorker = null;
+let bookingSending = false, bookingRequestIdentity = null;
 function syncSleepoverOption(){
   const ok = ['personal-care','daily-tasks'].includes($('#bkService').value);
   $('#bkSleepWrap').hidden = !ok;
@@ -8185,6 +8194,18 @@ function syncSleepoverOption(){
 function openBookingModal(w){
   bookingWorker = w;
   $('#bkWorkerName').textContent = w.name;
+  $('#bkWorkerName').dataset.workerId = String(w.id);
+  bookingRequestIdentity = null;
+  $('#bkRepeat').value = '';
+  $('#bkRepeatMode').value = 'count';
+  $('#bkRepeatCount').value = '8';
+  $('#bkRepeatUntil').value = '';
+  $('#bkIntro').checked = false;
+  $('#bkSleep').checked = false;
+  $('#bkNotes').value = '';
+  window.CareBookingPricing?.resetRepeats?.();
+  const bookingError = $('#bkFormError'); if(bookingError){ bookingError.textContent = ''; bookingError.hidden = true; }
+  syncRepeatUI();
   /* v86.4: say what blocks the booking before the form, not after it bounces */
   const items = (API.blockers && API.blockers.items || []).filter(x => x.blocking);
   let panel = $('#bkBlockers');
@@ -8224,17 +8245,14 @@ function syncRepeatUI(){
   const mode = $('#bkRepeatMode').value;
   $('#bkRepeatCountWrap').hidden = mode !== 'count';
   $('#bkRepeatUntilWrap').hidden = mode !== 'until';
-  $('#bkSubmit').textContent = on ? 'Send the repeating request' : 'Send booking request';
+  if(!bookingSending) $('#bkSubmit').textContent = on ? 'Send recurring requests' : 'Send booking request';
+  $('#bkTitle').textContent = on ? 'Plan a regular shift' : 'Request a booking';
 }
 $('#bkRepeat').addEventListener('change', syncRepeatUI);
 $('#bkRepeatMode').addEventListener('change', syncRepeatUI);
-$('#bookingForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  if(!bookingWorker) return;
-  try{
-    if(window.CareBookingPricing)await CareBookingPricing.ensureCurrent();
-    const repeat = $('#bkRepeat').value;
-    const body = {
+function readBookingRequest(){
+  const repeat = $('#bkRepeat').value;
+  const body = {
       worker_id: bookingWorker.id,
       service: $('#bkService').value,
       date: $('#bkDate').value,
@@ -8246,20 +8264,59 @@ $('#bookingForm').addEventListener('submit', async e => {
       intro: !!($('#bkIntro') && $('#bkIntro').checked)
     };
     if(body.intro){ body.hours = 1; body.sleepover = false; }
-    if(!body.intro&&window.CareBookingPricing)body.quote_keys=CareBookingPricing.quoteKeys();
     if(repeat){
       body.repeat = repeat;
       if($('#bkRepeatMode').value === 'until') body.repeat_until = $('#bkRepeatUntil').value;
       else body.repeat_count = Number($('#bkRepeatCount').value);
     }
-    const r = await API.call('/bookings', {method:'POST', body});
+  Object.assign(body, window.CareBookingPricing?.requestExtras?.() || {});
+  return body;
+
+}
+$('#bookingForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if(!bookingWorker || bookingSending) return;
+  const requestAccount = [API.me?.id, API.actingFor?.id || ''].join(':');
+  const sameAccount = () => requestAccount === [API.me?.id, API.actingFor?.id || ''].join(':');
+  const submit = $('#bkSubmit'), errorBox = $('#bkFormError');
+  bookingSending = true; submit.setAttribute('aria-disabled','true'); submit.textContent = 'Checking your requests…';
+  errorBox.hidden = true; errorBox.textContent = '';
+  try{
+    const repeat = $('#bkRepeat').value;
+    const body = readBookingRequest();
+    if(!sameAccount()) throw Error('The selected account changed. Open the booking again for the correct participant.');
+    const fingerprint = JSON.stringify([requestAccount, body]);
+    const retry = bookingRequestIdentity?.ambiguous && bookingRequestIdentity.fingerprint === fingerprint;
+    let submittedBody;
+    if(retry){
+      // Recover a committed request before a fresh availability check can mistake it for a clash.
+      submittedBody = bookingRequestIdentity.body;
+    }else{
+      if(window.CareBookingPricing)await CareBookingPricing.ensureCurrent();
+      if(!sameAccount()) throw Error('The selected account changed. Open the booking again for the correct participant.');
+      if(fingerprint !== JSON.stringify([requestAccount, readBookingRequest()])) throw Error('The booking details changed while they were being checked. Review them and send again.');
+      if(!body.intro&&window.CareBookingPricing)body.quote_keys=CareBookingPricing.quoteKeys();
+      if(!bookingRequestIdentity || bookingRequestIdentity.fingerprint !== fingerprint) bookingRequestIdentity = {fingerprint, id:window.crypto?.randomUUID?.() || 'booking-'+Date.now()+'-'+Math.random().toString(36).slice(2)};
+      body.request_id = bookingRequestIdentity.id;
+      bookingRequestIdentity.body = {...body};
+      bookingRequestIdentity.ambiguous = false;
+      submittedBody = body;
+    }
+    submit.textContent = retry ? 'Checking your previous request…' : 'Sending your requests…';
+    const returnRoutine = location.hash.split('?')[0] === '#/bookings' && new URLSearchParams(location.hash.split('?')[1] || '').get('view') === 'routine';
+    const r = await API.call('/bookings', {method:'POST', body:submittedBody, actorKey:requestAccount});
+    if(!sameAccount()) return;
+    bookingRequestIdentity = null;
     closeModals();
     toast(r.count > 1
       ? r.count + ' shifts requested — one ' + repeat + ' rule, easy to change or end later.'
       : 'Booking request sent to ' + bookingWorker.name.split(' ')[0] + '!');
-    location.hash = '#/bookings';
+    location.hash = returnRoutine ? '#/bookings?view=routine' : '#/bookings';
     renderBookingsPage();
   }catch(err){
+    if(!sameAccount()) return;
+    if(bookingRequestIdentity?.body) bookingRequestIdentity.ambiguous = !err.status || err.status >= 500;
+    errorBox.textContent = err.message || 'Your requests could not be sent. Review the details and try again.'; errorBox.hidden = false;
     if(err.data?.code==='booking_quote_changed')window.CareBookingPricing?.refresh(true);
     /* A refusal that only says no is a dead end. If the account is short of
        the three things a first booking needs, name them and put the link to
@@ -8283,7 +8340,7 @@ $('#bookingForm').addEventListener('submit', async e => {
     }
     toast(err.message);
     if(window.CareFlow && !err.data?.needs_setup){let alt=$('#bkAlternatives');if(!alt){alt=document.createElement('button');alt.id='bkAlternatives';alt.type='button';alt.className='btn btn-secondary';alt.textContent='Find nearby available times';$('#bookingForm').append(alt);}alt.onclick=()=>CareFlow.alternatives({worker_id:bookingWorker.id,service:$('#bkService').value,date:$('#bkDate').value,start:$('#bkStart').value,hours:Number($('#bkHours').value)}).catch(e=>toast(e.message));}
-  }
+  }finally{ bookingSending = false; submit.removeAttribute('aria-disabled'); syncRepeatUI(); }
 });
 document.addEventListener('click', e => {
   if(e.target.closest('[data-close-modal]')) closeModals();
@@ -8303,6 +8360,7 @@ async function renderBookingsPage(){
   window.CareBookingCalendar?.setup();
   if(window.CarePayments) CarePayments.renderBookingNotice();
   renderBookingsAside();
+  if(window.CareRoutine?.handles())return CareRoutine.render();
   if(window.CareBookingCalendar?.handles())return CareBookingCalendar.render();
   const wrap = $('#bookingsList');
   if(!wrap) return;
@@ -8562,7 +8620,7 @@ async function renderBookingsPage(){
         ${b.notes ? `<span class="muted-sm">“${esc(b.notes)}”</span>` : ''}
         ${b.sleepover ? '<span class="muted-sm">🌙 Overnight sleepover (inactive night — flat rate)</span>' : ''}
         ${b.booking_quote&&window.CareBookingPricing?CareBookingPricing.summary(b.booking_quote):''}
-        ${b.series_id ? `<span class="muted-sm">${b.detached ? '↳ Moved out of its repeating booking — a one-off now' : `🔁 Part of a repeating booking — shift #${(b.series_index || 0) + 1}`}</span>` : ''}
+        ${b.series_id ? `<span class="muted-sm">${b.detached ? '↳ Moved out of its repeating booking — a one-off now' : `🔁 Part of a repeating booking — shift #${b.series_index || 1}`}</span>` : ''}
         ${vrole() === 'participant' && ['requested','accepted'].includes(b.status) ? `<div data-cancel-box="${b.id}" data-cb-svc="${b.service}" data-cb-date="${b.date}" data-cb-start="${b.start}" data-cb-status="${b.status}" data-cb-worker="${esc(b.other_name.split(' ')[0])}" hidden></div>` : ''}
         ${vrole() === 'participant' && b.series_id && !b.detached && ['requested','accepted'].includes(b.status) && b.date >= ymd() ? `
         <div data-move-box="${b.id}" hidden style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:8px;">
@@ -12923,7 +12981,8 @@ function seriesCardHtml(d){
             </select></label>
           <label style="font-size:.82rem;">Worker
             <select data-sr-worker="${s.id}" style="display:block;font:inherit;padding:7px 9px;border-radius:8px;border:1.5px solid #E2E0DA;margin-top:3px;max-width:220px;">
-              ${WORKERS.map(w => `<option value="${w.id}" ${w.id === s.worker_id ? 'selected' : ''}>${esc(w.name)}</option>`).join('')}
+              ${!WORKERS.some(w => Number(w.id) === Number(s.worker_id)) ? `<option value="${Number(s.worker_id)}" selected>${esc(s.worker_name)} (current worker)</option>` : ''}
+              ${WORKERS.map(w => `<option value="${w.id}" ${Number(w.id) === Number(s.worker_id) ? 'selected' : ''}>${esc(w.name)}</option>`).join('')}
             </select></label>
           <button type="button" class="btn btn-primary btn-sm" data-sr-save="${s.id}">Apply to future shifts</button>
         </div>
@@ -15447,7 +15506,7 @@ document.addEventListener('click', async e => {
 <script src="/assets/next-actions.js?v=88.4.7"></script>
 <script src="/assets/process-workflows.js?v=88.4.8"></script>
 <script src="/assets/worker-credentials.js?v=88.2.10"></script>
-<script src="/assets/booking-calendar.js?v=88.4.0"></script>
+<script src="/assets/booking-calendar.js?v=88.4.16"></script>
 <script src="/assets/payment-automation.js?v=88.4.6"></script>
 <link rel="stylesheet" href="/assets/booking-updates.css?v=88.4.14">
 <script src="/assets/booking-updates.js?v=88.4.14"></script>
@@ -15455,8 +15514,10 @@ document.addEventListener('click', async e => {
 <script src="/assets/service-locations.js?v=88.4.7"></script>
 <script src="/assets/launch-assurance.js?v=88.4.4"></script>
 <script src="/assets/billing-setup.js?v=88.3.4"></script>
-<link rel="stylesheet" href="/assets/booking-pricing.css?v=88.4.4">
-<script src="/assets/booking-pricing.js?v=88.4.4"></script>
+<link rel="stylesheet" href="/assets/booking-pricing.css?v=88.4.16">
+<script src="/assets/booking-pricing.js?v=88.4.16"></script>
+<link rel="stylesheet" href="/assets/care-routine.css?v=88.4.16">
+<script src="/assets/care-routine.js?v=88.4.16"></script>
 <link rel="stylesheet" href="/assets/sleepover-support.css?v=88.4.4">
 <script src="/assets/sleepover-support.js?v=88.4.4"></script>
 <link rel="stylesheet" href="/assets/account-email.css?v=88.4.6">
