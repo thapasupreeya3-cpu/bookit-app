@@ -21,7 +21,26 @@ class Node {
 function harness(){let handler=async url=>url==='/coordinator/clients'?{clients:[]}:{address:structuredClone(address),complete:true,revision:4};const calls=[],nodes=new Map();const ctx={URLSearchParams,Date,console,location:{hash:'#/account/address'},document:{getElementById:id=>nodes.get(id)||null},API:{me:{id:1,role:'participant',suburb:'Ryde'},actingFor:null,async call(url,opts={}){calls.push({url,opts});return handler(url,opts);}}};ctx.window=ctx;vm.createContext(ctx);vm.runInContext(source,ctx);return {ctx,ui:ctx.CareLocations,calls,nodes,setHandler(fn){handler=fn;}};}
 const results=[];async function test(name,fn){try{await fn();console.log('PASS '+name);results.push({name,result:'PASS'});}catch(error){console.error('FAIL '+name+' '+error.stack);results.push({name,result:'FAIL',error:error.stack});}}
 const submit=()=>({preventDefault(){}});
+function travelDialogHarness(native=true){
+ const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8'),source=html.slice(html.indexOf('function outOfAreaDialog(tr)'),html.indexOf('window.API = {'));
+ let dialog,confirmedText='';const ctx={Promise,esc:value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fmtAU:iso=>/^\d{4}-\d{2}-\d{2}/.test(iso||'')?String(iso).slice(0,10).split('-').reverse().join('/'):(iso||''),confirm:text=>{confirmedText=text;return true;},document:{activeElement:null,body:{appendChild(){}},createElement(){dialog={buttons:{},setAttribute(){},querySelector(selector){return {addEventListener:(_,fn)=>dialog.buttons[selector]=fn};},addEventListener(name,fn){this['on'+name]=fn;},showModal(){},close(){},remove(){}};return dialog;}}};
+ if(native)ctx.HTMLDialogElement=function(){};ctx.window=ctx;vm.createContext(ctx);vm.runInContext(source,ctx);
+ return {open:tr=>ctx.outOfAreaDialog(tr),get dialog(){return dialog;},get confirmedText(){return confirmedText;}};
+}
 (async()=>{
+ await test('Routine travel confirmation lists only the challenged dates, escapes details and requires an explicit decision',async()=>{
+  const h=travelDialogHarness(),pending=h.open({known:false,reason:'<img src=x onerror=bad>',routine_dates:['2030-11-04','2030-11-11']});
+  assert.match(h.dialog.innerHTML,/<li>04\/11\/2030<\/li><li>11\/11\/2030<\/li>/);assert.match(h.dialog.innerHTML,/Confirm travel for these dates only/);assert.match(h.dialog.innerHTML,/Later dates outside this worker’s area need fresh confirmation/);assert.match(h.dialog.innerHTML,/&lt;img/);assert.ok(!h.dialog.innerHTML.includes('<img'));
+  h.dialog.buttons['[value=ok]']();assert.equal(await pending,true);
+  const declined=h.open({known:false,routine_dates:['2030-11-18']});h.dialog.buttons['[value=cancel]']();assert.equal(await declined,false);
+ });
+ await test('Fallback travel confirmation still names each routine date and limits consent to those dates',async()=>{
+  const h=travelDialogHarness(false);assert.equal(await h.open({known:false,routine_dates:['2030-11-04','2030-11-11']}),true);assert.match(h.confirmedText,/04\/11\/2030\n11\/11\/2030/);assert.match(h.confirmedText,/Confirm travel for these dates only\?/);assert.match(h.confirmedText,/Later dates outside this worker’s area need fresh confirmation/);
+ });
+ await test('Ordinary travel dialogs retain the singular visit confirmation',async()=>{
+  const h=travelDialogHarness(),pending=h.open({known:false});assert.match(h.dialog.innerHTML,/This visit is outside/);assert.match(h.dialog.innerHTML,/kept with the visit\./);assert.match(h.dialog.innerHTML,/>Go ahead anyway<\/button>/);assert.ok(!h.dialog.innerHTML.includes('Dates covered by this confirmation'));h.dialog.buttons['[value=cancel]']();assert.equal(await pending,false);
+  const fallback=travelDialogHarness(false);await fallback.open({known:false});assert.match(fallback.confirmedText,/This visit is outside/);assert.match(fallback.confirmedText,/Go ahead anyway\?/);assert.ok(!fallback.confirmedText.includes('routine'));
+ });
  await test('Requested-worker display never leaks exact address, arrival notes or maps even when extra data is present',()=>{const h=harness(),out=h.ui.bookingView({...full,disclosure:'locality',can_edit:true,needs_acknowledgement:true,can_acknowledge:true});assert.match(out,/Ryde NSW 2112/);for(const sensitive of ['10 Example Street','Use side gate','maps/search','data-sl-edit>','data-sl-ack>'])assert.ok(!out.includes(sensitive),sensitive);assert.match(out,/after you accept/);});
  await test('Accepted booking shows snapshot, change label, safe directions and clearly disclosed map sharing',()=>{const h=harness(),out=h.ui.bookingView(full);assert.match(out,/10 Example Street/);assert.match(out,/Use side gate/);assert.match(out,/Location updated/);assert.match(out,/query=2%20%2F%2010%20Example%20Street/);assert.match(out,/Opening directions shares the meeting address/);assert.match(out,/rel="noopener noreferrer"/);});
  await test('No directions are offered until the meeting place is complete',()=>{const out=harness().ui.bookingView({...full,complete:false});assert.ok(!out.includes('maps/search'));assert.match(out,/details are still to be confirmed/);});

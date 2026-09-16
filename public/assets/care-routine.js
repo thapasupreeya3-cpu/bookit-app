@@ -1,5 +1,5 @@
 'use strict';
-/* A care routine is a view of real, finite booking requests. It never books in the background. */
+/* Real booking requests plus the ongoing patterns that prepare future requests. */
 window.CareRoutine = (() => {
   const e = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const get = id => document.getElementById(id);
@@ -39,15 +39,20 @@ window.CareRoutine = (() => {
     }).join('')}</div></section>`;
   }
   function patternLabel(p) {return (p.freq==='fortnightly'?'Every second ':'Every ')+dateLabel(p.first_date,{weekday:'long'})+' · '+p.start+' · '+amount(p.hours)+' hours';}
-  function patternCard(p,s) {return `<button type="button" class="cr-pattern${Number(p.id)===s.selected?' is-selected':''}" data-cr="pattern" data-id="${Number(p.id)}" aria-pressed="${Number(p.id)===s.selected}" aria-controls="crPatternDetail"><strong>${e(p.worker_name)}</strong><span>${e(patternLabel(p))}</span><span>${e(serviceName(p.service))}${p.sleepover?' · Sleepover':''}</span><span>${p.ended_at?'Ended':p.remaining?`${Number(p.accepted)||0} confirmed · ${Number(p.requested)||0} requested${p.cover?' · '+Number(p.cover)+' needing cover':''}`:'No shifts left'}</span><small>${p.last_date?'Booked through '+e(dateLabel(p.last_date)):'No booked dates'}</small></button>`;}
+  const runningPattern = p => !p.ended_at && (!!p.auto_extend || p.remaining>0);
+  const automaticPattern = p => runningPattern(p) && ['ongoing','date'].includes(p.repeat_end_mode);
+  function endLabel(p) {return p.ended_at?'Ended':p.repeat_end_mode==='ongoing'?'Ongoing':p.repeat_end_mode==='date'&&p.until_date?'Ends '+dateLabel(p.until_date):'Previously booked dates';}
+  function patternCard(p,s) {return `<button type="button" class="cr-pattern${Number(p.id)===s.selected?' is-selected':''}" data-cr="pattern" data-id="${Number(p.id)}" aria-pressed="${Number(p.id)===s.selected}" aria-controls="crPatternDetail"><strong>${e(p.worker_name)}</strong><span>${e(patternLabel(p))}</span><span>${e(serviceName(p.service))}${p.sleepover?' · Sleepover':''}</span><span class="cr-end-label">${e(endLabel(p))}</span><span>${p.ended_at?'Ended':p.remaining?`${Number(p.accepted)||0} confirmed · ${Number(p.requested)||0} requested${p.cover?' · '+Number(p.cover)+' needing cover':''}`:p.auto_extend?'Preparing future requests':'No shifts left'}</span><small>${p.generated_through?'Dates checked through '+e(dateLabel(p.generated_through)):p.last_date?'Requests through '+e(dateLabel(p.last_date)):'No requested dates'}</small>${p.generation_issues?.length?'<span class="cr-status cover">! '+p.generation_issues.length+' '+(p.generation_issues.length===1?'date needs':'dates need')+' attention</span>':''}</button>`;}
   function patternsView(s) {
-    const all=s.series.series||[],running=all.filter(p=>!p.ended_at&&p.remaining>0),past=all.filter(p=>p.ended_at||!(p.remaining>0)),chosen=all.find(p=>Number(p.id)===s.selected);
-    return `<section class="cr-patterns" aria-labelledby="crPatternsHeading"><h3 id="crPatternsHeading">Your regular shifts</h3><p class="cr-muted">Add a pattern for each day and worker. Choose weekly or fortnightly, with 2–26 shifts or an end date. Each request needs the worker’s acceptance. Nothing renews automatically.</p>${running.length?`<div class="cr-pattern-grid">${running.map(p=>patternCard(p,s)).join('')}</div>`:'<p class="cr-empty">No regular shifts booked yet. Choose <b>Add regular shift</b> to start planning your routine.</p>'}${past.length?`<details class="cr-past" ${chosen&&(chosen.ended_at||!(chosen.remaining>0))?'open':''}><summary>Previous routines (${past.length})</summary><div class="cr-pattern-grid">${past.map(p=>patternCard(p,s)).join('')}</div></details>`:''}<div id="crPatternDetail">${chosen?patternDetail(chosen,s):''}</div></section>`;
+    const all=s.series.series||[],running=all.filter(runningPattern),past=all.filter(p=>!runningPattern(p)),chosen=all.find(p=>Number(p.id)===s.selected);
+    return `<section class="cr-patterns" aria-labelledby="crPatternsHeading"><h3 id="crPatternsHeading">Your regular shifts</h3><p class="cr-muted">Add a weekly or fortnightly pattern for each day and worker. Choose ongoing support or a specific end date. Requests are prepared up to 8 weeks ahead and later dates are added automatically. Each request needs the worker’s acceptance.</p>${running.length?`<div class="cr-pattern-grid">${running.map(p=>patternCard(p,s)).join('')}</div>`:'<p class="cr-empty">No regular shifts booked yet. Choose <b>Add regular shift</b> to start planning your routine.</p>'}${past.length?`<details class="cr-past" ${chosen&&!runningPattern(chosen)?'open':''}><summary>Previous routines (${past.length})</summary><div class="cr-pattern-grid">${past.map(p=>patternCard(p,s)).join('')}</div></details>`:''}<div id="crPatternDetail">${chosen?patternDetail(chosen,s):''}</div></section>`;
   }
   function patternDetail(p,s) {
-    const upcoming=(p.upcoming||[]).filter(b=>b.date>=s.calendar.today);
+    const upcoming=(p.upcoming||[]).filter(b=>b.date>=s.calendar.today),automatic=automaticPattern(p),issues=Array.isArray(p.generation_issues)?p.generation_issues:[];
     const manage=typeof seriesCardHtml==='function'?seriesCardHtml({series:[p],lock_hours:s.series.lock_hours}):'';
-    return `<section class="cr-pattern-detail" aria-label="Selected regular shift"><h4>${e(p.worker_name)} · ${e(patternLabel(p))}</h4><p>${p.next_date?'Next shift: <b>'+e(dateLabel(p.next_date))+'</b>. ':''}${p.last_date?'Last booked date: <b>'+e(dateLabel(p.last_date))+'</b>. ':''}Continuing opens a new request with fresh prices for you to review.</p><button type="button" class="btn btn-primary btn-sm" data-cr="continue" data-id="${Number(p.id)}">${p.ended_at?'Book this routine again':'Continue this routine'}</button>${upcoming.length?`<details class="cr-dates"><summary>View ${upcoming.length} upcoming ${upcoming.length===1?'date':'dates'}</summary><ul>${upcoming.map(b=>`<li><a href="${e(visitLink(b.id))}">${e(dateLabel(b.date))} · ${e(b.start)} · ${amount(b.hours)} hours</a> <span class="cr-status ${status(b)[0]}">${e(status(b)[1])}</span></li>`).join('')}</ul></details>`:''}${manage}<p class="cr-muted">Change one visit from its shift page. Changing a routine affects eligible future visits; visits within ${Number(s.series.lock_hours)||12} hours stay as planned. Ending it can incur the agreed cancellation charge for accepted short-notice visits.</p></section>`;
+    const continuation=automatic?`<p class="cr-muted">${p.auto_extend?'Later dates will be requested automatically as they approach.':'Requests have been prepared through the end of this routine.'} Only dates marked <b>Confirmed</b> have been accepted by your worker. Later planned dates are not yet confirmed, and their prices may change.</p>`:'<p>Book this pattern again to start a new routine with prices for you to review.</p><button type="button" class="btn btn-primary btn-sm" data-cr="continue" data-id="'+Number(p.id)+'">Book this routine again</button>';
+    const attention=issues.length?`<section class="cr-issues" aria-label="Dates needing attention"><h5>! Dates needing attention</h5><p>These dates have not been booked. Change the routine below or open the calendar to arrange another shift, then recheck.</p><ul>${issues.map(issue=>`<li><b>${e(dateLabel(issue.date))}</b> — ${e(issue.message||'Please review this date.')}</li>`).join('')}</ul>${p.ended_at?'':`<button type="button" data-cr="retry-dates" data-id="${Number(p.id)}" ${s.retrying===Number(p.id)?'disabled aria-busy="true"':''}>${s.retrying===Number(p.id)?'Rechecking dates…':'Recheck these dates'}</button>`} <a href="#/bookings?view=calendar">Open calendar</a></section>`:'';
+    return `<section class="cr-pattern-detail" aria-label="Selected regular shift"><h4>${e(p.worker_name)} · ${e(patternLabel(p))}</h4><p><b>${e(endLabel(p))}</b>. ${p.next_date?'Next requested or confirmed shift: <b>'+e(dateLabel(p.next_date))+'</b>. ':''}${p.generated_through?'Dates checked through <b>'+e(dateLabel(p.generated_through))+'</b>. ':p.last_date?'Requests through <b>'+e(dateLabel(p.last_date))+'</b>. ':''}</p>${continuation}${attention}${upcoming.length?`<details class="cr-dates"><summary>View ${upcoming.length} upcoming ${upcoming.length===1?'date':'dates'}</summary><ul>${upcoming.map(b=>`<li><a href="${e(visitLink(b.id))}">${e(dateLabel(b.date))} · ${e(b.start)} · ${amount(b.hours)} hours</a> <span class="cr-status ${status(b)[0]}">${e(status(b)[1])}</span></li>`).join('')}</ul></details>`:''}${manage}<p class="cr-muted">Change one visit from its shift page. Changing a routine affects eligible future visits; visits within ${Number(s.series.lock_hours)||12} hours stay as planned. Ending the routine stops future requests and can incur the agreed cancellation charge for accepted short-notice visits.</p></section>`;
   }
   function pickerView(s) {
     if(!s.picker)return '';
@@ -70,7 +75,7 @@ window.CareRoutine = (() => {
     const series=results[0].value,calendar=results[1].value;
     if(calendar.role!=='participant'||Number(calendar.subject?.id)!==subject()){s.wrap.innerHTML='<p role="alert">Choose the participant again to see their care routine.</p>';return;}
     s.series=series;s.calendar=calendar;s.date=calendar.date;
-    const rows=series.series||[];if(!rows.some(p=>Number(p.id)===s.selected))s.selected=Number(rows.find(p=>!p.ended_at&&p.remaining>0)?.id||0);
+    const rows=series.series||[];if(!rows.some(p=>Number(p.id)===s.selected))s.selected=Number(rows.find(runningPattern)?.id||0);
     paint(s,document.activeElement===focusBefore?focus:'');
   }
   function nextStart(p,today) {
@@ -92,14 +97,14 @@ window.CareRoutine = (() => {
     if(!current(s)||typeof openBookingModal!=='function')return;
     openBookingModal(w);
     const assign=(id,value)=>{const n=get(id);if(n)n.value=String(value);};
-    assign('bkRepeat',pattern?.freq==='fortnightly'?'fortnightly':'weekly');assign('bkRepeatMode','count');assign('bkRepeatCount',8);assign('bkRepeatUntil','');assign('bkDate',date);assign('bkStart',pattern?.start||'09:00');
+    assign('bkRepeat',pattern?.freq==='fortnightly'?'fortnightly':'weekly');assign('bkRepeatMode','ongoing');assign('bkRepeatUntil','');assign('bkDate',date);assign('bkStart',pattern?.start||'09:00');
     const hours=Number(pattern?.hours)||3, hoursNode=get('bkHours');if(hoursNode&&!Array.from(hoursNode.options||[]).some(o=>Number(o.value)===hours)){const option=document.createElement('option');option.value=String(hours);option.textContent=String(hours);hoursNode.appendChild(option);}assign('bkHours',hours);
     if(pattern?.service)assign('bkService',pattern.service);
     if(get('bkIntro'))get('bkIntro').checked=false;
     if(get('bkSleep'))get('bkSleep').checked=!!pattern?.sleepover;
     assign('bkNotes','');
     if(typeof syncRepeatUI==='function')syncRepeatUI();if(typeof syncSleepoverOption==='function')syncSleepoverOption();
-    window.CareBookingPricing?.refresh(true);s.picker=null;s.message='Review the dates, location and every shift’s price, then send your regular booking request.';
+    window.CareBookingPricing?.refresh(true);s.picker=null;s.message='Choose ongoing support or an end date, then review the first dates, location and prices before sending.';
     paint(s);get('bkDate')?.focus({preventScroll:true});
   }
   function bind(s) {
@@ -109,7 +114,14 @@ window.CareRoutine = (() => {
       if(action==='today')return load(s,'','[data-cr="today"]');
       if(action==='pattern'){s.selected=Number(b.dataset.id);paint(s,'[data-cr="pattern"][data-id="'+s.selected+'"]');}
       if(action==='add')return showPicker(s,null,b.dataset.date||'');
-      if(action==='continue'){const p=(s.series.series||[]).find(p=>Number(p.id)===Number(b.dataset.id));if(p)return showPicker(s,p);}
+      if(action==='continue'){const p=(s.series.series||[]).find(p=>Number(p.id)===Number(b.dataset.id));if(p&&!automaticPattern(p))return showPicker(s,p);}
+      if(action==='retry-dates'){
+        const id=Number(b.dataset.id),p=(s.series.series||[]).find(p=>Number(p.id)===id);if(!p||p.ended_at||s.retrying)return;
+        s.retrying=id;s.message='Rechecking dates…';paint(s);
+        try{const result=await api().call('/series/'+id+'/retry',{method:'POST',body:{},actorKey:[api().me?.id,api().actingFor?.id||''].join(':')});if(!current(s))return;s.message=(Number(result.created)||0)+' new '+(Number(result.created)===1?'request':'requests')+' sent. '+((Array.isArray(result.issues)?result.issues.length:Number(result.issues)||0)>0?'Some dates still need attention.':'Your routine is up to date.');await load(s,s.date,'[data-cr="pattern"][data-id="'+id+'"]');}
+        catch(error){if(current(s)){s.message='These dates could not be rechecked. '+error.message;}}
+        finally{if(current(s)){s.retrying=null;paint(s,'[data-cr="retry-dates"][data-id="'+id+'"]');}}
+      }
       if(action==='retry-workers')return showPicker(s,s.picker?.pattern,s.picker?.date);
       if(action==='close-picker'){s.picker=null;paint(s,'[data-cr="add"]');}
       if(action==='choose-worker'){const p=s.picker,w=p?.workers.find(w=>Number(w.id)===Number(b.dataset.id));if(w)prefill(s,w,p.pattern,p.date);}
@@ -122,7 +134,7 @@ window.CareRoutine = (() => {
     if(window.CarePayments)CarePayments.renderBookingNotice();
     if(!api()?.online||!api()?.me){wrap.innerHTML='<p>Sign in to plan your care routine.</p><button type="button" class="btn btn-primary btn-sm" data-open-login>Sign in</button>';return;}
     if(!eligible()){wrap.innerHTML=api().me.role==='coordinator'?'<p>Select a participant with booking access from <a href="#/clients">My clients</a> to plan their care routine.</p>':'<p>Care routines are for participants and their authorised helpers. <a href="#/bookings?view=calendar">Open bookings</a>.</p>';return;}
-    const old=remembered?.key===identity()?remembered:null,s={wrap,key:identity(),hash:location.hash,serial:0,selected:old?.selected||0,date:validDate(query().get('date'))?query().get('date'):old?.date||'',picker:null};state=s;await load(s);
+    const old=remembered?.key===identity()?remembered:null,s={wrap,key:identity(),hash:location.hash,serial:0,selected:/^[1-9]\d*$/.test(query().get('routine')||'')?Number(query().get('routine')):old?.selected||0,date:validDate(query().get('date'))?query().get('date'):old?.date||'',picker:null};state=s;await load(s);
   }
   function sync() {if(state&&(state.key!==identity()||!handles())){state.serial++;state.picker=null;state.wrap.innerHTML='';state=null;remembered=null;}if(handles()&&!state)return render();}
   function changed(path) {if(current(state||{})&&/\/(bookings|series)(\/|$)|\/cover/.test(path))return load(state,state.date);}

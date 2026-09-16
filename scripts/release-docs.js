@@ -55,12 +55,15 @@ Payment stays paused until an authorised participant reviewer explicitly approve
 This release is a current-only delta over v${meta.update_base_version}; see UPDATE-INSTRUCTIONS.txt.
 
 CARE ROUTINE
-Bookings > Care routine plans weekly or fortnightly shifts and shows the actual
-upcoming week. Each pattern is finite (up to 26 dates). Review every price and
-availability result; skip unwanted dates before sending. Requested visits need
-worker acceptance. Continue this routine opens a fresh form, never an automatic
-extension. An additive request-receipt table prevents duplicate unchanged
-requests after a lost response; previews never create bookings or emails.
+Bookings > Care routine plans weekly or fortnightly shifts. Choose Ongoing or
+an end date. There is no 26-visit duration limit for new routines. The system
+requests the next eight weeks, then extends the schedule automatically as dates
+approach. The preview total covers only the displayed dates, not the whole
+routine. Later visits use their applicable dated prices and need worker
+acceptance. A continuation issue is shown when a date cannot be requested.
+Existing finite routines remain finite. Ending a routine stops automatic
+extension and uses the existing cancellation review for future saved visits.
+Retries cannot duplicate an unchanged request; previews never send bookings.
 
 BOOKING EMAILS
 Admin > Settings > Email setup shows the configured sender and a test to your
@@ -225,7 +228,8 @@ INSTALL / UPDATE
       npm run check
    See docs/TEST-RESULTS.md for the runtime actually tested and remaining limits.
 6. Update the existing prelaunch website. No second website is required.
-   This release adds booking request receipts and preserves historical payment evidence.
+   This release adds routine rules and a per-date record for safe automatic continuation.
+   It preserves existing booking request receipts and historical payment evidence.
    This upgrade does not reinterpret unknown funding.
    Confirm /api/version reports ${pkg.version} and schema ${schema}; update an
    explicit SCHEMA_VERSION environment override if your host uses one.

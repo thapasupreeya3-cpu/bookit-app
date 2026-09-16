@@ -1,12 +1,12 @@
 {
-  "version": "88.4.16",
-  "base_version": "88.4.12",
-  "base_archive": "bookit-app-main (7).zip",
-  "base_archive_sha256": "1534be5789f623ebae759f35726d8fcde1e6ebfccc7d3f5f99b9923479c25eaa",
-  "base_commit": "Uploaded source archive; no Git commit supplied",
+  "version": "88.4.17",
+  "base_version": "88.4.16",
+  "base_archive": "The-Care-Web-v88.4.16-care-routine-update-only.zip",
+  "base_archive_sha256": "7c71f0ed2535d769f4d7d3d08d88c4280b890fda8482d7331650e58b920febce",
+  "base_commit": "dfcd3e4c949766cd882e271c09711991d89808d1",
   "package_type": "current-update-only archive",
-  "output_archive": "The-Care-Web-v88.4.16-care-routine-update-only.zip",
-  "scope": "Care routine planning, clearer weekly and fortnightly requests, per-date availability and pricing preview, skipped dates, finite routine continuation and duplicate-request recovery.",
+  "output_archive": "The-Care-Web-v88.4.17-ongoing-routines-update-only.zip",
+  "scope": "Weekly and fortnightly routines with ongoing or end-date scheduling, automatic future booking requests, and visible continuation issues.",
   "unchanged_assets": "Existing media, branding, fonts and PDF.js vendor bytes are preserved.",
-  "update_base_version": "88.4.15"
+  "update_base_version": "88.4.16"
 }

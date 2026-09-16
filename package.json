@@ -1,12 +1,12 @@
 {
   "name": "bookit-site-v65",
-  "version": "88.4.16",
+  "version": "88.4.17",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "lint": "node scripts/lint.js",
-    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process && npm run test:verification && npm run test:settings && npm run test:navigation && npm run test:credentials && npm run test:next-actions && npm run test:calendar && npm run test:launch && npm run test:billing && npm run test:tasks && npm run test:payments && npm run test:locations && npm run test:admin && npm run test:launch-clarity && npm run test:overnight && npm run test:email && npm run test:queries && npm run test:account-email && npm run test:referral-progress && npm run test:people-tabs && npm run test:navigation-position && npm run test:worker-readiness && npm run test:booking-updates && npm run test:evening-pricing && npm run test:care-routine",
+    "test": "node --no-warnings tests/clash-tests.js && node --no-warnings tests/smoke.js && npm run test:review && npm run test:graphics && npm run test:audit && npm run test:process && npm run test:verification && npm run test:settings && npm run test:navigation && npm run test:credentials && npm run test:next-actions && npm run test:calendar && npm run test:launch && npm run test:billing && npm run test:tasks && npm run test:payments && npm run test:locations && npm run test:admin && npm run test:launch-clarity && npm run test:overnight && npm run test:email && npm run test:queries && npm run test:account-email && npm run test:referral-progress && npm run test:people-tabs && npm run test:navigation-position && npm run test:worker-readiness && npm run test:booking-updates && npm run test:evening-pricing && npm run test:care-routine && npm run test:ongoing-routines",
     "inventory": "node scripts/inventory.js",
     "check": "npm run lint && node --no-warnings scripts/inventory.js --verify && node scripts/release-docs.js --verify && node scripts/verify-release.js && npm test",
     "backup": "node --no-warnings scripts/backup.js",
@@ -39,7 +39,8 @@
     "test:worker-readiness": "node --no-warnings tests/worker-readiness-scenarios.js",
     "test:booking-updates": "node --no-warnings tests/booking-updates-tests.js && node --no-warnings tests/booking-updates-ui-tests.js",
     "test:evening-pricing": "node --no-warnings tests/evening-pricing-tests.js && node --no-warnings tests/evening-pricing-flow-tests.js",
-    "test:care-routine": "node --no-warnings tests/care-routine-flow-tests.js && node --no-warnings tests/care-routine-ui-tests.js && node --no-warnings tests/care-routine-submission-tests.js"
+    "test:care-routine": "node --no-warnings tests/care-routine-flow-tests.js && node --no-warnings tests/care-routine-ui-tests.js && node --no-warnings tests/care-routine-submission-tests.js",
+    "test:ongoing-routines": "node --no-warnings tests/ongoing-routine-flow-tests.js && node --no-warnings tests/ongoing-routine-review-tests.js"
   },
   "license": "UNLICENSED",
   "engines": {

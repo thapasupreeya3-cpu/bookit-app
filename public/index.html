@@ -4904,15 +4904,13 @@ html.high-contrast .care-stage-block{display:none!important;}
         <div id="bkRepeatEndWrap" hidden style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
           <label style="font-size:.85rem;">Ends
             <select id="bkRepeatMode" style="display:block;font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;">
-              <option value="count">after a number of shifts</option>
-              <option value="until">on a date</option>
+              <option value="ongoing">Ongoing</option>
+              <option value="date">On a specific date</option>
             </select></label>
-          <label style="font-size:.85rem;" id="bkRepeatCountWrap">How many
-            <select id="bkRepeatCount" style="display:block;font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;"><!-- filled by JS so the 26-shift ceiling lives in one place --></select></label>
           <label style="font-size:.85rem;" id="bkRepeatUntilWrap" hidden>Last shift on or before
-            <input id="bkRepeatUntil" type="date" style="display:block;font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;"></label>
+            <input id="bkRepeatUntil" type="date" max="9998-12-31" disabled style="display:block;font:inherit;padding:8px 10px;border-radius:10px;border:1.5px solid #E2E0DA;margin-top:4px;"></label>
         </div>
-        <p class="muted-sm" id="bkRepeatNote" hidden style="margin:8px 0 0;">Plan up to 26 dates at a time. Review prices and availability below, and skip dates you do not need. Requests need your worker’s acceptance. Add another regular shift for a different day or worker. Bookings stop at the last selected date; they do not renew automatically.</p>
+        <p class="muted-sm" id="bkRepeatNote" hidden style="margin:8px 0 0;">Choose ongoing support or an end date. Review the first 8 weeks below and skip dates you do not need. Later dates are requested automatically as they approach, using the applicable prices. Each request needs your worker’s acceptance. You can change or end the routine from Bookings → Care routine.</p>
       </div>
       <div class="field full" id="bookingServiceLocation"></div>
       <section class="field full" id="bkRateLine" role="status" aria-live="polite" aria-atomic="true" aria-label="Booking price"></section>
@@ -7604,10 +7602,16 @@ updateMsgBadge();
    on Google Maps, and a deliberate yes. A <dialog> where the browser has one,
    the plain confirm box where it does not. */
 function outOfAreaDialog(tr){
+  const routineDates = Array.isArray(tr.routine_dates) ? tr.routine_dates.map(date => String(fmtAU(date))) : [];
+  const routine = routineDates.length > 0;
+  const confirmation = routine ? 'Confirm travel for these dates only' : 'Go ahead anyway';
+  const travelNote = routine
+    ? 'This estimate and your confirmation will be kept with each listed visit. Later dates outside this worker’s area need fresh confirmation. The worker confirms their own travel information before accepting.'
+    : 'This estimate and your confirmation will be kept with the visit. The worker confirms their own travel information before accepting.';
   const body = tr.known
-    ? `This visit is <b>${esc(tr.text)}</b> — the worker's stated area.${tr.source === 'google' ? '' : ' That is an estimate from the map, not a promise.'}`
-    : `This visit is outside the worker's stated area${tr.reason ? ` (${esc(tr.reason)})` : ''}, and The Care Web can't estimate the travel.`;
-  if(typeof HTMLDialogElement !== 'function') return Promise.resolve(window.confirm(`Out of area.\n\n${body.replace(/<[^>]+>/g, '')}\n\nGo ahead anyway?`));
+    ? `${routine ? 'These visits are' : 'This visit is'} <b>${esc(tr.text)}</b> — the worker's stated area.${tr.source === 'google' ? '' : ' That is an estimate from the map, not a promise.'}`
+    : `${routine ? 'These visits are' : 'This visit is'} outside the worker's stated area${tr.reason ? ` (${esc(tr.reason)})` : ''}, and The Care Web can't estimate the travel.`;
+  if(typeof HTMLDialogElement !== 'function') return Promise.resolve(window.confirm(`Out of area.\n\n${body.replace(/<[^>]+>/g, '')}${routine ? '\n\nDates covered by this confirmation:\n'+routineDates.join('\n')+'\n\n'+travelNote : ''}\n\n${confirmation}?`));
   return new Promise(resolve => {
     const d = document.createElement('dialog');
     d.className = 'ooa-dialog';d.setAttribute('aria-label','Confirm travel outside the worker’s service area');
@@ -7615,9 +7619,10 @@ function outOfAreaDialog(tr){
     d.innerHTML = `<form method="dialog" style="margin:0;max-width:26rem;">
       <h3 style="margin:0 0 .5rem;font-size:1.1rem;">Out of area</h3>
       <p style="margin:0 0 .6rem;line-height:1.45;">${body}</p>
+      ${routine ? `<p style="margin:0 0 .4rem;"><b>Dates covered by this confirmation</b></p><ul>${routineDates.map(date => `<li>${esc(date)}</li>`).join('')}</ul>` : ''}
       ${tr.maps ? `<p style="margin:0 0 .9rem;"><a href="${esc(tr.maps)}" target="_blank" rel="noopener noreferrer">See the route on Google Maps ↗</a></p>` : ''}
-      <p class="muted-sm" style="margin:0 0 1rem;">This estimate and your confirmation will be kept with the visit. The worker confirms their own travel information before accepting.</p>
-      <div style="display:flex;gap:8px;justify-content:flex-end;"><button type="button" class="btn btn-secondary btn-sm" value="cancel">Cancel</button><button type="button" class="btn btn-sm" value="ok" autofocus>Go ahead anyway</button></div>
+      <p class="muted-sm" style="margin:0 0 1rem;">${travelNote}</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;"><button type="button" class="btn btn-secondary btn-sm" value="cancel">Cancel</button><button type="button" class="btn btn-sm" value="ok" autofocus>${confirmation}</button></div>
     </form>`;
     document.body.appendChild(d);
     const done = v => { try { d.close(); } catch(e){} d.remove(); previousFocus?.focus?.(); resolve(v); };
@@ -8197,8 +8202,7 @@ function openBookingModal(w){
   $('#bkWorkerName').dataset.workerId = String(w.id);
   bookingRequestIdentity = null;
   $('#bkRepeat').value = '';
-  $('#bkRepeatMode').value = 'count';
-  $('#bkRepeatCount').value = '8';
+  $('#bkRepeatMode').value = 'ongoing';
   $('#bkRepeatUntil').value = '';
   $('#bkIntro').checked = false;
   $('#bkSleep').checked = false;
@@ -8235,21 +8239,22 @@ function syncBkRateLine(){
     : 'Weekday daytime $73.58/hr; evenings, weekends and public holidays at the applicable published rate — the exact price shows before you confirm.';
 }
 $('#bkService').addEventListener('change', () => { syncSleepoverOption(); syncBkRateLine(); });
-const SERIES_MAX_UI = 26;
-$('#bkRepeatCount').innerHTML = Array.from({length: SERIES_MAX_UI - 1}, (_, i) =>
-  `<option value="${i + 2}" ${i + 2 === 8 ? 'selected' : ''}>${i + 2} shifts</option>`).join('');
 function syncRepeatUI(){
   const on = !!$('#bkRepeat').value;
   $('#bkRepeatEndWrap').hidden = !on;
   $('#bkRepeatNote').hidden = !on;
   const mode = $('#bkRepeatMode').value;
-  $('#bkRepeatCountWrap').hidden = mode !== 'count';
-  $('#bkRepeatUntilWrap').hidden = mode !== 'until';
+  const needsDate = on && mode === 'date';
+  $('#bkRepeatUntilWrap').hidden = !needsDate;
+  $('#bkRepeatUntil').required = needsDate;
+  $('#bkRepeatUntil').disabled = !needsDate;
+  $('#bkRepeatUntil').min = $('#bkDate').value;
   if(!bookingSending) $('#bkSubmit').textContent = on ? 'Send recurring requests' : 'Send booking request';
   $('#bkTitle').textContent = on ? 'Plan a regular shift' : 'Request a booking';
 }
 $('#bkRepeat').addEventListener('change', syncRepeatUI);
 $('#bkRepeatMode').addEventListener('change', syncRepeatUI);
+$('#bkDate').addEventListener('change', syncRepeatUI);
 function readBookingRequest(){
   const repeat = $('#bkRepeat').value;
   const body = {
@@ -8266,8 +8271,8 @@ function readBookingRequest(){
     if(body.intro){ body.hours = 1; body.sleepover = false; }
     if(repeat){
       body.repeat = repeat;
-      if($('#bkRepeatMode').value === 'until') body.repeat_until = $('#bkRepeatUntil').value;
-      else body.repeat_count = Number($('#bkRepeatCount').value);
+      body.repeat_end_mode = $('#bkRepeatMode').value;
+      if(body.repeat_end_mode === 'date') body.repeat_until = $('#bkRepeatUntil').value;
     }
   Object.assign(body, window.CareBookingPricing?.requestExtras?.() || {});
   return body;
@@ -8308,8 +8313,8 @@ $('#bookingForm').addEventListener('submit', async e => {
     if(!sameAccount()) return;
     bookingRequestIdentity = null;
     closeModals();
-    toast(r.count > 1
-      ? r.count + ' shifts requested — one ' + repeat + ' rule, easy to change or end later.'
+    toast(repeat
+      ? r.count + (r.count === 1 ? ' shift requested. Your routine ' : ' shifts requested. Your routine ') + (submittedBody.repeat_end_mode === 'ongoing' ? 'continues automatically until you end it.' : submittedBody.repeat_end_mode === 'date' ? 'continues automatically until ' + fmtAU(submittedBody.repeat_until) + '.' : 'is ready to manage in Bookings.')
       : 'Booking request sent to ' + bookingWorker.name.split(' ')[0] + '!');
     location.hash = returnRoutine ? '#/bookings?view=routine' : '#/bookings';
     renderBookingsPage();
@@ -12957,15 +12962,18 @@ function seriesCardHtml(d){
   const list = (d && d.series) || [];
   if(!list.length) return '';
   const lockH = d.lock_hours || 12;
+  const today = new Intl.DateTimeFormat('en-CA', {timeZone:'Australia/Sydney', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
   const row = s => {
     const ended = !!s.ended_at;
+    const lastDate = s.until_date || s.last_date || '';
+    const finished = !ended && !s.auto_extend && Number(s.remaining) === 0 && /^\d{4}-\d{2}-\d{2}$/.test(lastDate) && lastDate < today;
     return `<div class="acc-link" data-series="${s.id}" style="${ended ? 'opacity:.65;' : ''}">
       <div class="acc-top">
         <b>${esc(s.worker_name)}</b>
         <small>${SVC_NAME[s.service] || esc(s.service)} · every ${s.freq === 'fortnightly' ? 'fortnight' : 'week'} · ${esc(s.start)} for ${s.hours} hrs</small>
-        ${ended ? '<span class="acc-chip revoked">Ended</span>' : '<span class="acc-chip active">Running</span>'}
+        ${ended ? '<span class="acc-chip revoked">Ended</span>' : finished ? '<span class="acc-chip">Finished</span>' : '<span class="acc-chip active">Running</span>'}
       </div>
-      <p class="muted-sm" style="margin:6px 0 0;">${s.remaining} still to come · ${s.done} done${ended ? ` · ended ${fmtAU(String(s.ended_at).slice(0, 10))}` : ''}</p>
+      <p class="muted-sm" style="margin:6px 0 0;">${s.repeat_end_mode==='ongoing'?'Ongoing · ':s.repeat_end_mode==='date'?'Ends '+esc(fmtAU(s.until_date))+' · ':''}${s.remaining} requested or confirmed ahead · ${s.done} done${ended ? ` · ended ${fmtAU(String(s.ended_at).slice(0, 10))}` : ''}</p>
       ${!ended ? `
       <div class="cc-acts" style="margin-top:10px;">
         <button type="button" class="btn btn-secondary btn-sm" data-sr-edit="${s.id}">Change it</button>
@@ -12991,7 +12999,7 @@ function seriesCardHtml(d){
   };
   return `<div class="info-card" id="cardSeries" style="margin-bottom:18px;">
     <h3 style="margin:0 0 6px;">Repeating bookings</h3>
-    <p class="muted-sm" style="margin:0 0 12px;">The rules behind your regular shifts. Change one and every future shift follows; any single shift can still be moved on its own from the list below.</p>
+    <p class="muted-sm" style="margin:0 0 12px;">Manage your regular shifts. Ongoing and date-ended routines prepare requests up to 8 weeks ahead, with later dates added automatically. Each request still needs the worker’s acceptance. You can also change a single visit from its shift page.</p>
     ${list.map(row).join('')}
   </div>`;
 }
@@ -13012,7 +13020,8 @@ document.addEventListener('click', async e => {
         worker_id: Number(document.querySelector(`[data-sr-worker="${id}"]`).value)
       }});
       toast(`Applied to ${r.changed} future shift${r.changed === 1 ? '' : 's'}.`
-        + (r.locked ? ` ${r.locked} within ${r.lock_hours} hours stay${r.locked === 1 ? 's' : ''} as planned.` : ''));
+        + (r.locked ? ` ${r.locked} within ${r.lock_hours} hours stay${r.locked === 1 ? 's' : ''} as planned.` : '')
+        + (r.generation_warning ? ' ' + r.generation_warning : ''));
       renderBookingsPage();
     }catch(err){ toast(err.message); }
     return;
@@ -13021,7 +13030,7 @@ document.addEventListener('click', async e => {
   if(end){
     if(!end.dataset.really){
       end.dataset.really = '1';
-      end.textContent = 'Really end it — yes';
+      end.textContent = 'Confirm end — stop future requests';
       return;
     }
     try{
@@ -15514,10 +15523,10 @@ document.addEventListener('click', async e => {
 <script src="/assets/service-locations.js?v=88.4.7"></script>
 <script src="/assets/launch-assurance.js?v=88.4.4"></script>
 <script src="/assets/billing-setup.js?v=88.3.4"></script>
-<link rel="stylesheet" href="/assets/booking-pricing.css?v=88.4.16">
-<script src="/assets/booking-pricing.js?v=88.4.16"></script>
-<link rel="stylesheet" href="/assets/care-routine.css?v=88.4.16">
-<script src="/assets/care-routine.js?v=88.4.16"></script>
+<link rel="stylesheet" href="/assets/booking-pricing.css?v=88.4.17">
+<script src="/assets/booking-pricing.js?v=88.4.17"></script>
+<link rel="stylesheet" href="/assets/care-routine.css?v=88.4.17">
+<script src="/assets/care-routine.js?v=88.4.17"></script>
 <link rel="stylesheet" href="/assets/sleepover-support.css?v=88.4.4">
 <script src="/assets/sleepover-support.js?v=88.4.4"></script>
 <link rel="stylesheet" href="/assets/account-email.css?v=88.4.6">

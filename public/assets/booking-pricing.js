@@ -4,7 +4,7 @@ window.CareBookingPricing=(()=>{
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const byId=id=>document.getElementById(id);
   const money=value=>new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(Number(value));
-  const inputs=['bkService','bkDate','bkStart','bkHours','bkSleep','bkIntro','bkRepeat','bkRepeatMode','bkRepeatCount','bkRepeatUntil'];
+  const inputs=['bkService','bkDate','bkStart','bkHours','bkSleep','bkIntro','bkRepeat','bkRepeatMode','bkRepeatUntil'];
   const supported=()=>['personal-care','daily-tasks'].includes(byId('bkService')?.value);
   const quantity=value=>Number(Number(value).toFixed(2));
   const day=value=>new Intl.DateTimeFormat('en-AU',{weekday:'short',day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(value+'T12:00:00Z'));
@@ -15,9 +15,9 @@ window.CareBookingPricing=(()=>{
     const intro=!!byId('bkIntro')?.checked,locationHost=byId('bookingServiceLocation');
     const place=window.CareLocations?.chooserValue(locationHost)||{mode:'unconfirmed'};
     const value={worker_id:Number(byId('bkWorkerName')?.dataset?.workerId)||null,service:byId('bkService')?.value||'',date:byId('bkDate')?.value||'',start:byId('bkStart')?.value||'',hours:Number(byId('bkHours')?.value),sleepover:!intro&&supported()&&!!byId('bkSleep')?.checked,intro,
-      repeat:byId('bkRepeat')?.value||'',repeat_mode:byId('bkRepeatMode')?.value||'count',repeat_count:Number(byId('bkRepeatCount')?.value),repeat_until:byId('bkRepeatUntil')?.value||'',
+      repeat:byId('bkRepeat')?.value||'',repeat_end_mode:byId('bkRepeatMode')?.value||'ongoing',repeat_until:byId('bkRepeatMode')?.value==='date'?(byId('bkRepeatUntil')?.value||''):'',
       subject:[window.API?.me?.id||'',window.API?.me?.role||'',window.API?.actingFor?.id||'',(window.API?.actingFor?.scopes||[]).slice().sort().join(',')].join(':'),service_location:place};
-    const pattern=JSON.stringify([value.subject,value.worker_id,value.date,value.repeat,value.repeat_mode,value.repeat_count,value.repeat_until]);
+    const pattern=JSON.stringify([value.subject,value.worker_id,value.date,value.repeat,value.repeat_end_mode,value.repeat_until]);
     if(pattern!==skipPattern){skipped.clear();skipPattern=pattern;}
     return {...value,repeat_skip_dates:value.repeat?[...skipped].sort():[]};
   }
@@ -30,14 +30,13 @@ window.CareBookingPricing=(()=>{
     if(!value.intro&&(!Number.isFinite(value.hours)||value.hours<2||value.hours>10))throw Error('Choose between 2 and 10 hours.');
     if(!value.repeat)return [value.date];
     if(!['weekly','fortnightly'].includes(value.repeat))throw Error('Choose weekly or fortnightly repeats.');
-    const until=value.repeat_mode==='until'?value.repeat_until:'';
-    if(value.repeat_mode==='until'&&!/^\d{4}-\d{2}-\d{2}$/.test(until))throw Error('Choose the last date for your repeating bookings.');
+    if(!['ongoing','date'].includes(value.repeat_end_mode))throw Error('Choose ongoing support or a specific end date.');
+    const until=value.repeat_end_mode==='date'?value.repeat_until:'';
+    if(value.repeat_end_mode==='date'&&(!/^\d{4}-\d{2}-\d{2}$/.test(until)||!Number.isFinite(+new Date(until+'T12:00:00Z'))||new Date(until+'T12:00:00Z').toISOString().slice(0,10)!==until))throw Error('Choose the last date for your repeating bookings.');
     if(until&&until<value.date)throw Error('The last date must be on or after the first booking.');
-    const max=until?26:value.repeat_count;
-    if(!Number.isInteger(max)||max<2||max>26)throw Error('Choose between 2 and 26 repeating bookings.');
-    const dates=[],date=new Date(value.date+'T12:00:00Z');
-    while(dates.length<max){const iso=date.toISOString().slice(0,10);if(until&&iso>until)break;dates.push(iso);date.setUTCDate(date.getUTCDate()+(value.repeat==='fortnightly'?14:7));}
-    if(until&&date.toISOString().slice(0,10)<=until)throw Error('Choose an end date within 26 repeating bookings. You can plan another routine after that.');
+    const dates=[],date=new Date(value.date+'T12:00:00Z'),horizon=new Date(+date);
+    horizon.setUTCDate(horizon.getUTCDate()+56);
+    while(date<horizon){const iso=date.toISOString().slice(0,10);if(until&&iso>until)break;dates.push(iso);date.setUTCDate(date.getUTCDate()+(value.repeat==='fortnightly'?14:7));}
     return dates;
   }
   function heading(value){return value.intro?'Meet-and-greet — no charge':value.sleepover?'Inactive overnight — flat per night':'Hourly support — worker awake / working';}
@@ -88,13 +87,17 @@ window.CareBookingPricing=(()=>{
     };
     const first=preview.dates.slice(0,6),rest=preview.dates.slice(6);
     const complete=selected.length===known.length;
-    const info=issues.length?`${issues.length} selected date${issues.length===1?' needs':'s need'} attention. Skip those dates or change the time before sending.`:selected.length<1?'Choose at least one date to send.':preview.needs_confirmation?'The location needs your confirmation before sending. Your worker still needs to accept the request.':'Your worker still needs to accept these requests. No future dates are added automatically.';
-    show(`<h3>Your recurring bookings</h3><p>${escape(heading(value))}</p><p class="bp-total"><strong>${complete?money(total):'Total not yet available'}</strong> ${complete?'estimated support total':''}</p><p><b>${selected.length} selected</b> · ${preview.dates.length-selected.length} skipped</p><p class="bp-repeat-status" role="status">${escape(info)}</p><p class="bp-note">Untick a date to skip it. Each date is priced separately. Weekends, public holidays and published rate changes can affect later bookings.</p><ul class="bp-occurrences">${first.map(rowMarkup).join('')}</ul>${rest.length?`<details class="bp-more" data-bp-more><summary>Show ${rest.length} more dates</summary><ul class="bp-occurrences">${rest.map(rowMarkup).join('')}</ul></details>`:''}<p class="bp-note">${value.sleepover?'Each sleepover has a flat nightly price. Actual extra active support is recorded separately.':'The final invoice uses the delivered and approved support; separately agreed travel or additional support may change the amount.'}</p>`,issues.length||selected.length<1?'attention':'ready');
+    const info=issues.length?`${issues.length} selected date${issues.length===1?' needs':'s need'} attention. Skip those dates or change the time before sending.`:selected.length<1?'Choose at least one date to send.':preview.needs_confirmation?'The location needs your confirmation before sending. Your worker still needs to accept the request.':'Your worker still needs to accept each request. Later dates are requested automatically as they approach.';
+    const ends=value.repeat_end_mode==='date'?'Ends '+day(value.repeat_until):'Ongoing — until you end this routine';
+    const windowEnd=preview.generated_through||preview.dates.at(-1)?.date;
+    const windowLabel=windowEnd?'Dates shown: '+day(value.date)+' – '+day(windowEnd):'Dates shown below';
+    show(`<h3>Your recurring bookings</h3><p><b>${escape(ends)}</b></p><p class="bp-note">${escape(windowLabel)}. Requests are prepared up to 8 weeks ahead and continue automatically${value.repeat_end_mode==='date'?' until your end date':''}. Later dates are planned, not confirmed.</p><p>${escape(heading(value))}</p><p class="bp-total"><strong>${complete?money(total):'Total not yet available'}</strong> ${complete?'estimated support total for the selected dates shown':''}</p><p><b>${selected.length} selected</b> · ${preview.dates.length-selected.length} skipped</p><p class="bp-repeat-status" role="status">${escape(info)}</p><p class="bp-note">Untick a date to skip it. Each date is priced separately. The total covers only the dates shown here. Prices for later dates may change with weekends, public holidays or published rates.</p><ul class="bp-occurrences">${first.map(rowMarkup).join('')}</ul>${rest.length?`<details class="bp-more" data-bp-more><summary>Show ${rest.length} more dates</summary><ul class="bp-occurrences">${rest.map(rowMarkup).join('')}</ul></details>`:''}<p class="bp-note">${value.sleepover?'Each sleepover has a flat nightly price. Actual extra active support is recorded separately.':'The final invoice uses the delivered and approved support; separately agreed travel or additional support may change the amount.'}</p>`,issues.length||selected.length<1?'attention':'ready');
   }
   async function fetchPreview(value,dates){
     if(!value.worker_id)throw Error('Choose a worker before checking recurring bookings.');
     const body={worker_id:value.worker_id,date:value.date,start:value.start,hours:value.hours,service:value.service,sleepover:value.sleepover,intro:value.intro,service_location:value.service_location,repeat:value.repeat,repeat_skip_dates:value.repeat_skip_dates};
-    if(value.repeat_mode==='until')body.repeat_until=value.repeat_until;else body.repeat_count=value.repeat_count;
+    body.repeat_end_mode=value.repeat_end_mode;
+    if(value.repeat_end_mode==='date')body.repeat_until=value.repeat_until;
     const preview=await API.call('/bookings/preview',{method:'POST',body});
     if(!preview||preview.ok!==true||!Array.isArray(preview.dates)||preview.dates.length!==dates.length||preview.dates.some((row,i)=>row.date!==dates[i]||row.selected===row.skipped||typeof row.selected!=='boolean'||typeof row.skipped!=='boolean'))throw Error('The recurring dates could not be confirmed. Refresh the booking price.');
     for(const row of preview.dates){

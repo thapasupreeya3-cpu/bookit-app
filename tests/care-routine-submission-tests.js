@@ -21,20 +21,21 @@ function harness() {
       contains() { return false; }, querySelector() { return null; }, focus() {}, append() {}, insertAdjacentElement() {} };
     nodes.set(id,n); return n;
   };
-  const values = { bkService: 'personal-care', bkDate: '2030-10-07', bkStart: '09:00', bkHours: '3', bkRepeat: 'weekly', bkRepeatMode: 'count', bkRepeatCount: '2', bkRepeatUntil: '', bkNotes: '' };
+  const values = { bkService: 'personal-care', bkDate: '2030-10-07', bkStart: '09:00', bkHours: '3', bkRepeat: 'weekly', bkRepeatMode: 'date', bkRepeatUntil: '2030-10-14', bkNotes: '' };
   for (const [id,value] of Object.entries(values)) node(id).value = value;
   for (const id of ['bkIntro','bkSleep','bookingServiceLocation','bkRateLine','bkWorkerName','bookingForm','bkFormError']) node(id);
   node('bkWorkerName').dataset.workerId = '10';
   const quote = (body,date) => ({ quote_key: 'synthetic-signed-quote-'+date+'-hours-'+body.hours, date, start: body.start, duration_hours: body.hours, end_date: date, end_time: '12:00', support_type: 'hourly', total: 220.74, lines: [{ date, when: '09:00–12:00', description: 'Weekday daytime', category: 'weekday-day', qty: 3, rate: 73.58, amount: 220.74, unit: 'hours' }] });
   const preview = body => {
     const dates = [], d = new Date(body.date+'T12:00:00Z');
-    for (let i=0;i<body.repeat_count;i++) { const date=d.toISOString().slice(0,10), selected=!(body.repeat_skip_dates || []).includes(date); dates.push({ date, selected, skipped: !selected, available: !commitCount, needs_confirmation: false, problem: commitCount ? 'This worker already has an overlapping booking.' : null, quote: quote(body,date) }); d.setUTCDate(d.getUTCDate()+7); }
-    return { ok: true, dates, repeat: body.repeat, selected_count: dates.filter(d=>d.selected).length, skipped_count: dates.filter(d=>!d.selected).length, ready: !commitCount, needs_confirmation: false, limit: 26 };
+    for (let i=0;i<8 && (body.repeat_end_mode!=='date'||d.toISOString().slice(0,10)<=body.repeat_until);i++) { const date=d.toISOString().slice(0,10), selected=!(body.repeat_skip_dates || []).includes(date); dates.push({ date, selected, skipped: !selected, available: !commitCount, needs_confirmation: false, problem: commitCount ? 'This worker already has an overlapping booking.' : null, quote: quote(body,date) }); d.setUTCDate(d.getUTCDate()+7); }
+    return { ok: true, dates, repeat: body.repeat, selected_count: dates.filter(d=>d.selected).length, skipped_count: dates.filter(d=>!d.selected).length, ready: !commitCount, needs_confirmation: false, repeat_end_mode:body.repeat_end_mode,until_date:body.repeat_until||null,generated_through:dates.at(-1)?.date,horizon_weeks:8,continues_automatically:true };
   };
   const ctx = { Intl, URLSearchParams, Date: Clock, Promise, console,
     setTimeout(f) { const id=++serial;timers.set(id,f);return id; }, clearTimeout(id) { timers.delete(id); },
     document: { readyState:'complete',getElementById: node,addEventListener() {},querySelector() {return null;} },
     $: selector => node(selector.slice(1)), location: {hash:'#/bookings?view=routine'},
+    fmtAU: value=>value,
     crypto: { randomUUID: () => 'synthetic-request-'+(++serial) },
     CareLocations: { chooserValue: () => ({mode:'saved',source_revision:1}) },
     closeModals() { closed++; }, renderBookingsPage() { rendered++; }, toast: text => toast.push(text),
@@ -60,6 +61,10 @@ function harness() {
 const results=[];
 async function test(name,run){try{await run();results.push({name,result:'PASS'});console.log('PASS '+name);}catch(error){results.push({name,result:'FAIL',error:error.stack});console.error('FAIL '+name+' '+error.stack);}}
 (async()=>{
+  await test('Ongoing submission omits legacy count and a stale end date',async()=>{const h=harness();h.node('bkRepeatMode').value='ongoing';h.setFail(null);await h.refresh();await h.submit();assert.equal(h.bookingCalls().length,1);const body=h.bookingCalls()[0].body;assert.equal(body.repeat_end_mode,'ongoing');assert.equal(body.quote_keys.length,8);assert.ok(!Object.hasOwn(body,'repeat_count'));assert.ok(!Object.hasOwn(body,'repeat_until'));assert.equal(h.closed(),1);});
+  await test('A date-ended submission includes its chosen far-future endpoint with only initial quotes',async()=>{const h=harness();h.node('bkRepeatUntil').value='2033-12-31';h.setFail(null);await h.refresh();await h.submit();const body=h.bookingCalls()[0].body;assert.equal(body.repeat_end_mode,'date');assert.equal(body.repeat_until,'2033-12-31');assert.equal(body.quote_keys.length,8);assert.ok(!Object.hasOwn(body,'repeat_count'));});
+  await test('The end-date control is required only for a repeating date-ended request',async()=>{const h=harness();await h.node('bkRepeatMode').dispatch('change');assert.equal(h.node('bkRepeatUntil').required,true);assert.equal(h.node('bkRepeatUntil').disabled,false);h.node('bkRepeatMode').value='ongoing';await h.node('bkRepeatMode').dispatch('change');assert.equal(h.node('bkRepeatUntil').required,false);assert.equal(h.node('bkRepeatUntil').disabled,true);h.node('bkRepeat').value='';h.node('bkRepeatMode').value='date';await h.node('bkRepeat').dispatch('change');assert.equal(h.node('bkRepeatUntil').required,false);assert.equal(h.node('bkRepeatUntil').disabled,true);});
+  await test('Changing end mode after an ambiguous response cannot replay the old date-ended intent',async()=>{const h=harness();await h.refresh();await h.submit();const previous=h.bookingCalls()[0].body;h.node('bkRepeatMode').value='ongoing';await h.submit();assert.equal(h.bookingCalls().length,1);assert.match(h.node('bkFormError').textContent,/Review the recurring dates/);h.setFetch(async call=>call.url==='/api/bookings/preview'?response({...h.makePreview(call.body),dates:h.makePreview(call.body).dates.map(r=>({...r,available:true,problem:null}))}):response({ok:true,count:8}));await h.refresh();await h.submit();const next=h.bookingCalls()[1].body;assert.notEqual(next.request_id,previous.request_id);assert.equal(next.repeat_end_mode,'ongoing');assert.ok(!Object.hasOwn(next,'repeat_until'));});
   await test('A lost response retries the committed request receipt even after the preview cache expires',async()=>{
     const h=harness();await h.refresh();await h.submit();assert.equal(h.commits(),1);assert.equal(h.closed(),0);assert.match(h.node('bkFormError').textContent,/response lost/i);
     const first=h.bookingCalls()[0];h.advance(60001);await h.submit();assert.equal(h.bookingCalls().length,2);assert.deepEqual(h.bookingCalls()[1].body,first.body);

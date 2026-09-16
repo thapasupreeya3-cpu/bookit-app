@@ -46,7 +46,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const AUTO_REPLY = (process.env.AUTO_REPLY || 'on') !== 'off';
 const SESSION_DAYS = 30;
 let WORKFLOW = null;
-let BOOKING_NOTICES = null;
+let BOOKING_NOTICES = null, CARE_ROUTINES = null;
 let PAYMENT_FLOW = null;
 let SERVICE_LOCATIONS = null;
 let LAUNCH = null;
@@ -6749,13 +6749,13 @@ route('GET', /^\/api\/bookings$/, (req, res, m, user) => {
 });
 
 /* --- 5. one rule, many shifts.
-   Weekly and fortnightly, up to twenty-six ahead, generated at the moment
-   the rule is made so every occurrence is a real booking the worker can
-   see, accept and be paid for — not a promise the diary renders on the
-   fly. A single occurrence can then be moved, shortened or cancelled
-   without unpicking the rule, because the rule and the shift are separate
-   rows. --- */
-const SERIES_MAX = 26;
+   Weekly and fortnightly routines continue until ended or their selected
+   end date. Only the next eight weeks become actual requests; the durable
+   generator adds later dates. Each occurrence can be moved or cancelled
+   independently. Older explicitly counted requests retain their limit. --- */
+const SERIES_MAX = 26; // Compatibility for earlier, explicitly counted requests only.
+const ROUTINE_HORIZON_WEEKS = 8;
+const ROUTINE_DATES = require('./lib/care-routine-dates');
 function seriesDates(firstDate, freq, until, count) {
   const step = freq === 'fortnightly' ? 14 : 7;
   const out = [];
@@ -6789,7 +6789,7 @@ function participantFacing(fit) {
   }
   return fit;
 }
-function prepareBookingRequest(req,res,user,body) {
+function prepareBookingRequest(req,res,user,body,reviewedAssignment=null) {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const pers = actFor(req, user, 'bookings');
   if (!pers) return json(res, 403, { error: user && user.role === 'coordinator'
@@ -6855,23 +6855,28 @@ function prepareBookingRequest(req,res,user,body) {
 
   const repeat = ['weekly', 'fortnightly'].includes(clean(body.repeat, 20)) ? clean(body.repeat, 20) : '';
   if(body.repeat_until && !BOOKIT_TIME.validDate(body.repeat_until))return json(res,400,{error:'Choose a real end date for the repeating visits.'});
-  const until=body.repeat_until||'';
-  if (repeat && body.repeat_count !== undefined && body.repeat_count !== '' && (!Number.isInteger(Number(body.repeat_count)) || Number(body.repeat_count) < 1 || Number(body.repeat_count) > SERIES_MAX)) return json(res,400,{error:'Choose between 1 and 26 visits.'});
-  const count = Math.max(0, Math.min(SERIES_MAX, Number(body.repeat_count) || 0));
-  if (repeat && !until && !count) return json(res, 400, { error: 'Tell us when the repeating booking should stop \u2014 either an end date or a number of shifts.' });
-
+  const requestedMode=body.repeat_end_mode;
+  if(requestedMode!==undefined&&!['ongoing','date'].includes(requestedMode))return json(res,400,{error:'Choose ongoing visits or an end date.'});
+  const endMode=repeat?(requestedMode || (body.repeat_until && !body.repeat_count?'date':'finite')):'';
+  const until=endMode==='ongoing'?'':body.repeat_until||'';
+  if(repeat&&endMode==='date'&&!until)return json(res,400,{error:'Choose the date your routine should end.'});
+  if(repeat&&until&&until<date)return json(res,400,{error:'That end date is before the first shift.'});
+  if (repeat && endMode==='finite' && body.repeat_count !== undefined && body.repeat_count !== '' && (!Number.isInteger(Number(body.repeat_count)) || Number(body.repeat_count) < 1 || Number(body.repeat_count) > SERIES_MAX)) return json(res,400,{error:'An older counted request must contain between 1 and 26 visits. Choose ongoing or an end date for a new routine.'});
+  const count = endMode==='finite'?Math.max(0, Math.min(SERIES_MAX, Number(body.repeat_count) || 0)):0;
+  if (repeat && endMode==='finite' && !until && !count) return json(res, 400, { error: 'Choose ongoing visits or an end date.' });
   if (intro && repeat) return json(res, 400, { error: 'A meet-and-greet happens once.' });
-  const allDates = repeat ? seriesDates(date, repeat, until, count) : [date];
+  const automatic=!!repeat&&endMode!=='finite';
+  const allDates = repeat ? (automatic?ROUTINE_DATES.window(date,repeat,until,date):seriesDates(date, repeat, until, count)) : [date];
   if (!allDates.length) return json(res, 400, { error: 'That end date is before the first shift.' });
-  if(repeat&&until&&!count&&allDates.length===SERIES_MAX){const next=new Date(`${allDates.at(-1)}T12:00:00`);next.setDate(next.getDate()+(repeat==='fortnightly'?14:7));if(ymd(next)<=until)return json(res,400,{error:'Choose an earlier end date: one repeating request can include up to 26 visits.'});}
-
   const rawSkips=body.repeat_skip_dates===undefined?[]:body.repeat_skip_dates;
-  if (!Array.isArray(rawSkips) || rawSkips.length>SERIES_MAX || rawSkips.some(d=>!BOOKIT_TIME.validDate(d)) || new Set(rawSkips).size!==rawSkips.length || rawSkips.some(d=>!allDates.includes(d)) || (!repeat&&rawSkips.length)) return json(res,400,{error:'Skip only distinct dates shown in this repeating booking.'});
+  if (!Array.isArray(rawSkips) || rawSkips.length>allDates.length || rawSkips.some(d=>!BOOKIT_TIME.validDate(d)) || new Set(rawSkips).size!==rawSkips.length || rawSkips.some(d=>!allDates.includes(d)) || (!repeat&&rawSkips.length)) return json(res,400,{error:'Skip only distinct dates shown in this repeating booking.'});
   const dates=allDates.filter(d=>!rawSkips.includes(d));
   if (!dates.length) return json(res,400,{error:'Keep at least one visit selected.'});
   const place=SERVICE_LOCATIONS.placeForBooking({service_location:serviceLocation});
   const assignmentDates=dates.map(date=>({participant_id:pers.id,worker_id:workerId,service,date,start,hours,sleepover,kind:intro?'intro':'shift',service_place:place}));
-  const assignmentProof=assignmentOptions(req,user,body,assignmentDates);
+  // Only the server's routine retry supplies reviewedAssignment. Its fresh
+  // travel proof is bound to the exact outstanding dates and current scope.
+  const assignmentProof=reviewedAssignment||assignmentOptions(req,user,body,assignmentDates);
   const entries=allDates.map(d=>{
     const proposed={participant_id:pers.id,worker_id:workerId,service,date:d,start,hours,sleepover,kind:intro?'intro':'shift',service_location:serviceLocation,service_place:place};
     const quote=bookingQuote(proposed);
@@ -6882,12 +6887,12 @@ function prepareBookingRequest(req,res,user,body) {
       available:!quote.error&&fit.ok===true,needs_confirmation:!!fit.confirm,
       problem:quote.error||(!fit.ok?participantFacing(fit).error:null)};
   });
-  return {pers,workerId,service,date,start,hours,intro,sleepover,notes,serviceLocation,repeat,until,count,dates,allDates,entries,assignmentDates};
+  return {pers,workerId,service,date,start,hours,intro,sleepover,notes,serviceLocation,repeat,until,count,endMode,automatic,dates,allDates,entries,assignmentDates};
 }
 
 function bookingPreview(plan) {
   const selected=plan.entries.filter(e=>e.selected);
-  return {ok:true,repeat:plan.repeat,limit:SERIES_MAX,
+  return {ok:true,repeat:plan.repeat,...(plan.automatic?{repeat_end_mode:plan.endMode,until_date:plan.until,generated_through:plan.allDates.at(-1),horizon_weeks:ROUTINE_HORIZON_WEEKS,continues_automatically:true}:{limit:SERIES_MAX,repeat_end_mode:plan.endMode,continues_automatically:false}),
     dates:plan.entries.map(({fit,...entry})=>entry),
     selected_count:selected.length,skipped_count:plan.allDates.length-selected.length,
     total:selected.every(e=>e.quote)?round2(selected.reduce((n,e)=>n+e.quote.total,0)):null,
@@ -6948,7 +6953,7 @@ route('POST', /^\/api\/bookings$/, (req,res,m,user,body)=>{
     }
     dates.forEach((d, idx) => {
       const r = db.prepare('INSERT INTO bookings (participant_id, worker_id, service, date, start, hours, notes, sleepover, series_id, series_index, created, kind, out_of_area) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
-        .run(pers.id, workerId, service, d, start, intro ? INTRO_HOURS : hours, notes, sleepover, seriesId, seriesId ? idx + 1 : null, now(), intro ? 'intro' : 'shift', '');
+        .run(pers.id, workerId, service, d, start, intro ? INTRO_HOURS : hours, notes, sleepover, seriesId, seriesId ? (prepared.automatic?ROUTINE_DATES.index(date,repeat,d)+1:idx+1) : null, now(), intro ? 'intro' : 'shift', '');
       const shown={...requestedQuotes[idx],display_label:body.quote_keys?'Price shown at booking':'Price calculated when requested'};
       db.prepare('UPDATE bookings SET booking_quote=? WHERE id=?').run(JSON.stringify(shown),Number(r.lastInsertRowid));
       const id = Number(r.lastInsertRowid);
@@ -6957,6 +6962,7 @@ route('POST', /^\/api\/bookings$/, (req,res,m,user,body)=>{
       if (km > 0) applyKm(id, km, clean(body.km_from, 80), clean(body.km_to, 80));
       ids.push(id);
     });
+    if(seriesId&&prepared.automatic)CARE_ROUTINES.record(seriesId,prepared,body,user,ids);
     BOOKING_NOTICES.queue(req,'requested',ids,{workerHtml:scopeBlock,event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
     if(requestId!==undefined)db.prepare('INSERT INTO booking_request_receipts (participant_id,request_id,intent_hash,response_json,created_at) VALUES (?,?,?,?,?)').run(pers.id,requestId,intentHash,JSON.stringify({id:ids[0],ids,series_id:seriesId,count:ids.length,ok:true,scope_warning:warn}),now());
     db.exec('COMMIT');
@@ -7249,6 +7255,7 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
   const pers = actFor(req, user, 'bookings');
   if (!pers || pers.id !== sr.participant_id) return json(res, 403, { error: 'That isn\'t your booking.' });
 
+  if(sr.ended_at)return json(res,409,{error:'This routine has ended. Start a new routine to request more visits.'});
   const patch = {};
   if (body.start !== undefined) { if(!BOOKIT_TIME.validTime(body.start)) return json(res,400,{error:'Choose a real start time.'}); patch.start=body.start; }
   if (body.hours !== undefined) {
@@ -7288,6 +7295,7 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
   db.exec('BEGIN IMMEDIATE');
   try {
     db.prepare(`UPDATE booking_series SET ${sets} WHERE id = ?`).run(...vals, sr.id);
+    CARE_ROUTINES?.adoptEdit(sr.id,user);
     for (const b of movable) {
       const changedAssignment=['worker_id','start','hours'].some(k=>patch[k]!==undefined&&String(patch[k])!==String(b[k]));
       db.prepare(`UPDATE bookings SET ${sets}${changedAssignment ? ", status='requested', accepted_at=NULL, office_ok=0" : ''} WHERE id = ?`).run(...vals,b.id);
@@ -7299,9 +7307,15 @@ route('PATCH', /^\/api\/series\/(\d+)$/, (req, res, m, user, body) => {
     try { db.exec('ROLLBACK'); } catch {}
     throw e;
   }
+  let generationWarning='';
+  if(sr.auto_extend)try{CARE_ROUTINES?.tick(sr.id);}catch(e){
+    console.error('[care-routine-after-edit]',e.message);
+    generationWarning='Your changes were saved. Future dates need another check; open the routine to retry.';
+    try{CARE_ROUTINES.recordFailure(sr.id);}catch(recordError){console.error('[care-routine-issue]',recordError.message);}
+  }
   BOOKING_NOTICES.queue(req,'changed',changed,{previousRows:movable,event_id:crypto.randomUUID()}).catch(e=>console.error('[booking-notice]',e.message));
   logDelegate(pers, 'Changed a repeating booking', `${Object.keys(patch).join(', ')} on ${changed.length} shifts`, sr.id);
-  json(res, 200, { ok: true, changed: changed.length, locked: locked.length, lock_hours: SERIES_LOCK_HOURS });
+  json(res, 200, { ok: true, changed: changed.length, locked: locked.length, lock_hours: SERIES_LOCK_HOURS, ...(generationWarning?{generation_warning:generationWarning}:{}) });
 });
 
 /* Moving one occurrence detaches it, and it stays detached: a later series
@@ -7391,6 +7405,30 @@ route('POST', /^\/api\/series\/(\d+)\/end$/, (req, res, m, user, body) => {
   json(res, 200, { ok: true, cancelled: future.length, charged });
 });
 
+route('POST', /^\/api\/series\/(\d+)\/retry$/, (req,res,m,user,body)=>{
+  if(!user)return json(res,401,{error:'Please sign in.'});
+  const sr=db.prepare('SELECT * FROM booking_series WHERE id=?').get(Number(m[1])),pers=actFor(req,user,'bookings');
+  if(!sr||!pers||sr.participant_id!==pers.id)return json(res,403,{error:'Booking permission is required for this routine.'});
+  if(sr.ended_at)return json(res,409,{error:'This routine has ended.'});
+  const config=safeJsonObj(db.prepare('SELECT config FROM care_routine_rules WHERE series_id=?').get(sr.id)?.config);
+  const dates=CARE_ROUTINES.pendingDates(sr);
+  let review=null;
+  if(config&&dates.length){
+    const proposed=dates.map(date=>({participant_id:sr.participant_id,worker_id:sr.worker_id,service:sr.service,date,start:sr.start,hours:sr.hours,sleepover:!!config.sleepover,kind:'shift',service_location:config.service_location}));
+    // Include the complete saved location/rule, not just its broad locality.
+    // Changed dates, organiser, time, destination or worker areas invalidate
+    // the existing short-lived confirmation. Background runs have no proof.
+    const intent={...body,routine_context:CONFIRMATION.digest({series_id:sr.id,created_by:sr.created_by,first_date:sr.first_date,freq:sr.freq,end_mode:sr.repeat_end_mode,until:sr.until_date,config})};
+    const proof=assignmentOptions(req,user,intent,proposed);
+    for(const booking of proposed){
+      const fit=assignmentCheck(sr.worker_id,booking,proof);
+      if(fit.confirm){fit.travel={...(fit.travel||{}),routine_dates:dates};return outOfAreaReply(res,fit);}
+    }
+    review={dates,proof,actor:user};
+  }
+  json(res,200,{ok:true,...CARE_ROUTINES.tick(sr.id,review)});
+});
+
 route('GET', /^\/api\/series$/, (req, res, m, user) => {
   if (!user) return json(res, 401, { error: 'Please log in.' });
   const pers = actFor(req, user, 'bookings');
@@ -7411,7 +7449,8 @@ route('GET', /^\/api\/series$/, (req, res, m, user) => {
     r.next_date=upcoming[0]?.date||null;
     r.last_date=visits.at(-1)?.date||null;
     r.sleepover=!!visits.find(b=>!b.detached)?.sleepover;
-    r.upcoming=upcoming.slice(0,SERIES_MAX).map(b=>({...b,sleepover:!!b.sleepover}));
+    r.upcoming=upcoming.map(b=>({...b,sleepover:!!b.sleepover}));
+    Object.assign(r,CARE_ROUTINES.summary(r));
   }
   json(res, 200, { series: rows, lock_hours: SERIES_LOCK_HOURS });
 });
@@ -18295,6 +18334,9 @@ route('DELETE', /^\/api\/admin\/users\/(\d+)$/, (req, res, m, user, body) => {
     if(WORKFLOW)WORKFLOW.closePersonal(u.id);
     if(SERVICE_LOCATIONS) {
       db.prepare('DELETE FROM participant_addresses WHERE participant_id=?').run(u.id);
+      db.prepare('DELETE FROM care_routine_rules WHERE series_id IN (SELECT id FROM booking_series WHERE participant_id=?)').run(u.id);
+      db.prepare('DELETE FROM care_routine_dates WHERE series_id IN (SELECT id FROM booking_series WHERE participant_id=?)').run(u.id);
+      db.prepare('UPDATE booking_series SET auto_extend=0 WHERE participant_id=?').run(u.id);
       db.prepare('DELETE FROM booking_locations WHERE booking_id IN (SELECT id FROM bookings WHERE participant_id=?)').run(u.id);
       db.prepare('DELETE FROM booking_location_notices WHERE worker_id=? OR booking_id IN (SELECT id FROM bookings WHERE participant_id=?)').run(u.id,u.id);
     }
@@ -19444,6 +19486,7 @@ WORKFLOW.locationTasks=uid=>{
   const u=db.prepare('SELECT id,role FROM users WHERE id=?').get(uid),tasks=[];
   const add=(key,label,destination,detail,due=null)=>tasks.push({task_key:uid+':location:'+key,user_id:uid,kind:'booking',label,owner_kind:'person',destination,detail,scope:u.role==='participant'?'bookings':'',due_at:due});
   if(u?.role==='participant'){
+    if(CARE_ROUTINES)for(const sr of db.prepare('SELECT * FROM booking_series WHERE participant_id=? AND auto_extend=1 AND ended_at IS NULL').all(uid)){const issues=CARE_ROUTINES.summary(sr).generation_issues;if(issues.length)add('routine:'+sr.id,'Review your care routine','#/bookings?view=routine&routine='+sr.id,issues.length+' planned '+(issues.length===1?'visit needs':'visits need')+' attention. Open the routine to review the dates and retry after making changes.',issues[0].date+'T'+sr.start+':00');}
     if(!SERVICE_LOCATIONS.profile(uid).complete)add('address','Add your home address','#/account/profile?focus=home-address','Save your home address and arrival details under Profile → Your details.');
     for(const b of db.prepare("SELECT * FROM bookings WHERE participant_id=? AND status IN ('requested','accepted') AND COALESCE(voided,0)=0 AND date>=?").all(uid,ymd()))if(!SERVICE_LOCATIONS.getPrivate(b.id)?.complete)add(b.id,'Confirm meeting place for '+b.date+' '+b.start,'#/journey?panel=shift&booking='+b.id,'Add the agreed meeting place before the visit.',bookingStart(b).toISOString());
   }else if(u?.role==='worker'){
@@ -19501,6 +19544,39 @@ function replyBookingQuote(req,res,user,raw,privateQuote=false){
 }
 route('GET',/^\/api\/pricing\/quote$/,(req,res,m,u)=>replyBookingQuote(req,res,u,Object.fromEntries(new URL(req.url,'http://local').searchParams)));
 route('POST',/^\/api\/pricing\/quote$/,(req,res,m,u,b)=>replyBookingQuote(req,res,u,b,true));
+
+CARE_ROUTINES=require('./lib/care-routine-generator')({db,now,ymd,bookingStart,bookingNotices:BOOKING_NOTICES,
+  makeRequest:(sr,config)=>({method:'POST',url:'/api/bookings',headers:{'x-bookit-for':String(sr.participant_id),host:new URL(APP_URL||'http://localhost').host}}),
+  validate:(sr,config,date,req,review)=>{
+    const actor=db.prepare('SELECT * FROM users WHERE id=?').get(sr.created_by);
+    const participant=db.prepare('SELECT * FROM users WHERE id=?').get(sr.participant_id);
+    if(!actor||actor.closed_at||!participant||participant.closed_at)return {error:'This routine needs an active participant and booking organiser.'};
+    if(actor.id!==sr.participant_id&&(actor.role!=='coordinator'||!linkAllows(actor.id,sr.participant_id,'bookings')))return {error:'The person who arranged this routine no longer has booking access. The participant can review and save the routine to continue.'};
+    if(sr.review_required)return {error:'Choose and confirm a worker for this routine before more visits can be requested.'};
+    let failure;const response={writeHead(){},setHeader(){},end(value){try{failure=JSON.parse(value);}catch{failure={error:'Review the routine details before requesting more visits.'};}}};
+    const body={worker_id:sr.worker_id,service:sr.service,date,start:sr.start,hours:sr.hours,notes:sr.notes,sleepover:config.sleepover,service_location:config.service_location};
+    const reviewedAssignment=review?.dates.includes(date)?review.proof:null;
+    const prepared=prepareBookingRequest(req,response,actor,body,reviewedAssignment);
+    if(!prepared)return {error:failure?.error||'Review the routine details before requesting more visits.'};
+    const entry=prepared.entries[0];
+    if(!entry.available)return {error:entry.problem||'Review this date before requesting the visit.'};
+    return {actor,prepared,entry,travelActor:reviewedAssignment?review.actor:actor};
+  },
+  insert:(sr,config,date,checked)=>{
+    const {actor,prepared,entry}=checked;
+    const result=db.prepare('INSERT INTO bookings (participant_id,worker_id,service,date,start,hours,notes,sleepover,series_id,series_index,created,kind) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').run(sr.participant_id,sr.worker_id,sr.service,date,sr.start,sr.hours,sr.notes,config.sleepover?1:0,sr.id,ROUTINE_DATES.index(sr.first_date,sr.freq,date)+1,now(),'shift');
+    const id=Number(result.lastInsertRowid);
+    db.prepare('UPDATE bookings SET booking_quote=? WHERE id=?').run(JSON.stringify({...entry.quote,display_label:'Price calculated for your ongoing routine'}),id);
+    SERVICE_LOCATIONS.saveBooking(id,prepared.serviceLocation,actor);
+    noteOutOfArea(id,entry.fit,'participant',checked.travelActor);
+    if(config.km>0)applyKm(id,config.km,config.km_from,config.km_to);
+    return id;
+  }
+});
+everyJob('care-routines',86400000,()=>CARE_ROUTINES.tick(),{label:'Care routine planning',why:'Adds the next eight weeks of ongoing and date-ended routines, rechecks each date and records any dates needing attention.'});
+// A restart always reconciles the horizon, even if yesterday's scheduled run
+// succeeded. The per-date ledger prevents duplicate requests and notifications.
+setTimeout(()=>jobRun('care-routines',()=>CARE_ROUTINES.tick()),2000).unref();
 
 const server = http.createServer((req, res) => {
   // The Care Web v85.3.0 request-boundary hardening. Keep this before route dispatch.

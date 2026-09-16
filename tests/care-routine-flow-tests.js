@@ -107,9 +107,9 @@ const fetch=global.fetch;global.fetch=function(input,...args){local(typeof input
     const body=input('2030-11-04',{repeat_skip_dates:['2030-11-04']}),p=ok(await preview(body));
     const r=ok(await create({...body,quote_keys:p.quote_keys}));assert.equal(row(r.id).date,'2030-11-11');assert.equal(db.prepare('SELECT first_date FROM booking_series WHERE id=?').get(r.series_id).first_date,'2030-11-11');
   });
-  await test('Fortnightly dates survive daylight saving and every recurrence is capped at 26',async()=>{
+  await test('Fortnightly dates survive daylight saving and old counted requests remain compatible',async()=>{
     const p=ok(await preview(input('2030-09-23',{repeat:'fortnightly',repeat_count:4,start:'10:00'})));assert.deepEqual(p.dates.map(e=>e.date),['2030-09-23','2030-10-07','2030-10-21','2030-11-04']);
-    ok(await preview(input('2030-12-02',{repeat_count:undefined,repeat_until:'2032-01-01',start:'10:00'})),400);const limit=ok(await preview(input('2030-12-02',{repeat_count:26,start:'10:00'})));assert.equal(limit.dates.length,26);assert.equal(limit.limit,26);
+    const ongoing=ok(await preview(input('2030-12-02',{repeat_count:undefined,repeat_until:'2032-01-01',start:'10:00'})));assert.equal(ongoing.continues_automatically,true);assert.equal(ongoing.dates.length,8);const limit=ok(await preview(input('2030-12-02',{repeat_count:26,start:'10:00'})));assert.equal(limit.dates.length,26);assert.equal(limit.limit,26);
   });
   await test('A nonexistent daylight-saving time is isolated to that date and can be skipped before booking',async()=>{
     const body=input('2030-09-29',{start:'02:30',hours:2,repeat_count:2});const p=ok(await preview(body));
