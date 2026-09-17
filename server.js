@@ -3,6 +3,7 @@ const BOOKIT_TIME = require('./lib/booking-time');
 const BOOKIT_AVAILABILITY = require('./lib/worker-availability');
 const BOOKIT_ASSIGNMENT = require('./lib/assignment-policy');
 const BOOKIT_TRAVEL = require('./lib/travel');
+const BOOKIT_CARER_LOCATION = require('./lib/carer-location-ranking');
 const BOOKIT_PLAN_ACCESS = require('./lib/plan-access');
 const BOOKIT_MESSAGES = require('./lib/message-pagination');
 const BOOKIT_REFERRALS = require('./lib/referral-policy');
@@ -6105,7 +6106,7 @@ route('GET', /^\/api\/workers$/, (req, res, m, user) => {
 
 /* Choosing a carer from the booking calendar uses booking authority. The
    person's recent connections stay private even when a helper can browse the
-   public directory. Only a real service-area match belongs in the area group. */
+   public directory. Location ranks choices; it never removes an eligible carer. */
 route('GET', /^\/api\/bookings\/carers$/, (req,res,m,user)=>{
   if(!user)return json(res,401,{error:'Please sign in.'});
   const pers=actFor(req,user,'bookings');
@@ -6146,12 +6147,11 @@ route('GET', /^\/api\/bookings\/carers$/, (req,res,m,user)=>{
     if(isDemoWorker(String(row.email).toLowerCase())||blockedPair(pers.id,id)||!bookableNow(id).ok)continue;
     if(service&&!safeJson(row.services,[]).includes(service))continue;
     const recent=connections.has(id)||visits.has(id);
-    const areas=safeJson(row.service_areas,[]),effectiveAreas=areas.length?areas:[row.suburb];
-    const areaMatch=!!place&&effectiveAreas.some(area=>BOOKIT_AVAILABILITY.areaMatches(area,place));
-    if(!recent&&!areaMatch)continue;
     let fit=null;
     if(proposed){
-      fit=BOOKIT_AVAILABILITY.availability(row,proposed,place||undefined);
+      // Browsing beyond a service area does not grant the separate consent
+      // required when sending or accepting an out-of-area booking.
+      fit=BOOKIT_AVAILABILITY.availability(row,proposed,undefined);
       if(!fit.ok||bookingClash(id,date,proposed.start,proposed.hours,{statuses:['accepted','completed','requested'],participantId:pers.id,bufferMinutes:row.travel_buffer_minutes||0}))continue;
     }else{
       const leave=safeJson(row.leave_dates,[]),windows=safeJson(row.availability_windows,null),days=safeJson(row.days,[]);
@@ -6159,11 +6159,12 @@ route('GET', /^\/api\/bookings\/carers$/, (req,res,m,user)=>{
       if(windows?!windows[dayIndex]?.length:!days[dayIndex])continue;
     }
     const worker=withReviewAgg(publicWorker(row)),history=visits.get(id);
-    Object.assign(worker,{group:recent?'recent':'area',connected_at:connections.get(id)||history?.first_requested||null,last_shift:history?.last_shift||null,bookable:true});
-    if(fit)worker.visit_match={basis:fit.basis,location_checked:!!place,travel_buffer_minutes:row.travel_buffer_minutes||0};
+    Object.assign(worker,BOOKIT_CARER_LOCATION.rank(row,place),{group:recent?'recent':'area',connected_at:connections.get(id)||history?.first_requested||null,last_shift:history?.last_shift||null,bookable:true});
+    if(fit)worker.visit_match={basis:fit.basis,location_checked:false,service_area_match:worker.service_area_match,travel_buffer_minutes:row.travel_buffer_minutes||0};
     matches.push(worker);
   }
   matches.sort((a,b)=>{
+    const geography=BOOKIT_CARER_LOCATION.compare(a,b);if(geography)return geography;
     if(a.group!==b.group)return a.group==='recent'?-1:1;
     if(a.group==='recent')return String(b.connected_at||'').localeCompare(String(a.connected_at||''))||String(b.last_shift||'').localeCompare(String(a.last_shift||''))||a.name.localeCompare(b.name)||a.id-b.id;
     return Number(b.rating||0)-Number(a.rating||0)||Number(b.shifts||0)-Number(a.shifts||0)||a.name.localeCompare(b.name)||a.id-b.id;

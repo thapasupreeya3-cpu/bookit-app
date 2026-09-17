@@ -1,3 +1,70 @@
+# v88.4.22 validation — all areas retained
+
+Focused validation on Node 24.19.0 with synthetic accounts and disposable SQLite
+records. The deployment runtime remains Node 22.23.2. No live deployment, booking,
+email or payment was performed.
+
+- Picker HTTP: **12/12**. Changing destination retains the same eligible worker
+  set. Exact public or service areas lead, then known distances increase, while
+  interstate and unresolved locations remain. Time checks retain out-of-area
+  workers and never write booking or travel-consent records.
+- Popup component: **22/22**. Covers location-only ordering, a separate name
+  search, distant and unknown carers remaining browsable/selectable, recent
+  connections within geographic ties, suburb/postcode input, stale responses,
+  retained filter choices and unchanged booking addresses.
+- Location/ranking context: **10/10**. Covers exact profile vs declared-service
+  distinction, nearby distances from existing location data, unique suburb-only
+  lookup, ambiguous/unknown locations, no radius cutoff and immutable inputs.
+- Calendar: **19/19**; care-routine UI: **28/28**.
+- Syntax, generated inventories and release documentation verified. Release
+  hashes and full installed-tree overlays are verified for the original v88.4.17
+  and preceding cumulative updates v88.4.18–21.
+
+Location ranking is separate from final booking consent. Other eligibility,
+service, schedule and diary-conflict checks still apply. No area filter remains
+in the calendar picker or its checked-visit path. Distances are approximate
+locality-centroid distances, not live worker positions or driving times.
+
+No rendered browser check was performed; the session's prior local preview was
+blocked. The unrelated email and financial suites were not repeated for this
+focused change; their earlier evidence is retained below.
+
+---
+
+# v88.4.21 validation — calendar postcode search
+
+Validated locally on Node 24.19.0 with synthetic data and loopback-only HTTP.
+The deployment runtime remains Node 22.23.2; live accounts and inboxes were not
+accessed. No real bookings, messages or payments were created.
+
+- Picker HTTP: **10/10**. Added an explicit 2170 fixture covering suburb/state/
+  postcode declarations, postcode-only declarations, profile-suburb fallback,
+  another home area, full visit availability, nonmatching declarations and
+  demo visibility differences between Find workers and the booking popup.
+- Popup component: **20/20**. Covers postcode reload, retained filters, matching
+  recent carers first, clearing/restoring the area, stale request races, checked
+  visit context and unchanged booking-address fields.
+- Booking calendar: **19/19**.
+- Location context: **4/4**, with matching, conflicting state/suburb, partial
+  postcode and suburb-only boundary assertions.
+- Availability/review unit checks: **46 assertions passed**.
+- Review HTTP regression: **25/25**, including assignment, cover and full-visit
+  availability checks using the shared matcher.
+- Syntax, generated inventories and release documents verified. Release
+  packaging checks the installed-file hashes and byte-for-byte overlay against
+  the original v88.4.17 and each preceding v88.4.18–20 update.
+
+The popup excludes demo carers intentionally. The supplied seed includes a
+Liverpool demo profile but no literal 2170 postcode; the user's particular live
+record was not available. The reproduced postcode defects are independent of
+that demo filter. Suburb-only names are not geocoded into postcodes.
+
+No rendered-browser verification was performed; the prior local preview was
+blocked by the session browser. The unchanged email and financial subsystems
+were not rerun for this focused postcode fix; their earlier evidence follows.
+
+---
+
 # v88.4.20 validation — booking emails and shift-note workspace
 
 Validated locally on Node **24.19.0**, using synthetic identities, disposable

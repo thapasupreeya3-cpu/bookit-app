@@ -56,9 +56,13 @@ This release updates v${meta.update_base_version}; see UPDATE-INSTRUCTIONS.txt.
 
 CALENDAR BOOKINGS AND RECURRING SUPPORT
 Open Bookings > Calendar and click a current or future date. The carer popup
-starts with your newest connections, then carers serving your area. Previous
-and Next cycle through real profiles. All Find workers filters and a specific
-visit check are available. Authorised helpers need booking permission.
+prioritises matching areas, then other known areas by distance, then unresolved
+locations. No area is excluded. Recent carers lead within equal area rankings.
+Previous and Next cycle through every eligible profile. Enter a suburb or
+postcode in Location to change the order. Name search and other filters are
+under Filters & visit details. Check this visit checks time availability while
+retaining all areas. Confirm the actual address and any travel when booking.
+Authorised helpers need booking permission; demo profiles remain excluded.
 Choose a carer, then use Repeat this booking in the normal booking form.
 Choose one-off, weekly or fortnightly. Recurring bookings can be ongoing until
 cancelled, or finish on a selected date. Ongoing has no total shift limit.

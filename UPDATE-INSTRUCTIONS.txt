@@ -1,41 +1,32 @@
-THE CARE WEB v88.4.20 — BOOKING EMAIL UPDATE ONLY
+THE CARE WEB v88.4.22 — AREA ORDER UPDATE ONLY
 
-Apply over v88.4.17 from bookit-app-main (8).zip, or either previous calendar
-update (v88.4.18 or v88.4.19). This cumulative ZIP includes those calendar fixes.
-You only need this ZIP; the earlier updates do not need to be applied first.
+Apply over v88.4.17 from bookit-app-main (8).zip, or previous updates v88.4.18–21.
+This cumulative ZIP includes the earlier calendar, email and shift-note fixes.
+You only need this ZIP; earlier updates do not need to be applied first.
 
-1. Extract The-Care-Web-v88.4.20-booking-email-update-only.zip.
+1. Extract The-Care-Web-v88.4.22-area-order-update-only.zip.
 2. Drag ALL extracted contents into the repository ROOT, at the same level as
    server.js and package.json. Keep folder paths intact and replace matching
-   files. Merge folders and keep the other repository files.
+   files. Merge folders and keep all other repository files.
    For GitHub Upload files, open the repository root, drag the extracted contents
    and commit. Do not upload the ZIP itself or an enclosing folder.
 3. Let repository checks run, then deploy through your existing process.
    On the existing Lightsail setup, use sudo bookit-update after the commit.
-4. Refresh the website. /api/version should report 88.4.20.
-5. Check Admin > Settings > Email setup and use the test to your own account.
-   Admin > Today > Email delivery shows queued, retrying and provider-accepted
-   messages. Confirm final arrival in your inbox; provider acceptance alone
-   does not establish inbox delivery.
+4. Refresh the website. /api/version should report 88.4.22.
 
 WHAT CHANGES
-Booking acceptance, completion, review, questions, reminders and payment notices
-have more reliable queuing, retries and duplicate protection. Completion sends
-a worker receipt and reviewer notice separately from the applicable invoice.
-Previously failed timesheet/payroll messages with retained bodies can resume
-retrying if current permissions and state still permit them. Historical events
-that never queued a message are not retrospectively emailed.
+The calendar popup never excludes carers because of their area. It orders them:
+matching areas first, then nearby areas by known geographic distance, then
+unresolved areas. There is no distance cutoff. Recent carers lead within equal
+location rankings. Distant and unknown areas stay available through Next carer.
 
-Next actions opens the shift-note editor immediately below the visit summary.
-Reference information follows the editor. Completion returns to the saved note;
-requested answers appear above note history. The user guide explains the new
-layout, notification recipients, preferences and missing-email checks.
+The compact popup has a visible Location box for suburb or postcode. Name search
+is under Filters & visit details. Location only changes priority; other filters
+and availability still apply. Check this visit includes all areas while checking
+schedule and conflicts. Confirm the actual address and any required travel in
+the booking form. The user guide explains the changes.
 
-The compact calendar popup and ongoing weekly/fortnightly bookings remain.
-Ongoing repeats until cancelled, without a total shift limit. Future requests
-are generated ahead, and each still requires worker acceptance.
-
+The compact layout, ongoing recurrence, booking email fixes and improved
+shift-note workspace remain included. No new provider configuration is needed.
 This source package does not deploy the live website or send customer emails.
-Existing records, uploads, prices and financial approval rules are preserved.
-No new provider is required; the existing email connection must be configured
-and working. Retain your usual backup before deploying.
+Retain your usual backup before deploying.

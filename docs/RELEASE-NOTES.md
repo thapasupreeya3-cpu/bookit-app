@@ -1,4 +1,20 @@
-# Current release: v88.4.20
+# Current release: v88.4.22
+
+Location now orders all eligible carers without excluding any area. Matching
+areas come first, followed by known areas by geographic distance and unresolved
+locations. Name search is separate. The user guide describes the revised popup.
+See [CHANGELOG-v88.4.22.md](CHANGELOG-v88.4.22.md) and [TEST-RESULTS.md](TEST-RESULTS.md).
+Includes all prior calendar, email and shift-note updates.
+
+# Historical release: v88.4.21
+
+Calendar postcode searches now load the requested area and match explicitly
+recorded postcode fields in either short or suburb/state/postcode format. Demo
+profiles remain excluded from booking choices. See
+[CHANGELOG-v88.4.21.md](CHANGELOG-v88.4.21.md) and [TEST-RESULTS.md](TEST-RESULTS.md).
+Includes the previous calendar, email and shift-note updates.
+
+# Historical release: v88.4.20
 
 Booking-to-payment email fixes, durable timesheet/payroll retries and a shift-note
 editor directly below the visit summary. The guide now explains the notification

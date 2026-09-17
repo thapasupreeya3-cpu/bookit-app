@@ -61,7 +61,7 @@ const NativeDate=Date;global.Date=class extends NativeDate{constructor(...args){
   update('users', 'id', helper.id, { role: 'coordinator', verified: 1 });
   linkId = ins('account_links', { participant_id: owner.id, coordinator_id: helper.id, invite_email: helper.email, invite_token: 'synthetic-picker-link', scopes: '["bookings"]', status: 'active', invited_at: NOW });
   const demoLogin = await request('POST', '/api/login', null, { email: db.prepare('SELECT email FROM users WHERE id=10').get().email, password: 'demo1234' }); ok(demoLogin); demoWorker = { id: 10, cookie: demoLogin.cookie };
-  makeWorker('recentNew', 'Parramatta NSW', ['Parramatta NSW']); makeWorker('recentOld'); makeWorker('historyLatest'); makeWorker('historyOlder'); makeWorker('areaLocal'); makeWorker('areaOther', 'Parramatta NSW', ['Parramatta NSW']); makeWorker('otherOnly', 'Wollongong NSW', ['Wollongong NSW']); makeWorker('profileFallback', 'Ryde NSW', []); makeWorker('stateMismatch', 'Ryde VIC', ['Ryde VIC']); makeWorker('postcodeOnly', 'Sydney NSW', ['2112']); makeWorker('postcodeMismatch', 'Ryde NSW', ['Ryde NSW 2113']);
+  makeWorker('recentNew', 'Parramatta NSW', ['Parramatta NSW']); makeWorker('recentOld'); makeWorker('historyLatest'); makeWorker('historyOlder'); makeWorker('areaLocal'); makeWorker('areaOther', 'Parramatta NSW', ['Parramatta NSW']); makeWorker('otherOnly', 'Wollongong NSW', ['Wollongong NSW']); makeWorker('profileFallback', 'Ryde NSW', []); makeWorker('stateMismatch', 'Ryde VIC', ['Ryde VIC']); makeWorker('postcodeOnly', 'Sydney NSW', ['2112']); makeWorker('postcodeMismatch', 'Ryde NSW', ['Ryde NSW 2113']); makeWorker('unknownArea', 'Unmapped Synthetic Place', ['Unmapped Synthetic Place']);makeWorker('areaNear','North Ryde NSW',['North Ryde NSW']);makeWorker('areaInterstate','Melbourne VIC',['Melbourne VIC']);
   ins('participant_workers', { participant_id: owner.id, worker_id: workers.recentOld, relation: 'saved', added: '2029-11-01T00:00:00Z', note: 'PRIVATE-RELATIONSHIP-NOTE' });
   ins('care_web', { participant_id: owner.id, worker_id: workers.recentNew, rank: 1, role: 'regular', added_at: '2029-12-30T00:00:00Z', note: 'PRIVATE-WEB-NOTE' });
   ins('participant_workers', { participant_id: other.id, worker_id: workers.otherOnly, relation: 'saved', added: '2029-12-31T00:00:00Z' });
@@ -73,29 +73,54 @@ const NativeDate=Date;global.Date=class extends NativeDate{constructor(...args){
     update('account_links', 'id', linkId, { scopes: '["bookings"]', status: 'revoked' }); ok(await picker({}, helper, owner.id), 403);
     update('account_links', 'id', linkId, { status: 'active' });
   });
-  await test('Newest connections come before previous carers and area results without cross-account history', async () => {
+  await test('Geography ranks first, then connection recency, without exposing another account’s history', async () => {
     const data = ok(await picker()), recent = data.workers.filter(w => w.group === 'recent');
-    assert.deepEqual(recent.map(w => w.id), [workers.recentNew, workers.recentOld, workers.historyLatest, workers.historyOlder]);
-    assert.equal(recent[0].connected_at, '2029-12-30T00:00:00Z'); assert.match(recent[2].last_shift, /^2029-12-25/);
-    assert.ok(data.workers.slice(recent.length).every(w => w.group === 'area')); assert.equal(new Set(ids(data)).size, ids(data).length);
+    assert.deepEqual(recent.map(w => w.id), [workers.recentOld, workers.historyLatest, workers.historyOlder, workers.recentNew]);
+    assert.equal(recent.at(-1).connected_at, '2029-12-30T00:00:00Z'); assert.match(recent[1].last_shift, /^2029-12-25/);
+    assert.equal(new Set(ids(data)).size, ids(data).length);
     assert.ok(ids(data).includes(workers.recentNew), 'Date-only browsing retains a known carer outside the home area');
-    assert.ok(!ids(data).includes(workers.otherOnly)); assert.ok(!ids(data).includes(workers.areaOther));
+    for(const key of ['otherOnly','areaOther'])assert.ok(ids(data).includes(workers[key]), 'Workers in other areas remain bookable choices');
+    const otherPersonWorker=data.workers.find(w=>w.id===workers.otherOnly);assert.equal(otherPersonWorker.group,'area');assert.equal(otherPersonWorker.connected_at,null);assert.equal(otherPersonWorker.last_shift,null);
     const foreignHeader = ok(await picker({}, owner, other.id)); assert.equal(foreignHeader.subject.id, owner.id); assert.deepEqual(ids(foreignHeader), ids(data));
     const otherData = ok(await picker({}, other)); assert.equal(otherData.workers.find(w => w.id === workers.otherOnly).group, 'recent'); assert.equal(otherData.workers.find(w => w.id === workers.recentOld).group, 'area');
+    assert.equal(otherData.workers.find(w=>w.id===workers.recentOld).connected_at,null);assert.equal(otherData.workers.find(w=>w.id===workers.historyLatest).last_shift,null);
   });
-  await test('Saved home locality is used before the profile suburb and only exact area matches become nearby carers', async () => {
+  await test('Saved home locality ranks exact area matches first without excluding any other area', async () => {
     update('users', 'id', owner.id, { suburb: 'Parramatta NSW' });
     ok(await request('PUT', '/api/me/service-address', owner, { revision: 0, address: home }));
     const data = ok(await picker()); assert.match(data.location.label, /Ryde/); assert.equal(data.location_checked, true); assert.equal(data.interval_checked, false);
     for (const key of ['areaLocal', 'profileFallback', 'postcodeOnly']) assert.ok(ids(data).includes(workers[key]), key + ' should match the saved home');
-    for (const key of ['areaOther', 'stateMismatch', 'postcodeMismatch']) assert.ok(!ids(data).includes(workers[key]), key + ' must not be presented as local');
+    for (const key of ['areaOther', 'stateMismatch', 'postcodeMismatch','unknownArea']) assert.ok(ids(data).includes(workers[key]), key + ' must be retained beyond the exact area');
+    for(const key of ['areaLocal','profileFallback','postcodeOnly']){const row=data.workers.find(w=>w.id===workers[key]);assert.equal(row.location_rank,0);assert.equal(row.location_match,true);assert.equal(row.service_area_match,true);}
+    const outsideService=data.workers.find(w=>w.id===workers.postcodeMismatch);assert.equal(outsideService.location_rank,0,'Matching public suburb can rank first independently of declared service areas');assert.equal(outsideService.service_area_match,false,'Ranking does not grant service-area approval');
     privateAbsent(data); update('users', 'id', owner.id, { suburb: 'Ryde NSW' });
   });
-  await test('Explicit destination changes nearby matches and missing locality never invents a nearby group', async () => {
-    const destination = ok(await picker({ place: 'Parramatta NSW' })); assert.ok(ids(destination).includes(workers.areaOther)); assert.ok(!ids(destination).includes(workers.areaLocal)); assert.match(destination.location.label, /Parramatta/);
+  await test('Known distances increase after exact matches, unknown areas come last, and no distance cutoff applies',async()=>{
+    const data=ok(await picker()),list=ids(data),nearby=data.workers.filter(w=>w.location_rank===1),unknown=data.workers.find(w=>w.id===workers.unknownArea);
+    assert.ok(nearby.length>=4);assert.ok(nearby.every(w=>Number.isFinite(w.distance_km)&&w.distance_km>=0));
+    for(let i=1;i<data.workers.length;i++){const before=data.workers[i-1],after=data.workers[i];assert.ok(before.location_rank<=after.location_rank);if(before.location_rank===1&&after.location_rank===1)assert.ok(before.distance_km<=after.distance_km);}
+    assert.ok(list.indexOf(workers.areaLocal)<list.indexOf(workers.areaNear));assert.ok(list.indexOf(workers.areaNear)<list.indexOf(workers.areaOther));assert.ok(list.indexOf(workers.areaOther)<list.indexOf(workers.otherOnly));assert.ok(list.indexOf(workers.otherOnly)<list.indexOf(workers.areaInterstate));
+    assert.ok(list.indexOf(workers.recentNew)<list.indexOf(workers.areaOther),'Recency resolves the same geographical distance');
+    assert.equal(unknown.location_rank,2);assert.equal(unknown.distance_km,null);assert.equal(unknown.location_match,false);assert.ok(list.indexOf(workers.areaInterstate)<list.indexOf(workers.unknownArea));
+  });
+  await test('Changing or removing locality changes order but never removes eligible carers', async () => {
+    const homeData=ok(await picker()),destination = ok(await picker({ place: 'Parramatta NSW' })); assert.ok(ids(destination).includes(workers.areaOther)); assert.ok(ids(destination).includes(workers.areaLocal)); assert.match(destination.location.label, /Parramatta/);
+    assert.deepEqual(ids(destination).slice().sort((a,b)=>a-b),ids(homeData).slice().sort((a,b)=>a-b));
+    assert.ok(ids(destination).indexOf(workers.areaOther)<ids(destination).indexOf(workers.areaLocal),'New destination moves the local carer before the former local carer');
     update('users', 'id', other.id, { suburb: '' });
-    const noLocation = ok(await picker({}, other)); assert.equal(noLocation.location_checked, false); assert.ok(noLocation.workers.every(w => w.group === 'recent')); assert.deepEqual(ids(noLocation), [workers.otherOnly]);
+    const noLocation = ok(await picker({}, other)); assert.equal(noLocation.location_checked, false); assert.deepEqual(ids(noLocation).slice().sort((a,b)=>a-b),ids(homeData).slice().sort((a,b)=>a-b));assert.equal(noLocation.workers[0].id,workers.otherOnly,'With no geographical ranking, own recent connection wins the tie');
     update('users', 'id', other.id, { suburb: 'Ryde NSW' });
+  });
+  await test('An unresolved destination still lists every eligible carer for date-only and time-checked browsing', async()=>{
+    const allIds=ids(ok(await picker())).slice().sort((a,b)=>a-b);
+    for(const extra of [{},{start:'10:00',hours:'2',service:'daily-tasks'}]){
+      const data=ok(await picker({place:'Unmapped Synthetic Destination',...extra}));
+      assert.deepEqual(ids(data).slice().sort((a,b)=>a-b),allIds);
+      assert.equal(data.location.label,'Unmapped Synthetic Destination');
+      assert.equal(data.interval_checked,!!extra.start);
+      assert.ok(data.workers.every(w=>w.location_rank===2&&w.distance_km===null&&!w.location_match));
+      privateAbsent(data);
+    }
   });
   await test('Selected services, whole-day leave, weekday patterns and declared day windows filter date-only results', async () => {
     const id = workers.areaLocal;
@@ -107,9 +132,44 @@ const NativeDate=Date;global.Date=class extends NativeDate{constructor(...args){
     windows[0] = [{ start: '10:00', end: '11:00' }]; update('worker_profiles', 'user_id', id, { availability_windows: JSON.stringify(windows) }); assert.ok(ids(ok(await picker())).includes(id), 'Day-only browsing must not invent an unrequested duration');
     update('worker_profiles', 'user_id', id, { availability_windows: null });
   });
-  await test('A full interval checks the entire visit, service area, worker conflicts and travel buffer', async () => {
+  await test('A 2170 search matches explicitly recorded postcodes in either format, including outside the home area', async () => {
+    const named = makeWorker('postcode2170Named', 'Liverpool NSW', ['Liverpool NSW 2170']);
+    const code = makeWorker('postcode2170Code', 'Elsewhere NSW', ['2170']);
+    const fallback = makeWorker('postcode2170Fallback', 'Liverpool NSW 2170', []);
+    const different = makeWorker('postcode2170Different', 'Liverpool NSW 2171', ['Liverpool NSW 2171']);
+    const noCode = makeWorker('postcode2170Missing', 'Liverpool NSW', ['Liverpool NSW']);
+    const declaredElsewhere = makeWorker('postcode2170NotServed', 'Liverpool NSW 2170', ['Ryde NSW']);
+    const demo = makeWorker('postcode2170Demo', 'Liverpool NSW 2170', ['2170']);
+    update('users', 'id', demo, { email: 'postcode2170@demo.bookit.life' });
+    const all = [named, code, fallback, different, noCode, declaredElsewhere, demo];
+    try {
+      const homeResults = ids(ok(await picker()));
+      for (const id of [named, code, fallback,different,noCode,declaredElsewhere]) assert.ok(homeResults.includes(id), 'Another postcode remains in the initial home-area list');
+      for (const extra of [{}, { start: '10:00', hours: '2', service: 'daily-tasks' }]) {
+        const data = ok(await picker({ place: '2170', ...extra }));
+        assert.equal(data.location.label, '2170');
+        for (const id of [named, code, fallback]) assert.ok(ids(data).includes(id), 'Explicit postcode matches in date-only and full-visit queries');
+        for (const id of [different, noCode, declaredElsewhere]) assert.ok(ids(data).includes(id), 'Unrelated and unresolved areas remain choices');
+        assert.ok(!ids(data).includes(demo),'Demo exclusion is unchanged');
+        for(const id of [named,code,fallback,declaredElsewhere])assert.equal(data.workers.find(w=>w.id===id).location_rank,0,'Explicit public or service postcode is ranked first');
+        assert.equal(data.workers.find(w=>w.id===declaredElsewhere).service_area_match,false,'A matching profile postcode does not silently approve an unrelated service area');
+        for(const id of [different,noCode])assert.notEqual(data.workers.find(w=>w.id===id).location_rank,0,'Other areas are retained without being falsely labelled exact matches');
+        privateAbsent(data);
+      }
+      const directory = ok(await request('GET', '/api/workers', owner));
+      assert.equal(directory.workers.find(w => w.id === demo)?.demo, true, 'A demo can be shown in Find workers while excluded from booking choices');
+      assert.ok(ids(ok(await picker({ place: '217' }))).includes(named), 'An unresolved partial location never removes a real worker');
+    } finally {
+      for (const id of all) update('worker_profiles', 'user_id', id, { visible: 0 });
+    }
+  });
+  await test('A full interval retains out-of-area and unresolved carers while checking time, conflicts and travel buffer', async () => {
     const query = { start: '10:00', hours: '2', service: 'daily-tasks' }, id = workers.areaLocal;
-    const initial = ok(await picker(query)); assert.equal(initial.interval_checked, true); assert.ok(ids(initial).includes(id)); assert.ok(!ids(initial).includes(workers.recentNew), 'A known out-of-area worker must still pass the full visit check');
+    const priorBookings=db.prepare('SELECT id,out_of_area FROM bookings ORDER BY id').all();
+    const initial = ok(await picker(query)); assert.equal(initial.interval_checked, true); assert.ok(ids(initial).includes(id));
+    for(const key of ['recentNew','areaOther','otherOnly','unknownArea'])assert.ok(ids(initial).includes(workers[key]),'Location must not remove '+key+' from the time-checked list');
+    for(const row of initial.workers){assert.equal(row.visit_match.location_checked,false);assert.equal(row.visit_match.service_area_match,row.service_area_match);}
+    assert.deepEqual(db.prepare('SELECT id,out_of_area FROM bookings ORDER BY id').all(),priorBookings,'Browsing never creates bookings or records out-of-area consent');
     const clash = booking(id, { participant_id: other.id, date: DATE, start: '11:00', hours: 2, status: 'accepted' }); assert.ok(!ids(ok(await picker(query))).includes(id));
     update('bookings', 'id', clash, { status: 'cancelled' }); assert.ok(ids(ok(await picker(query))).includes(id));
     update('bookings', 'id', clash, { start: '12:15', status: 'accepted' }); update('worker_profiles', 'user_id', id, { travel_buffer_minutes: 30 }); assert.ok(!ids(ok(await picker(query))).includes(id));

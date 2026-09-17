@@ -1,12 +1,12 @@
 {
-  "version": "88.4.20",
+  "version": "88.4.22",
   "base_version": "88.4.17",
   "base_archive": "bookit-app-main (8).zip",
   "base_archive_sha256": "ef15980ebfe4066b35c07b055ba7f0091b4aa9fb7b7de5643cff5f54b20234c9",
   "base_commit": "b160e9ccbb4309a34c1ab8e52eacc474a64f51aa",
   "package_type": "current-update-only archive",
-  "output_archive": "The-Care-Web-v88.4.20-booking-email-update-only.zip",
-  "scope": "Booking-to-payment email flow, durable delivery retries and accessible shift-note workspace; includes the compact calendar and ongoing recurrence updates.",
+  "output_archive": "The-Care-Web-v88.4.22-area-order-update-only.zip",
+  "scope": "Calendar location ranks all eligible carers by exact area, then geographic proximity, then unresolved areas, without location exclusions; includes prior calendar, email and shift-note updates.",
   "unchanged_assets": "Existing media, branding, fonts and PDF.js vendor bytes are preserved.",
   "update_base_version": "88.4.17"
 }
